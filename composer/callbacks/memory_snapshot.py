@@ -4,6 +4,7 @@
 """Log memory snapshot during training."""
 import logging
 import os
+import pickle
 import warnings
 from typing import Optional, Union
 
@@ -50,10 +51,10 @@ class MemorySnapshot(Callback):
         max_entries (int, optional): Maximum number of memory alloc/free events to record. Defaults to 100000.
         folder (str, optional): A format string describing the folder containing the memory snapshot files.
             Defaults to ``'{{run_name}}/torch_traces'``.
-        filename (str, optional): A format string describing how to name the memory snapshot files.
-            Defaults to ``'rank{{rank}}.{{batch}}.pickle'``.
-        remote_file_name (str, optional): A format string for the memory snapshot remote file name.
-            Defaults to ``'{{run_name}}/torch_traces/rank{{rank}}.{{batch}}.pickle'``.
+        filename (str, optional): A format string describing the prefix used to name the memory snapshot files.
+            Defaults to ``'rank{{rank}}.{{batch}}.memory_snapshot'``.
+        remote_file_name (str, optional): A format string describing the prefix for the memory snapshot remote file name.
+            Defaults to ``'{{run_name}}/torch_traces/rank{{rank}}.{{batch}}.memory_snapshot'``.
 
             Whenever a trace file is saved, it is also uploaded as a file according to this format string.
             The same format variables as for ``filename`` are available.
@@ -74,9 +75,8 @@ class MemorySnapshot(Callback):
         interval: Union[int, str, Time] = '3ba',
         max_entries: int = 100000,
         folder: str = '{run_name}/torch_traces',
-        filename: str = 'rank{rank}.{batch}.pt.trace.memory_snapshot.html',
-        remote_file_name: Optional[
-            str] = '{run_name}/torch_memory_traces/rank{rank}.{batch}.pt.trace.memory_snapshot.html',
+        filename: str = 'rank{rank}.{batch}.memory_snapshot',
+        remote_file_name: Optional[str] = '{run_name}/torch_memory_traces/rank{rank}.{batch}.memory_snapshot',
         overwrite: bool = False,
     ) -> None:
         self.batches_left_to_skip = skip_batches
@@ -157,26 +157,33 @@ class MemorySnapshot(Callback):
             self.folder_name,
             format_name_with_dist_and_time(self.filename, run_name=state.run_name, timestamp=state.timestamp))
         try:
-            log.info(f'Saving memory snapshot to local file: {filename}')
+            snapshot_file = filename + '.pickle'
+            trace_plot_file = filename + '.html'
+            log.info(f'Saving memory snapshot files')
+
             snapshot = torch.cuda.memory._snapshot()
             # No data was recorded - avoids a `ValueError` in `trace_plot`
             if all(len(t) == 0 for t in snapshot['device_traces']):
                 log.info(f'No allocation is recorded in memory snapshot)')
                 return
-            with open(filename, 'w+') as fd:
-                fd.write(torch.cuda._memory_viz.trace_plot(snapshot, device=None, plot_segments=False))  # type: ignore
+
+            with open(snapshot_file, 'wb') as fd:
+                pickle.dump(snapshot, fd)
+
+            with open(trace_plot_file, 'w+') as fd:
+                fd.write(torch.cuda._memory_viz.trace_plot(snapshot))  # type: ignore
+
+            log.info(f'Saved memory snapshot to local files with prefix = {filename}')
+
+            if self.remote_path_in_bucket is not None:
+                for f in [snapshot_file, trace_plot_file]:
+                    remote_file_name = (self.remote_path_in_bucket + os.path.basename(f)).lstrip('/')
+                    log.info(f'Uploading memory snapshot to remote: {remote_file_name} from {f}')
+                    try:
+                        logger.upload_file(remote_file_name=remote_file_name, file_path=f, overwrite=self.overwrite)
+                    except FileExistsError as e:
+                        raise FileExistsError(
+                            f'Uploading memory snapshot failed with error: {e}. overwrite was set to {self.overwrite}. To overwrite memory snapshot with Trainer, set `overwrite` to True.'
+                        ) from e
         except Exception as e:
             log.error(f'Failed to capture memory snapshot {e}')
-            return
-        if self.remote_path_in_bucket is not None:
-            remote_file_name = format_name_with_dist_and_time(self.remote_path_in_bucket,
-                                                              run_name=state.run_name,
-                                                              timestamp=state.timestamp)
-            remote_file_name = remote_file_name.lstrip('/')
-            log.info(f'Uploading memory snapshot to remote: {remote_file_name} from {filename}')
-            try:
-                logger.upload_file(remote_file_name=remote_file_name, file_path=filename, overwrite=self.overwrite)
-            except FileExistsError as e:
-                raise FileExistsError(
-                    f'Uploading memory snapshot failed with error: {e}. overwrite was set to {self.overwrite}. To overwrite memory snapshot with Trainer, set save_overwrite to True.'
-                ) from e
