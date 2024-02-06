@@ -346,6 +346,24 @@ class MLFlowLogger(LoggerDestination):
             else:
                 raise NotImplementedError(f'flavor {flavor} not supported.')
 
+    def create_model_version(
+        self,
+        model_uri: str,
+        name: str,
+        await_creation_for: int = 300,
+        tags: Optional[Dict[str, Any]] = None,
+    ):
+        if self._enabled:
+            full_name = f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name
+
+            self._mlflow_client.create_model_version(
+                name=full_name,
+                source=model_uri,
+                run_id=self._run_id,
+                await_creation_for=await_creation_for,
+                tags=tags,
+            )
+
     def log_images(
         self,
         images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
