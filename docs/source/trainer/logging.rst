@@ -39,7 +39,7 @@ and also saves them to the file
     os.environ["NEPTUNE_MODE"] = "offline"
 
 .. testcode::
-    :skipif: not _WANDB_INSTALLED or not _COMETML_INSTALLED or not NEPTUNE_INSTALLED
+    :skipif: not _WANDB_INSTALLED or not _COMETML_INSTALLED or not _NEPTUNE_INSTALLED
 
     from composer import Trainer
     from composer.loggers import WandBLogger, CometMLLogger, MLFlowLogger, NeptuneLogger, FileLogger
@@ -58,7 +58,7 @@ and also saves them to the file
     )
 
 .. testcleanup::
-    :skipif: not _WANDB_INSTALLED or not _COMETML_INSTALLED or not NEPTUNE_INSTALLED
+    :skipif: not _WANDB_INSTALLED or not _COMETML_INSTALLED or not _NEPTUNE_INSTALLED
 
     trainer.engine.close()
     os.remove("log.txt")
