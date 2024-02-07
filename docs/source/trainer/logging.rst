@@ -36,8 +36,6 @@ and also saves them to the file
     os.environ["WANDB_MODE"] = "disabled"
     os.environ["COMET_API_KEY"] = "<comet_api_key>"
     os.environ["MLFLOW_TRACKING_URI"] = ""
-    os.environ["NEPTUNE_MODE"] = "offline"
-    os.environ["NEPTUNE_API_TOKEN"] = "<neptune_api_key>"
 
 .. testcode::
     :skipif: not _WANDB_INSTALLED or not _COMETML_INSTALLED or not _NEPTUNE_INSTALLED
@@ -48,7 +46,7 @@ and also saves them to the file
     wandb_logger = WandBLogger()
     cometml_logger = CometMLLogger()
     mlflow_logger = MLFlowLogger()
-    neptune_logger = NeptuneLogger()
+    neptune_logger = NeptuneLogger(mode="offline")
     file_logger = FileLogger(filename="log.txt")
 
     trainer = Trainer(
