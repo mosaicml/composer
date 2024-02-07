@@ -372,7 +372,7 @@ class MLFlowLogger(LoggerDestination):
             # This try/catch code is copied from
             # https://github.com/mlflow/mlflow/blob/3ba1e50e90a38be19920cb9118593a43d7cfa90e/mlflow/tracking/_model_registry/fluent.py#L90-L103
             try:
-                create_model_response = self._mlflow_client.create_registered_model(name)
+                create_model_response = self._mlflow_client.create_registered_model(full_name)
                 log.info(f'Successfully registered model {name} with {create_model_response.name}')
             except MlflowException as e:
                 if e.error_code in (
