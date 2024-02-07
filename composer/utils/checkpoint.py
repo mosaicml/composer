@@ -199,7 +199,6 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         # specified in the metadata file.
         super().__init__(destination_path)
 
-
     def read_data(self, plan: LoadPlan, planner: LoadPlanner):
         device_mesh = state.fsdp_device_mesh
         first_replica = device_mesh is None or device_mesh.get_local_rank(mesh_dim=0) == 0
