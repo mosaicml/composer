@@ -144,6 +144,7 @@ def _get_num_ranks_that_saved_rng(metadata: Metadata):
     rng_inds = set(rng_inds)
     return len(rng_inds)
 
+
 class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
     """FileSystemReader that validates checkpoint files prior to reading."""
 
@@ -201,7 +202,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         super().__init__(destination_path)
 
     def read_data(self, plan: LoadPlan, planner: LoadPlanner):
-        first_replica = device_mesh is None or device_mesh.get_local_rank(mesh_dim=0) == 0
+        first_replica = self.device_mesh is None or self.device_mesh.get_local_rank(mesh_dim=0) == 0
 
         # 1. Download to the destination all files this rank needs if on first replica
         if first_replica:
@@ -217,7 +218,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                     log.debug(f'Downloading {relative_file_path} to {file_destination}.')
                     self.object_store.download_object(object_name=str(
                         Path(self.source_path) / Path(relative_file_path)),
-                                                        filename=file_destination)
+                                                      filename=file_destination)
                     log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
 
         # 2. Wait for all ranks to finish.
@@ -226,10 +227,10 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         log.debug('Done waiting for all ranks to finish downloading files.')
 
         # 3. Broadcast files to all other replicas if HSDP
-        if device_mesh is not None and device_mesh.ndim == 2:
+        if self.device_mesh is not None and self.device_mesh.ndim == 2:
             # Broadcast file to all replicas
-            replicate_process_group = device_mesh.get_group(0)
-            shard_size = device_mesh.size(1)
+            replicate_process_group = self.device_mesh.get_group(0)
+            shard_size = self.device_mesh.size(1)
             rank_in_first_replica = dist.get_global_rank() % shard_size
             sender = dist.get_global_rank() == rank_in_first_replica
             receiver = dist.get_global_rank() != rank_in_first_replica
@@ -252,8 +253,8 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                         with open(full_path, 'rb') as f:
                             file_object = [{'content': f.read()}]
                     dist.broadcast_object_list(file_object,
-                                                src=dist.get_global_rank() % shard_size,
-                                                group=replicate_process_group)
+                                               src=dist.get_global_rank() % shard_size,
+                                               group=replicate_process_group)
                     received_file_object = file_object[0]
                     assert received_file_object is not None
                     if receiver and not os.path.exists(full_path):
@@ -268,6 +269,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
 
         # 4. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
         return super().read_data(plan, planner)
+
 
 class PartialFilePath:
 
