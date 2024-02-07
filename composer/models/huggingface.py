@@ -532,7 +532,7 @@ class HuggingFaceModel(ComposerModel):
 
     def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
         if getattr(metric, 'needs_batch', False):
-            metric.update(batch=batch, outputs=outputs, labels=self.labels)  # pyright: ignore [reportGeneralTypeIssues]
+            metric.update(batch=batch, outputs=outputs, labels=self.labels)
         else:
             metric.update(outputs, self.labels)  # pyright: ignore [reportGeneralTypeIssues]
 
