@@ -1294,7 +1294,6 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
                 'num_beams': 1,  # single beam
-                'generations_per_sample': generations_per_sample,
                 'do_sample': True,
                 'temperature': 0.2, # good default for code
                 'use_cache': True,
