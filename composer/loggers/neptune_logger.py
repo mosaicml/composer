@@ -96,7 +96,7 @@ class NeptuneLogger(LoggerDestination):
 
         self._metrics_dict: Dict[str, int] = {}  # used to prevent duplicate step logging
 
-        super(NeptuneLogger, self).__init__()
+        super().__init__()
 
     @property
     def neptune_run(self):
