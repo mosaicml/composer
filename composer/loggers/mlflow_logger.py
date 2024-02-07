@@ -346,7 +346,7 @@ class MLFlowLogger(LoggerDestination):
             else:
                 raise NotImplementedError(f'flavor {flavor} not supported.')
 
-    def create_model_version(
+    def register_model_with_run_id(
         self,
         model_uri: str,
         name: str,

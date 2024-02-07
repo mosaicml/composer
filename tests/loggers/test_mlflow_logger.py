@@ -445,7 +445,7 @@ def test_mlflow_register_model(tmp_path, monkeypatch):
 
 @pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
 @pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
-def test_mlflow_create_model_version(tmp_path, monkeypatch):
+def test_mlflow_register_model_with_run_id(tmp_path, monkeypatch):
     mlflow = pytest.importorskip('mlflow')
 
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
@@ -468,7 +468,7 @@ def test_mlflow_create_model_version(tmp_path, monkeypatch):
     local_mlflow_save_path = str(tmp_path / Path('my_model_local'))
     test_mlflow_logger.init(state=mock_state, logger=mock_logger)
 
-    test_mlflow_logger.create_model_version(
+    test_mlflow_logger.register_model_with_run_id(
         model_uri=local_mlflow_save_path,
         name='my_model',
     )
