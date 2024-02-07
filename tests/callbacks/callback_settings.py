@@ -122,6 +122,11 @@ _callback_kwargs: Dict[Type[Callback], Dict[str, Any],] = {
     SpeedMonitor: {
         'window_size': 1,
     },
+    NeptuneLogger: {
+        'neptune_project': 'test_project',
+        'neptune_api_token': 'test_token',
+        'mode': 'debug',
+    },
 }
 
 _callback_marks: Dict[Type[Callback], List[pytest.MarkDecorator],] = {
