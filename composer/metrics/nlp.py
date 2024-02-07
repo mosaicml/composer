@@ -334,7 +334,7 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
 
     def update(self, batch: dict, outputs: torch.Tensor, labels: torch.Tensor, output_logits: Optional[torch.Tensor] = None):
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
-            cont_tok_pred = outpus[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
+            cont_tok_pred = outputs[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
             cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
 
             self.correct += (cont_tok_pred == cont_tok_targ).all().int()
