@@ -123,8 +123,8 @@ _callback_kwargs: Dict[Type[Callback], Dict[str, Any],] = {
         'window_size': 1,
     },
     NeptuneLogger: {
-        'neptune_project': 'test_project',
-        'neptune_api_token': 'test_token',
+        'project': 'test_project',
+        'api_token': 'test_token',
         'mode': 'debug',
     },
 }
