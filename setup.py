@@ -163,6 +163,10 @@ extra_deps['comet_ml'] = [
     'comet_ml>=3.31.12,<4.0.0',
 ]
 
+extra_deps['neptune'] = [
+    'neptune>=1.6.2,<2.0.0',
+]
+
 extra_deps['tensorboard'] = [
     'tensorboard>=2.9.1,<3.0.0',
 ]
