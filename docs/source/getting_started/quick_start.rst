@@ -61,7 +61,7 @@ Besides easily running our built-in algorithms, Composer also features:
 * An interface to flexibly add algorithms to the training loop
 * An engine that manages the ordering of algorithms for composition
 * A trainer to handle boilerplate around numerics, distributed training, and others
-* Integration with popular model libraries such as TIMM and HuggingFace Transformers
+* Integration with popular model libraries such as HuggingFace Transformers
 
 Next steps
 ----------

@@ -20,11 +20,15 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 import torch
 from packaging import version
+from torch.distributed import checkpoint as dist_cp
+from torch.distributed.checkpoint.metadata import Metadata
+from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
+from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
 
 from composer.utils import dist, reproducibility
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist,
                                          format_name_with_dist_and_time, get_file, is_tar)
-from composer.utils.misc import is_model_deepspeed, using_torch_2
+from composer.utils.misc import is_model_deepspeed
 from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
@@ -130,6 +134,141 @@ def _get_write_mode(name: str) -> str:
         return 'w:xz'
     raise ValueError(f'{name} does not end with a valid tarfile extension.')
 
+
+def _get_num_ranks_that_saved_rng(metadata: Metadata):
+    rng_inds = []
+    for field_name, field_value in metadata.planner_data.items():
+        if 'rng' in field_name:
+            _, rng_rank_index, _ = field_value
+            rng_inds.append(rng_rank_index)
+    rng_inds = set(rng_inds)
+    return len(rng_inds)
+
+class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
+    """FileSystemReader that validates checkpoint files prior to reading."""
+
+    def __init__(self, path: str):
+        if _get_checkpoint_validation_function() is None:
+            log.info('No checkpoint validation function found when loading sharded checkpoints.')
+        super().__init__(path)
+
+    def read_data(self, plan: LoadPlan, planner: LoadPlanner):
+        """Reads data file.
+
+        Raises:
+            ValueError if the data file is invalid.
+        """
+        validated_checkpoint_paths = set()
+        for read_item in plan.items:
+            data_path = self.path / self.storage_data[read_item.storage_index].relative_path
+            if data_path in validated_checkpoint_paths:
+                continue
+            _ensure_valid_checkpoint(data_path)
+            validated_checkpoint_paths.add(data_path)
+        return super().read_data(plan, planner)
+
+    def read_metadata(self) -> Metadata:
+        """Reads metadata file.
+
+        Raises:
+            ValueError if the metadata file is invalid.
+        """
+        metadata_file_path = self.path / '.metadata'
+        _ensure_valid_checkpoint(metadata_file_path)
+        return super().read_metadata()
+
+
+# A subclass of FileSystemReaderWithValidation that downloads files from the object store before reading them from the local filesystem.
+class DistCPObjectStoreReader(FileSystemReaderWithValidation):
+
+    def __init__(self, source_path: str, destination_path: str, object_store):
+        self.source_path = source_path
+        self.destination_path = destination_path
+        self.object_store = object_store
+
+        # Download metadata file.
+        Path(self.destination_path).mkdir(parents=True, exist_ok=True)
+        metadata_destination = os.path.join(self.destination_path, '.metadata')
+        if dist.get_local_rank() == 0:
+            object_store.download_object(object_name=str(Path(source_path) / Path('.metadata')),
+                                         filename=metadata_destination)
+        dist.barrier()
+
+        # FileSystemReader takes in a root directory in its constructor, which is the dir where
+        # the metadata is expected to be stored. Also, this is parent directory for any shard file relative paths
+        # specified in the metadata file.
+        super().__init__(destination_path)
+
+
+    def read_data(self, plan: LoadPlan, planner: LoadPlanner):
+        device_mesh = state.fsdp_device_mesh
+        first_replica = device_mesh is None or device_mesh.get_local_rank(mesh_dim=0) == 0
+
+        # 1. Download to the destination all files this rank needs if on first replica
+        if first_replica:
+            log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
+            for plan_item in plan.items:
+                # Each plan item has a storage index which points to the relative path of the shard file at save time.
+                relative_file_path = self.storage_data[plan_item.storage_index].relative_path
+                # Download the shard file to the relative path it's associated to and save that relative path
+                # to the root directory specified to the FileSystem reader constructor.
+                file_destination = str(Path(self.destination_path) / Path(relative_file_path))
+                # The file could have already been downloaded as different plan items can point to same file.
+                if not os.path.exists(file_destination):
+                    log.debug(f'Downloading {relative_file_path} to {file_destination}.')
+                    self.object_store.download_object(object_name=str(
+                        Path(self.source_path) / Path(relative_file_path)),
+                                                        filename=file_destination)
+                    log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
+
+        # 2. Wait for all ranks to finish.
+        log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
+        dist.barrier()
+        log.debug('Done waiting for all ranks to finish downloading files.')
+
+        # 3. Broadcast files to all other replicas if HSDP
+        if device_mesh is not None and device_mesh.ndim == 2:
+            # Broadcast file to all replicas
+            replicate_process_group = device_mesh.get_group(0)
+            shard_size = device_mesh.size(1)
+            rank_in_first_replica = dist.get_global_rank() % shard_size
+            sender = dist.get_global_rank() == rank_in_first_replica
+            receiver = dist.get_global_rank() != rank_in_first_replica
+
+            # Send list of files to all ranks
+            file_list = [sorted(os.listdir(self.destination_path))]
+            dist.broadcast_object_list(file_list, src=rank_in_first_replica, group=replicate_process_group)
+            file_list = file_list[0]
+            log.debug(f'List of files to broadcast: {file_list}')
+
+            # Send each file to the appropriate rank
+            for file_name in file_list:
+                if 'metadata' in file_name:  # All ranks already have the metadata file
+                    continue
+                if dist.get_local_rank() == 0:  # Only 1 rank per node needs to transfer file
+                    full_path = os.path.join(self.destination_path, file_name)
+                    log.debug(f'Transferring {full_path=}')
+                    file_object = [None]
+                    if sender:
+                        with open(full_path, 'rb') as f:
+                            file_object = [{'content': f.read()}]
+                    dist.broadcast_object_list(file_object,
+                                                src=dist.get_global_rank() % shard_size,
+                                                group=replicate_process_group)
+                    received_file_object = file_object[0]
+                    assert received_file_object is not None
+                    if receiver and not os.path.exists(full_path):
+                        with open(full_path, 'wb') as f:
+                            f.write(received_file_object['content'])
+
+            log.debug(f'Rank {dist.get_global_rank()} finished transferring files to all ranks.')
+            dist.barrier()
+            log.debug(
+                f'Done waiting for all ranks to finish transferring files. Local checkpoint files: {os.listdir(self.destination_path)}'
+            )
+
+        # 4. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
+        return super().read_data(plan, planner)
 
 class PartialFilePath:
 
@@ -368,10 +507,6 @@ def load_sharded_checkpoint(
     exclude_algorithms: Optional[list[str]] = None,
     algorithm_passes: Optional[list[AlgorithmPass]] = None,
 ) -> Union[list[dict], None]:
-    if not using_torch_2():
-        raise ValueError(
-            f'Sharded checkpoint loading requires torch version >= 2.0.0. You have torch version {torch.__version__}')
-
     using_multinode = dist.get_world_size() != dist.get_local_world_size()
     if not version.parse(torch.__version__) >= version.parse('2.0.1') and using_multinode:
         raise ValueError(
@@ -382,145 +517,6 @@ def load_sharded_checkpoint(
         raise ValueError('Loading a sharded checkpoint requires passing an FSDP config to Trainer.')
     load_planner = state.fsdp_config['load_planner']
     _validate_load_planner(load_planner)
-
-    from torch.distributed import checkpoint as dist_cp
-    from torch.distributed.checkpoint.metadata import Metadata
-    from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
-    from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
-
-    def _get_num_ranks_that_saved_rng(metadata: Metadata):
-        rng_inds = []
-        for field_name, field_value in metadata.planner_data.items():
-            if 'rng' in field_name:
-                _, rng_rank_index, _ = field_value
-                rng_inds.append(rng_rank_index)
-        rng_inds = set(rng_inds)
-        return len(rng_inds)
-
-    class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
-        """FileSystemReader that validates checkpoint files prior to reading."""
-
-        def __init__(self, path: str):
-            if _get_checkpoint_validation_function() is None:
-                log.info('No checkpoint validation function found when loading sharded checkpoints.')
-            super().__init__(path)
-
-        def read_data(self, plan: LoadPlan, planner: LoadPlanner):
-            """Reads data file.
-
-            Raises:
-                ValueError if the data file is invalid.
-            """
-            validated_checkpoint_paths = set()
-            for read_item in plan.items:
-                data_path = self.path / self.storage_data[read_item.storage_index].relative_path
-                if data_path in validated_checkpoint_paths:
-                    continue
-                _ensure_valid_checkpoint(data_path)
-                validated_checkpoint_paths.add(data_path)
-
-            return super().read_data(plan, planner)
-
-        def read_metadata(self) -> Metadata:
-            """Reads metadata file.
-
-            Raises:
-                ValueError if the metadata file is invalid.
-            """
-            metadata_file_path = self.path / '.metadata'
-            _ensure_valid_checkpoint(metadata_file_path)
-            return super().read_metadata()
-
-    # A subclass of FileSystemReaderWithValidation that downloads files from the object store before reading them from the local filesystem.
-    class DistCPObjectStoreReader(FileSystemReaderWithValidation):
-
-        def __init__(self, source_path: str, destination_path: str, object_store):
-            self.source_path = source_path
-            self.destination_path = destination_path
-            self.object_store = object_store
-
-            # Download metadata file.
-            Path(self.destination_path).mkdir(parents=True, exist_ok=True)
-            metadata_destination = os.path.join(self.destination_path, '.metadata')
-            if dist.get_local_rank() == 0:
-                object_store.download_object(object_name=str(Path(source_path) / Path('.metadata')),
-                                             filename=metadata_destination)
-            dist.barrier()
-
-            # FileSystemReader takes in a root directory in its constructor, which is the dir where
-            # the metadata is expected to be stored. Also, this is parent directory for any shard file relative paths
-            # specified in the metadata file.
-            super().__init__(destination_path)
-
-        def read_data(self, plan: LoadPlan, planner: LoadPlanner):
-            device_mesh = state.fsdp_device_mesh
-            first_replica = device_mesh is None or device_mesh.get_local_rank(mesh_dim=0) == 0
-
-            # 1. Download to the destination all files this rank needs if on first replica
-            if first_replica:
-                log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
-                for plan_item in plan.items:
-                    # Each plan item has a storage index which points to the relative path of the shard file at save time.
-                    relative_file_path = self.storage_data[plan_item.storage_index].relative_path
-                    # Download the shard file to the relative path it's associated to and save that relative path
-                    # to the root directory specified to the FileSystem reader constructor.
-                    file_destination = str(Path(self.destination_path) / Path(relative_file_path))
-                    # The file could have already been downloaded as different plan items can point to same file.
-                    if not os.path.exists(file_destination):
-                        log.debug(f'Downloading {relative_file_path} to {file_destination}.')
-                        self.object_store.download_object(object_name=str(
-                            Path(self.source_path) / Path(relative_file_path)),
-                                                          filename=file_destination)
-                        log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
-
-            # 2. Wait for all ranks to finish.
-            log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
-            dist.barrier()
-            log.debug('Done waiting for all ranks to finish downloading files.')
-
-            # 3. Broadcast files to all other replicas if HSDP
-            if device_mesh is not None and device_mesh.ndim == 2:
-                # Broadcast file to all replicas
-                replicate_process_group = device_mesh.get_group(0)
-                shard_size = device_mesh.size(1)
-                rank_in_first_replica = dist.get_global_rank() % shard_size
-                sender = dist.get_global_rank() == rank_in_first_replica
-                receiver = dist.get_global_rank() != rank_in_first_replica
-
-                # Send list of files to all ranks
-                file_list = [sorted(os.listdir(self.destination_path))]
-                dist.broadcast_object_list(file_list, src=rank_in_first_replica, group=replicate_process_group)
-                file_list = file_list[0]
-                log.debug(f'List of files to broadcast: {file_list}')
-
-                # Send each file to the appropriate rank
-                for file_name in file_list:
-                    if 'metadata' in file_name:  # All ranks already have the metadata file
-                        continue
-                    if dist.get_local_rank() == 0:  # Only 1 rank per node needs to transfer file
-                        full_path = os.path.join(self.destination_path, file_name)
-                        log.debug(f'Transferring {full_path=}')
-                        file_object = [None]
-                        if sender:
-                            with open(full_path, 'rb') as f:
-                                file_object = [{'content': f.read()}]
-                        dist.broadcast_object_list(file_object,
-                                                   src=dist.get_global_rank() % shard_size,
-                                                   group=replicate_process_group)
-                        received_file_object = file_object[0]
-                        assert received_file_object is not None
-                        if receiver and not os.path.exists(full_path):
-                            with open(full_path, 'wb') as f:
-                                f.write(received_file_object['content'])
-
-                log.debug(f'Rank {dist.get_global_rank()} finished transferring files to all ranks.')
-                dist.barrier()
-                log.debug(
-                    f'Done waiting for all ranks to finish transferring files. Local checkpoint files: {os.listdir(self.destination_path)}'
-                )
-
-            # 4. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
-            return super().read_data(plan, planner)
 
     # Check to make sure source_path is a directory.
     if object_store is None:
@@ -960,11 +956,9 @@ def get_save_filename(
     assert state.sharded_ckpt_prefix_dir is not None
     save_dirpath = Path(Path(filename).parent) / Path(state.sharded_ckpt_prefix_dir)
     save_dirpath = format_name_with_dist_and_time(str(save_dirpath), state.run_name, state.timestamp)
-    # New name is now Trainer.save_folder / sharded_ckpt_prefix_dir / __{dist.get_global_rank()}_0.distcp’ if torch > 2
-    # else Trainer.save_folder / sharded_ckpt_prefix_dir / ba{batch}_rank{dist.get_global_rank()}.pt’
-    # e.g. path/to/my/checkpoints/ep1-ba2/__1_0.distcp if torch >2 else its path/to/my/checkpoints/ep1-ba2/b2-rank1.pt
-    ckpt_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME if using_torch_2() else format_name_with_dist_and_time(
-        Path(filename).name, state.run_name, state.timestamp)
+    # New name is now Trainer.save_folder / sharded_ckpt_prefix_dir / __{dist.get_global_rank()}_0.distcp’
+    # e.g. path/to/my/checkpoints/ep1-ba2/__1_0.distcp
+    ckpt_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
     return str(Path(save_dirpath) / Path(ckpt_filename))
 
 
@@ -1008,7 +1002,7 @@ def _save_checkpoint(
         # requires a top level state dict key for the optimizer.
         # See https://github.com/pytorch/pytorch/blob/v2.0.1/torch/distributed/checkpoint/optimizer.py#L271
         # for more info.
-        if using_torch_2() and version.parse(torch.__version__) < version.parse('2.2.9'):
+        if version.parse(torch.__version__) < version.parse('2.2.9'):
             if not weights_only:
                 state_dict['optimizers'] = state_dict['state'].pop('optimizers')
     log.debug('State dict created.')

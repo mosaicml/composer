@@ -696,7 +696,7 @@ class TestCheckpointLoading:
         last_checkpoint = os.path.join('first', 'ep2.pt')
         if missing_key or unexpected_key:
             message = r'Error\(s\) in loading state_dict'
-            if version.parse(torch.__version__) < version.parse('2.1.3'):
+            if version.parse(torch.__version__) < version.parse('2.2.9'):
                 # Composer implements strict for older torch versions
                 message = 'Failed to load checkpoint due to'
             error_context = pytest.raises(RuntimeError, match=message)
@@ -839,8 +839,6 @@ class TestCheckpointLoading:
         ],
     )
     @pytest.mark.filterwarnings('ignore:.*The checkpoint included CUDA RNG state.*')
-    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                        reason='requires PyTorch 1.13 or higher')
     def test_load_remote_checkpoint(self, device, tmp_path: pathlib.Path, load_weights_only, remote_checkpoint_uri,
                                     remote_checkpoint_name, continue_training_dur, final_checkpoint_name, s3_bucket,
                                     s3_read_only_prefix):

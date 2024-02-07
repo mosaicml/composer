@@ -28,10 +28,9 @@ from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_
 from composer.models import ComposerClassifier
 from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
-from composer.utils import dist
+from composer.utils import dist, parse_uri
 from composer.utils.checkpoint import is_checkpoint_legacy_sharded
 from composer.utils.file_helpers import get_file
-from composer.utils.misc import using_torch_2
 from composer.utils.object_store import S3ObjectStore
 from composer.utils.reproducibility import get_rng_state
 from tests.common import RandomClassificationDataset, deep_compare
@@ -275,8 +274,6 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
 @pytest.mark.parametrize('autoresume', [True, False])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.parametrize('load_fsdp_monolith_rank0_only', [True, False])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
 def test_fsdp_full_state_dict_load(
     world_size,
     tmp_path: pathlib.Path,
@@ -342,8 +339,6 @@ def test_fsdp_full_state_dict_load(
 @pytest.mark.gpu
 @world_size(2)
 @pytest.mark.parametrize('sync_module_states', [True, False])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
 def test_fsdp_mixed_with_sync(
     world_size,
     tmp_path: pathlib.Path,
@@ -366,7 +361,7 @@ def test_fsdp_mixed_with_sync(
 @world_size(2)
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.parametrize('sharding_strategy', ['FULL_SHARD', 'SHARD_GRAD_OP'])
-@pytest.mark.parametrize('state_dict_type', ['full', 'sharded', 'local'])
+@pytest.mark.parametrize('state_dict_type', ['full', 'sharded'])
 @pytest.mark.parametrize('composer_version', [
     pytest.param(
         '0.13.5',
@@ -401,12 +396,11 @@ def test_fsdp_mixed_with_sync(
         '0.17.0',
         marks=pytest.mark.filterwarnings((r'ignore:MosaicMLLogger is not in the state_dict. Its '
                                           r'state will not be restored.:UserWarning')),
-    )
+    ),
+    '0.18.1',
 ])
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*The CUDA RNG state could not be loaded.*:UserWarning')
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
 def test_fsdp_load_old_checkpoint(
     world_size,
     tmp_path: pathlib.Path,
@@ -417,15 +411,8 @@ def test_fsdp_load_old_checkpoint(
     s3_read_only_prefix: str,
     composer_version: str,
 ):
-
-    if (version.parse(torch.__version__) >= version.parse('1.13.0') and
-            composer_version not in ['0.13.5', '0.14.0', '0.14.1']):
-        pytest.skip(('Composer 0.15.1 and above checkpoints were saved with '
-                     'torch 2 and as a result are not compatible with torch 1.13.'))
-    if (version.parse(torch.__version__) >= version.parse('2.0.0') and state_dict_type == 'local'):
-        pytest.xfail(('Loading a torch 1.13 checkpoint with torch 2.0 for '
-                      'state_dict_type local is not backwards compatible. See '
-                      'https://github.com/pytorch/pytorch/issues/102667 for more info'))
+    if composer_version == '0.18.1' and state_dict_type == 'full' and precision == 'amp_bf16' and sharding_strategy == 'FULL_SHARD':
+        pytest.skip('TODO: This checkpoint is missing')
 
     if composer_version in ['0.13.5', '0.14.0', '0.14.1', '0.15.1']:
         rank = 0 if state_dict_type == 'full' else '{rank}'
@@ -437,7 +424,6 @@ def test_fsdp_load_old_checkpoint(
             load_path_dir = (load_path_dir + 'ep0-ba2/')
 
         load_path = load_path_dir + f'ba2_rank{rank}.pt'
-
         assert is_checkpoint_legacy_sharded(
             object_store=S3ObjectStore(bucket=f'{s3_bucket}'),
             source_path=load_path.lstrip(f's3://{s3_bucket}/'),
@@ -446,6 +432,10 @@ def test_fsdp_load_old_checkpoint(
         load_path = (f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/'
                      f'{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_'
                      f'{precision}/')
+        if state_dict_type == 'full':
+            load_path += 'ba2_rank0.pt'
+        else:
+            load_path += 'ep0-ba2/'
 
     if composer_version == '0.15.1':
         num_classes = 8  # This parameter setting is very important. Don't change or the test will fail.
@@ -476,14 +466,80 @@ def test_fsdp_load_old_checkpoint(
     )
     state_dict2 = trainer.state.state_dict()
 
-    if ((dist.get_global_rank() == 0 and state_dict_type == 'full') or state_dict_type in ['sharded', 'local']):
-        filled_load_path = load_path.format(rank=dist.get_global_rank())
-        destination = str(tmp_path / pathlib.Path(filled_load_path).name)
-        get_file(filled_load_path, destination=destination)
-        with open(destination, 'rb') as f:
-            state_dict1 = torch.load(f)['state']
-        _compare_model_params_between_state_dicts(state_dict1, state_dict2)
+    if (dist.get_global_rank() == 0 and state_dict_type == 'full') or state_dict_type == 'sharded':
+        # After composer version 0.16.0, sharded checkpoints are of type folder/__{local_rank}__{global_rank}.distcp
+        # They cannot be loaded with `get_file` as we need the whole folder to load the checkpoint.
+        # Thus, we use the DistCPObjectStoreReader to load the state_dict.
+        if state_dict_type == 'sharded' and version.parse(composer_version) >= version.parse('0.16.0'):
+            trainer2 = get_trainer(
+                num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
+                num_classes=8,  # This parameter setting is very important. Don't change or the test will fail.
+                precision=precision,
+                max_duration='10ba',  # Change this so we have slightly different model runtime settings.
+                train_metrics=train_metrics,
+                val_metrics=val_metrics,
+                fsdp_config=fsdp_config,
+            )
 
+            from torch.distributed import checkpoint as dist_cp
+
+            from composer.utils.checkpoint import DistCPObjectStoreReader
+
+            _, _, parsed_load_path = parse_uri(load_path)
+            gathered_tmp_path = str(dist.all_gather_object(tmp_path)[0])
+            destination = str(pathlib.Path(gathered_tmp_path) / parsed_load_path)
+            state_dict: dict[str, Any] = {
+                'state': trainer2.state.state_dict(),
+                'rng': get_rng_state(),
+            }
+            if version.parse(torch.__version__) < version.parse('2.2.9'):
+                state_dict['state'].pop('optimizers')
+
+            object_store = S3ObjectStore(bucket=f'{s3_bucket}')
+            storage_reader = DistCPObjectStoreReader(source_path=parsed_load_path,
+                                                     destination_path=destination,
+                                                     object_store=object_store)
+
+            process_group = None
+            dist_cp.load_state_dict(
+                state_dict=state_dict,
+                storage_reader=storage_reader,
+                planner=None,
+                process_group=process_group,
+            )
+            if version.parse(torch.__version__) < version.parse('2.2.9'):
+                from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
+                from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+                model_state_dict = state_dict['state']['model']
+                model = trainer2.state.model
+                optim = trainer2.state.optimizers[0]
+                optim_name = type(optim).__qualname__
+                optim_state_dict = load_sharded_optimizer_state_dict(model_state_dict=model_state_dict,
+                                                                     optimizer_key='optimizers',
+                                                                     storage_reader=storage_reader)
+                with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
+                    optim_state_dict = FSDP.optim_state_dict_to_load(
+                        optim_state_dict=optim_state_dict['optimizers'][optim_name], model=model, optim=optim)
+
+                trainer2.state.optimizers[0].load_state_dict(optim_state_dict)
+
+                with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
+                    flattened_optim_state_dict = FSDP.optim_state_dict(model, optim)  # type: ignore
+
+                state_dict['state']['optimizers'] = {
+                    optim_name: flattened_optim_state_dict,
+                }
+
+            state_dict1 = state_dict['state']
+        else:
+            filled_load_path = load_path.format(rank=dist.get_global_rank())
+            destination = str(tmp_path / pathlib.Path(filled_load_path).name)
+
+            get_file(filled_load_path, destination=destination)
+            with open(destination, 'rb') as f:
+                state_dict1 = torch.load(f)['state']
+
+        _compare_model_params_between_state_dicts(state_dict1, state_dict2)
         _compare_optims_between_state_dicts(state_dict1, state_dict2)
 
     # Continue to fit to make sure we can continue training.
@@ -495,8 +551,6 @@ def test_fsdp_load_old_checkpoint(
 @world_size(2)
 @pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
 def test_fsdp_full_state_dict_load_with_ema(
     world_size,
     tmp_path: pathlib.Path,
@@ -552,8 +606,6 @@ def test_fsdp_full_state_dict_load_with_ema(
 @world_size(2)
 @pytest.mark.parametrize('is_valid_checkpoint', [True, False])
 @pytest.mark.parametrize('state_dict_type', ['sharded', 'full'])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning')
@@ -578,10 +630,7 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
     # Determine the checkpoint path for loading.
     checkpoint_relpath = 'ba1-rank0.pt'
     if state_dict_type == 'sharded':
-        if using_torch_2():
-            checkpoint_relpath = 'ba1'
-        else:
-            checkpoint_relpath = 'ba1/ba1-rank{rank}.pt'
+        checkpoint_relpath = 'ba1'
 
     # Load checkpoints with checkpoint validation.
     with expectation:
@@ -596,7 +645,6 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
 
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.parametrize('state_dict_type', ['sharded', 'local'])
 @pytest.mark.parametrize('use_remote', [pytest.param(True, marks=pytest.mark.remote), False])
 @pytest.mark.parametrize('weights_only,optimizer,precision,autoresume,load_ignore_keys', [
     [False, 'adamw', 'amp_bf16', False, None],
@@ -606,15 +654,12 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
     [False, 'adamw', 'amp_bf16', True, None],
     [False, 'adamw', 'amp_bf16', False, ['rng']],
 ])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning')
 def test_fsdp_partitioned_state_dict_load(
     world_size,
     tmp_path: pathlib.Path,
-    state_dict_type: str,
     autoresume: bool,
     precision: str,
     optimizer: str,
@@ -627,10 +672,6 @@ def test_fsdp_partitioned_state_dict_load(
 ):
     if weights_only and autoresume:
         pytest.xfail('Weights only with autoresume is not supported')
-    if state_dict_type == 'local' and using_torch_2():
-        pytest.xfail(('Loading a state_dict_type="local" checkpoint with strict=True '
-                      'errors out. See https://github.com/pytorch/pytorch/issues/102667 '
-                      'for more info'))
     load_ignore_keys = [] if load_ignore_keys is None else load_ignore_keys
 
     if autoresume:
@@ -647,7 +688,7 @@ def test_fsdp_partitioned_state_dict_load(
 
     save_filename = 'ba{batch}-rank{rank}.pt'
 
-    fsdp_config = FSDPConfig(state_dict_type=state_dict_type)
+    fsdp_config = FSDPConfig(state_dict_type='sharded')
 
     trainer1 = get_trainer(
         save_folder=str(save_folder),
@@ -674,19 +715,10 @@ def test_fsdp_partitioned_state_dict_load(
         object_store = None
         load_path = str(save_folder.format(run_name=run_name) / pathlib.Path('ba2'))
 
-    if not using_torch_2():
-        load_filename = f"{save_filename.format(batch=2, rank='{rank}')}"
-        assert load_filename == 'ba2-rank{rank}.pt'
-        load_path += '/' + load_filename
-        assert is_checkpoint_legacy_sharded(
-            object_store=object_store,
-            source_path=load_path.replace(f's3://{s3_bucket}/', ''),
-        )
-    else:
-        assert not is_checkpoint_legacy_sharded(
-            object_store=object_store,
-            source_path=load_path.replace(f's3://{s3_bucket}/', ''),
-        )
+    assert not is_checkpoint_legacy_sharded(
+        object_store=object_store,
+        source_path=load_path.replace(f's3://{s3_bucket}/', ''),
+    )
 
     if autoresume:
         load_path = None
@@ -736,20 +768,16 @@ def test_fsdp_partitioned_state_dict_load(
 @pytest.mark.gpu
 @pytest.mark.remote
 @world_size(2)
-@pytest.mark.parametrize('state_dict_type', ['sharded'])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
-@pytest.mark.parametrize('autoresume', [False, True])  # True commented out for now
+@pytest.mark.parametrize('autoresume', [False, True])
 @pytest.mark.parametrize('num_shards', [2, 4, 7])
 @pytest.mark.parametrize('sharding_strategy', ['FULL_SHARD', 'SHARD_GRAD_OP'])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.1'),
-                    reason='requires PyTorch 2.0.1 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:MosaicMLLogger is not in the state_dict.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 def test_elastic_resumption(
     world_size,
     tmp_path: pathlib.Path,
-    state_dict_type: str,
     autoresume: bool,
     precision: str,
     sharding_strategy,
@@ -757,17 +785,13 @@ def test_elastic_resumption(
     s3_read_only_prefix,
     num_shards: int,
 ):
-    if state_dict_type == 'local' and using_torch_2():
-        pytest.xfail(('Loading a state_dict_type="local" checkpoint with '
-                      'strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 '
-                      'for more info'))
     if autoresume:
         run_name = 'my-autoresume-run'
     else:
         run_name = None
 
     base_path = (f's3://{s3_bucket}/{s3_read_only_prefix}/elastic_test/'
-                 f'{sharding_strategy.lower()}_{state_dict_type}_{precision}_'
+                 f'{sharding_strategy.lower()}_sharded_{precision}_'
                  f'{num_shards}/')
 
     mono_load_path = os.path.join(base_path, 'mono.pt')
@@ -804,7 +828,7 @@ def test_elastic_resumption(
         run_name=run_name,
         max_duration='4ba',
         load_weights_only=False,
-        fsdp_config=FSDPConfig(state_dict_type=state_dict_type),
+        fsdp_config=FSDPConfig(state_dict_type='sharded'),
     )
 
     def get_mono_state_dict_from_sharded_one(trainer):
@@ -850,87 +874,20 @@ def test_elastic_resumption(
 
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.parametrize('state_dict_type', ['local', 'sharded'])
-@pytest.mark.parametrize('autoresume', [True])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
-@pytest.mark.skipif(version.parse(torch.__version__) > version.parse('1.13.0'),
-                    reason='All Pytorch 2.0 checkpoints have just 1 symlink')
-def test_mismatch_timestamp_error(
-    world_size,
-    tmp_path: pathlib.Path,
-    state_dict_type: str,
-    autoresume: bool,
-):
-    run_name = 'my-run-ar' if autoresume else 'my-run'
-    tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
-    save_folder = str(tmp_paths[0] / pathlib.Path(run_name))
-    save_filename = 'ba{batch}-rank{rank}.pt'
-    trainer1 = get_trainer(
-        save_folder=save_folder,
-        save_filename=save_filename,
-        run_name=run_name,
-        autoresume=autoresume,
-        max_duration='2ba',
-        save_interval='1ba',
-        fsdp_config=FSDPConfig(state_dict_type=state_dict_type),
-    )
-    trainer1.fit()
-    trainer1.close()
-    latest_symlink = str(pathlib.Path(save_folder) / pathlib.Path(f'latest-rank{dist.get_global_rank()}.pt'))
-    latest_checkpoint_path = pathlib.Path(save_folder) / pathlib.Path('ba2') / (pathlib.Path(
-        save_filename.format(batch=2, rank=dist.get_global_rank())) if not using_torch_2() else pathlib.Path(''))
-    assert os.path.join(save_folder, os.readlink(latest_symlink)) == str(latest_checkpoint_path)
-    oldest_checkpoint_relative_path = str(
-        pathlib.Path('ba1') / (pathlib.Path(save_filename.format(batch=1, rank=dist.get_global_rank()))
-                               if not using_torch_2() else pathlib.Path('')))
-
-    # Corrupt latest checkpoint symlink for rank1 by changing it from batch 2 checkpoint to the batch 1 one
-    # and removing batch 2 checkpoint.
-    if dist.get_global_rank() == 0:
-        os.remove(latest_symlink)
-        os.symlink(src=oldest_checkpoint_relative_path, dst=latest_symlink)
-        assert os.readlink(latest_symlink) == oldest_checkpoint_relative_path
-
-    dist.barrier()
-    expected_error = pytest.raises(RuntimeError, match='Timestamp mismatch error:*')
-
-    with expected_error:
-        get_trainer(
-            save_folder=save_folder,
-            save_filename=save_filename,
-            autoresume=autoresume,
-            run_name=run_name,
-            fsdp_config=FSDPConfig(state_dict_type=state_dict_type),
-        )
-
-
-@pytest.mark.gpu
-@world_size(2)
-@pytest.mark.parametrize('state_dict_type', ['sharded', 'local'])
 @pytest.mark.parametrize('num_ckpts_to_keep', [-1, 1, 2, 3])
-@pytest.mark.parametrize('batches_to_train', [3])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning')
 def test_cleanup_sharded_checkpoints(
     world_size,
     tmp_path: pathlib.Path,
-    state_dict_type: str,
     num_ckpts_to_keep: int,
-    batches_to_train: int,
     s3_bucket,
     s3_ephemeral_prefix,
     request,
 ):
-    if state_dict_type == 'local' and using_torch_2():
-        pytest.xfail(('Loading a state_dict_type="local" checkpoint with strict=True '
-                      'errors out. See https://github.com/pytorch/pytorch/issues/102667 '
-                      'for more info'))
-
     run_name = None
+    batches_to_train = 3
 
     tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
     save_folder = os.path.join(tmp_paths[0], 'checkpoints', '{run_name}')
@@ -943,7 +900,7 @@ def test_cleanup_sharded_checkpoints(
         max_duration=f'{batches_to_train}ba',
         save_interval='1ba',
         save_num_checkpoints_to_keep=num_ckpts_to_keep,
-        fsdp_config=FSDPConfig(state_dict_type=state_dict_type),
+        fsdp_config=FSDPConfig(state_dict_type='sharded'),
     )
     run_name = trainer1.state.run_name
     trainer1.fit()
@@ -957,9 +914,7 @@ def test_cleanup_sharded_checkpoints(
         assert num_checkpoint_dirs == num_ckpts_to_keep
     for ckpt_dir in dir_contents:
         full_path_ckpt_dir = os.path.join(shards_dir, ckpt_dir)
-        elastic_file_list = {'.metadata', *[f'__{rank}_0.distcp' for rank in range(dist.get_world_size())]}
-        non_elastic_file_list = {save_filename.format(rank=rank) for rank in range(dist.get_world_size())}
-        file_list = elastic_file_list if using_torch_2() else non_elastic_file_list
+        file_list = {'.metadata', *[f'__{rank}_0.distcp' for rank in range(dist.get_world_size())]}
         assert set(os.listdir(full_path_ckpt_dir)) == file_list
 
 

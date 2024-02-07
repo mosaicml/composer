@@ -9,7 +9,7 @@ import logging
 from typing import Iterable, Optional, Union
 
 import torch
-from packaging import version
+from torch.distributed.fsdp import FullyShardedDataParallel
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
@@ -39,10 +39,6 @@ def apply_gradient_clipping(model: Union[ComposerModel, torch.nn.Module], clippi
         fsdp_enabled (bool): Bool of if the model is a FSDP model or not.
     """
     if fsdp_enabled:
-        if version.parse(torch.__version__) < version.parse('1.13.0'):
-            raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-        from torch.distributed.fsdp import FullyShardedDataParallel
-
         for module in model.modules():
             if isinstance(module, FullyShardedDataParallel) and module.check_is_root():
                 if clipping_type == 'norm':
