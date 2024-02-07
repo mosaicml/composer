@@ -197,7 +197,7 @@ class LanguagePerplexity(LanguageCrossEntropy):
 class InContextLearningMetric(Metric):
 
     def __init__(self, *args, **kwargs):
-        super.__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.needs_batch = True
 
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
