@@ -10,6 +10,7 @@ import operator
 import pathlib
 from functools import reduce
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
+import weakref
 
 import numpy as np
 import torch
@@ -50,7 +51,8 @@ class Logger:
         destinations: Optional[Union[LoggerDestination, Sequence[LoggerDestination]]] = None,
     ):
         self.destinations = ensure_tuple(destinations)
-        self._state = state
+        self._state: State = weakref.proxy(state)
+        # self._state = state
 
     def log_traces(self, traces: Dict[str, Any]):
         for destination in self.destinations:

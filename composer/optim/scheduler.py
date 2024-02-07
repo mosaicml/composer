@@ -17,6 +17,7 @@ import math
 import textwrap
 import warnings
 from typing import TYPE_CHECKING, List, Union
+import weakref
 
 from torch.optim.lr_scheduler import LambdaLR, LRScheduler
 
@@ -173,10 +174,12 @@ def compile_composer_scheduler(scheduler: ComposerScheduler, state: State, ssr: 
     Returns:
         compiled_scheduler (LRScheduler): The scheduler, in a form compatible with PyTorch scheduler interfaces.
     """
+    # optimizers = weakref.proxy(state.optimizers)
     optimizers = state.optimizers
     if len(optimizers) != 1:
         raise NotImplementedError('Providing functional schedulers is unsupported with multiple optimizers.')
-    optimizer = optimizers[0]
+    optimizer = weakref.proxy(optimizers[0])
+    # optimizer = optimizers[0]
 
     scheduler_sig = inspect.signature(scheduler)
 

@@ -22,6 +22,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import (Any, Callable, ContextManager, Dict, Iterable, List, Mapping, Optional, Sequence, TextIO, Tuple,
                     Union, cast)
+import weakref
 
 import coolname
 import torch
@@ -137,7 +138,8 @@ def _compile_schedulers(
         else:
             compiled_schedulers.append(compile_composer_scheduler(
                 scheduler,
-                state,
+                weakref.proxy(state),
+                # state,
                 scale_schedule_ratio,
             ))
 
@@ -3231,3 +3233,4 @@ class Trainer:
                            transforms=transforms,
                            input_names=input_names,
                            output_names=output_names)
+    
