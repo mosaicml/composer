@@ -353,9 +353,7 @@ class MLFlowLogger(LoggerDestination):
         await_creation_for: int = 300,
         tags: Optional[Dict[str, Any]] = None,
     ):
-        """Similar to MLflow's create_model_version, but will also create the initial model if it does not exist.
-
-        This function differs from ``register_model`` in that it also uses the run id.
+        """Similar to ``register_model``, but uses a different MLflow API to allow passing in the run id.
 
         Args:
             model_uri (str): The URI of the model to register.
