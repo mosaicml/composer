@@ -18,9 +18,10 @@ from composer.core.data_spec import _default_split_batch, _split_list
 from composer.datasets.utils import stop_sequences_criteria
 from composer.utils import MissingConditionalImportError, dist, get_file
 
+from datasets import Dataset as HFDataset  # pyright: ignore[reportGeneralTypeIssues]
+
 if TYPE_CHECKING:
     import transformers
-    from datasets import Dataset as HFDataset  # pyright: ignore[reportGeneralTypeIssues]
 
 # Allow models to have slightly more tokens than were used in the most verbose CoT in the dataset
 _MAX_ANSWER_BUFFER_LENGTH = 10
@@ -1234,11 +1235,13 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
     def __init__(
         self,
         generations_per_sample: int,
-        pass_at_k: int = 1,
+        pass_at_k: Union[int, list[int]] = 1,
         *args,
         **kwargs,
     ):
-        if generations_per_sample < pass_at_k:
+        if isinstance(pass_at_k, int):
+            pass_at_k = [pass_at_k]
+        if generations_per_sample < max(pass_at_k):
             raise ValueError(
                 f'generations_per_sample ({generations_per_sample}) must be greater than or equal to pass_at_k ({pass_at_k}) for code evaluation.'
             )
@@ -1250,13 +1253,14 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             'entry_points': 'entry_point',
             'test_inputs': 'test_inputs',
             'test_outputs': 'test_outputs',
-            'languages': 'language'
+            'languages': 'language',
+            'sample_id': 'sample_id',
         }
         # Linting complains if these are not set in init
         self.max_prompt_length = 0
         self.max_answer_length = 0
-        static_keys = ['mode', 'pass_at_k', 'generation_length', 'generation_kwargs']
-        list_keys = ['prompts', 'tests', 'entry_points', 'test_inputs', 'test_outputs', 'languages', 'labels']
+        static_keys = ['mode', 'pass_at_k', 'generation_length', 'generation_kwargs', 'generations_per_sample', 'dataset_size']
+        list_keys = ['prompts', 'tests', 'entry_points', 'test_inputs', 'test_outputs', 'languages', 'labels', 'sample_id']
         tensor_keys = ['input_ids', 'attention_mask']
         super().__init__(
             context_key='prompt',
@@ -1272,7 +1276,9 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             **kwargs,
         )
         self._set_max_prompt_and_answer_lengths()
+        dataset_size = len(self.dataset)
         self.dataset = self.dataset.map(self._trim_padding)
+        self.dataset = self.repeat_dataset(self.dataset, generations_per_sample)
         self.base_batch = {
             'input_ids': [],
             'mode': 'generate',
@@ -1288,14 +1294,26 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
                 'num_beams': 1,  # single beam
-                'num_return_sequences': generations_per_sample,
+                'generations_per_sample': generations_per_sample,
                 'do_sample': True,
+                'temperature': 0.2, # good default for code
                 'use_cache': True,
                 'eos_token_id': self.tokenizer.eos_token_id
-            }
+            },
+            'sample_id': [],
+            'pass_at_k': list(pass_at_k),
+            'generations_per_sample': generations_per_sample,
+            'dataset_size': dataset_size,
         }
         if 'generation_kwargs' in kwargs:
             self.update_generation_kwargs(kwargs['generation_kwargs'])
+
+    def repeat_dataset(self, dataset: HFDataset, repetitions: int) -> HFDataset:
+        df = dataset.to_pandas()
+        df['sample_id'] = df.index
+        repeat_df = df.loc[df.index.repeat(repetitions)]
+        repeat_df.reset_index(inplace=True, drop=True)
+        return HFDataset.from_pandas(repeat_df)
 
     def _set_max_prompt_and_answer_lengths(self):
         """
@@ -1371,7 +1389,7 @@ def build_icl_dataloader(
         prelimiter: str,  # e.g. 'Question: '
         cot_delimiter: str,  # e.g. ' ### '
         fewshot_random_seed: int,
-        pass_at_k: int,
+        pass_at_k: Union[int, list[int]],
         generations_per_sample: int,
         generation_kwargs: Dict,
         early_stopping_criteria: Optional[List[str]] = None,
