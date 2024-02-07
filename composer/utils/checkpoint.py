@@ -181,10 +181,11 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
 # A subclass of FileSystemReaderWithValidation that downloads files from the object store before reading them from the local filesystem.
 class DistCPObjectStoreReader(FileSystemReaderWithValidation):
 
-    def __init__(self, source_path: str, destination_path: str, object_store):
+    def __init__(self, source_path: str, destination_path: str, object_store, device_mesh):
         self.source_path = source_path
         self.destination_path = destination_path
         self.object_store = object_store
+        self.device_mesh = device_mesh
 
         # Download metadata file.
         Path(self.destination_path).mkdir(parents=True, exist_ok=True)
@@ -200,7 +201,6 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         super().__init__(destination_path)
 
     def read_data(self, plan: LoadPlan, planner: LoadPlanner):
-        device_mesh = state.fsdp_device_mesh
         first_replica = device_mesh is None or device_mesh.get_local_rank(mesh_dim=0) == 0
 
         # 1. Download to the destination all files this rank needs if on first replica
@@ -534,10 +534,12 @@ def load_sharded_checkpoint(
             # Get the tempfile made on local rank 0.
             local_rank0_index = dist.get_global_rank() - dist.get_local_rank()
             rank0_download_tempdir = str(dist.all_gather_object(temp_download_dir)[local_rank0_index])
-            storage_reader = DistCPObjectStoreReader(source_path=source_path,
-                                                     destination_path=str(
-                                                         Path(rank0_download_tempdir) / Path('checkpoints')),
-                                                     object_store=object_store)
+            storage_reader = DistCPObjectStoreReader(
+                source_path=source_path,
+                destination_path=str(Path(rank0_download_tempdir) / Path('checkpoints')),
+                object_store=object_store,
+                device_mesh=state.fsdp_device_mesh,
+            )
         else:
             storage_reader = FileSystemReaderWithValidation(source_path)
 
