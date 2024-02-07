@@ -660,7 +660,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         for k in self.pass_at_k:
             results[f'pass@{k}'] = sum([self.estimator(n, c.item(), k) for c in self.correct]) / dataset_size
 
-        if len(results) == 0: # backwards compatibility
-            return results[0]
+        if len(results) == 1: # backwards compatibility
+            return list(results.values())[0]
 
         return results
