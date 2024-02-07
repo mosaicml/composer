@@ -230,7 +230,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                     object_name = str(Path(self.source_path) / Path(relative_file_path))
                     if isinstance(self.object_store, ObjectStore):
                         self.object_store.download_object(
-                            object_name=object_name, 
+                            object_name=object_name,
                             filename=file_destination,
                         )
                     else:
