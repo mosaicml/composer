@@ -194,8 +194,17 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         Path(self.destination_path).mkdir(parents=True, exist_ok=True)
         metadata_destination = os.path.join(self.destination_path, '.metadata')
         if dist.get_local_rank() == 0:
-            object_store.download_object(object_name=str(Path(source_path) / Path('.metadata')),
-                                         filename=metadata_destination)
+            metadata_path = str(Path(source_path) / Path('.metadata'))
+            if isinstance(object_store, ObjectStore):
+                object_store.download_object(
+                    object_name=metadata_path,
+                    filename=metadata_destination,
+                )
+            else:
+                object_store.download_file(
+                    remote_file_name=metadata_path,
+                    destination=metadata_destination,
+                )
         dist.barrier()
 
         # FileSystemReader takes in a root directory in its constructor, which is the dir where
@@ -218,9 +227,17 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                 # The file could have already been downloaded as different plan items can point to same file.
                 if not os.path.exists(file_destination):
                     log.debug(f'Downloading {relative_file_path} to {file_destination}.')
-                    self.object_store.download_object(object_name=str(
-                        Path(self.source_path) / Path(relative_file_path)),
-                                                      filename=file_destination)
+                    object_name = str(Path(self.source_path) / Path(relative_file_path))
+                    if isinstance(self.object_store, ObjectStore):
+                        self.object_store.download_object(
+                            object_name=object_name, 
+                            filename=file_destination,
+                        )
+                    else:
+                        self.object_store.download_file(
+                            remote_file_name=object_name,
+                            destination=file_destination,
+                        )
                     log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
 
         # 2. Wait for all ranks to finish.
@@ -312,7 +329,16 @@ def is_checkpoint_legacy_sharded(object_store: Optional[ObjectStore], source_pat
         try:
             with tempfile.TemporaryDirectory() as temp_dir:
                 metadata_destination = os.path.join(str(temp_dir), '.metadata')
-                object_store.download_object(object_name=metadata_path, filename=metadata_destination)
+                if isinstance(object_store, ObjectStore):
+                    object_store.download_object(
+                        object_name=metadata_path,
+                        filename=metadata_destination,
+                    )
+                else:
+                    object_store.download_file(
+                        remote_file_name=metadata_path,
+                        destination=metadata_destination,
+                    )
             return False
         except FileNotFoundError:
             return True
