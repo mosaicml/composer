@@ -1399,6 +1399,8 @@ class Trainer:
             if 'optimizers' in self.state.serialized_attributes:
                 self.state.serialized_attributes.remove('optimizers')
 
+        self.engine.run_event(Event.BEFORE_LOAD)
+
         # Load Checkpoint
         self._rng_state = None
         # If autoresume is enabled, first check for existing checkpoints to load
@@ -1513,9 +1515,9 @@ class Trainer:
         self.engine.run_event(Event.AFTER_LOAD)
 
         # reseed here. This helps with a couple of issues:
-        # 1. rng state may change at Event.INIT/Event.AFTER_LOAD. For example, if an algorithm
-        # creates a new module and module parameters are initialized randomly, rng state will
-        # change. This reseeding nullifies such effects.
+        # 1. rng state may change at Event.INIT/Event.BEFORE_LOAD/Event.AFTER_LOAD. For example,
+        # if an algorithm creates a new module and module parameters are initialized randomly, rng
+        # state will change. This reseeding nullifies such effects.
         # 2. While resuming from a checkpoint, we want to spin dataloader and bring it back to the
         # same state as at the time of the checkpoint. Therefore, spinning needs to start from the
         # same rng state as in the original run.
