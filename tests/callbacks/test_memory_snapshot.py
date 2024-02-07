@@ -58,5 +58,5 @@ def test_memory_snapshot(interval: str):
         max_duration='2ba',
     )
     trainer.fit()
-    assert len(file_tracker_destination.uploaded_files) == 1
+    assert len(file_tracker_destination.uploaded_files) == 2
     trainer.close()
