@@ -696,7 +696,7 @@ class TestCheckpointLoading:
         last_checkpoint = os.path.join('first', 'ep2.pt')
         if missing_key or unexpected_key:
             message = r'Error\(s\) in loading state_dict'
-            if version.parse(torch.__version__) < version.parse('2.1.3'):
+            if version.parse(torch.__version__) < version.parse('2.2.9'):
                 # Composer implements strict for older torch versions
                 message = 'Failed to load checkpoint due to'
             error_context = pytest.raises(RuntimeError, match=message)
