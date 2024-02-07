@@ -95,12 +95,12 @@ class MemorySnapshot(Callback):
         else:
             self.remote_path_in_bucket = None
 
-        if version.parse(torch.__version__) > version.parse('2.1.0.dev'):  # type: ignore
-            # memory snapshot  is only supported in torch v2.1.0-rc1 or higher
+        if version.parse(torch.__version__.split('.dev')[0]) >= version.parse('2.1.0'):  # type: ignore
+            # MemorySnapshot is only supported in torch v2.1.0-rc1 or higher
             self._enabled = True
         else:
             self._enabled = False
-            log.warning('Memory snapshot is supported after PyTorch 2.1.0. Skipping memory snapshot callback.')
+            warnings.warn('Memory snapshot is supported after PyTorch 2.1.0. Skipping memory snapshot callback.')
 
     def init(self, state: State, logger: Logger) -> None:
         if not self._enabled:
