@@ -353,15 +353,46 @@ class MLFlowLogger(LoggerDestination):
         await_creation_for: int = 300,
         tags: Optional[Dict[str, Any]] = None,
     ):
+        """Similar to MLflow's create_model_version, but will also create the initial model if it does not exist.
+
+        This function differs from ``register_model`` in that it also uses the run id.
+
+        Args:
+            model_uri (str): The URI of the model to register.
+            name (str): The name of the model to register. Will be appended to ``model_registry_prefix``.
+            await_creation_for (int, optional): The number of seconds to wait for the model to be registered. Defaults to 300.
+            tags (Optional[Dict[str, Any]], optional): A dictionary of tags to add to the model. Defaults to None.
+        """
         if self._enabled:
+            from mlflow.exceptions import MlflowException
+            from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS, ErrorCode
+
             full_name = f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name
 
-            self._mlflow_client.create_model_version(
+            # This try/catch code is copied from
+            # https://github.com/mlflow/mlflow/blob/3ba1e50e90a38be19920cb9118593a43d7cfa90e/mlflow/tracking/_model_registry/fluent.py#L90-L103
+            try:
+                create_model_response = self._mlflow_client.create_registered_model(name)
+                log.info(f'Successfully registered model {name} with {create_model_response.name}')
+            except MlflowException as e:
+                if e.error_code in (
+                        ErrorCode.Name(RESOURCE_ALREADY_EXISTS),
+                        ErrorCode.Name(ALREADY_EXISTS),
+                ):
+                    log.info(f'Registered model {name} already exists. Creating a new version of this model...')
+                else:
+                    raise e
+
+            create_version_response = self._mlflow_client.create_model_version(
                 name=full_name,
                 source=model_uri,
                 run_id=self._run_id,
                 await_creation_for=await_creation_for,
                 tags=tags,
+            )
+
+            log.info(
+                f'Successfully created model version {create_version_response.version} for model {create_version_response.name}'
             )
 
     def log_images(

@@ -458,6 +458,8 @@ def test_mlflow_create_model_version(tmp_path, monkeypatch):
     )
 
     monkeypatch.setattr(test_mlflow_logger._mlflow_client, 'create_model_version', MagicMock())
+    monkeypatch.setattr(test_mlflow_logger._mlflow_client, 'create_registered_model',
+                        MagicMock(return_value=type('MockResponse', (), {'name': 'my_catalog.my_schema.my_model'})))
 
     mock_state = MagicMock()
     mock_state.run_name = 'dummy-run-name'  # this run name should be unused.
