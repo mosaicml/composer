@@ -24,6 +24,7 @@ from torch.distributed import checkpoint as dist_cp
 from torch.distributed.checkpoint.metadata import Metadata
 from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
 from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
+from torch.distributed.device_mesh import DeviceMesh
 
 from composer.utils import dist, reproducibility
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist,
@@ -182,7 +183,8 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
 # A subclass of FileSystemReaderWithValidation that downloads files from the object store before reading them from the local filesystem.
 class DistCPObjectStoreReader(FileSystemReaderWithValidation):
 
-    def __init__(self, source_path: str, destination_path: str, object_store, device_mesh):
+    def __init__(self, source_path: str, destination_path: str, object_store: Union[ObjectStore, LoggerDestination],
+                 device_mesh: Optional[DeviceMesh]):
         self.source_path = source_path
         self.destination_path = destination_path
         self.object_store = object_store

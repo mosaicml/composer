@@ -496,12 +496,10 @@ def test_fsdp_load_old_checkpoint(
                 state_dict['state'].pop('optimizers')
 
             object_store = S3ObjectStore(bucket=f'{s3_bucket}')
-            storage_reader = DistCPObjectStoreReader(
-                source_path=parsed_load_path,
-                destination_path=destination,
-                object_store=object_store,
-                device_mesh=None
-            )
+            storage_reader = DistCPObjectStoreReader(source_path=parsed_load_path,
+                                                     destination_path=destination,
+                                                     object_store=object_store,
+                                                     device_mesh=None)
 
             process_group = None
             dist_cp.load_state_dict(
