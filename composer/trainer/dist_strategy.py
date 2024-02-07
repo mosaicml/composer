@@ -137,6 +137,7 @@ def set_fsdp_default(fsdp_config: Dict[str, Any]):
     fsdp_config.setdefault('activation_checkpointing', False)
     fsdp_config.setdefault('activation_checkpointing_reentrant', True)
     fsdp_config.setdefault('activation_cpu_offload', False)
+    fsdp_config.setdefault('use_te_checkpoint_wrapper', False)
     fsdp_config.setdefault('backward_prefetch', 'BACKWARD_POST')
     fsdp_config.setdefault('backward_prefetch_limit', 1)
     fsdp_config.setdefault('cpu_offload', False)
@@ -204,6 +205,7 @@ def prepare_fsdp_module(
     precision: Precision,
     device: Device,
     auto_microbatching: bool,
+    te_rng_seed: int = 1234,
 ) -> None:
     """Prepare a module (assumed ComposerModel) and optimizer for use with :class:`torch.distributed.fsdp.FullyShardedDataParallel`.
 
@@ -214,6 +216,7 @@ def prepare_fsdp_module(
         precision: (Precision): The precision being used by the Trainer, used to fill in defaults for FSDP `mixed_precision` settings.
         device (Device): The device being used by the Trainer.
         auto_microbatching (bool, optional): Whether or not auto microbatching is enabled.
+        te_rng_seed(int): The seed to use for the Transformer Engine activation checkpointing RNG. Defaults to 1234.
     """
     patch_pytorch()
 
@@ -349,6 +352,7 @@ def prepare_fsdp_module(
     ignored_modules = fsdp_config['ignored_modules']
     state_dict_type = fsdp_config['state_dict_type']
     activation_checkpointing_reentrant = fsdp_config['activation_checkpointing_reentrant']
+    use_te_checkpoint_wrapper = fsdp_config['use_te_checkpoint_wrapper']
     sharded_ckpt_prefix_dir = fsdp_config['sharded_ckpt_prefix_dir']
     use_orig_params = fsdp_config['use_orig_params']
 
@@ -573,6 +577,8 @@ def prepare_fsdp_module(
 
             # Activation Checkpointing
             if activation_checkpointing or activation_cpu_offload:
+                if use_te_checkpoint_wrapper:
+                    assert activation_checkpointing_reentrant, 'TE checkpoint wrapper only supports reentrant checkpointing'
                 if version.parse(torch.__version__) > version.parse('2.1.0.dev'):
                     from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import offload_wrapper
                     if not activation_checkpointing_reentrant:
@@ -585,7 +591,41 @@ def prepare_fsdp_module(
                                 if activation_checkpointing else module,  # type: ignore reportGeneralTypeIssues
                             )) if activation_cpu_offload else first_wrap_fn
                     else:
-                        first_wrap_fn = checkpoint_wrapper if activation_checkpointing else (lambda module: module)
+                        if use_te_checkpoint_wrapper:
+                            try:
+                                import transformer_engine.pytorch as te
+                            except ModuleNotFoundError:
+                                raise ModuleNotFoundError(
+                                    'Please install transformer-engine to use TE checkpoint wrapper')
+
+                            import contextlib
+
+                            # RNG state tracker for checkpointing
+                            CUDA_RNG_STATES_TRACKER = te.distributed.CudaRNGStatesTracker()
+                            CUDA_RNG_STATES_TRACKER.add('fsdp-rng', te_rng_seed)
+
+                            def get_cuda_rng_tracker():
+                                return CUDA_RNG_STATES_TRACKER
+
+                            def noop_context_fn():
+                                return contextlib.nullcontext(), contextlib.nullcontext()
+
+                            def te_checkpoint_wrapper(function,
+                                                      *args,
+                                                      use_reentrant=None,
+                                                      context_fn=noop_context_fn,
+                                                      determinism_check='default',
+                                                      debug=False,
+                                                      **kwargs):
+                                del use_reentrant, context_fn, determinism_check, debug
+                                return te.distributed.checkpoint(function, False, get_cuda_rng_tracker, None, *args,
+                                                                 **kwargs)
+
+                            first_wrap_fn = lambda m: checkpoint_wrapper(m, checkpoint_fn=te_checkpoint_wrapper)
+                        else:
+                            first_wrap_fn = lambda m: checkpoint_wrapper(m, checkpoint_impl=CheckpointImpl.REENTRANT
+                                                                        ) if activation_checkpointing else (
+                                                                            lambda module: module)
                         second_wrap_fn = (
                             lambda module: offload_wrapper(
                                 first_wrap_fn(module)

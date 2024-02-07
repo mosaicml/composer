@@ -1360,7 +1360,8 @@ class Trainer:
         # FSDP wrap if not using monolith checkpoint on rank 0 only
         if self.state.fsdp_config is not None and fsdp_auto_wrap and not self.state.load_fsdp_monolith_rank0_only:
             with reproducibility.seed_context(self.state.rank_zero_seed):
-                prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
+                prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching,
+                                    self.state.seed)
 
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
