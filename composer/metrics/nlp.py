@@ -3,12 +3,12 @@
 
 """A collection of common torchmetrics for NLP tasks."""
 
+import functools
 import logging
 import os
 import re
 import string
 import warnings
-import functools
 from typing import Any, Callable, Dict, List, Mapping, Optional, Union
 
 import numpy as np
@@ -198,6 +198,7 @@ class LanguagePerplexity(LanguageCrossEntropy):
 class InContextLearningMetric(Metric):
 
     def _wrap_update(self, update: Callable) -> Callable:
+
         @functools.wraps(update)
         def wrapped_func(*args: Any, **kwargs: Any) -> None:
             self._computed = None
@@ -206,14 +207,13 @@ class InContextLearningMetric(Metric):
                 try:
                     update_result = update(*args, **kwargs)
                 except RuntimeError as err:
-                    if "Expected all tensors to be on" in str(err):
+                    if 'Expected all tensors to be on' in str(err):
                         raise RuntimeError(
-                            "Encountered different devices in metric calculation (see stacktrace for details)."
-                            " This could be due to the metric class not being on the same device as input."
-                            f" Instead of `metric={self.__class__.__name__}(...)` try to do"
-                            f" `metric={self.__class__.__name__}(...).to(device)` where"
-                            " device corresponds to the device of the input."
-                        ) from err
+                            'Encountered different devices in metric calculation (see stacktrace for details).'
+                            ' This could be due to the metric class not being on the same device as input.'
+                            f' Instead of `metric={self.__class__.__name__}(...)` try to do'
+                            f' `metric={self.__class__.__name__}(...).to(device)` where'
+                            ' device corresponds to the device of the input.') from err
                     raise err
 
             if self.compute_on_cpu:
@@ -221,7 +221,6 @@ class InContextLearningMetric(Metric):
             return update_result
 
         return wrapped_func
-
 
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
         """Abstract interface for computing an in-context learning metrics.
@@ -293,7 +292,10 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
 
         return white_space_fix(remove_articles(handle_punc(lower(replace_underscore(answer))))).strip()
 
-    def update(self, outputs: List[str], labels: List[List[str]], batch: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def update(self,
+               outputs: List[str],
+               labels: List[List[str]],
+               batch: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         if batch is None:
             batch = {}
         cot_delimiter = batch.get('cot_delimiter', '')
@@ -316,10 +318,12 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
 
             self.total += torch.tensor(1.0)
 
-        return_dict = {"results": metric_results, 'metric_name': self.__class__.__name__}
-        return return_dict
+        return {'results': metric_results}
 
-    def update_pp(self, outputs: List[str], labels: List[List[str]], batch: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def update_pp(self,
+                  outputs: List[str],
+                  labels: List[List[str]],
+                  batch: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         if batch is None:
             batch = {}
         cot_delimiter = batch.get('cot_delimiter', '')
@@ -342,7 +346,7 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
 
             self.total += torch.tensor(1.0)
 
-        return {"results": metric_results}
+        return {'results': metric_results}
 
     def compute(self):
         assert isinstance(self.correct, Tensor)
@@ -381,12 +385,15 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
+        metric_results = []
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
             cont_tok_pred = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
             cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
 
             self.correct += (cont_tok_pred == cont_tok_targ).all().int()
+            metric_results.append((cont_tok_pred == cont_tok_targ).all().int())
             self.total += torch.tensor(1.0)
+        return {'results': metric_results}
 
     def compute(self):
         assert isinstance(self.correct, Tensor)
@@ -432,13 +439,20 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
             cross_entropy = F.cross_entropy(cont_tok_logits, cont_tok_targ)
             perplexity = torch.exp(cross_entropy)
             perplexities.append(perplexity)
-
+        metric_results = []
+        predicted_answers = []
         for (start, end), gold_idx in zip(batch['choice_groupings'], batch['gold_indices']):
             subset = perplexities[start:end]
             idx_min = subset.index(min(subset))
+            predicted_answers.append(idx_min)
             if idx_min == gold_idx:
                 self.correct += torch.tensor(1.0)
+                metric_results.append(1)
+            else:
+                metric_results.append(0)
+
             self.total += torch.tensor(1.0)
+        return {'results': metric_results, 'predicted_answers': predicted_answers}
 
     def compute(self):
         assert isinstance(self.correct, Tensor)
@@ -688,7 +702,11 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
 
         results = client.invoke(payloads)
 
-        for test_result in results:
+        code_completions_list = []
+        all_tests_passed_list = []
+        pass_at_k_rate_list = []
+        # for test_result in results:
+        for test_result, code_gen_payload, in zip(results, payloads):
             num_correct = 0
             all_tests_passed = []
             for generation in test_result:
@@ -699,8 +717,17 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
 
             pass_at_k_rate = self.estimator(num_generations, num_correct, pass_at_k)
             self.correct += torch.tensor(pass_at_k_rate)
+            code_completions = [c[0]['code'] for c in code_gen_payload]
+            code_completions_list.append(code_completions)
+            all_tests_passed_list.append(all_tests_passed)
+            pass_at_k_rate_list.append(pass_at_k_rate)
 
         client.close()  # pyright: ignore [reportOptionalMemberAccess]
+        return {
+            'code_completions': code_completions_list,
+            'all_tests_passed': all_tests_passed_list,
+            'pass_at_k_rate': pass_at_k_rate_list
+        }
 
     def compute(self):
         assert isinstance(self.correct, Tensor)
