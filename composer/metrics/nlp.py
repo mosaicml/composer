@@ -3,6 +3,7 @@
 
 """A collection of common torchmetrics for NLP tasks."""
 
+import copy
 import functools
 import logging
 import os
@@ -267,6 +268,12 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.metric_results_dict = {
+            'cleaned_model_output': [],
+            'original_labels': [],
+            'cleaned_labels': [],
+            'result': [],
+        }
 
     def normalize_answer(self, answer: str):
         """Lower text and remove punctuation, articles and extra whitespace.
@@ -300,8 +307,8 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
             batch = {}
         cot_delimiter = batch.get('cot_delimiter', '')
 
-        metric_results = []
-        for sample_output, sample_labels in zip(outputs, labels):
+        metric_result_dict = copy.deepcopy(self.metric_results_dict)
+        for sample_output, sample_labels in zip(outputs, labels, batch['input_ids']):
             final_answer = sample_output
 
             if cot_delimiter is not None and len(cot_delimiter) > 0:
@@ -310,43 +317,19 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
             cleaned_final_answer = self.normalize_answer(final_answer)
             cleaned_sample_labels = {self.normalize_answer(label) for label in sample_labels}
 
-            if any(cleaned_final_answer.startswith(label) for label in cleaned_sample_labels):
-                self.correct += torch.tensor(1.0)
-                metric_results.append(1)
-            else:
-                metric_results.append(0)
-
-            self.total += torch.tensor(1.0)
-
-        return {'results': metric_results}
-
-    def update_pp(self,
-                  outputs: List[str],
-                  labels: List[List[str]],
-                  batch: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        if batch is None:
-            batch = {}
-        cot_delimiter = batch.get('cot_delimiter', '')
-
-        metric_results = []
-        for sample_output, sample_labels in zip(outputs, labels):
-            final_answer = sample_output
-
-            if cot_delimiter is not None and len(cot_delimiter) > 0:
-                final_answer = final_answer.split(cot_delimiter)[-1]
-
-            cleaned_final_answer = self.normalize_answer(final_answer)
-            cleaned_sample_labels = {self.normalize_answer(label) for label in sample_labels}
+            metric_result_dict['orignal_labels'].append(sample_labels)
+            metric_result_dict['cleaned_output'].append(cleaned_final_answer)
+            metric_result_dict['cleaned_labels'].append(cleaned_sample_labels)
 
             if any(cleaned_final_answer.startswith(label) for label in cleaned_sample_labels):
                 self.correct += torch.tensor(1.0)
-                metric_results.append(1)
+                metric_result_dict['result'].append(1)
             else:
-                metric_results.append(0)
+                metric_result_dict['result'].append(1)
 
             self.total += torch.tensor(1.0)
 
-        return {'results': metric_results}
+        return metric_result_dict
 
     def compute(self):
         assert isinstance(self.correct, Tensor)
@@ -383,17 +366,30 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.metric_result_dict = {
+            'context_tok': [],
+            'continuation_tok_target': [],
+            'continuation_tok_pred': [],
+            'correct': []
+        }
 
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
-        metric_results = []
+        metric_result_dict = copy.deepcopy(self.metric_result_dict)
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
             cont_tok_pred = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
             cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
+            # TODO: okay to do context_tok here? or do we wanna do that in the logger?
+            metric_result_dict['context_tok'].append(batch['input_ids'][batch_idx][:cont_idx[0]])
+            metric_result_dict['continuation_tok_target'].append(cont_tok_targ)
+            metric_result_dict['continuation_tok_pred'].append(cont_tok_pred)
 
-            self.correct += (cont_tok_pred == cont_tok_targ).all().int()
-            metric_results.append((cont_tok_pred == cont_tok_targ).all().int())
+            correct = (cont_tok_pred == cont_tok_targ).all().int()
+            self.correct += correct
+            metric_result_dict['result'].append(correct)
+
             self.total += torch.tensor(1.0)
-        return {'results': metric_results}
+
+        return metric_result_dict
 
     def compute(self):
         assert isinstance(self.correct, Tensor)
@@ -428,6 +424,7 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.0), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.0), dist_reduce_fx='sum')
+        self.metric_resul_dict = {'question_tok': [], 'correct_choice': [], 'selected_choice': [], 'correct': []}
 
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
         perplexities = []
@@ -439,20 +436,28 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
             cross_entropy = F.cross_entropy(cont_tok_logits, cont_tok_targ)
             perplexity = torch.exp(cross_entropy)
             perplexities.append(perplexity)
-        metric_results = []
-        predicted_answers = []
+        metric_result_dict = copy.deepcopy(self.metric_result_dict)
         for (start, end), gold_idx in zip(batch['choice_groupings'], batch['gold_indices']):
             subset = perplexities[start:end]
             idx_min = subset.index(min(subset))
-            predicted_answers.append(idx_min)
             if idx_min == gold_idx:
                 self.correct += torch.tensor(1.0)
-                metric_results.append(1)
+                metric_result_dict['result'].append(1)
             else:
-                metric_results.append(0)
+                metric_result_dict['result'].append(0)
+
+            question = batch['input_ids'][start][:batch['continuation_indices'][start][0]]
+            correct_choice = batch['input_ids'][start:end][gold_idx][batch['continuation_indices'][start:end][gold_idx][
+                0]:batch['continuation_indices'][start:end][gold_idx][-1] + 1]
+            selected_choice = batch['input_ids'][start:end][idx_min][batch['continuation_indices'][start:end][idx_min][
+                0]:batch['continuation_indices'][start:end][idx_min][-1] + 1]
+            metric_result_dict['question_tok'].append(question)
+            metric_result_dict['correct_choice'].append(correct_choice)
+            metric_result_dict['selected_choice'].append(selected_choice)
 
             self.total += torch.tensor(1.0)
-        return {'results': metric_results, 'predicted_answers': predicted_answers}
+
+        return metric_result_dict
 
     def compute(self):
         assert isinstance(self.correct, Tensor)
@@ -607,6 +612,8 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         if self.eval_device is not None:
             self.eval_device = self.eval_device.upper()
 
+        self.metric_result_dict = {'code_completions': [], 'all_tests_passed': [], 'pass_at_k_rate': []}
+
     def get_client(self) -> EvalClient:
         """Returns a client for the appropriate remote platform."""
         client = None
@@ -702,10 +709,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
 
         results = client.invoke(payloads)
 
-        code_completions_list = []
-        all_tests_passed_list = []
-        pass_at_k_rate_list = []
-        # for test_result in results:
+        metric_result_dict = copy.deepcopy(self.metric_result_dict)
         for test_result, code_gen_payload, in zip(results, payloads):
             num_correct = 0
             all_tests_passed = []
@@ -718,16 +722,12 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
             pass_at_k_rate = self.estimator(num_generations, num_correct, pass_at_k)
             self.correct += torch.tensor(pass_at_k_rate)
             code_completions = [c[0]['code'] for c in code_gen_payload]
-            code_completions_list.append(code_completions)
-            all_tests_passed_list.append(all_tests_passed)
-            pass_at_k_rate_list.append(pass_at_k_rate)
+            metric_result_dict['code_completions'].append(code_completions)
+            metric_result_dict['all_tests_passed'].append(all_tests_passed)
+            metric_result_dict['pass_at_k_rate'].append(pass_at_k_rate)
 
         client.close()  # pyright: ignore [reportOptionalMemberAccess]
-        return {
-            'code_completions': code_completions_list,
-            'all_tests_passed': all_tests_passed_list,
-            'pass_at_k_rate': pass_at_k_rate_list
-        }
+        return metric_result_dict
 
     def compute(self):
         assert isinstance(self.correct, Tensor)

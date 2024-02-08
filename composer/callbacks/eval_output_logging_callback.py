@@ -3,14 +3,12 @@
 
 """Log model outputs and expected outputs during ICL evaluation."""
 
-import logging
-from typing import Any, List, Optional
 from copy import deepcopy
+from typing import Any, List, Optional
 
 from composer.core import Callback, State
 from composer.loggers import Logger
 
-log = logging.getLogger(__name__)
 
 class EvalOutputLogging(Callback):
     """Logs eval outputs for each sample of each ICL evaluation dataset.
@@ -24,6 +22,7 @@ class EvalOutputLogging(Callback):
 
     output_directory indicates where to write the tsv results, either can be a local directory or a cloud storage directory.
     """
+
     def __init__(self, batch_keys_to_log: Optional[List[str]] = None, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.batch_keys_to_log = batch_keys_to_log or []
@@ -35,11 +34,13 @@ class EvalOutputLogging(Callback):
         assert state.outputs is not None
         assert state.metric_outputs is not None
 
+        # TODO: ensure we log input and properly output here
+        # TODO: detokenize everything
         logging_dict = deepcopy(state.metric_outputs)
         if state.batch['mode'] == 'generate':
             logging_dict['outputs'] = state.outputs
         logging_dict['metric_name'] = [state.metric_outputs['metric_name'] for _ in range(0, len(state.outputs))]
-        
+
         # Decode and depad input_ids
         input_tensor = state.batch['input_ids']
         logged_input = []
@@ -56,8 +57,16 @@ class EvalOutputLogging(Callback):
             else:
                 logging_dict[key] = [data_to_log for _ in range(0, len(logging_dict['outputs']))]
 
-        columns = list(logging_dict.keys()) 
+        columns = list(logging_dict.keys())
         rows = [list(item) for item in zip(*logging_dict.values())]
 
-        logger.log_table(columns, rows, name=state.dataloader_label)
+        # TODO: are we logging everything we need to?
+        # TODO:
+        # wandb: WARNING Step only supports monotonically increasing values, use define_metric to set a custom x axis. For details see: https://wandb.me/define-metric
+        # wandb: WARNING (User provided step: 0 is less than current step: 164. Dropping entry: {'metrics/human_eval/0-shot/InContextLearningCodeEvalAccuracy': 0.0, '_timestamp': 1707370410.1504738}).
+
+        # TODO: How else to chose this?
+        for dest_logger in logger.destinations:
+            if dest_logger.__class__.__name__ == 'WandBLogger':
+                dest_logger.log_table(columns, rows, name=state.dataloader_label)
         state.metric_outputs = None

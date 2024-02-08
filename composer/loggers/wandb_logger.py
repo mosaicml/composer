@@ -108,7 +108,7 @@ class WandBLogger(LoggerDestination):
 
         self.run_dir: Optional[str] = None
         self.run_url: Optional[str] = None
-        
+
         self.table_dict = {}
 
     def _set_is_in_atexit(self):
@@ -130,7 +130,7 @@ class WandBLogger(LoggerDestination):
                 self.table_dict[name] = table
             # Need to do this copy because apparently wandb table logging is broken LOL
             # https://github.com/wandb/wandb/issues/2981#issuecomment-1458447291
-            wandb.log({name: copy.copy(self.table_dict[name])})
+            wandb.log({name: copy.deepcopy(self.table_dict[name])})
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         if self._enabled:
