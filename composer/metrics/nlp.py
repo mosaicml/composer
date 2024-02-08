@@ -332,7 +332,11 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
-    def update(self, batch: dict, output_logits: Optional[torch.Tensor] = None, labels: Optional[torch.Tensor] = None, outputs: Optional[torch.Tensor] = None):
+    def update(self,
+               batch: dict,
+               output_logits: Optional[torch.Tensor] = None,
+               labels: Optional[torch.Tensor] = None,
+               outputs: Optional[torch.Tensor] = None):
         if output_logits is not None:
             warnings.warn(
                 ('`output_logits` has been deprecated and will be removed in a future release'),
@@ -341,6 +345,7 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
             outputs = output_logits
 
         assert labels is not None
+        assert outputs is not None
 
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
             cont_tok_pred = outputs[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
@@ -383,7 +388,11 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
         self.add_state('correct', default=torch.tensor(0.0), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.0), dist_reduce_fx='sum')
 
-    def update(self, batch: dict, output_logits: Optional[torch.Tensor] = None, labels: Optional[torch.Tensor] = None, outputs: Optional[torch.Tensor] = None):
+    def update(self,
+               batch: dict,
+               output_logits: Optional[torch.Tensor] = None,
+               labels: Optional[torch.Tensor] = None,
+               outputs: Optional[torch.Tensor] = None):
         if output_logits is not None:
             warnings.warn(
                 ('`output_logits` has been deprecated and will be removed in a future release'),
@@ -392,7 +401,7 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
             outputs = output_logits
 
         assert labels is not None
-
+        assert outputs is not None
 
         perplexities = []
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
@@ -478,11 +487,25 @@ class InContextLearningMCExpectedCalibrationError(InContextLearningExpectedCalib
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def update(self, batch: Dict[str, Any], outputs: torch.Tensor, labels: torch.Tensor):
-        output_logits = torch.softmax(output_logits, dim=2)
+    def update(self,
+               batch: dict,
+               output_logits: Optional[torch.Tensor] = None,
+               labels: Optional[torch.Tensor] = None,
+               outputs: Optional[torch.Tensor] = None):
+        if output_logits is not None:
+            warnings.warn(
+                ('`output_logits` has been deprecated and will be removed in a future release'),
+                DeprecationWarning,
+            )
+            outputs = output_logits
+
+        assert labels is not None
+        assert outputs is not None
+
+        outputs = torch.softmax(outputs, dim=2)
         probabilites = []
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
-            cont_tok_logits = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1)
+            cont_tok_logits = outputs[batch_idx].index_select(dim=0, index=cont_idx - 1)
             cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
             probability = cont_tok_logits.index_select(dim=1, index=cont_tok_targ).diagonal().mean()
             probabilites.append(probability)
@@ -514,10 +537,23 @@ class InContextLearningLMExpectedCalibrationError(InContextLearningExpectedCalib
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def update(self, batch: Dict[str, Any], outputs: torch.Tensor, labels: torch.Tensor):
-        output_logits = torch.softmax(output_logits, dim=2)
+    def update(self,
+               batch: dict,
+               output_logits: Optional[torch.Tensor] = None,
+               labels: Optional[torch.Tensor] = None,
+               outputs: Optional[torch.Tensor] = None):
+        if output_logits is not None:
+            warnings.warn(
+                ('`output_logits` has been deprecated and will be removed in a future release'),
+                DeprecationWarning,
+            )
+            outputs = output_logits
+
+        assert labels is not None
+        assert outputs is not None
+        outputs = torch.softmax(outputs, dim=2)
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
-            cont_tok_logits = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1)
+            cont_tok_logits = outputs[batch_idx].index_select(dim=0, index=cont_idx - 1)
             cont_tok_pred = cont_tok_logits.argmax(dim=-1)
             confidence = cont_tok_logits.max(dim=-1).values.min()
             cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
