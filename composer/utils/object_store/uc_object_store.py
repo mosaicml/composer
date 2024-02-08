@@ -209,7 +209,7 @@ class UCObjectStore(ObjectStore):
         try:
             # Note: The UC team is working on changes to fix the files.get_status API, but it currently
             # does not work. Once fixed, we will call the files API endpoint. We currently only use this
-            # function in Composer and LLM-foundry to check the UC object's existance.
+            # function in Composer and LLM-foundry to check the UC object's existence.
             self.client.api_client.do(method='HEAD',
                                       path=f'{self._UC_VOLUME_FILES_API_ENDPOINT}/{self.prefix}/{object_name}',
                                       headers={'Source': 'mosaicml/composer'})

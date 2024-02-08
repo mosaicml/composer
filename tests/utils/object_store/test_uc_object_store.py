@@ -78,12 +78,11 @@ def test_uc_object_store_invalid_prefix(monkeypatch):
 @pytest.mark.parametrize('result', ['success', 'not_found'])
 def test_get_object_size(ws_client, uc_object_store, result: str):
     if result == 'success':
-        db_files = pytest.importorskip('databricks.sdk.service.files')
-        ws_client.files.get_status.return_value = db_files.FileInfo(file_size=100)
-        assert uc_object_store.get_object_size('train.txt') == 100
+        ws_client.api_client.do.return_value = {}
+        assert uc_object_store.get_object_size('train.txt') == 1000000
     elif result == 'not_found':
         db_core = pytest.importorskip('databricks.sdk.core', reason='requires databricks')
-        ws_client.files.get_status.side_effect = db_core.DatabricksError('The file being accessed is not found',
+        ws_client.api_client.do.side_effect = db_core.DatabricksError('The file being accessed is not found',
                                                                          error_code='NOT_FOUND')
         with pytest.raises(FileNotFoundError):
             uc_object_store.get_object_size('train.txt')
