@@ -332,7 +332,16 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
-    def update(self, batch: dict, outputs: torch.Tensor, labels: torch.Tensor, output_logits: Optional[torch.Tensor] = None):
+    def update(self, batch: dict, output_logits: Optional[torch.Tensor] = None, labels: Optional[torch.Tensor] = None, outputs: Optional[torch.Tensor] = None):
+        if output_logits is not None:
+            warnings.warn(
+                ('`output_logits` has been deprecated and will be removed in a future release'),
+                DeprecationWarning,
+            )
+            outputs = output_logits
+
+        assert labels is not None
+
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
             cont_tok_pred = outputs[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
             cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
@@ -374,7 +383,17 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
         self.add_state('correct', default=torch.tensor(0.0), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.0), dist_reduce_fx='sum')
 
-    def update(self, batch: dict, outputs: torch.Tensor, labels: torch.Tensor, output_logits: Optional[torch.Tensor] = None):
+    def update(self, batch: dict, output_logits: Optional[torch.Tensor] = None, labels: Optional[torch.Tensor] = None, outputs: Optional[torch.Tensor] = None):
+        if output_logits is not None:
+            warnings.warn(
+                ('`output_logits` has been deprecated and will be removed in a future release'),
+                DeprecationWarning,
+            )
+            outputs = output_logits
+
+        assert labels is not None
+
+
         perplexities = []
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
             # continuation indices refer to indices in the original input's token space
