@@ -1295,6 +1295,36 @@ class TestCheckpointResumption:
                 save_folder / 'second' / 'latest-rank{rank}.pt',
             )
 
+    def test_format_load_path(self, tmp_path: pathlib.Path):
+        run_name = 'a-quick-rabbit'
+        save_folder = os.path.join(tmp_path, '{run_name}')
+        trainer = self.get_trainer(
+            run_name=run_name,
+            save_folder=os.path.join(save_folder, 'first'),
+            save_filename='ep{epoch}-rank{rank}.pt',
+            save_interval='1ep',
+        )
+
+        trainer.fit()
+        trainer.close()
+
+        resume_file = os.path.join(save_folder, 'first', 'ep1-rank0.pt')
+        trainer = self.get_trainer(
+            run_name=run_name,
+            save_folder=os.path.join(save_folder, 'second'),
+            save_filename='ep{epoch}-rank{rank}.pt',
+            save_interval='1ep',
+            load_path=resume_file,  # <-- resume training from file
+        )
+        trainer.fit()
+        trainer.close()
+
+        save_folder = save_folder.replace('{run_name}', run_name)
+        _assert_checkpoints_equivalent(
+            os.path.join(save_folder, 'first', 'latest-rank{rank}.pt'),
+            os.path.join(save_folder, 'second', 'latest-rank{rank}.pt'),
+        )
+
     def _assert_expected_num_checkpoints(
         self,
         save_folder: str,
