@@ -34,10 +34,9 @@ class EvalOutputLogging(Callback):
         assert state.outputs is not None
         assert state.metric_outputs is not None
 
-        # TODO: ensure we log input and properly output here
-        # TODO: detokenize everything
         logging_dict = deepcopy(state.metric_outputs)
         if state.batch['mode'] == 'generate':
+            # Outputs are already detokenized
             logging_dict['outputs'] = state.outputs
         logging_dict['metric_name'] = [state.metric_outputs['metric_name'] for _ in range(0, len(state.outputs))]
 
@@ -60,7 +59,6 @@ class EvalOutputLogging(Callback):
         columns = list(logging_dict.keys())
         rows = [list(item) for item in zip(*logging_dict.values())]
 
-        # TODO: are we logging everything we need to?
         # TODO:
         # wandb: WARNING Step only supports monotonically increasing values, use define_metric to set a custom x axis. For details see: https://wandb.me/define-metric
         # wandb: WARNING (User provided step: 0 is less than current step: 164. Dropping entry: {'metrics/human_eval/0-shot/InContextLearningCodeEvalAccuracy': 0.0, '_timestamp': 1707370410.1504738}).

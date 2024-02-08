@@ -268,10 +268,10 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.metric_results_dict = {
-            'cleaned_model_output': [],
-            'original_labels': [],
-            'cleaned_labels': [],
+        self.metric_result_dict = {
+            'cleaned_output': [],
+            'original_label': [],
+            'cleaned_label': [],
             'result': [],
         }
 
@@ -307,8 +307,8 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
             batch = {}
         cot_delimiter = batch.get('cot_delimiter', '')
 
-        metric_result_dict = copy.deepcopy(self.metric_results_dict)
-        for sample_output, sample_labels in zip(outputs, labels, batch['input_ids']):
+        metric_result_dict = copy.deepcopy(self.metric_result_dict)
+        for sample_output, sample_labels in zip(outputs, labels):
             final_answer = sample_output
 
             if cot_delimiter is not None and len(cot_delimiter) > 0:
@@ -317,9 +317,9 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
             cleaned_final_answer = self.normalize_answer(final_answer)
             cleaned_sample_labels = {self.normalize_answer(label) for label in sample_labels}
 
-            metric_result_dict['orignal_labels'].append(sample_labels)
+            metric_result_dict['original_label'].append(sample_labels)
             metric_result_dict['cleaned_output'].append(cleaned_final_answer)
-            metric_result_dict['cleaned_labels'].append(cleaned_sample_labels)
+            metric_result_dict['cleaned_label'].append(cleaned_sample_labels)
 
             if any(cleaned_final_answer.startswith(label) for label in cleaned_sample_labels):
                 self.correct += torch.tensor(1.0)
@@ -424,7 +424,7 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.0), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.0), dist_reduce_fx='sum')
-        self.metric_resul_dict = {'question_tok': [], 'correct_choice': [], 'selected_choice': [], 'correct': []}
+        self.metric_result_dict = {'question_tok': [], 'correct_choice': [], 'selected_choice': [], 'correct': []}
 
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
         perplexities = []
@@ -612,7 +612,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         if self.eval_device is not None:
             self.eval_device = self.eval_device.upper()
 
-        self.metric_result_dict = {'code_completions': [], 'all_tests_passed': [], 'pass_at_k_rate': []}
+        self.metric_result_dict = {'code_completion': [], 'all_tests_passed': [], 'pass_at_k_rate': []}
 
     def get_client(self) -> EvalClient:
         """Returns a client for the appropriate remote platform."""
@@ -722,7 +722,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
             pass_at_k_rate = self.estimator(num_generations, num_correct, pass_at_k)
             self.correct += torch.tensor(pass_at_k_rate)
             code_completions = [c[0]['code'] for c in code_gen_payload]
-            metric_result_dict['code_completions'].append(code_completions)
+            metric_result_dict['code_completion'].append(code_completions)
             metric_result_dict['all_tests_passed'].append(all_tests_passed)
             metric_result_dict['pass_at_k_rate'].append(pass_at_k_rate)
 
