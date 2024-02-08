@@ -3,6 +3,7 @@
 
 """Log model outputs and expected outputs during ICL evaluation."""
 
+import torch
 from copy import deepcopy
 from typing import Any, List, Optional
 
@@ -56,8 +57,13 @@ class EvalOutputLogging(Callback):
             else:
                 logging_dict[key] = [data_to_log for _ in range(0, len(logging_dict['outputs']))]
 
+
         columns = list(logging_dict.keys())
         rows = [list(item) for item in zip(*logging_dict.values())]
+        # detokenize data in rows
+        # TODO: This assumes _any_ tensor logged are tokens to be decoded.
+        #       This might not be true if, for example, logits are logged.
+        rows = [[state.dataloader.dataset.tokenizer.decode(x) if isinstance(x, torch.Tensor) else x for x in row] for row in rows]
 
         # TODO:
         # wandb: WARNING Step only supports monotonically increasing values, use define_metric to set a custom x axis. For details see: https://wandb.me/define-metric

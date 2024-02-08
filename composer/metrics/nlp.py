@@ -379,7 +379,7 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
             'context_tok': [],
             'continuation_tok_target': [],
             'continuation_tok_pred': [],
-            'correct': []
+            'result': []
         }
 
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
@@ -394,7 +394,7 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
 
             correct = (cont_tok_pred == cont_tok_targ).all().int()
             self.correct += correct
-            metric_result_dict['result'].append(correct)
+            metric_result_dict['result'].append(int(correct))
 
             self.total += torch.tensor(1.0)
 
