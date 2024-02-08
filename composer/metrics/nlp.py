@@ -339,7 +339,7 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
                outputs: Optional[torch.Tensor] = None):
         if output_logits is not None:
             warnings.warn(
-                ('`output_logits` has been deprecated and will be removed in a future release'),
+                ('`output_logits` has been renamed `outputs` and will be removed in v0.21'),
                 DeprecationWarning,
             )
             outputs = output_logits
