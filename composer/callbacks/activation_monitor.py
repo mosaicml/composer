@@ -146,8 +146,8 @@ class ActivationMonitor(Callback):
     def _register_forward_hook(self, logger: Logger, step: Optional[int], module: torch.nn.Module):
         self.handles.append(module.register_forward_hook(partial(self.forward_hook, logger, step)))
 
-    def forward_hook(self, logger: Logger, step: Optional[int], module: torch.nn.Module, input: Sequence,
-                     output: Sequence):
+    def forward_hook(self, logger: Logger, step: Optional[int], module: torch.nn.Module, input: Optional[Sequence],
+                     output: Optional[Sequence]):
         module_name = self.module_names[module]
 
         if self.ignore_module_types is not None:

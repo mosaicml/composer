@@ -85,7 +85,7 @@ class ThresholdStopper(Callback):
                 self.comp_func = torch.greater
 
     def _get_monitored_metric(self, state: State):
-        if self.dataloader_label == 'train':
+        if self.dataloader_label == 'train' and state.train_metrics is not None:
             if self.monitor in state.train_metrics:
                 return state.train_metrics[self.monitor].compute()
         else:

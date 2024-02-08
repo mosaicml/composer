@@ -98,7 +98,9 @@ class SystemProfiler(Callback):
                 })
 
             if self.profile_disk:
-                disk_io_counters = cast(Dict[str, psutil._common.sdiskio], psutil.disk_io_counters(perdisk=True))
+                disk_io_counters = cast(
+                    Dict[str, psutil._common.sdiskio],  # type: ignore
+                    psutil.disk_io_counters(perdisk=True))
                 for disk_name, disk_stats in disk_io_counters.items():
                     for field_name in ('read_count', 'write_count', 'read_bytes', 'write_bytes', 'read_time',
                                        'write_time', 'busy_time'):
@@ -106,7 +108,9 @@ class SystemProfiler(Callback):
                                         categories=['disk']).counter({'field_name': getattr(disk_stats, field_name)})
 
             if self.profile_net:
-                net_io_counters = cast(Dict[str, psutil._common.snetio], psutil.net_io_counters(pernic=True))
+                net_io_counters = cast(
+                    Dict[str, psutil._common.snetio],  # type: ignore
+                    psutil.net_io_counters(pernic=True))
                 for nic, nic_stats in net_io_counters.items():
                     profiler.marker(f'network/{nic}/kb_sent',
                                     categories=['net']).counter({'kb_sent': nic_stats.bytes_sent / 2**3})

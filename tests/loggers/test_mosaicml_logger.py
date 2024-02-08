@@ -59,10 +59,11 @@ def test_format_data_to_json_serializable():
         'key3': 3.14,
         'key4': True,
         'key5': torch.tensor([1, 2, 3]),
-        'key6': {
+        'key6': torch.tensor([42]),
+        'key7': {
             'inner_key': 'inner_value'
         },
-        'key7': [1, 2, 3],
+        'key8': [1, 2, 3],
     }
     formatted_data = format_data_to_json_serializable(data)
 
@@ -72,10 +73,11 @@ def test_format_data_to_json_serializable():
         'key3': 3.14,
         'key4': True,
         'key5': 'Tensor of shape torch.Size([3])',
-        'key6': {
+        'key6': 42,
+        'key7': {
             'inner_key': 'inner_value'
         },
-        'key7': [1, 2, 3],
+        'key8': [1, 2, 3],
     }
 
     assert formatted_data == expected_formatted_data
@@ -83,6 +85,7 @@ def test_format_data_to_json_serializable():
 
 @pytest.mark.parametrize('callback_cls', get_cbs_and_marks(callbacks=True))
 @world_size(1, 2)
+@pytest.mark.filterwarnings('ignore::UserWarning')
 def test_logged_data_is_json_serializable(monkeypatch, callback_cls: Type[Callback], world_size):
     """Test that all logged data is json serializable, which is a requirement to use MAPI."""
 
@@ -123,6 +126,7 @@ def test_logged_data_exception_handling(monkeypatch, world_size: int, ignore_exc
     monkeypatch.setenv('RUN_NAME', run_name)
 
     logger = MosaicMLLogger(ignore_exceptions=ignore_exceptions)
+    logger.buffered_metadata = {'key': 'value'}  # Add dummy data so logging runs
     if dist.get_global_rank() != 0:
         assert logger._enabled is False
         logger._flush_metadata(force_flush=True)
@@ -194,7 +198,7 @@ def test_metric_full_filtering(monkeypatch):
     )
     trainer.fit()
 
-    assert len(mock_mapi.run_metadata[run_name].keys()) == 0
+    assert run_name not in mock_mapi.run_metadata
 
 
 class SetWandBRunURL(Callback):

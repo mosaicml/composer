@@ -32,7 +32,7 @@ def _reraise_oci_errors(uri: str, e: Exception):
                 raise FileNotFoundError(f'Object {uri} not found. {e.message}') from e  # type: ignore
             if e.code == 'BucketNotFound':  # type: ignore
                 raise ValueError(f'Bucket specified in {uri} not found. {e.message}') from e  # type: ignore
-            raise e
+            raise FileNotFoundError(f'Object {uri} not found with no error code. {e.message}') from e  # type: ignore
 
     # Client errors
     if isinstance(e, oci.exceptions.ClientError):
@@ -81,7 +81,7 @@ class OCIObjectStore(ObjectStore):
         except Exception as e:
             _reraise_oci_errors(self.get_uri(object_name=''), e)
 
-        self.namespace = self.client.get_namespace().data
+        self.namespace = self.client.get_namespace().data  # pyright: ignore[reportOptionalMemberAccess]
         self.upload_manager = oci.object_storage.UploadManager(self.client)
 
     def get_uri(self, object_name: str) -> str:
@@ -97,10 +97,12 @@ class OCIObjectStore(ObjectStore):
         except Exception as e:
             _reraise_oci_errors(self.get_uri(object_name), e)
 
-        if response.status == 200:
-            return int(response.data.headers['Content-Length'])
+        if response.status == 200:  # pyright: ignore[reportUnboundVariable, reportOptionalMemberAccess]
+            data = response.data  # pyright: ignore[reportUnboundVariable, reportOptionalMemberAccess]
+            return int(data.headers['Content-Length'])
         else:
-            raise ValueError(f'OCI get_object was not successful with a {response.status} status code.')
+            status = response.status  # pyright: ignore[reportUnboundVariable, reportOptionalMemberAccess]
+            raise ValueError(f'OCI get_object was not successful with a {status} status code.')
 
     def upload_object(
         self,
@@ -126,7 +128,7 @@ class OCIObjectStore(ObjectStore):
                                           object_name=object_name,
                                           range=range_header)
         with open(tmp_part_path, 'wb') as f:
-            f.write(response.data.content)
+            f.write(response.data.content)  # pyright: ignore[reportOptionalMemberAccess]
         return part_number, tmp_part_path
 
     def download_object(
@@ -146,8 +148,12 @@ class OCIObjectStore(ObjectStore):
             os.makedirs(dirname, exist_ok=True)
 
         # Get the size of the object
-        head_object_response = self.client.head_object(self.namespace, self.bucket, object_name)
-        object_size = head_object_response.headers['content-length']
+        object_size = 0
+        try:
+            head_object_response = self.client.head_object(self.namespace, self.bucket, object_name)
+            object_size = head_object_response.headers['content-length']  # pyright: ignore[reportOptionalMemberAccess]
+        except Exception as e:
+            _reraise_oci_errors(self.get_uri(object_name), e)
         # Calculate the part sizes
         base_part_size, remainder = divmod(int(object_size), num_parts)
         part_sizes = [base_part_size] * num_parts
@@ -156,9 +162,9 @@ class OCIObjectStore(ObjectStore):
         part_sizes = [part_size for part_size in part_sizes if part_size > 0]
 
         with TemporaryDirectory(dir=dirname, prefix=f'{str(filename)}') as temp_dir:
+            parts = []
             try:
                 # Download parts in parallel
-                parts = []
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     futures = []
                     start_byte = 0
@@ -198,10 +204,9 @@ class OCIObjectStore(ObjectStore):
         response_complete = False
         try:
             while not response_complete:
-                response = self.client.list_objects(namespace_name=self.namespace,
-                                                    bucket_name=self.bucket,
-                                                    prefix=prefix,
-                                                    start=next_start_with).data
+                response = self.client.list_objects(
+                    namespace_name=self.namespace, bucket_name=self.bucket, prefix=prefix,
+                    start=next_start_with).data  # pyright: ignore[reportOptionalMemberAccess]
                 object_names.extend([obj.name for obj in response.objects])
                 next_start_with = response.next_start_with
                 if not next_start_with:

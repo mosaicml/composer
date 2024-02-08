@@ -3,12 +3,11 @@
 
 from collections import Counter
 
-from torch.optim.lr_scheduler import CosineAnnealingLR, CosineAnnealingWarmRestarts, ExponentialLR, MultiStepLR, StepLR
+from torch.optim.lr_scheduler import (CosineAnnealingLR, CosineAnnealingWarmRestarts, ExponentialLR, LRScheduler,
+                                      MultiStepLR, StepLR)
 
-from composer.core import PyTorchScheduler
 
-
-def scale_pytorch_scheduler(scheduler: PyTorchScheduler, ssr: float):
+def scale_pytorch_scheduler(scheduler: LRScheduler, ssr: float):
     """Makes a learning rate schedule take a different number of epochs.
 
     Training for less time is a strong baseline approach to speeding up

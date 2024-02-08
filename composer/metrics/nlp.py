@@ -307,15 +307,24 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
             batch = {}
         cot_delimiter = batch.get('cot_delimiter', '')
 
+        do_normalization = batch.get('do_normalization', True)
+        stopping_criteria = batch.get('stopping_criteria', None)
         metric_result_dict = copy.deepcopy(self.metric_result_dict)
         for sample_output, sample_labels in zip(outputs, labels):
             final_answer = sample_output
 
+            if stopping_criteria is not None and len(stopping_criteria) > 0:
+                final_answer = re.split('|'.join(stopping_criteria), final_answer)[0]
+
             if cot_delimiter is not None and len(cot_delimiter) > 0:
                 final_answer = final_answer.split(cot_delimiter)[-1]
 
-            cleaned_final_answer = self.normalize_answer(final_answer)
-            cleaned_sample_labels = {self.normalize_answer(label) for label in sample_labels}
+            if do_normalization:
+                cleaned_final_answer = self.normalize_answer(final_answer)
+                cleaned_sample_labels = {self.normalize_answer(label) for label in sample_labels}
+            else:
+                cleaned_final_answer = final_answer
+                cleaned_sample_labels = set(sample_labels)
 
             metric_result_dict['original_label'].append(sample_labels)
             metric_result_dict['cleaned_output'].append(cleaned_final_answer)
