@@ -8,7 +8,7 @@ import os
 import re
 import string
 import warnings
-from typing import Any, Dict, List, Mapping, Optional, Union
+from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -200,7 +200,11 @@ class InContextLearningMetric(Metric):
         super().__init__(*args, **kwargs)
         self.needs_batch = True
 
-    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
+    def update(self,
+               batch: dict,
+               output_logits: Optional[torch.Tensor] = None,
+               labels: Optional[torch.Tensor] = None,
+               outputs: Optional[torch.Tensor] = None):
         """Abstract interface for computing an in-context learning metrics.
 
         Args:
@@ -213,6 +217,27 @@ class InContextLearningMetric(Metric):
             NotImplementedError: Abstract method must be implemented by subclasses
         """
         raise NotImplementedError
+
+    @classmethod
+    def rename_args(
+            cls,
+            batch: dict,
+            output_logits: Optional[torch.Tensor] = None,
+            labels: Optional[torch.Tensor] = None,
+            outputs: Optional[torch.Tensor] = None) -> Tuple[dict, Optional[torch.Tensor], torch.Tensor, torch.Tensor]:
+        if output_logits is not None:
+            warnings.warn(
+                ('`output_logits` has been renamed to `outputs   and will be removed in a future release'),
+                DeprecationWarning,
+            )
+            outputs = output_logits
+
+        if labels is None:
+            raise ValueError('`labels` cannot be None')
+        if outputs is None:
+            raise ValueError('`outputs` cannot be None')
+
+        return batch, output_logits, labels, outputs
 
 
 class InContextLearningQAAccuracy(InContextLearningMetric):
@@ -337,15 +362,8 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
                output_logits: Optional[torch.Tensor] = None,
                labels: Optional[torch.Tensor] = None,
                outputs: Optional[torch.Tensor] = None):
-        if output_logits is not None:
-            warnings.warn(
-                ('`output_logits` has been deprecated and will be removed in a future release'),
-                DeprecationWarning,
-            )
-            outputs = output_logits
-
-        assert labels is not None
-        assert outputs is not None
+        batch, output_logits, labels, outputs = InContextLearningMetric.rename_args(batch, output_logits, labels,
+                                                                                    outputs)
 
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
             cont_tok_pred = outputs[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
@@ -393,15 +411,9 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
                output_logits: Optional[torch.Tensor] = None,
                labels: Optional[torch.Tensor] = None,
                outputs: Optional[torch.Tensor] = None):
-        if output_logits is not None:
-            warnings.warn(
-                ('`output_logits` has been deprecated and will be removed in a future release'),
-                DeprecationWarning,
-            )
-            outputs = output_logits
 
-        assert labels is not None
-        assert outputs is not None
+        batch, output_logits, labels, outputs = InContextLearningMetric.rename_args(batch, output_logits, labels,
+                                                                                    outputs)
 
         perplexities = []
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
@@ -492,15 +504,8 @@ class InContextLearningMCExpectedCalibrationError(InContextLearningExpectedCalib
                output_logits: Optional[torch.Tensor] = None,
                labels: Optional[torch.Tensor] = None,
                outputs: Optional[torch.Tensor] = None):
-        if output_logits is not None:
-            warnings.warn(
-                ('`output_logits` has been deprecated and will be removed in a future release'),
-                DeprecationWarning,
-            )
-            outputs = output_logits
-
-        assert labels is not None
-        assert outputs is not None
+        batch, output_logits, labels, outputs = InContextLearningMetric.rename_args(batch, output_logits, labels,
+                                                                                    outputs)
 
         outputs = torch.softmax(outputs, dim=2)
         probabilites = []
@@ -542,15 +547,10 @@ class InContextLearningLMExpectedCalibrationError(InContextLearningExpectedCalib
                output_logits: Optional[torch.Tensor] = None,
                labels: Optional[torch.Tensor] = None,
                outputs: Optional[torch.Tensor] = None):
-        if output_logits is not None:
-            warnings.warn(
-                ('`output_logits` has been deprecated and will be removed in a future release'),
-                DeprecationWarning,
-            )
-            outputs = output_logits
 
-        assert labels is not None
-        assert outputs is not None
+        batch, output_logits, labels, outputs = InContextLearningMetric.rename_args(batch, output_logits, labels,
+                                                                                    outputs)
+
         outputs = torch.softmax(outputs, dim=2)
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
             cont_tok_logits = outputs[batch_idx].index_select(dim=0, index=cont_idx - 1)
