@@ -21,10 +21,10 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 import torch
 from packaging import version
 from torch.distributed import checkpoint as dist_cp
+from torch.distributed._tensor import DeviceMesh
 from torch.distributed.checkpoint.metadata import Metadata
 from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
 from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
-from torch.distributed._tensor import DeviceMesh
 
 from composer.utils import dist, reproducibility
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist,
