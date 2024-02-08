@@ -227,7 +227,7 @@ class InContextLearningMetric(Metric):
             outputs: Optional[torch.Tensor] = None) -> Tuple[dict, Optional[torch.Tensor], torch.Tensor, torch.Tensor]:
         if output_logits is not None:
             warnings.warn(
-                ('`output_logits` has been renamed to `outputs   and will be removed in a future release'),
+                ('`output_logits` has been renamed to `outputs   and will be removed in v0.21'),
                 DeprecationWarning,
             )
             outputs = output_logits
