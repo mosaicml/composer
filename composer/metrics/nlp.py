@@ -200,7 +200,7 @@ class InContextLearningMetric(Metric):
         super().__init__(*args, **kwargs)
         self.needs_batch = True
 
-    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
+    def update(self, batch: dict, output_logits: Optional[torch.Tensor] = None, labels: Optional[torch.Tensor] = None, outputs: Optional[torch.Tensor] = None):
         """Abstract interface for computing an in-context learning metrics.
 
         Args:
@@ -212,7 +212,15 @@ class InContextLearningMetric(Metric):
         Raises:
             NotImplementedError: Abstract method must be implemented by subclasses
         """
-        raise NotImplementedError
+        if output_logits is not None:
+            warnings.warn('output_logits has been renamed \'outputs\' and will be removed in a future release.', DeprecationWarning)
+            # TODO: should I check in case both output_logits and outputs are set?
+            outputs = output_logits
+        if outputs is None:
+            raise ValueError('\'outputs\' cannot be None')
+        if labels is None:
+            raise ValueError('\'labels\' cannot be None')
+        return batch, outputs, labels
 
 
 class InContextLearningQAAccuracy(InContextLearningMetric):
@@ -270,9 +278,8 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
 
         return white_space_fix(remove_articles(handle_punc(lower(replace_underscore(answer))))).strip()
 
-    def update(self, outputs: List[str], labels: List[List[str]], batch: Optional[Dict[str, Any]] = None):
-        if batch is None:
-            batch = {}
+    # TODO: rearrange these? why could batch be optional?
+    def update(self, outputs: List[str], labels: List[List[str]], batch: Dict[str, Any]):
         cot_delimiter = batch.get('cot_delimiter', '')
         do_normalization = batch.get('do_normalization', True)
         stopping_criteria = batch.get('stopping_criteria', None)
@@ -332,7 +339,8 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
-    def update(self, batch: dict, outputs: torch.Tensor, labels: torch.Tensor, output_logits: Optional[torch.Tensor] = None):
+    def update(self, batch: dict, output_logits: Optional[torch.Tensor] = None, labels: Optional[torch.Tensor] = None, outputs: Optional[torch.tensor] = None):
+        batch, outputs, labels = super().update(batch=batch, output_logits=output_logits, labels=labels, outputs=outputs)
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
             cont_tok_pred = outputs[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
             cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
@@ -374,7 +382,8 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
         self.add_state('correct', default=torch.tensor(0.0), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.0), dist_reduce_fx='sum')
 
-    def update(self, batch: dict, outputs: torch.Tensor, labels: torch.Tensor, output_logits: Optional[torch.Tensor] = None):
+    def update(self, batch: dict, output_logits: Optional[torch.Tensor] = None, labels: Optional[torch.Tensor] = None, outputs: Optional[torch.tensor] = None):
+        batch, outputs, labels = super().update(batch=batch, output_logits=output_logits, labels=labels, outputs=outputs)
         perplexities = []
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
             # continuation indices refer to indices in the original input's token space
@@ -427,7 +436,8 @@ class InContextLearningExpectedCalibrationError(InContextLearningMetric):
         self.add_state('bucket_totals', default=torch.zeros(n_buckets), dist_reduce_fx='sum')
         self.add_state('bucket_correct', default=torch.zeros(n_buckets), dist_reduce_fx='sum')
 
-    def update(self, batch: dict, outputs: torch.Tensor, labels: torch.Tensor):
+    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
+        # TODO: fix
         pass
 
     def compute(self):
@@ -459,6 +469,7 @@ class InContextLearningMCExpectedCalibrationError(InContextLearningExpectedCalib
     # Make torchmetrics call update only once
     full_state_update = False
 
+    # TODO: unused outputs, needs reversion fix
     def update(self, batch: Dict[str, Any], outputs: torch.Tensor, labels: torch.Tensor):
         output_logits = torch.softmax(output_logits, dim=2)
         probabilites = []
@@ -495,6 +506,7 @@ class InContextLearningLMExpectedCalibrationError(InContextLearningExpectedCalib
     # Make torchmetrics call update only once
     full_state_update = False
 
+    # TODO: unused outputs, needs fix
     def update(self, batch: Dict[str, Any], outputs: torch.Tensor, labels: torch.Tensor):
         output_logits = torch.softmax(output_logits, dim=2)
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
