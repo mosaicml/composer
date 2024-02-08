@@ -433,7 +433,7 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.0), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.0), dist_reduce_fx='sum')
-        self.metric_result_dict = {'question_tok': [], 'correct_choice': [], 'selected_choice': [], 'correct': []}
+        self.metric_result_dict = {'question_tok': [], 'correct_choice': [], 'selected_choice': [], 'result': []}
 
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
         perplexities = []
@@ -445,6 +445,7 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
             cross_entropy = F.cross_entropy(cont_tok_logits, cont_tok_targ)
             perplexity = torch.exp(cross_entropy)
             perplexities.append(perplexity)
+
         metric_result_dict = copy.deepcopy(self.metric_result_dict)
         for (start, end), gold_idx in zip(batch['choice_groupings'], batch['gold_indices']):
             subset = perplexities[start:end]
@@ -456,6 +457,8 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
                 metric_result_dict['result'].append(0)
 
             question = batch['input_ids'][start][:batch['continuation_indices'][start][0]]
+
+            # TODO: Seems broken for schema tasks
             correct_choice = batch['input_ids'][start:end][gold_idx][batch['continuation_indices'][start:end][gold_idx][
                 0]:batch['continuation_indices'][start:end][gold_idx][-1] + 1]
             selected_choice = batch['input_ids'][start:end][idx_min][batch['continuation_indices'][start:end][idx_min][
