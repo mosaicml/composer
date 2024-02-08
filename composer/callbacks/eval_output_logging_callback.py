@@ -3,23 +3,14 @@
 
 """Log model outputs and expected outputs during ICL evaluation."""
 
+import logging
 from typing import Any, List, Optional
 from copy import deepcopy
 
 from composer.core import Callback, State
-from composer.datasets.in_context_learning_evaluation import (InContextLearningCodeEvalDataset,
-                                                              InContextLearningLMTaskDataset,
-                                                              InContextLearningMultipleChoiceTaskDataset,
-                                                              InContextLearningQATaskDataset,
-                                                              InContextLearningSchemaTaskDataset)
 from composer.loggers import Logger
-import torch
 
-ICLDatasetTypes = (InContextLearningLMTaskDataset, InContextLearningQATaskDataset,
-                   InContextLearningMultipleChoiceTaskDataset, InContextLearningSchemaTaskDataset,
-                   InContextLearningCodeEvalDataset)
-
-
+log = logging.getLogger(__name__)
 
 class EvalOutputLogging(Callback):
     """Logs eval outputs for each sample of each ICL evaluation dataset.
@@ -45,8 +36,9 @@ class EvalOutputLogging(Callback):
         assert state.metric_outputs is not None
 
         logging_dict = deepcopy(state.metric_outputs)
-        logging_dict['outputs'] = state.outputs
-        logging_dict['metric_name'] = [state.metric_outputs['metric_name'] for _ in range(0, len(logging_dict['outputs']))]
+        if state.batch['mode'] == 'generate':
+            logging_dict['outputs'] = state.outputs
+        logging_dict['metric_name'] = [state.metric_outputs['metric_name'] for _ in range(0, len(state.outputs))]
         
         # Decode and depad input_ids
         input_tensor = state.batch['input_ids']
