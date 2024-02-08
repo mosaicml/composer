@@ -334,7 +334,7 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
                 self.correct += torch.tensor(1.0)
                 metric_result_dict['result'].append(1)
             else:
-                metric_result_dict['result'].append(1)
+                metric_result_dict['result'].append(0)
 
             self.total += torch.tensor(1.0)
 
