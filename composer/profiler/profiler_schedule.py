@@ -23,10 +23,11 @@ def cyclic_schedule(
     This function returns a schedule function that uses a cyclic profiling window. The resulting function can be
     passed as the ``prof_schedule`` argument to the :class:`.Trainer`.
 
-    The cyclic window skips the first ``skip_first`` batches in every epoch. Then, it performs a cycle of
-    skipping ``wait`` batches, warming up for ``warmup`` batches, and recording ``active`` batches.
-    It repeats this cycle up to ``repeat`` times per epoch (or for the entire epoch, if ``repeat`` is 0).
-    This logic repeats every epoch.
+    The cyclic window skips the first ``skip_first`` + ``resumption_batch_idx`` batches in every epoch.
+    ``resumption_batch_idx`` is passed to the the schedule fuction. It is the ``state.timestamp.batch_in_epoch``
+    when resuming training.  Then, it performs a cycle of skipping ``wait`` batches, warming up for ``warmup``
+    batches, and recording ``active`` batches. It repeats this cycle up to ``repeat`` times per epoch (or
+    for the entire epoch, if ``repeat`` is 0). This logic repeats every epoch.
 
     Args:
         skip_first (int, optional): Number of batches to skip profiling at epoch start.  Defaults to ``0``.
@@ -39,7 +40,7 @@ def cyclic_schedule(
             Defaults to ``1``.
 
     Returns:
-        (State -> ProfilerAction): A ``prof_schedule`` for the :class:`.Trainer`.
+        ((State, int) -> ProfilerAction): A ``prof_schedule`` for the :class:`.Trainer`.
     """
 
     def schedule(state: State, resumption_batch_idx: int = 0):
