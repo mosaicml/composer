@@ -328,6 +328,11 @@ class TorchProfiler(Callback):  # noqa: D101
         )
         self.profiler.__enter__()
 
+    def after_load(self, state: State, logger: Logger) -> None:
+        del logger
+        assert state.profiler is not None
+        state.profiler.resumption_batch_idx = int(state.timestamp.batch_in_epoch)
+
     def batch_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         assert self.profiler is not None
