@@ -29,7 +29,7 @@ from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
 from composer.utils import dist, reproducibility
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist,
                                          format_name_with_dist_and_time, get_file, is_tar)
-from composer.utils.misc import is_model_deepspeed
+from composer.utils.misc import is_model_deepspeed, partial_format
 from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
@@ -444,6 +444,7 @@ def load_checkpoint(
         Optional[list[dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
             :attr:`load_weights_only` is not None. Otherwise, None.
     """
+    path = partial_format(path, run_name=state.run_name)
     using_legacy_sharded = False
     if state.fsdp_elastic_sharded_enabled:
         assert object_store is None or isinstance(
@@ -678,7 +679,7 @@ def download_checkpoint(path: str,
     checkpoint_is_sharded = fsdp_sharded_state_dict_enabled or deepspeed_sharded_checkpoint
     try:
         if not checkpoint_is_sharded and dist.get_local_rank() == 0:
-            # if the checkpoint is not sharded, then local rank 0 on each node needs to download the
+            # If the checkpoint is not sharded, then local rank 0 on each node needs to download the
             # global rank 0 checkpoint
             path = _format_path_with_rank_zero(path)
             get_file(destination=rank_zero_checkpoint_filepath,
@@ -695,18 +696,18 @@ def download_checkpoint(path: str,
                     # or could not be downloaded
                     raise RuntimeError(f'Checkpoint {path} does not exist')
         elif checkpoint_is_sharded:
-            # if the checkpoint is sharded, then every rank needs to download its own checkpoint
+            # If the checkpoint is sharded, then every rank needs to download its own checkpoint
+            path = _format_path_with_current_rank(path)
             try:
                 get_file(destination=rank_n_checkpoint_filepath,
-                         path=_format_path_with_current_rank(path),
+                         path=path,
                          object_store=object_store,
                          progress_bar=progress_bar)
             except FileNotFoundError as e:
                 raise FileNotFoundError(
-                    (f'Checkpoint {_format_path_with_current_rank(path)} does not exist, '
-                     f'but is required for sharded checkpointing on rank {dist.get_global_rank()}. '
-                     'Please ensure that the checkpoint exists and your load_path was specified as a format string '
-                     'with the {rank} argument.')) from e
+                    (f'Checkpoint {path} does not exist, but is required for sharded checkpointing '
+                     f'on rank {dist.get_global_rank()}. Please ensure that the checkpoint exists '
+                     'and your load_path was specified as a format string with the {rank} argument.')) from e
 
             if extracted_checkpoint_folder is not None:
                 try:
