@@ -42,16 +42,17 @@ def cyclic_schedule(
         (State -> ProfilerAction): A ``prof_schedule`` for the :class:`.Trainer`.
     """
 
-    def schedule(state: State):
+    def schedule(state: State, resumption_batch_idx: int = 0):
         # do wait, then warump, then active, up to repeat times per cycle
         cycle_len = wait + warmup + active
         batch_idx = int(state.timestamp.batch_in_epoch)
-        if batch_idx < skip_first:
+        skip_first_after_resumption = skip_first + resumption_batch_idx
+        if batch_idx < skip_first_after_resumption:
             return ProfilerAction.SKIP
-        if repeat != 0 and batch_idx >= cycle_len * repeat + skip_first:
+        if repeat != 0 and batch_idx >= cycle_len * repeat + skip_first_after_resumption:
             # exhausted the repeat
             return ProfilerAction.SKIP
-        position_in_cycle = (batch_idx - skip_first) % cycle_len
+        position_in_cycle = (batch_idx - skip_first_after_resumption) % cycle_len
         if position_in_cycle < wait:
             return ProfilerAction.SKIP
         if position_in_cycle < wait + warmup:

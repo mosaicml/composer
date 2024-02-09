@@ -225,6 +225,9 @@ class TorchProfiler(Callback):  # noqa: D101
         self.num_traces_to_keep = num_traces_to_keep
         self.saved_traces = OrderedDict()
         self.profiler: Optional[torch.profiler.profile] = None
+        # This is used in schedule function to update the skip_first, so
+        # that we count the skip_first starting from the 1st batch after resumption
+        self.resumption_batch_idx: int = 0
 
     def init(self, state: State, logger: Logger) -> None:
         if state.profiler is None:
@@ -242,7 +245,7 @@ class TorchProfiler(Callback):  # noqa: D101
             del torch_profiler_step  # the torch profiler step is unused. Using the composer timestamp instead.
 
             assert state.profiler is not None
-            composer_profiler_action = state.profiler.schedule(state)
+            composer_profiler_action = state.profiler.schedule(state, self.resumption_batch_idx)
             if composer_profiler_action == ProfilerAction.ACTIVE_AND_SAVE:
                 return TorchProfilerAction.RECORD_AND_SAVE
             if composer_profiler_action == ProfilerAction.ACTIVE:
@@ -327,6 +330,11 @@ class TorchProfiler(Callback):  # noqa: D101
             with_flops=self.with_flops,
         )
         self.profiler.__enter__()
+
+    def after_load(self, state: State, logger: Logger) -> None:
+        del logger
+        assert self.profiler is not None
+        self.resumption_batch_idx = state.timestamp.batch_in_epoch
 
     def batch_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
