@@ -215,8 +215,6 @@ class UCObjectStore(ObjectStore):
                                       path=f'{self._UC_VOLUME_FILES_API_ENDPOINT}/{self.prefix}/{object_name}',
                                       headers={'Source': 'mosaicml/composer'})
             return 1000000  # Dummy value, as we don't have a way to get the size of the file
-        except FileNotFoundError as e:
-            _wrap_errors(self.get_uri(object_name), e)
         except DatabricksError as e:
             # If the code reaches here, the file was not found
             _wrap_errors(self.get_uri(object_name), e)
