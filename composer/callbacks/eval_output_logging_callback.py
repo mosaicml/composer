@@ -76,5 +76,5 @@ class EvalOutputLogging(Callback):
         # TODO: How else to chose this?
         for dest_logger in logger.destinations:
             if dest_logger.__class__.__name__ == 'WandBLogger':
-                dest_logger.log_table(columns, rows, name=name)
+                dest_logger.log_table(columns, rows, name=name, step=0)
         state.metric_outputs = {}
