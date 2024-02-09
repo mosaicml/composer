@@ -23,8 +23,9 @@ _NOT_FOUND_ERROR_CODE = 'NOT_FOUND'
 
 
 def _wrap_errors(uri: str, e: Exception):
+    from databricks.sdk.errors.mapping import NotFound
     from databricks.sdk.core import DatabricksError
-    if isinstance(e, DatabricksError):
+    if isinstance(e, DatabricksError) or isinstance(e, NotFound):
         if e.error_code == _NOT_FOUND_ERROR_CODE:  # type: ignore
             raise FileNotFoundError(f'Object {uri} not found') from e
     raise ObjectStoreTransientError from e
@@ -214,6 +215,8 @@ class UCObjectStore(ObjectStore):
                                       path=f'{self._UC_VOLUME_FILES_API_ENDPOINT}/{self.prefix}/{object_name}',
                                       headers={'Source': 'mosaicml/composer'})
             return 1000000  # Dummy value, as we don't have a way to get the size of the file
+        except FileNotFoundError as e:
+            _wrap_errors(self.get_uri(object_name), e)
         except DatabricksError as e:
             # If the code reaches here, the file was not found
             _wrap_errors(self.get_uri(object_name), e)
