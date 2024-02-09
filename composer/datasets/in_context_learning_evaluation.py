@@ -350,7 +350,7 @@ class InContextLearningDataset(Dataset):
     def get_num_samples_in_batch(self, batch: Dict) -> int:
         return batch['input_ids'].shape[0]
 
-    def update_generation_kwargs(self, generation_kwargs: Dict) -> None:
+    def update_generation_kwargs(self, generation_kwargs: Optional[Dict] = None) -> None:
         """
         Updates self.base_batch with the passed in generation_kwargs.
         This must be run after self.base_batch is set (for example, if self.base_batch is set after __init__() is run,
@@ -1471,7 +1471,7 @@ class IFEval(InContextLearningDataset):
 
 
 class MTBench(InContextLearningDataset):
-    """
+    """Implementation of MTBench
     """
 
     TEMPERATURE_CONFIG = {
