@@ -23,11 +23,10 @@ def cyclic_schedule(
     This function returns a schedule function that uses a cyclic profiling window. The resulting function can be
     passed as the ``prof_schedule`` argument to the :class:`.Trainer`.
 
-    The cyclic window skips the first ``skip_first`` + ``resumption_batch_idx`` batches in every epoch.
-    ``resumption_batch_idx`` is accessed from state.profiler. It is the ``state.timestamp.batch_in_epoch``
-    when resuming training.  Then, it performs a cycle of skipping ``wait`` batches, warming up for ``warmup``
-    batches, and recording ``active`` batches. It repeats this cycle up to ``repeat`` times per epoch (or
-    for the entire epoch, if ``repeat`` is 0). This logic repeats every epoch.
+    The cyclic window skips the first ``skip_first`` batches in every epoch. Then, it performs a cycle of
+    skipping ``wait`` batches, warming up for ``warmup`` batches, and recording ``active`` batches.
+    It repeats this cycle up to ``repeat`` times per epoch (or for the entire epoch, if ``repeat`` is 0).
+    This logic repeats every epoch.
 
     Args:
         skip_first (int, optional): Number of batches to skip profiling at epoch start.  Defaults to ``0``.
@@ -47,16 +46,12 @@ def cyclic_schedule(
         # do wait, then warump, then active, up to repeat times per cycle
         cycle_len = wait + warmup + active
         batch_idx = int(state.timestamp.batch_in_epoch)
-        if state.profiler is not None:
-            skip_first_after_resumption = skip_first + state.profiler.resumption_batch_idx
-        else:
-            skip_first_after_resumption = skip_first
-        if batch_idx < skip_first_after_resumption:
+        if batch_idx < skip_first:
             return ProfilerAction.SKIP
-        if repeat != 0 and batch_idx >= cycle_len * repeat + skip_first_after_resumption:
+        if repeat != 0 and batch_idx >= cycle_len * repeat + skip_first:
             # exhausted the repeat
             return ProfilerAction.SKIP
-        position_in_cycle = (batch_idx - skip_first_after_resumption) % cycle_len
+        position_in_cycle = (batch_idx - skip_first) % cycle_len
         if position_in_cycle < wait:
             return ProfilerAction.SKIP
         if position_in_cycle < wait + warmup:
