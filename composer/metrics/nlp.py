@@ -298,7 +298,6 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
 
         return white_space_fix(remove_articles(handle_punc(lower(replace_underscore(answer))))).strip()
 
-    # TODO: rearrange these? why could batch be optional?
     def update(self, outputs: List[str], labels: List[List[str]], batch: Dict[str, Any]):
         cot_delimiter = batch.get('cot_delimiter', '')
         do_normalization = batch.get('do_normalization', True)
@@ -473,7 +472,6 @@ class InContextLearningExpectedCalibrationError(InContextLearningMetric):
         self.add_state('bucket_correct', default=torch.zeros(n_buckets), dist_reduce_fx='sum')
 
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
-        # TODO: fix
         pass
 
     def compute(self):
