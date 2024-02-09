@@ -24,8 +24,9 @@ _NOT_FOUND_ERROR_CODE = 'NOT_FOUND'
 
 def _wrap_errors(uri: str, e: Exception):
     from databricks.sdk.core import DatabricksError
+    from databricks.sdk.errors.mapping import NotFound
     if isinstance(e, DatabricksError):
-        if e.error_code == _NOT_FOUND_ERROR_CODE:  # type: ignore
+        if isinstance(e, NotFound) or e.error_code == _NOT_FOUND_ERROR_CODE:  # type: ignore
             raise FileNotFoundError(f'Object {uri} not found') from e
     raise ObjectStoreTransientError from e
 
@@ -48,6 +49,7 @@ class UCObjectStore(ObjectStore):
     """
 
     _UC_VOLUME_LIST_API_ENDPOINT = '/api/2.0/fs/list'
+    _UC_VOLUME_FILES_API_ENDPOINT = '/api/2.0/fs/files'
 
     def __init__(self, path: str) -> None:
         try:
@@ -206,13 +208,15 @@ class UCObjectStore(ObjectStore):
         """
         from databricks.sdk.core import DatabricksError
         try:
-            file_info = self.client.files.get_status(self._get_object_path(object_name))
-            if file_info.is_dir:
-                raise IsADirectoryError(f'{object_name} is a UC directory, not a file.')
-
-            assert file_info.file_size is not None
-            return file_info.file_size
+            # Note: The UC team is working on changes to fix the files.get_status API, but it currently
+            # does not work. Once fixed, we will call the files API endpoint. We currently only use this
+            # function in Composer and LLM-foundry to check the UC object's existence.
+            self.client.api_client.do(method='HEAD',
+                                      path=f'{self._UC_VOLUME_FILES_API_ENDPOINT}/{self.prefix}/{object_name}',
+                                      headers={'Source': 'mosaicml/composer'})
+            return 1000000  # Dummy value, as we don't have a way to get the size of the file
         except DatabricksError as e:
+            # If the code reaches here, the file was not found
             _wrap_errors(self.get_uri(object_name), e)
         return -1
 
