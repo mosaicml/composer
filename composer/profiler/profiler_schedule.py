@@ -24,7 +24,7 @@ def cyclic_schedule(
     passed as the ``prof_schedule`` argument to the :class:`.Trainer`.
 
     The cyclic window skips the first ``skip_first`` + ``resumption_batch_idx`` batches in every epoch.
-    ``resumption_batch_idx`` is passed to the the schedule fuction. It is the ``state.timestamp.batch_in_epoch``
+    ``resumption_batch_idx`` is accessed from state.profiler. It is the ``state.timestamp.batch_in_epoch``
     when resuming training.  Then, it performs a cycle of skipping ``wait`` batches, warming up for ``warmup``
     batches, and recording ``active`` batches. It repeats this cycle up to ``repeat`` times per epoch (or
     for the entire epoch, if ``repeat`` is 0). This logic repeats every epoch.
@@ -40,14 +40,17 @@ def cyclic_schedule(
             Defaults to ``1``.
 
     Returns:
-        ((State, int) -> ProfilerAction): A ``prof_schedule`` for the :class:`.Trainer`.
+        (State -> ProfilerAction): A ``prof_schedule`` for the :class:`.Trainer`.
     """
 
-    def schedule(state: State, resumption_batch_idx: int = 0):
+    def schedule(state: State):
         # do wait, then warump, then active, up to repeat times per cycle
         cycle_len = wait + warmup + active
         batch_idx = int(state.timestamp.batch_in_epoch)
-        skip_first_after_resumption = skip_first + resumption_batch_idx
+        if state.profiler is not None:
+            skip_first_after_resumption = skip_first + state.profiler.resumption_batch_idx
+        else:
+            skip_first_after_resumption = skip_first
         if batch_idx < skip_first_after_resumption:
             return ProfilerAction.SKIP
         if repeat != 0 and batch_idx >= cycle_len * repeat + skip_first_after_resumption:
