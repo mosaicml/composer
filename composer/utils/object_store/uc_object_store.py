@@ -211,8 +211,9 @@ class UCObjectStore(ObjectStore):
             # Note: The UC team is working on changes to fix the files.get_status API, but it currently
             # does not work. Once fixed, we will call the files API endpoint. We currently only use this
             # function in Composer and LLM-foundry to check the UC object's existence.
+            object_path = self._get_object_path(object_name).lstrip('/')
             self.client.api_client.do(method='HEAD',
-                                      path=f'{self._UC_VOLUME_FILES_API_ENDPOINT}/{self.prefix}/{object_name}',
+                                      path=f'{self._UC_VOLUME_FILES_API_ENDPOINT}/{object_path}',
                                       headers={'Source': 'mosaicml/composer'})
             return 1000000  # Dummy value, as we don't have a way to get the size of the file
         except DatabricksError as e:
