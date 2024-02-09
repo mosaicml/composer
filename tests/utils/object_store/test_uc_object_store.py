@@ -83,7 +83,7 @@ def test_get_object_size(ws_client, uc_object_store, result: str):
     elif result == 'not_found':
         db_core = pytest.importorskip('databricks.sdk.core', reason='requires databricks')
         ws_client.api_client.do.side_effect = db_core.DatabricksError('The file being accessed is not found',
-                                                                         error_code='NOT_FOUND')
+                                                                      error_code='NOT_FOUND')
         with pytest.raises(FileNotFoundError):
             uc_object_store.get_object_size('train.txt')
     else:
