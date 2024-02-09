@@ -230,7 +230,7 @@ class InContextLearningMetric(Metric):
             raise ValueError('Cannot use both `outputs` and `output_logits`')
         if output_logits is not None:
             warnings.warn(
-                ('`output_logits` has been renamed to `outputs` and will be removed in a future release'),
+                ('`output_logits` has been renamed to `outputs` and will be removed in v0.21'),
                 DeprecationWarning,
             )
             outputs = output_logits
