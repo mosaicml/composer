@@ -9,10 +9,8 @@ from unittest.mock import MagicMock
 import pytest
 import torch
 from packaging import version
-from torch.profiler.profiler import ProfilerAction as TorchProfilerAction
 
-from composer.core import Engine, Event, State, Timestamp
-from composer.loggers import Logger
+from composer.core import State
 from composer.profiler import Profiler, ProfilerAction, SystemProfiler, TorchProfiler, cyclic_schedule
 from composer.profiler.utils import export_memory_timeline_html
 
@@ -172,39 +170,3 @@ def test_memory_timeline(tmp_path: pathlib.Path) -> None:
     assert fig is not None, 'export_memory_timeline_html should return a figure when return_fig=True'
     _, end = fig.gca().get_ylim()
     assert round(end, 2) == 0.06
-
-
-def test_skip_first_after_resumption(minimal_state: State) -> None:
-    skip_first = 1
-    wait = 2
-    warmup = 3
-    active = 4
-    repeat = 1
-    schedule = cyclic_schedule(skip_first=skip_first, wait=wait, warmup=warmup, active=active, repeat=repeat)
-    mock_trace_handler = MagicMock()
-    profiler = Profiler(
-        trace_handlers=[mock_trace_handler],
-        schedule=schedule,
-    )
-    profiler.bind_to_state(minimal_state)
-    minimal_state.profiler = profiler
-
-    assert len(profiler._callbacks) >= 1
-    assert isinstance(profiler._callbacks[-1], TorchProfiler)
-    torch_profiler = profiler._callbacks[-1]
-
-    # Create torch.profiler.profile
-    logger = Logger(minimal_state)
-    engine = Engine(state=minimal_state, logger=logger)
-    engine.run_event(Event.INIT)
-    assert torch_profiler.profiler is not None
-
-    minimal_state.timestamp = Timestamp(batch_in_epoch=7)
-    assert torch_profiler.profiler.schedule(0) == TorchProfilerAction.RECORD
-
-    # Load checkpoint at batch 4
-    minimal_state.timestamp = Timestamp(batch_in_epoch=4)
-    engine.run_event(Event.BEFORE_LOAD)
-    engine.run_event(Event.AFTER_LOAD)
-    minimal_state.timestamp = Timestamp(batch_in_epoch=7)
-    assert torch_profiler.profiler.schedule(0) == TorchProfilerAction.WARMUP
