@@ -25,8 +25,8 @@ _NOT_FOUND_ERROR_CODE = 'NOT_FOUND'
 def _wrap_errors(uri: str, e: Exception):
     from databricks.sdk.errors.mapping import NotFound
     from databricks.sdk.core import DatabricksError
-    if isinstance(e, DatabricksError) or isinstance(e, NotFound):
-        if e.error_code == _NOT_FOUND_ERROR_CODE:  # type: ignore
+    if isinstance(e, DatabricksError):
+        if isinstance(e, NotFound) or e.error_code == _NOT_FOUND_ERROR_CODE:  # type: ignore
             raise FileNotFoundError(f'Object {uri} not found') from e
     raise ObjectStoreTransientError from e
 
