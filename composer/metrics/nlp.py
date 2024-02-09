@@ -239,7 +239,7 @@ class InContextLearningMetric(Metric):
             raise ValueError('`labels` cannot be None')
         if outputs is None:
             raise ValueError('`outputs` cannot be None')
-        assert outputs is not None
+        # assert outputs is not None
 
         return batch, outputs, labels
 
@@ -369,7 +369,7 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
                                                                      output_logits=output_logits,
                                                                      labels=labels,
                                                                      outputs=outputs)
-        assert outputs is not None
+        # assert outputs is not None
 
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
             cont_tok_pred = outputs[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
@@ -421,7 +421,7 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
                                                                      output_logits=output_logits,
                                                                      labels=labels,
                                                                      outputs=outputs)
-        assert outputs is not None
+        # assert outputs is not None
 
         perplexities = []
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
@@ -517,8 +517,8 @@ class InContextLearningMCExpectedCalibrationError(InContextLearningExpectedCalib
                                                                      output_logits=output_logits,
                                                                      labels=labels,
                                                                      outputs=outputs)
-        assert batch is not None
-        assert outputs is not None
+        # assert batch is not None
+        # assert outputs is not None
 
         outputs = torch.softmax(outputs, dim=2)
         probabilites = []
@@ -564,7 +564,7 @@ class InContextLearningLMExpectedCalibrationError(InContextLearningExpectedCalib
                                                                      output_logits=output_logits,
                                                                      labels=labels,
                                                                      outputs=outputs)
-        assert outputs is not None
+        # assert outputs is not None
 
         outputs = torch.softmax(outputs, dim=2)
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
