@@ -119,18 +119,24 @@ class WandBLogger(LoggerDestination):
             import wandb
             wandb.config.update(hyperparameters)
 
-    def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
+    def log_table(self,
+                  columns: List[str],
+                  rows: List[List[Any]],
+                  name: str = 'Table',
+                  step: Optional[int] = None) -> None:
         if self._enabled:
             import wandb
-            if name in self.table_dict:
-                for row in rows:
-                    self.table_dict[name].add_data(*row)
-            else:
-                table = wandb.Table(columns=columns, rows=rows)
-                self.table_dict[name] = table
-            # Need to do this copy because apparently wandb table logging is broken LOL
-            # https://github.com/wandb/wandb/issues/2981#issuecomment-1458447291
-            wandb.log({name: copy.deepcopy(self.table_dict[name])})
+            # if name in self.table_dict:
+            #     for row in rows:
+            #         self.table_dict[name].add_data(*row)
+            # else:
+            #     table = wandb.Table(columns=columns, rows=rows)
+            #     self.table_dict[name] = table
+            # # Need to do this copy because apparently wandb table logging is broken LOL
+            # # https://github.com/wandb/wandb/issues/2981#issuecomment-1458447291
+            # wandb.log({name: copy.deepcopy(self.table_dict[name])})
+            table = wandb.Table(columns=columns, rows=rows)
+            wandb.log({name: table}, step)
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         if self._enabled:
