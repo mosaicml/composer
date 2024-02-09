@@ -534,7 +534,7 @@ class HuggingFaceModel(ComposerModel):
         if getattr(metric, 'needs_batch', False):
             metric.update(batch=batch, outputs=outputs, labels=self.labels)
         else:
-            metric.update(outputs, self.labels)  # pyright: ignore [reportGeneralTypeIssues]
+            metric.update(outputs, self.labels)
 
     def get_metadata(self):
         model_output = {}
