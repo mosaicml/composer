@@ -16,13 +16,9 @@ class EvalOutputLogging(Callback):
     """Logs eval outputs for each sample of each ICL evaluation dataset.
 
     ICL metrics are required to support caching the model's responses including information on whether model was correct.
-    Metrics are also responsible for providing a method for rendering the cached responses as strings.
-    This callback then accesses each eval benchmark during eval_end, retrieves the cached results,
-    and renders and and logs them in tabular format.
-
-    If subset_sample > 0, then only `subset_sample` of the outputs will be logged.
-
-    output_directory indicates where to write the tsv results, either can be a local directory or a cloud storage directory.
+    Metrics are responsible for returning the results of individual datapoints in a dictionary of lists.
+    The callback will log the metric name, the depadded and detokenized input, any data stored in state.metric_outputs, and
+    any keys from the batch pased into `batch_keys_to_log`. It will do so after every eval batch.
     """
 
     def __init__(self, batch_keys_to_log: Optional[List[str]] = None, *args: Any, **kwargs: Any) -> None:
@@ -30,7 +26,7 @@ class EvalOutputLogging(Callback):
         self.batch_keys_to_log = batch_keys_to_log or []
 
     def eval_after_all(self, state: State) -> None:
-        state.metric_outputs = None
+        state.metric_outputs = {}
 
     def eval_batch_end(self, state: State, logger: Logger) -> None:
         assert state.outputs is not None
@@ -45,6 +41,11 @@ class EvalOutputLogging(Callback):
         # Depad and decode input_ids
         input_tensor = state.batch['input_ids']
         logged_input = []
+        assert state.dataloader is not None
+        assert hasattr(state.dataloader, 'dataset')
+        assert hasattr(state.dataloader.dataset, 'tokenizer')
+        # assert state.dataloader.dataset is not None
+        # assert state.dataloader.dataset.tokenizer is not None
         for input_list in input_tensor:
             depadded_input = [tok for tok in input_list if tok != state.dataloader.dataset.pad_tok_id]
             logged_input.append(state.dataloader.dataset.tokenizer.decode(depadded_input))
@@ -70,8 +71,10 @@ class EvalOutputLogging(Callback):
         # TODO:
         # wandb: WARNING Step only supports monotonically increasing values, use define_metric to set a custom x axis. For details see: https://wandb.me/define-metric
         # wandb: WARNING (User provided step: 0 is less than current step: 164. Dropping entry: {'metrics/human_eval/0-shot/InContextLearningCodeEvalAccuracy': 0.0, '_timestamp': 1707370410.1504738}).
+        assert state.dataloader_label is not None
+        name = state.dataloader_label
         # TODO: How else to chose this?
         for dest_logger in logger.destinations:
             if dest_logger.__class__.__name__ == 'WandBLogger':
-                dest_logger.log_table(columns, rows, name=state.dataloader_label)
-        state.metric_outputs = None
+                dest_logger.log_table(columns, rows, name=name)
+        state.metric_outputs = {}

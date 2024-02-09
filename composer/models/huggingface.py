@@ -531,7 +531,7 @@ class HuggingFaceModel(ComposerModel):
 
         return metrics if metrics else {}
 
-    def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> List[Any]:
+    def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> Dict[str, List[Any]]:
         if isinstance(metric, InContextLearningQAAccuracy):
             assert self.labels is not None
             metric_result = metric.update(batch=batch, outputs=outputs,
