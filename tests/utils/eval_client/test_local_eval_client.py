@@ -30,7 +30,7 @@ from tests.common.markers import world_size
 @world_size(1, 2)
 def test_local_invoke(code: str, result: str, language: str, world_size: int, tmp_path: str):
     """Test invocation function for LocalEvalClient.
-     
+
     Code can succeed, fail compilation, time out, or be incorrect in C, C++, Python, JS.
     """
     dist.barrier()  # Ensure all processes are ready to run the test as invoke doesn't use dist
