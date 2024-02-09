@@ -90,6 +90,14 @@ def test_get_object_size(ws_client, uc_object_store, result: str):
         raise NotImplementedError(f'Test for result={result} is not implemented.')
 
 
+def test_get_object_size_full_path(ws_client, uc_object_store):
+    ws_client.api_client.do.return_value = {}
+    assert uc_object_store.get_object_size('Volumes/catalog/schema/volume/train.txt') == 1000000
+    ws_client.api_client.do.assert_called_with(method='HEAD',
+                                               path=f'/api/2.0/fs/files/Volumes/catalog/schema/volume/train.txt',
+                                               headers={'Source': 'mosaicml/composer'})
+
+
 def test_get_uri(uc_object_store):
     assert uc_object_store.get_uri('train.txt') == 'dbfs:/Volumes/catalog/schema/volume/train.txt'
     assert uc_object_store.get_uri('Volumes/catalog/schema/volume/checkpoint/model.bin'
