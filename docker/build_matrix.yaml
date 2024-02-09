@@ -1,7 +1,7 @@
 - AWS_OFI_NCCL_VERSION: v1.7.4-aws
   BASE_IMAGE: nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04
   CUDA_VERSION: 12.1.0
-  IMAGE_NAME: torch-nightly-2-3-0-20240110-cu121-python3-10
+  IMAGE_NAME: torch-nightly-2-3-0-20240110-cu121-python3-10-aws
   MOFED_VERSION: ''
   NVIDIA_REQUIRE_CUDA_OVERRIDE: cuda>=12.1 brand=tesla,driver>=450,driver<451 brand=tesla,driver>=470,driver<471
     brand=unknown,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471
@@ -28,7 +28,7 @@
 - AWS_OFI_NCCL_VERSION: v1.7.4-aws
   BASE_IMAGE: nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04
   CUDA_VERSION: 12.1.0
-  IMAGE_NAME: torch-nightly-2-3-0-20240110-cu121-python3-11
+  IMAGE_NAME: torch-nightly-2-3-0-20240110-cu121-python3-11-aws
   MOFED_VERSION: ''
   NVIDIA_REQUIRE_CUDA_OVERRIDE: cuda>=12.1 brand=tesla,driver>=450,driver<451 brand=tesla,driver>=470,driver<471
     brand=unknown,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471
