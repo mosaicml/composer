@@ -606,10 +606,12 @@ def load_sharded_checkpoint(
                     no_dist=(not dist.is_initialized()),
                 )
             else:
-                dist_cp.load_state_dict(state_dict=state_dict,
-                                        storage_reader=storage_reader,
-                                        planner=load_planner,
-                                        no_dist=(not dist.is_initialized()))
+                dist_cp.load_state_dict(
+                    state_dict=state_dict,
+                    storage_reader=storage_reader,
+                    planner=load_planner,
+                    no_dist=(not dist.is_initialized()),
+                )
 
             log.info(f'Loaded state dict')
             state.load_state_dict(
