@@ -3,17 +3,8 @@
 
 """Natively supported datasets."""
 
-from composer.datasets.in_context_learning_evaluation import (InContextLearningCodeEvalDataset,
-                                                              InContextLearningDataset, InContextLearningLMTaskDataset,
-                                                              InContextLearningMultipleChoiceTaskDataset,
-                                                              InContextLearningQATaskDataset,
-                                                              InContextLearningSchemaTaskDataset)
+from composer.datasets.in_context_learning_evaluation import InContextLearningDataset
 
 __all__ = [
     'InContextLearningDataset',
-    'InContextLearningQATaskDataset',
-    'InContextLearningLMTaskDataset',
-    'InContextLearningCodeEvalDataset',
-    'InContextLearningMultipleChoiceTaskDataset',
-    'InContextLearningSchemaTaskDataset',
 ]
