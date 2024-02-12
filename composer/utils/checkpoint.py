@@ -214,7 +214,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
 
     def read_data(self, plan: LoadPlan, planner: LoadPlanner):
         # Download files if not using HSDP or if on first replica with HSDP enabled
-        first_replica = self.device_mesh is None or (self.device_mesh.ndim >= 2 and
+        first_replica = self.device_mesh is None or self.device_mesh.ndim == 1 or (self.device_mesh.ndim >= 2 and
                                                      self.device_mesh.get_local_rank(mesh_dim=0) == 0)
         log.debug(f'Rank {dist.get_global_rank()} is first replica: {first_replica} with {self.device_mesh=}, {self.device_mesh.ndim=}, {self.device_mesh.get_local_rank(mesh_dim=0)=}')
 
