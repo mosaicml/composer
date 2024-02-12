@@ -106,7 +106,7 @@ extra_deps['dev'] = [
     'ipython==8.11.0',
     'ipykernel==6.29.2',
     'jupyter==1.0.0',
-    'yamllint==1.33.0',
+    'yamllint==1.34.0',
     'recommonmark==0.7.1',
     'sphinx==4.4.0',
     'pre-commit>=3.4.0,<4',
