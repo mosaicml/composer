@@ -3,6 +3,7 @@
 
 import os
 from typing import Any, Dict, List, Tuple, Type
+from unittest.mock import MagicMock
 
 import pytest
 from torch.utils.data import DataLoader
@@ -125,6 +126,10 @@ _callback_kwargs: Dict[Type[Callback], Dict[str, Any],] = {
     NeptuneLogger: {
         'mode': 'debug',
     },
+    composer.profiler.Profiler: {
+        'trace_handlers': [MagicMock()],
+        'schedule': composer.profiler.cyclic_schedule(),
+    }
 }
 
 _callback_marks: Dict[Type[Callback], List[pytest.MarkDecorator],] = {
