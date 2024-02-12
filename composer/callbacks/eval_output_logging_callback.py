@@ -4,7 +4,6 @@
 """Log model outputs and expected outputs during ICL evaluation."""
 
 from copy import deepcopy
-from typing import Any, List, Optional
 
 import torch
 
@@ -20,10 +19,6 @@ class EvalOutputLogging(Callback):
     The callback will log the metric name, the depadded and detokenized input, any data stored in state.metric_outputs, and
     any keys from the batch pased into `batch_keys_to_log`. It will do so after every eval batch.
     """
-
-    def __init__(self, batch_keys_to_log: Optional[List[str]] = None, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self.batch_keys_to_log = batch_keys_to_log or []
 
     def eval_after_all(self, state: State) -> None:
         state.metric_outputs = {}
@@ -51,14 +46,6 @@ class EvalOutputLogging(Callback):
             logged_input.append(state.dataloader.dataset.tokenizer.decode(depadded_input))
         logging_dict['input'] = logged_input
 
-        # Log anything from the batch that's specified in the yaml
-        for key in self.batch_keys_to_log:
-            data_to_log = state.batch[key]
-            if isinstance(data_to_log, list):
-                logging_dict[key] = state.batch[key]
-            else:
-                logging_dict[key] = [data_to_log for _ in range(0, len(logging_dict['outputs']))]
-
         columns = list(logging_dict.keys())
         rows = [list(item) for item in zip(*logging_dict.values())]
         # TODO: This assumes _any_ tensor logged are tokens to be decoded.
@@ -75,6 +62,7 @@ class EvalOutputLogging(Callback):
         name = state.dataloader_label
         # TODO: How else to chose this?
         for dest_logger in logger.destinations:
-            if dest_logger.__class__.__name__ == 'WandBLogger':
+            if dest_logger.__class__.__name__ == 'WandBLogger' or dest_logger.__class__.__name__ == 'MLFlowLogger':
                 dest_logger.log_table(columns, rows, name=name, step=0)
+
         state.metric_outputs = {}

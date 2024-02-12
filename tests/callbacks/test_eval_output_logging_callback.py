@@ -33,6 +33,7 @@ class MockState(State):
 
     def __init__(self) -> None:
         self.eval_metrics = {}
+        self.metric_outputs = {}
         self.timestamp = Timestamp()
 
     def add_metric(self, metric_name, metric):
