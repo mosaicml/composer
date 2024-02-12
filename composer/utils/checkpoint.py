@@ -1031,6 +1031,9 @@ def _save_checkpoint(
         state_dict['state'] = state_dict.get('state', {})
 
     if state.fsdp_sharded_state_dict_enabled:
+        # Only rank 0 saves RNG
+        if dist.get_global_rank() > 0:
+            state_dict.pop('rng')
         # To load optimizer states with 2.0 <= torch < 2.2.9 , the optimizer state must be at the top
         # level of the state dict because the load_sharded_optimizer_state_dict function
         # requires a top level state dict key for the optimizer.
@@ -1038,8 +1041,8 @@ def _save_checkpoint(
         # for more info.
         if version.parse(torch.__version__) < version.parse('2.2.9') and not weights_only:
             state_dict['optimizers'] = state_dict['state'].pop('optimizers')
-    log.debug('State dict created.')
 
+    log.debug('State dict created.')
     dirname = os.path.dirname(save_filename)
     if dirname:
         os.makedirs(dirname, exist_ok=True)
