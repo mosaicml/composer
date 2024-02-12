@@ -45,6 +45,10 @@ on:
         required: false
       gcs-secret:
         required: false
+      azure-account-name:
+        required: false
+      azure-account-access-key:
+        required: false
 jobs:
   pytest-cpu:
     timeout-minutes: 30
