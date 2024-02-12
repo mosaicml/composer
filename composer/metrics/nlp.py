@@ -375,12 +375,7 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.metric_result_dict = {
-            'context_tok': [],
-            'continuation_tok_target': [],
-            'continuation_tok_pred': [],
-            'result': []
-        }
+        self.metric_result_dict = {'context': [], 'label': [], 'output': [], 'result': []}
 
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
         metric_result_dict = copy.deepcopy(self.metric_result_dict)
@@ -388,9 +383,9 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
             cont_tok_pred = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
             cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
             # TODO: okay to do context_tok here? or do we wanna do that in the logger?
-            metric_result_dict['context_tok'].append(batch['input_ids'][batch_idx][:cont_idx[0]])
-            metric_result_dict['continuation_tok_target'].append(cont_tok_targ)
-            metric_result_dict['continuation_tok_pred'].append(cont_tok_pred)
+            metric_result_dict['context'].append(batch['input_ids'][batch_idx][:cont_idx[0]])
+            metric_result_dict['label'].append(cont_tok_targ)
+            metric_result_dict['output'].append(cont_tok_pred)
 
             correct = (cont_tok_pred == cont_tok_targ).all().int()
             self.correct += correct
@@ -433,7 +428,7 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.0), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.0), dist_reduce_fx='sum')
-        self.metric_result_dict = {'question_tok': [], 'correct_choice': [], 'selected_choice': [], 'result': []}
+        self.metric_result_dict = {'context': [], 'correct_choice': [], 'selected_choice': [], 'result': []}
 
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
         perplexities = []
@@ -463,7 +458,7 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
                 0]:batch['continuation_indices'][start:end][gold_idx][-1] + 1]
             selected_choice = batch['input_ids'][start:end][idx_min][batch['continuation_indices'][start:end][idx_min][
                 0]:batch['continuation_indices'][start:end][idx_min][-1] + 1]
-            metric_result_dict['question_tok'].append(question)
+            metric_result_dict['context'].append(question)
             metric_result_dict['correct_choice'].append(correct_choice)
             metric_result_dict['selected_choice'].append(selected_choice)
 
