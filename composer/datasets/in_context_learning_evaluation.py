@@ -18,7 +18,6 @@ from composer.core.data_spec import _default_split_batch, _split_list
 from composer.datasets.utils import stop_sequences_criteria
 from composer.utils import MissingConditionalImportError, dist, get_file
 
-
 if TYPE_CHECKING:
     import transformers
     from datasets import Dataset as HFDataset  # pyright: ignore[reportGeneralTypeIssues]
