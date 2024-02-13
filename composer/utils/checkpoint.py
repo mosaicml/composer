@@ -228,13 +228,11 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         if first_replica:
             log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
 
-            # Download the files for this rank if they haven't been downloaded before
-            rank = dist.get_local_rank()
             for plan_item in plan.items:
                 relative_file_path = self.storage_data[plan_item.storage_index].relative_path
-                # Check if the file has already been downloaded by another rank
+                # Check if the file is scheduled to be downloaded by another rank on the same node
                 local_rank_0 = dist.get_global_rank() // dist.get_local_world_size() * dist.get_local_world_size() # TODO: cache at top of fn
-                is_downloaded = any(relative_file_path in all_file_paths[i] for i in range(dist.get_global_rank()))
+                is_downloaded = any(relative_file_path in all_file_paths[i] for i in range(local_rank_0, dist.get_global_rank()))
 
                 # Download the shard file to the relative path it's associated to and save that relative path
                 # to the root directory specified to the FileSystem reader constructor.
