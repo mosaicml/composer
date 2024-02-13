@@ -217,19 +217,19 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         first_replica = self.device_mesh is None or self.device_mesh.ndim == 1 or (
             self.device_mesh.ndim >= 2 and self.device_mesh.get_local_rank(mesh_dim=0) == 0)
 
+        # Collect the relative paths to download for this rank
+        relative_file_paths = set()
+        for plan_item in plan.items:
+            relative_file_paths.add(self.storage_data[plan_item.storage_index].relative_path)
+        
+        # Collect the full list of objects
+        all_file_paths = dist.all_gather_object(relative_file_paths)
+        log.debug(f"Downloading files {all_file_paths}")
+
         # 1. Download to the destination all files this rank needs if on first replica
         if first_replica:
             log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
 
-            # Collect the relative paths to download for this rank
-            relative_file_paths = set()
-            for plan_item in plan.items:
-                relative_file_paths.add(self.storage_data[plan_item.storage_index].relative_path)
-            
-            # Collect the full list of objects
-            all_file_paths = dist.all_gather_object(relative_file_paths)
-
-            log.debug(f"Downloading files {all_file_paths}")
             # Download the files, but only if this is the first rank that has this file
             rank = dist.get_local_rank()
 
