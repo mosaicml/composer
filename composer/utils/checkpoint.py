@@ -234,7 +234,8 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
             for plan_item in plan.items:
                 relative_file_path = self.storage_data[plan_item.storage_index].relative_path
                 # Check if the file is scheduled to be downloaded by a lower rank on the same node
-                # i.e. if rank 9 and rank 10 on the same node have the same the same required file, rank 10 should not download it.
+                # i.e. if rank 0 and rank 1 on the same node have the same the same required file,
+                # only rank 0 should download it and not rank 1.
                 is_downloaded = any(
                     relative_file_path in all_file_paths[i] for i in range(local_rank_0, dist.get_global_rank()))
 
