@@ -18,9 +18,9 @@ from composer.core.data_spec import _default_split_batch, _split_list
 from composer.datasets.utils import stop_sequences_criteria
 from composer.utils import MissingConditionalImportError, dist, get_file
 
-from datasets import Dataset as HFDataset  # pyright: ignore[reportGeneralTypeIssues]
 
 if TYPE_CHECKING:
+    from datasets import Dataset as HFDataset  # pyright: ignore[reportGeneralTypeIssues]
     import transformers
 
 # Allow models to have slightly more tokens than were used in the most verbose CoT in the dataset
@@ -1308,11 +1308,12 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             self.update_generation_kwargs(kwargs['generation_kwargs'])
 
     def repeat_dataset(self, dataset: HFDataset, repetitions: int) -> HFDataset:
-        df = dataset.to_pandas()
-        df['sample_id'] = df.index
-        repeat_df = df.loc[df.index.repeat(repetitions)]
-        repeat_df.reset_index(inplace=True, drop=True)
-        return HFDataset.from_pandas(repeat_df)
+        def repeated_dataset():
+            for i, sample in enumerate(dataset):
+                for _ in range(repetitions):
+                    yield {'sample_id':i, **sample}
+        from datasets import Dataset as HFDataset
+        return HFDataset.from_generator(repeated_dataset)
 
     def _set_max_prompt_and_answer_lengths(self):
         """
