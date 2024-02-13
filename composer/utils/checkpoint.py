@@ -229,7 +229,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
             log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
 
             # Get the lowest rank in the current node
-            local_rank_0 = dist.get_global_rank() // dist.get_local_world_size() * dist.get_local_world_size()
+            local_rank_0 = dist.get_global_rank() - dist.get_local_rank()
 
             for plan_item in plan.items:
                 relative_file_path = self.storage_data[plan_item.storage_index].relative_path
