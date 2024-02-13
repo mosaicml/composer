@@ -291,7 +291,7 @@ def _launch_processes(
                 MASTER_ADDR=master_addr,
                 MASTER_PORT=str(master_port),
                 PYTHONUNBUFFERED='1',
-                TORCH_NCCL_ASYNC_ERROR_HANDLING='1',
+                NCCL_ASYNC_ERROR_HANDLING='1',
         ):
             # Populate the distributed variables in all launcher args
             for arg in training_script_args:
