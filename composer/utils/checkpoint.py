@@ -222,22 +222,26 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         for plan_item in plan.items:
             relative_file_paths.add(self.storage_data[plan_item.storage_index].relative_path)
         all_file_paths = dist.all_gather_object(relative_file_paths)
-        log.debug(f"Files required for all ranks {all_file_paths}")
+        log.debug(f'Files required for all ranks: {all_file_paths}.')
 
         # 2. Download to the destination all files this rank needs if on first replica
         if first_replica:
             log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
 
+            # Get the lowest rank in the current node
+            local_rank_0 = dist.get_global_rank() // dist.get_local_world_size() * dist.get_local_world_size()
+
             for plan_item in plan.items:
                 relative_file_path = self.storage_data[plan_item.storage_index].relative_path
-                # Check if the file is scheduled to be downloaded by another rank on the same node
-                local_rank_0 = dist.get_global_rank() // dist.get_local_world_size() * dist.get_local_world_size() # TODO: cache at top of fn
-                is_downloaded = any(relative_file_path in all_file_paths[i] for i in range(local_rank_0, dist.get_global_rank()))
+                # Check if the file is scheduled to be downloaded by a lower rank on the same node
+                # i.e. if rank 9 and rank 10 on the same node have the same the same required file, rank 10 should not download it.
+                is_downloaded = any(
+                    relative_file_path in all_file_paths[i] for i in range(local_rank_0, dist.get_global_rank()))
 
                 # Download the shard file to the relative path it's associated to and save that relative path
                 # to the root directory specified to the FileSystem reader constructor.
                 file_destination = str(Path(self.destination_path) / Path(relative_file_path))
-                
+
                 # The file could have already been downloaded as different plan items can point to same file.
                 if not is_downloaded and not os.path.exists(file_destination):
                     log.debug(f'Downloading {relative_file_path} to {file_destination}.')
