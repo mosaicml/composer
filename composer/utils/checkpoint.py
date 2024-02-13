@@ -222,7 +222,6 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         for plan_item in plan.items:
             relative_file_paths.add(self.storage_data[plan_item.storage_index].relative_path)
         all_file_paths = dist.all_gather_object(relative_file_paths)
-        log.debug(f'Files required for all ranks: {all_file_paths}.')
 
         # 2. Download to the destination all files this rank needs if on first replica
         if first_replica:
