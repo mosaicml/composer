@@ -75,21 +75,11 @@ class LowPrecisionLayerNorm(Algorithm):
 
 class LPLayerNorm(torch.nn.LayerNorm):
 
-    def __init__(
-        self,
-        normalized_shape,
-        eps: float = 1e-05,
-        elementwise_affine: bool = True,
-        *,
-        bias: bool = True,
-        device=None,
-        dtype=None,
-    ):
+    def __init__(self, normalized_shape, eps=1e-05, elementwise_affine=True, device=None, dtype=None):
         super().__init__(
             normalized_shape=normalized_shape,
             eps=eps,
             elementwise_affine=elementwise_affine,
-            bias=bias,
             device=device,
             dtype=dtype,
         )
@@ -121,7 +111,7 @@ def _to_LPLayerNorm(layer: torch.nn.Module, module_index: int) -> LPLayerNorm:
     """Defines a replacement policy from a `torch.nn.LayerNorm` to a `LPLayerNorm`"""
     if not isinstance(layer, torch.nn.LayerNorm):
         raise TypeError(f'Expected torch.nn.LayerNorm, got {type(layer)}')
-    lp_layernorm = LPLayerNorm(layer.normalized_shape, layer.eps, layer.elementwise_affine)  # type: ignore
+    lp_layernorm = LPLayerNorm(layer.normalized_shape, layer.eps, layer.elementwise_affine)
 
     with torch.no_grad():
         if layer.weight is None:  # pyright: ignore[reportUnnecessaryComparison]
