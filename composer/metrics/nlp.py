@@ -581,6 +581,18 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
             return 1.0
         return 1.0 - float(np.prod(1.0 - k / np.arange(n - c + 1, n + 1)))
 
+    def _initialize_state(self, batch: dict[str, Any]):
+        dataset_size = batch['dataset_size']
+        device = batch['input_ids'].device
+        self.pass_at_k = batch['pass_at_k']
+        self.num_generations = batch['generations_per_sample']
+
+        # We need to defer the accumulator initialization because it depends on dataset size
+        self.add_state('correct', default=torch.zeros(dataset_size, device=device), dist_reduce_fx='sum')
+        self.add_state('total', default=torch.zeros(dataset_size, device=device), dist_reduce_fx='sum')
+        dist.barrier()
+        self._initialized = True
+
     def update(self, batch: Dict[str, Any], outputs: List[str], labels: List[str]):
         """Updates the pass@k accuracy of code generation.
 
@@ -606,16 +618,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
             functionalities. This is not used.
         """
         if not self._initialized:
-            # we need to defer the accumulator initialization because it depends on dataset size
-            dataset_size = batch['dataset_size']
-            device = batch['input_ids'].device
-            self.add_state('correct', default=torch.zeros(dataset_size, device=device), dist_reduce_fx='sum')
-            self.add_state('total', default=torch.zeros(dataset_size, device=device), dist_reduce_fx='sum')
-            dist.barrier()
-            self._initialized = True
-
-            self.pass_at_k = batch['pass_at_k']
-            self.num_generations = batch['generations_per_sample']
+            self._initialize_state(batch)
 
         del labels  # never used
         client = self.get_client()
