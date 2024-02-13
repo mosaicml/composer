@@ -75,7 +75,15 @@ class LowPrecisionLayerNorm(Algorithm):
 
 class LPLayerNorm(torch.nn.LayerNorm):
 
-    def __init__(self, normalized_shape, eps=1e-05, elementwise_affine=True, bias=True, device=None, dtype=None):
+    def __init__(
+        self,
+        normalized_shape,
+        eps: float = 1e-05,
+        elementwise_affine: bool = True,
+        bias: bool = True,
+        device=None,
+        dtype=None,
+    ):
         super().__init__(
             normalized_shape=normalized_shape,
             eps=eps,
