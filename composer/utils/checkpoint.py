@@ -545,8 +545,6 @@ def load_sharded_checkpoint(
 
     if state.fsdp_config is None:
         raise ValueError('Loading a sharded checkpoint requires passing an FSDP config to Trainer.')
-    load_planner = state.fsdp_config['load_planner']
-    _validate_load_planner(load_planner)
 
     # Check to make sure source_path is a directory.
     if object_store is None:
@@ -603,14 +601,14 @@ def load_sharded_checkpoint(
                 dist_cp.load(  # type: ignore
                     state_dict=state_dict,
                     storage_reader=storage_reader,
-                    planner=load_planner,
+                    planner=state.fsdp_config['load_planner'],
                     no_dist=(not dist.is_initialized()),
                 )
             else:
                 dist_cp.load_state_dict(
                     state_dict=state_dict,
                     storage_reader=storage_reader,
-                    planner=load_planner,
+                    planner=state.fsdp_config['load_planner'],
                     no_dist=(not dist.is_initialized()),
                 )
 
@@ -822,40 +820,6 @@ def glob_filter(exclude_globs: list[str]) -> Callable[[dict], None]:
     return filter_func
 
 
-def _validate_save_planner(save_planner: Optional[Any]) -> None:
-    """Checks that ``save_planner`` is an instance of a :class:`~torch.distributed.checkpoint.planner.SavePlanner`.
-
-    TODO(GRT-2456): Remove validation once we deprecate torch 1.13 and can use
-    type hints.
-
-    Raises:
-        ValueError: If ``save_planner`` is not a
-            :class:`~torch.distributed.checkpoint.planner.SavePlanner`.
-    """
-    from torch.distributed.checkpoint.planner import SavePlanner
-
-    if save_planner is not None and not isinstance(save_planner, SavePlanner):
-        raise ValueError((f'save_planner {type(save_planner)} is not a '
-                          'torch.distributed.checkpoint.planner.SavePlanner'))
-
-
-def _validate_load_planner(load_planner: Optional[Any]) -> None:
-    """Checks that ``load_planner`` is an instance of a :class:`~torch.distributed.checkpoint.planner.LoadPlanner`.
-
-    TODO(GRT-2456): Remove validation once we deprecate torch 1.13 and can use
-    type hints.
-
-    Raises:
-        ValueError: If ``load_planner`` is not a
-            :class:`~torch.distributed.checkpoint.planner.LoadPlanner`.
-    """
-    from torch.distributed.checkpoint.planner import LoadPlanner
-
-    if load_planner is not None and not isinstance(load_planner, LoadPlanner):
-        raise ValueError((f'load_planner {type(load_planner)} is not a '
-                          'torch.distributed.checkpoint.planner.LoadPlanner'))
-
-
 def safe_torch_load(
     composer_states_filepath: Union[Path, str],
     map_location: str = 'cpu',
@@ -1060,14 +1024,10 @@ def _save_checkpoint(
 
         _save_deepspeed_model(state.deepspeed_model, save_filename)
 
-    # Sharded checkpointing for torch >=2.0 uses the torch.distributed.checkpoint module.
+    # Sharded checkpointing
     elif state.fsdp_elastic_sharded_enabled:
         if state.fsdp_config is None:
             raise ValueError('Saving a sharded checkpoint requires passing an FSDP config to Trainer.')
-        save_planner = state.fsdp_config['save_planner']
-        _validate_save_planner(save_planner)
-
-        import torch.distributed.checkpoint as dist_cp
 
         log.debug(f'Saving sharded checkpoints to {save_filename}...')
         process_group = None
@@ -1086,14 +1046,14 @@ def _save_checkpoint(
                 dist_cp.save(  # type: ignore
                     state_dict=state_dict,
                     storage_writer=dist_cp.FileSystemWriter(dirname),
-                    planner=save_planner,
+                    planner=state.fsdp_config['save_planner'],
                     process_group=process_group,
                 )
             else:
                 dist_cp.save_state_dict(
                     state_dict=state_dict,
                     storage_writer=dist_cp.FileSystemWriter(dirname),
-                    planner=save_planner,
+                    planner=state.fsdp_config['save_planner'],
                     process_group=process_group,
                 )
         log.debug('Finished pytorch save state dict')
