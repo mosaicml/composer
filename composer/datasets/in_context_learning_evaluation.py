@@ -20,8 +20,8 @@ from composer.utils import MissingConditionalImportError, dist, get_file
 
 
 if TYPE_CHECKING:
-    from datasets import Dataset as HFDataset  # pyright: ignore[reportGeneralTypeIssues]
     import transformers
+    from datasets import Dataset as HFDataset  # pyright: ignore[reportGeneralTypeIssues]
 
 # Allow models to have slightly more tokens than were used in the most verbose CoT in the dataset
 _MAX_ANSWER_BUFFER_LENGTH = 10
