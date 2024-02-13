@@ -220,27 +220,45 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         # 1. Download to the destination all files this rank needs if on first replica
         if first_replica:
             log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
+
+            # Collect the relative paths to download for this rank
+            relative_file_paths = set()
             for plan_item in plan.items:
-                # Each plan item has a storage index which points to the relative path of the shard file at save time.
+                relative_file_paths.add(self.storage_data[plan_item.storage_index].relative_path)
+            
+            # Collect the full list of objects
+            all_file_paths = dist.all_gather_object(relative_file_paths)
+
+            log.debug(f"Downloading files {all_file_paths}")
+            # Download the files, but only if this is the first rank that has this file
+            rank = dist.get_local_rank()
+
+            for plan_item in plan.items:
                 relative_file_path = self.storage_data[plan_item.storage_index].relative_path
-                # Download the shard file to the relative path it's associated to and save that relative path
-                # to the root directory specified to the FileSystem reader constructor.
-                file_destination = str(Path(self.destination_path) / Path(relative_file_path))
-                # The file could have already been downloaded as different plan items can point to same file.
-                if not os.path.exists(file_destination):
-                    log.debug(f'Downloading {relative_file_path} to {file_destination}.')
-                    object_name = str(Path(self.source_path) / Path(relative_file_path))
-                    if isinstance(self.object_store, ObjectStore):
-                        self.object_store.download_object(
-                            object_name=object_name,
-                            filename=file_destination,
-                        )
-                    else:
-                        self.object_store.download_file(
-                            remote_file_name=object_name,
-                            destination=file_destination,
-                        )
-                    log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
+                is_downloaded = False
+                for i in range(rank):
+                    if relative_file_path in all_file_paths[i]:
+                        is_downloaded = True
+                        break
+                if not is_downloaded:
+                    # Download the shard file to the relative path it's associated to and save that relative path
+                    # to the root directory specified to the FileSystem reader constructor.
+                    file_destination = str(Path(self.destination_path) / Path(relative_file_path))
+                    # The file could have already been downloaded as different plan items can point to same file.
+                    if not os.path.exists(file_destination):
+                        log.debug(f'Downloading {relative_file_path} to {file_destination}.')
+                        object_name = str(Path(self.source_path) / Path(relative_file_path))
+                        if isinstance(self.object_store, ObjectStore):
+                            self.object_store.download_object(
+                                object_name=object_name,
+                                filename=file_destination,
+                            )
+                        else:
+                            self.object_store.download_file(
+                                remote_file_name=object_name,
+                                destination=file_destination,
+                            )
+                        log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
 
         # 2. Wait for all ranks to finish.
         log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
