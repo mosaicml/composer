@@ -138,7 +138,7 @@ def test_timestamp_update():
 
 def test_timestamp_to_next_batch_epoch():
     timestamp = Timestamp()
-    # Step batch 0, epoch 0
+    # Step batch 0 in epoch 0
     timestamp = timestamp.to_next_batch(10, 20, datetime.timedelta(seconds=5))
     assert timestamp.batch == 1
     assert timestamp.batch_in_epoch == 1
@@ -152,7 +152,7 @@ def test_timestamp_to_next_batch_epoch():
     assert timestamp.batch_wct == datetime.timedelta(seconds=5)
 
     # Finish epoch 0
-    timestamp = timestamp.to_next_epoch()
+    timestamp = timestamp.to_next_epoch(datetime.timedelta(seconds=5))
     assert timestamp.epoch == 1
     assert timestamp.batch == 1
     assert timestamp.batch_in_epoch == 0
@@ -160,11 +160,11 @@ def test_timestamp_to_next_batch_epoch():
     assert timestamp.sample_in_epoch == 0
     assert timestamp.token == 20
     assert timestamp.token_in_epoch == 0
-    assert timestamp.total_wct == datetime.timedelta(seconds=5)
+    assert timestamp.total_wct == datetime.timedelta(seconds=10)
     assert timestamp.epoch_wct == datetime.timedelta(seconds=0)
     assert timestamp.batch_wct == datetime.timedelta(seconds=0)
 
-    # Step a batch 0 in epoch 1
+    # Step batch 0 in epoch 1
     timestamp = timestamp.to_next_batch(5, 0, datetime.timedelta(seconds=10))
     assert timestamp.epoch == 1
     assert timestamp.batch == 2
@@ -173,11 +173,11 @@ def test_timestamp_to_next_batch_epoch():
     assert timestamp.sample_in_epoch == 5
     assert timestamp.token == 20
     assert timestamp.token_in_epoch == 0
-    assert timestamp.total_wct == datetime.timedelta(seconds=15)
+    assert timestamp.total_wct == datetime.timedelta(seconds=20)
     assert timestamp.epoch_wct == datetime.timedelta(seconds=10)
     assert timestamp.batch_wct == datetime.timedelta(seconds=10)
 
-    # Step batch 1 in epoch 0
+    # Step batch 1 in epoch 1
     timestamp = timestamp.to_next_batch(5, 1, datetime.timedelta(seconds=10))
     assert timestamp.epoch == 1
     assert timestamp.batch == 3
@@ -186,9 +186,22 @@ def test_timestamp_to_next_batch_epoch():
     assert timestamp.sample_in_epoch == 10
     assert timestamp.token == 21
     assert timestamp.token_in_epoch == 1
-    assert timestamp.total_wct == datetime.timedelta(seconds=25)
+    assert timestamp.total_wct == datetime.timedelta(seconds=30)
     assert timestamp.epoch_wct == datetime.timedelta(seconds=20)
     assert timestamp.batch_wct == datetime.timedelta(seconds=10)
+
+    # Finish epoch 1
+    timestamp = timestamp.to_next_epoch()
+    assert timestamp.epoch == 2
+    assert timestamp.batch == 3
+    assert timestamp.batch_in_epoch == 0
+    assert timestamp.sample == 20
+    assert timestamp.sample_in_epoch == 0
+    assert timestamp.token == 21
+    assert timestamp.token_in_epoch == 0
+    assert timestamp.total_wct == datetime.timedelta(seconds=30)
+    assert timestamp.epoch_wct == datetime.timedelta(seconds=0)
+    assert timestamp.batch_wct == datetime.timedelta(seconds=0)
 
 
 def test_timestamp_repr():

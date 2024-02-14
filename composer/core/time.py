@@ -709,7 +709,10 @@ class Timestamp(Serializable):
             batch_wct=duration,
         )
 
-    def to_next_epoch(self):
+    def to_next_epoch(
+        self,
+        duration: Optional[datetime.timedelta] = None,
+    ):
         """Create a new :class:`.Timestamp`, advanced to the next epoch.
 
         Equivalent to:
@@ -720,25 +723,30 @@ class Timestamp(Serializable):
             import datetime
 
             timestamp = Timestamp()
+            duration = datetime.timedelta(seconds=0)
 
         .. doctest::
 
             >>> timestamp.copy(
-            ...     epoch=timestamp.epoch+1,
+            ...     epoch=timestamp.epoch + 1,
             ...     batch_in_epoch=0,
             ...     sample_in_epoch=0,
             ...     token_in_epoch=0,
+            ...     total_wct=timestamp.total_wct + duration,
             ...     epoch_wct=datetime.timedelta(seconds=0),
             ...     batch_wct=datetime.timedelta(seconds=0),
             ... )
             Timestamp(...)
 
         """
+        if duration is None:
+            duration = datetime.timedelta(seconds=0)
         return self.copy(
             epoch=self.epoch + 1,
             batch_in_epoch=0,
             sample_in_epoch=0,
             token_in_epoch=0,
+            total_wct=self.total_wct + duration,
             epoch_wct=datetime.timedelta(seconds=0),
             batch_wct=datetime.timedelta(seconds=0),
         )
