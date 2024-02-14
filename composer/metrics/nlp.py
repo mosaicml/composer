@@ -661,7 +661,8 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         n = self.num_generations
 
         for k in self.pass_at_k:
-            results[f'pass@{k}'] = sum([self.estimator(n, c.item(), k) for c in self.correct]) / self.dataset_size
+            pass_at_k = sum([self.estimator(n, c.item(), k) for c in self.correct]) / self.dataset_size
+            results[f'pass@{k}'] = torch.FloatTensor(pass_at_k)
 
         if len(results) == 1: # backwards compatibility
             return list(results.values())[0]
