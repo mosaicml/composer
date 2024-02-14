@@ -582,13 +582,14 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         return 1.0 - float(np.prod(1.0 - k / np.arange(n - c + 1, n + 1)))
 
     def _initialize_state(self, batch: dict[str, Any]):
+        device = batch['input_ids'].device
         self.dataset_size = batch['dataset_size']
         self.pass_at_k = batch['pass_at_k']
         self.num_generations = batch['generations_per_sample']
 
         # We need to defer the accumulator initialization because it depends on dataset size
-        self.add_state('correct', default=torch.zeros(self.dataset_size), dist_reduce_fx='sum')
-        self.add_state('total', default=torch.zeros(self.dataset_size), dist_reduce_fx='sum')
+        self.add_state('correct', default=torch.zeros(self.dataset_size, device=device), dist_reduce_fx='sum')
+        self.add_state('total', default=torch.zeros(self.dataset_size, device=device), dist_reduce_fx='sum')
         dist.barrier()
         self._initialized = True
 
