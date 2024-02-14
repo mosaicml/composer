@@ -150,6 +150,7 @@ class TestEventCalls:
 
         expected_num_calls = {
             Event.INIT: 1,
+            Event.BEFORE_LOAD: 1,
             Event.AFTER_LOAD: 1,
             Event.EPOCH_START: num_epochs,
             Event.BATCH_START: total_steps,
