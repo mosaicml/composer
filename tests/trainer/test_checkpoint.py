@@ -1135,7 +1135,7 @@ class TestCheckpointResumption:
             pytest.param(True, True, 'cpu', 'cpu'),  # fail
             pytest.param(False, False, 'cpu', 'cpu'),  # fail
             pytest.param(False, True, 'meta', 'cpu'),  # fail
-            pytest.param(True, True, 'cpu', 'cpu'), # fail
+            pytest.param(True, True, 'cpu', 'cpu'),  # fail
         ])
     @pytest.mark.filterwarnings('ignore:An unexpected prefix is detected. This case.*')
     @pytest.mark.filterwarnings(
