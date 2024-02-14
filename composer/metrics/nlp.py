@@ -642,7 +642,6 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
                     'language': language,
                 }
 
-                # TODO: refactor client.invoke API
                 result = client.invoke([[[payload]]])[0][0][0]
                 test_results.append(result)
 
