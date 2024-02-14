@@ -82,18 +82,15 @@ reportUnusedCoroutine = "error"
 # Pytest
 [tool.pytest.ini_options]
 # By default, do not run gpu, vision, docs, notebook, or daily tests
-addopts = "--codeblocks --strict-markers -m 'not gpu and not vision and not doctest and not daily and not remote'"
+addopts = "--codeblocks --strict-markers -m 'not gpu and not doctest and not daily and not remote'"
 
 markers = [
-    # !!!!!!!!!!!IMPORTANT!!!!!!!!!: when updating the markers, also make sure to update meta.yaml
     # Tests that require a world_size of two should be annotated with `@pytest.mark.world_size(2)`.
     # If not specified, the test will be assumed to have a world-size of one, which is
     # equivalent to `@pytest.mark.world_size(1)`
     "world_size(val)",
     # Tests that require a gpu should be annotated with `@pytest.mark.gpu`
     "gpu",
-    # Whether the test should run in a container based on the vision dockerimage, which contains ffcv and opencv
-    "vision",
     # Tests which are run as part of the documentation build
     "doctest",
     # Should be run during daily regression
@@ -151,6 +148,12 @@ filterwarnings = [
     '''ignore:torch.distributed.reduce_op is deprecated, please use torch.distributed.ReduceOp instead:UserWarning''',
     # Ignore torch sharded tensor deprecated warnings
     '''ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning''',
+    # Ignore torch pytree deprecated warnings
+    '''ignore:torch.utils._pytree._register_pytree_node is deprecated.*:UserWarning''',
+    # Ignore autograd kernel warning inside DeepSpeed
+    '''ignore:.*an autograd kernel was not registered to the Autograd key.*:UserWarning''',
+    # Ignore save_state_dict / load_state_dict deprecation warnings
+    '''ignore:'.*_state_dict' is deprecated and will be removed in future versions.*:UserWarning'''
 ]
 
 # Coverage

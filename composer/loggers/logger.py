@@ -60,9 +60,15 @@ class Logger:
         for destination in self.destinations:
             destination.log_hyperparameters(parameters)
 
-    def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
+    def log_table(self,
+                  columns: List[str],
+                  rows: List[List[Any]],
+                  name: str = 'Table',
+                  step: Optional[int] = None) -> None:
+        if step is None:
+            step = self._state.timestamp.batch.value
         for destination in self.destinations:
-            destination.log_table(columns, rows, name)
+            destination.log_table(columns, rows, name, step)
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
         if step is None:
@@ -102,7 +108,15 @@ class Logger:
         if step is None:
             step = self._state.timestamp.batch.value
         for destination in self.destinations:
-            destination.log_images(images, name, channels_last, step, masks, mask_class_labels, use_table)
+            destination.log_images(
+                images,
+                name,
+                channels_last,
+                step,
+                masks,
+                mask_class_labels,
+                use_table,
+            )
 
     def upload_file(
         self,

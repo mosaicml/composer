@@ -152,7 +152,7 @@ class _GhostBatchNorm(torch.nn.Module):
         super().__init__()
         self.ghost_batch_size = ghost_batch_size
         self.batchnorm = base_batchnorm
-        self.batchnorm._already_ghost_batchnormed = True  # Mark to avoid rewrapping on duplicate calls
+        self.batchnorm._already_ghost_batchnormed = True  # Mark to avoid rewrapping on duplicate calls # pyright: ignore[reportGeneralTypeIssues]
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:  # type: ignore
         batch_size = input.shape[0]
@@ -161,7 +161,7 @@ class _GhostBatchNorm(torch.nn.Module):
             raise ValueError(f'Worker batch size {batch_size} < ghost_batch_size {self.ghost_batch_size}')
 
         nchunks: int = int(math.ceil(batch_size / self.ghost_batch_size))
-        has_momentum = self.batchnorm.momentum is not None
+        has_momentum: bool = hasattr(self.batchnorm, 'momentum')
         original_momentum: float = self.batchnorm.momentum
 
         if self.training and has_momentum:

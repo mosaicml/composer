@@ -18,17 +18,17 @@ import packaging.version
 import tabulate
 import yaml
 
-LATEST_PYTHON_VERSION = '3.10'
-PRODUCTION_PYTORCH_VERSION = '2.1.1'
+PRODUCTION_PYTHON_VERSION = '3.10'
+PRODUCTION_PYTORCH_VERSION = '2.1.2'
 
 
 def _get_torchvision_version(pytorch_version: str):
-    if pytorch_version == '2.1.1':
-        return '0.16.1'
+    if pytorch_version == '2.2.0':
+        return '0.17.0'
+    if pytorch_version == '2.1.2':
+        return '0.16.2'
     if pytorch_version == '2.0.1':
         return '0.15.2'
-    if pytorch_version == '1.13.1':
-        return '0.14.1'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
@@ -39,14 +39,15 @@ def _get_base_image(cuda_version: str):
 
 
 def _get_cuda_version(pytorch_version: str, use_cuda: bool):
+    # From https://docs.nvidia.com/deeplearning/frameworks/pytorch-release-notes/
     if not use_cuda:
         return ''
-    if pytorch_version == '2.1.1':
+    if pytorch_version == '2.2.0':
+        return '12.1.0'
+    if pytorch_version == '2.1.2':
         return '12.1.0'
     if pytorch_version == '2.0.1':
         return '11.8.0'
-    if pytorch_version == '1.13.1':
-        return '11.7.1'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
@@ -81,8 +82,7 @@ def _get_cuda_override(cuda_version: str):
                                     'brand=titan,driver>=525,driver<526 brand=titanrtx,driver>=525,driver<526')
 
         return cuda_121_override_string
-
-    if cuda_version == '11.8.0':
+    elif cuda_version == '11.8.0':
         cuda_118_override_string = ('cuda>=11.8 brand=tesla,driver>=470,driver<471 '
                                     'brand=tesla,driver>=515,driver<516 brand=unknown,driver>=470,driver<471 '
                                     'brand=unknown,driver>=515,driver<516 brand=nvidia,driver>=470,driver<471 '
@@ -92,9 +92,7 @@ def _get_cuda_override(cuda_version: str):
                                     'brand=quadro,driver>=515,driver<516 brand=titan,driver>=470,driver<471 '
                                     'brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=470,driver<471 '
                                     'brand=titanrtx,driver>=515,driver<516')
-
         return cuda_118_override_string
-
     return ''
 
 
@@ -106,7 +104,7 @@ def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: s
     cuda_version_tag = _get_cuda_version_tag(cuda_version)
     tags = [f'{base_image_name}:{pytorch_version}_{cuda_version_tag}-python{python_version}-ubuntu20.04']
 
-    if python_version == LATEST_PYTHON_VERSION and pytorch_version == PRODUCTION_PYTORCH_VERSION:
+    if python_version == PRODUCTION_PYTHON_VERSION and pytorch_version == PRODUCTION_PYTORCH_VERSION:
         if not cuda_version:
             tags.append(f'{base_image_name}:latest_cpu')
         else:
@@ -165,16 +163,15 @@ def _write_table(table_tag: str, table_contents: str):
 
 
 def _main():
-    python_versions = ['3.10']
-    pytorch_versions = ['2.1.1', '2.0.1', '1.13.1']
+    python_pytorch_versions = [('3.11', '2.2.0'), ('3.10', '2.1.2'), ('3.10', '2.0.1')]
     cuda_options = [True, False]
     stages = ['pytorch_stage']
     interconnects = ['mellanox', 'EFA']  # mellanox is default, EFA needed for AWS
 
     pytorch_entries = []
 
-    for product in itertools.product(python_versions, pytorch_versions, cuda_options, stages, interconnects):
-        python_version, pytorch_version, use_cuda, stage, interconnect = product
+    for product in itertools.product(python_pytorch_versions, cuda_options, stages, interconnects):
+        (python_version, pytorch_version), use_cuda, stage, interconnect = product
 
         cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
 
@@ -209,9 +206,8 @@ def _main():
                 _get_cuda_override(cuda_version),
         }
 
-        # Only build EFA image on latest python with cuda on pytorch_stage
-        if interconnect == 'EFA' and not (python_version == LATEST_PYTHON_VERSION and use_cuda and
-                                          stage == 'pytorch_stage'):
+        # Only build EFA image on cuda and pytorch_stage
+        if interconnect == 'EFA' and not (use_cuda and stage == 'pytorch_stage'):
             continue
 
         # Skip the mellanox drivers if not in the cuda images or using EFA
@@ -227,27 +223,63 @@ def _main():
             entry['AWS_OFI_NCCL_VERSION'] = 'v1.7.4-aws'
 
         pytorch_entries.append(entry)
-    nightly_entry = {
-        'AWS_OFI_NCCL_VERSION': '',
+
+    nightly_entry_310_aws = {
+        'AWS_OFI_NCCL_VERSION': 'v1.7.4-aws',
         'BASE_IMAGE': 'nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04',
         'CUDA_VERSION': '12.1.0',
-        'IMAGE_NAME': 'torch-nightly-2-2-0-20231213-cu121',
-        'MOFED_VERSION': '5.5-1.0.3.2',
+        'IMAGE_NAME': 'torch-nightly-2-3-0-20240110-cu121-python3-10-aws',
+        'MOFED_VERSION': '',
         'NVIDIA_REQUIRE_CUDA_OVERRIDE': _get_cuda_override('12.1.0'),
         'PYTHON_VERSION': '3.10',
-        'PYTORCH_VERSION': '2.2.0',
+        'PYTORCH_VERSION': '2.3.0',
         'PYTORCH_NIGHTLY_URL': 'https://download.pytorch.org/whl/nightly/cu121',
-        'PYTORCH_NIGHTLY_VERSION': 'dev20231213+cu121',
-        'TAGS': ['mosaicml/pytorch:2.2.0_cu121-nightly20231213-python3.10-ubuntu20.04'],
+        'PYTORCH_NIGHTLY_VERSION': 'dev20240110+cu121',
+        'TAGS': ['mosaicml/pytorch:2.3.0_cu121-nightly20240110-python3.10-ubuntu20.04-aws'],
         'TARGET': 'pytorch_stage',
         'TORCHVISION_VERSION': '0.18.0'
     }
-    pytorch_entries.append(nightly_entry)
+    pytorch_entries.append(nightly_entry_310_aws)
+
+    nightly_entry_310 = {
+        'AWS_OFI_NCCL_VERSION': '',
+        'BASE_IMAGE': 'nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04',
+        'CUDA_VERSION': '12.1.0',
+        'IMAGE_NAME': 'torch-nightly-2-3-0-20240110-cu121-python3-10',
+        'MOFED_VERSION': '5.5-1.0.3.2',
+        'NVIDIA_REQUIRE_CUDA_OVERRIDE': _get_cuda_override('12.1.0'),
+        'PYTHON_VERSION': '3.10',
+        'PYTORCH_VERSION': '2.3.0',
+        'PYTORCH_NIGHTLY_URL': 'https://download.pytorch.org/whl/nightly/cu121',
+        'PYTORCH_NIGHTLY_VERSION': 'dev20240110+cu121',
+        'TAGS': ['mosaicml/pytorch:2.3.0_cu121-nightly20240110-python3.10-ubuntu20.04'],
+        'TARGET': 'pytorch_stage',
+        'TORCHVISION_VERSION': '0.18.0'
+    }
+    pytorch_entries.append(nightly_entry_310)
+
+    nightly_entry_311 = {
+        'AWS_OFI_NCCL_VERSION': '',
+        'BASE_IMAGE': 'nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04',
+        'CUDA_VERSION': '12.1.0',
+        'IMAGE_NAME': 'torch-nightly-2-3-0-20240110-cu121-python3-11',
+        'MOFED_VERSION': '5.5-1.0.3.2',
+        'NVIDIA_REQUIRE_CUDA_OVERRIDE': _get_cuda_override('12.1.0'),
+        'PYTHON_VERSION': '3.11',
+        'PYTORCH_VERSION': '2.3.0',
+        'PYTORCH_NIGHTLY_URL': 'https://download.pytorch.org/whl/nightly/cu121',
+        'PYTORCH_NIGHTLY_VERSION': 'dev20240110+cu121',
+        'TAGS': ['mosaicml/pytorch:2.3.0_cu121-nightly20240110-python3.11-ubuntu20.04'],
+        'TARGET': 'pytorch_stage',
+        'TORCHVISION_VERSION': '0.18.0'
+    }
+    pytorch_entries.append(nightly_entry_311)
+
     composer_entries = []
 
     # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
-    composer_versions = ['0.17.2']  # Only build images for the latest composer version
-    composer_python_versions = [LATEST_PYTHON_VERSION]  # just build composer against the latest
+    composer_versions = ['0.19.1']  # Only build images for the latest composer version
+    composer_python_versions = [PRODUCTION_PYTHON_VERSION]  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):
         python_version, composer_version, use_cuda = product

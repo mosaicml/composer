@@ -36,6 +36,7 @@ __all__ = ['MosaicMLLogger', 'MOSAICML_PLATFORM_ENV_VAR', 'MOSAICML_ACCESS_TOKEN
 RUN_NAME_ENV_VAR = 'RUN_NAME'
 MOSAICML_PLATFORM_ENV_VAR = 'MOSAICML_PLATFORM'
 MOSAICML_ACCESS_TOKEN_ENV_VAR = 'MOSAICML_ACCESS_TOKEN_FILE'
+MOSAICML_LOG_DIR_ENV_VAR = 'MOSAICML_LOG_DIR'
 
 
 class MosaicMLLogger(LoggerDestination):
@@ -113,7 +114,6 @@ class MosaicMLLogger(LoggerDestination):
 
     def batch_end(self, state: State, logger: Logger) -> None:
         training_progress_data = self._get_training_progress_metrics(state)
-        log.debug(f'\nLogging training progress data to metadata:\n{dict_to_str(training_progress_data)}')
         self._log_metadata(training_progress_data)
         self._flush_metadata()
 
@@ -153,6 +153,7 @@ class MosaicMLLogger(LoggerDestination):
         if self._enabled and len(self.buffered_metadata) > 0 and (
                 time.time() - self.time_last_logged > self.log_interval or force_flush):
             try:
+                assert self.run_name is not None
                 if future:
                     f = mcli.update_run_metadata(self.run_name, self.buffered_metadata, future=True, protect=True)
                     self._futures.append(f)
@@ -161,7 +162,6 @@ class MosaicMLLogger(LoggerDestination):
                 self.buffered_metadata = {}
                 self.time_last_logged = time.time()
                 done, incomplete = wait(self._futures, timeout=0.01)
-                log.info(f'Logged {len(done)} metadata to MosaicML, waiting on {len(incomplete)}')
                 # Raise any exceptions
                 for f in done:
                     if f.exception() is not None:
@@ -238,7 +238,8 @@ def format_data_to_json_serializable(data: Any):
         elif isinstance(data, torch.Tensor):
             if data.shape == () or reduce(operator.mul, data.shape, 1) == 1:
                 ret = format_data_to_json_serializable(data.cpu().item())
-            ret = 'Tensor of shape ' + str(data.shape)
+            else:
+                ret = 'Tensor of shape ' + str(data.shape)
         elif isinstance(data, collections.abc.Mapping):
             ret = {format_data_to_json_serializable(k): format_data_to_json_serializable(v) for k, v in data.items()}
         elif isinstance(data, collections.abc.Iterable):

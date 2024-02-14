@@ -234,6 +234,7 @@ def apply_stochastic_residual(gm: GraphModule, drop_rate: float = 0.2) -> Tuple[
             f'Input to apply_stochastic_residual should be an instance of GraphModule. Received {type(gm)}')
     all_tags, count = _tag_residual_nodes(gm)
     split_gm = split_by_tags(gm, all_tags)
+    assert isinstance(split_gm, GraphModule)
     for node in split_gm.graph.nodes:
         if node.op != 'call_module':
             continue

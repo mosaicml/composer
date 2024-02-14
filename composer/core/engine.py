@@ -351,11 +351,13 @@ class Engine():
     def _assert_dataloader_and_duration_set(state: State, event: Event):
         # correctness checks that dataloader and max duration need to be set for certain events
 
-        # dataloader should be set on all events expect INIT/AFTER_LOAD/EVAL_STANDALONE_START/EVAL_STANDALONE_END
-        if event not in {Event.INIT, Event.AFTER_LOAD, Event.EVAL_STANDALONE_START, Event.EVAL_STANDALONE_END}:
+        # dataloader should be set on all events except INIT/BEFORE_LOAD/AFTER_LOAD/EVAL_STANDALONE_START/EVAL_STANDALONE_END
+        if event not in {
+                Event.INIT, Event.BEFORE_LOAD, Event.AFTER_LOAD, Event.EVAL_STANDALONE_START, Event.EVAL_STANDALONE_END
+        }:
             assert state.dataloader is not None, f'The trainer should have set state.dataloader for event {event}.'
 
-        if event != Event.INIT and event != Event.AFTER_LOAD and not event.is_predict and not event.is_eval:
+        if event != Event.INIT and event != Event.BEFORE_LOAD and event != Event.AFTER_LOAD and not event.is_predict and not event.is_eval:
             assert state.max_duration is not None, f'The trainer should have set state.max_duration for event {event}.'
 
     def _run_algorithms(
@@ -388,10 +390,9 @@ class Engine():
                                      order=order,
                                      run=True)
 
-        if self.logger is not None:
-            if len(trace) > 0:
-                self.logger.log_traces(
-                    {f'algorithm_traces/{tr.name}/{tr.event}': 1 if tr.run else 0 for _, tr in trace.items()})
+        if len(trace) > 0:
+            self.logger.log_traces(
+                {f'algorithm_traces/{tr.name}/{tr.event}': 1 if tr.run else 0 for _, tr in trace.items()})
 
         return trace
 

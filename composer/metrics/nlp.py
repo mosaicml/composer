@@ -8,7 +8,7 @@ import os
 import re
 import string
 import warnings
-from typing import Any, Dict, List, Mapping, Optional, Union
+from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -196,8 +196,19 @@ class LanguagePerplexity(LanguageCrossEntropy):
 
 class InContextLearningMetric(Metric):
 
-    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.needs_batch = True
+
+    def update(self,
+               batch: dict,
+               output_logits: Optional[torch.Tensor] = None,
+               labels: Optional[torch.Tensor] = None,
+               outputs: Optional[torch.Tensor] = None):
         """Abstract interface for computing an in-context learning metrics.
+
+        The `output_logits` argument is deprecated and will be removed in v0.21 while it's functionality will
+        be moved to `outputs`.
 
         Args:
             batch (dict): Batch must consist minimally of `input_ids` as well as any other structure needed
@@ -209,6 +220,27 @@ class InContextLearningMetric(Metric):
             NotImplementedError: Abstract method must be implemented by subclasses
         """
         raise NotImplementedError
+
+    @staticmethod
+    def rename_args(batch: dict,
+                    output_logits: Optional[torch.Tensor] = None,
+                    labels: Optional[torch.Tensor] = None,
+                    outputs: Optional[torch.Tensor] = None) -> Tuple[dict, torch.Tensor, torch.Tensor]:
+        if outputs is not None and output_logits is not None:
+            raise ValueError('Cannot use both `outputs` and `output_logits`')
+        if output_logits is not None:
+            warnings.warn(
+                ('`output_logits` has been renamed to `outputs` and will be removed in v0.21'),
+                DeprecationWarning,
+            )
+            outputs = output_logits
+
+        if labels is None:
+            raise ValueError('`labels` cannot be None')
+        if outputs is None:
+            raise ValueError('`outputs` cannot be None')
+
+        return batch, outputs, labels
 
 
 class InContextLearningQAAccuracy(InContextLearningMetric):
@@ -266,17 +298,25 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
 
         return white_space_fix(remove_articles(handle_punc(lower(replace_underscore(answer))))).strip()
 
-    def update(self, outputs: List[str], labels: List[List[str]], batch: Optional[Dict[str, Any]] = None):
-        if batch is None:
-            batch = {}
+    def update(self, outputs: List[str], labels: List[List[str]], batch: Dict[str, Any]):
         cot_delimiter = batch.get('cot_delimiter', '')
+        do_normalization = batch.get('do_normalization', True)
+        stopping_criteria = batch.get('stopping_criteria', None)
         for sample_output, sample_labels in zip(outputs, labels):
             final_answer = sample_output
+
+            if stopping_criteria is not None and len(stopping_criteria) > 0:
+                final_answer = re.split('|'.join(stopping_criteria), final_answer)[0]
+
             if cot_delimiter is not None and len(cot_delimiter) > 0:
                 final_answer = final_answer.split(cot_delimiter)[-1]
 
-            cleaned_final_answer = self.normalize_answer(final_answer)
-            cleaned_sample_labels = {self.normalize_answer(label) for label in sample_labels}
+            if do_normalization:
+                cleaned_final_answer = self.normalize_answer(final_answer)
+                cleaned_sample_labels = {self.normalize_answer(label) for label in sample_labels}
+            else:
+                cleaned_final_answer = final_answer
+                cleaned_sample_labels = set(sample_labels)
 
             if any(cleaned_final_answer.startswith(label) for label in cleaned_sample_labels):
                 self.correct += torch.tensor(1.0)
@@ -318,9 +358,18 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
-    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
+    def update(self,
+               batch: dict,
+               output_logits: Optional[torch.Tensor] = None,
+               labels: Optional[torch.Tensor] = None,
+               outputs: Optional[torch.Tensor] = None):
+        batch, outputs, labels = InContextLearningMetric.rename_args(batch=batch,
+                                                                     output_logits=output_logits,
+                                                                     labels=labels,
+                                                                     outputs=outputs)
+
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
-            cont_tok_pred = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
+            cont_tok_pred = outputs[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
             cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
 
             self.correct += (cont_tok_pred == cont_tok_targ).all().int()
@@ -360,11 +409,20 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
         self.add_state('correct', default=torch.tensor(0.0), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.0), dist_reduce_fx='sum')
 
-    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
+    def update(self,
+               batch: dict,
+               output_logits: Optional[torch.Tensor] = None,
+               labels: Optional[torch.Tensor] = None,
+               outputs: Optional[torch.Tensor] = None):
+        batch, outputs, labels = InContextLearningMetric.rename_args(batch=batch,
+                                                                     output_logits=output_logits,
+                                                                     labels=labels,
+                                                                     outputs=outputs)
+
         perplexities = []
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
             # continuation indices refer to indices in the original input's token space
-            cont_tok_logits = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1)
+            cont_tok_logits = outputs[batch_idx].index_select(dim=0, index=cont_idx - 1)
             # labels have been shifted left by one index, so the cont_idx needs to be shifted as well.
             cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
             cross_entropy = F.cross_entropy(cont_tok_logits, cont_tok_targ)
@@ -445,11 +503,20 @@ class InContextLearningMCExpectedCalibrationError(InContextLearningExpectedCalib
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def update(self, batch: Dict[str, Any], output_logits: torch.Tensor, labels: torch.Tensor):
-        output_logits = torch.softmax(output_logits, dim=2)
+    def update(self,
+               batch: dict,
+               output_logits: Optional[torch.Tensor] = None,
+               labels: Optional[torch.Tensor] = None,
+               outputs: Optional[torch.Tensor] = None):
+        batch, outputs, labels = InContextLearningMetric.rename_args(batch=batch,
+                                                                     output_logits=output_logits,
+                                                                     labels=labels,
+                                                                     outputs=outputs)
+
+        outputs = torch.softmax(outputs, dim=2)
         probabilites = []
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
-            cont_tok_logits = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1)
+            cont_tok_logits = outputs[batch_idx].index_select(dim=0, index=cont_idx - 1)
             cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
             probability = cont_tok_logits.index_select(dim=1, index=cont_tok_targ).diagonal().mean()
             probabilites.append(probability)
@@ -481,10 +548,19 @@ class InContextLearningLMExpectedCalibrationError(InContextLearningExpectedCalib
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def update(self, batch: Dict[str, Any], output_logits: torch.Tensor, labels: torch.Tensor):
-        output_logits = torch.softmax(output_logits, dim=2)
+    def update(self,
+               batch: dict,
+               output_logits: Optional[torch.Tensor] = None,
+               labels: Optional[torch.Tensor] = None,
+               outputs: Optional[torch.Tensor] = None):
+        batch, outputs, labels = InContextLearningMetric.rename_args(batch=batch,
+                                                                     output_logits=output_logits,
+                                                                     labels=labels,
+                                                                     outputs=outputs)
+
+        outputs = torch.softmax(outputs, dim=2)
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
-            cont_tok_logits = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1)
+            cont_tok_logits = outputs[batch_idx].index_select(dim=0, index=cont_idx - 1)
             cont_tok_pred = cont_tok_logits.argmax(dim=-1)
             confidence = cont_tok_logits.max(dim=-1).values.min()
             cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
