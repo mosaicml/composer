@@ -456,17 +456,33 @@ def load_sharded_checkpoint(
             device_mesh = state.fsdp_device_mesh
             first_replica = device_mesh is None or device_mesh.get_local_rank(mesh_dim=0) == 0
 
+            # 0. Collect the relative paths to download for all ranks for deduplication
+            relative_file_paths = set()
+            for plan_item in plan.items:
+                relative_file_paths.add(self.storage_data[plan_item.storage_index].relative_path)
+            all_file_paths = dist.all_gather_object(relative_file_paths)
+
             # 1. Download to the destination all files this rank needs if on first replica
             if first_replica:
                 log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
+
+                # Get the lowest rank in the current node
+                local_rank_0 = dist.get_global_rank() - dist.get_local_rank()
+
                 for plan_item in plan.items:
-                    # Each plan item has a storage index which points to the relative path of the shard file at save time.
                     relative_file_path = self.storage_data[plan_item.storage_index].relative_path
+                    # Check if the file is scheduled to be downloaded by a lower rank on the same node
+                    # i.e. if rank 0 and rank 1 on the same node have the same the same required file,
+                    # only rank 0 should download it and not rank 1.
+                    is_downloaded = any(
+                        relative_file_path in all_file_paths[i] for i in range(local_rank_0, dist.get_global_rank()))
+
                     # Download the shard file to the relative path it's associated to and save that relative path
                     # to the root directory specified to the FileSystem reader constructor.
                     file_destination = str(Path(self.destination_path) / Path(relative_file_path))
+
                     # The file could have already been downloaded as different plan items can point to same file.
-                    if not os.path.exists(file_destination):
+                    if not is_downloaded and not os.path.exists(file_destination):
                         log.debug(f'Downloading {relative_file_path} to {file_destination}.')
                         self.object_store.download_object(object_name=str(
                             Path(self.source_path) / Path(relative_file_path)),
