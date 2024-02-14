@@ -1535,17 +1535,19 @@ def test_code_eval_sentpiece_dataloader(dataset_uri, tmp_path, num_fewshot, prom
 
     max_prompt_length = 0
 
-    for batch in batches[:-1]:
+    has_left_padding = []
+    for i, batch in enumerate(batches):
         if isinstance(dl.dataloader.dataset, InContextLearningCodeEvalDataset):
             max_prompt_length = dl.dataloader.dataset.max_prompt_length
-        assert tuple(batch['input_ids'].shape) == (batch_size, max_prompt_length)
-        assert tuple(batch['attention_mask'].shape) == (batch_size, max_prompt_length)
+        N = len(batches)
+        bs = batch_size if i < N - 1 else len(dl.dataloader.dataset) - (N-1) * batch_size
+        assert tuple(batch['input_ids'].shape) == (bs, max_prompt_length)
+        assert tuple(batch['attention_mask'].shape) == (bs, max_prompt_length)
         assert batch['mode'] == 'generate'
         # the maximum generation length from the small test data
         assert batch['generation_length'] == 129
-        print("TOKENIZER", tokenizer.eos_token_id)
-        # print(batch['input_ids'][:, :32])
-        assert any(item[0] != tokenizer.eos_token_id for item in batch['input_ids'])  # longest should be pushed left
+        has_left_padding.extend([item[0] == tokenizer.eos_token_id for item in batch['input_ids']])
+    assert not all(has_left_padding)  # longest should be pushed left
 
     decoded_batches = [tokenizer.batch_decode(batch['input_ids']) for batch in batches]
     for decoded_batch in decoded_batches:
@@ -1690,16 +1692,20 @@ def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_st
     assert isinstance(dl.dataloader, DataLoader)  # pyright
     batches = list(dl.dataloader)
 
-    for batch in batches[:-1]:
+    has_left_padding = []
+    for i, batch in enumerate(batches):
         max_prompt_length = 0
         if isinstance(dl.dataloader.dataset, InContextLearningCodeEvalDataset):
             max_prompt_length = dl.dataloader.dataset.max_prompt_length
-        assert tuple(batch['input_ids'].shape) == (batch_size, max_prompt_length)
-        assert tuple(batch['attention_mask'].shape) == (batch_size, max_prompt_length)
+        N = len(batches)
+        bs = batch_size if i < N - 1 else len(dl.dataloader.dataset) - (N-1) * batch_size
+        assert tuple(batch['input_ids'].shape) == (bs, max_prompt_length)
+        assert tuple(batch['attention_mask'].shape) == (bs, max_prompt_length)
         assert batch['mode'] == 'generate'
         # the maximum generation length from the small test data
         assert batch['generation_length'] == 122
-        assert any(item[0] != tokenizer.eos_token_id for item in batch['input_ids'])  # longest should be pushed left
+        has_left_padding.extend([item[0] == tokenizer.eos_token_id for item in batch['input_ids']])
+    assert not all(has_left_padding)  # longest should be pushed left
 
     decoded_batches = [tokenizer.batch_decode(batch['input_ids']) for batch in batches]
     for decoded_batch in decoded_batches:
