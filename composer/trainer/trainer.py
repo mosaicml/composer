@@ -36,7 +36,7 @@ from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
 
-from composer.callbacks import CheckpointSaver, OptimizerMonitor
+from composer.callbacks import CheckpointSaver, MemorySnapshot, OOMObserver, OptimizerMonitor
 from composer.core import (Algorithm, AlgorithmPass, Batch, Callback, DataSpec, Engine, Evaluator, Event, Precision,
                            State, Time, Timestamp, TimeUnit, TrainerMode, ensure_data_spec, ensure_evaluator,
                            ensure_time, get_precision_context, validate_eval_automicrobatching)
@@ -1072,6 +1072,15 @@ class Trainer:
                     loggers.append(remote_ud)
             self.state.profiler.bind_to_state(self.state)
 
+        # MemorySnapshot, OOMObserver
+        for cb in self.state.callbacks:
+            if isinstance(cb, MemorySnapshot) or isinstance(cb, OOMObserver):
+                if cb.remote_file_name:
+                    remote_ud = maybe_create_remote_uploader_downloader_from_uri(uri=cb.remote_file_name,
+                                                                                 loggers=loggers)
+                    if remote_ud is not None:
+                        loggers.append(remote_ud)
+
         if progress_bar and log_to_console:
             warnings.warn(
                 'Setting both `progress_bar` and `log_to_console` both to True is not recommended and will'
@@ -1215,7 +1224,10 @@ class Trainer:
 
         # Log hparams.
         if self.auto_log_hparams:
-            self.local_hparams = extract_hparams(locals())
+            locs = locals()
+            if 'cb' in locs:
+                del locs['cb']
+            self.local_hparams = extract_hparams(locs)
             self.logger.log_hyperparameters(self.local_hparams)
 
         # Log composer version
@@ -1387,6 +1399,8 @@ class Trainer:
             if 'optimizers' in self.state.serialized_attributes:
                 self.state.serialized_attributes.remove('optimizers')
 
+        self.engine.run_event(Event.BEFORE_LOAD)
+
         # Load Checkpoint
         self._rng_state = None
         # If autoresume is enabled, first check for existing checkpoints to load
@@ -1415,7 +1429,7 @@ class Trainer:
                     'Multiple concurrent uploads is not currently supported when using autoresume. Please set `num_concurrent_uploads` to 1 '
                     'for all `RemoteUploaderDownloader` instances.')
             assert latest_remote_file_name is not None
-            if self.state.fsdp_elastic_sharded_enabled:
+            if self.state.fsdp_sharded_state_dict_enabled:
                 ar_object_store = maybe_create_object_store_from_uri(save_folder)
                 # Symlink is on object store.
                 if ar_object_store is not None:
@@ -1501,9 +1515,9 @@ class Trainer:
         self.engine.run_event(Event.AFTER_LOAD)
 
         # reseed here. This helps with a couple of issues:
-        # 1. rng state may change at Event.INIT/Event.AFTER_LOAD. For example, if an algorithm
-        # creates a new module and module parameters are initialized randomly, rng state will
-        # change. This reseeding nullifies such effects.
+        # 1. rng state may change at Event.INIT/Event.BEFORE_LOAD/Event.AFTER_LOAD. For example,
+        # if an algorithm creates a new module and module parameters are initialized randomly, rng
+        # state will change. This reseeding nullifies such effects.
         # 2. While resuming from a checkpoint, we want to spin dataloader and bring it back to the
         # same state as at the time of the checkpoint. Therefore, spinning needs to start from the
         # same rng state as in the original run.
@@ -2072,6 +2086,7 @@ class Trainer:
             # asserted to be not None when Trainer.fit() is called
             raise RuntimeError('max_duration must be specified when initializing the Trainer')
 
+        log.debug('Starting training loop')
         while self.state.timestamp < self.state.max_duration:
             if int(self.state.timestamp.batch_in_epoch) == 0:
                 self.engine.run_event(Event.EPOCH_START)

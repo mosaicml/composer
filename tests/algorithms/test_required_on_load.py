@@ -14,8 +14,8 @@ from packaging import version
 from composer import Trainer, algorithms
 from composer.callbacks import CheckpointSaver
 from composer.core import Algorithm, Event, Time, TimeUnit  # type: ignore imports used in `eval(representation)`
-from composer.models import ComposerClassifier, ComposerModel, composer_resnet
-from tests.common import ConvModel, SimpleConvModel
+from composer.models import ComposerClassifier, ComposerModel
+from tests.common import ConvModel, SimpleConvModel, composer_resnet
 
 
 def initialize_algorithm(algo_cls: Type):
@@ -164,7 +164,7 @@ def test_autoload(algo_name: str, load_weights_only: bool, already_added: bool, 
             context = pytest.warns(UserWarning, match='Automatically adding required_on_load algorithm*')
         # Excluding some algorithms leads to errors when loading
         elif exclude:
-            if version.parse(torch.__version__) > version.parse('2.1.3'):
+            if version.parse(torch.__version__) > version.parse('2.2.9'):
                 if algo_name in [
                         'Alibi', 'BlurPool', 'Factorize', 'GatedLinearUnits', 'GhostBatchNorm', 'SqueezeExcite'
                 ]:

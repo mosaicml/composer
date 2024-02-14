@@ -104,9 +104,9 @@ extra_deps['dev'] = [
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
     'ipython==8.11.0',
-    'ipykernel==6.29.0',
+    'ipykernel==6.29.2',
     'jupyter==1.0.0',
-    'yamllint==1.33.0',
+    'yamllint==1.34.0',
     'recommonmark==0.7.1',
     'sphinx==4.4.0',
     'pre-commit>=3.4.0,<4',
@@ -142,10 +142,6 @@ extra_deps['dev'] = [
     'setuptools<=59.5.0',
 ]
 
-extra_deps['health_checker'] = {
-    'pynvml>=11.5.0,<12',
-}
-
 extra_deps['system_metrics_monitor'] = {
     'pynvml>=11.5.0,<12',
 }
@@ -167,21 +163,12 @@ extra_deps['comet_ml'] = [
     'comet_ml>=3.31.12,<4.0.0',
 ]
 
+extra_deps['neptune'] = [
+    'neptune>=1.6.2,<2.0.0',
+]
+
 extra_deps['tensorboard'] = [
     'tensorboard>=2.9.1,<3.0.0',
-]
-
-extra_deps['unet'] = [
-    'monai>=0.9.1,<1.4',
-    'scikit-learn>=1.0.1,<2',
-]
-
-extra_deps['vit'] = [
-    'vit_pytorch==1.6.1',
-]
-
-extra_deps['timm'] = [
-    'timm>=0.5.4,<0.6',
 ]
 
 extra_deps['coco'] = [
@@ -237,7 +224,7 @@ extra_deps['mlflow'] = [
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk>=0.15.0,<1.0']
+extra_deps['databricks'] = ['databricks-sdk==0.18.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 

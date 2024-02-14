@@ -21,12 +21,11 @@ from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, Channel
                                  LabelSmoothing, LayerFreezing, LowPrecisionGroupNorm, LowPrecisionLayerNorm, MixUp,
                                  NoOpModel, ProgressiveResizing, RandAugment, SelectiveBackprop, SeqLengthWarmup,
                                  SqueezeExcite, StochasticDepth, WeightStandardization)
-from composer.models import composer_resnet
 from composer.models.base import ComposerModel
 from composer.utils import dist
 from tests.common import get_module_subclasses
 from tests.common.datasets import RandomImageDataset, SimpleDataset, dummy_bert_lm_dataloader, dummy_gpt_lm_dataloader
-from tests.common.models import (SimpleConvModel, SimpleModelWithDropout, configure_tiny_bert_hf_model,
+from tests.common.models import (SimpleConvModel, SimpleModelWithDropout, composer_resnet, configure_tiny_bert_hf_model,
                                  configure_tiny_gpt2_hf_model)
 
 simple_bert_settings = {
