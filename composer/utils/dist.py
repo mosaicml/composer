@@ -37,6 +37,7 @@ import io
 import logging
 import os
 import pickle
+import sys
 import time
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, List, Optional, Sequence, TypeVar, Union, cast
@@ -44,8 +45,12 @@ from typing import TYPE_CHECKING, Any, List, Optional, Sequence, TypeVar, Union,
 import torch
 import torch.distributed as dist
 import torch.utils.data
+from packaging import version
 
-from composer.utils.device import get_device, is_hpu_installed
+from composer.utils.device import get_device, is_hpu_installed, is_tpu_installed
+
+if is_tpu_installed():
+    import torch_xla
 
 if TYPE_CHECKING:
     from composer.devices import Device
@@ -520,6 +525,11 @@ def initialize_dist(device: Union[str, Device], timeout: float = 300.0):
     dist_env_vars_match_defaults = all(os.environ.get(k, v) == v for (k, v) in dist_env_var_defaults.items())
 
     if device_obj.dist_backend == 'xla':
+        if not 'torch_xla' in sys.modules:
+            raise RuntimeError('PyTorch XLA package not found. In order to use XLA based devices '
+                               'PyTorch XLA must be installed.')
+        if version.parse(torch_xla.__version__) < version.parse('2.1.0'):
+            raise RuntimeError(f'PyTorch XLA version must be at least 2.1.0, found {torch_xla.__version__}.')
         # XLA initialization requires the init_method to be set
         dist.init_process_group(device_obj.dist_backend, init_method='xla://')
     elif dist_env_vars_match_defaults:
