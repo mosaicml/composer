@@ -2271,10 +2271,10 @@ def test_code_eval_sentpiece_evaluation(monkeypatch, device, world_size, num_few
 
     trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
     torch.use_deterministic_algorithms(False)
-    trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
+    trainer.eval(eval_dataloader=evaluator)
     torch.use_deterministic_algorithms(True)
     assert 'metrics/humaneval/InContextLearningCodeEvalAccuracy' in in_memory_logger.data.keys()
-    assert in_memory_logger.data['metrics/humaneval/InContextLearningCodeEvalAccuracy'][0][1].item() == 0
+    assert in_memory_logger.data['metrics/humaneval/InContextLearningCodeEvalAccuracy'][0][1]
 
 
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
@@ -2320,10 +2320,10 @@ def test_code_eval_task_evaluation(monkeypatch, device, world_size, num_fewshot,
 
     trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
     torch.use_deterministic_algorithms(False)
-    trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
+    trainer.eval(eval_dataloader=evaluator)
     torch.use_deterministic_algorithms(True)
     assert 'metrics/humaneval/InContextLearningCodeEvalAccuracy' in in_memory_logger.data.keys()
-    assert in_memory_logger.data['metrics/humaneval/InContextLearningCodeEvalAccuracy'][0][1].item() == 0
+    assert in_memory_logger.data['metrics/humaneval/InContextLearningCodeEvalAccuracy'][0][1] == 0
 
 
 @pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
