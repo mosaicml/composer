@@ -88,6 +88,8 @@ jobs:
       code-eval-apikey: ${{ secrets.CODE_EVAL_APIKEY }}
       gcs-key: ${{ secrets.GCS_KEY }}
       gcs-secret: ${{ secrets.GCS_SECRET }}
+      azure-account-name: ${{ secrets.AZURE_ACCOUNT_NAME }}
+      azure-account-access-key: ${{ secrets.AZURE_ACCOUNT_ACCESS_KEY }}
   coverage:
     uses: ./.github/workflows/coverage.yaml
     name: Coverage Results
