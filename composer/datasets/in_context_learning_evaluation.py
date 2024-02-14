@@ -82,7 +82,7 @@ def _trim_context(context_enc: List, continuation_enc: List, max_seq_len: int) -
 
         if context_max_subseq_len < 0:
             # can't support continuations which are longer than the max seq len
-            raise Exception(f'Dataset included continuation longer than the max seq len')
+            raise Exception(f'Dataset included continuation longer than the max seq len of {max_seq_len}')
 
         # clip from the end
         context_enc = context_enc[-(context_max_subseq_len):]
