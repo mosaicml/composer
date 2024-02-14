@@ -1222,7 +1222,6 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
 
         - pad_token_id: ID for padding token, derived automatically
         - num_beams: How many beams to search for generations, set to 1
-        - num_return_sequences: Value passed for 'generations_per_sample', how many generations per prompt
         - do_sample: Determines whether model is sampling or greedily decoding. Always set to True
         - use_cache: Whether or not to use past key values to speed up sampling. Always set to True
 
