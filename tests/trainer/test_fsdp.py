@@ -191,6 +191,32 @@ def test_fsdp_prefetch_limit(forward_prefetch_limit: int, backward_prefetch_limi
     trainer.fit()
 
 
+@pytest.mark.parametrize('backward_prefetch_limit', [1, 2])
+@pytest.mark.gpu
+@world_size(2)
+def test_fsdp_auto_microbatch(backward_prefetch_limit: int, world_size: int):
+    model = SimpleModel()
+    model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    dataset = RandomClassificationDataset(size=10)
+    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+
+    trainer = Trainer(
+        model=model,
+        optimizers=optimizer,
+        train_dataloader=dataloader,
+        fsdp_config={
+            'forward_prefetch_limit': 1,
+            'backward_prefetch_limit': backward_prefetch_limit,
+        },
+        max_duration='3ba',
+    )
+
+    trainer.fit()
+
+
+
 @pytest.mark.gpu
 @world_size(2)
 @pytest.mark.filterwarnings('ignore:Instantiating FSDP with custom process groups.*:UserWarning')
@@ -227,6 +253,25 @@ class SimpleMLP(ComposerModel):
         x = self.fc1(x)
         x = torch.nn.ReLU(x)
         x = self.fc2(x)
+        return x
+
+    def loss(self, outputs, batch):
+        pass
+
+class SimpleMLPForTestingOOM(ComposerModel):
+
+    def __init__(self, num_features: int = 128, device: str = 'cuda'):
+        super().__init__()
+        self.fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.fc3 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = torch.nn.ReLU(x)
+        x = self.fc2(x)
+        x = self.nn.ReLU(x)
+        x = self.fc3(x)
         return x
 
     def loss(self, outputs, batch):

@@ -1358,9 +1358,13 @@ class Trainer:
         # checkpoint on rank 0 only, in which case the model be loaded before it is wrapped.
 
         # FSDP wrap if not using monolith checkpoint on rank 0 only
+        print(f"bigning debug before prepare")
         if self.state.fsdp_config is not None and fsdp_auto_wrap and not self.state.load_fsdp_monolith_rank0_only:
+            print(f"bigning debug in prepare")
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
+            print(f"bigning debug model after fsdp: {model}")
+        #raise RuntimeError(f"bigning")
 
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
