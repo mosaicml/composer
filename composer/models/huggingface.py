@@ -523,8 +523,8 @@ class HuggingFaceModel(ComposerModel):
             batched_combined_prompts = []
             for new_input in new_inputs:
                 trimmed_new_input = _trim_context(new_input, [], padding_size)
-                padded_new_input = _make_padded_input(trimmed_new_input, [], padding_size, batch['padding_token'],
-                                                      'left')
+                padded_new_input = _make_padded_input(trimmed_new_input, [], padding_size,
+                                                      batch['generation_kwargs']['padding_token'], 'left')
                 batched_combined_prompts.append(padded_new_input)
 
             prompt_device = batch['input_ids'].device

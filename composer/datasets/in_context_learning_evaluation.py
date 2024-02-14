@@ -1530,8 +1530,10 @@ class MTBench(InContextLearningDataset):
                 int((self.max_seq_len / 2) - (self.max_prompt_one_length + self.max_prompt_two_length)),
             'max_seq_len':
                 self.max_seq_len,
-            'padding_token':
-                self.pad_tok_id
+            'generation_kwargs': {
+                'pad_token_id': self.pad_tok_id,
+                'eos_token_id': self.tokenizer.eos_token_id,
+            }
         }
         self.update_generation_kwargs(kwargs.get('generation_kwargs'))
         self.padding_size = self.max_prompt_one_length
