@@ -78,17 +78,24 @@ def test_uc_object_store_invalid_prefix(monkeypatch):
 @pytest.mark.parametrize('result', ['success', 'not_found'])
 def test_get_object_size(ws_client, uc_object_store, result: str):
     if result == 'success':
-        db_files = pytest.importorskip('databricks.sdk.service.files')
-        ws_client.files.get_status.return_value = db_files.FileInfo(file_size=100)
-        assert uc_object_store.get_object_size('train.txt') == 100
+        ws_client.api_client.do.return_value = {}
+        assert uc_object_store.get_object_size('train.txt') == 1000000
     elif result == 'not_found':
         db_core = pytest.importorskip('databricks.sdk.core', reason='requires databricks')
-        ws_client.files.get_status.side_effect = db_core.DatabricksError('The file being accessed is not found',
-                                                                         error_code='NOT_FOUND')
+        ws_client.api_client.do.side_effect = db_core.DatabricksError('The file being accessed is not found',
+                                                                      error_code='NOT_FOUND')
         with pytest.raises(FileNotFoundError):
             uc_object_store.get_object_size('train.txt')
     else:
         raise NotImplementedError(f'Test for result={result} is not implemented.')
+
+
+def test_get_object_size_full_path(ws_client, uc_object_store):
+    ws_client.api_client.do.return_value = {}
+    assert uc_object_store.get_object_size('Volumes/catalog/schema/volume/train.txt') == 1000000
+    ws_client.api_client.do.assert_called_with(method='HEAD',
+                                               path=f'/api/2.0/fs/files/Volumes/catalog/schema/volume/train.txt',
+                                               headers={'Source': 'mosaicml/composer'})
 
 
 def test_get_uri(uc_object_store):
@@ -160,6 +167,49 @@ def test_download_object(ws_client, uc_object_store, tmp_path, result: str):
         raise NotImplementedError(f'Test for result={result} is not implemented.')
 
 
+def test_list_objects_nested_folders(ws_client, uc_object_store):
+    expected_files = [
+        '/Volumes/catalog/volume/schema/path/to/folder/file1.txt',
+        '/Volumes/catalog/volume/schema/path/to/folder/file2.txt',
+        '/Volumes/catalog/volume/schema/path/to/folder/subdir/file1.txt',
+        '/Volumes/catalog/volume/schema/path/to/folder/subdir/file2.txt',
+    ]
+    uc_list_api_responses = [{
+        'files': [{
+            'path': '/Volumes/catalog/volume/schema/path/to/folder/file1.txt',
+            'is_dir': False
+        }, {
+            'path': '/Volumes/catalog/volume/schema/path/to/folder/file2.txt',
+            'is_dir': False
+        }, {
+            'path': '/Volumes/catalog/volume/schema/path/to/folder/subdir',
+            'is_dir': True
+        }]
+    }, {
+        'files': [{
+            'path': '/Volumes/catalog/volume/schema/path/to/folder/subdir/file1.txt',
+            'is_dir': False
+        }, {
+            'path': '/Volumes/catalog/volume/schema/path/to/folder/subdir/file2.txt',
+            'is_dir': False
+        }]
+    }]
+
+    prefix = 'Volumes/catalog/schema/volume/path/to/folder'
+
+    ws_client.api_client.do = MagicMock(side_effect=[uc_list_api_responses[0], uc_list_api_responses[1]])
+    actual_files = uc_object_store.list_objects(prefix=prefix)
+
+    assert actual_files == expected_files
+
+    ws_client.api_client.do.assert_called_with(method='GET',
+                                               path=uc_object_store._UC_VOLUME_LIST_API_ENDPOINT,
+                                               data='{"path": "/Volumes/catalog/volume/schema/path/to/folder/subdir"}',
+                                               headers={'Source': 'mosaicml/composer'})
+
+    assert ws_client.api_client.do.call_count == 2
+
+
 @pytest.mark.parametrize('result', ['success', 'prefix_none', 'not_found', 'error'])
 def test_list_objects(ws_client, uc_object_store, result):
     expected_files = [
@@ -173,9 +223,6 @@ def test_list_objects(ws_client, uc_object_store, result):
         }, {
             'path': '/Volumes/catalog/volume/schema/path/to/folder/file2.txt',
             'is_dir': False
-        }, {
-            'path': '/Volumes/catalog/volume/schema/path/to/folder/samples/',
-            'is_dir': True
         }]
     }
 

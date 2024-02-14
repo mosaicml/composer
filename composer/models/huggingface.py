@@ -22,7 +22,6 @@ import torch
 from torchmetrics import Metric
 
 from composer.datasets.in_context_learning_evaluation import _make_padded_input, _trim_context
-from composer.metrics import InContextLearningMetric, InContextLearningQAAccuracy, MTBenchJudge
 from composer.models.base import ComposerModel
 from composer.utils import MissingConditionalImportError, dist, get_file, import_object, is_model_fsdp, safe_torch_load
 
@@ -613,17 +612,10 @@ class HuggingFaceModel(ComposerModel):
         return metrics if metrics else {}
 
     def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
-
-        if isinstance(metric, InContextLearningQAAccuracy):
-            assert self.labels is not None
-            metric.update(batch=batch, outputs=outputs, labels=self.labels)  # pyright: ignore [reportGeneralTypeIssues]
-        elif isinstance(metric, MTBenchJudge):
-            metric.update(batch=batch, outputs=outputs)  # pyright: ignore [reportGeneralTypeIssues]
-        elif isinstance(metric, InContextLearningMetric):
-            assert self.labels is not None
-            metric.update(batch, outputs, self.labels)  # pyright: ignore [reportGeneralTypeIssues]
+        if getattr(metric, 'needs_batch', False):
+            metric.update(batch=batch, outputs=outputs, labels=self.labels)
         else:
-            metric.update(outputs, self.labels)  # pyright: ignore [reportGeneralTypeIssues]
+            metric.update(outputs, self.labels)
 
     def get_metadata(self):
         model_output = {}

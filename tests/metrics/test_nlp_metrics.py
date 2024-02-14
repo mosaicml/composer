@@ -10,7 +10,6 @@ from torch.nn.functional import cross_entropy
 
 from composer.metrics.nlp import (BinaryF1Score, InContextLearningCodeEvalAccuracy,
                                   InContextLearningExpectedCalibrationError, InContextLearningLMAccuracy,
-                                  InContextLearningLMExpectedCalibrationError,
                                   InContextLearningMCExpectedCalibrationError, InContextLearningMultipleChoiceAccuracy,
                                   InContextLearningQAAccuracy, LanguageCrossEntropy, LanguagePerplexity, MaskedAccuracy)
 from composer.utils import dist
@@ -172,6 +171,53 @@ def test_language_perplexity():
     perplexity = perplexity_metric.compute()
 
     assert torch.equal(torch.exp(ce), perplexity)
+
+
+def test_in_context_learning_rename_args_no_op():
+    batch = {'input': [1, 2, 3]}
+    outputs = torch.Tensor([12, 13, 14])
+    labels = torch.Tensor([0, 1, 0])
+    batch, outputs, labels = InContextLearningMetric.rename_args(batch=batch, outputs=outputs, labels=labels)
+    assert batch == {'input': [1, 2, 3]}
+    assert torch.all(torch.eq(outputs, torch.tensor([12, 13, 14])))
+    assert torch.all(torch.eq(labels, torch.tensor([0, 1, 0])))
+
+
+def test_in_context_learning_rename_args_output_and_output_logits():
+    batch = {'input': [1, 2, 3]}
+    outputs = torch.Tensor([12, 13, 14])
+    output_logits = torch.Tensor([.1, .2, .3])
+    labels = torch.Tensor([0, 1, 0])
+    with pytest.raises(ValueError):
+        _, _, _ = InContextLearningMetric.rename_args(batch=batch,
+                                                      outputs=outputs,
+                                                      labels=labels,
+                                                      output_logits=output_logits)
+
+
+def test_in_context_learning_rename_args_rename_output_logits():
+    batch = {'input': [1, 2, 3]}
+    output_logits = torch.Tensor([.1, .2, .3])
+    labels = torch.Tensor([0, 1, 0])
+    batch, outputs, labels = InContextLearningMetric.rename_args(batch=batch,
+                                                                 labels=labels,
+                                                                 output_logits=output_logits)
+    assert batch == {'input': [1, 2, 3]}
+    assert torch.all(torch.eq(outputs, torch.Tensor([.1, .2, .3])))  # pyright: ignore [reportGeneralTypeIssues]
+    assert torch.all(torch.eq(labels, torch.tensor([0, 1, 0])))
+
+
+def test_in_context_learning_rename_args_fail_on_no_label():
+    batch = {'input': [1, 2, 3]}
+    output_logits = torch.Tensor([.1, .2, .3])
+    with pytest.raises(ValueError):
+        _, _, _ = InContextLearningMetric.rename_args(batch=batch, output_logits=output_logits)
+
+
+def test_in_context_learning_rename_args_fail_on_no_output():
+    batch = {'input': [1, 2, 3]}
+    with pytest.raises(ValueError):
+        _, _, _ = InContextLearningMetric.rename_args(batch=batch)
 
 
 def test_in_context_learning_lm_accuracy(tiny_gpt2_tokenizer):

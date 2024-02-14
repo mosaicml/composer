@@ -364,6 +364,48 @@ def test_mlflow_save_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
 
 @pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
 @pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
+def test_mlflow_save_peft_model(tmp_path, tiny_mistral_model, tiny_mistral_tokenizer):
+    mlflow = pytest.importorskip('mlflow')
+    peft = pytest.importorskip('peft')
+
+    # Reload just so the model has the update base model name
+    tiny_mistral_model.save_pretrained(tmp_path / Path('tiny_mistral_save_pt'))
+    tiny_mistral_model = tiny_mistral_model.from_pretrained(tmp_path / Path('tiny_mistral_save_pt'))
+
+    peft_config = {'peft_type': 'LORA'}
+    peft_model = peft.get_peft_model(tiny_mistral_model, peft.get_peft_config(peft_config))
+
+    mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
+    mlflow_exp_name = 'test-log-model-exp-name'
+    test_mlflow_logger = MLFlowLogger(
+        tracking_uri=mlflow_uri,
+        experiment_name=mlflow_exp_name,
+    )
+
+    mock_state = MagicMock()
+    mock_state.run_name = 'dummy-run-name'  # this run name should be unused.
+    mock_logger = MagicMock()
+
+    peft_model.save_pretrained(tmp_path / Path('peft_model_save_pt'))
+    tiny_mistral_tokenizer.save_pretrained(tmp_path / Path('peft_model_save_pt'))
+
+    local_mlflow_save_path = str(tmp_path / Path('my_model_local'))
+    test_mlflow_logger.init(state=mock_state, logger=mock_logger)
+    test_mlflow_logger.save_model(
+        flavor='peft',
+        path=local_mlflow_save_path,
+        save_pretrained_dir=str(tmp_path / Path('peft_model_save_pt')),
+    )
+    test_mlflow_logger.post_close()
+
+    loaded_model = mlflow.pyfunc.load_model(local_mlflow_save_path).unwrap_python_model()
+
+    check_hf_model_equivalence(loaded_model.model, tiny_mistral_model)
+    check_hf_tokenizer_equivalence(loaded_model.tokenizer, tiny_mistral_tokenizer)
+
+
+@pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
+@pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
 def test_mlflow_register_model(tmp_path, monkeypatch):
     mlflow = pytest.importorskip('mlflow')
 
@@ -390,11 +432,54 @@ def test_mlflow_register_model(tmp_path, monkeypatch):
         name='my_model',
     )
 
-    assert mlflow.register_model.called_with(model_uri=local_mlflow_save_path,
-                                             name='my_catalog.my_schema.my_model',
-                                             await_registration_for=300,
-                                             tags=None,
-                                             registry_uri='databricks-uc')
+    mlflow.register_model.assert_called_with(
+        model_uri=local_mlflow_save_path,
+        name='my_catalog.my_schema.my_model',
+        await_registration_for=300,
+        tags=None,
+    )
+    assert mlflow.get_registry_uri() == 'databricks-uc'
+
+    test_mlflow_logger.post_close()
+
+
+@pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
+@pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
+def test_mlflow_register_model_with_run_id(tmp_path, monkeypatch):
+    mlflow = pytest.importorskip('mlflow')
+
+    mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
+    mlflow_exp_name = 'test-log-model-exp-name'
+    test_mlflow_logger = MLFlowLogger(
+        tracking_uri=mlflow_uri,
+        experiment_name=mlflow_exp_name,
+        model_registry_prefix='my_catalog.my_schema',
+        model_registry_uri='databricks-uc',
+    )
+
+    monkeypatch.setattr(test_mlflow_logger._mlflow_client, 'create_model_version', MagicMock())
+    monkeypatch.setattr(test_mlflow_logger._mlflow_client, 'create_registered_model',
+                        MagicMock(return_value=type('MockResponse', (), {'name': 'my_catalog.my_schema.my_model'})))
+
+    mock_state = MagicMock()
+    mock_state.run_name = 'dummy-run-name'  # this run name should be unused.
+    mock_logger = MagicMock()
+
+    local_mlflow_save_path = str(tmp_path / Path('my_model_local'))
+    test_mlflow_logger.init(state=mock_state, logger=mock_logger)
+
+    test_mlflow_logger.register_model_with_run_id(
+        model_uri=local_mlflow_save_path,
+        name='my_model',
+    )
+
+    test_mlflow_logger._mlflow_client.create_model_version.assert_called_with(
+        name='my_catalog.my_schema.my_model',
+        source=local_mlflow_save_path,
+        run_id=test_mlflow_logger._run_id,
+        await_creation_for=300,
+        tags=None,
+    )
     assert mlflow.get_registry_uri() == 'databricks-uc'
 
     test_mlflow_logger.post_close()
