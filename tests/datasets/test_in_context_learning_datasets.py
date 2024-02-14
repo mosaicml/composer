@@ -2223,10 +2223,10 @@ def test_code_eval_microbatching(monkeypatch, device, world_size, tiny_opt_token
 
     trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
     torch.use_deterministic_algorithms(False)
-    trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
+    trainer.eval(eval_dataloader=evaluator)
     torch.use_deterministic_algorithms(True)
     assert 'metrics/humaneval/InContextLearningCodeEvalAccuracy' in in_memory_logger.data.keys()
-    assert in_memory_logger.data['metrics/humaneval/InContextLearningCodeEvalAccuracy'][0][1].item() == 0
+    assert in_memory_logger.data['metrics/humaneval/InContextLearningCodeEvalAccuracy'][0][1] == 0
 
 
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
