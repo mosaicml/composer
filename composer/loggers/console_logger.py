@@ -109,7 +109,7 @@ class ConsoleLogger(LoggerDestination):
         cur_epoch = int(state.timestamp.epoch)  # epoch gets incremented right before EPOCH_END
         unit = self.log_interval.unit
 
-        if unit == TimeUnit.EPOCH and (cur_epoch % int(self.log_interval) == 0 or cur_epoch == 1):
+        if unit == TimeUnit.EPOCH and (cur_epoch % int(self.log_interval) == 0 or self.last_logged_batch == 0):
             self.log_to_console(self.logged_metrics, prefix='Train ', state=state)
             self.last_logged_batch = int(state.timestamp.batch)
             self.logged_metrics = {}  # Clear logged metrics.
@@ -117,8 +117,7 @@ class ConsoleLogger(LoggerDestination):
     def batch_end(self, state: State, logger: Logger) -> None:
         cur_batch = int(state.timestamp.batch)
         unit = self.log_interval.unit
-        if unit == TimeUnit.BATCH and (cur_batch % int(self.log_interval) == 0 or cur_batch == 1 or
-                                       self.last_logged_batch == 0):
+        if unit == TimeUnit.BATCH and (cur_batch % int(self.log_interval) == 0 or self.last_logged_batch == 0):
             self.log_to_console(self.logged_metrics, prefix='Train ', state=state)
             self.last_logged_batch = cur_batch
             self.logged_metrics = {}  # Clear logged metrics.
