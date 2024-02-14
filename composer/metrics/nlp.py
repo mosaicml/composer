@@ -1179,7 +1179,7 @@ class MTBenchJudge(InContextLearningMetric):
 
         return response.choices[0].message.content, formatted_template
 
-    def update(self, batch: Dict[str, Any], outputs: List[str]):
+    def update(self, batch: Dict[str, Any], outputs: List[str], labels: Optional[List[str]] = None):
         if not self.client:
             self.init_openai()
         for i, first_generation in enumerate(outputs['generation_one']):
