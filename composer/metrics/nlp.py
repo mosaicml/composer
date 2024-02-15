@@ -720,14 +720,20 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
     def compute(self):
         assert isinstance(self.correct, Tensor)
         assert isinstance(self.total, Tensor)
-        if not (self.total == self.num_generations).all().item():
-            raise ValueError(f'Some samples in the dataset have less than {self.num_generations} generations')
+        complete = self.total == self.num_generations # so that eval subset batches can be used
+
+        if complete.sum() < (self.total != 0).sum():
+            warnings.warn('Some samples in the dataset have less than the expected number of generations. '
+                          'This is expected if you are using a subset of the dataset for evaluation.')
+
+        if (self.correct > self.total).any().item():
+            raise ValueError('Internal error some samples have more correct than  total generations. This should not happen.')
 
         results = {}
         n = self.num_generations
 
         for k in self.pass_at_k:
-            pass_at_k = sum([self.estimator(n, int(c.item()), k) for c in self.correct]) / self.dataset_size
+            pass_at_k = sum([self.estimator(n, int(c.item()), k) for c in self.correct[complete]]) / complete.sum().item()
             results[f'pass@{k}'] = torch.tensor(pass_at_k)
 
         if len(results) == 1:  # backwards compatibility
