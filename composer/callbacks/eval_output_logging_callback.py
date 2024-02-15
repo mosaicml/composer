@@ -7,6 +7,7 @@ from copy import deepcopy
 
 import torch
 
+from typing import List
 from composer.core import Callback, State
 from composer.loggers import Logger
 
@@ -19,6 +20,8 @@ class EvalOutputLogging(Callback):
     The callback will log the metric name, the depadded and detokenized input, any data stored in state.metric_outputs, and
     any keys from the batch pased into `batch_keys_to_log`. It will do so after every eval batch.
     """
+    def __init__(self, loggers_to_use: List[str]) -> None:
+        self.loggers_to_use = loggers_to_use
 
     def eval_after_all(self, state: State) -> None:
         state.metric_outputs = {}
@@ -39,7 +42,7 @@ class EvalOutputLogging(Callback):
         assert state.dataloader is not None
         assert hasattr(state.dataloader, 'dataset')
         assert hasattr(state.dataloader.dataset, 'tokenizer')
-        for input_list in input_ids:
+        for input_list in input_ids.tolist():
             depadded_input = [tok for tok in input_list if tok != state.dataloader.dataset.pad_tok_id]
             logged_input.append(state.dataloader.dataset.tokenizer.decode(depadded_input))
         logging_dict['input'] = logged_input
@@ -61,7 +64,6 @@ class EvalOutputLogging(Callback):
         # wandb: WARNING (User provided step: 0 is less than current step: 164. Dropping entry: {'metrics/human_eval/0-shot/InContextLearningCodeEvalAccuracy': 0.0, '_timestamp': 1707370410.1504738}).
         assert state.dataloader_label is not None
         name = state.dataloader_label
-        # TODO: How else to chose this?
         for dest_logger in logger.destinations:
-            if dest_logger.__class__.__name__ == 'WandBLogger' or dest_logger.__class__.__name__ == 'MLFlowLogger':
+            if dest_logger.__class__.__name__ in self.loggers_to_use:
                 dest_logger.log_table(columns, rows, name=name, step=0)
