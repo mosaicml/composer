@@ -474,8 +474,6 @@ class HuggingFaceModel(ComposerModel):
                                        synced_gpus=dist.get_world_size() > 1,
                                        **batch.get('generation_kwargs', {}))
             
-            print ("generation is: ", self.tokenizer.batch_decode(generation[:, batch['input_ids'].shape[1]:], skip_special_tokens=False))
-            print ("batch generation kwargs is: ", batch.get('generation_kwargs', None))
 
             # don't remove prefix space to sentencepiece models
             if len(self.tokenizer(
@@ -499,6 +497,9 @@ class HuggingFaceModel(ComposerModel):
                                              max_new_tokens=batch['generation_length'],
                                              synced_gpus=dist.get_world_size() > 1,
                                              **batch.get('generation_kwargs', {}))
+
+            print ("generation is: ", self.tokenizer.batch_decode(first_generation[:, batch['input_ids'].shape[1]:], skip_special_tokens=False))
+            print ("batch generation kwargs is: ", batch.get('generation_kwargs', None))
 
             # We index first_generation like this because it excludes the input prompt and returns only the model's generation.
             first_generation_as_list = self.tokenizer.batch_decode(first_generation[:, batch['input_ids'].shape[1]:],
