@@ -1368,14 +1368,17 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
 
     def repeat_dataset(self, dataset: HFDataset, repetitions: int) -> HFDataset:
 
-        def repeated_dataset():
+        def _repeat_dataset():
             for i, sample in enumerate(dataset):
                 for _ in range(repetitions):
+                    assert isinstance(sample, dict)
                     yield {'sample_id': i, **sample}
 
         from datasets import Dataset as HFDataset
 
-        return HFDataset.from_generator(repeated_dataset)
+        repeated_dataset = HFDataset.from_generator(_repeat_dataset)
+        assert isinstance(repeated_dataset, HFDataset)
+        return repeated_dataset
 
     def _set_max_prompt_and_answer_lengths(self):
         """

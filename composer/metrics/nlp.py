@@ -16,8 +16,8 @@ from torch import Tensor
 from torch.nn import functional as F
 from torchmetrics import Metric
 
-from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient, MosaicMLLambdaEvalClient
 from composer.utils import dist
+from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient, MosaicMLLambdaEvalClient
 
 log = logging.getLogger(__name__)
 
@@ -690,8 +690,8 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         client = self.get_client()
 
         for sample_id, code_gen, sample_prompt, test_inputs, test_outputs, entry_point, language in zip(
-                batch['sample_id'], outputs, batch['prompts'], batch['test_inputs'], batch['test_outputs'], batch['entry_points'],
-                batch['languages']):
+                batch['sample_id'], outputs, batch['prompts'], batch['test_inputs'], batch['test_outputs'],
+                batch['entry_points'], batch['languages']):
 
             idx = sample_id
             self.total[idx] += 1.0
@@ -721,16 +721,16 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         assert isinstance(self.correct, Tensor)
         assert isinstance(self.total, Tensor)
         if not (self.total == self.num_generations).all().item():
-            raise ValueError(f"Some samples in the dataset have less than {self.num_generations} generations")
+            raise ValueError(f'Some samples in the dataset have less than {self.num_generations} generations')
 
         results = {}
         n = self.num_generations
 
         for k in self.pass_at_k:
-            pass_at_k = sum([self.estimator(n, c.item(), k) for c in self.correct]) / self.dataset_size
+            pass_at_k = sum([self.estimator(n, int(c.item()), k) for c in self.correct]) / self.dataset_size
             results[f'pass@{k}'] = torch.tensor(pass_at_k)
 
-        if len(results) == 1: # backwards compatibility
+        if len(results) == 1:  # backwards compatibility
             return list(results.values())[0]
 
         return results

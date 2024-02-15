@@ -319,6 +319,7 @@ def test_in_context_learning_code_eval_accuracy(monkeypatch):
 
     def repeat(values):
         return [val for val in values for _ in range(generations_per_sample)]
+
     transformers = pytest.importorskip('transformers')
     tokenizer = transformers.AutoTokenizer.from_pretrained('mosaicml/mpt-7b')  # type: ignore reportUnboundVariable
     tokenizer.pad_token = tokenizer.eos_token
