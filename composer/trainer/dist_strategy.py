@@ -506,9 +506,6 @@ def prepare_fsdp_module(
                         ret = obj.fsdp_wrap_fn(module)
                         if isinstance(ret, dict):
                             ret = _set_custom_fsdp_module_kwargs(ret, process_group_cache)
-                    if ret and auto_microbatching:
-                        module.register_forward_hook(sync_hook)
-                        module.register_full_backward_hook(sync_hook)
                     return ret
 
                 _auto_wrap_policy = CustomPolicy(lambda_fn)
@@ -525,9 +522,6 @@ def prepare_fsdp_module(
                     elif hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
                         should_be_wrapped = obj.fsdp_wrap_fn(module)
 
-                    if should_be_wrapped and auto_microbatching:
-                        module.register_forward_hook(sync_hook)
-                        module.register_full_backward_hook(sync_hook)
                     return should_be_wrapped
 
                 def _auto_wrap_policy_new(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:
@@ -552,6 +546,12 @@ def prepare_fsdp_module(
                 use_orig_params=use_orig_params,
                 **kwargs,
             )
+            if auto_microbatching:
+                for name, module in fsdp_obj.named_modules():
+                    if isinstance(module, FullyShardedDataParallel):
+                        log.info(f"bigning debug install hook for {name}")
+                        module.register_forward_pre_hook(sync_hook)
+                        module.register_full_backward_pre_hook(sync_hook)
 
             if hasattr(fsdp_obj, '_exec_order_data'):
                 if hasattr(fsdp_obj._exec_order_data, '_forward_prefetch_limit'):
