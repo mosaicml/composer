@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import torch
+import torch.distributed as torch_dist
 from packaging import version
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import CheckpointWrapper
 from torch.utils.data import DataLoader, Dataset
@@ -191,29 +192,11 @@ def test_fsdp_prefetch_limit(forward_prefetch_limit: int, backward_prefetch_limi
     trainer.fit()
 
 
-class SimpleMLPForTestingOOM(ComposerModel):
-
-    def __init__(self, num_features: int = 128, device: str = 'cuda'):
-        super().__init__()
-        self.device = device
-        self.fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
-        self.fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
-        self.fc3 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
-
-    def forward(self, x):
-        x = self.fc1(x)
-        x = self.fc2(x)
-        x = self.fc3(x)
-        return x
-
-    def loss(self, outputs, batch):
-        return torch.sum(outputs)
-
 class SimpleDataset(Dataset):
 
-    def __init__(self, size: int = 256, batch_size: int = 256, feature_size: int = 1, num_classes: int = 2):
+    def __init__(self, size: int = 256, batch_size: int = 32, feature_size: int = 1, num_classes: int = 2):
         self.size = size
-        self.batch_size = batch_size
+        #self.batch_size = batch_size
         self.feature_size = feature_size
         self.num_classes = num_classes
         self.x = None
@@ -226,12 +209,40 @@ class SimpleDataset(Dataset):
         # Note: lazily generate data so it runs after Composer seeds everything, giving the same
         # dataset across multiple calls when using the same seed.
         if self.x is None:
-            self.x = torch.randn(self.size * self.batch_size, self.feature_size)
+            self.x = torch.randn(self.size, self.feature_size)
         if self.y is None:
-            self.y = torch.randint(0, self.num_classes, size=(self.size * self.batch_size,), dtype=torch.long)
-        return self.x[index * self.batch_size:(index + 1) *
-                      self.batch_size]
+            self.y = torch.randint(0, self.num_classes, size=(self.size,), dtype=torch.long)
+        return self.x[index]
 
+
+class SimpleMLPForTestingOOM(ComposerModel):
+
+    def __init__(self, num_features: int = 128, device: str = 'cuda'):
+        super().__init__()
+        self.device = device
+        self.fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.fc3 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.rank = dist.get_global_rank() 
+        self.iter = 0
+
+    def forward(self, x):
+        print(f"bigning debug input shape: {x.shape}, rank: {torch_dist.get_rank()}, model fwd times: {self.iter}")
+        x = self.fc1(x)
+
+        print(f"bigning debug fc2 start")
+        x = self.fc2(x)
+        print(f"bigning debug fc2 done")
+        x = self.fc3(x)
+        if self.rank == 0 and x.shape[0] >= 64:
+            print(f"bigning debug manually trigger oom on rank 0")
+            raise RuntimeError('CUDA out of memory')
+            pass
+        self.iter += 1
+        return x
+
+    def loss(self, outputs, batch):
+        return torch.sum(outputs)
 
 @pytest.mark.gpu
 @world_size(2)
@@ -239,8 +250,8 @@ def test_fsdp_auto_microbatch(world_size: int):
     model = SimpleMLPForTestingOOM()
     model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
     model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
-    dataset = SimpleDataset(size=100, feature_size=128)
-    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
+    dataset = SimpleDataset(size=256, feature_size=128)
+    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=64)
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
 
     trainer = Trainer(
@@ -252,9 +263,12 @@ def test_fsdp_auto_microbatch(world_size: int):
             'backward_prefetch_limit': 1,
         },
         max_duration='3ba',
+        device_train_microbatch_size='auto',
+        dist_timeout=20,
     )
 
     trainer.fit()
+    #assert False
 
 
 @pytest.mark.gpu
@@ -280,7 +294,6 @@ def test_fsdp_process_group(world_size: int):
     )
 
     trainer.fit()
-
 
 class SimpleMLP(ComposerModel):
 

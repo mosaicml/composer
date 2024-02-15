@@ -988,6 +988,7 @@ class Trainer:
         if deepspeed_config is not None or fsdp_config is not None or dist.get_world_size() > 1:
             # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
             # And torch.distributed is always required for multi-rank training
+            print(f"bigning debug {dist_timeout=}")
             dist.initialize_dist(device, dist_timeout)
 
         # Reproducibility
@@ -1308,6 +1309,8 @@ class Trainer:
                 self.state.train_dataloader = self.state.dataloader
             self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
                 self.state.device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
+            print(f"bigning debug state init micro batch size: {self.state.device_train_microbatch_size}")
+            log.info(f"bigning debug state init micro batch size: {self.state.device_train_microbatch_size}")
         self.spin_dataloaders = spin_dataloaders
 
         # Max Duration
@@ -1828,6 +1831,7 @@ class Trainer:
             self.state.train_dataloader = self.state.dataloader
             self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
                 self.state.device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
+            print(f"bigning debug in fit init micro batch size: {device_train_microbatch_size}")
         if self._train_data_spec is None:
             _raise_missing_argument_exception('train_dataloader')
         if train_subset_num_batches is not None:
@@ -1938,6 +1942,7 @@ class Trainer:
                                  'second run with profiler.')
             self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
                 device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
+            print(f"bigning debug before train loop init micro batch size: {device_train_microbatch_size}")
 
         # Precision
         if precision is not None:
@@ -2015,9 +2020,11 @@ class Trainer:
         dataloader may not be completely iterated through.
         """
         log.debug('Spinning the dataloaders')
+        log.info('Spinning the dataloaders')
 
         # spin the evaluator dataloaders once to initialize its sampler deterministically
         # so it does not affect any other RNG reads
+        """
         eval_state = self.state.dataset_resumption.get('eval', {})
         for evaluator in self.state.evaluators:
             dataloader = evaluator.dataloader.dataloader
@@ -2026,8 +2033,11 @@ class Trainer:
             if evaluator.label not in eval_state:
                 for _ in dataloader:
                     break
+        """
 
+        log.info('Spinning the dataloaders middle')
         # spin the train dataloader's sampler to get to the state of the desired epoch
+        """
         dataloader = self.state.dataloader
         assert dataloader is not None, 'train dataloader is set on state after FIT_START'
         if 'train' not in self.state.dataset_resumption:
@@ -2036,6 +2046,8 @@ class Trainer:
                     dataloader.sampler.set_epoch(epoch)
                 for _ in dataloader:
                     break
+        """
+        log.info('Spinning the dataloaders done')
 
     def _accumulate_time_across_ranks(
         self,
@@ -2100,7 +2112,9 @@ class Trainer:
             if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
                 dataloader.sampler.set_epoch(int(self.state.timestamp.epoch))
 
+            log.info("bigning debug get data")
             for batch_idx, self.state.batch in enumerate(self._iter_dataloader(TrainerMode.TRAIN)):
+                log.info("bigning debug inside loop")
                 # Spin dataloader forward unless dataloader handles internally with dataset_resumption
                 if self.spin_dataloaders and 'train' not in self.state.dataset_resumption and batch_idx < int(
                         self.state.timestamp.batch_in_epoch):
@@ -2109,6 +2123,7 @@ class Trainer:
                         reproducibility.load_rng_state(self._rng_state)
                         self._rng_state = None
                     continue
+                log.info("bigning debug after dataloader")
 
                 self.state.batch = self.state.device.batch_to_device(self.state.batch)
                 self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
@@ -2133,6 +2148,7 @@ class Trainer:
                     self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
                     self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
 
+                log.info("bigning debug start _train_batch")
                 total_loss_dict = self._train_batch(use_grad_scaling)
 
                 if use_grad_scaling:
@@ -2303,6 +2319,7 @@ class Trainer:
                 for metric in self.state.train_metrics.values():
                     metric.reset()
 
+            log.info(f"bigning debug try train batch")
             total_loss_dict = {'loss/train/total': self.state.device.tensor_to_device(torch.zeros(size=(1,)))}
             found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
             try:
@@ -2347,13 +2364,17 @@ class Trainer:
                     # Propagate across all ranks if any rank hit CUDA OOM
                     found_cuda_oom_tensor = self.state.device.tensor_to_device(
                         torch.tensor([found_cuda_oom], dtype=torch.uint8))
+                    print(f"bigning debug oom rank before first all reduce")
                     dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
                     found_cuda_oom = found_cuda_oom_tensor.item()
                     # Check if any rank is still not done with the batch. This may happen if only a
                     # subset of ranks OOM, leaving some batches still in the forward pass
                     all_ranks_finished_tensor = self.state.device.tensor_to_device(torch.tensor([1], dtype=torch.uint8))
+                    print(f"bigning debug oom rank before 2nd all reduce, found cuda oom: {found_cuda_oom}")
                     dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
+                    print(f"bigning debug oom rank after 2nd all reduce")
                     all_ranks_finished = all_ranks_finished_tensor.item() == 1
+                    print(f"bigning debug oom rank all_ranks_finished: {all_ranks_finished}")
                 if found_cuda_oom == 1:
                     _adjust_device_train_microbatch_size(self.state)
                     # Skip return and rerun after handling oom
@@ -3118,7 +3139,9 @@ class Trainer:
                 # [BEFORE/AFTER]_DATALOADER only runs while training
                 if trainer_mode == TrainerMode.TRAIN:
                     self.engine.run_event(Event.BEFORE_DATALOADER)
+                log.info(f"bigning debug before data loader")
                 batch = next(dataloader_iter)
+                log.info(f"bigning debug after data loader")
             except StopIteration:
                 # [BEFORE/AFTER]_DATALOADER only runs while training
                 if trainer_mode == TrainerMode.TRAIN:

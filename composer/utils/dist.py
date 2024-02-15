@@ -33,6 +33,7 @@ If none of these environment variables are set, this module will safely assume a
 from __future__ import annotations
 
 import datetime
+import traceback
 import io
 import logging
 import os
@@ -539,6 +540,7 @@ def initialize_dist(device: Union[str, Device], timeout: float = 300.0):
         os.environ.update(dist_env_var_defaults)
         dist.init_process_group(device_obj.dist_backend, store=dist.HashStore(), world_size=1, rank=0)
     else:
+        print(f"bigning debug nccl timeout: {timeout_timedelta}, backend: {device_obj.dist_backend}, rank: {get_global_rank()}, timeout passed: {timeout}")
         dist.init_process_group(device_obj.dist_backend, timeout=timeout_timedelta)
 
 
