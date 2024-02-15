@@ -671,9 +671,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         self.cot_delimiter = cot_delimiter
         self.has_cot = False
         self.max_answer_length = 0
-        static_keys = [
-            'mode', 'cot_delimiter', 'generation_length', 'generation_kwargs', 'do_normalization', 'stopping_criteria'
-        ]
+        static_keys = ['mode', 'cot_delimiter', 'generation_kwargs', 'do_normalization', 'stopping_criteria']
         tensor_keys = ['input_ids', 'attention_mask']
         list_keys = ['labels']
         super().__init__(padding_side='left',
@@ -690,10 +688,10 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
             'mode': 'generate',
             'labels': [],
             'cot_delimiter': self.cot_delimiter,
-            'generation_length': self.max_answer_length,
             'stopping_criteria': early_stopping_criteria,
             'do_normalization': do_normalization,
             'generation_kwargs': {
+                'max_new_tokens': self.max_answer_length,
                 'pad_token_id': self.pad_tok_id,
                 'use_cache': True,
                 'eos_token_id': self.tokenizer.eos_token_id,
@@ -1215,7 +1213,6 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
     - test_outputs: List of test outputs
     - languages:  List of languages
     - pass_at_k: Passed value for pass_at_k
-    - generation_length: Derrived maximum generation length
     - generation_kwargs: Dictionary of kwargs neeeded for generation. Includes the following, which will be individually overwritten
       by keys in generaiton_kwargs if set (see https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig
       for more details):
@@ -1255,7 +1252,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         # Linting complains if these are not set in init
         self.max_prompt_length = 0
         self.max_answer_length = 0
-        static_keys = ['mode', 'pass_at_k', 'generation_length', 'generation_kwargs']
+        static_keys = ['mode', 'pass_at_k', 'generation_kwargs']
         list_keys = ['prompts', 'tests', 'entry_points', 'test_inputs', 'test_outputs', 'languages', 'labels']
         tensor_keys = ['input_ids', 'attention_mask']
         super().__init__(
@@ -1284,14 +1281,14 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             'test_outputs': [],
             'languages': [],
             'pass_at_k': pass_at_k,
-            'generation_length': min(self.max_answer_length, self.max_seq_len - self.max_prompt_length),
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
                 'num_beams': 1,  # single beam
                 'num_return_sequences': generations_per_sample,
                 'do_sample': True,
                 'use_cache': True,
-                'eos_token_id': self.tokenizer.eos_token_id
+                'eos_token_id': self.tokenizer.eos_token_id,
+                'max_new_tokens': min(self.max_answer_length, self.max_seq_len - self.max_prompt_length),
             }
         }
         if 'generation_kwargs' in kwargs:

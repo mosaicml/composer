@@ -469,7 +469,6 @@ class HuggingFaceModel(ComposerModel):
             self.labels = batch.pop('labels')
             generation = self.generate(batch['input_ids'],
                                        attention_mask=batch['attention_mask'],
-                                       max_new_tokens=batch['generation_length'],
                                        synced_gpus=dist.get_world_size() > 1,
                                        **batch.get('generation_kwargs', {}))
 
