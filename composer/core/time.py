@@ -7,28 +7,7 @@ Callbacks, algorithms, and schedulers can use the current training time to fire 
 process.
 
 The :class:`~.time.Timestamp` class tracks the total number of epochs, batches, samples, and tokens. The trainer is
-responsible for updating it at the end of every epoch and batch.  There is only one instance of the
-:class:`~.time.Timestamp`, which is attached to the :class:`~.state.State`.
-
-The :class:`~.time.Time` class represents static durations of training time or points in the training process in terms
-of a specific :class:`~.time.TimeUnit` enum. This class supports comparisons, arithmetic, and conversions.
-
-See the :doc:`Time Guide </trainer/time>` for more details on tracking time during training.
-"""
-from __future__ import annotations
-
-import datetime
-import re
-from typing import Any, Dict, Generic, Optional, TypeVar, Union, cast
-
-from composer.core.serializable import Serializable
-from composer.utils import StringEnum
-
-__all__ = ['TimeUnit', 'Time', 'Timestamp', 'ensure_time']
-
-
-class TimeUnit(StringEnum):
-    """Enum class to represent units of time for the training process.
+responsible for \process.
 
     Attributes:
         EPOCH (str): Epochs.
