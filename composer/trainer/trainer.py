@@ -1309,8 +1309,6 @@ class Trainer:
                 self.state.train_dataloader = self.state.dataloader
             self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
                 self.state.device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
-            print(f"bigning debug state init micro batch size: {self.state.device_train_microbatch_size}")
-            log.info(f"bigning debug state init micro batch size: {self.state.device_train_microbatch_size}")
         self.spin_dataloaders = spin_dataloaders
 
         # Max Duration
@@ -1361,12 +1359,10 @@ class Trainer:
         # checkpoint on rank 0 only, in which case the model be loaded before it is wrapped.
 
         # FSDP wrap if not using monolith checkpoint on rank 0 only
-        print(f"bigning debug before prepare")
         if self.state.fsdp_config is not None and fsdp_auto_wrap and not self.state.load_fsdp_monolith_rank0_only:
-            print(f"bigning debug in prepare")
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
-            print(f"bigning debug model after fsdp: {model}")
+            log.info(f"bigning debug model after fsdp: {model}")
         #raise RuntimeError(f"bigning")
 
         # Configure Deepspeed
@@ -1831,7 +1827,6 @@ class Trainer:
             self.state.train_dataloader = self.state.dataloader
             self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
                 self.state.device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
-            print(f"bigning debug in fit init micro batch size: {device_train_microbatch_size}")
         if self._train_data_spec is None:
             _raise_missing_argument_exception('train_dataloader')
         if train_subset_num_batches is not None:
@@ -1942,7 +1937,6 @@ class Trainer:
                                  'second run with profiler.')
             self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
                 device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
-            print(f"bigning debug before train loop init micro batch size: {device_train_microbatch_size}")
 
         # Precision
         if precision is not None:
@@ -2112,9 +2106,7 @@ class Trainer:
             if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
                 dataloader.sampler.set_epoch(int(self.state.timestamp.epoch))
 
-            log.info("bigning debug get data")
             for batch_idx, self.state.batch in enumerate(self._iter_dataloader(TrainerMode.TRAIN)):
-                log.info("bigning debug inside loop")
                 # Spin dataloader forward unless dataloader handles internally with dataset_resumption
                 if self.spin_dataloaders and 'train' not in self.state.dataset_resumption and batch_idx < int(
                         self.state.timestamp.batch_in_epoch):
@@ -2123,7 +2115,6 @@ class Trainer:
                         reproducibility.load_rng_state(self._rng_state)
                         self._rng_state = None
                     continue
-                log.info("bigning debug after dataloader")
 
                 self.state.batch = self.state.device.batch_to_device(self.state.batch)
                 self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
@@ -2148,7 +2139,6 @@ class Trainer:
                     self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
                     self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
 
-                log.info("bigning debug start _train_batch")
                 total_loss_dict = self._train_batch(use_grad_scaling)
 
                 if use_grad_scaling:
@@ -2364,17 +2354,17 @@ class Trainer:
                     # Propagate across all ranks if any rank hit CUDA OOM
                     found_cuda_oom_tensor = self.state.device.tensor_to_device(
                         torch.tensor([found_cuda_oom], dtype=torch.uint8))
-                    print(f"bigning debug oom rank before first all reduce")
+                    log.info(f"bigning debug oom rank before first all reduce")
                     dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
                     found_cuda_oom = found_cuda_oom_tensor.item()
                     # Check if any rank is still not done with the batch. This may happen if only a
                     # subset of ranks OOM, leaving some batches still in the forward pass
                     all_ranks_finished_tensor = self.state.device.tensor_to_device(torch.tensor([1], dtype=torch.uint8))
-                    print(f"bigning debug oom rank before 2nd all reduce, found cuda oom: {found_cuda_oom}")
+                    log.info(f"bigning debug oom rank before 2nd all reduce, found cuda oom: {found_cuda_oom}")
                     dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
-                    print(f"bigning debug oom rank after 2nd all reduce")
+                    log.info(f"bigning debug oom rank after 2nd all reduce")
                     all_ranks_finished = all_ranks_finished_tensor.item() == 1
-                    print(f"bigning debug oom rank all_ranks_finished: {all_ranks_finished}")
+                    log.info(f"bigning debug oom rank all_ranks_finished: {all_ranks_finished}")
                 if found_cuda_oom == 1:
                     _adjust_device_train_microbatch_size(self.state)
                     # Skip return and rerun after handling oom
