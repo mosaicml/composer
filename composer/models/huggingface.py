@@ -542,7 +542,8 @@ class HuggingFaceModel(ComposerModel):
         else:
             metric_result = metric.update(outputs, self.labels)  # pyright: ignore [reportGeneralTypeIssues]
 
-        metric_result['metric_name'] = metric.__class__.__name__
+        if metric_result is not None:
+            metric_result['metric_name'] = metric.__class__.__name__
         return metric_result
 
     def get_metadata(self):

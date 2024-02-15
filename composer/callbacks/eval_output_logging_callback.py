@@ -34,20 +34,21 @@ class EvalOutputLogging(Callback):
         logging_dict['metric_name'] = [state.metric_outputs['metric_name'] for _ in range(0, len(state.outputs))]
 
         # Depad and decode input_ids
-        input_tensor = state.batch['input_ids']
+        input_ids = state.batch['input_ids']
         logged_input = []
         assert state.dataloader is not None
         assert hasattr(state.dataloader, 'dataset')
         assert hasattr(state.dataloader.dataset, 'tokenizer')
-        # assert state.dataloader.dataset is not None
-        # assert state.dataloader.dataset.tokenizer is not None
-        for input_list in input_tensor:
+        for input_list in input_ids:
             depadded_input = [tok for tok in input_list if tok != state.dataloader.dataset.pad_tok_id]
             logged_input.append(state.dataloader.dataset.tokenizer.decode(depadded_input))
         logging_dict['input'] = logged_input
 
+        # Get column names
         columns = list(logging_dict.keys())
+        # Convert logging_dict from kv pairs of column name and column values to list of rows
         rows = [list(item) for item in zip(*logging_dict.values())]
+
         # TODO: This assumes _any_ tensor logged are tokens to be decoded.
         #       This might not be true if, for example, logits are logged.
         # detokenize data in rows
@@ -64,5 +65,3 @@ class EvalOutputLogging(Callback):
         for dest_logger in logger.destinations:
             if dest_logger.__class__.__name__ == 'WandBLogger' or dest_logger.__class__.__name__ == 'MLFlowLogger':
                 dest_logger.log_table(columns, rows, name=name, step=0)
-
-        state.metric_outputs = {}
