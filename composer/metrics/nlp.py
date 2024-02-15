@@ -16,6 +16,7 @@ from torch import Tensor
 from torch.nn import functional as F
 from torchmetrics import Metric
 
+from composer.utils import dist
 from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient, MosaicMLLambdaEvalClient
 
 log = logging.getLogger(__name__)
@@ -601,8 +602,8 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
     def __init__(self, dist_sync_on_step: bool = False):
         # state from multiple processes
         super().__init__(dist_sync_on_step=dist_sync_on_step)
-        self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
+
+        self._initialized = False
 
         self.eval_device = os.environ.get('CODE_EVAL_DEVICE', None)
         if self.eval_device is not None:
@@ -646,6 +647,18 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
             return 1.0
         return 1.0 - float(np.prod(1.0 - k / np.arange(n - c + 1, n + 1)))
 
+    def _initialize_state(self, batch: dict[str, Any]):
+        device = batch['input_ids'].device
+        self.dataset_size = batch['dataset_size']
+        self.pass_at_k = batch['pass_at_k']
+        self.num_generations = batch['generations_per_sample']
+
+        # We need to defer the accumulator initialization because it depends on dataset size
+        self.add_state('correct', default=torch.zeros(self.dataset_size, device=device), dist_reduce_fx='sum')
+        self.add_state('total', default=torch.zeros(self.dataset_size, device=device), dist_reduce_fx='sum')
+        dist.barrier()
+        self._initialized = True
+
     def update(self, batch: Dict[str, Any], outputs: List[str], labels: List[str]):
         """Updates the pass@k accuracy of code generation.
 
@@ -670,51 +683,62 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
             labels (List[str]): A list of the correct code generations, for compatibility with existing HF generate
             functionalities. This is not used.
         """
+        if not self._initialized:
+            self._initialize_state(batch)
+
         del labels  # never used
         client = self.get_client()
 
-        pass_at_k = batch['pass_at_k']
-        num_generations = batch['generation_kwargs']['num_return_sequences']
-        processed_outputs = [
-            outputs[i * num_generations:(i + 1) * num_generations] for i in range(len(batch['prompts']))
-        ]
-        payloads = []
-        for sample_outputs, sample_prompt, test_inputs, test_outputs, entry_point, language in zip(
-                processed_outputs, batch['prompts'], batch['test_inputs'], batch['test_outputs'], batch['entry_points'],
-                batch['languages']):
-            self.total += torch.tensor(1.0)
-            prompt_payload = []
-            for code_gen in sample_outputs:
-                code_gen = re.split(r'\n[A-Za-z0-9#`]', code_gen)[0]  # remove everything after function ends
-                final_code = sample_prompt + code_gen  # combine prompt with the code generation
-                generation_payload = []
-                for test_input, test_output in zip(test_inputs, test_outputs):
-                    payload = {
-                        'code': final_code,
-                        'input': test_input,
-                        'output': test_output,
-                        'entry_point': entry_point,
-                        'language': language,
-                    }
-                    generation_payload.append(payload)
+        for sample_id, code_gen, sample_prompt, test_inputs, test_outputs, entry_point, language in zip(
+                batch['sample_id'], outputs, batch['prompts'], batch['test_inputs'], batch['test_outputs'],
+                batch['entry_points'], batch['languages']):
 
-                prompt_payload.append(generation_payload)
-            payloads.append(prompt_payload)
+            idx = sample_id
+            self.total[idx] += 1.0
 
-        results = client.invoke(payloads)
-        for prompt in results:
-            num_correct = 0
-            for generation in prompt:
-                correct = all(generation)
-                if correct:
-                    num_correct += 1
+            code_gen = re.split(r'\n[A-Za-z0-9#`]', code_gen)[0]  # remove everything after function ends
+            final_code = sample_prompt + code_gen  # combine prompt with the code generation
 
-            pass_at_k_rate = self.estimator(num_generations, num_correct, pass_at_k)
-            self.correct += torch.tensor(pass_at_k_rate)
+            test_results = []
+            for test_input, test_output in zip(test_inputs, test_outputs):
+                payload = {
+                    'code': final_code,
+                    'input': test_input,
+                    'output': test_output,
+                    'entry_point': entry_point,
+                    'language': language,
+                }
+
+                result = client.invoke([[[payload]]])[0][0][0]
+                test_results.append(result)
+
+            if all(test_results):
+                self.correct[idx] += 1.0
 
         client.close()  # pyright: ignore [reportOptionalMemberAccess]
 
     def compute(self):
         assert isinstance(self.correct, Tensor)
         assert isinstance(self.total, Tensor)
-        return self.correct / self.total
+        complete = self.total == self.num_generations  # so that eval subset batches can be used
+
+        if complete.sum() < (self.total != 0).sum():
+            warnings.warn('Some samples in the dataset have less than the expected number of generations. '
+                          'This is expected if you are using a subset of the dataset for evaluation.')
+
+        if (self.correct > self.total).any().item():
+            raise ValueError(
+                'Internal error some samples have more correct than  total generations. This should not happen.')
+
+        results = {}
+        n = self.num_generations
+
+        for k in self.pass_at_k:
+            pass_at_k = sum([self.estimator(n, int(c.item()), k) for c in self.correct[complete]
+                            ]) / complete.sum().item()
+            results[f'pass@{k}'] = torch.tensor(pass_at_k)
+
+        if len(results) == 1:  # backwards compatibility
+            return list(results.values())[0]
+
+        return results
