@@ -524,7 +524,7 @@ class HuggingFaceModel(ComposerModel):
             for new_input in new_inputs:
                 trimmed_new_input = _trim_context(new_input, [], padding_size)
                 padded_new_input = _make_padded_input(trimmed_new_input, [], padding_size,
-                                                      batch['generation_kwargs']['padding_token'], 'left')
+                                                      batch['generation_kwargs']['pad_token_id'], 'left')
                 batched_combined_prompts.append(padded_new_input)
 
             prompt_device = batch['input_ids'].device
@@ -537,7 +537,7 @@ class HuggingFaceModel(ComposerModel):
 
             # NOTE: got this warning: UserWarning: To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach() or sourceTensor.clone().detach().requires_grad_(True), rather than torch.tensor(sourceTensor).
             batched_combined_prompts = torch.stack(list(map(torch.tensor, batched_combined_prompts)))
-            batched_combined_attention_mask = ~(batched_combined_prompts == batch['padding_token'])
+            batched_combined_attention_mask = ~(batched_combined_prompts == batch['generation_kwargs']['pad_token_id'])
             batched_combined_prompts = batched_combined_prompts.to(prompt_device)
             batched_combined_attention_mask = batched_combined_attention_mask.to(attention_mask_device)
 
