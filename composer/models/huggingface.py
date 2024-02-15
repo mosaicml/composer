@@ -473,6 +473,9 @@ class HuggingFaceModel(ComposerModel):
                                        max_new_tokens=batch['generation_length'],
                                        synced_gpus=dist.get_world_size() > 1,
                                        **batch.get('generation_kwargs', {}))
+            
+            print ("generation is: ", generation)
+            print ("batch generation kwargs is: ", batch.get('generation_kwargs', None))
 
             # don't remove prefix space to sentencepiece models
             if len(self.tokenizer(
