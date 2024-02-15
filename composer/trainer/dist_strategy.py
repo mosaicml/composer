@@ -629,29 +629,16 @@ def prepare_fsdp_module(
             # Activation Checkpointing
             if activation_checkpointing or activation_cpu_offload:
                 if use_te_checkpoint_wrapper:
-                    assert activation_checkpointing_reentrant, 'TE checkpoint wrapper only supports reentrant checkpointing'
+                    assert not activation_checkpointing_reentrant, 'TE checkpoint only works with non-reentrant checkpointing'
                 if version.parse(torch.__version__) > version.parse('2.1.0.dev'):
                     from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import offload_wrapper
                     if not activation_checkpointing_reentrant:
-                        first_wrap_fn = lambda m: checkpoint_wrapper(
-                            m,
-                            checkpoint_impl=CheckpointImpl.NO_REENTRANT,
-                        ) if activation_checkpointing else (lambda module: module)
-                        second_wrap_fn = (
-                            lambda module: offload_wrapper(
-                                first_wrap_fn(module)
-                                if activation_checkpointing else module,  # type: ignore reportGeneralTypeIssues
-                            )
-                        ) if activation_cpu_offload else first_wrap_fn
-                    else:
                         if use_te_checkpoint_wrapper:
                             try:
                                 import transformer_engine.pytorch as te
                             except ModuleNotFoundError:
                                 raise ModuleNotFoundError(
                                     'Please install transformer-engine to use TE checkpoint wrapper')
-
-                            import contextlib
 
                             # RNG state tracker for checkpointing
                             CUDA_RNG_STATES_TRACKER = te.distributed.CudaRNGStatesTracker()
@@ -660,30 +647,28 @@ def prepare_fsdp_module(
                             def get_cuda_rng_tracker():
                                 return CUDA_RNG_STATES_TRACKER
 
-                            def noop_context_fn():
-                                return contextlib.nullcontext(), contextlib.nullcontext()
-
-                            def te_checkpoint_wrapper(function,
-                                                      *args,
-                                                      use_reentrant=None,
-                                                      context_fn=noop_context_fn,
-                                                      determinism_check='default',
-                                                      debug=False,
-                                                      **kwargs):
-                                del use_reentrant, context_fn, determinism_check, debug
-                                return te.distributed.checkpoint(function, False, get_cuda_rng_tracker, None, *args,
-                                                                 **kwargs)
-
-                            first_wrap_fn = lambda m: checkpoint_wrapper(m, checkpoint_fn=te_checkpoint_wrapper)
+                            first_wrap_fn = lambda m: checkpoint_wrapper(m,
+                                                                         checkpoint_fn=te.distributed.checkpoint,
+                                                                         use_reentrant=False,
+                                                                         get_rng_state_tracker=get_cuda_rng_tracker)
                         else:
-                            first_wrap_fn = lambda m: checkpoint_wrapper(m, checkpoint_impl=CheckpointImpl.REENTRANT
+                            first_wrap_fn = lambda m: checkpoint_wrapper(m, checkpoint_impl=CheckpointImpl.NO_REENTRANT
                                                                         ) if activation_checkpointing else (
                                                                             lambda module: module)
                         second_wrap_fn = (
                             lambda module: offload_wrapper(
                                 first_wrap_fn(module)
                                 if activation_checkpointing else module,  # type: ignore reportGeneralTypeIssues
-                            )
+                            )) if activation_cpu_offload else first_wrap_fn
+                    else:
+
+                        first_wrap_fn = lambda m: checkpoint_wrapper(m, checkpoint_impl=CheckpointImpl.REENTRANT
+                                                                    ) if activation_checkpointing else (lambda module:
+                                                                                                        module)
+                        second_wrap_fn = (
+                            lambda module: offload_wrapper(
+                                first_wrap_fn(module)
+                                if activation_checkpointing else module)  # type: ignore reportGeneralTypeIssues
                         ) if activation_cpu_offload else first_wrap_fn
                 else:
                     if not activation_checkpointing_reentrant:
