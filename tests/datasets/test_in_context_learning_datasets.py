@@ -1491,10 +1491,11 @@ def test_code_eval_split_batch(dataset_uri, tmp_path):
             assert len(batch[field]) == size
             assert all(isinstance(val, type_) for val in batch[field])
 
-    static_keys = {'pass_at_k': (int, list), 'generation_length': int, 'generation_kwargs': dict}
+    static_keys = {'pass_at_k': (int, list), 'generation_kwargs': dict}
     for batch in batches:
         for field, type_ in static_keys.items():
             assert isinstance(batch[field], type_)
+    assert batch['generation_kwargs']['max_new_tokens'] == 122
 
 
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
@@ -1544,7 +1545,7 @@ def test_code_eval_sentpiece_dataloader(dataset_uri, tmp_path, num_fewshot, prom
         assert tuple(batch['attention_mask'].shape) == (bs, max_prompt_length)
         assert batch['mode'] == 'generate'
         # the maximum generation length from the small test data
-        assert batch['generation_length'] == 129
+        assert batch['generation_kwargs']['max_new_tokens'] == 129
         has_left_padding.extend([item[0] == tokenizer.eos_token_id for item in batch['input_ids']])
     assert not all(has_left_padding)  # longest should be pushed left
 
@@ -1703,7 +1704,7 @@ def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_st
         assert tuple(batch['attention_mask'].shape) == (bs, max_prompt_length)
         assert batch['mode'] == 'generate'
         # the maximum generation length from the small test data
-        assert batch['generation_length'] == 122
+        assert batch['generation_kwargs']['max_new_tokens'] == 122
         has_left_padding.extend([item[0] == tokenizer.eos_token_id for item in batch['input_ids']])
     assert not all(has_left_padding)  # longest should be pushed left
 
