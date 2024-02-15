@@ -543,7 +543,8 @@ class HuggingFaceModel(ComposerModel):
             metric_result = metric.update(outputs, self.labels)  # pyright: ignore [reportGeneralTypeIssues]
 
         if metric_result is not None:
-            metric_result['metric_name'] = metric.__class__.__name__
+            # Add the metric name once for each datapoint in the batch
+            metric_result['metric_name'] = [metric.__class__.__name__ for _ in range(0, batch.shape[0])]
         return metric_result
 
     def get_metadata(self):
