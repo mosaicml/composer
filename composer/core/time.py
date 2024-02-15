@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import datetime
 import re
+import warnings
 from typing import Any, Dict, Generic, Optional, TypeVar, Union, cast
 
 from composer.core.serializable import Serializable
@@ -532,21 +533,8 @@ class Timestamp(Serializable):
         Returns:
             Dict[str, Union[Time[int], datetime.timedelta]]: All values of the timestamp object.
         """
-        return {
-            'iteration': self.iteration,
-            'epoch': self.epoch,
-            'batch': self.batch,
-            'sample': self.sample,
-            'token': self.token,
-            'epoch_in_iteration': self.epoch_in_iteration,
-            'batch_in_epoch': self.batch_in_epoch,
-            'sample_in_epoch': self.sample_in_epoch,
-            'token_in_epoch': self.token_in_epoch,
-            'total_wct': self.total_wct,
-            'iteration_wct': self.iteration_wct,
-            'epoch_wct': self.epoch_wct,
-            'batch_wct': self.batch_wct,
-        }
+        warnings.warn('core.time.Timestamp.get_state is deprecated and will be removed v0.21.0', DeprecationWarning)
+        return self.state_dict()
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
         self._epoch = Time(state['epoch'], TimeUnit.EPOCH)
