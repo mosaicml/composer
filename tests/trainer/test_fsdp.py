@@ -7,7 +7,7 @@ import pytest
 import torch
 from packaging import version
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import CheckpointWrapper
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 from composer.models import ComposerClassifier, ComposerModel
 from composer.trainer.trainer import Trainer
@@ -190,6 +190,7 @@ def test_fsdp_prefetch_limit(forward_prefetch_limit: int, backward_prefetch_limi
 
     trainer.fit()
 
+
 class SimpleDataset(Dataset):
 
     def __init__(self, size: int = 256, batch_size: int = 32, feature_size: int = 1, num_classes: int = 2):
@@ -221,7 +222,7 @@ class SimpleMLPForTestingOOM(ComposerModel):
         self.fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
         self.fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
         self.fc3 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
-        self.rank = dist.get_global_rank() 
+        self.rank = dist.get_global_rank()
         self.iter = 0
 
     def forward(self, x):
@@ -235,6 +236,7 @@ class SimpleMLPForTestingOOM(ComposerModel):
 
     def loss(self, outputs, batch):
         return torch.sum(outputs)
+
 
 @pytest.mark.gpu
 @world_size(2)
@@ -260,6 +262,7 @@ def test_fsdp_auto_microbatch(world_size: int):
     )
 
     trainer.fit()
+
 
 @pytest.mark.gpu
 @world_size(2)
