@@ -1374,7 +1374,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
                     assert isinstance(sample, dict)
                     yield {'sample_id': i, **sample}
 
-        from datasets import Dataset as HFDataset
+        from datasets import Dataset as HFDataset # pyright: ignore[reportGeneralTypeIssues]
 
         repeated_dataset = HFDataset.from_generator(_repeat_dataset)
         assert isinstance(repeated_dataset, HFDataset)
