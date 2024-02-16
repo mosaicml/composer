@@ -31,6 +31,8 @@ import torch.nn as nn
 import torch.utils.data
 from torch._dynamo import OptimizedModule
 from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
+from torch.distributed.fsdp import FullyShardedDataParallel
+from torch.distributed.fsdp._runtime_utils import _post_forward, _post_forward_reshard
 from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim.lr_scheduler import LRScheduler
@@ -233,6 +235,15 @@ def _is_cuda_oom(e: RuntimeError):
     return False
 
 
+def _fsdp_reshard(model: torch.nn.Module):
+    for name, module in model.named_modules():
+        if isinstance(module, FullyShardedDataParallel):
+            try:
+                _post_forward(module, module._handle, _post_forward_reshard, module, None, None)
+            except:
+                log.warning(f'bigning debug exception when reshard {name}')
+
+
 def _adjust_device_train_microbatch_size(state: State):
     """Adjust device_train_microbatch_size if we encounter OOM.
 
@@ -260,6 +271,9 @@ def _adjust_device_train_microbatch_size(state: State):
         optimizer.zero_grad(set_to_none=True)
     if state.scaler is not None:
         state.scaler._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
+
+    # free fsdp unsharded parameters
+    _fsdp_reshard(state.model)
     gc.collect()
     torch.cuda.empty_cache()
 
