@@ -1,10 +1,13 @@
-import imghdr
-import os
-from pathlib import Path
+# Copyright 2024 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 from typing import Sequence
-from composer.loggers import Logger, TensorboardLogger
+
 import pytest
 import torch
+
+from composer.loggers import Logger, TensorboardLogger
+
 
 @pytest.fixture
 def test_tensorboard_logger(tmp_path, dummy_state):
@@ -35,8 +38,12 @@ def test_tensorboard_log_image(test_tensorboard_logger):
 
         else:
             np_images = images.to(torch.float32).numpy()
-        test_tensorboard_logger.log_images(name="Image " + str(idx) + " tensor", images=images, channels_last=channels_last)
-        test_tensorboard_logger.log_images(name="Image " + str(idx) + " np",images=np_images, channels_last=channels_last)
+        test_tensorboard_logger.log_images(name='Image ' + str(idx) + ' tensor',
+                                           images=images,
+                                           channels_last=channels_last)
+        test_tensorboard_logger.log_images(name='Image ' + str(idx) + ' np',
+                                           images=np_images,
+                                           channels_last=channels_last)
 
     test_tensorboard_logger.post_close()
     # Tensorboard images are stored inline, so we can't check them automatically.
