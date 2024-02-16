@@ -1,6 +1,6 @@
 name: PR CPU tests
 on:
-  pull_request:
+  pull_request_target:
   workflow_dispatch:
 # Cancel old runs when a new commit is pushed to the same branch if not on main
 # or dev
@@ -43,3 +43,6 @@ jobs:
     needs: [pytest-cpu]
     with:
       download-path: artifacts
+    secrets:
+      app_id: ${{ secrets.DEVOGE_BOT_PUB_APPID }}
+      private_key: ${{ secrets.DEVOGE_BOT_PUB_PEM }}
