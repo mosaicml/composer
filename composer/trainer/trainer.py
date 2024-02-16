@@ -249,6 +249,12 @@ def _fsdp_reshard(model: torch.nn.Module):
         except:
             log.warning(f'bigning debug exception when reshard {name}')
 
+def get_mem_info():
+    allocated = round(torch.cuda.memory_allocated() / 1000000000.0, 3)
+    max_allocated = round(torch.cuda.max_memory_allocated() / 1000000000.0, 3)
+    reserved = round(torch.cuda.memory_reserved() / 1000000000.0, 3)
+    return allocated, max_allocated, reserved
+
 def _adjust_device_train_microbatch_size(state: State):
     """Adjust device_train_microbatch_size if we encounter OOM.
 
@@ -258,6 +264,7 @@ def _adjust_device_train_microbatch_size(state: State):
     # If any rank hit CUDA OOM, update device_train_microbatch_size and retry. Raise runtime error
     # if training 1 sample at a time still resulted in CUDA out of memory.
     assert state.device_train_microbatch_size is not None
+    original_microbatch_size = 0
     if state.device_train_microbatch_size == 1:
         raise RuntimeError(('CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
                             'The GPU does not have enough memory to process even 1 sample during train.'))
@@ -278,9 +285,14 @@ def _adjust_device_train_microbatch_size(state: State):
         state.scaler._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
 
     # free fsdp unsharded parameters
+    allocated_before_reshard, max_before_reshard, reserved_before_reshard = get_mem_info()
     _fsdp_reshard(state.model)
+    allocated_after_reshard, max_after_reshard, reserved_after_reshard = get_mem_info()
     gc.collect()
     torch.cuda.empty_cache()
+    allocated_after_empty, max_after_empty, reserved_after_empty= get_mem_info()
+    log.info(f"bigning debug mem info, rank: {dist.get_global_rank()}, bofore reshard: allocated {allocated_before_reshard}, max allo: {max_before_reshard}, reserved: {reserved_before_reshard},               after reshard: allocated: {allocated_after_reshard}, max alloc: {max_after_reshard}, reserved: {reserved_after_reshard},                          after empty: allocated {allocated_after_empty}, max alloc: {max_after_empty}, reserved: {reserved_after_empty}")
+    torch.cuda.reset_max_memory_allocated()
 
 
 def _adjust_device_eval_microbatch_size(evaluator: Evaluator):
