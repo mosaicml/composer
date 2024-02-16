@@ -482,9 +482,9 @@ def main():
         args.stderr = f'{log_tmpdir.name}/rank{{rank}}.stderr.txt'
 
     # If running on the Mosaic platform, log all gpu ranks' stderr and stdout to Mosaic platform
-    if os.environ.get(
-            MOSAICML_PLATFORM_ENV_VAR,
-            'false').lower() == 'true' and str(os.environ.get(MOSAICML_LOG_DIR_ENV_VAR, 'false')).lower() != 'false':
+    if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and str(
+            os.environ.get(MOSAICML_LOG_DIR_ENV_VAR, 'false')).lower() != 'false' and os.environ.get(
+                MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR, 'false').lower() != 'false':
         log.info('Logging all GPU ranks to Mosaic Platform.')
         log_file_format = f'{os.environ.get(MOSAICML_LOG_DIR_ENV_VAR)}/{os.environ.get(MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR)}{{local_rank}}.txt'
         if args.stderr is not None or args.stdout is not None:
