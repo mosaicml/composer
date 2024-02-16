@@ -283,7 +283,7 @@ class LossPerpVLen(Metric):
         sum_length_seq_id = torch.where(self.sum_length_seq_id != 0, self.sum_length_seq_id, 1)
 
         metric_dict = {
-            'loss_perp_v_len_metrics': True,
+            'log_as_table': True,
             'mean_loss_v_len': sum_loss / sum_length,
             'mean_perplexity_v_len': sum_perplexity / sum_length,
             'mean_loss_seq_id_v_len': sum_loss_seq_id / sum_length_seq_id,

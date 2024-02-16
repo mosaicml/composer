@@ -1989,10 +1989,10 @@ class Trainer:
         for metric_name, metric in metrics.items():
             metric_value = metric.compute()
             computed_metrics[metric_name] = metric_value
-            if isinstance(metric_value, dict) and metric_value.get('loss_perp_v_len_metrics', False):
+            if isinstance(metric_value, dict) and metric_value.get('log_as_table', False):
                 metrics_logged_in_table.append(metric_name)
                 for k, v in metric_value.items():
-                    if k != 'loss_perp_v_len_metrics':
+                    if k != 'log_as_table':
                         self.logger.log_table(
                             columns=['context_length', k],
                             rows=[[i, b] for (i, b) in enumerate(v.tolist())],
