@@ -1988,7 +1988,6 @@ class Trainer:
         metrics_logged_in_table = []
         for metric_name, metric in metrics.items():
             metric_value = metric.compute()
-            computed_metrics[metric_name] = metric_value
             if isinstance(metric_value, dict) and metric_value.get('log_as_table', False):
                 metrics_logged_in_table.append(metric_name)
                 for k, v in metric_value.items():
@@ -1998,12 +1997,10 @@ class Trainer:
                             rows=[[i, b] for (i, b) in enumerate(v.tolist())],
                             name=
                             f'metrics/{dataloader_label}/{metric_name}/{k}/{self.logger._state.timestamp.batch.value}')
+            else:
+                computed_metrics[metric_name] = metric_value
         self.logger.log_metrics(
-            {
-                f'metrics/{dataloader_label}/{name}': val
-                for (name, val) in computed_metrics.items()
-                if name not in metrics_logged_in_table
-            },)
+            {f'metrics/{dataloader_label}/{name}': val for (name, val) in computed_metrics.items()},)
 
         # store metric instances
         for metric_name, metric in metrics.items():
