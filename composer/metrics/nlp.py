@@ -186,24 +186,7 @@ class BinaryF1Score(Metric):
         return f1
 
 
-class MetricsRequiringBatchInfo(Metric):
-
-    def update(self, batch: dict, output: Union[Mapping, torch.Tensor], target: torch.Tensor) -> None:
-        """Abstract interface for computing metrics that require the batch.
-
-        Args:
-            batch (dict): Batch must consist minimally of `input_ids` as well as any other structure needed
-                to compute the metric.
-            output_logits (torch.Tensor): The model outputs evaluated on the batch `input_ids`
-            labels (torch.Tensor): The correct outputs.
-
-        Raises:
-            NotImplementedError: Abstract method must be implemented by subclasses
-        """
-        raise NotImplementedError
-
-
-class LossPerpVLen(MetricsRequiringBatchInfo):
+class LossPerpVLen(Metric):
 
     # Make torchmetrics call update only once
     full_state_update = False
@@ -211,6 +194,7 @@ class LossPerpVLen(MetricsRequiringBatchInfo):
     def __init__(self, dist_sync_on_step: bool = False, ignore_index: int = -100):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
+        self.needs_batch = True
         self.ignore_index = ignore_index
         self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=ignore_index, reduction='none')
         self.add_state('sum_loss', default=torch.Tensor(), dist_reduce_fx='sum')
