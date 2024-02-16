@@ -1195,6 +1195,7 @@ def test_eval_forward_generate(device, world_size, hf_model, hf_tokenizer, use_f
     for k, v in input_dict.items():
         input_dict[k] = device.tensor_to_device(v)
     input_dict['mode'] = 'generate'
+    input_dict['generation_kwargs'] = {}
 
     input_dict['generation_kwargs']['max_new_tokens'] = 5
     input_dict['labels'] = [['answer1'], ['answer2']]
