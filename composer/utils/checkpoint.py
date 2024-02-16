@@ -213,19 +213,37 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         super().__init__(destination_path)
 
     def read_data(self, plan: LoadPlan, planner: LoadPlanner):
-        first_replica = self.device_mesh is None or self.device_mesh.get_local_rank(mesh_dim=0) == 0
+        # Download files if not using HSDP or if on first replica with HSDP enabled
+        first_replica = self.device_mesh is None or self.device_mesh.ndim == 1 or (
+            self.device_mesh.ndim >= 2 and self.device_mesh.get_local_rank(mesh_dim=0) == 0)
 
-        # 1. Download to the destination all files this rank needs if on first replica
+        # 1. Collect the relative paths to download for all ranks for deduplication
+        relative_file_paths = set()
+        for plan_item in plan.items:
+            relative_file_paths.add(self.storage_data[plan_item.storage_index].relative_path)
+        all_file_paths = dist.all_gather_object(relative_file_paths)
+
+        # 2. Download to the destination all files this rank needs if on first replica
         if first_replica:
             log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
+
+            # Get the lowest rank in the current node
+            local_rank_0 = dist.get_global_rank() - dist.get_local_rank()
+
             for plan_item in plan.items:
-                # Each plan item has a storage index which points to the relative path of the shard file at save time.
                 relative_file_path = self.storage_data[plan_item.storage_index].relative_path
+                # Check if the file is scheduled to be downloaded by a lower rank on the same node
+                # i.e. if rank 0 and rank 1 on the same node have the same the same required file,
+                # only rank 0 should download it and not rank 1.
+                is_downloaded = any(
+                    relative_file_path in all_file_paths[i] for i in range(local_rank_0, dist.get_global_rank()))
+
                 # Download the shard file to the relative path it's associated to and save that relative path
                 # to the root directory specified to the FileSystem reader constructor.
                 file_destination = str(Path(self.destination_path) / Path(relative_file_path))
+
                 # The file could have already been downloaded as different plan items can point to same file.
-                if not os.path.exists(file_destination):
+                if not is_downloaded and not os.path.exists(file_destination):
                     log.debug(f'Downloading {relative_file_path} to {file_destination}.')
                     object_name = str(Path(self.source_path) / Path(relative_file_path))
                     if isinstance(self.object_store, ObjectStore):
@@ -240,12 +258,12 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                         )
                     log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
 
-        # 2. Wait for all ranks to finish.
+        # 3. Wait for all ranks to finish.
         log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
         dist.barrier()
         log.debug('Done waiting for all ranks to finish downloading files.')
 
-        # 3. Broadcast files to all other replicas if HSDP
+        # 4. Broadcast files to all other replicas if HSDP
         if self.device_mesh is not None and self.device_mesh.ndim == 2:
             # Broadcast file to all replicas
             replicate_process_group = self.device_mesh.get_group(0)
@@ -286,7 +304,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                 f'Done waiting for all ranks to finish transferring files. Local checkpoint files: {os.listdir(self.destination_path)}'
             )
 
-        # 4. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
+        # 5. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
         return super().read_data(plan, planner)
 
 
@@ -446,13 +464,13 @@ def load_checkpoint(
     """
     path = partial_format(path, run_name=state.run_name)
     using_legacy_sharded = False
-    if state.fsdp_elastic_sharded_enabled:
+    if state.fsdp_sharded_state_dict_enabled:
         assert object_store is None or isinstance(
             object_store,
             ObjectStore), 'For loading sharded checkpoints load_object_store must be set with the class ObjectStore'
         using_legacy_sharded = is_checkpoint_legacy_sharded(object_store, path)
 
-    if state.fsdp_elastic_sharded_enabled and not using_legacy_sharded:
+    if state.fsdp_sharded_state_dict_enabled and not using_legacy_sharded:
         rng_state_dicts = load_sharded_checkpoint(
             source_path=path,
             state=state,
@@ -545,8 +563,6 @@ def load_sharded_checkpoint(
 
     if state.fsdp_config is None:
         raise ValueError('Loading a sharded checkpoint requires passing an FSDP config to Trainer.')
-    load_planner = state.fsdp_config['load_planner']
-    _validate_load_planner(load_planner)
 
     # Check to make sure source_path is a directory.
     if object_store is None:
@@ -603,14 +619,14 @@ def load_sharded_checkpoint(
                 dist_cp.load(  # type: ignore
                     state_dict=state_dict,
                     storage_reader=storage_reader,
-                    planner=load_planner,
+                    planner=state.fsdp_config['load_planner'],
                     no_dist=(not dist.is_initialized()),
                 )
             else:
                 dist_cp.load_state_dict(
                     state_dict=state_dict,
                     storage_reader=storage_reader,
-                    planner=load_planner,
+                    planner=state.fsdp_config['load_planner'],
                     no_dist=(not dist.is_initialized()),
                 )
 
@@ -822,40 +838,6 @@ def glob_filter(exclude_globs: list[str]) -> Callable[[dict], None]:
     return filter_func
 
 
-def _validate_save_planner(save_planner: Optional[Any]) -> None:
-    """Checks that ``save_planner`` is an instance of a :class:`~torch.distributed.checkpoint.planner.SavePlanner`.
-
-    TODO(GRT-2456): Remove validation once we deprecate torch 1.13 and can use
-    type hints.
-
-    Raises:
-        ValueError: If ``save_planner`` is not a
-            :class:`~torch.distributed.checkpoint.planner.SavePlanner`.
-    """
-    from torch.distributed.checkpoint.planner import SavePlanner
-
-    if save_planner is not None and not isinstance(save_planner, SavePlanner):
-        raise ValueError((f'save_planner {type(save_planner)} is not a '
-                          'torch.distributed.checkpoint.planner.SavePlanner'))
-
-
-def _validate_load_planner(load_planner: Optional[Any]) -> None:
-    """Checks that ``load_planner`` is an instance of a :class:`~torch.distributed.checkpoint.planner.LoadPlanner`.
-
-    TODO(GRT-2456): Remove validation once we deprecate torch 1.13 and can use
-    type hints.
-
-    Raises:
-        ValueError: If ``load_planner`` is not a
-            :class:`~torch.distributed.checkpoint.planner.LoadPlanner`.
-    """
-    from torch.distributed.checkpoint.planner import LoadPlanner
-
-    if load_planner is not None and not isinstance(load_planner, LoadPlanner):
-        raise ValueError((f'load_planner {type(load_planner)} is not a '
-                          'torch.distributed.checkpoint.planner.LoadPlanner'))
-
-
 def safe_torch_load(
     composer_states_filepath: Union[Path, str],
     map_location: str = 'cpu',
@@ -1031,16 +1013,18 @@ def _save_checkpoint(
         state_dict['state'] = state_dict.get('state', {})
 
     if state.fsdp_sharded_state_dict_enabled:
+        # Only rank 0 saves RNG
+        if dist.get_global_rank() > 0:
+            state_dict.pop('rng')
         # To load optimizer states with 2.0 <= torch < 2.2.9 , the optimizer state must be at the top
         # level of the state dict because the load_sharded_optimizer_state_dict function
         # requires a top level state dict key for the optimizer.
         # See https://github.com/pytorch/pytorch/blob/v2.0.1/torch/distributed/checkpoint/optimizer.py#L271
         # for more info.
-        if version.parse(torch.__version__) < version.parse('2.2.9'):
-            if not weights_only:
-                state_dict['optimizers'] = state_dict['state'].pop('optimizers')
-    log.debug('State dict created.')
+        if version.parse(torch.__version__) < version.parse('2.2.9') and not weights_only:
+            state_dict['optimizers'] = state_dict['state'].pop('optimizers')
 
+    log.debug('State dict created.')
     dirname = os.path.dirname(save_filename)
     if dirname:
         os.makedirs(dirname, exist_ok=True)
@@ -1048,7 +1032,7 @@ def _save_checkpoint(
     # Only some ranks are meant to save checkpoint and produce a file
     expect_file = False
 
-    # All ranks save for deepspeed
+    # Save deepspeed checkpoint
     if is_deepspeed:
         expect_file = True
         log.debug('Saving deepspeed checkpoints to %s...', save_filename)
@@ -1059,15 +1043,10 @@ def _save_checkpoint(
                 _compress_file(save_filename, basename=_COMPOSER_STATES_FILENAME)
 
         _save_deepspeed_model(state.deepspeed_model, save_filename)
-
-    # Sharded checkpointing for torch >=2.0 uses the torch.distributed.checkpoint module.
-    elif state.fsdp_elastic_sharded_enabled:
+    # Save sharded checkpoint
+    elif state.fsdp_sharded_state_dict_enabled:
         if state.fsdp_config is None:
             raise ValueError('Saving a sharded checkpoint requires passing an FSDP config to Trainer.')
-        save_planner = state.fsdp_config['save_planner']
-        _validate_save_planner(save_planner)
-
-        import torch.distributed.checkpoint as dist_cp
 
         log.debug(f'Saving sharded checkpoints to {save_filename}...')
         process_group = None
@@ -1086,35 +1065,32 @@ def _save_checkpoint(
                 dist_cp.save(  # type: ignore
                     state_dict=state_dict,
                     storage_writer=dist_cp.FileSystemWriter(dirname),
-                    planner=save_planner,
+                    planner=state.fsdp_config['save_planner'],
                     process_group=process_group,
                 )
             else:
                 dist_cp.save_state_dict(
                     state_dict=state_dict,
                     storage_writer=dist_cp.FileSystemWriter(dirname),
-                    planner=save_planner,
+                    planner=state.fsdp_config['save_planner'],
                     process_group=process_group,
                 )
         log.debug('Finished pytorch save state dict')
-
-    # Only rank 0 saves the state_dict unless you are using sharded checkpointing with torch <2.0
-    elif dist.get_global_rank() == 0 or state.fsdp_sharded_state_dict_enabled:
+    # Save monolith checkpoint
+    elif dist.get_global_rank() == 0:
         expect_file = True
-        log_msg = f'Saving sharded checkpoints to {save_filename}...' if state.fsdp_sharded_state_dict_enabled else f'Saving monolithic checkpoint to {save_filename}'
         with open(save_filename, 'wb') as f:
-            log.debug(log_msg)
+            log.debug(f'Saving monolithic checkpoint to {save_filename}')
             torch.save(state_dict, f)
 
         log.debug(f'Global rank 0 done saving checkpoint to disk at {save_filename}.')
 
         if is_tar(save_filename):
             _compress_file(save_filename, basename=_COMPOSER_STATES_FILENAME)
-
     else:
         log.debug(f'Only rank 0 is saving a checkpoint, so rank {dist.get_global_rank()} skips checkpointing.')
 
-    dist.barrier()  # ensure all ranks saved their files
+    dist.barrier()  # Ensure all ranks saved their files
 
     if expect_file:
         assert os.path.exists(save_filename), 'Expected file to have been saved.'

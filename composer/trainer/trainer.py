@@ -1429,7 +1429,7 @@ class Trainer:
                     'Multiple concurrent uploads is not currently supported when using autoresume. Please set `num_concurrent_uploads` to 1 '
                     'for all `RemoteUploaderDownloader` instances.')
             assert latest_remote_file_name is not None
-            if self.state.fsdp_elastic_sharded_enabled:
+            if self.state.fsdp_sharded_state_dict_enabled:
                 ar_object_store = maybe_create_object_store_from_uri(save_folder)
                 # Symlink is on object store.
                 if ar_object_store is not None:
@@ -2086,6 +2086,7 @@ class Trainer:
             # asserted to be not None when Trainer.fit() is called
             raise RuntimeError('max_duration must be specified when initializing the Trainer')
 
+        log.debug('Starting training loop')
         while self.state.timestamp < self.state.max_duration:
             if int(self.state.timestamp.batch_in_epoch) == 0:
                 self.engine.run_event(Event.EPOCH_START)
