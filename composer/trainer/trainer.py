@@ -8,6 +8,7 @@ from __future__ import annotations
 import collections.abc
 import contextlib
 import datetime
+import gc
 import itertools
 import logging
 import os
@@ -259,6 +260,7 @@ def _adjust_device_train_microbatch_size(state: State):
         optimizer.zero_grad(set_to_none=True)
     if state.scaler is not None:
         state.scaler._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
+    gc.collect()
     torch.cuda.empty_cache()
 
 
@@ -280,6 +282,7 @@ def _adjust_device_eval_microbatch_size(evaluator: Evaluator):
         warnings.warn(
             RuntimeWarning('CUDA out of memory detected. Train microbatch size will be decreased from '
                            f'{original_microbatch_size} -> {evaluator.device_eval_microbatch_size}.'))
+    gc.collect()
     torch.cuda.empty_cache()
 
 
