@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import collections.abc
+import pickle
 import contextlib
 import datetime
 import gc
@@ -25,6 +26,7 @@ from typing import (Any, Callable, ContextManager, Dict, Iterable, List, Mapping
                     Union, cast)
 
 import coolname
+from composer.utils.object_store import OCIObjectStore
 import torch
 import torch.distributed
 import torch.nn as nn
@@ -269,6 +271,27 @@ def get_mem_info():
     reserved = round(torch.cuda.memory_reserved() / 1000000000.0, 3)
     return allocated, max_allocated, reserved
 
+def dump_memory_snapshot():
+    rank = dist.get_global_rank()
+    snapshot_file = f'snapshot_{rank}.pickle'
+    trace_plot_file = f'trace_{rank}.html'
+    snapshot = torch.cuda.memory._snapshot()
+
+    log.info(f"bigning debug saving snapshot file")
+
+    with open(snapshot_file, 'wb') as fd:
+        pickle.dump(snapshot, fd)
+
+    with open(trace_plot_file, 'w+') as fd:
+        fd.write(torch.cuda._memory_viz.trace_plot(snapshot))  # type: ignore
+
+    log.info(f"bigning debug uploading snapshot file")
+    oci_client = OCIObjectStore(bucket="ning-test", prefix="mem_snapshot") 
+    oci_client.upload_object(f"snapshot_{rank}", snapshot_file)
+    oci_client.upload_object("trace_{rank}", trace_plot_file)
+    log.info(f"bigning debug uploading snapshot file done")
+
+
 def _adjust_device_train_microbatch_size(state: State):
     """Adjust device_train_microbatch_size if we encounter OOM.
 
@@ -280,6 +303,8 @@ def _adjust_device_train_microbatch_size(state: State):
     assert state.device_train_microbatch_size is not None
     original_microbatch_size = 0
     if state.device_train_microbatch_size == 1:
+        dump_memory_snapshot()
+        torch.cuda.memory._record_memory_history(False)
         raise RuntimeError(('CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
                             'The GPU does not have enough memory to process even 1 sample during train.'))
     else:
@@ -2339,6 +2364,12 @@ class Trainer:
         # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop.
         # Any in-place changes to a microbatch will be reflected in the device batch.
         device_batch = self.state.batch
+
+        log.info(f"bigning debug start record memory history")
+        torch.cuda.memory._record_memory_history(
+            True,
+            trace_alloc_record_context=True,
+        )
 
         # Retry until we successfully complete training and return loss
         while True:
