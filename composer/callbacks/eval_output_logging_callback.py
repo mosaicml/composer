@@ -9,7 +9,7 @@ from typing import List
 import torch
 
 from composer.core import Callback, State
-from composer.loggers import Logger
+from composer.loggers import ConsoleLogger, Logger
 
 
 class EvalOutputLogging(Callback):
@@ -66,5 +66,5 @@ class EvalOutputLogging(Callback):
         assert state.dataloader_label is not None
         name = state.dataloader_label
         for dest_logger in logger.destinations:
-            if dest_logger.__class__.__name__ in self.loggers_to_use:
+            if not isinstance(dest_logger, ConsoleLogger):
                 dest_logger.log_table(columns, rows, name=name, step=0)

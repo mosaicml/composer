@@ -21,6 +21,7 @@ class MockDataset(InContextLearningMultipleChoiceTaskDataset):
 
     def __init__(self, tokenizer):
         self.tokenizer = tokenizer
+        self.pad_tok_id = tokenizer.pad_token_id
 
 
 class MockDataLoader(DataLoader):
@@ -45,7 +46,7 @@ class MockState(State):
         self._dataloader_label = dataloader_label
 
 
-def mock_lm_computation(metric, tokenizer):
+def mock_lm_computation(metric, tokenizer, state):
     contexts = ['The dog is', 'I love to eat', 'I hate', 'The weather is']
     continuations = [' furry', ' pie', ' long lines', ' snowy']
     pad = tokenizer.pad_token_id
@@ -61,16 +62,19 @@ def mock_lm_computation(metric, tokenizer):
         end = start + len(tokenizer(continuation)['input_ids'])
         cont_idxs.append(torch.tensor(list(range(start, end))))
 
-    batch = {'continuation_indices': cont_idxs, 'labels': inputs.roll(-1), 'input_ids': inputs}
+    batch = {'mode': 'icl_task', 'continuation_indices': cont_idxs, 'labels': inputs.roll(-1), 'input_ids': inputs}
     logits = torch.nn.functional.one_hot(inputs.roll(-1), num_classes=pad + 1).float() * 100
     start, end = cont_idxs[1].tolist()[0] - 1, cont_idxs[1].tolist()[-1]
     logits[1][start:end] = logits[0][start:end].clone()  # make one of the answer's continuations incorrect
 
-    metric.update(batch, logits, batch['labels'])
+    state.metric_outputs = metric.update(batch, logits, batch['labels'])
     metric.compute()
+    state.batch = batch
+    state.outputs = logits
+    return state
 
 
-def mock_mc_computation(metric, tokenizer):
+def mock_mc_computation(metric, tokenizer, state):
     contexts = [
         'Q: How do you cook a cake?', 'Q: How do you cook a cake?', 'Q: How old is the earth?',
         'Q: How old is the earth?'
@@ -92,6 +96,7 @@ def mock_mc_computation(metric, tokenizer):
         cont_idxs.append(torch.tensor(list(range(start, end))))
 
     batch = {
+        'mode': 'icl_task',
         'continuation_indices': cont_idxs,
         'labels': inputs.roll(-1),
         'input_ids': inputs,
@@ -110,25 +115,27 @@ def mock_mc_computation(metric, tokenizer):
     start, end = cont_idxs[3].tolist()[0], cont_idxs[3].tolist()[-1]
     logits[3][start:end] = logits[2][start:end].clone()
 
-    metric.update(batch, logits, batch['labels'])
+    state.metric_ouputs = metric.update(batch, logits, batch['labels'])
+    state.batch = batch
+    state.outputs = logits
     metric.compute()
+    return state
 
 
 @device('cpu')
-@pytest.mark.parametrize('subset_samples', [-1, 1])
-def test_eval_output_logging(device, subset_samples, tmp_path, tiny_gpt2_tokenizer):
+def test_eval_output_logging(device, tmp_path, tiny_gpt2_tokenizer):
     # this test simulates an unrolled version of the eval loop occurring twice
     state = MockState()
     in_memory_logger = InMemoryLogger()
     logger = Logger(state, in_memory_logger)
-    lm_metric = InContextLearningLMAccuracy(cache_responses=True)
-    mc_metric = InContextLearningMultipleChoiceAccuracy(cache_responses=True)
+    lm_metric = InContextLearningLMAccuracy()
+    mc_metric = InContextLearningMultipleChoiceAccuracy()
 
     state.add_metric('lm_acc', lm_metric)
     state.add_metric('mc_acc', mc_metric)
 
     # Construct the callback
-    eval_output_logging = EvalOutputLogging(subset_samples, str(tmp_path))
+    eval_output_logging = EvalOutputLogging(loggers_to_use=['InMemoryLogger'])
 
     for i in range(2):
 
@@ -137,82 +144,54 @@ def test_eval_output_logging(device, subset_samples, tmp_path, tiny_gpt2_tokeniz
             MockDataLoader(tiny_gpt2_tokenizer),
             'lm_acc',
         )
-        eval_output_logging.eval_start(state, logger)
-        assert all(
-            len(m.response_cache) == 0  # pyright: ignore[reportGeneralTypeIssues]
-            for dictionary in state.eval_metrics.values()
-            for m in dictionary.values())
-        mock_lm_computation(state.eval_metrics['lm_acc']['InContextLearningLMAccuracy()'], tiny_gpt2_tokenizer)
-        eval_output_logging.eval_end(state, logger)
-
-        assert 'icl_outputs/lm_acc/InContextLearningLMAccuracy()' in in_memory_logger.tables
-        assert json.loads(in_memory_logger.tables['icl_outputs/lm_acc/InContextLearningLMAccuracy()'])['columns'] == [
-            'context_tok', 'continuation_tok_target', 'continuation_tok_pred', 'correct'
+        mock_lm_computation(state.eval_metrics['lm_acc']['InContextLearningLMAccuracy()'], tiny_gpt2_tokenizer, state)
+        state.metric_outputs['name'] = [
+            lm_metric.__class__.__name__ for _ in range(0, state.batch['input_ids'].shape[0])
         ]
-        if subset_samples == -1:
-            assert json.loads(in_memory_logger.tables['icl_outputs/lm_acc/InContextLearningLMAccuracy()'])['data'] == [[
-                'The dog is', ' furry', ' furry', True
-            ], ['I love to eat', ' pie', '', False], ['I hate', ' long lines', ' long lines',
-                                                      True], ['The weather is', ' snowy', ' snowy', True]]
-        else:
-            assert len(json.loads(
-                in_memory_logger.tables['icl_outputs/lm_acc/InContextLearningLMAccuracy()'])['data']) == subset_samples
+        eval_output_logging.eval_batch_end(state, logger)
+
+        assert 'lm_acc' in in_memory_logger.tables
+        assert json.loads(in_memory_logger.tables['lm_acc'])['columns'] == [
+            'context',
+            'label',
+            'output',
+            'result',
+            'name',
+            'input',
+        ]
+        assert json.loads(in_memory_logger.tables['lm_acc'])['data'] == [
+            ['The dog is', ' furry', ' furry', 1, 'InContextLearningLMAccuracy', 'The dog is furry'],
+            ['I love to eat', ' pie', '[PAD]', 0, 'InContextLearningLMAccuracy', 'I love to eat pie'],
+            ['I hate', ' long lines', ' long lines', 1, 'InContextLearningLMAccuracy', 'I hate long lines'],
+            ['The weather is', ' snowy', ' snowy', 1, 'InContextLearningLMAccuracy', 'The weather is snowy']
+        ]
+
         # simulate another eval
 
         state.update_curr_eval(
             MockDataLoader(tiny_gpt2_tokenizer),
             'mc_acc',
         )
-        eval_output_logging.eval_start(state, logger)
-        assert all(
-            len(m.response_cache) == 0  # pyright: ignore[reportGeneralTypeIssues]
-            for dictionary in state.eval_metrics.values()
-            for m in dictionary.values())
+        # assert all(
+        #     len(m.response_cache) == 0  # pyright: ignore[reportGeneralTypeIssues]
+        #     for dictionary in state.eval_metrics.values()
+        #     for m in dictionary.values())
         mock_mc_computation(state.eval_metrics['mc_acc']['InContextLearningMultipleChoiceAccuracy()'],
-                            tiny_gpt2_tokenizer)
+                            tiny_gpt2_tokenizer, state)
+        state.metric_outputs['name'] = [
+            mc_metric.__class__.__name__ for _ in range(0, state.batch['input_ids'].shape[0])
+        ]
+        eval_output_logging.eval_batch_end(state, logger)
 
-        eval_output_logging.eval_end(state, logger)
-        assert 'icl_outputs/lm_acc/InContextLearningLMAccuracy()' in in_memory_logger.tables
-        assert 'icl_outputs/mc_acc/InContextLearningMultipleChoiceAccuracy()' in in_memory_logger.tables
+        assert 'lm_acc' in in_memory_logger.tables
+        assert 'mc_acc' in in_memory_logger.tables
 
         # assert lm acc table unchanged
-        assert json.loads(in_memory_logger.tables['icl_outputs/lm_acc/InContextLearningLMAccuracy()'])['columns'] == [
-            'context_tok', 'continuation_tok_target', 'continuation_tok_pred', 'correct'
-        ]
-        if subset_samples == -1:
-            assert json.loads(in_memory_logger.tables['icl_outputs/lm_acc/InContextLearningLMAccuracy()'])['data'] == [[
-                'The dog is', ' furry', ' furry', True
-            ], ['I love to eat', ' pie', '', False], ['I hate', ' long lines', ' long lines',
-                                                      True], ['The weather is', ' snowy', ' snowy', True]]
-        else:
-            assert len(json.loads(
-                in_memory_logger.tables['icl_outputs/lm_acc/InContextLearningLMAccuracy()'])['data']) == subset_samples
-
         assert json.loads(
-            in_memory_logger.tables['icl_outputs/mc_acc/InContextLearningMultipleChoiceAccuracy()'])['columns'] == [
-                'question_tok', 'correct_choice', 'selected_choice', 'correct'
-            ]
-        if subset_samples == -1:
-            assert json.loads(
-                in_memory_logger.tables['icl_outputs/mc_acc/InContextLearningMultipleChoiceAccuracy()'])['data'] == [[
-                    'Q: How do you cook a cake?', ' A: turn on the oven', ' A: turn on the oven', True
-                ], ['Q: How old is the earth?', ' A: 4.5 billion years', ' A: 2 minutes', False]]
-        else:
-            assert len(
-                json.loads(in_memory_logger.tables['icl_outputs/mc_acc/InContextLearningMultipleChoiceAccuracy()'])
-                ['data']) == subset_samples
+            in_memory_logger.tables['lm_acc'])['columns'] == ['context', 'label', 'output', 'result', 'name', 'input']
 
-        #simulate eval after all
-        eval_output_logging.eval_after_all(state, logger)
-        state.timestamp = state.timestamp.to_next_batch()
-        assert isinstance(eval_output_logging.destination_file, str)
-        assert eval_output_logging.destination_file.endswith(f'eval-outputs-ba{i}.tsv')
-        with open(eval_output_logging.destination_file, 'r') as f:
-            df = pd.read_csv(f, sep='\t', index_col=None)
-        assert set(df['benchmark']) == {
-            'mc_acc_InContextLearningMultipleChoiceAccuracy()', 'lm_acc_InContextLearningLMAccuracy()'
-        }
-        assert df.columns.tolist() == [
-            'context_tok', 'continuation_tok_target', 'continuation_tok_pred', 'correct', 'benchmark', 'question_tok',
-            'correct_choice', 'selected_choice'
+        import IPython
+        IPython.embed()
+        assert json.loads(in_memory_logger.tables['mc_acc'])['columns'] == [
+            'question_tok', 'correct_choice', 'selected_choice', 'correct'
         ]
