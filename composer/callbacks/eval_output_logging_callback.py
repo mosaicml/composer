@@ -21,9 +21,6 @@ class EvalOutputLogging(Callback):
     any keys from the batch pased into `batch_keys_to_log`. It will do so after every eval batch.
     """
 
-    def eval_after_all(self, state: State) -> None:
-        state.metric_outputs = {}
-
     def eval_batch_end(self, state: State, logger: Logger) -> None:
         assert state.outputs is not None
         assert state.metric_outputs is not None
