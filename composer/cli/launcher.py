@@ -23,7 +23,7 @@ import torch
 
 import composer
 from composer.loggers.mosaicml_logger import (MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR, MOSAICML_LOG_DIR_ENV_VAR,
-                                              MOSAICML_PLATFORM_ENV_VAR,)
+                                              MOSAICML_PLATFORM_ENV_VAR)
 from composer.utils import get_free_tcp_port
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
@@ -482,9 +482,8 @@ def main():
         args.stderr = f'{log_tmpdir.name}/rank{{rank}}.stderr.txt'
 
     # If running on the Mosaic platform, log all gpu ranks' stderr and stdout to Mosaic platform
-    if os.environ.get(
-            MOSAICML_PLATFORM_ENV_VAR,
-            'false').lower() == 'true' and str(os.environ.get(MOSAICML_LOG_DIR_ENV_VAR, 'false')).lower() != 'false' and os.environ.get(
+    if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and str(
+            os.environ.get(MOSAICML_LOG_DIR_ENV_VAR, 'false')).lower() != 'false' and os.environ.get(
                 MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR) is not None:
         log.info('Logging all GPU ranks to Mosaic Platform.')
         log_file_format = f'{os.environ.get(MOSAICML_LOG_DIR_ENV_VAR)}/{os.environ.get(MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR)}{{local_rank}}.txt'
