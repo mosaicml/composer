@@ -1003,7 +1003,7 @@ class Trainer:
         # fit()
         device_train_microbatch_size = _get_initial_device_train_microbatch_size(device_train_microbatch_size,
                                                                                  auto_microbatching, None)
-
+        log.info(f"bigning debug trainer init")
         assert not isinstance(device_train_microbatch_size, str)
 
         # Distributed
@@ -1832,6 +1832,7 @@ class Trainer:
             device_train_microbatch_size (int | str, optional): See :class:`.Trainer`.
             precision (Precision | str, optional): See :class:`.Trainer`.
         """
+        log.info("bigning debug fit starts")
         # Check Optimizer
         if len(self.state.optimizers) == 0:
             raise ValueError(f'No optimizer was specified when constructing the Trainer. As the '
