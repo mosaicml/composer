@@ -243,6 +243,13 @@ def _fsdp_reshard(model: torch.nn.Module):
                 log.info(f"bigning debug successfully run post forward")
             except:
                 log.warning(f'bigning debug exception when reshard {name}')
+
+            try:
+                if module._handle and module._handle.flat_param:
+                    # https://github.com/pytorch/pytorch/blob/main/torch/distributed/fsdp/_runtime_utils.py#L830
+                    module._handle.flat_param.grad = None
+            except:
+                log.warning(f"bigning debug error when remove flat param grad")
     if isinstance(model, FullyShardedDataParallel):
         try:
             _post_forward(model, model._handle, _post_forward_reshard, model, None, None)
@@ -2522,6 +2529,7 @@ class Trainer:
             # happen when close to memory limit or with uneven memory usage across ranks
             if self.state.auto_microbatching:
                 # Check if any other rank hit an OOM
+                log.info(f"bigning debug mem info, rank {dist.get_global_rank()} fwd succeed")
                 found_cuda_oom_tensor = self.state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
                 dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
                 found_cuda_oom = found_cuda_oom_tensor.item()
