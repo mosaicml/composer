@@ -240,9 +240,14 @@ def _fsdp_reshard(model: torch.nn.Module):
         if isinstance(module, FullyShardedDataParallel):
             try:
                 _post_forward(module, module._handle, _post_forward_reshard, module, None, None)
+                log.info(f"bigning debug successfully run post forward")
             except:
                 log.warning(f'bigning debug exception when reshard {name}')
-
+    if isinstance(model, FullyShardedDataParallel):
+        try:
+            _post_forward(model, model._handle, _post_forward_reshard, model, None, None)
+        except:
+            log.warning(f'bigning debug exception when reshard {name}')
 
 def _adjust_device_train_microbatch_size(state: State):
     """Adjust device_train_microbatch_size if we encounter OOM.
