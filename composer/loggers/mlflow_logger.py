@@ -6,12 +6,13 @@
 from __future__ import annotations
 
 import fnmatch
+import logging
 import os
 import pathlib
 import textwrap
 import time
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Sequence, Union
 
 import numpy as np
 import torch
@@ -23,6 +24,8 @@ from composer.utils import MissingConditionalImportError, dist
 
 if TYPE_CHECKING:
     from mlflow import ModelVersion  # pyright: ignore[reportGeneralTypeIssues]
+
+log = logging.getLogger(__name__)
 
 __all__ = ['MLFlowLogger']
 
@@ -267,28 +270,75 @@ class MLFlowLogger(LoggerDestination):
                 tags=tags,
             )
 
-    def save_model(self, flavor: str, **kwargs):
+    def save_model(self, flavor: Literal['transformers', 'peft'], **kwargs):
         """Save a model to MLflow.
 
+        Note: The ``'peft'`` flavor is experimental and the API is subject to change without warning.
+
         Args:
-            flavor (str): The MLflow model flavor to use. Currently only ``'transformers'`` is supported.
+            flavor (Literal['transformers', 'peft']): The MLflow model flavor to use. Currently only ``'transformers'`` and ``'peft'`` are supported.
             **kwargs: Keyword arguments to pass to the MLflow model saving function.
 
         Raises:
-            NotImplementedError: If ``flavor`` is not ``'transformers'``.
+            NotImplementedError: If ``flavor`` is not ``'transformers'`` or ``'peft'``.
         """
         if self._enabled:
             import mlflow
             if flavor == 'transformers':
                 mlflow.transformers.save_model(**kwargs,)
+            elif flavor == 'peft':
+                import transformers
+
+                # TODO: Remove after mlflow fixes the bug that makes this necessary
+                mlflow.store._unity_catalog.registry.rest_store.get_feature_dependencies = lambda *args, **kwargs: ''  # type: ignore
+
+                # This is a temporary workaround until MLflow adds full support for saving PEFT models.
+                # https://github.com/mlflow/mlflow/issues/9256
+                log.warning(
+                    'Saving PEFT models using MLflow is experimental and the API is subject to change without warning.')
+                expected_keys = {'path', 'save_pretrained_dir'}
+                if not expected_keys.issubset(kwargs.keys()):
+                    raise ValueError(f'Expected keys {expected_keys} but got {kwargs.keys()}')
+
+                # This does not implement predict for now, as we will wait for the full MLflow support
+                # for PEFT models.
+                class PeftModel(mlflow.pyfunc.PythonModel):
+
+                    def load_context(self, context):
+                        self.model = transformers.AutoModelForCausalLM.from_pretrained(
+                            context.artifacts['lora_checkpoint'])
+                        self.tokenizer = transformers.AutoTokenizer.from_pretrained(
+                            context.artifacts['lora_checkpoint'])
+
+                from mlflow.models.signature import ModelSignature
+                from mlflow.types import ColSpec, DataType, Schema
+
+                # This is faked for now, until MLflow adds full support for saving PEFT models.
+                input_schema = Schema([
+                    ColSpec(DataType.string, 'fake_input'),
+                ])
+                output_schema = Schema([ColSpec(DataType.string)])
+                signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+
+                # Symlink the directory so that we control the path that MLflow saves the model under
+                os.symlink(kwargs['save_pretrained_dir'], 'lora_checkpoint')
+
+                mlflow.pyfunc.save_model(
+                    path=kwargs['path'],
+                    artifacts={'lora_checkpoint': 'lora_checkpoint'},
+                    python_model=PeftModel(),
+                    signature=signature,
+                )
+
+                os.unlink('lora_checkpoint')
             else:
                 raise NotImplementedError(f'flavor {flavor} not supported.')
 
-    def log_model(self, flavor: str, **kwargs):
+    def log_model(self, flavor: Literal['transformers'], **kwargs):
         """Log a model to MLflow.
 
         Args:
-            flavor (str): The MLflow model flavor to use. Currently only ``'transformers'`` is supported.
+            flavor (Literal['transformers']): The MLflow model flavor to use. Currently only ``'transformers'`` is supported.
             **kwargs: Keyword arguments to pass to the MLflow model logging function.
 
         Raises:
@@ -300,6 +350,53 @@ class MLFlowLogger(LoggerDestination):
                 mlflow.transformers.log_model(**kwargs,)
             else:
                 raise NotImplementedError(f'flavor {flavor} not supported.')
+
+    def register_model_with_run_id(
+        self,
+        model_uri: str,
+        name: str,
+        await_creation_for: int = 300,
+        tags: Optional[Dict[str, Any]] = None,
+    ):
+        """Similar to ``register_model``, but uses a different MLflow API to allow passing in the run id.
+
+        Args:
+            model_uri (str): The URI of the model to register.
+            name (str): The name of the model to register. Will be appended to ``model_registry_prefix``.
+            await_creation_for (int, optional): The number of seconds to wait for the model to be registered. Defaults to 300.
+            tags (Optional[Dict[str, Any]], optional): A dictionary of tags to add to the model. Defaults to None.
+        """
+        if self._enabled:
+            from mlflow.exceptions import MlflowException
+            from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS, ErrorCode
+
+            full_name = f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name
+
+            # This try/catch code is copied from
+            # https://github.com/mlflow/mlflow/blob/3ba1e50e90a38be19920cb9118593a43d7cfa90e/mlflow/tracking/_model_registry/fluent.py#L90-L103
+            try:
+                create_model_response = self._mlflow_client.create_registered_model(full_name)
+                log.info(f'Successfully registered model {name} with {create_model_response.name}')
+            except MlflowException as e:
+                if e.error_code in (
+                        ErrorCode.Name(RESOURCE_ALREADY_EXISTS),
+                        ErrorCode.Name(ALREADY_EXISTS),
+                ):
+                    log.info(f'Registered model {name} already exists. Creating a new version of this model...')
+                else:
+                    raise e
+
+            create_version_response = self._mlflow_client.create_model_version(
+                name=full_name,
+                source=model_uri,
+                run_id=self._run_id,
+                await_creation_for=await_creation_for,
+                tags=tags,
+            )
+
+            log.info(
+                f'Successfully created model version {create_version_response.version} for model {create_version_response.name}'
+            )
 
     def log_images(
         self,

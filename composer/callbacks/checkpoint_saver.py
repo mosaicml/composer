@@ -394,7 +394,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             return
 
         metadata_local_file_path = None
-        if dist.get_global_rank() == 0 and state.fsdp_elastic_sharded_enabled:
+        if dist.get_global_rank() == 0 and state.fsdp_sharded_state_dict_enabled:
             metadata_local_file_path = format_name_with_dist_and_time(
                 os.path.join(Path(saved_path).parent, _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME), state.run_name,
                 state.timestamp)
@@ -407,11 +407,11 @@ class CheckpointSaver(Callback):  # noqa: D101
             except FileNotFoundError:
                 pass
             # Sharded checkpoints for torch >2.0 use directories not files for load_paths
-            if state.fsdp_elastic_sharded_enabled:
+            if state.fsdp_sharded_state_dict_enabled:
                 src_path = str(pathlib.Path(saved_path).parent)
             else:
                 src_path = saved_path
-            this_rank_saves_symlinks = dist.get_global_rank() == 0 or not state.fsdp_elastic_sharded_enabled
+            this_rank_saves_symlinks = dist.get_global_rank() == 0 or not state.fsdp_sharded_state_dict_enabled
             if this_rank_saves_symlinks:
                 os.symlink(os.path.relpath(src_path, os.path.dirname(symlink)), symlink)
 
@@ -430,7 +430,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                 remote_file_name = format_name_with_dist_and_time(remote_file_name, state.run_name, state.timestamp)
                 # Upload metadata file.
                 # The metadata file contains info related to which shards are saved where.
-                if dist.get_global_rank() == 0 and state.fsdp_elastic_sharded_enabled:
+                if dist.get_global_rank() == 0 and state.fsdp_sharded_state_dict_enabled:
                     metadata_remote_file_name = format_name_with_dist_and_time(
                         os.path.join(Path(remote_file_name).parent, _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME),
                         state.run_name, state.timestamp)
@@ -463,12 +463,12 @@ class CheckpointSaver(Callback):  # noqa: D101
                 with tempfile.TemporaryDirectory() as tmpdir:
                     symlink_filename = os.path.join(tmpdir, 'latest.symlink')
                     # Sharded checkpoints for torch >2.0 use directories not files for load_paths
-                    if state.fsdp_elastic_sharded_enabled:
+                    if state.fsdp_sharded_state_dict_enabled:
                         src_path = str(pathlib.Path(remote_file_name).parent)
                     else:
                         src_path = remote_file_name
                     log.debug(f'Creating symlink file {symlink_filename} -> {src_path}')
-                    this_rank_saves_symlinks = dist.get_global_rank() == 0 or not state.fsdp_elastic_sharded_enabled
+                    this_rank_saves_symlinks = dist.get_global_rank() == 0 or not state.fsdp_sharded_state_dict_enabled
                     if this_rank_saves_symlinks:
                         create_symlink_file(src_path, symlink_filename)
                         logger.upload_file(

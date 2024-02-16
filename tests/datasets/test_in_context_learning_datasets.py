@@ -220,13 +220,13 @@ def test_stop_sequences_criteria(tiny_gpt2_tokenizer):
     seq2 = tiny_gpt2_tokenizer('Dogs are furry\n\n')['input_ids']
     seq1 = [tiny_gpt2_tokenizer.pad_token_id] * (len(seq2) - len(seq1)) + seq1
     input_ids = torch.LongTensor([seq1, seq2])
-    assert not eos_criteria(input_ids, None)  # type: ignore
+    assert not eos_criteria(input_ids, None)  # pyright: ignore[reportGeneralTypeIssues]
 
     eos_criteria = MultiTokenEOSCriteria('\n\n', tiny_gpt2_tokenizer, 2)
     seq1 = tiny_gpt2_tokenizer('Dogs are furry\n\n')['input_ids']
     seq2 = tiny_gpt2_tokenizer('Dogs are furry\n\n')['input_ids']
     input_ids = torch.LongTensor([seq1, seq2])
-    assert eos_criteria(input_ids, None)  # type: ignore
+    assert eos_criteria(input_ids, None)  # pyright: ignore[reportGeneralTypeIssues]
 
 
 def test_stop_sequences_criteria_sentencepiece(tiny_llama_tokenizer):
@@ -238,13 +238,13 @@ def test_stop_sequences_criteria_sentencepiece(tiny_llama_tokenizer):
     seq2 = tokenizer('Dogs are furry\n\n')['input_ids']
     seq1 = [tokenizer.eos_token_id] * (len(seq2) - len(seq1)) + seq1
     input_ids = torch.LongTensor([seq1, seq2])
-    assert not eos_criteria(input_ids, None)  # type: ignore
+    assert not eos_criteria(input_ids, None)  # pyright: ignore[reportGeneralTypeIssues]
 
     eos_criteria = MultiTokenEOSCriteria('\n\n', tokenizer, 2)
     seq1 = tokenizer('Dogs are furry\n\n')['input_ids']
     seq2 = tokenizer('Dogs are furry\n\n')['input_ids']
     input_ids = torch.LongTensor([seq1, seq2])
-    assert eos_criteria(input_ids, None)  # type: ignore
+    assert eos_criteria(input_ids, None)  # pyright: ignore[reportGeneralTypeIssues]
 
 
 @pytest.mark.filterwarnings(
@@ -1459,7 +1459,7 @@ def test_code_eval_split_batch(dataset_uri, tmp_path):
         'code_evaluation',
         dataset_uri=dataset_uri,
         tokenizer=tokenizer,
-        batch_size=8,
+        batch_size=5,
         max_seq_len=1024,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=2,
@@ -1467,28 +1467,16 @@ def test_code_eval_split_batch(dataset_uri, tmp_path):
         example_delimiter='\n',
         continuation_delimiter='',
         destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
-        generations_per_sample=4,
+        generations_per_sample=3,
     )
 
     assert isinstance(dl, DataSpec)  # pyright
+    batches = list(dl.dataloader)
 
-    batch = next(iter(dl.dataloader))
-    split_batch = dl.split_batch(batch, 3)
+    for k in ('input_ids', 'attention_mask'):
+        assert [b[k].shape[0] for b in batches] == [5, 5, 2]
 
-    assert len(split_batch) == 2
-    split1 = split_batch[0]
-    split2 = split_batch[1]
-
-    assert split1['input_ids'].shape[0] == 3
-    assert split2['input_ids'].shape[0] == 1
-
-    assert split1['attention_mask'].shape[0] == 3
-    assert split2['attention_mask'].shape[0] == 1
-
-    assert isinstance(split1['mode'], str)
-    assert isinstance(split2['mode'], str)
-
-    list_split = {
+    list_keys = {
         'labels': str,
         'prompts': str,
         'tests': str,
@@ -1497,19 +1485,16 @@ def test_code_eval_split_batch(dataset_uri, tmp_path):
         'test_outputs': list,
         'languages': str,
     }
-    for k, v in list_split.items():
-        assert len(split1[k]) == 3
-        assert len(split2[k]) == 1
-        assert all(isinstance(val, v) for val in split1[k] + split2[k])
 
-    assert isinstance(split1['pass_at_k'], int)
-    assert isinstance(split2['pass_at_k'], int)
+    for batch, size in zip(batches, [5, 5, 2]):
+        for field, type_ in list_keys.items():
+            assert len(batch[field]) == size
+            assert all(isinstance(val, type_) for val in batch[field])
 
-    assert isinstance(split1['generation_length'], int)
-    assert isinstance(split2['generation_length'], int)
-
-    assert isinstance(split1['generation_kwargs'], dict)
-    assert isinstance(split2['generation_kwargs'], dict)
+    static_keys = {'pass_at_k': (int, list), 'generation_length': int, 'generation_kwargs': dict}
+    for batch in batches:
+        for field, type_ in static_keys.items():
+            assert isinstance(batch[field], type_)
 
 
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
@@ -1524,7 +1509,7 @@ def test_code_eval_sentpiece_dataloader(dataset_uri, tmp_path, num_fewshot, prom
 
     tokenizer = tiny_llama_tokenizer
     dataset_uri = f'{local_data}/{dataset_uri}'
-    batch_size = 4
+    batch_size = 5
     seqlen = 2048
 
     dl = get_icl_task_dataloader('code_evaluation',
@@ -1543,43 +1528,53 @@ def test_code_eval_sentpiece_dataloader(dataset_uri, tmp_path, num_fewshot, prom
     assert isinstance(dl, DataSpec)
 
     assert isinstance(dl.dataloader, DataLoader)  # pyright
-    batch = next(dl.dataloader._get_iterator())
+    batches = list(dl.dataloader)
+    dataset_size = len(open(dataset_uri, 'r').read().strip().split('\n'))
+    dataset_size *= generations_per_sample
 
     max_prompt_length = 0
-    if isinstance(dl.dataloader.dataset, InContextLearningCodeEvalDataset):
-        max_prompt_length = dl.dataloader.dataset.max_prompt_length
-    assert tuple(batch['input_ids'].shape) == (batch_size, max_prompt_length)
-    assert tuple(batch['attention_mask'].shape) == (batch_size, max_prompt_length)
-    assert batch['mode'] == 'generate'
-    # the maximum generation length from the small test data
-    assert batch['generation_length'] == 129
-    assert any(item[0] != tokenizer.eos_token_id for item in batch['input_ids'])  # longest should be pushed left
 
-    decoded_batch = tokenizer.batch_decode(batch['input_ids'])
-    assert all(item.count('Code start: \n') == num_fewshot + 1 for item in decoded_batch)
+    has_left_padding = []
+    for i, batch in enumerate(batches):
+        if isinstance(dl.dataloader.dataset, InContextLearningCodeEvalDataset):
+            max_prompt_length = dl.dataloader.dataset.max_prompt_length
+        N = len(batches)
+        bs = batch_size if i < N - 1 else dataset_size - (N - 1) * batch_size
+        assert tuple(batch['input_ids'].shape) == (bs, max_prompt_length)
+        assert tuple(batch['attention_mask'].shape) == (bs, max_prompt_length)
+        assert batch['mode'] == 'generate'
+        # the maximum generation length from the small test data
+        assert batch['generation_length'] == 129
+        has_left_padding.extend([item[0] == tokenizer.eos_token_id for item in batch['input_ids']])
+    assert not all(has_left_padding)  # longest should be pushed left
 
-    if len(prompt_string) > 0:
-        assert all(item.count('Please code:\n') == 1 for item in decoded_batch)
+    decoded_batches = [tokenizer.batch_decode(batch['input_ids']) for batch in batches]
+    for decoded_batch in decoded_batches:
+        assert all(item.count('Code start: \n') == num_fewshot + 1 for item in decoded_batch)
 
-    assert batch['labels'] == [
+        if len(prompt_string) > 0:
+            assert all(item.count('Please code:\n') == 1 for item in decoded_batch)
+
+    labels = [
         '    for idx, elem in enumerate(numbers):\n        for idx2, elem2 in enumerate(numbers):\n            if idx != idx2:\n                distance = abs(elem - elem2)\n                if distance < threshold:\n                    return True\n\n    return False\n',
         "    result = []\n    current_string = []\n    current_depth = 0\n\n    for c in paren_string:\n        if c == '(':\n            current_depth += 1\n            current_string.append(c)\n        elif c == ')':\n            current_depth -= 1\n            current_string.append(c)\n\n            if current_depth == 0:\n                result.append(''.join(current_string))\n                current_string.clear()\n\n    return result\n",
         '    return number % 1.0\n',
         '    balance = 0\n\n    for op in operations:\n        balance += op\n        if balance < 0:\n            return True\n\n    return False\n',
     ]
 
-    assert decoded_batch[0].endswith(
-        "Code start: \nfrom typing import List\n\n\ndef has_close_elements(numbers: List[float], threshold: float) -> bool:\n    \"\"\" Check if in given list of numbers, are any two numbers closer to each other than\n    given threshold.\n    >>> has_close_elements([1.0, 2.0, 3.0], 0.5)\n    False\n    >>> has_close_elements([1.0, 2.8, 3.0, 4.0, 5.0, 2.0], 0.3)\n    True\n    \"\"\"\n"
-    )
-    assert decoded_batch[1].endswith(
-        "Code start: \nfrom typing import List\n\n\ndef separate_paren_groups(paren_string: str) -> List[str]:\n    \"\"\" Input to this function is a string containing multiple groups of nested parentheses. Your goal is to\n    separate those group into separate strings and return the list of those.\n    Separate groups are balanced (each open brace is properly closed) and not nested within each other\n    Ignore any spaces in the input string.\n    >>> separate_paren_groups('( ) (( )) (( )( ))')\n    ['()', '(())', '(()())']\n    \"\"\"\n"
-    )
-    assert decoded_batch[2].endswith(
-        "Code start: \n\n\ndef truncate_number(number: float) -> float:\n    \"\"\" Given a positive floating point number, it can be decomposed into\n    and integer part (largest integer smaller than given number) and decimals\n    (leftover part always smaller than 1).\n\n    Return the decimal part of the number.\n    >>> truncate_number(3.5)\n    0.5\n    \"\"\"\n"
-    )
-    assert decoded_batch[3].endswith(
+    # assert decoded_batch[0].endswith(
+    samples = [
+        "Code start: \nfrom typing import List\n\n\ndef has_close_elements(numbers: List[float], threshold: float) -> bool:\n    \"\"\" Check if in given list of numbers, are any two numbers closer to each other than\n    given threshold.\n    >>> has_close_elements([1.0, 2.0, 3.0], 0.5)\n    False\n    >>> has_close_elements([1.0, 2.8, 3.0, 4.0, 5.0, 2.0], 0.3)\n    True\n    \"\"\"\n",
+        "Code start: \nfrom typing import List\n\n\ndef separate_paren_groups(paren_string: str) -> List[str]:\n    \"\"\" Input to this function is a string containing multiple groups of nested parentheses. Your goal is to\n    separate those group into separate strings and return the list of those.\n    Separate groups are balanced (each open brace is properly closed) and not nested within each other\n    Ignore any spaces in the input string.\n    >>> separate_paren_groups('( ) (( )) (( )( ))')\n    ['()', '(())', '(()())']\n    \"\"\"\n",
+        "Code start: \n\n\ndef truncate_number(number: float) -> float:\n    \"\"\" Given a positive floating point number, it can be decomposed into\n    and integer part (largest integer smaller than given number) and decimals\n    (leftover part always smaller than 1).\n\n    Return the decimal part of the number.\n    >>> truncate_number(3.5)\n    0.5\n    \"\"\"\n",
         "Code start: \nfrom typing import List\n\n\ndef below_zero(operations: List[int]) -> bool:\n    \"\"\" You're given a list of deposit and withdrawal operations on a bank account that starts with\n    zero balance. Your task is to detect if at any point the balance of account fallls below zero, and\n    at that point function should return True. Otherwise it should return False.\n    >>> below_zero([1, 2, 3])\n    False\n    >>> below_zero([1, 2, -4, 5])\n    True\n    \"\"\"\n"
-    )
+    ]
+    for i in range(4):
+        for j in range(generations_per_sample):
+            k = i * generations_per_sample + j
+            b, n = divmod(k, batch_size)
+            assert batches[b]['labels'][n] == labels[i]
+            assert decoded_batches[b][n].endswith(samples[i])
 
 
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
@@ -1693,43 +1688,52 @@ def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_st
     assert isinstance(dl, DataSpec)
 
     assert isinstance(dl.dataloader, DataLoader)  # pyright
-    batch = next(dl.dataloader._get_iterator())
+    batches = list(dl.dataloader)
+    dataset_size = len(open(dataset_uri, 'r').read().strip().split('\n'))
+    dataset_size *= generations_per_sample
 
-    max_prompt_length = 0
-    if isinstance(dl.dataloader.dataset, InContextLearningCodeEvalDataset):
-        max_prompt_length = dl.dataloader.dataset.max_prompt_length
-    assert tuple(batch['input_ids'].shape) == (batch_size, max_prompt_length)
-    assert tuple(batch['attention_mask'].shape) == (batch_size, max_prompt_length)
-    assert batch['mode'] == 'generate'
-    # the maximum generation length from the small test data
-    assert batch['generation_length'] == 122
-    assert any(item[0] != tokenizer.eos_token_id for item in batch['input_ids'])  # longest should be pushed left
+    has_left_padding = []
+    for i, batch in enumerate(batches):
+        max_prompt_length = 0
+        if isinstance(dl.dataloader.dataset, InContextLearningCodeEvalDataset):
+            max_prompt_length = dl.dataloader.dataset.max_prompt_length
+        N = len(batches)
+        bs = batch_size if i < N - 1 else dataset_size - (N - 1) * batch_size
+        assert tuple(batch['input_ids'].shape) == (bs, max_prompt_length)
+        assert tuple(batch['attention_mask'].shape) == (bs, max_prompt_length)
+        assert batch['mode'] == 'generate'
+        # the maximum generation length from the small test data
+        assert batch['generation_length'] == 122
+        has_left_padding.extend([item[0] == tokenizer.eos_token_id for item in batch['input_ids']])
+    assert not all(has_left_padding)  # longest should be pushed left
 
-    decoded_batch = tokenizer.batch_decode(batch['input_ids'])
-    assert all(item.count('Code start: \n') == num_fewshot + 1 for item in decoded_batch)
+    decoded_batches = [tokenizer.batch_decode(batch['input_ids']) for batch in batches]
+    for decoded_batch in decoded_batches:
+        assert all(item.count('Code start: \n') == num_fewshot + 1 for item in decoded_batch)
 
-    if len(prompt_string) > 0:
-        assert all(item.count('Please code:\n') == 1 for item in decoded_batch)
+        if len(prompt_string) > 0:
+            assert all(item.count('Please code:\n') == 1 for item in decoded_batch)
 
-    assert batch['labels'] == [
+    labels = [
         '    for idx, elem in enumerate(numbers):\n        for idx2, elem2 in enumerate(numbers):\n            if idx != idx2:\n                distance = abs(elem - elem2)\n                if distance < threshold:\n                    return True\n\n    return False\n',
         "    result = []\n    current_string = []\n    current_depth = 0\n\n    for c in paren_string:\n        if c == '(':\n            current_depth += 1\n            current_string.append(c)\n        elif c == ')':\n            current_depth -= 1\n            current_string.append(c)\n\n            if current_depth == 0:\n                result.append(''.join(current_string))\n                current_string.clear()\n\n    return result\n",
         '    return number % 1.0\n',
         '    balance = 0\n\n    for op in operations:\n        balance += op\n        if balance < 0:\n            return True\n\n    return False\n',
     ]
 
-    assert decoded_batch[0].endswith(
-        "Code start: \nfrom typing import List\n\n\ndef has_close_elements(numbers: List[float], threshold: float) -> bool:\n    \"\"\" Check if in given list of numbers, are any two numbers closer to each other than\n    given threshold.\n    >>> has_close_elements([1.0, 2.0, 3.0], 0.5)\n    False\n    >>> has_close_elements([1.0, 2.8, 3.0, 4.0, 5.0, 2.0], 0.3)\n    True\n    \"\"\"\n"
-    )
-    assert decoded_batch[1].endswith(
-        "Code start: \nfrom typing import List\n\n\ndef separate_paren_groups(paren_string: str) -> List[str]:\n    \"\"\" Input to this function is a string containing multiple groups of nested parentheses. Your goal is to\n    separate those group into separate strings and return the list of those.\n    Separate groups are balanced (each open brace is properly closed) and not nested within each other\n    Ignore any spaces in the input string.\n    >>> separate_paren_groups('( ) (( )) (( )( ))')\n    ['()', '(())', '(()())']\n    \"\"\"\n"
-    )
-    assert decoded_batch[2].endswith(
-        "Code start: \n\n\ndef truncate_number(number: float) -> float:\n    \"\"\" Given a positive floating point number, it can be decomposed into\n    and integer part (largest integer smaller than given number) and decimals\n    (leftover part always smaller than 1).\n\n    Return the decimal part of the number.\n    >>> truncate_number(3.5)\n    0.5\n    \"\"\"\n"
-    )
-    assert decoded_batch[3].endswith(
+    # assert decoded_batch[0].endswith(
+    samples = [
+        "Code start: \nfrom typing import List\n\n\ndef has_close_elements(numbers: List[float], threshold: float) -> bool:\n    \"\"\" Check if in given list of numbers, are any two numbers closer to each other than\n    given threshold.\n    >>> has_close_elements([1.0, 2.0, 3.0], 0.5)\n    False\n    >>> has_close_elements([1.0, 2.8, 3.0, 4.0, 5.0, 2.0], 0.3)\n    True\n    \"\"\"\n",
+        "Code start: \nfrom typing import List\n\n\ndef separate_paren_groups(paren_string: str) -> List[str]:\n    \"\"\" Input to this function is a string containing multiple groups of nested parentheses. Your goal is to\n    separate those group into separate strings and return the list of those.\n    Separate groups are balanced (each open brace is properly closed) and not nested within each other\n    Ignore any spaces in the input string.\n    >>> separate_paren_groups('( ) (( )) (( )( ))')\n    ['()', '(())', '(()())']\n    \"\"\"\n",
+        "Code start: \n\n\ndef truncate_number(number: float) -> float:\n    \"\"\" Given a positive floating point number, it can be decomposed into\n    and integer part (largest integer smaller than given number) and decimals\n    (leftover part always smaller than 1).\n\n    Return the decimal part of the number.\n    >>> truncate_number(3.5)\n    0.5\n    \"\"\"\n",
         "Code start: \nfrom typing import List\n\n\ndef below_zero(operations: List[int]) -> bool:\n    \"\"\" You're given a list of deposit and withdrawal operations on a bank account that starts with\n    zero balance. Your task is to detect if at any point the balance of account fallls below zero, and\n    at that point function should return True. Otherwise it should return False.\n    >>> below_zero([1, 2, 3])\n    False\n    >>> below_zero([1, 2, -4, 5])\n    True\n    \"\"\"\n"
-    )
+    ]
+    for i in range(4):
+        for j in range(generations_per_sample):
+            k = i * generations_per_sample + j
+            b, n = divmod(k, batch_size)
+            assert batches[b]['labels'][n] == labels[i]
+            assert decoded_batches[b][n].endswith(samples[i])
 
 
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
@@ -1779,7 +1783,6 @@ def test_eval_split_batch(tiny_opt_tokenizer, dataset_uri, num_fewshot, tmp_path
         assert microbatch['generation_kwargs']['top_k'] == 40
         assert microbatch['generation_kwargs']['pad_token_id'] == 0
         assert microbatch['generation_kwargs']['num_beams'] == 1
-        assert microbatch['generation_kwargs']['num_return_sequences'] == 1
         assert microbatch['generation_kwargs']['do_sample'] == True
         assert microbatch['generation_kwargs']['use_cache'] == True
         assert microbatch['generation_kwargs']['eos_token_id'] == 0
@@ -2220,7 +2223,7 @@ def test_code_eval_microbatching(monkeypatch, device, world_size, tiny_opt_token
 
     trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
     torch.use_deterministic_algorithms(False)
-    trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
+    trainer.eval(eval_dataloader=evaluator)
     torch.use_deterministic_algorithms(True)
     assert 'metrics/humaneval/InContextLearningCodeEvalAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/humaneval/InContextLearningCodeEvalAccuracy'][0][1].item() == 0
@@ -2268,7 +2271,7 @@ def test_code_eval_sentpiece_evaluation(monkeypatch, device, world_size, num_few
 
     trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
     torch.use_deterministic_algorithms(False)
-    trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
+    trainer.eval(eval_dataloader=evaluator)
     torch.use_deterministic_algorithms(True)
     assert 'metrics/humaneval/InContextLearningCodeEvalAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/humaneval/InContextLearningCodeEvalAccuracy'][0][1].item() == 0
@@ -2317,7 +2320,7 @@ def test_code_eval_task_evaluation(monkeypatch, device, world_size, num_fewshot,
 
     trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
     torch.use_deterministic_algorithms(False)
-    trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
+    trainer.eval(eval_dataloader=evaluator)
     torch.use_deterministic_algorithms(True)
     assert 'metrics/humaneval/InContextLearningCodeEvalAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/humaneval/InContextLearningCodeEvalAccuracy'][0][1].item() == 0

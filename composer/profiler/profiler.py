@@ -9,6 +9,8 @@ import logging
 import pathlib
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+from composer.core import Callback
+from composer.loggers import Logger
 from composer.profiler.json_trace_handler import JSONTraceHandler
 from composer.profiler.marker import Marker
 from composer.profiler.profiler_action import ProfilerAction
@@ -18,14 +20,14 @@ from composer.profiler.trace_handler import TraceHandler
 from composer.utils import ensure_tuple, parse_uri
 
 if TYPE_CHECKING:
-    from composer.core import Callback, State
+    from composer.core import State
 
 __all__ = ['Profiler']
 
 log = logging.getLogger(__name__)
 
 
-class Profiler:
+class Profiler(Callback):
     """Composer Profiler.
 
     See the :doc:`Profiling Guide </trainer/performance_tutorials/profiling>` for additional information.
@@ -118,6 +120,8 @@ class Profiler:
         self.schedule = schedule
         self.state = None
         self._callbacks: List[Callback] = []
+        # Used to count skip_first starting from resumption timestamp
+        self.resumption_batch_idx: int = 0
         self.remote_filenames: List[str] = []
         # First, add each remote file name to self.remote_filenames to create RemoteUploaderDownloader logger in trainer. [s3://bucket/path/to/file]
         # Then modify remote file name to be a local path to pass into torch_profiler and system_profiler. e.g: path/to/file
@@ -185,6 +189,7 @@ class Profiler:
             state (State): The training state.
         """
         self.state = state
+        self.state.callbacks.append(self)
         self.state.callbacks.extend(self._callbacks)
         self.state.callbacks.extend(self._trace_handlers)
 
@@ -289,3 +294,7 @@ class Profiler:
             )
         self._names_to_markers[name].categories = categories
         return self._names_to_markers[name]
+
+    def after_load(self, state: State, logger: Logger) -> None:
+        del logger
+        self.resumption_batch_idx = int(state.timestamp.batch_in_epoch)

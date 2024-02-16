@@ -11,8 +11,9 @@ from torch.nn.functional import cross_entropy
 from composer.metrics.nlp import (BinaryF1Score, InContextLearningCodeEvalAccuracy,
                                   InContextLearningExpectedCalibrationError, InContextLearningLMAccuracy,
                                   InContextLearningLMExpectedCalibrationError,
-                                  InContextLearningMCExpectedCalibrationError, InContextLearningMultipleChoiceAccuracy,
-                                  InContextLearningQAAccuracy, LanguageCrossEntropy, LanguagePerplexity, MaskedAccuracy)
+                                  InContextLearningMCExpectedCalibrationError, InContextLearningMetric,
+                                  InContextLearningMultipleChoiceAccuracy, InContextLearningQAAccuracy,
+                                  LanguageCrossEntropy, LanguagePerplexity, MaskedAccuracy)
 
 
 @pytest.mark.parametrize('ignore_index', [-100])
@@ -172,6 +173,53 @@ def test_language_perplexity():
     assert torch.equal(torch.exp(ce), perplexity)
 
 
+def test_in_context_learning_rename_args_no_op():
+    batch = {'input': [1, 2, 3]}
+    outputs = torch.Tensor([12, 13, 14])
+    labels = torch.Tensor([0, 1, 0])
+    batch, outputs, labels = InContextLearningMetric.rename_args(batch=batch, outputs=outputs, labels=labels)
+    assert batch == {'input': [1, 2, 3]}
+    assert torch.all(torch.eq(outputs, torch.tensor([12, 13, 14])))
+    assert torch.all(torch.eq(labels, torch.tensor([0, 1, 0])))
+
+
+def test_in_context_learning_rename_args_output_and_output_logits():
+    batch = {'input': [1, 2, 3]}
+    outputs = torch.Tensor([12, 13, 14])
+    output_logits = torch.Tensor([.1, .2, .3])
+    labels = torch.Tensor([0, 1, 0])
+    with pytest.raises(ValueError):
+        _, _, _ = InContextLearningMetric.rename_args(batch=batch,
+                                                      outputs=outputs,
+                                                      labels=labels,
+                                                      output_logits=output_logits)
+
+
+def test_in_context_learning_rename_args_rename_output_logits():
+    batch = {'input': [1, 2, 3]}
+    output_logits = torch.Tensor([.1, .2, .3])
+    labels = torch.Tensor([0, 1, 0])
+    batch, outputs, labels = InContextLearningMetric.rename_args(batch=batch,
+                                                                 labels=labels,
+                                                                 output_logits=output_logits)
+    assert batch == {'input': [1, 2, 3]}
+    assert torch.all(torch.eq(outputs, torch.Tensor([.1, .2, .3])))  # pyright: ignore [reportGeneralTypeIssues]
+    assert torch.all(torch.eq(labels, torch.tensor([0, 1, 0])))
+
+
+def test_in_context_learning_rename_args_fail_on_no_label():
+    batch = {'input': [1, 2, 3]}
+    output_logits = torch.Tensor([.1, .2, .3])
+    with pytest.raises(ValueError):
+        _, _, _ = InContextLearningMetric.rename_args(batch=batch, output_logits=output_logits)
+
+
+def test_in_context_learning_rename_args_fail_on_no_output():
+    batch = {'input': [1, 2, 3]}
+    with pytest.raises(ValueError):
+        _, _, _ = InContextLearningMetric.rename_args(batch=batch)
+
+
 def test_in_context_learning_lm_accuracy(tiny_gpt2_tokenizer):
     contexts = ['The dog is', 'I love to eat', 'I hate', 'The weather is']
     continuations = [' furry', ' pie', ' long lines', ' snowy']
@@ -264,20 +312,33 @@ def test_in_context_learning_code_eval_accuracy(monkeypatch):
     entry_points = ['fib', 'multiply_by_two', 'add_one']
     test_inputs = [['(1,)', '(2,)', '(4,)'], ['(1,)', '(2,)', '(4,)'], ['(1,)', '(2,)', '(4,)']]
     test_outputs = [['1', '2', '5'], ['2', '4', '8'], ['2', '3', '5']]
+    sample_ids = [0, 1, 2]
     languages = ['python', 'python', 'python']
     monkeypatch.setenv('CODE_EVAL_DEVICE', 'LOCAL')
+    generations_per_sample = 2
+
+    def repeat(values):
+        return [val for val in values for _ in range(generations_per_sample)]
+
+    transformers = pytest.importorskip('transformers')
+    tokenizer = transformers.AutoTokenizer.from_pretrained('mosaicml/mpt-7b')  # type: ignore reportUnboundVariable
+    tokenizer.pad_token = tokenizer.eos_token
+    input_ids = tokenizer.batch_encode_plus(repeat(prompts), return_tensors='pt', padding=True)['input_ids']
     batch = {
         # This tests deterministic beam search rather than sampling
+        'input_ids': input_ids,
         'generation_kwargs': {
             'num_beams': 1,
-            'num_return_sequences': 2
         },
-        'prompts': prompts,
-        'pass_at_k': 1,
-        'entry_points': entry_points,
-        'test_inputs': test_inputs,
-        'test_outputs': test_outputs,
-        'languages': languages,
+        'prompts': repeat(prompts),
+        'pass_at_k': [1],
+        'entry_points': repeat(entry_points),
+        'test_inputs': repeat(test_inputs),
+        'test_outputs': repeat(test_outputs),
+        'languages': repeat(languages),
+        'dataset_size': len(prompts),
+        'generations_per_sample': generations_per_sample,
+        'sample_id': repeat(sample_ids),
     }
     metric = InContextLearningCodeEvalAccuracy()
     metric.update(batch, outputs, labels)

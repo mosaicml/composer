@@ -5,7 +5,7 @@ on:
     - dev
     - main
     - release/**
-  pull_request:
+  pull_request_target:
   workflow_call:
   workflow_dispatch:
 # Cancel old runs when a new commit is pushed to the same branch if not on main
@@ -27,16 +27,21 @@ jobs:
         - "3.10"
         - "3.11"
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Get Repo Token
+      id: REPO_TOKEN
+      uses: tibdex/github-app-token@v1
       with:
-        python-version: ${{ matrix.python_version }}
-    - name: Setup
-      run: |
-        set -ex
-        python -m pip install --upgrade 'pip<23' wheel
-        python -m pip install --upgrade .
-        python -m pip install pytest==7.2.1 pytest_codeblocks==0.16.1
-    - name: Run checks
-      run: |
-        pytest tests/test_smoketest.py
+        app_id: ${{ secrets.DEVOGE_BOT_PUB_APPID }}
+        private_key: ${{ secrets.DEVOGE_BOT_PUB_PEM }}
+    - name: Get composite run steps repository
+      uses: actions/checkout@v3
+      with:
+        repository: mosaicml/testing
+        ref: v0.0.2
+        path: ./testing
+        token: ${{ steps.REPO_TOKEN.outputs.token }}
+    - uses: ./testing/.github/actions/smoketest
+      with:
+        python_version: ${{ matrix.python_version }}

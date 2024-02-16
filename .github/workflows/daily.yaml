@@ -20,42 +20,52 @@ jobs:
         include:
         - name: cpu-3.10-2.0
           container: mosaicml/pytorch:2.0.1_cpu-python3.10-ubuntu20.04
-          markers: not daily and (remote or not remote) and not gpu and not vision and not doctest
+          markers: not daily and (remote or not remote) and not gpu and not doctest
           pytest_command: coverage run -m pytest
           composer_package_name: mosaicml
         - name: cpu-3.10-2.1
           container: mosaicml/pytorch:2.1.2_cpu-python3.10-ubuntu20.04
-          markers: not daily and (remote or not remote) and not gpu and not vision and not doctest
+          markers: not daily and (remote or not remote) and not gpu and not doctest
           pytest_command: coverage run -m pytest
           composer_package_name: mosaicml
         - name: cpu-3.10-2.1-composer
           container: mosaicml/pytorch:2.1.2_cpu-python3.10-ubuntu20.04
-          markers: not daily and (remote or not remote) and not gpu and not vision and not doctest
+          markers: not daily and (remote or not remote) and not gpu and not doctest
           pytest_command: coverage run -m pytest
           composer_package_name: composer
+        - name: cpu-3.11-2.2
+          container: mosaicml/pytorch:2.2.0_cpu-python3.11-ubuntu20.04
+          markers: not daily and (remote or not remote) and not gpu and not doctest
+          pytest_command: coverage run -m pytest
+          composer_package_name: mosaicml
         - name: cpu-doctest
           container: mosaicml/pytorch:2.1.2_cpu-python3.10-ubuntu20.04
-          markers: not daily and (remote or not remote) and not gpu and not vision and doctest
+          markers: not daily and (remote or not remote) and not gpu and doctest
           pytest_command: coverage run -m pytest tests/test_docs.py
           composer_package_name: mosaicml
         - name: daily-cpu-3.10-2.0
           container: mosaicml/pytorch:2.0.1_cpu-python3.10-ubuntu20.04
-          markers: daily and (remote or not remote) and not gpu and not vision and not doctest
+          markers: daily and (remote or not remote) and not gpu and not doctest
           pytest_command: coverage run -m pytest
           composer_package_name: mosaicml
         - name: daily-cpu-3.10-2.1
           container: mosaicml/pytorch:2.1.2_cpu-python3.10-ubuntu20.04
-          markers: daily and (remote or not remote) and not gpu and not vision and not doctest
+          markers: daily and (remote or not remote) and not gpu and not doctest
           pytest_command: coverage run -m pytest
           composer_package_name: mosaicml
         - name: daily-cpu-3.10-2.1-composer
           container: mosaicml/pytorch:2.1.2_cpu-python3.10-ubuntu20.04
-          markers: daily and (remote or not remote) and not gpu and not vision and not doctest
+          markers: daily and (remote or not remote) and not gpu and not doctest
           pytest_command: coverage run -m pytest
           composer_package_name: composer
+        - name: daily-cpu-3.11-2.2
+          container: mosaicml/pytorch:2.2.0_cpu-python3.11-ubuntu20.04
+          markers: daily and (remote or not remote) and not gpu and not doctest
+          pytest_command: coverage run -m pytest
+          composer_package_name: mosaicml
         - name: daily-cpu-doctest
           container: mosaicml/pytorch:2.1.2_cpu-python3.10-ubuntu20.04
-          markers: daily and (remote or not remote) and not gpu and not vision and doctest
+          markers: daily and (remote or not remote) and not gpu and doctest
           pytest_command: coverage run -m pytest tests/test_docs.py
           composer_package_name: mosaicml
     name: ${{ matrix.name }}
@@ -73,12 +83,13 @@ jobs:
       aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
       wandb-api-key: ${{ secrets.WANDB_API_KEY }}
-      slack-notifications-bot-token: ${{ secrets.SLACK_NOTIFICATIONS_BOT_TOKEN }}
       code-eval-device: ${{ secrets.CODE_EVAL_DEVICE }}
       code-eval-url: ${{ secrets.CODE_EVAL_URL }}
       code-eval-apikey: ${{ secrets.CODE_EVAL_APIKEY }}
       gcs-key: ${{ secrets.GCS_KEY }}
       gcs-secret: ${{ secrets.GCS_SECRET }}
+      azure-account-name: ${{ secrets.AZURE_ACCOUNT_NAME }}
+      azure-account-access-key: ${{ secrets.AZURE_ACCOUNT_ACCESS_KEY }}
   coverage:
     uses: ./.github/workflows/coverage.yaml
     name: Coverage Results
@@ -86,6 +97,9 @@ jobs:
     needs: [daily-pytest-cpu]
     with:
       download-path: artifacts
+    secrets:
+      app_id: ${{ secrets.DEVOGE_BOT_PUB_APPID }}
+      private_key: ${{ secrets.DEVOGE_BOT_PUB_PEM }}
 
   daily-pytest-gpu:
     uses: ./.github/workflows/pytest-gpu.yaml
@@ -100,7 +114,12 @@ jobs:
           pytest_command: "coverage run -m pytest"
           composer_package_name: "mosaicml"
         - name: "gpu-3.10-2.1"
-          container: mosaicml/pytorch:2.1.0_cu121-python3.10-ubuntu20.04
+          container: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
+          markers: "(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)"
+          pytest_command: "coverage run -m pytest"
+          composer_package_name: "mosaicml"
+        - name: "gpu-3.10-2.2"
+          container: mosaicml/pytorch:2.2.0_cu121-python3.11-ubuntu20.04
           markers: "(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)"
           pytest_command: "coverage run -m pytest"
           composer_package_name: "mosaicml"
@@ -116,4 +135,3 @@ jobs:
       python-version: 3.9
     secrets:
       mcloud-api-key: ${{ secrets.MCLOUD_DAILY_API_KEY }}
-      slack-notifications-bot-token: ${{ secrets.SLACK_NOTIFICATIONS_BOT_TOKEN }}
