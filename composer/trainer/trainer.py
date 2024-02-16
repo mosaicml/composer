@@ -1985,11 +1985,9 @@ class Trainer:
 
         # log computed metrics
         computed_metrics = {}
-        metrics_logged_in_table = []
         for metric_name, metric in metrics.items():
             metric_value = metric.compute()
             if isinstance(metric_value, dict) and metric_value.get('log_as_table', False):
-                metrics_logged_in_table.append(metric_name)
                 for k, v in metric_value.items():
                     if k != 'log_as_table':
                         self.logger.log_table(
