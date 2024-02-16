@@ -43,6 +43,3 @@ jobs:
     needs: [pytest-cpu]
     with:
       download-path: artifacts
-    secrets:
-      app_id: ${{ secrets.DEVOGE_BOT_PUB_APPID }}
-      private_key: ${{ secrets.DEVOGE_BOT_PUB_PEM }}
