@@ -1324,7 +1324,6 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         super().__init__(
             context_key='prompt',
             answer_key='canonical_solution',
-            strip_dataset=False,
             static_keys=static_keys,
             list_keys=list_keys,
             tensor_keys=tensor_keys,
