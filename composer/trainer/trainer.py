@@ -288,7 +288,7 @@ def dump_memory_snapshot():
     log.info(f"bigning debug uploading snapshot file")
     oci_client = OCIObjectStore(bucket="ning-test", prefix="mem_snapshot") 
     oci_client.upload_object(f"snapshot_{rank}", snapshot_file)
-    oci_client.upload_object("trace_{rank}", trace_plot_file)
+    oci_client.upload_object(f"trace_{rank}", trace_plot_file)
     log.info(f"bigning debug uploading snapshot file done")
 
 
@@ -302,6 +302,7 @@ def _adjust_device_train_microbatch_size(state: State):
     # if training 1 sample at a time still resulted in CUDA out of memory.
     assert state.device_train_microbatch_size is not None
     original_microbatch_size = 0
+
     if state.device_train_microbatch_size == 1:
         dump_memory_snapshot()
         torch.cuda.memory._record_memory_history(False)
