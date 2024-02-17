@@ -275,20 +275,16 @@ def dump_memory_snapshot():
     rank = dist.get_global_rank()
     snapshot_file = f'snapshot_{rank}.pickle'
     trace_plot_file = f'trace_{rank}.html'
-    snapshot = torch.cuda.memory._snapshot()
+
+    #snapshot = torch.cuda.memory._snapshot()
 
     log.info(f"bigning debug saving snapshot file")
 
-    with open(snapshot_file, 'wb') as fd:
-        pickle.dump(snapshot, fd)
-
-    with open(trace_plot_file, 'w+') as fd:
-        fd.write(torch.cuda._memory_viz.trace_plot(snapshot))  # type: ignore
+    torch.cuda.memory._dump_snapshot(snapshot_file)
 
     log.info(f"bigning debug uploading snapshot file")
     oci_client = OCIObjectStore(bucket="ning-test", prefix="mem_snapshot") 
     oci_client.upload_object(f"snapshot_{rank}", snapshot_file)
-    oci_client.upload_object(f"trace_{rank}", trace_plot_file)
     log.info(f"bigning debug uploading snapshot file done")
 
 
@@ -2369,6 +2365,7 @@ class Trainer:
         log.info(f"bigning debug start record memory history")
         torch.cuda.memory._record_memory_history(
             True,
+            trace_alloc_max_entries=100000,
             trace_alloc_record_context=True,
         )
 
