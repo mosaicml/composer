@@ -244,26 +244,19 @@ def _fsdp_reshard(model: torch.nn.Module):
                 _post_forward(module, module._handle, _post_forward_reshard, module, None, None)
                 log.info(f"bigning debug successfully run post forward")
             except:
-                log.warning(f'bigning debug exception when reshard {name}')
+                log.warning(f'bigning debug exception when post forward reshard {name}')
 
             try:
-                if module._handle and module._handle.flat_param is not None:
-                    # https://github.com/pytorch/pytorch/blob/main/torch/distributed/fsdp/_runtime_utils.py#L830
-                    del module._handle.flat_param.grad
-                    module._handle.flat_param.grad = None
-                    log.info(f"bigning debug succesully del grad for module {name}")
-            except Exception as e:
-                log.warning(f"bigning debug error when remove flat param grad, {str(e)}")
+                _post_backward_reshard(module, module._handle)
+                log.info(f"bigning debug successfully run post backward")
+            except:
+                log.warning(f'bigning debug exception when post backward reshard {name}')
+
     if isinstance(model, FullyShardedDataParallel):
         try:
             _post_forward(model, model._handle, _post_forward_reshard, model, None, None)
         except:
             log.warning(f'bigning debug exception when reshard {name}')
-        try:
-            del model._handle.flat_param.grad
-            model._handle.flat_param.grad = None
-        except:
-            pass
 
 def get_mem_info():
     allocated = round(torch.cuda.memory_allocated() / 1000000000.0, 3)
