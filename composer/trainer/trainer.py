@@ -255,8 +255,13 @@ def _fsdp_reshard(model: torch.nn.Module):
     if isinstance(model, FullyShardedDataParallel):
         try:
             _post_forward(model, model._handle, _post_forward_reshard, model, None, None)
-        except:
-            log.warning(f'bigning debug exception when reshard {name}')
+        except Exception as e:
+            log.warning(f'bigning debug exception when reshard model, {e}')
+        try:
+            _post_backward_reshard(model, model._handle)
+            log.info(f"bigning debug successfully run post backward")
+        except Exception as e:
+            log.warning(f'bigning debug exception when post backward reshard model, exception: {e}')
 
 def get_mem_info():
     allocated = round(torch.cuda.memory_allocated() / 1000000000.0, 3)
@@ -1576,6 +1581,8 @@ class Trainer:
                 prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
 
         self.engine.run_event(Event.AFTER_LOAD)
+
+        log.info(f"bigning debug reserved memory after fsdp: {round(torch.cuda.memory_allocated() / 1000000000.0, 3)}")
 
         # reseed here. This helps with a couple of issues:
         # 1. rng state may change at Event.INIT/Event.BEFORE_LOAD/Event.AFTER_LOAD. For example,
