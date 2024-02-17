@@ -240,6 +240,7 @@ def _is_cuda_oom(e: RuntimeError):
 def _fsdp_reshard(model: torch.nn.Module):
     for name, module in model.named_modules():
         if isinstance(module, FullyShardedDataParallel):
+            """
             try:
                 _post_forward(module, module._handle, _post_forward_reshard, module, None, None)
                 log.info(f"bigning debug successfully run post forward")
@@ -251,6 +252,7 @@ def _fsdp_reshard(model: torch.nn.Module):
                 log.info(f"bigning debug successfully run post backward")
             except Exception as e:
                 log.warning(f'bigning debug exception when post backward reshard {name}, exception: {e}')
+            """
             if module.check_is_root():
                 log.info(f"bigning debug run final cleanup on root module: {name}")
                 try:
