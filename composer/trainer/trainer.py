@@ -251,15 +251,13 @@ def _fsdp_reshard(model: torch.nn.Module):
                 log.info(f"bigning debug successfully run post backward")
             except Exception as e:
                 log.warning(f'bigning debug exception when post backward reshard {name}, exception: {e}')
+            if module.check_is_root():
+                log.info(f"bigning debug run final cleanup on root module: {name}")
+                try:
+                    _post_backward_final_callback(module, module)
+                except Exception as e:
+                    log.warning(f"bigning debug post bwd fincal all back failed, {e}")
 
-    if isinstance(model, FullyShardedDataParallel):
-        try:
-            _post_forward(model, model._handle, _post_forward_reshard, model, None, None)
-        except Exception as e:
-            log.warning(f'bigning debug exception when reshard model, {e}')
-
-    log.info(f"bigning debug final cleanup, ")
-    _post_backward_final_callback(model, model)
 
 def get_mem_info():
     allocated = round(torch.cuda.memory_allocated() / 1000000000.0, 3)
