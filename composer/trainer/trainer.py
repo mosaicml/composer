@@ -34,7 +34,7 @@ import torch.utils.data
 from torch._dynamo import OptimizedModule
 from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
 from torch.distributed.fsdp import FullyShardedDataParallel
-from torch.distributed.fsdp._runtime_utils import _post_forward, _post_forward_reshard
+from torch.distributed.fsdp._runtime_utils import _post_forward, _post_forward_reshard, _post_backward_reshard
 from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim.lr_scheduler import LRScheduler
@@ -243,14 +243,14 @@ def _fsdp_reshard(model: torch.nn.Module):
             try:
                 _post_forward(module, module._handle, _post_forward_reshard, module, None, None)
                 log.info(f"bigning debug successfully run post forward")
-            except:
-                log.warning(f'bigning debug exception when post forward reshard {name}')
+            except Exception as e:
+                log.warning(f'bigning debug exception when post forward reshard {name}, exception: {e}')
 
             try:
                 _post_backward_reshard(module, module._handle)
                 log.info(f"bigning debug successfully run post backward")
-            except:
-                log.warning(f'bigning debug exception when post backward reshard {name}')
+            except Exception as e:
+                log.warning(f'bigning debug exception when post backward reshard {name}, exception: {e}')
 
     if isinstance(model, FullyShardedDataParallel):
         try:
