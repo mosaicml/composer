@@ -17,6 +17,7 @@ import tempfile
 import textwrap
 import time
 import warnings
+import math
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
@@ -2144,7 +2145,7 @@ class Trainer:
                         k: loss.cpu().item() / dist.get_world_size() for k, loss in total_loss_dict.items()
                     }
                     self.state.total_loss_dict = total_loss_dict
-                    self.logger.log_metrics(total_loss_dict)
+                    self.logger.log_metrics(total_loss_dict) 
 
                 # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
                 # next batch's wall clock time. The time accumulation must be done here so schedulers
