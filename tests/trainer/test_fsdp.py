@@ -7,10 +7,10 @@ import pytest
 import torch
 from packaging import version
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import CheckpointWrapper
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 from composer.models import ComposerClassifier, ComposerModel
-from composer.trainer.trainer import Trainer
+from composer.trainer.trainer import Trainer, _fsdp_reshard_and_cleanup
 from composer.utils import dist
 from tests.common import (EmbeddedWeightTiedModel, RandomClassificationDataset, SimpleModel, SimpleWeightTiedModel,
                           world_size)
@@ -191,6 +191,80 @@ def test_fsdp_prefetch_limit(forward_prefetch_limit: int, backward_prefetch_limi
     trainer.fit()
 
 
+class SimpleDataset(Dataset):
+
+    def __init__(self, size: int = 256, batch_size: int = 32, feature_size: int = 1, num_classes: int = 2):
+        self.size = size
+        #self.batch_size = batch_size
+        self.feature_size = feature_size
+        self.num_classes = num_classes
+        self.x = None
+        self.y = None
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, index: int):
+        # Note: lazily generate data so it runs after Composer seeds everything, giving the same
+        # dataset across multiple calls when using the same seed.
+        if self.x is None:
+            self.x = torch.randn(self.size, self.feature_size)
+        if self.y is None:
+            self.y = torch.randint(0, self.num_classes, size=(self.size,), dtype=torch.long)
+        return self.x[index]
+
+
+class SimpleMLPForTestingOOM(ComposerModel):
+
+    def __init__(self, num_features: int = 128, device: str = 'cuda'):
+        super().__init__()
+        self.device = device
+        self.fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.fc3 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.rank = dist.get_global_rank()
+        self.iter = 0
+
+    def forward(self, x):
+        x = self.fc1(x)
+        if self.rank == 0 and x.shape[0] >= 64:
+            raise RuntimeError('CUDA out of memory')
+        x = self.fc2(x)
+        x = self.fc3(x)
+        self.iter += 1
+        return x
+
+    def loss(self, outputs, batch):
+        return torch.sum(outputs)
+
+
+@pytest.mark.gpu
+@world_size(2)
+def test_fsdp_auto_microbatch(world_size: int):
+    model = SimpleMLPForTestingOOM()
+    model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    dataset = SimpleDataset(size=256, feature_size=128)
+    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=64)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+
+    trainer = Trainer(
+        model=model,
+        optimizers=optimizer,
+        train_dataloader=dataloader,
+        fsdp_config={
+            'forward_prefetch_limit': 1,
+            'backward_prefetch_limit': 1,
+        },
+        max_duration='3ba',
+        device_train_microbatch_size='auto',
+        dist_timeout=20,
+    )
+
+    trainer.fit()
+    assert False
+
+
 @pytest.mark.gpu
 @world_size(2)
 @pytest.mark.filterwarnings('ignore:Instantiating FSDP with custom process groups.*:UserWarning')
@@ -272,3 +346,59 @@ def test_fsdp_act_ckpt_offload(
             assert isinstance(trainer.state.model.fc1._fsdp_wrapped_module, OffloadWrapper)
         else:
             assert not isinstance(trainer.state.model.fc1._fsdp_wrapped_module, CheckpointWrapper)
+
+
+class SimpleMLPForTestingOOM(ComposerModel):
+
+    def __init__(self, num_features: int = 128, device: str = 'cuda'):
+        super().__init__()
+        self.device = device
+        self.fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.fc3 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.rank = dist.get_global_rank()
+
+        def oom_hook(*args):
+            raise RuntimeError('CUDA out of memory.')
+        self.fc2.register_full_backward_hook(oom_hook)
+        
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = self.fc2(x)
+        x = self.fc3(x)
+        return x
+
+    def loss(self, outputs, batch):
+        return torch.sum(outputs)
+
+@pytest.mark.gpu
+@world_size(2)
+def test_fsdp_reshard_after_oom(world_size: int):
+    model = SimpleMLPForTestingOOM()
+
+    trainer = Trainer(
+        model=model,
+        fsdp_config={
+        },
+        max_duration='3ba',
+        dist_timeout=20,
+    )
+    fsdp_model = trainer.state.model
+
+    x = torch.rand([2, 128])
+    output = fsdp_model(x)
+    with pytest.raises(Exception):
+        # Backward triggers the fake OOM exception, 
+        # which prevents fsdp reshard and cleanup
+        torch.sum(output).backward()
+    
+    fc2_flat_param = fsdp_model.fc2._flat_param
+
+    # without cleanup, model.fc2.flat_params is still in unshard state
+    # the full param is not freed
+    assert fc2_flat_param.data_ptr() != fc2_flat_param._local_shard.data_ptr()
+    assert fc2_flat_param._full_param_padded.numel() > 0
+
+    _fsdp_reshard_and_cleanup(fsdp_model)    
+    assert fc2_flat_param.data_ptr() == fc2_flat_param._local_shard.data_ptr()
