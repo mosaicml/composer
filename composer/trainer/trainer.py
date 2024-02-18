@@ -271,7 +271,7 @@ def _adjust_device_train_microbatch_size(state: State):
         optimizer.zero_grad(set_to_none=True)
     if state.scaler is not None:
         state.scaler._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
-    _fsdp_reshard_and_cleanup()
+    _fsdp_reshard_and_cleanup(state.model)
     torch.cuda.empty_cache()
 
 
