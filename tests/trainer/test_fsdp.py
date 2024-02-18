@@ -360,8 +360,8 @@ class SimpleMLPForTestingOOM(ComposerModel):
 
         def oom_hook(*args):
             raise RuntimeError('CUDA out of memory.')
+
         self.fc2.register_full_backward_hook(oom_hook)
-        
 
     def forward(self, x):
         x = self.fc1(x)
@@ -372,6 +372,7 @@ class SimpleMLPForTestingOOM(ComposerModel):
     def loss(self, outputs, batch):
         return torch.sum(outputs)
 
+
 @pytest.mark.gpu
 @world_size(2)
 def test_fsdp_reshard_after_oom(world_size: int):
@@ -379,8 +380,7 @@ def test_fsdp_reshard_after_oom(world_size: int):
 
     trainer = Trainer(
         model=model,
-        fsdp_config={
-        },
+        fsdp_config={},
         max_duration='3ba',
         dist_timeout=20,
     )
@@ -389,10 +389,10 @@ def test_fsdp_reshard_after_oom(world_size: int):
     x = torch.rand([2, 128])
     output = fsdp_model(x)
     with pytest.raises(Exception):
-        # Backward triggers the fake OOM exception, 
+        # Backward triggers the fake OOM exception,
         # which prevents fsdp reshard and cleanup
         torch.sum(output).backward()
-    
+
     fc2_flat_param = fsdp_model.fc2._flat_param
 
     # without cleanup, model.fc2.flat_params is still in unshard state
@@ -400,5 +400,5 @@ def test_fsdp_reshard_after_oom(world_size: int):
     assert fc2_flat_param.data_ptr() != fc2_flat_param._local_shard.data_ptr()
     assert fc2_flat_param._full_param_padded.numel() > 0
 
-    _fsdp_reshard_and_cleanup(fsdp_model)    
+    _fsdp_reshard_and_cleanup(fsdp_model)
     assert fc2_flat_param.data_ptr() == fc2_flat_param._local_shard.data_ptr()
