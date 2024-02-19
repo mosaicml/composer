@@ -2135,8 +2135,9 @@ class Trainer:
 
                 total_loss_dict = self._train_batch(use_grad_scaling)
 
-                if use_grad_scaling:
-                    self.state.scaler.update()
+                # Handle this scaler update through the callback in foundry.
+                # if use_grad_scaling:
+                #     self.state.scaler.update()
 
                 # total_loss_dict can be None if gradient scaling failed
                 if total_loss_dict is not None:  # pyright: ignore[reportUnnecessaryComparison]
@@ -3090,7 +3091,7 @@ class Trainer:
             return False
 
         precision = Precision(precision)
-        use_grad_scaling = precision == Precision.AMP_FP16
+        use_grad_scaling = (precision == Precision.AMP_FP16 or precision == Precision.AMP_BF16)
 
         if use_grad_scaling and (scaler is None or not scaler.is_enabled()):
             raise RuntimeError(f'Attempting to use grad scaling with {precision}, but scaler is not enabled.'
