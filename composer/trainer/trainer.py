@@ -926,7 +926,7 @@ class Trainer:
         compile_config: Optional[Dict[str, Any]] = None,
 
         # loss scale value for ConstantGradScaler
-        loss_scale: float = 2.0**16,
+        loss_scale: float = 1.0,
     ):
 
         self.auto_log_hparams = auto_log_hparams
