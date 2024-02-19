@@ -3144,7 +3144,7 @@ class Trainer:
         if isinstance(self.state.device, DeviceTPU):
             return False
 
-        if self.state.precision != Precision.AMP_FP16:
+        if self.state.precision != Precision.AMP_FP16 and self.state.precision != Precision.AMP_BF16:
             return True
 
         if not hasattr(self.state, 'optimizers'):
