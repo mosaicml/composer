@@ -5,7 +5,6 @@ from unittest.mock import Mock
 
 import pytest
 import torch
-from packaging import version
 from torch import nn
 
 import composer.algorithms.gradient_clipping.gradient_clipping as gc_module
@@ -13,7 +12,6 @@ from composer.algorithms.gradient_clipping import GradientClipping, apply_gradie
 from composer.algorithms.gradient_clipping.gradient_clipping import _apply_agc, _get_clipped_gradient_coeff
 from composer.core import Engine, State
 from composer.core.event import Event
-from composer.utils.misc import using_torch_2
 from tests.common import world_size
 from tests.common.datasets import dummy_tiny_bert_classification_batch, dummy_transformer_classifier_batch
 from tests.common.models import SimpleTransformerClassifier, configure_tiny_bert_config
@@ -29,9 +27,9 @@ def simple_model_with_grads():
     # Force wrap every module in FSDP, to allow for testing FSDP
     # gradient clipping properly.
     for module in model:
-        module._fsdp_wrap = True
+        module._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
 
-    model._fsdp_wrap = True
+    model._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
     o = model(x)
     loss_fn = nn.CrossEntropyLoss()
     loss = loss_fn(o, y)
@@ -64,7 +62,7 @@ def cnn_model_with_grads():
     # Force wrap every module in FSDP, to allow for testing FSDP
     # gradient clipping properly.
     for layer in model.modules():
-        layer._fsdp_wrap = True
+        layer._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
 
     o = model(x)
     loss_fn = nn.CrossEntropyLoss()
@@ -79,7 +77,7 @@ def simple_transformer_model_with_grads():
     # Force wrap every module in FSDP, to allow for testing FSDP
     # gradient clipping properly.
     for layer in model.modules():
-        layer._fsdp_wrap = True
+        layer._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
 
     x = dummy_transformer_classifier_batch(num_classes=3)
     o = model(x)
@@ -104,7 +102,7 @@ def hf_model_with_grads():
     # Force wrap every module in FSDP, to allow for testing FSDP
     # gradient clipping properly.
     for layer in model.modules():
-        layer._fsdp_wrap = True
+        layer._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
 
     x = dummy_tiny_bert_classification_batch(num_classes=3)
     o = model(x).logits
@@ -193,27 +191,17 @@ def test_gradient_clipping_algorithm_with_deepspeed_enabled(
     apply_gc_fn.assert_not_called()
 
 
-if not using_torch_2():
+def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:
+    if recurse:
+        return True
 
-    def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, unwrapped_params: int) -> bool:  # type: ignore
-        if recurse:
-            return True
-        if hasattr(module, '_fsdp_wrap'):
-            return bool(module._fsdp_wrap)
+    # With Torch 2.0, there is a bug that emits a nasty warning if you wrap a module with no parameters
+    if len(list(module.parameters())) == 0:
         return False
-else:
 
-    def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:
-        if recurse:
-            return True
-
-        # With Torch 2.0, there is a bug that emits a nasty warning if you wrap a module with no parameters
-        if len(list(module.parameters())) == 0:
-            return False
-
-        if hasattr(module, '_fsdp_wrap'):
-            return bool(module._fsdp_wrap)
-        return False
+    if hasattr(module, '_fsdp_wrap'):
+        return bool(module._fsdp_wrap)
+    return False
 
 
 @pytest.mark.parametrize('model_with_grads', [
@@ -223,8 +211,6 @@ else:
     hf_model_with_grads
 ])
 @pytest.mark.parametrize('clipping_type', ['norm', 'value'])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
 @pytest.mark.gpu
 @world_size(2)
 def test_gradient_clipping_algorithm_with_fsdp_enabled_does_not_error(
@@ -241,13 +227,10 @@ def test_gradient_clipping_algorithm_with_fsdp_enabled_does_not_error(
     clipping_threshold = 0.1191
     state = dummy_state
 
-    torch_2_kwargs = {}
-    if using_torch_2():
-        torch_2_kwargs['use_orig_params'] = True
     state.model = FullyShardedDataParallel(model,
                                            auto_wrap_policy=_auto_wrap_policy,
                                            device_id=torch.cuda.current_device(),
-                                           **torch_2_kwargs)
+                                           use_orig_params=True)
 
     state.algorithms = [GradientClipping(clipping_type=clipping_type, clipping_threshold=clipping_threshold)]
     logger = Mock()

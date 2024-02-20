@@ -1,0 +1,30 @@
+# Require admin approval to modify all files in the root of the repository
+# This includes setup.py, the README, and the CODEOWNERS file itself!
+/* @mosaicml/composer-team-admins
+
+# Require admin approval to change the CI build configuration
+# All CI Changes should be reviewed for security
+/.ci/ @mosaicml/composer-team-admins
+/.devcontainer/ @mosaicml/composer-team-admins
+/.github/ @mosaicml/composer-team-admins
+
+# Require admin approval to change the Dockerfile configuration
+# All dockerfile changes should be reviewed for security
+/docker/ @mosaicml/composer-team-admins
+
+# Assigning domain-specific owners for certain portions of the repo so they will be
+# explicitly added in pull requests. Including @mosaicml/composer-team-eng
+# as an owner for all sections, so anyone on Composer Eng can approve any Composer PR
+# According to the CODEOWNER docs, the last match takes precedence, so @mosaicml/composer-team-eng
+# must be mentioned for each rule below.
+/composer/algorithms/ @mosaicml/composer-team-eng
+/composer/cli/ @mosaicml/composer-team-eng
+/composer/datasets/ @mosaicml/composer-team-eng
+/composer/functional/ @mosaicml/composer-team-eng
+/composer/loggers/ @mosaicml/composer-team-eng
+/composer/loss/ @mosaicml/composer-team-eng
+/composer/metrics/ @mosaicml/composer-team-eng
+/composer/models/ @mosaicml/composer-team-eng
+/composer/optim/ @mosaicml/composer-team-eng
+/composer/profiler/ @mosaicml/composer-team-eng
+/composer/yamls/ @mosaicml/composer-team-eng

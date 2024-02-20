@@ -72,7 +72,12 @@ class InMemoryLogger(LoggerDestination):
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         self.hyperparameters.update(hyperparameters)
 
-    def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
+    def log_table(self,
+                  columns: List[str],
+                  rows: List[List[Any]],
+                  name: str = 'Table',
+                  step: Optional[int] = None) -> None:
+        del step
         try:
             import pandas as pd
         except ImportError as e:
@@ -80,6 +85,7 @@ class InMemoryLogger(LoggerDestination):
                                                 conda_package='pandas',
                                                 conda_channel='conda-forge') from e
         table = pd.DataFrame.from_records(data=rows, columns=columns).to_json(orient='split', index=False)
+        assert isinstance(table, str)
         self.tables[name] = table
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:

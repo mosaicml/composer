@@ -21,18 +21,18 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-      - uses: actions/setup-python@v4
-        with:
-          python-version: 3.9
-      - uses: actions/checkout@v3
-      - id: set-matrix
-        run: |
-          # Install yaml dependency
-          pip install pyyaml
+    - uses: actions/setup-python@v4
+      with:
+        python-version: 3.9
+    - uses: actions/checkout@v3
+    - id: set-matrix
+      run: |
+        # Install yaml dependency
+        pip install pyyaml
 
-          # Generate build matrix
-          BUILD_MATRIX=$(python .github/bin/gen_docker_matrix.py docker/build_matrix.yaml)
-          echo $BUILD_MATRIX >> $GITHUB_OUTPUT
+        # Generate build matrix
+        BUILD_MATRIX=$(python .github/bin/gen_docker_matrix.py docker/build_matrix.yaml)
+        echo $BUILD_MATRIX >> $GITHUB_OUTPUT
 
   stage-docker-build:
     needs: build-image-matrix

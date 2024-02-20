@@ -13,9 +13,9 @@ import pytest
 from torch.utils.data import DataLoader
 
 from composer.callbacks import ExportForInferenceCallback, export_for_inference
-from composer.models import composer_resnet
 from composer.trainer import Trainer
 from tests.common.datasets import RandomImageDataset
+from tests.common.models import composer_resnet
 
 
 @pytest.mark.parametrize(

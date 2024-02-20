@@ -50,7 +50,7 @@ class SAMOptimizer(torch.optim.Optimizer):
         defaults = {'rho': rho, 'epsilon': epsilon, **kwargs}
         super(SAMOptimizer, self).__init__(self.base_optimizer.param_groups, defaults)
 
-    @torch.no_grad()
+    @torch.no_grad()  # pyright: ignore[reportUntypedFunctionDecorator]
     def sub_e_w(self):
         for group in self.param_groups:
             for p in group['params']:
@@ -59,7 +59,7 @@ class SAMOptimizer(torch.optim.Optimizer):
                 e_w = self.state[p]['e_w']  # retrieve stale e(w)
                 p.sub_(e_w)  # get back to "w" from "w + e(w)"
 
-    @torch.no_grad()
+    @torch.no_grad()  # pyright: ignore[reportUntypedFunctionDecorator]
     def first_step(self):
         grad_norm = self._grad_norm()
         for group in self.param_groups:
@@ -71,7 +71,7 @@ class SAMOptimizer(torch.optim.Optimizer):
                 p.add_(e_w)  # climb to the local maximum "w + e(w)"
                 self.state[p]['e_w'] = e_w
 
-    @torch.no_grad()
+    @torch.no_grad()  # pyright: ignore[reportUntypedFunctionDecorator]
     def second_step(self):
         for group in self.param_groups:
             for p in group['params']:
@@ -80,7 +80,7 @@ class SAMOptimizer(torch.optim.Optimizer):
                 p.sub_(self.state[p]['e_w'])  # get back to "w" from "w + e(w)"
         self.base_optimizer.step()  # do the actual "sharpness-aware" update
 
-    @torch.no_grad()
+    @torch.no_grad()  # pyright: ignore[reportUntypedFunctionDecorator]
     def step(self, closure=None):
         assert closure is not None, 'Sharpness Aware Minimization requires closure, but it was not provided'
         closure = torch.enable_grad()(closure)  # the closure should do a full forward-backward pass

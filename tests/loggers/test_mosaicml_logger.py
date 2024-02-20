@@ -85,6 +85,7 @@ def test_format_data_to_json_serializable():
 
 @pytest.mark.parametrize('callback_cls', get_cbs_and_marks(callbacks=True))
 @world_size(1, 2)
+@pytest.mark.filterwarnings('ignore::UserWarning')
 def test_logged_data_is_json_serializable(monkeypatch, callback_cls: Type[Callback], world_size):
     """Test that all logged data is json serializable, which is a requirement to use MAPI."""
 

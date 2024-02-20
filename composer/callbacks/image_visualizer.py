@@ -46,7 +46,7 @@ class ImageVisualizer(Callback):
     +---------------------------------------------+---------------------------------------+
 
         .. note::
-            This callback only works with wandb logging for now.
+            This callback only works with wandb and Neptune logging for now.
 
     Args:
         interval (int | str | Time, optional): Time string specifying how often to log train images. For example, ``interval='1ep'``
