@@ -1117,7 +1117,7 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
             )
             _p_assert(
                 not as_params or isinstance(prim_param, nn.Parameter),
-                f"as_params={as_params} type(prim_param)={type(prim_param)}",
+                f'as_params={as_params} type(prim_param)={type(prim_param)}',
             )
             if self._use_orig_params and as_params:
                 shared_param = self.flat_param._shared_params[i]
