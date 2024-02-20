@@ -223,7 +223,9 @@ def test_wrong_size_device_mesh_error(world_size: int):
     with pytest.raises(ValueError, match='.*requires a device mesh of size 1.*'):
         Trainer(
             model=SimpleModel(),
-            fsdp_config=[1, 2],
+            fsdp_config={
+                'device_mesh': [1, 2],
+            }
         )
 
 

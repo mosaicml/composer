@@ -304,15 +304,12 @@ def prepare_fsdp_module(
         if 'device_mesh' in fsdp_config:
             device_mesh_size = len(fsdp_config['device_mesh'])
             if sharding_strategy in [ShardingStrategy.FULL_SHARD, ShardingStrategy.NO_SHARD] and device_mesh_size != 1:
-                raise ValueError(
-                    f'FSDP sharding strategy {sharding_map_key.upper()} requires a device mesh '
-                    f'size of 1 but got device mesh size of {device_mesh_size}.'
-                )
-            elif sharding_strategy in [ShardingStrategy.HYBRID_SHARD, ShardingStrategy._HYBRID_SHARD_ZERO2] and device_mesh_size != 2:
-                raise ValueError(
-                    f'FSDP sharding strategy {sharding_map_key.upper()} requires a device mesh '
-                    f'size of 2 but got device mesh size of {device_mesh_size}.'
-                )
+                raise ValueError(f'FSDP sharding strategy {sharding_map_key.upper()} requires a device mesh '
+                                 f'size of 1 but got device mesh size of {device_mesh_size}.')
+            elif sharding_strategy in [ShardingStrategy.HYBRID_SHARD, ShardingStrategy._HYBRID_SHARD_ZERO2
+                                      ] and device_mesh_size != 2:
+                raise ValueError(f'FSDP sharding strategy {sharding_map_key.upper()} requires a device mesh '
+                                 f'size of 2 but got device mesh size of {device_mesh_size}.')
             from torch.distributed._tensor import init_device_mesh
             kwargs['device_mesh'] = init_device_mesh(
                 'cuda',
