@@ -218,15 +218,12 @@ def test_fsdp_process_group(world_size: int):
 
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.2.0'))
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.2.0'), reason='Device mesh requires Torch 2.2')
 def test_wrong_size_device_mesh_error(world_size: int):
     with pytest.raises(ValueError, match='.*requires a device mesh of size 1.*'):
-        Trainer(
-            model=SimpleModel(),
-            fsdp_config={
-                'device_mesh': [1, 2],
-            }
-        )
+        Trainer(model=SimpleModel(), fsdp_config={
+            'device_mesh': [1, 2],
+        })
 
 
 class SimpleMLP(ComposerModel):
