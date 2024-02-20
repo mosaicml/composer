@@ -1038,22 +1038,7 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
     from torch.distributed.fsdp._common_utils import _set_fsdp_flattened, HandleTrainingState
     @torch.enable_grad()
     def _use_unsharded_views(self, as_params: bool) -> None:
-        """
-        Unflatten the unsharded flat parameter by setting the original parameter variables to be views into it.
-
-        Args:
-            as_params (bool): If ``True``, then registers the original
-                parameters as ``nn.Parameter`` s; if ``False``, then registers
-                the original parameters only as ``Tensor`` s. ``False`` should
-                be used during forward/backward computation and when hiding the
-                original parameters from :meth:`nn.Module.named_parameters`.
-
-        Note:
-            when prefetching for next forward, current forward may be
-            annotated with `@torch.no_grad()`
-            `@torch.enable_grad()` ensures non-empty `view.grad_fn`
-            otherwise `_post_backward_hook` will not get called
-        """
+        """Unflatten the unsharded flat parameter by setting the original parameter variables to be views into it."""
         flat_param = self.flat_param
         self._check_unsharded(flat_param)
         views = self._get_unflat_views()
