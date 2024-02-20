@@ -72,6 +72,13 @@ except ImportError:
     _COMETML_INSTALLED = False
 
 try:
+    import neptune
+    _NEPTUNE_INSTALLED = True
+    del neptune  # unused
+except ImportError:
+    _NEPTUNE_INSTALLED = False
+
+try:
     import libcloud
     _LIBCLOUD_INSTALLED = True
     del libcloud  # unused

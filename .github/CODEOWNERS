@@ -20,8 +20,8 @@
 /composer/algorithms/ @mosaicml/composer-team-eng
 /composer/cli/ @mosaicml/composer-team-eng
 /composer/datasets/ @mosaicml/composer-team-eng
-/composer/functional/ @mosaicml/composer-team-eng @dblalock
-/composer/loggers/ @mosaicml/composer-team-eng @eracah @dakinggg
+/composer/functional/ @mosaicml/composer-team-eng
+/composer/loggers/ @mosaicml/composer-team-eng
 /composer/loss/ @mosaicml/composer-team-eng
 /composer/metrics/ @mosaicml/composer-team-eng
 /composer/models/ @mosaicml/composer-team-eng

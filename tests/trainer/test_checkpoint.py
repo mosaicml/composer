@@ -696,7 +696,7 @@ class TestCheckpointLoading:
         last_checkpoint = os.path.join('first', 'ep2.pt')
         if missing_key or unexpected_key:
             message = r'Error\(s\) in loading state_dict'
-            if version.parse(torch.__version__) < version.parse('2.1.3'):
+            if version.parse(torch.__version__) < version.parse('2.2.9'):
                 # Composer implements strict for older torch versions
                 message = 'Failed to load checkpoint due to'
             error_context = pytest.raises(RuntimeError, match=message)
@@ -1020,7 +1020,7 @@ class TestCheckpointLoading:
         NoOpModel.__init__ = lambda self, x: None  # type: ignore
         NoOpModel.__repr__ = lambda self: 'NoOpModel(3)'
         error_context = pytest.raises(KeyError, match='module.0.weight')
-        if version.parse(torch.__version__) < version.parse('2.1.3'):
+        if version.parse(torch.__version__) < version.parse('2.2.9'):
             error_context = pytest.raises(ValueError, match='loaded state dict contains a parameter group.*')
         with pytest.warns(UserWarning, match='required_on_load algorithm.*'), error_context:
             trainer_3 = self.get_trainer(load_path=os.path.join('first', 'ep1.pt'),)
@@ -1294,6 +1294,36 @@ class TestCheckpointResumption:
                 save_folder / 'first' / 'latest-rank{rank}.pt',
                 save_folder / 'second' / 'latest-rank{rank}.pt',
             )
+
+    def test_format_load_path(self, tmp_path: pathlib.Path):
+        run_name = 'a-quick-rabbit'
+        save_folder = os.path.join(tmp_path, '{run_name}')
+        trainer = self.get_trainer(
+            run_name=run_name,
+            save_folder=os.path.join(save_folder, 'first'),
+            save_filename='ep{epoch}-rank{rank}.pt',
+            save_interval='1ep',
+        )
+
+        trainer.fit()
+        trainer.close()
+
+        resume_file = os.path.join(save_folder, 'first', 'ep1-rank0.pt')
+        trainer = self.get_trainer(
+            run_name=run_name,
+            save_folder=os.path.join(save_folder, 'second'),
+            save_filename='ep{epoch}-rank{rank}.pt',
+            save_interval='1ep',
+            load_path=resume_file,  # <-- resume training from file
+        )
+        trainer.fit()
+        trainer.close()
+
+        save_folder = save_folder.replace('{run_name}', run_name)
+        _assert_checkpoints_equivalent(
+            os.path.join(save_folder, 'first', 'latest-rank{rank}.pt'),
+            os.path.join(save_folder, 'second', 'latest-rank{rank}.pt'),
+        )
 
     def _assert_expected_num_checkpoints(
         self,

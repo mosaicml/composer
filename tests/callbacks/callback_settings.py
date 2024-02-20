@@ -3,6 +3,7 @@
 
 import os
 from typing import Any, Dict, List, Tuple, Type
+from unittest.mock import MagicMock
 
 import pytest
 from torch.utils.data import DataLoader
@@ -14,8 +15,8 @@ from composer import Callback
 from composer.callbacks import (EarlyStopper, ExportForInferenceCallback, FreeOutputs, Generate, ImageVisualizer,
                                 MemoryMonitor, MemorySnapshot, MLPerfCallback, OOMObserver, SpeedMonitor,
                                 SystemMetricsMonitor, ThresholdStopper)
-from composer.loggers import (CometMLLogger, ConsoleLogger, LoggerDestination, MLFlowLogger, ProgressBarLogger,
-                              RemoteUploaderDownloader, TensorboardLogger, WandBLogger)
+from composer.loggers import (CometMLLogger, ConsoleLogger, LoggerDestination, MLFlowLogger, NeptuneLogger,
+                              ProgressBarLogger, RemoteUploaderDownloader, TensorboardLogger, WandBLogger)
 from composer.models.base import ComposerModel
 from composer.utils import dist
 from composer.utils.device import get_device
@@ -76,6 +77,13 @@ try:
 except ImportError:
     _PYNMVL_INSTALLED = False
 
+try:
+    import neptune
+    _NEPTUNE_INSTALLED = True
+    del neptune  # unused
+except ImportError:
+    _NEPTUNE_INSTALLED = False
+
 _callback_kwargs: Dict[Type[Callback], Dict[str, Any],] = {
     Generate: {
         'prompts': ['a', 'b', 'c'],
@@ -115,6 +123,13 @@ _callback_kwargs: Dict[Type[Callback], Dict[str, Any],] = {
     SpeedMonitor: {
         'window_size': 1,
     },
+    NeptuneLogger: {
+        'mode': 'debug',
+    },
+    composer.profiler.Profiler: {
+        'trace_handlers': [MagicMock()],
+        'schedule': composer.profiler.cyclic_schedule(),
+    }
 }
 
 _callback_marks: Dict[Type[Callback], List[pytest.MarkDecorator],] = {
@@ -153,6 +168,7 @@ _callback_marks: Dict[Type[Callback], List[pytest.MarkDecorator],] = {
     ImageVisualizer: [pytest.mark.skipif(not _WANDB_INSTALLED, reason='Wandb is optional')],
     MLFlowLogger: [pytest.mark.skipif(not _MLFLOW_INSTALLED, reason='mlflow is optional'),],
     SystemMetricsMonitor: [pytest.mark.skipif(not _PYNMVL_INSTALLED, reason='pynmvl is optional'),],
+    NeptuneLogger: [pytest.mark.skipif(not _NEPTUNE_INSTALLED, reason='neptune is optional'),],
 }
 
 

@@ -76,7 +76,7 @@ while True:
 install_requires = [
     'pyyaml>=6.0,<7',
     'tqdm>=4.62.3,<5',
-    'torchmetrics>=0.10.0,<1.3.1',
+    'torchmetrics>=0.10.0,<1.3.2',
     'torch_optimizer>=0.3.0,<0.4',
     'torchvision>=0.13.1,<0.20',  # TODO: Tighten before release
     'torch>=2.0.1,<2.3.1',  # TODO: Tighten before release
@@ -104,9 +104,9 @@ extra_deps['dev'] = [
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
     'ipython==8.11.0',
-    'ipykernel==6.29.0',
+    'ipykernel==6.29.2',
     'jupyter==1.0.0',
-    'yamllint==1.33.0',
+    'yamllint==1.35.1',
     'recommonmark==0.7.1',
     'sphinx==4.4.0',
     'pre-commit>=3.4.0,<4',
@@ -133,8 +133,8 @@ extra_deps['dev'] = [
     'traitlets==5.14.1',
     'nbsphinx==0.9.1',
     'pandoc==2.3',
-    'pypandoc==1.12',
-    'GitPython==3.1.41',
+    'pypandoc==1.13',
+    'GitPython==3.1.42',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
     'cryptography==41.0.5',
@@ -161,6 +161,10 @@ extra_deps['wandb'] = [
 
 extra_deps['comet_ml'] = [
     'comet_ml>=3.31.12,<4.0.0',
+]
+
+extra_deps['neptune'] = [
+    'neptune>=1.6.2,<2.0.0',
 ]
 
 extra_deps['tensorboard'] = [
@@ -220,7 +224,7 @@ extra_deps['mlflow'] = [
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk>=0.15.0,<1.0']
+extra_deps['databricks'] = ['databricks-sdk==0.18.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 

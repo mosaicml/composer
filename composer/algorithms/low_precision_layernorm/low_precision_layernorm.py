@@ -52,8 +52,10 @@ class LowPrecisionLayerNorm(Algorithm):
 
     def __init__(self, apply_at: Event = Event.INIT):
         self.apply_at = apply_at
-        if self.apply_at not in {Event.INIT, Event.AFTER_LOAD}:
-            raise ValueError('LowPrecisionLayerNorm only supports application on Event.INIT and Event.AFTER_LOAD.')
+        if self.apply_at not in {Event.INIT, Event.BEFORE_LOAD, Event.AFTER_LOAD}:
+            raise ValueError(
+                'LowPrecisionLayerNorm only supports application on Event.INIT, Event.BEFORE_LOAD, and Event.AFTER_LOAD.'
+            )
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(apply_at={self.apply_at})'
