@@ -309,3 +309,4 @@ def test_fsdp_reshard_after_oom(world_size: int):
 
     _fsdp_reshard_and_cleanup(fsdp_model)
     assert fc2_flat_param.data_ptr() == fc2_flat_param._local_shard.data_ptr()
+    assert fc2_flat_param._full_param_padded._typed_storage()._size() == 0
