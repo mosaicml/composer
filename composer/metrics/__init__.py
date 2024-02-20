@@ -5,7 +5,7 @@
 
 from composer.metrics.map import MAP
 from composer.metrics.metrics import CrossEntropy, Dice, LossMetric, MIoU
-from composer.metrics.nlp import (BinaryF1Score, IFEvalJudge, MTBenchJudge, InContextLearningCodeEvalAccuracy,
+from composer.metrics.nlp import (BinaryF1Score, MTBenchJudge, InContextLearningCodeEvalAccuracy,
                                   InContextLearningLMAccuracy, InContextLearningLMExpectedCalibrationError,
                                   InContextLearningMCExpectedCalibrationError, InContextLearningMetric,
                                   InContextLearningMultipleChoiceAccuracy, InContextLearningQAAccuracy,
@@ -28,8 +28,6 @@ __all__ = [
     'InContextLearningLMExpectedCalibrationError',
     'InContextLearningMetric',
     'InContextLearningCodeEvalAccuracy',
-    # 'InContextLearningLLMAsAJudge',
-    'IFEvalJudge',
     'MTBenchJudge'
 ]
 
@@ -38,7 +36,5 @@ METRIC_DEFAULT_CTORS = {
     'InContextLearningMultipleChoiceAccuracy': InContextLearningMultipleChoiceAccuracy,
     'InContextLearningQAAccuracy': InContextLearningQAAccuracy,
     'InContextLearningCodeEvalAccuracy': InContextLearningCodeEvalAccuracy,
-    # 'InContextLearningLLMAsAJudge': InContextLearningLLMAsAJudge
-    'IFEvalJudge': IFEvalJudge,
     'MTBenchJudge': MTBenchJudge
 }

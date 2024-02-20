@@ -18,7 +18,6 @@ from composer.datasets.in_context_learning_evaluation import (InContextLearningC
                                                               InContextLearningMultipleChoiceTaskDataset,
                                                               InContextLearningQATaskDataset,
                                                               InContextLearningSchemaTaskDataset,
-                                                              IFEval,
                                                               MTBench)
 from composer.loggers import Logger
 from composer.loggers.console_logger import ConsoleLogger
@@ -26,7 +25,7 @@ from composer.utils import MissingConditionalImportError, dist, maybe_create_obj
 
 ICLDatasetTypes = (InContextLearningLMTaskDataset, InContextLearningQATaskDataset,
                    InContextLearningMultipleChoiceTaskDataset, InContextLearningSchemaTaskDataset,
-                   InContextLearningCodeEvalDataset, IFEval, MTBench)
+                   InContextLearningCodeEvalDataset, MTBench)
 
 
 def _write(destination_path, src_file):
