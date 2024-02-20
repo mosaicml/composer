@@ -231,7 +231,7 @@ def test_mlflow_experiment_set_up(tmp_path):
     assert actual_run_name == expected_run_name
 
     # Check run tagged with Composer run name.
-    assert tags['composer_run_name'] == mock_state.run_name
+    assert tags['run_name'] == mock_state.run_name
 
     # Check run ended.
     test_mlflow_logger.post_close()
