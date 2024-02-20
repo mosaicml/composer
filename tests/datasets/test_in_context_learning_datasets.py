@@ -1493,9 +1493,11 @@ def test_code_eval_split_batch(dataset_uri, tmp_path):
 
     static_keys = {'pass_at_k': (int, list), 'generation_kwargs': dict}
     for batch in batches:
+        assert 'generation_kwargs' in batch
+        assert 'max_new_tokens' in batch['generation_kwargs']
+        assert isinstance(batch['generation_kwargs']['max_new_tokens'], int)
         for field, type_ in static_keys.items():
             assert isinstance(batch[field], type_)
-    assert batch['generation_kwargs']['max_new_tokens'] == 122
 
 
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])

@@ -472,6 +472,10 @@ class HuggingFaceModel(ComposerModel):
                      'It will be removed in v0.21'),
                     DeprecationWarning,
                 )
+            max_new_tokens = None
+            if 'generation_kwargs' in batch:
+                if 'max_new_tokens' in batch['generation_kwargs']:
+                    max_new_tokens = batch['generation_kwargs']['max_new_tokens']
 
             self.labels = batch.pop('labels')
             generation = self.generate(batch['input_ids'],
@@ -481,6 +485,11 @@ class HuggingFaceModel(ComposerModel):
                                                                         batch.get('generation_length', None)),
                                        synced_gpus=dist.get_world_size() > 1,
                                        **batch.get('generation_kwargs', {}))
+
+            # Need to pop `max_new_tokens` from batch['generation_kwargs'] to avoid passing in the same kwarg twice
+            # NOTE: Should be deprecated in v0.21
+            if max_new_tokens:
+                batch['generation_kwargs']['max_new_tokens'] = max_new_tokens
 
             # don't remove prefix space to sentencepiece models
             if len(self.tokenizer(
