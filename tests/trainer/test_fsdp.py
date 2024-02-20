@@ -222,10 +222,11 @@ class SimpleMLP(ComposerModel):
         super().__init__()
         self.fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
         self.fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.relu = torch.nn.ReLU()
 
     def forward(self, x):
         x = self.fc1(x)
-        x = torch.nn.ReLU(x)
+        x = self.relu(x)
         x = self.fc2(x)
         return x
 
@@ -274,35 +275,15 @@ def test_fsdp_act_ckpt_offload(
             assert not isinstance(trainer.state.model.fc1._fsdp_wrapped_module, CheckpointWrapper)
 
 
-class SimpleMLPForTestingOOM(ComposerModel):
-
-    def __init__(self, num_features: int = 128, device: str = 'cuda'):
-        super().__init__()
-        self.device = device
-        self.fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
-        self.fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
-        self.fc3 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
-        self.rank = dist.get_global_rank()
-
-        def oom_hook(*args):
-            raise RuntimeError('CUDA out of memory.')
-
-        self.fc2.register_full_backward_hook(oom_hook)
-
-    def forward(self, x):
-        x = self.fc1(x)
-        x = self.fc2(x)
-        x = self.fc3(x)
-        return x
-
-    def loss(self, outputs, batch):
-        return torch.sum(outputs)
-
-
 @pytest.mark.gpu
 @world_size(2)
 def test_fsdp_reshard_after_oom(world_size: int):
-    model = SimpleMLPForTestingOOM()
+    model = SimpleMLP(num_features=128)
+
+    def oom_hook(*args):
+        raise RuntimeError('CUDA out of memory.')
+
+    model.fc2.register_full_backward_hook(oom_hook)
 
     trainer = Trainer(
         model=model,
@@ -321,7 +302,7 @@ def test_fsdp_reshard_after_oom(world_size: int):
 
     fc2_flat_param = fsdp_model.fc2._flat_param
 
-    # without cleanup, model.fc2.flat_params is still in unshard state
+    # Without cleanup, model.fc2.flat_params is still in unshard state
     # the full param is not freed
     assert fc2_flat_param.data_ptr() != fc2_flat_param._local_shard.data_ptr()
     assert fc2_flat_param._full_param_padded.numel() > 0

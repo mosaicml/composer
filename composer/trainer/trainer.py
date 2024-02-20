@@ -235,13 +235,22 @@ def _is_cuda_oom(e: RuntimeError):
 
 
 def _fsdp_reshard_and_cleanup(model: torch.nn.Module):
+    """
+    This function manually reshards and cleans-up FSDP model by calling
+    _post_backward_final_callback on FSDP root module. In normal case, _post_backward_final_callback
+    is registered as a backward callback. But when exception happens, like OOM, that callback
+    is skipped. There will be memory leak if we don't call that callback.
+    Find more information here: https://github.com/mosaicml/composer/pull/3030
+    """
     for name, module in model.named_modules():
         if isinstance(module, FullyShardedDataParallel):
             if module.check_is_root():
-                try:
-                    _post_backward_final_callback(module, module)
-                except Exception as e:
-                    log.warning(f'Failed to reshard fsdp after oom, error: {e}')
+                """
+                Only call _post_backward_final_callback on root module. It will
+                traverse all the FSDP sub-modules and do the reshard and cleanup
+                on all sub-modules
+                """
+                _post_backward_final_callback(module, module)
 
 
 def _adjust_device_train_microbatch_size(state: State):
