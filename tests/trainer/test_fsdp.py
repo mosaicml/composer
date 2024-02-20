@@ -279,6 +279,7 @@ def test_fsdp_act_ckpt_offload(
 @world_size(2)
 def test_fsdp_reshard_after_oom(world_size: int):
     model = SimpleMLP(num_features=128)
+    #model.relu._fsdp_wrap = False
 
     def oom_hook(*args):
         raise RuntimeError('CUDA out of memory.')
