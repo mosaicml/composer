@@ -1,13 +1,17 @@
 name: Code Quality Checks
 on:
-  workflow_call:
-    inputs:
-      python_version:
-        required: true
-        type: string
-      pip_deps:
-        required: true
-        type: string
+  push:
+    branches:
+    - dev
+    - main
+    - release/**
+  pull_request_target:
+  workflow_dispatch:
+# Cancel old runs when a new commit is pushed to the same branch if not on main
+# or dev
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 defaults:
   run:
     working-directory: .
@@ -15,16 +19,31 @@ jobs:
   code-quality:
     runs-on: ubuntu-20.04
     timeout-minutes: 15
+    strategy:
+      matrix:
+        python_version:
+        - "3.9"
+        - "3.10"
+        - "3.11"
+        pip_deps:
+        - "[dev]"
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Get Repo Token
+      id: REPO_TOKEN
+      uses: tibdex/github-app-token@v1
       with:
-        python-version: ${{ inputs.python_version }}
-    - name: Setup
-      run: |
-        set -ex
-        python -m pip install --upgrade 'pip<23' wheel
-        python -m pip install --upgrade .${{ inputs.pip_deps }}
-    - name: Run checks
-      run: |
-        pre-commit run --all-files
+        app_id: ${{ secrets.DEVOGE_BOT_PUB_APPID }}
+        private_key: ${{ secrets.DEVOGE_BOT_PUB_PEM }}
+    - name: Get composite run steps repository
+      uses: actions/checkout@v3
+      with:
+        repository: mosaicml/testing
+        ref: v0.0.2
+        path: ./testing
+        token: ${{ steps.REPO_TOKEN.outputs.token }}
+    - uses: ./testing/.github/actions/code-quality
+      with:
+        python_version: ${{ matrix.python_version }}
+        pip_deps: ${{ matrix.pip_deps }}
