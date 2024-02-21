@@ -327,7 +327,7 @@ def test_fsdp_reshard_after_oom(world_size: int):
 @world_size(2)
 def test_fsdp_same_state_after_oom_reshard(world_size: int):
     #Test numerical correctness after continuing to train with smaller batch size after OOM.
-    model = SimpleMLP()
+    model = SimpleMLP(num_features=2)
     model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
     model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
     model.relu._fsdp_wrap = False
@@ -344,7 +344,7 @@ def test_fsdp_same_state_after_oom_reshard(world_size: int):
 
     state_dict = fsdp_model.state_dict()
 
-    oom_model = SimpleMLP()
+    oom_model = SimpleMLP(num_features=2)
     oom_model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
     oom_model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
     oom_model.relu._fsdp_wrap = False
