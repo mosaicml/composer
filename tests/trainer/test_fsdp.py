@@ -229,7 +229,7 @@ def test_wrong_size_device_mesh_error(world_size: int):
 
 class SimpleMLP(ComposerModel):
 
-    def __init__(self, num_features: int = 2, device: str = 'cuda'):
+    def __init__(self, num_features: int = 128, device: str = 'cuda'):
         super().__init__()
         self.fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
         self.fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
