@@ -690,7 +690,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         self.has_cot = False
         self.max_answer_length = 0
         static_keys = [
-            'mode', 'cot_delimiter', 'generation_length', 'generation_kwargs', 'do_normalization', 'stopping_criteria'
+            'mode', 'cot_delimiter', 'generation_length', 'generation_kwargs', 'do_normalization', 'stopping_criteria',
         ]
         tensor_keys = ['input_ids', 'attention_mask']
         list_keys = ['labels']
