@@ -414,7 +414,6 @@ def load_sharded_checkpoint(
             """
             if self.local_broadcast:
                 device_mesh = state.fsdp_device_mesh
-                first_replica = device_mesh is None or device_mesh.get_local_rank(mesh_dim=0) == 0
 
                 log.debug(f'Rank {dist.get_global_rank()} finished waiting to try local broadcast.')
                 dist.barrier()
