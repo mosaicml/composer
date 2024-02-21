@@ -402,6 +402,41 @@ def load_sharded_checkpoint(
 
         def __init__(self, path: str, local_broadcast: bool = False):
             self.local_broadcast = local_broadcast
+            # Send metadata file around
+            if self.local_broadcast:
+                device_mesh = state.fsdp_device_mesh
+                if device_mesh is not None and device_mesh.ndim == 2:
+                    # Broadcast file to all replicas. Assume replica size is at least 1 node
+                    replicate_process_group = device_mesh.get_group(0)  # Replicate replicate_process_group
+                    shard_size = device_mesh.size(1)
+                    # Send list of files to all ranks
+                    file_list = [sorted(os.listdir(path))]
+                    dist.broadcast_object_list(file_list,
+                                            src=dist.get_global_rank() % shard_size,
+                                            group=replicate_process_group)
+                    file_list = file_list[0]
+                    log.debug(f'{file_list=}')
+                    # Send each file to the appropriate rank
+                    for file_name in file_list:
+                        if dist.get_local_rank() == 0:
+                            full_path = os.path.join(path, file_name)
+                            log.debug(f'Transferring {full_path=}')
+                            file_object = [None]
+                            if dist.get_global_rank() % shard_size == dist.get_global_rank():
+                                # Process with rank 0 reads the file and prepares the object
+                                with open(full_path, 'rb') as f:
+                                    file_object = [{'content': f.read()}]
+                                # log.debug(f'md5sum of {full_path=} is {file_object["content"][:10]}')
+                            dist.broadcast_object_list(file_object,
+                                                    src=dist.get_global_rank() % shard_size,
+                                                    group=replicate_process_group)
+                            received_file_object = file_object[0]
+                            if dist.get_global_rank() % shard_size != dist.get_global_rank():
+                                # Process with rank > 0 receives the object and writes the file
+                                with open(full_path, 'wb') as f:
+                                    f.write(received_file_object['content'])
+                    dist.barrier()
+                    log.debug(f'Local checkpoint files: {os.listdir(path)}')
             if _get_checkpoint_validation_function() is None:
                 log.info('No checkpoint validation function found when loading sharded checkpoints.')
             super().__init__(path)
@@ -435,6 +470,8 @@ def load_sharded_checkpoint(
 
                     # Send each file to the appropriate rank
                     for file_name in file_list:
+                        if 'metadata' in file_name:  # All ranks already have the metadata file
+                            continue
                         if dist.get_local_rank() == 0:
                             full_path = os.path.join(self.path, file_name)
                             log.debug(f'Transferring {full_path=}')
@@ -493,6 +530,41 @@ def load_sharded_checkpoint(
                 object_store.download_object(object_name=str(Path(source_path) / Path('.metadata')),
                                              filename=metadata_destination)
             dist.barrier()
+
+            # Send metadata file around
+            device_mesh = state.fsdp_device_mesh
+            if device_mesh is not None and device_mesh.ndim == 2:
+                # Broadcast file to all replicas. Assume replica size is at least 1 node
+                replicate_process_group = device_mesh.get_group(0)  # Replicate replicate_process_group
+                shard_size = device_mesh.size(1)
+                # Send list of files to all ranks
+                file_list = [sorted(os.listdir(self.destination_path))]
+                dist.broadcast_object_list(file_list,
+                                           src=dist.get_global_rank() % shard_size,
+                                           group=replicate_process_group)
+                file_list = file_list[0]
+                log.debug(f'{file_list=}')
+                # Send each file to the appropriate rank
+                for file_name in file_list:
+                    if dist.get_local_rank() == 0:
+                        full_path = os.path.join(self.destination_path, file_name)
+                        log.debug(f'Transferring {full_path=}')
+                        file_object = [None]
+                        if dist.get_global_rank() % shard_size == dist.get_global_rank():
+                            # Process with rank 0 reads the file and prepares the object
+                            with open(full_path, 'rb') as f:
+                                file_object = [{'content': f.read()}]
+                            # log.debug(f'md5sum of {full_path=} is {file_object["content"][:10]}')
+                        dist.broadcast_object_list(file_object,
+                                                   src=dist.get_global_rank() % shard_size,
+                                                   group=replicate_process_group)
+                        received_file_object = file_object[0]
+                        if dist.get_global_rank() % shard_size != dist.get_global_rank():
+                            # Process with rank > 0 receives the object and writes the file
+                            with open(full_path, 'wb') as f:
+                                f.write(received_file_object['content'])
+                dist.barrier()
+                log.debug(f'Local checkpoint files: {os.listdir(self.destination_path)}')
 
             # FileSystemReader takes in a root directory in its constructor, which is the dir where
             # the metadata is expected to be stored. Also, this is parent directory for any shard file relative paths
@@ -556,6 +628,8 @@ def load_sharded_checkpoint(
 
                 # Send each file to the appropriate rank
                 for file_name in file_list:
+                    if 'metadata' in file_name:  # All ranks already have the metadata file
+                        continue
                     if dist.get_local_rank() == 0:
                         full_path = os.path.join(self.destination_path, file_name)
                         log.debug(f'Transferring {full_path=}')
