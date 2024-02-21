@@ -148,6 +148,8 @@ class OCIObjectStore(ObjectStore):
         except Exception as e:
             _reraise_oci_errors(self.get_uri(object_name), e)
         object_size = head_object_response.headers['content-length']  # pyright: ignore[reportOptionalMemberAccess]
+        if int(object_size) < 20000000:
+            num_parts = 1
         # Calculate the part sizes
         base_part_size, remainder = divmod(int(object_size), num_parts)
         part_sizes = [base_part_size] * num_parts
