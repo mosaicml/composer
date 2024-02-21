@@ -1,12 +1,15 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import copy
+import pathlib
 from unittest.mock import MagicMock
 
 import pytest
 import torch
 from packaging import version
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import CheckpointWrapper
+from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.utils.data import DataLoader
 
 from composer.models import ComposerClassifier, ComposerModel
@@ -14,6 +17,8 @@ from composer.trainer.trainer import Trainer, _fsdp_reshard_and_cleanup
 from composer.utils import dist
 from tests.common import (EmbeddedWeightTiedModel, RandomClassificationDataset, SimpleModel, SimpleWeightTiedModel,
                           world_size)
+from tests.trainer.test_fsdp_checkpoint import (_compare_model_params_between_state_dicts,
+                                                _compare_optims_between_state_dicts)
 
 _INIT_DEVICES = ['cpu', 'meta', 'mixed', 'cuda']
 _MIXED_PRECISION_TYPES = ['FULL', 'DEFAULT', 'PURE']
@@ -218,7 +223,7 @@ def test_fsdp_process_group(world_size: int):
 
 class SimpleMLP(ComposerModel):
 
-    def __init__(self, num_features: int = 128, device: str = 'cuda'):
+    def __init__(self, num_features: int = 2, device: str = 'cuda'):
         super().__init__()
         self.fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
         self.fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
@@ -279,6 +284,7 @@ def test_fsdp_act_ckpt_offload(
 @world_size(2)
 def test_fsdp_reshard_after_oom(world_size: int):
     model = SimpleMLP(num_features=128)
+
     #model.relu._fsdp_wrap = False
 
     def oom_hook(*args):
@@ -311,3 +317,75 @@ def test_fsdp_reshard_after_oom(world_size: int):
     _fsdp_reshard_and_cleanup(fsdp_model)
     assert fc2_flat_param.data_ptr() == fc2_flat_param._local_shard.data_ptr()
     assert fc2_flat_param._full_param_padded._typed_storage()._size() == 0
+
+
+@pytest.mark.gpu
+@world_size(2)
+def test_fsdp_same_state_after_oom_reshard(world_size: int, tmp_path: pathlib.Path):
+    """
+    Test the numerical correctness after we continue to train with
+    smaller batch size after OOM.
+    """
+    model = SimpleMLP()
+    model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+
+    trainer = Trainer(
+        model=model,
+        fsdp_config={},
+        dist_timeout=20,
+        optimizers=optimizer,
+        seed=1,
+    )
+    fsdp_model = trainer.state.model
+
+    state_dict = fsdp_model.state_dict()
+
+    oom_model = SimpleMLP()
+    oom_model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    oom_model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    oom_model_optimizer = torch.optim.SGD(oom_model.parameters(), lr=0.1)
+
+    def oom_hook(module, grad_input, grad_ouput):
+        if grad_ouput[0].shape[0] >= 4:
+            raise RuntimeError('CUDA out of memory.')
+
+    oom_handle = oom_model.fc2.register_full_backward_hook(oom_hook)
+    oom_trainer = Trainer(
+        model=oom_model,
+        fsdp_config={},
+        dist_timeout=20,
+        optimizers=oom_model_optimizer,
+        seed=1,
+    )
+
+    fsdp_oom_model = oom_trainer.state.model
+    fsdp_oom_model.load_state_dict(state_dict)
+
+    x = torch.rand([4, 2])
+
+    # Run fwd + bwd + optimizer on normal model
+    output_0 = fsdp_model(x)
+    torch.sum(output_0).backward()
+    optimizer.step()
+
+    # Run fwd + bwd + optimizer on OOM model
+    output = fsdp_oom_model(x)
+    with pytest.raises(Exception):
+        torch.sum(output).backward()
+    # Cleanup after OOM
+    _fsdp_reshard_and_cleanup(fsdp_oom_model)
+    oom_model_optimizer.zero_grad(set_to_none=True)
+
+    oom_handle.remove()
+    output = fsdp_oom_model(x)
+    torch.sum(output).backward()
+    oom_model_optimizer.step()
+
+    # Run another fwd on both model and check
+    # if output is the same
+    output_1 = fsdp_model(x)
+    output_2 = fsdp_oom_model(x)
+
+    assert torch.equal(output_1, output_2)

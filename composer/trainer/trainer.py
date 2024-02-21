@@ -2501,6 +2501,8 @@ class Trainer:
 
             with _get_precision_context(self.state.precision, self.state.precision_config,
                                         self.state.deepspeed_enabled):
+                print(
+                    f'bigning debug batch shape: {self.state.batch[0].shape}, label shape: {self.state.batch[1].shape}')
                 self.state.outputs = self.state.model(self.state.batch)
 
             self.engine.run_event(Event.AFTER_FORWARD)
