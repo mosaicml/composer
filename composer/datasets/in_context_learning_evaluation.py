@@ -689,7 +689,9 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         self.cot_delimiter = cot_delimiter
         self.has_cot = False
         self.max_answer_length = 0
-        static_keys = ['mode', 'cot_delimiter', 'generation_kwargs', 'do_normalization', 'stopping_criteria']
+        static_keys = [
+            'mode', 'cot_delimiter', 'generation_length', 'generation_kwargs', 'do_normalization', 'stopping_criteria'
+        ]
         tensor_keys = ['input_ids', 'attention_mask']
         list_keys = ['labels']
         super().__init__(
@@ -1297,6 +1299,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         static_keys = [
             'mode',
             'pass_at_k',
+            'generation_length',
             'generation_kwargs',
             'generations_per_sample',
             'dataset_size',
