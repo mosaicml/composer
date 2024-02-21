@@ -919,7 +919,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
             *args,
             **kwargs,
         )
-        self.num_choices = len(self.dataset[0][self.choices_key])
+        self.num_choices = max(map(len, self.dataset[self.choices_key]))
         self.batch_mapping_per_choice = {'input_ids': 'context', 'labels': 'context'}
         self.batch_map_per_example = {'gold_indices': 'gold'}
 
