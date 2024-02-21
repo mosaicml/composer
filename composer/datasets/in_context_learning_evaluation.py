@@ -20,7 +20,9 @@ from composer.utils import MissingConditionalImportError, dist, get_file
 
 if TYPE_CHECKING:
     import transformers
-    from datasets import Dataset as HFDataset  # pyright: ignore[reportGeneralTypeIssues]
+    from datasets import (
+        Dataset as HFDataset,  # pyright: ignore[reportGeneralTypeIssues]
+    )
 
 # Allow models to have slightly more tokens than were used in the most verbose CoT in the dataset
 _MAX_ANSWER_BUFFER_LENGTH = 10
@@ -387,7 +389,9 @@ class InContextLearningDataset(Dataset):
         Returns:
             dataset: A loaded HF dataset
         """
-        from datasets import Dataset as HFDataset  # pyright: ignore[reportGeneralTypeIssues]
+        from datasets import (
+            Dataset as HFDataset,  # pyright: ignore[reportGeneralTypeIssues]
+        )
         from datasets import load_dataset  # pyright: ignore[reportGeneralTypeIssues]
 
         if 'hf://' in dataset_uri:
@@ -1374,7 +1378,9 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
                     assert isinstance(sample, dict)
                     yield {'sample_id': i, **sample}
 
-        from datasets import Dataset as HFDataset  # pyright: ignore[reportGeneralTypeIssues]
+        from datasets import (
+            Dataset as HFDataset,  # pyright: ignore[reportGeneralTypeIssues]
+        )
 
         repeated_dataset = HFDataset.from_generator(_repeat_dataset)
         assert isinstance(repeated_dataset, HFDataset)
@@ -1609,8 +1615,13 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_lo
         Dict[str, str]: Mapping of category names to partitioned dataset local files names.
     """
     try:
-        from datasets import Dataset as HFDataset  # pyright: ignore[reportGeneralTypeIssues]
-        from datasets import IterableDataset, load_dataset  # pyright: ignore[reportGeneralTypeIssues]
+        from datasets import (
+            Dataset as HFDataset,  # pyright: ignore[reportGeneralTypeIssues]
+        )
+        from datasets import (  # pyright: ignore[reportGeneralTypeIssues]
+            IterableDataset,
+            load_dataset,
+        )
     except ImportError as e:
         raise MissingConditionalImportError(
             extra_deps_group='nlp',
