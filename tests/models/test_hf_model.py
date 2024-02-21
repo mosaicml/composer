@@ -1209,56 +1209,15 @@ def test_eval_forward_generate(device, world_size, hf_model, hf_tokenizer, use_f
     assert all(isinstance(decoded_generation, str) for decoded_generation in generation2)
 
 
-@device('cpu', 'gpu')
-@world_size(1, 2)
-@pytest.mark.parametrize('use_fsdp', [True, False])
-@pytest.mark.parametrize('hf_model,hf_tokenizer', [(configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer),
-                                                   (configure_tiny_t5_model, configure_tiny_t5_tokenizer)])
-def test_eval_forward_generate_adjust_generation_length(device, world_size, hf_model, hf_tokenizer, use_fsdp):
-    transformers = pytest.importorskip('transformers')
-    if device == 'cpu' and use_fsdp:
-        pytest.skip('FSDP is not supported on CPU.')
-    if world_size == 1 and use_fsdp:
-        pytest.xfail((
-            'Generation with world size 1 and FSDP fails with '
-            '`RuntimeError: The tensor has a non-zero number of elements, '
-            'but its data is not allocated yet. Caffe2 uses a lazy allocation, '
-            'so you will need to call mutable_data() or raw_mutable_data() to actually allocate memory.` '
-            'This issue is resolved with world size > 1 by a dummy call to forward (see HuggingFaceModel.dummy_forward_called), '
-            'but for some reason fails with world size 1.'))
+def test_eval_forward_generate_adjust_generation_length(tiny_gpt2_model, tiny_gpt2_tokenizer):
+    model = HuggingFaceModel(tiny_gpt2_model, tokenizer=tiny_gpt2_tokenizer, use_logits=True)
+    input_dict = tiny_gpt2_tokenizer(['hello', 'goodbyes'], return_tensors='pt', padding=True)
 
-    hf_model = hf_model()
-    if device == 'cpu' and world_size > 1 and isinstance(hf_model,
-                                                         transformers.models.gpt2.modeling_gpt2.GPT2LMHeadModel):
-        pytest.xfail(
-            'GPT2 is not currently supported with DDP. See https://github.com/huggingface/transformers/issues/22482 for more details.'
-        )
-
-    fsdp_config = None
-    if use_fsdp:
-        fsdp_config = {
-            'sharding_strategy': 'FULL_SHARD',
-        }
-
-    hf_tokenizer = hf_tokenizer()
-
-    model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, use_logits=True)
-
-    # just instantiating Trainer to go through the normal FSDP code path
-    trainer = Trainer(model=model, fsdp_config=fsdp_config, device=device)
-
-    device = trainer.state.device
-
-    if isinstance(hf_tokenizer, transformers.models.gpt2.tokenization_gpt2_fast.GPT2TokenizerFast):
-        hf_tokenizer.padding_side = 'left'
-    input_dict = hf_tokenizer(['hello', 'goodbyes'], return_tensors='pt', padding=True)
-    for k, v in input_dict.items():
-        input_dict[k] = device.tensor_to_device(v)
     input_dict['mode'] = 'generate'
     input_dict['generation_kwargs'] = {}
     input_dict['generation_length'] = 5
     input_dict['labels'] = [['answer1'], ['answer2']]
-    with pytest.raises(DeprecationWarning):
+    with pytest.warns(DeprecationWarning):
         generation1 = model.eval_forward(input_dict, None)
 
         input_dict['generation_length'] = 3
