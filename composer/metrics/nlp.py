@@ -6,7 +6,6 @@
 import ast
 import logging
 import os
-import random
 import re
 import string
 import warnings
@@ -202,37 +201,9 @@ class LanguagePerplexity(LanguageCrossEntropy):
 
 class InContextLearningMetric(Metric):
 
-    def __init__(self, dist_sync_on_step=False, cache_responses=False):
+    def __init__(self, dist_sync_on_step=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.needs_batch = True
-        self.add_state('response_cache', default=[], dist_reduce_fx=None)
-        self.cache_responses = cache_responses
-
-    def reset_response_cache(self, cache: bool):
-        self.cache_responses = cache
-        setattr(self, 'response_cache', [])
-
-    def format_response_cache(self, tokenizer):
-        columns, rows = None, None
-        assert isinstance(self.response_cache, list)
-        if self.cache_responses and len(self.response_cache) > 0:
-            rows = []
-            for row in self.response_cache:
-                assert isinstance(row, dict)
-                columns = list(row.keys())
-                converted_row = []
-                for r_i in row.values():
-                    if isinstance(r_i, list) and len(r_i) > 0 \
-                        and all(isinstance(r_ij, int) for r_ij in r_i) \
-                        and not all(isinstance(r_ij, bool) for r_ij in r_i):
-                        # remove all padding tokens
-                        r_i = [t for t in r_i if t not in tokenizer.all_special_ids]
-                        converted_row.append(tokenizer.decode(r_i))
-                    else:
-                        converted_row.append(r_i)
-                rows.append(converted_row)
-
-        return columns, rows
 
     def update(self,
                batch: dict,
@@ -327,9 +298,9 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def __init__(self, dist_sync_on_step: bool = False, cache_responses: bool = False):
+    def __init__(self, dist_sync_on_step: bool = False):
         # state from multiple processes
-        super().__init__(dist_sync_on_step=dist_sync_on_step, cache_responses=cache_responses)
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
@@ -424,9 +395,9 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def __init__(self, dist_sync_on_step: bool = False, cache_responses: bool = False):
+    def __init__(self, dist_sync_on_step: bool = False):
         # state from multiple processes
-        super().__init__(dist_sync_on_step=dist_sync_on_step, cache_responses=cache_responses)
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
@@ -444,18 +415,8 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
             cont_tok_pred = outputs[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
             cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
 
-            correct = False
             if (cont_tok_pred == cont_tok_targ).all().int() == 1:
                 self.correct += torch.tensor(1.0)
-                correct = True
-            if self.cache_responses:
-                assert isinstance(self.response_cache, list)
-                self.response_cache.append({
-                    'context_tok': batch['input_ids'][batch_idx][:cont_idx[0]].tolist(),
-                    'continuation_tok_target': cont_tok_targ.tolist(),
-                    'continuation_tok_pred': cont_tok_pred.tolist(),
-                    'correct': correct
-                })
             self.total += torch.tensor(1.0)
 
     def compute(self):
@@ -487,9 +448,9 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def __init__(self, dist_sync_on_step: bool = False, cache_responses: bool = False):
+    def __init__(self, dist_sync_on_step: bool = False):
         # state from multiple processes
-        super().__init__(dist_sync_on_step=dist_sync_on_step, cache_responses=cache_responses)
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.0), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.0), dist_reduce_fx='sum')
 
@@ -516,25 +477,9 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
         for (start, end), gold_idx in zip(batch['choice_groupings'], batch['gold_indices']):
             subset = perplexities[start:end]
             idx_min = subset.index(min(subset))
-            correct = False
             if idx_min == gold_idx:
                 self.correct += torch.tensor(1.0)
-                correct = True
 
-            if self.cache_responses:
-                question = batch['input_ids'][start][:batch['continuation_indices'][start][0]]
-                correct_choice = batch['input_ids'][start:end][gold_idx][batch['continuation_indices'][start:end][
-                    gold_idx][0]:batch['continuation_indices'][start:end][gold_idx][-1] + 1]
-                selected_choice = batch['input_ids'][start:end][idx_min][batch['continuation_indices'][start:end][
-                    idx_min][0]:batch['continuation_indices'][start:end][idx_min][-1] + 1]
-
-                assert isinstance(self.response_cache, list)
-                self.response_cache.append({
-                    'question_tok': question.tolist(),
-                    'correct_choice': correct_choice.tolist(),
-                    'selected_choice': selected_choice.tolist(),
-                    'correct': correct
-                })
             self.total += torch.tensor(1.0)
 
     def compute(self):
@@ -699,7 +644,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def __init__(self, dist_sync_on_step: bool = False, cache_responses: bool = False):
+    def __init__(self, dist_sync_on_step: bool = False):
         # state from multiple processes
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
@@ -815,15 +760,6 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
             if all(test_results):
                 self.correct[idx] += 1.0
 
-            if self.cache_responses:
-                code_completions = [c[0]['code'] for c in code_gen_payload]
-                assert isinstance(self.response_cache, list)
-                self.response_cache.append({
-                    'code_completions': code_completions,
-                    'all_tests_passed': all_tests_passed,
-                    'pass_at_k_rate': pass_at_k_rate
-                })
-
         client.close()  # pyright: ignore [reportOptionalMemberAccess]
 
     def compute(self):
@@ -873,9 +809,9 @@ class MTBenchJudge(InContextLearningMetric):
     ONE_SCORE_PATTERN = re.compile('\[\[(\d+\.?\d*)\]\]')  # pyright: ignore[reportInvalidStringEscapeSequence]
     ONE_SCORE_PATTERN_BACKUP = re.compile('\[(\d+\.?\d*)\]')  # pyright: ignore[reportInvalidStringEscapeSequence]
 
-    def __init__(self, dist_sync_on_step: bool = False, cache_responses: bool = False):
+    def __init__(self, dist_sync_on_step: bool = False):
         # state from multiple processes
-        super().__init__(dist_sync_on_step=dist_sync_on_step, cache_responses=cache_responses)
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('invalid_judge_response', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('all_scores', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
@@ -1013,9 +949,6 @@ class MTBenchJudge(InContextLearningMetric):
         else:
             self.invalid_judge_response += 1
         self.total += 1
-
-        if self.cache_responses:
-            self.response_cache.append({'score': score, 'result': result, 'formatted_template': formatted_template})
 
     def update_score(self, category: str, score: int, first_prompt: bool):
         if first_prompt:

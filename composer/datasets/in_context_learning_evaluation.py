@@ -1575,7 +1575,7 @@ class MTBench(InContextLearningDataset):
         num_fewshot: int,
         prompt_string: str,
         fewshot_rng: random.Random,
-    ) -> List[Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """
         Prepares a single example from a HF Dataset into tokenized format with prompt and fewshot examples.
 
