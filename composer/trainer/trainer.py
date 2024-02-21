@@ -236,7 +236,7 @@ def _is_cuda_oom(e: RuntimeError):
 
 def _fsdp_reshard_and_cleanup(model: torch.nn.Module):
     """Manually reshard and clean up FSDP model.
-    
+
     When an exception like OOM happens, _post_backward_final_callback, which
     is registered as a backward callback, will not run. We manually call it to cleanup
     loose memory.
