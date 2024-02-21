@@ -290,6 +290,7 @@ def test_fsdp_act_ckpt_offload(
 @world_size(2)
 def test_fsdp_reshard_after_oom(world_size: int):
     model = SimpleMLP(num_features=128)
+    model.relu._fsdp_wrap = False
 
     def oom_hook(*args):
         raise RuntimeError('CUDA out of memory.')
@@ -329,6 +330,7 @@ def test_fsdp_same_state_after_oom_reshard(world_size: int):
     model = SimpleMLP()
     model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
     model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    model.relu._fsdp_wrap = False
     optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
 
     trainer = Trainer(
@@ -345,6 +347,7 @@ def test_fsdp_same_state_after_oom_reshard(world_size: int):
     oom_model = SimpleMLP()
     oom_model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
     oom_model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    oom_model.relu._fsdp_wrap = False
     oom_model_optimizer = torch.optim.SGD(oom_model.parameters(), lr=0.1)
 
     def oom_hook(module, grad_input, grad_ouput):
