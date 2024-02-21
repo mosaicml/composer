@@ -846,8 +846,8 @@ class MTBenchJudge(InContextLearningMetric):
     SINGLE_V1_MATH_MULTI_TURN_TEMPLATE_SYSTEM_PROMPT = "Please act as an impartial judge and evaluate the quality of the response provided by an AI assistant to the user question. Your evaluation should consider correctness and helpfulness. You will be given a reference answer and the assistant's answer. You evaluation should focus on the assistant's answer to the second question. Begin your evaluation by comparing the assistant's answer with the reference answer. Identify and correct any mistakes. Be as objective as possible. After providing your explanation, you must rate the response on a scale of 1 to 10 by strictly following this format: \"[[rating]]\", for example: \"Rating: [[5]]\".\n\n"
     SINGLE_V1_MATH_MULTI_TURN_TEMPLATE = "<|The Start of Reference Answer|>\n\n### User:\n{question_1}\n\n### Reference answer:\n{ref_answer_1}\n\n### User:\n{question_2}\n\n### Reference answer:\n{ref_answer_2}\n\n<|The End of Reference Answer|>\n\n\n<|The Start of Assistant A's Conversation with User|>\n\n### User:\n{question_1}\n\n### Assistant A:\n{answer_1}\n\n### User:\n{question_2}\n\n### Assistant A:\n{answer_2}\n\n<|The End of Assistant A's Conversation with User|>"
 
-    ONE_SCORE_PATTERN = re.compile('\[\[(\d+\.?\d*)\]\]')
-    ONE_SCORE_PATTERN_BACKUP = re.compile('\[(\d+\.?\d*)\]')
+    ONE_SCORE_PATTERN = re.compile('\[\[(\d+\.?\d*)\]\]')  # pyright: ignore[reportInvalidStringEscapeSequence]
+    ONE_SCORE_PATTERN_BACKUP = re.compile('\[(\d+\.?\d*)\]')  # pyright: ignore[reportInvalidStringEscapeSequence]
 
     def __init__(self, dist_sync_on_step: bool = False, cache_responses: bool = False):
         # state from multiple processes
@@ -882,9 +882,9 @@ class MTBenchJudge(InContextLearningMetric):
     def call_judge(self,
                    prompt_one: str,
                    first_generation: str,
-                   prompt_two: str = None,
-                   second_generation: str = None,
-                   category: str = None,
+                   prompt_two: Optional[str] = None,
+                   second_generation: Optional[str] = None,
+                   category: Optional[str] = None,
                    reference_answer_one=None,
                    reference_answer_two=None) -> List[str]:
 

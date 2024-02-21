@@ -1826,7 +1826,7 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
     trainer = Trainer(model=model,
                       max_duration='1ep',
                       loggers=in_memory_logger,
-                      callbacks=EvalOutputLogging(subset_sample=2, output_directory=str(tmp_path)))
+                      )
     trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
 
     assert 'metrics/lambada/InContextLearningLMAccuracy' in in_memory_logger.data.keys()
@@ -2035,7 +2035,7 @@ def test_qa_task_evaluation_opt_tokenizer(device, world_size, tiny_opt_tokenizer
     trainer = Trainer(model=model,
                       max_duration='1ba',
                       loggers=in_memory_logger,
-                      callbacks=EvalOutputLogging(subset_sample=2, output_directory=str(tmp_path)))
+                      )
 
     trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
     assert 'metrics/triviaqa/InContextLearningQAAccuracy' in in_memory_logger.data.keys()

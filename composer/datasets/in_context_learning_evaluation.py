@@ -1355,7 +1355,57 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
 
 
 class MTBench(InContextLearningDataset):
-    """Implementation of MTBench
+    """Implementation of MTBench.
+    The input format is expected to be a jsonl file with the following fields:
+
+    - question_id: Unique ID for a given question
+    - category: The category the question falls under
+    - turns: A list containing two strings, one for each "turn" of the dataset
+
+    Each batch then consists of the following the structure
+        self.base_batch = {
+            'mode':
+                'mtbench',
+            'question_id': [],
+            'category': [],
+            'reference_answer_one': [],
+            'reference_answer_two': [],
+            'untokenized_prompt_one': [],
+            'untokenized_prompt_two': [],
+            'input_ids': [],
+            'tokenized_prompt_two': [],
+            'generation_length':
+                int((self.max_seq_len / 2) - (self.max_prompt_one_length + self.max_prompt_two_length)),
+            'max_seq_len':
+                self.max_seq_len,
+            'generation_kwargs': {
+                'pad_token_id': self.pad_tok_id,
+                'eos_token_id': self.tokenizer.eos_token_id,
+            }
+        }
+        self.update_generation_kwargs(kwargs.get('generation_kwargs'))
+        self.padding_size = self.max_prompt_one_length
+        self.dataset = self.dataset.map(self.pad_contexts)
+
+
+    - mode: Always set to 'mtbench'
+    - question_id: Unique ID for a batch's questions
+    - category: list of categories for a batch's questions
+    - reference_answer_one: List of the tokenized refernce answers for the first prompt
+    - reference_answer_two: List of the tokenized refernce answers for the second prompt # TODO : only code?
+    - untokenized_prompt_one:
+    - untokenized_prompt_two:
+    - input_ids: Input tensor batch x seqlen x num tokens #TODO : check this
+    - tokenized_prompt_two:
+    - generation_length:
+    - max_seq_len:
+    - generation_kwargs: Dictionary of kwargs neeeded for generation. Includes the following, which will be individually overwritten
+      by keys in generaiton_kwargs if set (see https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig
+      for more details):
+
+        - pad_token_id: ID for padding token, derived automatically
+        - eos_token_id
+
     """
 
     TEMPERATURE_CONFIG = {
