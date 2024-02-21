@@ -47,7 +47,7 @@ def strip_data(example: Dict) -> Dict:
     return {k: v.strip() if isinstance(v, str) else v for k, v in example.items()}
 
 
-def _tokenizer_needs_prefix_space(tokenizer: transformers.PreTrainedTokenizerBase,) -> bool:
+def tokenizer_needs_prefix_space(tokenizer: transformers.PreTrainedTokenizerBase,) -> bool:
     """
     Test for whether a prefix space is needed before the continuation.
     Sentencepiece tokenization should not have a prefix space, but gpt2 style BPE should.
@@ -63,7 +63,7 @@ def _tokenizer_needs_prefix_space(tokenizer: transformers.PreTrainedTokenizerBas
     return len(test_tokens) == 1
 
 
-def _trim_context(context_enc: List, continuation_enc: List, max_seq_len: int) -> List:
+def trim_context(context_enc: List, continuation_enc: List, max_seq_len: int) -> List:
     """
     Trims a list of tokens down to `max_seq_len` if the length of the list plus the continuation
     is more than `max_seq_len`. It will always trim tokens from the left, i.e. tokens at the beginning
@@ -103,7 +103,7 @@ def _get_continuation_span(context_enc: List, continuation_enc: List) -> torch.T
     return torch.tensor(range(len(context_enc), len(context_enc) + len(continuation_enc)))
 
 
-def _make_padded_input(
+def make_padded_input(
     context_enc: List,
     continuation_enc: List,
     max_seq_len: int,
@@ -305,7 +305,7 @@ class InContextLearningDataset(Dataset):
             ) from e
 
         self.tokenizer = tokenizer
-        self.prefix_space = _tokenizer_needs_prefix_space(self.tokenizer)
+        self.prefix_space = tokenizer_needs_prefix_space(self.tokenizer)
 
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
@@ -541,10 +541,10 @@ class InContextLearningDataset(Dataset):
             tokenized_answer = self.tokenizer(self.get_answer_from_example(example),
                                               add_special_tokens=False)['input_ids']
             assert isinstance(tokenized_answer, list)
-            trimmed_context = _trim_context(tokenized_context, tokenized_answer, self.padding_size)
+            trimmed_context = trim_context(tokenized_context, tokenized_answer, self.padding_size)
             assert isinstance(trimmed_context, list)
             continuation_indices = _get_continuation_span(trimmed_context, tokenized_answer)
-            padded_context = _make_padded_input(
+            padded_context = make_padded_input(
                 trimmed_context,
                 tokenized_answer,
                 self.padding_size,
@@ -557,13 +557,13 @@ class InContextLearningDataset(Dataset):
             tokenized_example['continuation_indices'] = continuation_indices
         else:
             assert isinstance(tokenized_context, list)
-            trimmed_context = _trim_context(
+            trimmed_context = trim_context(
                 tokenized_context,
                 [],
                 self.padding_size,
             )
             assert isinstance(trimmed_context, list)
-            padded_context = _make_padded_input(
+            padded_context = make_padded_input(
                 trimmed_context,
                 [],
                 self.padding_size,
@@ -969,10 +969,10 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
             tokenized_answer = self.tokenizer(choice, add_special_tokens=False)['input_ids']
             assert isinstance(tokenized_context, list)
             assert isinstance(tokenized_answer, list)
-            trimmed_context = _trim_context(tokenized_context, tokenized_answer, self.padding_size)
+            trimmed_context = trim_context(tokenized_context, tokenized_answer, self.padding_size)
             assert isinstance(trimmed_context, list)
             continuation_indices = _get_continuation_span(trimmed_context, tokenized_answer)
-            padded_context = _make_padded_input(
+            padded_context = make_padded_input(
                 trimmed_context,
                 tokenized_answer,
                 self.padding_size,
@@ -1215,10 +1215,10 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         for context in encoded_contexts:
             assert isinstance(context, list)
             assert isinstance(tokenized_continuation, list)
-            trimmed_context = _trim_context(context, tokenized_continuation, self.padding_size)
+            trimmed_context = trim_context(context, tokenized_continuation, self.padding_size)
             assert isinstance(trimmed_context, list)
             continuation_indices = _get_continuation_span(trimmed_context, tokenized_continuation)
-            padded_context = _make_padded_input(
+            padded_context = make_padded_input(
                 trimmed_context,
                 tokenized_continuation,
                 self.padding_size,
@@ -1414,8 +1414,8 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         # Remove padding tokens applied during tokenization
         unpadded_prompt = [token for token in example[self.context_key] if token != self.pad_tok_id]
         # Reapply padding only to max_prompt_length
-        full_prompt = _trim_context(unpadded_prompt, [], self.max_prompt_length)
-        padded_context = _make_padded_input(full_prompt, [], self.max_prompt_length, self.pad_tok_id, self.padding_side)
+        full_prompt = trim_context(unpadded_prompt, [], self.max_prompt_length)
+        padded_context = make_padded_input(full_prompt, [], self.max_prompt_length, self.pad_tok_id, self.padding_side)
 
         example[self.context_key] = padded_context
         return example
@@ -1557,12 +1557,12 @@ class MTBench(InContextLearningDataset):
         self.dataset = self.dataset.map(self.pad_contexts)
 
     def pad_contexts(self, example):
-        trimmed_context = _trim_context(example['tokenized_prompt_one'], [], self.padding_size)
-        padded_context = _make_padded_input(trimmed_context, [], self.padding_size, self.pad_tok_id, self.padding_side)
+        trimmed_context = trim_context(example['tokenized_prompt_one'], [], self.padding_size)
+        padded_context = make_padded_input(trimmed_context, [], self.padding_size, self.pad_tok_id, self.padding_side)
         example['tokenized_prompt_one'] = padded_context
         return example
 
-    def get_max_prompt_length(self, index: str):
+    def get_max_prompt_length(self, index: str) -> int:
         max_prompt_length = 0
         for example in self.dataset:
             max_prompt_length = max(max_prompt_length, len(example[index]))

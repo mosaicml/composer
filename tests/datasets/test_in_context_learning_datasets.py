@@ -25,9 +25,9 @@ from composer.datasets.in_context_learning_evaluation import (
     InContextLearningSchemaTaskDataset,
     _get_continuation_span,
     _get_fewshot_sample_idxs,
-    _make_padded_input,
-    _tokenizer_needs_prefix_space,
-    _trim_context,
+    make_padded_input,
+    tokenizer_needs_prefix_space,
+    trim_context,
     get_icl_task_dataloader,
     strip_data,
 )
@@ -52,35 +52,35 @@ def test_strip_data():
 
 
 @pytest.mark.skip(reason="Currently don't have a tokenizer that satisfies this test")
-def test_tokenizer_needs_prefix_space_when_space_not_needed(tiny_gpt2_tokenizer):
-    assert not _tokenizer_needs_prefix_space(tiny_gpt2_tokenizer)
+def testtokenizer_needs_prefix_space_when_space_not_needed(tiny_gpt2_tokenizer):
+    assert not tokenizer_needs_prefix_space(tiny_gpt2_tokenizer)
 
 
-def test_tokenizer_needs_prefix_space_when_space_needed():
+def testtokenizer_needs_prefix_space_when_space_needed():
     transformers = pytest.importorskip('transformers')
     tokenizer = transformers.AutoTokenizer.from_pretrained('facebook/opt-125m',
                                                            use_fast=False)  # type: ignore reportUnboundVariable
-    assert _tokenizer_needs_prefix_space(tokenizer)
+    assert tokenizer_needs_prefix_space(tokenizer)
 
 
-def test_trim_context():
+def testtrim_context():
     context = [0] * 99 + [1] * 2037
     continuation = [2] * 10
     max_seq_len = 2048
-    trimmed_context = _trim_context(context, continuation, max_seq_len=max_seq_len)
+    trimmed_context = trim_context(context, continuation, max_seq_len=max_seq_len)
     assert len(trimmed_context) == 2038
     assert trimmed_context[0] == 0
     assert trimmed_context[1] == 1
 
 
-def test_trim_context_no_continuation():
+def testtrim_context_no_continuation():
     context = [0] * 2048
     max_seq_len = 2048
-    trimmed_context = _trim_context(context, [], max_seq_len=max_seq_len)
+    trimmed_context = trim_context(context, [], max_seq_len=max_seq_len)
     assert len(trimmed_context) == 2048
     context = [0] * 3000 + [1]
     max_seq_len = 2048
-    trimmed_context = _trim_context(context, [], max_seq_len=max_seq_len)
+    trimmed_context = trim_context(context, [], max_seq_len=max_seq_len)
     assert len(trimmed_context) == 2048
     assert trimmed_context[-1] == 1
 
@@ -103,7 +103,7 @@ def test_make_padding(tiny_gpt2_tokenizer, padding_side):
     error_context = contextlib.nullcontext() if padding_side in {'left', 'right'} else pytest.raises(ValueError)
 
     with error_context:
-        input_ids = _make_padded_input(context, [], 2048, padding_id, padding_side=padding_side)
+        input_ids = make_padded_input(context, [], 2048, padding_id, padding_side=padding_side)
 
         if padding_side == 'left':
             assert input_ids[0] == tiny_gpt2_tokenizer.eos_token_id
@@ -117,9 +117,9 @@ def test_batch_padding_logic_no_padding(tiny_gpt2_tokenizer):
     continuation = tiny_gpt2_tokenizer(' dog' * 2000)['input_ids']
     context = tiny_gpt2_tokenizer(' cat' * 2000)['input_ids']
     max_seq_len = 2048
-    trimmed_context = _trim_context(context, continuation, max_seq_len)
+    trimmed_context = trim_context(context, continuation, max_seq_len)
     continuation_spans = _get_continuation_span(trimmed_context, continuation)
-    padded_input = _make_padded_input(trimmed_context,
+    padded_input = make_padded_input(trimmed_context,
                                       continuation,
                                       max_seq_len,
                                       tiny_gpt2_tokenizer.pad_token_id,
@@ -133,9 +133,9 @@ def test_batch_padding_logic_with_padding(tiny_gpt2_tokenizer):
     continuation = tiny_gpt2_tokenizer(' dog' * 200)['input_ids']
     context = tiny_gpt2_tokenizer(' cat' * 200)['input_ids']
     max_seq_len = 2048
-    trimmed_context = _trim_context(context, continuation, max_seq_len)
+    trimmed_context = trim_context(context, continuation, max_seq_len)
     continuation_spans = _get_continuation_span(trimmed_context, continuation)
-    padded_input = _make_padded_input(trimmed_context,
+    padded_input = make_padded_input(trimmed_context,
                                       continuation,
                                       max_seq_len,
                                       tiny_gpt2_tokenizer.pad_token_id,

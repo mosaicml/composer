@@ -883,24 +883,29 @@ class MTBenchJudge(InContextLearningMetric):
                                                      answer_1=first_generation,
                                                      answer_2=second_generation)
 
-        response = self.client.chat.completions.create(model='gpt-4-0613',
-                                                       messages=[{
-                                                           'role': 'system',
-                                                           'content': system_prompt
-                                                       }, {
-                                                           'role': 'user',
-                                                           'content': formatted_template
-                                                       }],
-                                                       n=1,
-                                                       temperature=0,
-                                                       max_tokens=2048)
+        if self.client is not None:
+            response = self.client.chat.completions.create(model='gpt-4-0613',
+                                                           messages=[{
+                                                               'role': 'system',
+                                                               'content': system_prompt
+                                                           }, {
+                                                               'role': 'user',
+                                                               'content': formatted_template
+                                                           }],
+                                                           n=1,
+                                                           temperature=0,
+                                                           max_tokens=2048)
+        else:
+            # TODO: what type of exception here
+            raise Exception('Attempted to call OpenAI Client before initialization. Something went wrong.')
 
         return response.choices[0].message.content, formatted_template
 
-    def update(self, batch: Dict[str, Any], outputs: List[str], labels: Optional[List[str]] = None):
+    def update(self, batch: Dict[str, Any], outputs: Dict[str, Any], labels: Optional[List[str]] = None):
         if not self.client:
             self.init_openai()
         for i, first_generation in enumerate(outputs['generation_one']):
+            assert isinstance(outputs['generation_two'], list)
             second_generation = outputs['generation_two'][i]
             prompt_one = batch['untokenized_prompt_one'][i]
             result, formatted_template = self.call_judge(prompt_one=prompt_one,
