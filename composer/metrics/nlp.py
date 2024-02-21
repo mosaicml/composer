@@ -10,7 +10,7 @@ import re
 import string
 import warnings
 from copy import deepcopy
-from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Union
+from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -226,31 +226,6 @@ class InContextLearningMetric(Metric):
         """
         raise NotImplementedError
 
-    def sync(
-        self,
-        dist_sync_fn: Optional[Callable] = None,
-        process_group: Optional[Any] = None,
-        should_sync: bool = True,
-        distributed_available: Optional[Callable] = None,
-    ):
-        # this is based off the gather_all_tensors utility function in torchmetrics, except it works with non-tensor objects
-        # (in particular, lists of strings). Link here: https://github.com/Lightning-AI/torchmetrics/blob/99d6d9d6ac4eb1b3398241df558604e70521e6b0/src/torchmetrics/utilities/distributed.py#L97-L148
-        if should_sync:
-            group = process_group or self.process_group
-            world_size = torch.distributed.get_world_size(group)  # pyright: ignore [reportGeneralTypeIssues]
-            torch.distributed.barrier(group=group)  # pyright: ignore [reportGeneralTypeIssues]
-            gathered_response_cache = [[]] * world_size
-            torch.distributed.all_gather_object(  # pyright: ignore [reportGeneralTypeIssues]
-                gathered_response_cache, self.response_cache)
-            flattened_gathered_response_cache = [item for row in gathered_response_cache for item in row]
-            setattr(self, 'response_cache', flattened_gathered_response_cache)
-            super().sync(
-                dist_sync_fn,
-                process_group,
-                should_sync,
-                distributed_available,
-            )
-
     @staticmethod
     def rename_args(batch: dict,
                     output_logits: Optional[torch.Tensor] = None,
@@ -332,7 +307,7 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
         cot_delimiter = batch.get('cot_delimiter', '')
         do_normalization = batch.get('do_normalization', True)
         stopping_criteria = batch.get('stopping_criteria', None)
-        for sample_output, sample_labels, prompt_tensor in zip(outputs, labels, batch['input_ids']):
+        for sample_output, sample_labels in zip(outputs, labels):
 
             final_answer = sample_output
             if stopping_criteria is not None and len(stopping_criteria) > 0:
@@ -348,20 +323,9 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
                 cleaned_final_answer = final_answer
                 cleaned_sample_labels = set(sample_labels)
 
-            correct = False
             if any(cleaned_final_answer.startswith(label) for label in cleaned_sample_labels):
                 self.correct += torch.tensor(1.0)
-                correct = True
 
-            assert isinstance(self.response_cache, list)
-            self.response_cache.append({
-                'prompt': prompt_tensor.tolist(),
-                'original_model_output': sample_output,
-                'cleaned_model_output': cleaned_final_answer,
-                'original_labels': sample_labels,
-                'cleaned_labels': cleaned_sample_labels,
-                'correct': correct
-            })
             self.total += torch.tensor(1.0)
 
     def compute(self):
@@ -846,7 +810,7 @@ class MTBenchJudge(InContextLearningMetric):
                    second_generation: Optional[str] = None,
                    category: Optional[str] = None,
                    reference_answer_one=None,
-                   reference_answer_two=None) -> List[str]:
+                   reference_answer_two=None) -> Tuple[str, str]:
 
         if category == 'math':
             if not prompt_two:
@@ -899,7 +863,9 @@ class MTBenchJudge(InContextLearningMetric):
             # TODO: what type of exception here
             raise Exception('Attempted to call OpenAI Client before initialization. Something went wrong.')
 
-        return response.choices[0].message.content, formatted_template
+        full_judge_response = response.choices[0].message.content
+        assert isinstance(full_judge_response, str)
+        return full_judge_response, formatted_template
 
     def update(self, batch: Dict[str, Any], outputs: Dict[str, Any], labels: Optional[List[str]] = None):
         if not self.client:
@@ -912,7 +878,7 @@ class MTBenchJudge(InContextLearningMetric):
                                                          first_generation=first_generation,
                                                          category=batch['category'][i],
                                                          reference_answer_one=batch['reference_answer_one'][i])
-            self.score_result(result, batch['category'][i], formatted_template, first_prompt=True)
+            self.score_result(result, batch['category'][i], is_first_prompt=True)
 
             log.info(
                 f'********* Formatted Response and Result For Generation 1 on question {batch["question_id"][i]}: *********'
@@ -930,7 +896,7 @@ class MTBenchJudge(InContextLearningMetric):
                 reference_answer_one=batch['reference_answer_one'][i],
                 reference_answer_two=batch['reference_answer_two'][i],
             )
-            self.score_result(result, batch['category'][i], formatted_template, first_prompt=False)
+            self.score_result(result, batch['category'][i], is_first_prompt=False)
 
             log.info(
                 f'********* Formatted Response and Result For Generation 2 on question {batch["question_id"][i]}: *********'
@@ -943,20 +909,21 @@ class MTBenchJudge(InContextLearningMetric):
         del self.client
         self.client = None
 
-    def score_result(self, result: str, category: str, formatted_template: str, first_prompt: bool):
+    def score_result(self, result: str, category: str, is_first_prompt: bool):
         score = None
         match = re.search(self.ONE_SCORE_PATTERN, result)
         if not match:
             match = re.search(self.ONE_SCORE_PATTERN_BACKUP, result)
         if match:
             score = ast.literal_eval(match.groups()[0])
-            self.update_score(category, score, first_prompt)
+            self.update_score(category, score, is_first_prompt)
         else:
             self.invalid_judge_response += 1
         self.total += 1
 
-    def update_score(self, category: str, score: int, first_prompt: bool):
-        if first_prompt:
+    def update_score(self, category: str, score: int, is_first_prompt: bool):
+        # TODO: make this prompt_num all the way through?
+        if is_first_prompt:
             prompt_num = 'prompt_one'
             self.prompt_one_score += score
             self.prompt_one_total += 1

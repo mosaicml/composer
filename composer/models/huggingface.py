@@ -21,8 +21,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Set, Tuple
 import torch
 from torchmetrics import Metric
 
-from composer.datasets.in_context_learning_evaluation import (make_padded_input, trim_context,
-                                                              tokenizer_needs_prefix_space)
+from composer.datasets.in_context_learning_evaluation import (make_padded_input, tokenizer_needs_prefix_space,
+                                                              trim_context)
 from composer.models.base import ComposerModel
 from composer.utils import MissingConditionalImportError, dist, get_file, import_object, is_model_fsdp, safe_torch_load
 
@@ -524,7 +524,7 @@ class HuggingFaceModel(ComposerModel):
             for new_input in new_inputs:
                 trimmed_new_input = trim_context(new_input, [], padding_size)
                 padded_new_input = make_padded_input(trimmed_new_input, [], padding_size,
-                                                      batch['generation_kwargs']['pad_token_id'], 'left')
+                                                     batch['generation_kwargs']['pad_token_id'], 'left')
                 batched_combined_prompts.append(padded_new_input)
 
             prompt_device = batch['input_ids'].device

@@ -1565,6 +1565,7 @@ class MTBench(InContextLearningDataset):
     def get_max_prompt_length(self, index: str) -> int:
         max_prompt_length = 0
         for example in self.dataset:
+            assert isinstance(example, dict)
             max_prompt_length = max(max_prompt_length, len(example[index]))
         return max_prompt_length
 

@@ -120,10 +120,10 @@ def test_batch_padding_logic_no_padding(tiny_gpt2_tokenizer):
     trimmed_context = trim_context(context, continuation, max_seq_len)
     continuation_spans = _get_continuation_span(trimmed_context, continuation)
     padded_input = make_padded_input(trimmed_context,
-                                      continuation,
-                                      max_seq_len,
-                                      tiny_gpt2_tokenizer.pad_token_id,
-                                      padding_side='right')
+                                     continuation,
+                                     max_seq_len,
+                                     tiny_gpt2_tokenizer.pad_token_id,
+                                     padding_side='right')
     assert continuation_spans[0] == 48 and continuation_spans[-1] == 2047
     assert len(padded_input) == 2048
     assert tiny_gpt2_tokenizer.pad_token_id not in padded_input
@@ -136,10 +136,10 @@ def test_batch_padding_logic_with_padding(tiny_gpt2_tokenizer):
     trimmed_context = trim_context(context, continuation, max_seq_len)
     continuation_spans = _get_continuation_span(trimmed_context, continuation)
     padded_input = make_padded_input(trimmed_context,
-                                      continuation,
-                                      max_seq_len,
-                                      tiny_gpt2_tokenizer.pad_token_id,
-                                      padding_side='right')
+                                     continuation,
+                                     max_seq_len,
+                                     tiny_gpt2_tokenizer.pad_token_id,
+                                     padding_side='right')
     assert continuation_spans[0] == 200 and continuation_spans[-1] == 399
     assert len(padded_input) == 2048
     assert padded_input[-1] == tiny_gpt2_tokenizer.pad_token_id
