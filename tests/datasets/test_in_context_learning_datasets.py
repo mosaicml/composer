@@ -14,7 +14,6 @@ import torch
 from torch.utils.data import DataLoader
 
 from composer import Evaluator
-from composer.callbacks import EvalOutputLogging
 from composer.core import DataSpec
 
 # isort: off

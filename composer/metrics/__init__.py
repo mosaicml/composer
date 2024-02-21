@@ -5,29 +5,17 @@
 
 from composer.metrics.map import MAP
 from composer.metrics.metrics import CrossEntropy, Dice, LossMetric, MIoU
-from composer.metrics.nlp import (BinaryF1Score, MTBenchJudge, InContextLearningCodeEvalAccuracy,
-                                  InContextLearningLMAccuracy, InContextLearningLMExpectedCalibrationError,
+from composer.metrics.nlp import (BinaryF1Score, InContextLearningCodeEvalAccuracy, InContextLearningLMAccuracy,
+                                  InContextLearningLMExpectedCalibrationError,
                                   InContextLearningMCExpectedCalibrationError, InContextLearningMetric,
                                   InContextLearningMultipleChoiceAccuracy, InContextLearningQAAccuracy,
-                                  LanguageCrossEntropy, LanguagePerplexity, MaskedAccuracy)
+                                  LanguageCrossEntropy, LanguagePerplexity, MaskedAccuracy, MTBenchJudge)
 
 __all__ = [
-    'MAP',
-    'MIoU',
-    'Dice',
-    'CrossEntropy',
-    'LossMetric',
-    'BinaryF1Score',
-    'LanguageCrossEntropy',
-    'MaskedAccuracy',
-    'LanguagePerplexity',
-    'InContextLearningLMAccuracy',
-    'InContextLearningMultipleChoiceAccuracy',
-    'InContextLearningQAAccuracy',
-    'InContextLearningMCExpectedCalibrationError',
-    'InContextLearningLMExpectedCalibrationError',
-    'InContextLearningMetric',
-    'InContextLearningCodeEvalAccuracy',
+    'MAP', 'MIoU', 'Dice', 'CrossEntropy', 'LossMetric', 'BinaryF1Score', 'LanguageCrossEntropy', 'MaskedAccuracy',
+    'LanguagePerplexity', 'InContextLearningLMAccuracy', 'InContextLearningMultipleChoiceAccuracy',
+    'InContextLearningQAAccuracy', 'InContextLearningMCExpectedCalibrationError',
+    'InContextLearningLMExpectedCalibrationError', 'InContextLearningMetric', 'InContextLearningCodeEvalAccuracy',
     'MTBenchJudge'
 ]
 
