@@ -454,7 +454,7 @@ def load_sharded_checkpoint(
                                     f.write(received_file_object['content'])
 
                     dist.barrier()
-                    log.debug(f'Local checkpoint files: {os.listdir(self.destination_path)}')
+                    log.debug(f'Local checkpoint files: {os.listdir(self.path)}')
 
             validated_checkpoint_paths = set()
             for read_item in plan.items:
@@ -483,7 +483,8 @@ def load_sharded_checkpoint(
             self.source_path = source_path
             self.destination_path = destination_path
             self.object_store = object_store
-            self.first_replica = state.fsdp_device_mesh is None or state.fsdp_device_mesh.get_local_rank(mesh_dim=0) == 0
+            self.first_replica = state.fsdp_device_mesh is None or state.fsdp_device_mesh.get_local_rank(
+                mesh_dim=0) == 0
 
             # Download metadata file.
             Path(self.destination_path).mkdir(parents=True, exist_ok=True)
