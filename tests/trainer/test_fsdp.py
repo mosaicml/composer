@@ -295,8 +295,6 @@ def test_fsdp_act_ckpt_offload(
 def test_fsdp_reshard_after_oom(world_size: int):
     model = SimpleMLP(num_features=128)
 
-    #model.relu._fsdp_wrap = False
-
     def oom_hook(*args):
         raise RuntimeError('CUDA out of memory.')
 
@@ -306,7 +304,6 @@ def test_fsdp_reshard_after_oom(world_size: int):
         model=model,
         fsdp_config={},
         max_duration='3ba',
-        dist_timeout=20,
     )
     fsdp_model = trainer.state.model
 
@@ -332,10 +329,7 @@ def test_fsdp_reshard_after_oom(world_size: int):
 @pytest.mark.gpu
 @world_size(2)
 def test_fsdp_same_state_after_oom_reshard(world_size: int, tmp_path: pathlib.Path):
-    """
-    Test the numerical correctness after we continue to train with
-    smaller batch size after OOM.
-    """
+    #Test numerical correctness after continuing to train with smaller batch size after OOM.
     model = SimpleMLP()
     model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
     model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
