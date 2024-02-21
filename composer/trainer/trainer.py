@@ -1437,7 +1437,8 @@ class Trainer:
                     if dist.get_global_rank() == 0:
                         with tempfile.TemporaryDirectory() as temp_dir:
                             local_symlink_file = str(Path(temp_dir) / Path('autoresume.symlink'))
-                            symlink_file_name = format_name_with_dist(latest_remote_file_name, self.state.run_name) + '.symlink'
+                            symlink_file_name = format_name_with_dist(latest_remote_file_name,
+                                                                      self.state.run_name) + '.symlink'
                             try:
                                 ar_object_store.download_object(symlink_file_name, local_symlink_file)
                                 with open(local_symlink_file, 'r') as f:
@@ -1447,8 +1448,8 @@ class Trainer:
                             except FileNotFoundError:
                                 pass
                     autoresume_path_list = [autoresume_checkpoint_path]
-                    autoresume_path_list = dist.broadcast_object_list(autoresume_path_list)
-                    autoresume_checkpoint_path = [autoresume_path_list[0]]
+                    dist.broadcast_object_list(autoresume_path_list)
+                    autoresume_checkpoint_path = autoresume_path_list[0]
                 # Symlink is local
                 else:
                     save_latest_filename = format_name_with_dist(save_latest_filename, self.state.run_name)
