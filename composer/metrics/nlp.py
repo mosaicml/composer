@@ -834,6 +834,9 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
 
 
 class MTBenchJudge(InContextLearningMetric):
+    """Runs MTBench outputs through OpenAI's GPT-4 to retrieve LLMAsAJudge scores
+
+    """
     # Make torchmetrics call update only once
     full_state_update = False
 
