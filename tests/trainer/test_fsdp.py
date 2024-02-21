@@ -1,8 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-import copy
-import pathlib
 from unittest.mock import MagicMock
 
 import pytest
@@ -17,8 +15,6 @@ from composer.trainer.trainer import Trainer, _fsdp_reshard_and_cleanup
 from composer.utils import dist
 from tests.common import (EmbeddedWeightTiedModel, RandomClassificationDataset, SimpleModel, SimpleWeightTiedModel,
                           world_size)
-from tests.trainer.test_fsdp_checkpoint import (_compare_model_params_between_state_dicts,
-                                                _compare_optims_between_state_dicts)
 
 _INIT_DEVICES = ['cpu', 'meta', 'mixed', 'cuda']
 _MIXED_PRECISION_TYPES = ['FULL', 'DEFAULT', 'PURE']
@@ -328,7 +324,7 @@ def test_fsdp_reshard_after_oom(world_size: int):
 
 @pytest.mark.gpu
 @world_size(2)
-def test_fsdp_same_state_after_oom_reshard(world_size: int, tmp_path: pathlib.Path):
+def test_fsdp_same_state_after_oom_reshard(world_size: int):
     #Test numerical correctness after continuing to train with smaller batch size after OOM.
     model = SimpleMLP()
     model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
