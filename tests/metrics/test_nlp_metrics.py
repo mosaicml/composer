@@ -508,3 +508,6 @@ def test_in_context_learning_ece():
     metric.bucket_correct[-1] = 0  # pyright: ignore [reportGeneralTypeIssues]
     # confidence = 95%, accuracy = 0% => ece = 95%
     assert metric.compute() == 0.95
+
+def test_mtbench():
+    pass
