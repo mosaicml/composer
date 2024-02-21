@@ -157,9 +157,9 @@ class OCIObjectStore(ObjectStore):
             _reraise_oci_errors(self.get_uri(object_name), e)
 
         # Calculate the part sizes
-        num_parts_from_size = object_size // min_part_size
+        num_parts_from_size = max(object_size // min_part_size, 1)
         num_parts = min(num_parts, num_parts_from_size)
-        print(f'Downloading {object_name} with {num_parts=}, {num_parts_from_size=}, {object_size=}, {min_part_size=}')
+        print(f'!! Downloading {object_name} with {num_parts=}, {num_parts_from_size=}, {object_size=}, {min_part_size=}')
         base_part_size, remainder = divmod(object_size, num_parts)
         part_sizes = [base_part_size] * num_parts
         for i in range(remainder):
