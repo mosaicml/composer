@@ -428,15 +428,13 @@ def load_sharded_checkpoint(
                     # Send list of files to all ranks
                     file_list = [sorted(os.listdir(self.path))]
                     dist.broadcast_object_list(file_list,
-                                            src=dist.get_global_rank() % shard_size,
-                                            group=replicate_process_group)
+                                               src=dist.get_global_rank() % shard_size,
+                                               group=replicate_process_group)
                     file_list = file_list[0]
                     log.debug(f'{file_list=}')
 
                     # Send each file to the appropriate rank
                     for file_name in file_list:
-                        if 'metadata' in file_name:  # All ranks already have the metadata file
-                            continue
                         if dist.get_local_rank() == 0:
                             full_path = os.path.join(self.path, file_name)
                             log.debug(f'Transferring {full_path=}')
@@ -447,8 +445,8 @@ def load_sharded_checkpoint(
                                     file_object = [{'content': f.read()}]
                                 # log.debug(f'md5sum of {full_path=} is {file_object["content"][:10]}')
                             dist.broadcast_object_list(file_object,
-                                                    src=dist.get_global_rank() % shard_size,
-                                                    group=replicate_process_group)
+                                                       src=dist.get_global_rank() % shard_size,
+                                                       group=replicate_process_group)
                             received_file_object = file_object[0]
                             if dist.get_global_rank() % shard_size != dist.get_global_rank():
                                 # Process with rank > 0 receives the object and writes the file
@@ -457,7 +455,6 @@ def load_sharded_checkpoint(
 
                     dist.barrier()
                     log.debug(f'Local checkpoint files: {os.listdir(self.destination_path)}')
-
 
             validated_checkpoint_paths = set()
             for read_item in plan.items:
@@ -486,11 +483,12 @@ def load_sharded_checkpoint(
             self.source_path = source_path
             self.destination_path = destination_path
             self.object_store = object_store
+            self.first_replica = state.fsdp_device_mesh is None or state.fsdp_device_mesh.get_local_rank(mesh_dim=0) == 0
 
             # Download metadata file.
             Path(self.destination_path).mkdir(parents=True, exist_ok=True)
             metadata_destination = os.path.join(self.destination_path, '.metadata')
-            if dist.get_local_rank() == 0:
+            if self.first_replica and dist.get_local_rank() == 0:
                 object_store.download_object(object_name=str(Path(source_path) / Path('.metadata')),
                                              filename=metadata_destination)
             dist.barrier()
@@ -502,7 +500,6 @@ def load_sharded_checkpoint(
 
         def read_data(self, plan: LoadPlan, planner: LoadPlanner):
             device_mesh = state.fsdp_device_mesh
-            first_replica = device_mesh is None or device_mesh.get_local_rank(mesh_dim=0) == 0
 
             # 0. Collect the relative paths to download for all ranks for deduplication
             relative_file_paths = set()
@@ -511,7 +508,7 @@ def load_sharded_checkpoint(
             all_file_paths = dist.all_gather_object(relative_file_paths)
 
             # 1. Download to the destination all files this rank needs if on first replica
-            if first_replica:
+            if self.first_replica:
                 log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
 
                 # Get the lowest rank in the current node
@@ -558,8 +555,6 @@ def load_sharded_checkpoint(
 
                 # Send each file to the appropriate rank
                 for file_name in file_list:
-                    if 'metadata' in file_name:  # All ranks already have the metadata file
-                        continue
                     if dist.get_local_rank() == 0:
                         full_path = os.path.join(self.destination_path, file_name)
                         log.debug(f'Transferring {full_path=}')
