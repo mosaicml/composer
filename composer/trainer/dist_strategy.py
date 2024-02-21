@@ -13,7 +13,7 @@ import torch
 from packaging import version
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (CheckpointImpl, apply_activation_checkpointing,
                                                                          checkpoint_wrapper)
-from torch.distributed.fsdp import FullyShardedDataParallel
+from torch.distributed.fsdp import FullyShardedDataParallel, ShardingStrategy
 from torch.distributed.fsdp._common_utils import clean_tensor_name
 from torch.nn.parallel import DistributedDataParallel
 from torchmetrics import Metric, MetricCollection
@@ -251,16 +251,7 @@ def prepare_fsdp_module(
         if found_cuda_oom == 1:
             raise RuntimeError('CUDA out of memory encountered on a different rank')
 
-    kwargs = {}
-    if version.parse(torch.__version__.split('.dev')[0]) >= version.parse('2.2.0'):
-        if 'device_mesh' in fsdp_config:
-            from torch.distributed._tensor import init_device_mesh
-            kwargs['device_mesh'] = init_device_mesh(
-                'cuda',
-                tuple([int(x) for x in fsdp_config['device_mesh']]),
-            )
-
-    # necessary variables for optimizers with multiple param groups in FSDP
+    # Necessary variables for optimizers with multiple param groups in FSDP
     num_param_groups = None
     param_name_to_group_num = None
     group_num_to_param_group_info = None
@@ -310,6 +301,23 @@ def prepare_fsdp_module(
 
     sharding_map_key = fsdp_config['sharding_strategy'].upper()
     sharding_strategy = SHARDING_MAP[sharding_map_key]
+
+    kwargs = {}
+    if version.parse(torch.__version__.split('.dev')[0]) >= version.parse('2.2.0'):
+        if 'device_mesh' in fsdp_config:
+            device_mesh_size = len(fsdp_config['device_mesh'])
+            if sharding_strategy in [ShardingStrategy.FULL_SHARD, ShardingStrategy.NO_SHARD] and device_mesh_size != 1:
+                raise ValueError(f'FSDP sharding strategy {sharding_map_key.upper()} requires a device mesh '
+                                 f'of size 1 but got device mesh size of {device_mesh_size}.')
+            elif sharding_strategy in [ShardingStrategy.HYBRID_SHARD, ShardingStrategy._HYBRID_SHARD_ZERO2
+                                      ] and device_mesh_size != 2:
+                raise ValueError(f'FSDP sharding strategy {sharding_map_key.upper()} requires a device mesh '
+                                 f'of size 2 but got device mesh size of {device_mesh_size}.')
+            from torch.distributed._tensor import init_device_mesh
+            kwargs['device_mesh'] = init_device_mesh(
+                'cuda',
+                tuple([int(x) for x in fsdp_config['device_mesh']]),
+            )
 
     cpu_offload = get_cpu_offload(cpu_offload=fsdp_config['cpu_offload'])
 
