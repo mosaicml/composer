@@ -26,6 +26,7 @@ class DeviceTPU(Device):
     More details.
     """
 
+    dist_backend = 'xla'
     name = 'tpu'
 
     def __init__(self):
