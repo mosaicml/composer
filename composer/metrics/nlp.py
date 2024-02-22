@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """A collection of common torchmetrics for NLP tasks."""
-
 import logging
 import os
 import re
@@ -17,7 +16,12 @@ from torch.nn import functional as F
 from torchmetrics import Metric
 
 from composer.utils import dist
-from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient, MosaicMLLambdaEvalClient
+from composer.utils.eval_client import (
+    EvalClient,
+    LambdaEvalClient,
+    LocalEvalClient,
+    MosaicMLLambdaEvalClient,
+)
 
 log = logging.getLogger(__name__)
 
@@ -385,7 +389,7 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
 class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
     r"""Computes accuracy for In-context learning (ICL) multiple choice (MC) tasks.
 
-    ICL MC tasks consists of a series of questions with some number of possible choices (only one of which can be correct).
+    ICL MC tasks consists of a series of questions with some number of possible choices (one or more of which must be correct).
     At inference time each possible choice is given to the model as a separate input and the one for which the model assigns
     the lowest perplexity to the choice is considered the model's choice. The model is correct if it "chooses" the right answer.
 
