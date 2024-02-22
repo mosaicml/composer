@@ -190,8 +190,6 @@ def test_eval_output_logging(device, tmp_path, tiny_gpt2_tokenizer):
         assert json.loads(
             in_memory_logger.tables['lm_acc'])['columns'] == ['context', 'label', 'output', 'result', 'name', 'input']
 
-        import IPython
-        IPython.embed()
         assert json.loads(in_memory_logger.tables['mc_acc'])['columns'] == [
             'question_tok', 'correct_choice', 'selected_choice', 'correct'
         ]
