@@ -42,7 +42,7 @@ from composer.callbacks import CheckpointSaver, MemorySnapshot, OOMObserver, Opt
 from composer.core import (Algorithm, AlgorithmPass, Batch, Callback, DataSpec, Engine, Evaluator, Event, Precision,
                            State, Time, Timestamp, TimeUnit, TrainerMode, ensure_data_spec, ensure_evaluator,
                            ensure_time, get_precision_context, validate_eval_automicrobatching)
-from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceNeuron, DeviceTPU
+from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, MLFlowLogger, MosaicMLLogger, ProgressBarLogger,
                               RemoteUploaderDownloader, WandBLogger)
 from composer.loggers.mosaicml_logger import MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR
