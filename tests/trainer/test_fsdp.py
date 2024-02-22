@@ -7,7 +7,6 @@ import pytest
 import torch
 from packaging import version
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import CheckpointWrapper
-from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.utils.data import DataLoader
 
 from composer.models import ComposerClassifier, ComposerModel
@@ -290,7 +289,7 @@ def test_fsdp_act_ckpt_offload(
 @world_size(2)
 def test_fsdp_reshard_after_oom(world_size: int):
     model = SimpleMLP(num_features=128)
-    model.relu._fsdp_wrap = False
+    model.relu._fsdp_wrap = False  # pyright: ignore[reportGeneralTypeIssues]
 
     def oom_hook(*args):
         raise RuntimeError('CUDA out of memory.')
@@ -330,7 +329,7 @@ def test_fsdp_same_state_after_oom_reshard(world_size: int):
     model = SimpleMLP(num_features=2)
     model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
     model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
-    model.relu._fsdp_wrap = False
+    model.relu._fsdp_wrap = False  # pyright: ignore[reportGeneralTypeIssues]
     optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
 
     trainer = Trainer(
@@ -347,7 +346,7 @@ def test_fsdp_same_state_after_oom_reshard(world_size: int):
     oom_model = SimpleMLP(num_features=2)
     oom_model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
     oom_model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
-    oom_model.relu._fsdp_wrap = False
+    oom_model.relu._fsdp_wrap = False  # pyright: ignore[reportGeneralTypeIssues]
     oom_model_optimizer = torch.optim.SGD(oom_model.parameters(), lr=0.1)
 
     def oom_hook(module, grad_input, grad_ouput):
