@@ -152,8 +152,7 @@ class OCIObjectStore(ObjectStore):
         object_size = 0
         try:
             head_object_response = self.client.head_object(self.namespace, self.bucket, object_name)
-            object_size = int(
-                head_object_response.headers['content-length'])  # pyright: ignore[reportOptionalMemberAccess]
+            object_size = int(head_object_response.headers['content-length'])  # pyright: ignore[reportOptionalMemberAccess]
         except Exception as e:
             _reraise_oci_errors(self.get_uri(object_name), e)
 
