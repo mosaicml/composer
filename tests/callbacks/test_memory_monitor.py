@@ -56,7 +56,7 @@ def test_dist_memory_monitor_gpu():
     numel = 1 << 30  # about 1B elements in 32 bits is about 4GB
     expected_extra_mem_usage_gb = 4 * numel / 1e9
     if dist.get_local_rank() == 1:
-        tmp_tensor = torch.randn(numel, device='cuda')
+        _ = torch.randn(numel, device='cuda')
 
     dataset = RandomClassificationDataset()
     trainer = Trainer(
