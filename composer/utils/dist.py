@@ -37,6 +37,7 @@ import io
 import logging
 import os
 import pickle
+import sys
 import time
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, List, Optional, Sequence, TypeVar, Union, cast
@@ -44,8 +45,12 @@ from typing import TYPE_CHECKING, Any, List, Optional, Sequence, TypeVar, Union,
 import torch
 import torch.distributed as dist
 import torch.utils.data
+from packaging import version
 
-from composer.utils.device import get_device, is_hpu_installed
+from composer.utils.device import get_device, is_hpu_installed, is_tpu_installed
+
+if is_tpu_installed():
+    import torch_xla
 
 if TYPE_CHECKING:
     from composer.devices import Device
@@ -253,15 +258,19 @@ def get_node_rank() -> int:
     return _get_distributed_config_var(env_var='NODE_RANK', default=0, human_name='node rank')
 
 
-def barrier() -> None:
+def barrier(group=None) -> None:
     """Synchronizes all processes.
 
     This function blocks until all processes reach this function.
 
     .. seealso:: :func:`torch.distributed.barrier`
+
+    Args:
+        group (ProcessGroup, optional): The process group to work on. If ``None``,
+            the default process group will be used. Default is ``None``.
     """
     if dist.is_available() and dist.is_initialized():
-        dist.barrier()
+        dist.barrier(group=group)
         return
     world_size = get_world_size()
     if world_size == 1:
@@ -276,6 +285,7 @@ def barrier() -> None:
 def all_reduce(
     tensor: torch.Tensor,
     reduce_operation: str = 'SUM',
+    group=None,
 ) -> None:
     """Reduce a ``tensor`` by applying the ``reduce_operation``.
 
@@ -289,6 +299,8 @@ def all_reduce(
         op (optional): One of the values from
             ``torch.distributed.ReduceOp``
             enum.  Specifies an operation used for element-wise reductions.
+        group (ProcessGroup, optional): The process group to work on. If ``None``,
+            the default process group will be used. Default is ``None``.
     Args:
         tensor (torch.Tensor): Tensor to reduce. The function operates in-place.
         reduce_operation (str, optional): The reduction operation (default: ``SUM``).
@@ -307,7 +319,7 @@ def all_reduce(
     """
     if dist.is_available() and dist.is_initialized():
         reduce_op = getattr(dist.ReduceOp, reduce_operation.upper())
-        dist.all_reduce(tensor, op=reduce_op)
+        dist.all_reduce(tensor, op=reduce_op, group=group)
         return
     world_size = get_world_size()
     if world_size == 1:
@@ -319,7 +331,7 @@ def all_reduce(
                        '`composer.utils.dist.initialize_dist` has been called first.')
 
 
-def broadcast(tensor: torch.Tensor, src: int) -> None:
+def broadcast(tensor: torch.Tensor, src: int, group=None) -> None:
     """Broadcasts the tensor to the whole group.
 
     ``tensor`` must have the same number of elements in all processes participating in the collective.
@@ -329,9 +341,11 @@ def broadcast(tensor: torch.Tensor, src: int) -> None:
         tensor (torch.Tensor): Data to be sent if ``src`` is the rank of current process,
             and tensor to be used to save received data otherwise.
         src (int): Source rank
+        group (ProcessGroup, optional): The process group to work on. If ``None``,
+            the default process group will be used. Default is ``None``.
     """
     if dist.is_available() and dist.is_initialized():
-        dist.broadcast(tensor, src)
+        dist.broadcast(tensor, src=src, group=group)
         return
     world_size = get_world_size()
     if world_size == 1:
@@ -343,7 +357,7 @@ def broadcast(tensor: torch.Tensor, src: int) -> None:
                        '`composer.utils.dist.initialize_dist` has been called first.')
 
 
-def broadcast_object_list(object_list: List[Any], src: int = 0) -> None:
+def broadcast_object_list(object_list: List[Any], src: int = 0, group=None) -> None:
     """Broadcasts picklable objects in ``object_list`` to the whole group.
 
     Similar to :func:`broadcast`, but Python objects can be passed in.
@@ -356,12 +370,14 @@ def broadcast_object_list(object_list: List[Any], src: int = 0) -> None:
             Each object must be picklable. Only objects on the ``src`` rank will be broadcast,
             but each rank must provide lists of equal sizes.
         src (int, optional): Source rank (default: ``0``)
+        group (ProcessGroup, optional): The process group to work on. If ``None``,
+            the default process group will be used. Default is ``None``.
 
     Returns:
         None:  ``object_list`` will be modified in-place and set to values of ``object_list`` from the ``src`` rank.
     """
     if dist.is_available() and dist.is_initialized():
-        dist.broadcast_object_list(object_list, src)
+        dist.broadcast_object_list(object_list, src=src, group=group)
         # torch.distributed will replace the None's in obj_gather_list with the gathered objects on rank 0
         # or will just be None on non-rank-0
         return
@@ -375,20 +391,22 @@ def broadcast_object_list(object_list: List[Any], src: int = 0) -> None:
                        '`composer.utils.dist.initialize_dist` has been called first.')
 
 
-def all_gather(tensor: torch.Tensor) -> Sequence[torch.Tensor]:
+def all_gather(tensor: torch.Tensor, group=None) -> Sequence[torch.Tensor]:
     """Collects a :class:`~torch.Tensor` from each rank.
 
     .. seealso:: :func:`torch.distributed.all_gather`
 
     Args:
         tensor (torch.Tensor): Tensor from each rank to be gathered.
+        group (ProcessGroup, optional): The process group to work on. If ``None``,
+            the default process group will be used. Default is ``None``.
 
     Returns:
         Sequence[Tensor]: A sequence of tensors indexed by rank.
     """
     if dist.is_available() and dist.is_initialized():
         obj_gather_list = [torch.zeros_like(tensor) for _ in range(get_world_size())]
-        dist.all_gather(obj_gather_list, tensor)
+        dist.all_gather(obj_gather_list, tensor, group=group)
         return obj_gather_list
     world_size = get_world_size()
     if world_size == 1:
@@ -400,13 +418,15 @@ def all_gather(tensor: torch.Tensor) -> Sequence[torch.Tensor]:
                        '`composer.utils.dist.initialize_dist` has been called first.')
 
 
-def all_gather_object(obj: TObj) -> List[TObj]:
+def all_gather_object(obj: TObj, group=None) -> List[TObj]:
     """Collect a pickleable object from each rank and return a list of these objects indexed by rank.
 
     .. seealso:: :func:`torch.distributed.all_gather_object`
 
     Args:
         obj (TObj): Object to be gathered.
+        group (ProcessGroup, optional): The process group to work on. If ``None``,
+            the default process group will be used. Default is ``None``.
 
     Returns:
         List[TObj]: A list of objects indexed by rank.
@@ -414,9 +434,9 @@ def all_gather_object(obj: TObj) -> List[TObj]:
     if dist.is_available() and dist.is_initialized():
         obj_gather_list = [None for _ in range(get_world_size())]
         if is_hpu_installed():
-            all_gather_object_list_hpu(obj_gather_list, obj)
+            all_gather_object_list_hpu(obj_gather_list, obj, group=group)
         else:
-            dist.all_gather_object(obj_gather_list, obj)
+            dist.all_gather_object(obj_gather_list, obj, group=group)
         # torch.distributed will replace the None's in obj_gather_list with the gathered objects on rank 0
         # or will just be None on non-rank-0
         return cast(List[TObj], obj_gather_list)
@@ -519,7 +539,15 @@ def initialize_dist(device: Union[str, Device], timeout: float = 300.0):
 
     dist_env_vars_match_defaults = all(os.environ.get(k, v) == v for (k, v) in dist_env_var_defaults.items())
 
-    if dist_env_vars_match_defaults:
+    if device_obj.dist_backend == 'xla':
+        if not 'torch_xla' in sys.modules:
+            raise RuntimeError('PyTorch XLA package not found. In order to use XLA based devices '
+                               'PyTorch XLA must be installed.')
+        if version.parse(torch_xla.__version__) < version.parse('2.1.0'):
+            raise RuntimeError(f'PyTorch XLA version must be at least 2.1.0, found {torch_xla.__version__}.')
+        # XLA initialization requires the init_method to be set
+        dist.init_process_group(device_obj.dist_backend, init_method='xla://')
+    elif dist_env_vars_match_defaults:
         # Fill in the remaining single-rank variables
         os.environ.update(dist_env_var_defaults)
         dist.init_process_group(device_obj.dist_backend, store=dist.HashStore(), world_size=1, rank=0)

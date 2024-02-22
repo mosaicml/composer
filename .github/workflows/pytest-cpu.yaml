@@ -45,6 +45,10 @@ on:
         required: false
       gcs-secret:
         required: false
+      azure-account-name:
+        required: false
+      azure-account-access-key:
+        required: false
 jobs:
   pytest-cpu:
     timeout-minutes: 30
@@ -75,6 +79,8 @@ jobs:
         export CODE_EVAL_APIKEY='${{ secrets.code-eval-apikey }}'
         export GCS_KEY='${{ secrets.gcs-key }}'
         export GCS_SECRET='${{ secrets.gcs-secret }}'
+        export AZURE_ACCOUNT_NAME='${{ secrets.azure-account-name }}'
+        export AZURE_ACCOUNT_ACCESS_KEY='${{ secrets.azure-account-access-key }}'
         export S3_BUCKET='${{ inputs.pytest-s3-bucket }}'
         export COMMON_ARGS="-v --durations=20 -m '${{ inputs.pytest-markers }}' --s3_bucket '$S3_BUCKET' \
           -o tmp_path_retention_policy=none"

@@ -15,8 +15,8 @@ all dependencies for both NLP and Vision models. They are built on top of the
 <!-- BEGIN_COMPOSER_BUILD_MATRIX -->
 | Composer Version   | CUDA Support   | Docker Tag                                                     |
 |--------------------|----------------|----------------------------------------------------------------|
-| 0.19.1             | Yes            | `mosaicml/composer:latest`, `mosaicml/composer:0.19.1`         |
-| 0.19.1             | No             | `mosaicml/composer:latest_cpu`, `mosaicml/composer:0.19.1_cpu` |
+| 0.19.2             | Yes            | `mosaicml/composer:latest`, `mosaicml/composer:0.19.2`         |
+| 0.19.2             | No             | `mosaicml/composer:latest_cpu`, `mosaicml/composer:0.19.2_cpu` |
 <!-- END_COMPOSER_BUILD_MATRIX -->
 
 **Note**: For a lightweight installation, we recommended using a [MosaicML PyTorch Image](#pytorch-images) and manually
@@ -31,7 +31,7 @@ To install composer, once inside the image, run `pip install mosaicml`.
 | Linux Distro   | Flavor   | PyTorch Version   | CUDA Version        | Python Version   | Docker Tags                                                                              |
 |----------------|----------|-------------------|---------------------|------------------|------------------------------------------------------------------------------------------|
 | Ubuntu 20.04   | Base     | 2.3.0             | 12.1.0 (Infiniband) | 3.11             | `mosaicml/pytorch:2.3.0_cu121-nightly20240110-python3.11-ubuntu20.04`                    |
-| Ubuntu 20.04   | Base     | 2.3.0             | 12.1.0 (Infiniband) | 3.10             | `mosaicml/pytorch:2.3.0_cu121-nightly20240110-python3.10-ubuntu20.04`                    |
+| Ubuntu 20.04   | Base     | 2.3.0             | 12.1.0 (EFA)        | 3.11             | `mosaicml/pytorch:2.3.0_cu121-nightly20240110-python3.11-ubuntu20.04-aws`                |
 | Ubuntu 20.04   | Base     | 2.2.0             | 12.1.0 (Infiniband) | 3.11             | `mosaicml/pytorch:2.2.0_cu121-python3.11-ubuntu20.04`                                    |
 | Ubuntu 20.04   | Base     | 2.2.0             | 12.1.0 (EFA)        | 3.11             | `mosaicml/pytorch:2.2.0_cu121-python3.11-ubuntu20.04-aws`                                |
 | Ubuntu 20.04   | Base     | 2.2.0             | cpu                 | 3.11             | `mosaicml/pytorch:2.2.0_cpu-python3.11-ubuntu20.04`                                      |

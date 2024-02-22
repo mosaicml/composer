@@ -21,7 +21,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Set, Tuple
 import torch
 from torchmetrics import Metric
 
-from composer.metrics import InContextLearningMetric, InContextLearningQAAccuracy
 from composer.models.base import ComposerModel
 from composer.utils import MissingConditionalImportError, dist, get_file, import_object, is_model_fsdp, safe_torch_load
 
@@ -531,21 +530,16 @@ class HuggingFaceModel(ComposerModel):
 
         return metrics if metrics else {}
 
-    def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> Dict[str, List[Any]]:
-        if isinstance(metric, InContextLearningQAAccuracy):
-            assert self.labels is not None
-            metric_result = metric.update(batch=batch, outputs=outputs,
-                                          labels=self.labels)  # pyright: ignore [reportGeneralTypeIssues]
-        elif isinstance(metric, InContextLearningMetric):
-            assert self.labels is not None
-            metric_result = metric.update(batch, outputs, self.labels)  # pyright: ignore [reportGeneralTypeIssues]
+    def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
+        if getattr(metric, 'needs_batch', False):
+            metric_result = metric.update(batch=batch, outputs=outputs, labels=self.labels)
         else:
-            metric_result = metric.update(outputs, self.labels)  # pyright: ignore [reportGeneralTypeIssues]
-
+            metric_result = metric.update(outputs, self.labels)
         if metric_result is not None:
             # Add the metric name once for each datapoint in the batch
             metric_result['metric_name'] = [metric.__class__.__name__ for _ in range(0, batch['input_ids'].shape[0])]
         return metric_result
+        
 
     def get_metadata(self):
         model_output = {}

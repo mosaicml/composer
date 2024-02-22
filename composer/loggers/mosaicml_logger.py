@@ -37,6 +37,7 @@ RUN_NAME_ENV_VAR = 'RUN_NAME'
 MOSAICML_PLATFORM_ENV_VAR = 'MOSAICML_PLATFORM'
 MOSAICML_ACCESS_TOKEN_ENV_VAR = 'MOSAICML_ACCESS_TOKEN_FILE'
 MOSAICML_LOG_DIR_ENV_VAR = 'MOSAICML_LOG_DIR'
+MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR = 'MOSAICML_GPU_LOG_FILE_PREFIX'
 
 
 class MosaicMLLogger(LoggerDestination):
@@ -162,7 +163,6 @@ class MosaicMLLogger(LoggerDestination):
                 self.buffered_metadata = {}
                 self.time_last_logged = time.time()
                 done, incomplete = wait(self._futures, timeout=0.01)
-                log.info(f'Logged {len(done)} metadata to MosaicML, waiting on {len(incomplete)}')
                 # Raise any exceptions
                 for f in done:
                     if f.exception() is not None:
