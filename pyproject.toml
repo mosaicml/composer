@@ -10,12 +10,13 @@ line_length = 120
 skip = [ "env", "wandb", "runs", "build", "node_modules" ]
 known_third_party = ["wandb"]
 
-[tool.ruff]
+[tool.ruff.lint]
 select = [
     "C4",
     # TODO port pydocstyle
     # "D", # pydocstyle
     "PERF",
+    "PLE",
 ]
 
 ignore = [
@@ -23,6 +24,7 @@ ignore = [
     "PERF2",
     "PERF4",
 ]
+[tool.ruff]
 exclude = [
     "build/**",
     "docs/**",
