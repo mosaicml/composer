@@ -228,7 +228,6 @@ class InContextLearningMetric(Metric):
 
         return wrapped_func
 
-
     def update(self,
                batch: dict,
                output_logits: Optional[torch.Tensor] = None,

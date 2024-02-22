@@ -3,8 +3,6 @@
 
 import json
 
-import pandas as pd
-import pytest
 import torch
 from torch.utils.data import DataLoader
 
@@ -150,8 +148,8 @@ def test_eval_output_logging(device, tmp_path, tiny_gpt2_tokenizer):
         ]
         eval_output_logging.eval_batch_end(state, logger)
 
-        assert 'lm_acc' in in_memory_logger.tables
-        assert json.loads(in_memory_logger.tables['lm_acc'])['columns'] == [
+        assert f'lm_acc_step_{i}' in in_memory_logger.tables
+        assert json.loads(in_memory_logger.tables[f'lm_acc_step_{i}'])['columns'] == [
             'context',
             'label',
             'output',
@@ -159,7 +157,7 @@ def test_eval_output_logging(device, tmp_path, tiny_gpt2_tokenizer):
             'name',
             'input',
         ]
-        assert json.loads(in_memory_logger.tables['lm_acc'])['data'] == [
+        assert json.loads(in_memory_logger.tables[f'lm_acc_step_{i}'])['data'] == [
             ['The dog is', ' furry', ' furry', 1, 'InContextLearningLMAccuracy', 'The dog is furry'],
             ['I love to eat', ' pie', '[PAD]', 0, 'InContextLearningLMAccuracy', 'I love to eat pie'],
             ['I hate', ' long lines', ' long lines', 1, 'InContextLearningLMAccuracy', 'I hate long lines'],
@@ -183,13 +181,14 @@ def test_eval_output_logging(device, tmp_path, tiny_gpt2_tokenizer):
         ]
         eval_output_logging.eval_batch_end(state, logger)
 
-        assert 'lm_acc' in in_memory_logger.tables
-        assert 'mc_acc' in in_memory_logger.tables
+        assert f'lm_acc_step_{i}' in in_memory_logger.tables
+        assert f'mc_acc_step_{i}' in in_memory_logger.tables
 
         # assert lm acc table unchanged
-        assert json.loads(
-            in_memory_logger.tables['lm_acc'])['columns'] == ['context', 'label', 'output', 'result', 'name', 'input']
+        assert json.loads(in_memory_logger.tables[f'lm_acc_step_{i}'])['columns'] == [
+            'context', 'label', 'output', 'result', 'name', 'input'
+        ]
 
-        assert json.loads(in_memory_logger.tables['mc_acc'])['columns'] == [
+        assert json.loads(in_memory_logger.tables[f'mc_acc_step_{i}'])['columns'] == [
             'question_tok', 'correct_choice', 'selected_choice', 'correct'
         ]
