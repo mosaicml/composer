@@ -241,7 +241,7 @@ def _fsdp_reshard_and_cleanup(model: torch.nn.Module):
     is registered as a backward callback, will not run. We manually call it to cleanup
     loose memory.
     """
-    for name, module in model.named_modules():
+    for __, module in model.named_modules():
         if isinstance(module, FullyShardedDataParallel):
             if module.check_is_root():
                 # Only call _post_backward_final_callback on root module. It will
