@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 
 import numpy as np
 import torch
+from icecream import ic
 from torch import Tensor
 from torch.nn import functional as F
 from torchmetrics import Metric
@@ -419,6 +420,7 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
                output_logits: Optional[torch.Tensor] = None,
                labels: Optional[torch.Tensor] = None,
                outputs: Optional[torch.Tensor] = None):
+        ic(batch["gold_indices"])
         batch, outputs, labels = InContextLearningMetric.rename_args(batch=batch,
                                                                      output_logits=output_logits,
                                                                      labels=labels,
@@ -432,9 +434,12 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
             cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
             cross_entropy = F.cross_entropy(cont_tok_logits, cont_tok_targ)
             perplexity = torch.exp(cross_entropy)
+            # ic(batch_idx, cont_idx.shape, cont_idx, cont_tok_logits.shape, cont_tok_logits, cont_tok_targ.shape, cont_tok_targ, cross_entropy.shape, cross_entropy, perplexity)
             perplexities.append(perplexity)
+        # ic(perplexities)
 
-        for (start, end), gold_idx in zip(batch['choice_groupings'], batch['gold_indices']):
+       # ic(batch['gold_indices'])
+        for (start, end), gold_idxs in zip(batch['choice_groupings'], batch['gold_indices']):
             subset = perplexities[start:end]
             idx_min = subset.index(min(subset))
 

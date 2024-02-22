@@ -11,6 +11,10 @@ import random
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
 
 import torch
+from icecream import ic
+
+ic.configureOutput(includeContext=True)
+
 from torch.utils.data import DataLoader, Dataset
 
 from composer.core import DataSpec
@@ -905,11 +909,11 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
             'choice_groupings': [],
         }
         context_key = kwargs.pop('context_key', 'query')
-        static_keys = kwargs.pop('static_keys', ['mode', 'generation_kwargs'])
+        static_keys = kwargs.pop('static_keys', ['mode', 'generation_kwargs', 'gold_indices'])
         tensor_keys = kwargs.pop('tensor_keys', ['input_ids', 'labels', 'attention_mask'])
         self.list_of_tensors_keys = list_of_tensors_keys or ['continuation_indices']
         self.list_of_tuples_keys = list_of_tuples_keys or ['choice_groupings']
-        self.list_of_primitives = list_of_primitives or ['gold_indices']
+        self.list_of_primitives = list_of_primitives or [] # ['gold_indices']
         super().__init__(
             context_key=context_key,
             base_batch=base_batch,
@@ -933,8 +937,9 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
             str: The full string of the correct answer based on the 'gold' key
         """
         choices = example[self.choices_key]
-        gold_idx = example['gold']
-        return choices[gold_idx]
+        gold_idxs = example['gold']
+        answer = '.\n'.join([choices[gold_idx] for gold_idx in gold_idxs])
+        return answer
 
     def tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
         """
@@ -1016,10 +1021,11 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
                 batch['continuation_indices'].append(data_pair['continuation_indices'][i])
                 batch['labels'].append(context_enc)
 
+            ic(data_pair["gold"])
             batch['gold_indices'].append(data_pair['gold'])
             choice_end_idx = len(batch['continuation_indices'])
             batch['choice_groupings'].append((choice_start_idx, choice_end_idx))
-
+        ic(batch['gold_indices'])
         batch = convert_tokens_to_tensors(batch, self.tokenize_labels)
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
@@ -1045,6 +1051,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         """
         chunked = {}
         for k, v in batch.items():
+            ic(k, v)
             if k in self.static_keys:
                 # Defer broadcasting primitives until we know num_chunks
                 pass
@@ -1052,16 +1059,20 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
                 # list of tensors - 'continuation_indices'
                 if k in self.list_of_tensors_keys:
                     chunked[k] = _split_list(v, microbatch_size * self.num_choices)
+                    ic(k, v)
                 # list of tuples - 'choice_groupings'
                 elif k in self.list_of_tuples_keys:
                     chunked[k] = _split_list(v, microbatch_size)
+                    ic(k, v)
                 # list - 'gold_indices'
                 elif k in self.list_of_primitives:
                     chunked[k] = _default_split_batch(v, microbatch_size)
+                    ic(k, v)
                 else:
                     raise ValueError(f'Unexpected key {k} in list splitting')
             elif k in self.tensor_keys:
                 chunked[k] = _default_split_batch(v, microbatch_size * self.num_choices)
+                ic(k, v)
             else:
                 raise ValueError(f'Unexpected key {k} in batch splitting')
         num_chunks = len(chunked['input_ids'])
@@ -1069,7 +1080,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         for k, v in batch.items():
             if k in self.static_keys:
                 chunked[k] = [v] * num_chunks
-
+        ic(chunked)
         return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
 
 
