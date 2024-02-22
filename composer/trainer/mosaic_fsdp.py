@@ -85,9 +85,3 @@ def patch_pytorch():
 
         from composer.trainer.mosaic_fsdp_utils import _shard_orig_param_state
         _optim_utils._shard_orig_param_state = _shard_orig_param_state
-
-        # Monkeypatch dtensor wrapping
-        from torch.distributed.fsdp import _flat_param
-
-        from composer.trainer.mosaic_fsdp_utils import _use_unsharded_views
-        _flat_param._use_unsharded_views = _use_unsharded_views
