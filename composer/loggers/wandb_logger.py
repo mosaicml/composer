@@ -132,8 +132,8 @@ class WandBLogger(LoggerDestination):
             else:
                 table = wandb.Table(columns=columns, rows=rows)
                 self.table_dict[name] = table
-            # # Need to do this copy because apparently wandb table logging is broken LOL
-            # # https://github.com/wandb/wandb/issues/2981#issuecomment-1458447291
+            # Need to do this copy because apparently wandb table logging is broken LOL
+            # https://github.com/wandb/wandb/issues/2981#issuecomment-1458447291
             wandb.log({name: copy.copy(self.table_dict[name])}, step=step)
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:

@@ -61,4 +61,4 @@ class EvalOutputLogging(Callback):
         name = state.dataloader_label
         for dest_logger in logger.destinations:
             if not isinstance(dest_logger, ConsoleLogger):
-                dest_logger.log_table(columns, rows, name=name, step=0)
+                dest_logger.log_table(columns, rows, name=name, step=None)
