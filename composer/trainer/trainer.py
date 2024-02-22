@@ -30,6 +30,8 @@ import torch.nn as nn
 import torch.utils.data
 from torch._dynamo import OptimizedModule
 from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
+from torch.distributed.fsdp import FullyShardedDataParallel
+from torch.distributed.fsdp._runtime_utils import _post_backward_final_callback
 from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim.lr_scheduler import LRScheduler
@@ -232,6 +234,21 @@ def _is_cuda_oom(e: RuntimeError):
     return False
 
 
+def _fsdp_reshard_and_cleanup(model: torch.nn.Module):
+    """Manually reshard and clean up FSDP model.
+
+    When an exception like OOM happens, _post_backward_final_callback, which
+    is registered as a backward callback, will not run. We manually call it to cleanup
+    loose memory.
+    """
+    for __, module in model.named_modules():
+        if isinstance(module, FullyShardedDataParallel):
+            if module.check_is_root():
+                # Only call _post_backward_final_callback on root module. It will
+                # traverse and reshard all FSDP sub-modules
+                _post_backward_final_callback(module, module)
+
+
 def _adjust_device_train_microbatch_size(state: State):
     """Adjust device_train_microbatch_size if we encounter OOM.
 
@@ -259,6 +276,7 @@ def _adjust_device_train_microbatch_size(state: State):
         optimizer.zero_grad(set_to_none=True)
     if state.scaler is not None:
         state.scaler._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
+    _fsdp_reshard_and_cleanup(state.model)
     torch.cuda.empty_cache()
 
 
