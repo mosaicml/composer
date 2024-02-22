@@ -58,7 +58,8 @@ class EvalOutputLogging(Callback):
         # wandb: WARNING Step only supports monotonically increasing values, use define_metric to set a custom x axis. For details see: https://wandb.me/define-metric
         # wandb: WARNING (User provided step: 0 is less than current step: 164. Dropping entry: {'metrics/human_eval/0-shot/InContextLearningCodeEvalAccuracy': 0.0, '_timestamp': 1707370410.1504738}).
         assert state.dataloader_label is not None
-        name = state.dataloader_label
+        step = state.timestamp.batch.value
+        name = f"{state.dataloader_label}_step_{step}"
         for dest_logger in logger.destinations:
             if not isinstance(dest_logger, ConsoleLogger):
                 dest_logger.log_table(columns, rows, name=name, step=state.timestamp.batch.value)
