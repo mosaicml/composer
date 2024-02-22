@@ -658,8 +658,8 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
     ) -> _FSDPState:
         if sharding_strategy == ShardingStrategy.NO_SHARD:
             warnings.warn(
-                "The `NO_SHARD` sharding strategy is deprecated. If having issues, "
-                "please use DistributedDataParallel instead.",
+                'The `NO_SHARD` sharding strategy is deprecated. If having issues, '
+                'please use DistributedDataParallel instead.',
                 # Level 1 is here, level 2 is from `FullyShardedDataParallel`, and
                 # level 3 is from the true caller
                 stacklevel=3,
@@ -668,10 +668,10 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
         state.mixed_precision = mixed_precision or MixedPrecision()
         if mixed_precision is not None:
             torch._C._log_api_usage_once(
-                f"torch.distributed.fsdp.mixed_precision.{str(state.mixed_precision)}"
+                f'torch.distributed.fsdp.mixed_precision.{str(state.mixed_precision)}'
             )
         state._use_full_prec_in_eval = (
-            os.environ.get(_FSDP_USE_FULL_PREC_IN_EVAL, "") == "1"
+            os.environ.get(_FSDP_USE_FULL_PREC_IN_EVAL, '') == '1'
         )
         state.cpu_offload = cpu_offload or CPUOffload()
         state.limit_all_gathers = limit_all_gathers
@@ -687,7 +687,7 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
         )
         # Mapping from fully sharded module to the handles it is responsible to
         # unshard and reshard (see [Note: Fully Sharded Module])
-        _fully_sharded_module_to_handle: Dict[nn.Module, FlatParamHandle] = dict()
+        _fully_sharded_module_to_handle: Dict[nn.Module, FlatParamHandle] = {}
         state._fully_sharded_module_to_handle = _fully_sharded_module_to_handle
         # Invariant: `state.params` contains exactly the `FlatParameter`s of the
         # handles in `state._handle`
