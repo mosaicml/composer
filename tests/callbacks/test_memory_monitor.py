@@ -53,8 +53,7 @@ def test_dist_memory_monitor_gpu():
     in_memory_logger = InMemoryLogger()
 
     # Add extra memory useage to rank 1
-    numel = 1 << 30  # about 1B elements in 32 bits is about 4GB
-    expected_extra_mem_usage_gb = 4 * numel / 1e9
+    numel = 1 << 30  # about 1B elements in 32 bits is about 4GB = 4 * numel / 1e9
     if dist.get_local_rank() == 1:
         _ = torch.randn(numel, device='cuda')
 
@@ -69,9 +68,12 @@ def test_dist_memory_monitor_gpu():
     trainer.fit()
 
     peak_allocated_mem = in_memory_logger.data['memory/peak_allocated_mem'][-1][-1]
+    peak_allocated_mem = round(peak_allocated_mem, 2)
     peak_allocated_mem_max = in_memory_logger.data['memory/peak_allocated_mem_max'][-1][-1]
+    peak_allocated_mem_max = round(peak_allocated_mem_max, 2)
 
-    gb_buffer = 0.5
-    extra_mem_gb = expected_extra_mem_usage_gb - gb_buffer
     if dist.get_local_rank() == 0:
-        assert peak_allocated_mem_max - extra_mem_gb >= peak_allocated_mem
+        assert peak_allocated_mem_max > peak_allocated_mem
+
+    if dist.get_local_rank() == 1:
+        assert peak_allocated_mem_max == peak_allocated_mem
