@@ -21,8 +21,8 @@ T_nnModule = TypeVar('T_nnModule', bound=torch.nn.Module)
 
 class DeviceNeuron(Device):
     """An extension of :class:`~composer.devices.device.Device` for Neuron devices (Trn, Inf).
+
     When running on Trn, we automatically set `export PJRT_DEVICE=NEURON`.
-    More details.
     """
 
     name = 'neuron'
