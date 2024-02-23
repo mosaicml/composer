@@ -10,7 +10,7 @@ import torch.cuda
 if TYPE_CHECKING:
     from composer.devices import Device
 
-__all__ = ['get_device', 'is_xla_installed', 'is_hpu_installed']
+__all__ = ['get_device', 'is_hpu_installed', 'is_xla_installed']
 
 _is_xla_installed = None
 

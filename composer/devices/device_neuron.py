@@ -6,8 +6,9 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, TypeVar
 import os
+from typing import Any, Dict, TypeVar
+
 import torch
 
 from composer.devices.device import Device
@@ -30,8 +31,8 @@ class DeviceNeuron(Device):
 
     def __init__(self):
         import torch_xla.core.xla_model as xm
-        os.environ["NEURON_CC_FLAGS"] = "--auto-cast=none"
-        os.environ['PJRT_DEVICE']='NEURON'
+        os.environ['NEURON_CC_FLAGS'] = '--auto-cast=none'
+        os.environ['PJRT_DEVICE'] = 'NEURON'
         self._device = xm.xla_device()
 
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
