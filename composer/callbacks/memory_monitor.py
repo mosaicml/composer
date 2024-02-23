@@ -106,6 +106,9 @@ class MemoryMonitor(Callback):
     | alloc_retries          | Number of failed cudaMalloc calls that result in a cache flush and retry.                 |
     +------------------------+-------------------------------------------------------------------------------------------+
 
+    Additionally, if `dist_aggregate_batch_interval` is enabled, the `avg`, `min`, and `max` of the
+    aformentioned statistics are also logged.
+
     .. note::
         Memory usage monitoring is only supported for GPU devices.
 
