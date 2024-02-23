@@ -35,6 +35,7 @@ class Precision(StringEnum):
     AMP_BF16 = 'amp_bf16'
     AMP_FP8 = 'amp_fp8'
 
+
 @contextlib.contextmanager
 def get_precision_context(precision: Union[str, Precision],
                           precision_config: Optional[Dict[str, Any]] = None) -> Generator[None, None, None]:

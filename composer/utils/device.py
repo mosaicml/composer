@@ -14,6 +14,7 @@ __all__ = ['get_device', 'is_hpu_installed', 'is_xla_installed']
 
 _is_xla_installed = None
 
+
 def get_device(device: Optional[Union[str, 'Device']]) -> 'Device':
     """Takes string or Device and returns the corresponding :class:`~composer.devices.Device`.
 
@@ -26,7 +27,7 @@ def get_device(device: Optional[Union[str, 'Device']]) -> 'Device':
             Device. If no argument is passed, returns :class:`.DeviceGPU` if available,
             or :class:`.DeviceCPU` if no GPU is available.
     """
-    from composer.devices import DeviceCPU, DeviceGPU, DeviceHPU, DeviceMPS, DeviceTPU, DeviceNeuron
+    from composer.devices import DeviceCPU, DeviceGPU, DeviceHPU, DeviceMPS, DeviceNeuron, DeviceTPU
 
     if not device:
         device = DeviceGPU() if torch.cuda.is_available() else DeviceCPU()

@@ -129,7 +129,6 @@ def get_gpu_flops_available(state: State):
         # When running on CPU, return 0 without warning
         return 0
 
-
     if device_name in GPU_AVAILABLE_FLOPS and state.precision.value in GPU_AVAILABLE_FLOPS[device_name]:
         gpu_flops_available = int(GPU_AVAILABLE_FLOPS[device_name][state.precision.value])
     else:
