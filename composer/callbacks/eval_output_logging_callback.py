@@ -5,13 +5,14 @@
 
 import warnings
 from copy import deepcopy
-from typing import Dict
+from typing import Any, Dict, List, Sequence, Union
 
 import torch
-from torch.utils.data import DataLoader, Dataset
 
 from composer.core import Callback, State
 from composer.loggers import ConsoleLogger, Logger
+
+# from torch.utils.data import DataLoader, Dataset
 
 
 class EvalOutputLogging(Callback):
@@ -38,7 +39,7 @@ class EvalOutputLogging(Callback):
 
         assert state.outputs is not None
         assert state.metric_outputs is not None
-        logging_dict = deepcopy(state.metric_outputs)
+        logging_dict: Dict[str, Union[List[Any], torch.Tensor, Sequence[torch.Tensor]]] = deepcopy(state.metric_outputs)
 
         if state.batch['mode'] == 'generate':
             # Outputs are already detokenized
@@ -47,17 +48,14 @@ class EvalOutputLogging(Callback):
         input_ids = state.batch['input_ids']
         logged_input = []
         assert state.dataloader is not None
-        assert hasattr(state.dataloader, 'dataset')
-        assert isinstance(state.dataloader, DataLoader)
-        assert state.dataloader.dataset is not None
-        assert isinstance(state.dataloader.dataset, Dataset)
-        assert hasattr(state.dataloader.dataset, 'pad_tok_id')
-        assert state.dataloader.dataset.pad_tok_id is not None
-        assert hasattr(state.dataloader.dataset, 'tokenizer')
         # Depad and decode input_ids
         for input_list in input_ids.tolist():
-            depadded_input = [tok for tok in input_list if tok != state.dataloader.dataset.pad_tok_id]
-            logged_input.append(state.dataloader.dataset.tokenizer.decode(depadded_input))
+            depadded_input = [
+                tok for tok in input_list
+                if tok != state.dataloader.dataset.pad_tok_id  # pyright: ignore[reportGeneralTypeIssues]
+            ]
+            logged_input.append(
+                state.dataloader.dataset.tokenizer.decode(depadded_input))  # pyright: ignore[reportGeneralTypeIssues]
         logging_dict['input'] = logged_input
 
         # Get column names
@@ -68,9 +66,12 @@ class EvalOutputLogging(Callback):
         # NOTE: This assumes _any_ tensor logged are tokens to be decoded.
         #       This might not be true if, for example, logits are logged.
         # detokenize data in rows
-        rows = [[state.dataloader.dataset.tokenizer.decode(x) if isinstance(x, torch.Tensor) else x
-                 for x in row]
-                for row in rows]
+        rows = [
+            [
+                state.dataloader.dataset.tokenizer.decode(x)  # pyright: ignore[reportGeneralTypeIssues]
+                if isinstance(x, torch.Tensor) else x for x in row
+            ] for row in rows
+        ]
 
         assert state.dataloader_label is not None
         step = state.timestamp.batch.value
