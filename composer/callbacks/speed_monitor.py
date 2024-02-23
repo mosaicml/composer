@@ -86,9 +86,11 @@ GPU_AVAILABLE_FLOPS = {
         'int8': 130e12,
         'int4': 260e12,
     },
+    # source: https://aws.amazon.com/blogs/machine-learning/aws-inferentia2-builds-on-aws-inferentia1-by-delivering-4x-higher-throughput-and-10x-lower-latency/
+    # Numbers are halved as the above flops is per chip and each chip appears as 2 devices.
     'trn1': {
-        'fp32': 190e12 / 2,
-        'tf32': 190e12 / 2,
+        'fp32': 47.5e12 / 2,
+        'tf32': 47.5e12 / 2,
         'fp16': 190e12 / 2,
         'amp_fp16': 190e12 / 2,
         'bf16': 190e12 / 2,
