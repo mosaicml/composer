@@ -679,7 +679,7 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
         state.training_state = TrainingState.IDLE
         state._is_root = None
         state._free_event_queue = _FreeEventQueue()
-        state._debug_level = dist.get_debug_level()
+        state._debug_level = torch.distributed.get_debug_level()
         state._exec_order_data = exec_order_utils._ExecOrderData(
             state._debug_level,
             backward_prefetch_limit,
