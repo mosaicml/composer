@@ -6,6 +6,7 @@
 from copy import deepcopy
 
 import torch
+from torch.utils.data import DataLoader, Dataset
 
 from composer.core import Callback, State
 from composer.loggers import ConsoleLogger, Logger
@@ -34,6 +35,10 @@ class EvalOutputLogging(Callback):
         logged_input = []
         assert state.dataloader is not None
         assert hasattr(state.dataloader, 'dataset')
+        assert isinstance(state.dataloader, DataLoader)
+        assert state.dataloader.dataset is not None
+        assert isinstance(state.dataloader.dataset, Dataset)
+        assert hasattr(state.dataloader.dataset, 'pad_tok_id')
         assert hasattr(state.dataloader.dataset, 'tokenizer')
         # Depad and decode input_ids
         for input_list in input_ids.tolist():

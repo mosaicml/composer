@@ -87,6 +87,7 @@ class InMemoryLogger(LoggerDestination):
         table = pd.DataFrame.from_records(data=rows, columns=columns).to_json(orient='split',
                                                                               index=False,
                                                                               force_ascii=False)
+        assert table is not None
         self.tables[name] = table
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
