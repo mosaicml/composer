@@ -144,7 +144,6 @@ class MemoryMonitor(Callback):
         if self.dist_aggregate_batch_interval is not None and state.timestamp.batch.value % self.dist_aggregate_batch_interval == 0:
             dist_memory_report = {}
             for (mem_stat, val) in memory_report.items():
-                # only logged if dist_aggregate_batch_interval is set
                 dist_memory_report[mem_stat + '_avg'] = reduce_value(val, model_device, 'avg')
                 dist_memory_report[mem_stat + '_min'] = reduce_value(val, model_device, 'min')
                 dist_memory_report[mem_stat + '_max'] = reduce_value(val, model_device, 'max')
