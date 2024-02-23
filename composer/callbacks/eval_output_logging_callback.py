@@ -4,7 +4,6 @@
 """Log model outputs and expected outputs during ICL evaluation."""
 
 from copy import deepcopy
-from typing import List
 
 import torch
 
@@ -54,9 +53,6 @@ class EvalOutputLogging(Callback):
                  for x in row]
                 for row in rows]
 
-        # TODO:
-        # wandb: WARNING Step only supports monotonically increasing values, use define_metric to set a custom x axis. For details see: https://wandb.me/define-metric
-        # wandb: WARNING (User provided step: 0 is less than current step: 164. Dropping entry: {'metrics/human_eval/0-shot/InContextLearningCodeEvalAccuracy': 0.0, '_timestamp': 1707370410.1504738}).
         assert state.dataloader_label is not None
         step = state.timestamp.batch.value
         name = f'{state.dataloader_label}_step_{step}'

@@ -113,31 +113,26 @@ def mock_mc_computation(metric, tokenizer, state):
     start, end = cont_idxs[3].tolist()[0], cont_idxs[3].tolist()[-1]
     logits[3][start:end] = logits[2][start:end].clone()
 
-    state.metric_ouputs = metric.update(batch, logits, batch['labels'])
+    state.metric_outputs = metric.update(batch=batch, output_logits=logits, labels=batch['labels'])
     state.batch = batch
     state.outputs = logits
     metric.compute()
-    return state
 
 
 @device('cpu')
-def test_eval_output_logging(device, tmp_path, tiny_gpt2_tokenizer):
+def test_eval_output_logging_lm(device, tiny_gpt2_tokenizer):
     # this test simulates an unrolled version of the eval loop occurring twice
     state = MockState()
     in_memory_logger = InMemoryLogger()
     logger = Logger(state, in_memory_logger)
     lm_metric = InContextLearningLMAccuracy()
-    mc_metric = InContextLearningMultipleChoiceAccuracy()
 
     state.add_metric('lm_acc', lm_metric)
-    state.add_metric('mc_acc', mc_metric)
 
     # Construct the callback
     eval_output_logging = EvalOutputLogging(loggers_to_use=['InMemoryLogger'])
 
     for i in range(2):
-
-        # simulate a full round of eval
         state.update_curr_eval(
             MockDataLoader(tiny_gpt2_tokenizer),
             'lm_acc',
@@ -147,8 +142,10 @@ def test_eval_output_logging(device, tmp_path, tiny_gpt2_tokenizer):
             lm_metric.__class__.__name__ for _ in range(0, state.batch['input_ids'].shape[0])
         ]
         eval_output_logging.eval_batch_end(state, logger)
+        state.timestamp = Timestamp(batch=state.timestamp.batch.value + 1)
 
         assert f'lm_acc_step_{i}' in in_memory_logger.tables
+        # We use the same data in each batch
         assert json.loads(in_memory_logger.tables[f'lm_acc_step_{i}'])['columns'] == [
             'context',
             'label',
@@ -163,32 +160,48 @@ def test_eval_output_logging(device, tmp_path, tiny_gpt2_tokenizer):
             ['I hate', ' long lines', ' long lines', 1, 'InContextLearningLMAccuracy', 'I hate long lines'],
             ['The weather is', ' snowy', ' snowy', 1, 'InContextLearningLMAccuracy', 'The weather is snowy']
         ]
+    assert len(in_memory_logger.tables) == 2
 
-        # simulate another eval
 
+@device('cpu')
+def test_eval_output_logging_mc(device, tiny_gpt2_tokenizer):
+    # this test simulates an unrolled version of the eval loop occurring twice
+    state = MockState()
+    in_memory_logger = InMemoryLogger()
+    logger = Logger(state, in_memory_logger)
+    mc_metric = InContextLearningMultipleChoiceAccuracy()
+
+    state.add_metric('mc_acc', mc_metric)
+
+    # Construct the callback
+    eval_output_logging = EvalOutputLogging(loggers_to_use=['InMemoryLogger'])
+    for i in range(2):
         state.update_curr_eval(
             MockDataLoader(tiny_gpt2_tokenizer),
             'mc_acc',
         )
-        # assert all(
-        #     len(m.response_cache) == 0  # pyright: ignore[reportGeneralTypeIssues]
-        #     for dictionary in state.eval_metrics.values()
-        #     for m in dictionary.values())
         mock_mc_computation(state.eval_metrics['mc_acc']['InContextLearningMultipleChoiceAccuracy()'],
                             tiny_gpt2_tokenizer, state)
         state.metric_outputs['name'] = [
             mc_metric.__class__.__name__ for _ in range(0, state.batch['input_ids'].shape[0])
         ]
         eval_output_logging.eval_batch_end(state, logger)
+        state.timestamp = Timestamp(batch=state.timestamp.batch.value + 1)
 
-        assert f'lm_acc_step_{i}' in in_memory_logger.tables
         assert f'mc_acc_step_{i}' in in_memory_logger.tables
-
-        # assert lm acc table unchanged
-        assert json.loads(in_memory_logger.tables[f'lm_acc_step_{i}'])['columns'] == [
-            'context', 'label', 'output', 'result', 'name', 'input'
-        ]
-
+        # We use the same data for each batch
         assert json.loads(in_memory_logger.tables[f'mc_acc_step_{i}'])['columns'] == [
-            'question_tok', 'correct_choice', 'selected_choice', 'correct'
+            'context', 'correct_choice', 'selected_choice', 'result', 'name', 'input'
         ]
+        assert json.loads(in_memory_logger.tables[f'mc_acc_step_{i}'])['data'] == [
+            [
+                'Q: How do you cook a cake?', ' A: turn on the oven', ' A: turn on the oven', 1,
+                'InContextLearningMultipleChoiceAccuracy', 'Q: How do you cook a cake? A: turn on the oven'
+            ],
+            [
+                'Q: How old is the earth?', ' A: 4.5 billion years', ' A: 2 minutes', 0,
+                'InContextLearningMultipleChoiceAccuracy', 'Q: How do you cook a cake? A: do a backflip'
+            ]
+        ]
+
+    assert len(in_memory_logger.tables) == 2
