@@ -115,7 +115,8 @@ class WandBLogger(LoggerDestination):
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         if self._enabled:
             import wandb
-            wandb.config.update(hyperparameters)
+            # NOTE: Allow val change is set to True to allow for hyperparameter logging when resuming a run.
+            wandb.config.update(hyperparameters, allow_val_change=True)
 
     def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
         if self._enabled:
