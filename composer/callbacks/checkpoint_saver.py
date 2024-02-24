@@ -495,7 +495,10 @@ class CheckpointSaver(Callback):  # noqa: D101
             checkpoint_to_delete = self.saved_checkpoints.pop(0)
             prefix_dir = str(Path(checkpoint_to_delete).parent)
             if not sharding_enabled:
-                os.remove(checkpoint_to_delete)
+                try:
+                    os.remove(checkpoint_to_delete)
+                except FileNotFoundError:
+                    pass
             else:
                 if dist.get_global_rank() == 0:
                     shutil.rmtree(prefix_dir)
