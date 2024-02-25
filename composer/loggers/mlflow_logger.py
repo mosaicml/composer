@@ -144,7 +144,7 @@ class MLFlowLogger(LoggerDestination):
 
         # Store the Composer run name in the MLFlow run tags so it can be retrieved for autoresume.
         self.tags = self.tags or {}
-        self.tags['composer_run_name'] = state.run_name
+        self.tags['run_name'] = state.run_name
 
         # Adjust name and group based on `rank_zero_only`.
         if not self._rank_zero_only:
@@ -162,8 +162,17 @@ class MLFlowLogger(LoggerDestination):
                 # Search for an existing run tagged with this Composer run.
                 assert self._experiment_id is not None
                 existing_runs = mlflow.search_runs(experiment_ids=[self._experiment_id],
-                                                   filter_string=f'tags.composer_run_name = "{state.run_name}"',
+                                                   filter_string=f'tags.run_name = "{state.run_name}"',
                                                    output_format='list')
+
+                # Check for the old tag (`composer_run_name`) For backwards compatibility in case a run using the old
+                # tag fails and the run is resumed with a newer version of Composer that uses `run_name` instead of
+                # `composer_run_name`.
+                if len(existing_runs) == 0:
+                    existing_runs = mlflow.search_runs(experiment_ids=[self._experiment_id],
+                                                       filter_string=f'tags.composer_run_name = "{state.run_name}"',
+                                                       output_format='list')
+
                 if len(existing_runs) > 0:
                     self._run_id = existing_runs[0].info.run_id
                 else:
@@ -188,7 +197,12 @@ class MLFlowLogger(LoggerDestination):
     def after_load(self, state: State, logger: Logger) -> None:
         logger.log_hyperparameters({'mlflow_experiment_id': self._experiment_id, 'mlflow_run_id': self._run_id})
 
-    def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
+    def log_table(self,
+                  columns: List[str],
+                  rows: List[List[Any]],
+                  name: str = 'Table',
+                  step: Optional[int] = None) -> None:
+        del step
         if self._enabled:
             try:
                 import pandas as pd
@@ -345,6 +359,53 @@ class MLFlowLogger(LoggerDestination):
                 mlflow.transformers.log_model(**kwargs,)
             else:
                 raise NotImplementedError(f'flavor {flavor} not supported.')
+
+    def register_model_with_run_id(
+        self,
+        model_uri: str,
+        name: str,
+        await_creation_for: int = 300,
+        tags: Optional[Dict[str, Any]] = None,
+    ):
+        """Similar to ``register_model``, but uses a different MLflow API to allow passing in the run id.
+
+        Args:
+            model_uri (str): The URI of the model to register.
+            name (str): The name of the model to register. Will be appended to ``model_registry_prefix``.
+            await_creation_for (int, optional): The number of seconds to wait for the model to be registered. Defaults to 300.
+            tags (Optional[Dict[str, Any]], optional): A dictionary of tags to add to the model. Defaults to None.
+        """
+        if self._enabled:
+            from mlflow.exceptions import MlflowException
+            from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS, ErrorCode
+
+            full_name = f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name
+
+            # This try/catch code is copied from
+            # https://github.com/mlflow/mlflow/blob/3ba1e50e90a38be19920cb9118593a43d7cfa90e/mlflow/tracking/_model_registry/fluent.py#L90-L103
+            try:
+                create_model_response = self._mlflow_client.create_registered_model(full_name)
+                log.info(f'Successfully registered model {name} with {create_model_response.name}')
+            except MlflowException as e:
+                if e.error_code in (
+                        ErrorCode.Name(RESOURCE_ALREADY_EXISTS),
+                        ErrorCode.Name(ALREADY_EXISTS),
+                ):
+                    log.info(f'Registered model {name} already exists. Creating a new version of this model...')
+                else:
+                    raise e
+
+            create_version_response = self._mlflow_client.create_model_version(
+                name=full_name,
+                source=model_uri,
+                run_id=self._run_id,
+                await_creation_for=await_creation_for,
+                tags=tags,
+            )
+
+            log.info(
+                f'Successfully created model version {create_version_response.version} for model {create_version_response.name}'
+            )
 
     def log_images(
         self,

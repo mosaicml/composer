@@ -10,12 +10,14 @@ line_length = 120
 skip = [ "env", "wandb", "runs", "build", "node_modules" ]
 known_third_party = ["wandb"]
 
-[tool.ruff]
+[tool.ruff.lint]
 select = [
     "C4",
     # TODO port pydocstyle
     # "D", # pydocstyle
+    "LOG",
     "PERF",
+    "PLE",
 ]
 
 ignore = [
@@ -23,6 +25,7 @@ ignore = [
     "PERF2",
     "PERF4",
 ]
+[tool.ruff]
 exclude = [
     "build/**",
     "docs/**",
@@ -151,7 +154,9 @@ filterwarnings = [
     # Ignore torch pytree deprecated warnings
     '''ignore:torch.utils._pytree._register_pytree_node is deprecated.*:UserWarning''',
     # Ignore autograd kernel warning inside DeepSpeed
-    '''ignore:.*an autograd kernel was not registered to the Autograd key.*:UserWarning'''
+    '''ignore:.*an autograd kernel was not registered to the Autograd key.*:UserWarning''',
+    # Ignore save_state_dict / load_state_dict deprecation warnings
+    '''ignore:'.*_state_dict' is deprecated and will be removed in future versions.*:UserWarning'''
 ]
 
 # Coverage

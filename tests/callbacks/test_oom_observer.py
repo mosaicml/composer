@@ -85,4 +85,4 @@ def test_oom_observer_with_memory_snapshot():
     )
 
     trainer.fit()
-    assert len(file_tracker_destination.uploaded_files) == 1
+    assert len(file_tracker_destination.uploaded_files) == 2

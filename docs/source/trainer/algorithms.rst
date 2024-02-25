@@ -168,6 +168,7 @@ Composer’s `events` look as follows:
     state.model = model()
     state.train_dataloader = train_dataloader()
     state.optimizers = optimizers()
+    EVENT.BEFORE_LOAD
     load_checkpoint()
     EVENT.AFTER_LOAD
     EVENT.FIT_START
