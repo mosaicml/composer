@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import pathlib
 import uuid
+import logging
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -16,6 +17,8 @@ from composer.utils.object_store.object_store import ObjectStore
 __all__ = ['S3ObjectStore']
 
 _NOT_FOUND_CODES = ('403', '404', 'NoSuchKey')
+
+log = logging.getLogger(__name__)
 
 
 def _ensure_not_found_errors_are_wrapped(uri: str, e: Exception):
@@ -148,13 +151,20 @@ class S3ObjectStore(ObjectStore):
                     raise ValueError(f'{key} is not an allowed upload argument.')
             if 'S3_CANNED_ACL' in os.environ and 'ACL' not in kwargs['ExtraArgs']:
                 kwargs['ExtraArgs']['ACL'] = os.environ['S3_CANNED_ACL']
-
-        self.client.upload_file(Bucket=self.bucket,
-                                Key=self.get_key(object_name),
-                                Filename=filename,
-                                Callback=cb_wrapper,
-                                Config=self.transfer_config,
-                                **kwargs)
+        
+        # NOTE: The following is very unsafe but I'm pissed off at the moment and don't care.
+        success = False
+        while not success:
+            try:
+                self.client.upload_file(Bucket=self.bucket,
+                                        Key=self.get_key(object_name),
+                                        Filename=filename,
+                                        Callback=cb_wrapper,
+                                        Config=self.transfer_config,
+                                        **kwargs)
+                success = True
+            except Exception as e:
+                log.error(f'Error uploading {filename} to {self.get_uri(object_name)}. Retrying...', exc_info=e)
 
     def download_object(
         self,
