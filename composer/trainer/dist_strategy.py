@@ -303,7 +303,9 @@ def prepare_fsdp_module(
     if version.parse(torch.__version__.split('.dev')[0]) >= version.parse('2.2.0'):
         if 'device_mesh' in fsdp_config:
             device_mesh_size = len(fsdp_config['device_mesh'])
-            if sharding_strategy in [ShardingStrategy.FULL_SHARD, ShardingStrategy.NO_SHARD] and device_mesh_size != 1:
+            if sharding_strategy in [
+                    ShardingStrategy.FULL_SHARD, ShardingStrategy.SHARD_GRAD_OP, ShardingStrategy.NO_SHARD
+            ] and device_mesh_size != 1:
                 raise ValueError(f'FSDP sharding strategy {sharding_map_key.upper()} requires a device mesh '
                                  f'of size 1 but got device mesh size of {device_mesh_size}.')
             elif sharding_strategy in [ShardingStrategy.HYBRID_SHARD, ShardingStrategy._HYBRID_SHARD_ZERO2
