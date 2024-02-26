@@ -25,7 +25,7 @@
   TAGS:
   - mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
   TARGET: pytorch_stage
-  TORCHVISION_VERSION: 0.17.0
+  TORCHVISION_VERSION: 0.17.1
 - AWS_OFI_NCCL_VERSION: v1.7.4-aws
   BASE_IMAGE: nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04
   CUDA_VERSION: 12.1.0
@@ -52,7 +52,7 @@
   TAGS:
   - mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04-aws
   TARGET: pytorch_stage
-  TORCHVISION_VERSION: 0.17.0
+  TORCHVISION_VERSION: 0.17.1
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: ubuntu:20.04
   CUDA_VERSION: ''
@@ -66,7 +66,7 @@
   TAGS:
   - mosaicml/pytorch:2.2.1_cpu-python3.11-ubuntu20.04
   TARGET: pytorch_stage
-  TORCHVISION_VERSION: 0.17.0
+  TORCHVISION_VERSION: 0.17.1
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04
   CUDA_VERSION: 12.1.0
