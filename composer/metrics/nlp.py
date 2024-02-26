@@ -16,6 +16,8 @@ from torch import Tensor
 from torch.nn import functional as F
 from torchmetrics import Metric
 
+ic.configureOutput(includeContext=True)
+
 from composer.utils import dist
 from composer.utils.eval_client import (
     EvalClient,
@@ -219,7 +221,7 @@ class InContextLearningMetric(Metric):
         Args:
             batch (dict): Batch must consist minimally of `input_ids` as well as any other structure needed
                 to compute the metric.
-            output_logits (torch.Tensor): The model outputs evaluated on the batch `input_ids`
+            output_logits (torch.Tensor): The model outputs evaluated on the batch `input_ids`.
             labels (torch.Tensor): The correct outputs.
 
         Raises:
@@ -412,7 +414,7 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
     def __init__(self, dist_sync_on_step: bool = False):
         # state from multiple processes
         super().__init__(dist_sync_on_step=dist_sync_on_step)
-        self.add_state('correct', default=torch.tensor(0.0), dist_reduce_fx='sum')
+        self.add_state('correct_prob', default=torch.tensor(0.0), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.0), dist_reduce_fx='sum')
 
     def update(self,
@@ -420,37 +422,97 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
                output_logits: Optional[torch.Tensor] = None,
                labels: Optional[torch.Tensor] = None,
                outputs: Optional[torch.Tensor] = None):
-        ic(batch["gold_indices"])
         batch, outputs, labels = InContextLearningMetric.rename_args(batch=batch,
                                                                      output_logits=output_logits,
                                                                      labels=labels,
                                                                      outputs=outputs)
+        # perplexities = []
+        # for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
+        #     # continuation indices refer to indices in the original input's token space
+        #     cont_tok_logits = outputs[batch_idx].index_select(dim=0, index=cont_idx - 1)
+        #     log_probs = cont_tok_logits[:, prompt_ids.squeeze(0)]
 
-        perplexities = []
-        for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
-            # continuation indices refer to indices in the original input's token space
-            cont_tok_logits = outputs[batch_idx].index_select(dim=0, index=cont_idx - 1)
-            # labels have been shifted left by one index, so the cont_idx needs to be shifted as well.
-            cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
-            cross_entropy = F.cross_entropy(cont_tok_logits, cont_tok_targ)
-            perplexity = torch.exp(cross_entropy)
-            # ic(batch_idx, cont_idx.shape, cont_idx, cont_tok_logits.shape, cont_tok_logits, cont_tok_targ.shape, cont_tok_targ, cross_entropy.shape, cross_entropy, perplexity)
-            perplexities.append(perplexity)
+        #     ic(cont_tok_logits.shape)
+        #     cont_tok_log_probs = cont_tok_logits.log_softmax(-1)
+        #     perplexities.append(cont_tok_log_probs)
         # ic(perplexities)
 
-       # ic(batch['gold_indices'])
-        for (start, end), gold_idxs in zip(batch['choice_groupings'], batch['gold_indices']):
-            subset = perplexities[start:end]
-            idx_min = subset.index(min(subset))
 
-            if idx_min == gold_idx:
-                self.correct += torch.tensor(1.0)
+
+        # perplexities = []
+        # for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
+        #     # continuation indices refer to indices in the original input's token space
+        #     # labels have been shifted left by one index, so the cont_idx needs to be shifted as well.
+        #     cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1) #(C,)
+        #     logits = outputs[batch_idx].index_select(dim=0, index=cont_idx - 1) # (C,V)
+
+        #     ic(logits.shape, logits)
+        #     ic(cont_tok_targ.shape, cont_tok_targ)
+
+        #     # logits to log probs
+        #     log_probs = logits.log_softmax(-1) # (C,V)
+        #     ic(log_probs.shape)
+
+        #     # extract log probs for each token in the answer
+        #     cont_tok_log_probs = log_probs[range(cont_tok_targ.shape[0]), cont_tok_targ] # (C,)
+        #     ic(log_probs.shape)
+
+        #     perplexities.append(cont_tok_log_probs.sum().item())
+
+
+        from transformers import AutoTokenizer
+        tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-125m")
+
+        probs = []
+        for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
+            cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
+
+            # Get logits
+            logits = outputs[batch_idx] # (seq, vocab)
+
+            # Normalize to get log probs over the entire vocabulary
+            log_probs = logits.log_softmax(-1) # (seq, vocab)
+
+            # Obtain log-probs at the corresponding continuation token indices
+            cont_tok_log_probs_over_vocab = log_probs.index_select(dim=0, index=cont_idx - 1) # (continuation, vocab)
+            cont_tok_log_probs = cont_tok_log_probs_over_vocab.index_select(dim=1, index=cont_tok_targ) # (continuation,)
+
+            # Get total probability mass of the continuation
+            total_cont_tok_probs = cont_tok_log_probs.sum().exp().item()
+            probs.append(total_cont_tok_probs)
+        ic(probs)
+
+        for (start, end), gold_idxs in zip(batch['choice_groupings'], batch['gold_indices']):
+            probs_subset = probs[start: end]
+            probs_true_list = [p for idx, p in enumerate(probs_subset, start=start) if idx in gold_idxs]
+            correct_prob = sum(probs_true_list) / sum(probs)
+            self.correct_prob += correct_prob
             self.total += torch.tensor(1.0)
 
+
+        # for (start, end), gold_idxs in zip(batch['choice_groupings'], batch['gold_indices']):
+        #     perplexities_subset = perplexities[start:end]
+        #     perplexities_subset = [-40.63508224487305, -50.804962158203125, -30.274763107299805, -28.96441650390625, -23.387189865112305, -27.486000061035156, -29.551237106323242]
+        #     ic(perplexities_subset)
+        #     start, end = 0, len(perplexities_subset)
+        #     gold_idxs = [0, 1, 2, 3]
+        #     # get perplexity of all correct continuations, i.e. those in gold_idxs
+        #     true_perplexities = [p for idx, p in enumerate(perplexities_subset, start=start) if idx in gold_idxs]
+        #     true_perplexities = torch.tensor(true_perplexities, device=self.correct_prob.get_device())
+        #     ic(true_perplexities)
+        #     # normalize to get the probability of each correct continuation
+        #     true_probs = true_perplexities / sum(perplexities_subset)
+        #     ic(true_probs)
+        #     # get the total probability of all the correct continuations
+        #     correct_prob = sum(true_probs)
+        #     ic(correct_prob)
+        #     self.correct_prob += correct_prob
+        #     self.total += torch.tensor(1.0)
+
     def compute(self):
-        assert isinstance(self.correct, Tensor)
+        assert isinstance(self.correct_prob, Tensor)
         assert isinstance(self.total, Tensor)
-        return self.correct.float() / self.total
+        return self.correct_prob.float() / self.total
 
 
 class InContextLearningExpectedCalibrationError(InContextLearningMetric):

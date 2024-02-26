@@ -952,6 +952,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         Returns:
             Dict: Dictionary with the tokenized data
         """
+        ic(prompt_and_fewshot, ctxt, example)
         # NOTE: some of this is repeated from super class but for loop makes things considerably different
         tokenized_example = {}
         # Always add special tokens to preamble
@@ -1005,7 +1006,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         If each question has N possible choices, all N must be grouped together as distinct elements of the batch
         since the batch may consist of multiple questions, the choice_groupings indicates
         which contiguous sequences of elements in the batch correspond to which question
-        gold_indices indicates which of the [0, N-1] choices is the correct one for each question.
+        gold_indices is a list that indicates which of the [0, N-1] choices is the correct one for each question.
         Args:
             data (List): List of tokenized datapoints (dicts returned by self._tokenize_example)
 
@@ -1021,11 +1022,9 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
                 batch['continuation_indices'].append(data_pair['continuation_indices'][i])
                 batch['labels'].append(context_enc)
 
-            ic(data_pair["gold"])
             batch['gold_indices'].append(data_pair['gold'])
             choice_end_idx = len(batch['continuation_indices'])
             batch['choice_groupings'].append((choice_start_idx, choice_end_idx))
-        ic(batch['gold_indices'])
         batch = convert_tokens_to_tensors(batch, self.tokenize_labels)
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
@@ -1051,7 +1050,6 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         """
         chunked = {}
         for k, v in batch.items():
-            ic(k, v)
             if k in self.static_keys:
                 # Defer broadcasting primitives until we know num_chunks
                 pass
@@ -1059,20 +1057,16 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
                 # list of tensors - 'continuation_indices'
                 if k in self.list_of_tensors_keys:
                     chunked[k] = _split_list(v, microbatch_size * self.num_choices)
-                    ic(k, v)
                 # list of tuples - 'choice_groupings'
                 elif k in self.list_of_tuples_keys:
                     chunked[k] = _split_list(v, microbatch_size)
-                    ic(k, v)
                 # list - 'gold_indices'
                 elif k in self.list_of_primitives:
                     chunked[k] = _default_split_batch(v, microbatch_size)
-                    ic(k, v)
                 else:
                     raise ValueError(f'Unexpected key {k} in list splitting')
             elif k in self.tensor_keys:
                 chunked[k] = _default_split_batch(v, microbatch_size * self.num_choices)
-                ic(k, v)
             else:
                 raise ValueError(f'Unexpected key {k} in batch splitting')
         num_chunks = len(chunked['input_ids'])
@@ -1080,7 +1074,6 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         for k, v in batch.items():
             if k in self.static_keys:
                 chunked[k] = [v] * num_chunks
-        ic(chunked)
         return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
 
 
