@@ -224,7 +224,7 @@ def test_fsdp_process_group(world_size: int):
                          ['NO_SHARD', 'SHARD_GRAD_OP', 'FULL_SHARD', 'HYBRID_SHARD', '_HYBRID_SHARD_ZERO2'])
 @pytest.mark.parametrize('device_mesh', [[2], [1, 2]])
 def test_wrong_size_device_mesh_error(world_size: int, sharding_strategy: str, device_mesh: list[int]):
-    context = contextlib.nullcontext
+    context = contextlib.nullcontext()
     if sharding_strategy in ['NO_SHARD', 'SHARD_GRAD_OP', 'FULL_SHARD'] and len(device_mesh) != 1:
         context = pytest.raises(ValueError, match='.*requires a device mesh of size 1.*')
     if sharding_strategy in ['HYBRID_SHARD', '_HYBRID_SHARD_ZERO2'] and len(device_mesh) != 2:
