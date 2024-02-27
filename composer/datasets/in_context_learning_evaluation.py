@@ -318,7 +318,7 @@ class InContextLearningDataset(Dataset):
         self.num_fewshot = num_fewshot
         self.padding_side = padding_side
         self.padding_size = padding_size if padding_size else self.max_seq_len
-        self.prelimiter = ic(prelimiter)
+        self.prelimiter = prelimiter
         self.example_delimiter = example_delimiter
         self.continuation_delimiter = continuation_delimiter
         self.context_key = context_key
