@@ -728,6 +728,10 @@ class State(Serializable):
         return 'full'
 
     @property
+    def fsdp_fallback_to_monolithic(self):
+        return self.fsdp_config is not None and self.fsdp_config['fallback_to_monolithic']
+
+    @property
     def fsdp_sharded_state_dict_enabled(self):
         return self.fsdp_config is not None and self.fsdp_enabled and self.fsdp_state_dict_type == 'sharded'
 
@@ -1168,9 +1172,21 @@ class State(Serializable):
                         log.debug(
                             f'Loading model state dict with strict={strict} and FSDP state_dict_type={self.fsdp_state_dict_type}'
                         )
-                        with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
-                            missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'],
-                                                                                       strict=strict)
+                        # If the desired state_dict_type is sharded, but the checkpoint is monolithic,
+                        # we need to load the monolithic state dict and then scatter it to the sharded model
+                        try:
+                            with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
+                                missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'],
+                                                                                           strict=strict)
+                        except AssertionError as e:
+                            if self.fsdp_state_dict_type == 'sharded' and self.fsdp_fallback_to_monolithic:
+                                # If the state dict type of the checkpoint is not sharded
+                                with fsdp_state_dict_type_context(self.model, state_dict_type=None):
+                                    missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'],
+                                                                                               strict=strict)
+                            else:
+                                raise e
+
                     else:
                         log.debug(f'Loading model state dict with strict={strict}')
                         missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
