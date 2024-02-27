@@ -868,8 +868,8 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
     """
     A dataset that construct batches for in-context learning multiple choice evaluation.
 
-    If each question has N answer choices, we construct N distinct inputs per question. In order to ensure
-    consistency across multi-GPU, we set the batch size to be `min(N, batch_size)` so that all N
+    If each question has at most N answer choices, we construct N distinct inputs per question. In order to
+    ensure consistency across multi-GPU, we set the batch size to be `max(N, batch_size)` so that all N
     inputs per question can stored in the same batch.
 
     The default input format is a jsonl file with the following fields:
