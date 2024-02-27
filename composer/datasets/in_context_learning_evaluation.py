@@ -160,7 +160,7 @@ def _make_padded_input(
             dim=0,
         )
     else:
-        raise ValueError(f"Unknown padding_side {padding_side}. padding_side must be either 'left' or 'right'")
+        raise ValueError(f"Unknown padding_side {padding_side}. padding_side must be either 'left' or 'right'.")
 
     return inp
 
@@ -318,7 +318,7 @@ class InContextLearningDataset(Dataset):
         self.num_fewshot = num_fewshot
         self.padding_side = padding_side
         self.padding_size = padding_size if padding_size else self.max_seq_len
-        self.prelimiter = prelimiter
+        self.prelimiter = ic(prelimiter)
         self.example_delimiter = example_delimiter
         self.continuation_delimiter = continuation_delimiter
         self.context_key = context_key
@@ -952,7 +952,6 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         Returns:
             Dict: Dictionary with the tokenized data
         """
-        ic(prompt_and_fewshot, ctxt, example)
         # NOTE: some of this is repeated from super class but for loop makes things considerably different
         tokenized_example = {}
         # Always add special tokens to preamble
@@ -1186,6 +1185,8 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         Returns:
             Dict: Contains a dictionary with the tokenized data
         """
+        ic(example)
+        print(example)
         prompt_and_fewshot = self._generate_few_shot_prompt(num_fewshot, example_idx, prompt_string, fewshot_rng)
         ctxt = self._construct_multiple_contexts(example, prompt_and_fewshot)
         tokenized_example = self.tokenize_example(prompt_and_fewshot, ctxt, example)
@@ -1472,7 +1473,7 @@ def build_icl_dataloader(
 ) -> DataSpec:
     """
     Factory method that builds the specific dataset for the specified icl_task_type.
-    See documentation for `get_icl_task_dataloader` for arugment documentation.
+    See documentation for `get_icl_task_dataloader` for argument documentation.
 
     When writing a dataset for a new task, here you will need to:
         1. add the dataset to the factory and choose an appropriate string
@@ -1491,6 +1492,7 @@ def build_icl_dataloader(
             example_delimiter=example_delimiter,
             continuation_delimiter=continuation_delimiter,
             destination_path=destination_path,
+            prelimiter=prelimiter,
             fewshot_random_seed=fewshot_random_seed,
             hf_loading_vars=hf_loading_vars,
             hf_parsing_map=hf_parsing_map,
@@ -1509,6 +1511,7 @@ def build_icl_dataloader(
             example_delimiter=example_delimiter,
             continuation_delimiter=continuation_delimiter,
             destination_path=destination_path,
+            prelimiter=prelimiter,
             fewshot_random_seed=fewshot_random_seed,
             hf_loading_vars=hf_loading_vars,
             hf_parsing_map=hf_parsing_map,
@@ -1527,6 +1530,7 @@ def build_icl_dataloader(
             example_delimiter=example_delimiter,
             continuation_delimiter=continuation_delimiter,
             destination_path=destination_path,
+            prelimiter=prelimiter,
             fewshot_random_seed=fewshot_random_seed,
             hf_loading_vars=hf_loading_vars,
             hf_parsing_map=hf_parsing_map,
