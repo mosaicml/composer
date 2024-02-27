@@ -465,8 +465,10 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
 
         probs = []
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
-            if "excreted" not in text:
-                continue
+            max_idx = 200
+            text = ''.join(tokenizer.batch_decode(batch["input_ids"][batch_idx][:max_idx]))
+            # if "excreted" not in text:
+            #     continue
 
             cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
 
@@ -482,48 +484,24 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
             total_cont_tok_probs = cont_tok_log_probs.sum().exp().item()
             probs.append(total_cont_tok_probs)
 
-            # print
-            max_idx = 200
-            text = ''.join(tokenizer.batch_decode(batch["input_ids"][batch_idx][:max_idx]))
-            ic(
-                batch_idx,
-                text,
-                batch["input_ids"][batch_idx].shape,  batch["input_ids"][batch_idx][:max_idx],
-                logits.shape, logits,
-                log_probs.shape, log_probs,
-                cont_tok_log_probs_over_vocab.shape, cont_tok_log_probs_over_vocab,
-                cont_tok_log_probs.shape, cont_tok_log_probs,
-                total_cont_tok_probs,
-                )
+            # # print
+            # ic(
+            #     batch_idx,
+            #     text,
+            #     batch["input_ids"][batch_idx].shape,  batch["input_ids"][batch_idx][:max_idx],
+            #     logits.shape, logits,
+            #     log_probs.shape, log_probs,
+            #     cont_tok_log_probs_over_vocab.shape, cont_tok_log_probs_over_vocab,
+            #     cont_tok_log_probs.shape, cont_tok_log_probs,
+            #     total_cont_tok_probs,
+            #     )
 
-        # ic(probs)
-        # probs = [-8.265605926513672,
-        #   -7.281463623046875,
-        #   -8.265605926513672,
-        #   -18.045433044433594,
-        #   -21.724149703979492,
-        #   -8.265605926513672,
-        #   -9.693243980407715,
-        #   -19.533174514770508,
-        #   -7.9382643699646,
-        #   -14.572892189025879,
-        #   -15.52383041381836,
-        #   -16.36998748779297]
-        # split_idx = 5
-        # batch['gold_indices'] = [list(range(split_idx))]
-        # ic(batch['gold_indices'])
-
-        # for (start, end), gold_idxs in zip(batch['choice_groupings'], batch['gold_indices']):
-        #     probs_subset = probs[start: end]
-        #     ic(start, end, probs_subset)
-        #     probs_true_list = [p for idx, p in enumerate(probs_subset, start=start) if idx in gold_idxs]
-        #     ic(probs_true_list)
-        #     probs_true_normalized = [p / sum(probs_subset) for p in probs_true_list]
-        #     ic(probs_true_normalized)
-        #     correct_prob = sum(probs_true_normalized)
-        #     ic(correct_prob)
-        #     self.correct_prob += correct_prob
-        #     self.total += torch.tensor(1.0)
+        for (start, end), gold_idxs in zip(batch['choice_groupings'], batch['gold_indices']):
+            probs_subset = probs[start: end]
+            probs_true_list = [p for idx, p in enumerate(probs_subset, start=start) if idx in gold_idxs]
+            correct_prob = sum(probs_true_list) / sum(probs_subset)
+            self.correct_prob += correct_prob
+            self.total += torch.tensor(1.0)
 
 
         # for (start, end), gold_idxs in zip(batch['choice_groupings'], batch['gold_indices']):
