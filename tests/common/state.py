@@ -10,6 +10,7 @@ from tests.common.compare import deep_compare
 
 def _del_wct_timestamp_fields(timestamp_state_dict: Dict[str, Any]):
     del timestamp_state_dict['Timestamp']['total_wct']
+    del timestamp_state_dict['Timestamp']['iteration_wct']
     del timestamp_state_dict['Timestamp']['epoch_wct']
     del timestamp_state_dict['Timestamp']['batch_wct']
 

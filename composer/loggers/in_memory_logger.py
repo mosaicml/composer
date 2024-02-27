@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 import numpy as np
 from torch import Tensor
 
-from composer.core.time import Time
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -159,8 +158,8 @@ class InMemoryLogger(LoggerDestination):
             timestamp, metric_value = datapoint
             timeseries.setdefault(metric, []).append(metric_value)
             # Iterate through time units and add them all!
-            for field, time in timestamp.get_state().items():
-                time_value = time.value if isinstance(time, Time) else time.total_seconds()
+            for field, time in timestamp.state_dict().items():
+                time_value = time if isinstance(time, int) else time.total_seconds()
                 timeseries.setdefault(field, []).append(time_value)
         # Convert to numpy arrays
         for k, v in timeseries.items():

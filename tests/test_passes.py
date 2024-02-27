@@ -84,10 +84,6 @@ class TestAlgorithmOrderingPasses:
     @pytest.mark.parametrize('algorithm_cls', [LowPrecisionLayerNorm])
     def test_algorithm_last(self, algorithm_cls: Type[Algorithm], always_match_algorithms: List[Algorithm],
                             dummy_logger: Logger, dummy_state: State):
-
-        if algorithm_cls == LowPrecisionLayerNorm:
-            pytest.importorskip('apex')
-
         algorithm = algorithm_cls()
         algorithm.apply = Mock(return_value='algo')
         algorithm.match = Mock(return_value=True)
