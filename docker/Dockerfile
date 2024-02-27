@@ -270,26 +270,6 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
         rm -rf /tmp/mofed ; \
     fi
 
-
-#####################
-# Install NVIDIA Apex
-#####################
-# skip if torch nightly is installed as there is incompatability
-RUN if [[ -n "$CUDA_VERSION" ]] &&  [[ -z "${PYTORCH_NIGHTLY_URL}" ]]; then \
-        mkdir -p /tmp/apex && \
-        cd /tmp/apex && \
-        git clone https://github.com/NVIDIA/apex && \
-        cd apex && \
-        git checkout 82ee367f3da74b4cd62a1fb47aa9806f0f47b58b && \
-        pip${PYTHON_VERSION} install --no-cache-dir -r requirements.txt && \
-        pip${PYTHON_VERSION} install --no-cache-dir \
-            --global-option="--cpp_ext" \
-            --global-option="--cuda_ext" \
-            --target  /usr/local/lib/python${PYTHON_VERSION}/dist-packages \
-            ./ && \
-        rm -rf /tmp/apex ; \
-    fi
-
 ##########################
 # Install Flash Attention
 ##########################
