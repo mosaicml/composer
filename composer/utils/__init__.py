@@ -25,6 +25,7 @@ from composer.utils.misc import (create_interval_scheduler, get_free_tcp_port, i
 from composer.utils.object_store import (GCSObjectStore, LibcloudObjectStore, MLFlowObjectStore, ObjectStore,
                                          ObjectStoreTransientError, OCIObjectStore, S3ObjectStore, SFTPObjectStore,
                                          UCObjectStore)
+from composer.utils.override_excepthook import override_excepthook
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
 
@@ -92,4 +93,5 @@ __all__ = [
     'LocalEvalClient',
     'MosaicMLLambdaEvalClient',
     'partial_format',
+    'override_excepthook',
 ]
