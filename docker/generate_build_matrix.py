@@ -23,8 +23,8 @@ PRODUCTION_PYTORCH_VERSION = '2.1.2'
 
 
 def _get_torchvision_version(pytorch_version: str):
-    if pytorch_version == '2.2.0':
-        return '0.17.0'
+    if pytorch_version == '2.2.1':
+        return '0.17.1'
     if pytorch_version == '2.1.2':
         return '0.16.2'
     if pytorch_version == '2.0.1':
@@ -42,7 +42,7 @@ def _get_cuda_version(pytorch_version: str, use_cuda: bool):
     # From https://docs.nvidia.com/deeplearning/frameworks/pytorch-release-notes/
     if not use_cuda:
         return ''
-    if pytorch_version == '2.2.0':
+    if pytorch_version == '2.2.1':
         return '12.1.0'
     if pytorch_version == '2.1.2':
         return '12.1.0'
@@ -163,7 +163,7 @@ def _write_table(table_tag: str, table_contents: str):
 
 
 def _main():
-    python_pytorch_versions = [('3.11', '2.2.0'), ('3.10', '2.1.2'), ('3.10', '2.0.1')]
+    python_pytorch_versions = [('3.11', '2.2.1'), ('3.10', '2.1.2'), ('3.10', '2.0.1')]
     cuda_options = [True, False]
     stages = ['pytorch_stage']
     interconnects = ['mellanox', 'EFA']  # mellanox is default, EFA needed for AWS
@@ -261,7 +261,7 @@ def _main():
     composer_entries = []
 
     # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
-    composer_versions = ['0.20.0']  # Only build images for the latest composer version
+    composer_versions = ['0.20.1']  # Only build images for the latest composer version
     composer_python_versions = [PRODUCTION_PYTHON_VERSION]  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):

@@ -57,7 +57,6 @@ if __name__ == '__main__':
     if len(name) > 56:
         name = name[:56]
 
-    s3_bucket_flag = '--s3_bucket mosaicml-internal-integration-testing'
     clear_tmp_path_flag = '-o tmp_path_retention_policy=none'
     command += f'''
 
@@ -65,7 +64,7 @@ if __name__ == '__main__':
 
     pip install --upgrade --user .[all]
 
-    export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}' {s3_bucket_flag} {clear_tmp_path_flag}"
+    export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}' {clear_tmp_path_flag}"
 
     make test PYTEST='{args.pytest_command}' EXTRA_ARGS="$COMMON_ARGS --codeblocks"
 

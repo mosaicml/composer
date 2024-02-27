@@ -2,7 +2,7 @@
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04
   CUDA_VERSION: 12.1.0
-  IMAGE_NAME: torch-2-2-0-cu121
+  IMAGE_NAME: torch-2-2-1-cu121
   MOFED_VERSION: 5.5-1.0.3.2
   NVIDIA_REQUIRE_CUDA_OVERRIDE: cuda>=12.1 brand=tesla,driver>=450,driver<451 brand=tesla,driver>=470,driver<471
     brand=unknown,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471
@@ -21,15 +21,15 @@
   PYTHON_VERSION: '3.11'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
-  PYTORCH_VERSION: 2.2.0
+  PYTORCH_VERSION: 2.2.1
   TAGS:
-  - mosaicml/pytorch:2.2.0_cu121-python3.11-ubuntu20.04
+  - mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
   TARGET: pytorch_stage
-  TORCHVISION_VERSION: 0.17.0
+  TORCHVISION_VERSION: 0.17.1
 - AWS_OFI_NCCL_VERSION: v1.7.4-aws
   BASE_IMAGE: nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04
   CUDA_VERSION: 12.1.0
-  IMAGE_NAME: torch-2-2-0-cu121-aws
+  IMAGE_NAME: torch-2-2-1-cu121-aws
   MOFED_VERSION: ''
   NVIDIA_REQUIRE_CUDA_OVERRIDE: cuda>=12.1 brand=tesla,driver>=450,driver<451 brand=tesla,driver>=470,driver<471
     brand=unknown,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471
@@ -48,25 +48,25 @@
   PYTHON_VERSION: '3.11'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
-  PYTORCH_VERSION: 2.2.0
+  PYTORCH_VERSION: 2.2.1
   TAGS:
-  - mosaicml/pytorch:2.2.0_cu121-python3.11-ubuntu20.04-aws
+  - mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04-aws
   TARGET: pytorch_stage
-  TORCHVISION_VERSION: 0.17.0
+  TORCHVISION_VERSION: 0.17.1
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: ubuntu:20.04
   CUDA_VERSION: ''
-  IMAGE_NAME: torch-2-2-0-cpu
+  IMAGE_NAME: torch-2-2-1-cpu
   MOFED_VERSION: ''
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
   PYTHON_VERSION: '3.11'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
-  PYTORCH_VERSION: 2.2.0
+  PYTORCH_VERSION: 2.2.1
   TAGS:
-  - mosaicml/pytorch:2.2.0_cpu-python3.11-ubuntu20.04
+  - mosaicml/pytorch:2.2.1_cpu-python3.11-ubuntu20.04
   TARGET: pytorch_stage
-  TORCHVISION_VERSION: 0.17.0
+  TORCHVISION_VERSION: 0.17.1
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04
   CUDA_VERSION: 12.1.0
@@ -246,9 +246,9 @@
   TORCHVISION_VERSION: 0.18.0
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04
-  COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.20.0
+  COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.20.1
   CUDA_VERSION: 12.1.0
-  IMAGE_NAME: composer-0-20-0
+  IMAGE_NAME: composer-0-20-1
   MOFED_VERSION: 5.5-1.0.3.2
   NVIDIA_REQUIRE_CUDA_OVERRIDE: cuda>=12.1 brand=tesla,driver>=450,driver<451 brand=tesla,driver>=470,driver<471
     brand=unknown,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471
@@ -269,15 +269,15 @@
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.1.2
   TAGS:
-  - mosaicml/composer:0.20.0
+  - mosaicml/composer:0.20.1
   - mosaicml/composer:latest
   TARGET: composer_stage
   TORCHVISION_VERSION: 0.16.2
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: ubuntu:20.04
-  COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.20.0
+  COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.20.1
   CUDA_VERSION: ''
-  IMAGE_NAME: composer-0-20-0-cpu
+  IMAGE_NAME: composer-0-20-1-cpu
   MOFED_VERSION: 5.5-1.0.3.2
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
   PYTHON_VERSION: '3.10'
@@ -285,7 +285,7 @@
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.1.2
   TAGS:
-  - mosaicml/composer:0.20.0_cpu
+  - mosaicml/composer:0.20.1_cpu
   - mosaicml/composer:latest_cpu
   TARGET: composer_stage
   TORCHVISION_VERSION: 0.16.2
