@@ -426,39 +426,6 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
                                                                      output_logits=output_logits,
                                                                      labels=labels,
                                                                      outputs=outputs)
-        # perplexities = []
-        # for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
-        #     # continuation indices refer to indices in the original input's token space
-        #     cont_tok_logits = outputs[batch_idx].index_select(dim=0, index=cont_idx - 1)
-        #     log_probs = cont_tok_logits[:, prompt_ids.squeeze(0)]
-
-        #     ic(cont_tok_logits.shape)
-        #     cont_tok_log_probs = cont_tok_logits.log_softmax(-1)
-        #     perplexities.append(cont_tok_log_probs)
-        # ic(perplexities)
-
-
-
-        # perplexities = []
-        # for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
-        #     # continuation indices refer to indices in the original input's token space
-        #     # labels have been shifted left by one index, so the cont_idx needs to be shifted as well.
-        #     cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1) #(C,)
-        #     logits = outputs[batch_idx].index_select(dim=0, index=cont_idx - 1) # (C,V)
-
-        #     ic(logits.shape, logits)
-        #     ic(cont_tok_targ.shape, cont_tok_targ)
-
-        #     # logits to log probs
-        #     log_probs = logits.log_softmax(-1) # (C,V)
-        #     ic(log_probs.shape)
-
-        #     # extract log probs for each token in the answer
-        #     cont_tok_log_probs = log_probs[range(cont_tok_targ.shape[0]), cont_tok_targ] # (C,)
-        #     ic(log_probs.shape)
-
-        #     perplexities.append(cont_tok_log_probs.sum().item())
-
 
         from transformers import AutoTokenizer
         tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-125m")
@@ -502,26 +469,6 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
             correct_prob = sum(probs_true_list) / sum(probs_subset)
             self.correct_prob += correct_prob
             self.total += torch.tensor(1.0)
-
-
-        # for (start, end), gold_idxs in zip(batch['choice_groupings'], batch['gold_indices']):
-        #     perplexities_subset = perplexities[start:end]
-        #     perplexities_subset = [-40.63508224487305, -50.804962158203125, -30.274763107299805, -28.96441650390625, -23.387189865112305, -27.486000061035156, -29.551237106323242]
-        #     ic(perplexities_subset)
-        #     start, end = 0, len(perplexities_subset)
-        #     gold_idxs = [0, 1, 2, 3]
-        #     # get perplexity of all correct continuations, i.e. those in gold_idxs
-        #     true_perplexities = [p for idx, p in enumerate(perplexities_subset, start=start) if idx in gold_idxs]
-        #     true_perplexities = torch.tensor(true_perplexities, device=self.correct_prob.get_device())
-        #     ic(true_perplexities)
-        #     # normalize to get the probability of each correct continuation
-        #     true_probs = true_perplexities / sum(perplexities_subset)
-        #     ic(true_probs)
-        #     # get the total probability of all the correct continuations
-        #     correct_prob = sum(true_probs)
-        #     ic(correct_prob)
-        #     self.correct_prob += correct_prob
-        #     self.total += torch.tensor(1.0)
 
     def compute(self):
         assert isinstance(self.correct_prob, Tensor)
