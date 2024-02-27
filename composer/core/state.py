@@ -1181,7 +1181,7 @@ class State(Serializable):
                         except AssertionError as e:
                             if self.fsdp_state_dict_type == 'sharded' and self.fsdp_fallback_to_monolithic:
                                 # If the state dict type of the checkpoint is not sharded
-                                with fsdp_state_dict_type_context(self.model, state_dict_type=None):
+                                with fsdp_state_dict_type_context(self.model, state_dict_type='full'):
                                     missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'],
                                                                                                strict=strict)
                             else:
