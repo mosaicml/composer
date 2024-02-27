@@ -389,12 +389,25 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
         return self.correct / self.total
 
 
-class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
-    r"""Computes accuracy for In-context learning (ICL) multiple choice (MC) tasks.
+class InContextLearningMultipleChoiceMultipleAnswersProb(InContextLearningMetric):
+    r"""Computes the probability for In-context learning (ICL) multiple choice (MC) tasks where questions can have multiple answers (MA)
+    that are correct.
 
     ICL MC tasks consists of a series of questions with some number of possible choices (one or more of which must be correct).
-    At inference time each possible choice is given to the model as a separate input and the one for which the model assigns
+    At inference time each possible choice is given to the model as a separate input. For each choice, we compute the normalized probability
+    mass and then sum the probability mass of all the correct choices. This metric tracks the average of this sum, i.e. the average
+    probability of all the correct choices.
+
+    one for which the model assigns
+    the normalized probability mass for correct answers
     the lowest perplexity to the choice is considered the model's choice. The model is correct if it "chooses" the right answer.
+
+    This metric differs from the `InContextLearningMultipleChoice` metric in several key ways:
+    1. This metric allows a question to have multiple correct answers while in `InContextLearningMultipleChoice` each question
+    can only have one correct answer.
+    2. This metric is fundamentally the average probability the model predicts the correct answers whereas
+    `InContextLearningMultipleChoice` measures the accuracy.
+
 
     Context: `The dog is->fuzzy\nthe water is->hot\nthe tree is->`
     Continuation: `green`
@@ -427,29 +440,26 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
                                                                      labels=labels,
                                                                      outputs=outputs)
 
-        from transformers import AutoTokenizer
-        tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-125m")
-
-        probs = []
+        cont_probs = []
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
-            max_idx = 200
-            text = ''.join(tokenizer.batch_decode(batch["input_ids"][batch_idx][:max_idx]))
-            # if "excreted" not in text:
-            #     continue
 
             # Get log probs over the entire vocabulary
             logits = outputs[batch_idx] # (seq, vocab)
             log_probs = logits.log_softmax(-1) # (seq, vocab)
 
             # Obtain log-probs at the corresponding continuation token indices
-            cont_tok_targ_idxs = labels[batch_idx].index_select(dim=0, index=cont_idx - 1) # (continuation,)
+            cont_tok_idxs = labels[batch_idx].index_select(dim=0, index=cont_idx - 1) # (continuation,)
             cont_tok_log_probs_over_vocab = log_probs.index_select(dim=0, index=cont_idx - 1) # (continuation, vocab)
-            cont_tok_log_probs = torch.gather(cont_tok_log_probs_over_vocab, 1, cont_tok_targ_idxs.unsqueeze(1)) # (continuation,)
+            cont_tok_log_probs = torch.gather(cont_tok_log_probs_over_vocab, 1, cont_tok_idxs.unsqueeze(1)) # (continuation,)
 
-            # Get total probability mass of the continuation
+            # Get total probability mass of the continuation tokens
             total_cont_tok_probs = cont_tok_log_probs.sum().exp().item()
-            probs.append(total_cont_tok_probs)
+            cont_probs.append(total_cont_tok_probs)
 
+            # from transformers import AutoTokenizer
+            # tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-125m")
+            # max_idx = 200
+            # text = ''.join(tokenizer.batch_decode(batch["input_ids"][batch_idx][:max_idx]))
             # # print
             # ic(
             #     batch_idx,
@@ -463,9 +473,9 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
             #     )
 
         for (start, end), gold_idxs in zip(batch['choice_groupings'], batch['gold_indices']):
-            probs_subset = probs[start: end]
-            probs_true_list = [p for idx, p in enumerate(probs_subset, start=start) if idx in gold_idxs]
-            correct_prob = sum(probs_true_list) / sum(probs_subset)
+            _cont_probs = cont_probs[start: end]
+            probs_true = [p for idx, p in enumerate(_cont_probs, start=start) if idx in gold_idxs]
+            correct_prob = sum(probs_true) / sum(_cont_probs)
             self.correct_prob += correct_prob
             self.total += torch.tensor(1.0)
 
