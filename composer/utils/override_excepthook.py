@@ -11,28 +11,34 @@ from datetime import datetime
 from rich.console import Console
 from rich.traceback import Traceback
 
-from composer.loggers.mosaicml_logger import MOSAICML_GPU_EXCEPTION_LOG_FILE_PREFIX_ENV_VAR
+MOSAICML_GPU_EXCEPTION_LOG_FILE_PREFIX_ENV_VAR = 'MOSAICML_GPU_EXCEPTION_LOG_FILE_PREFIX'
 
 
 def override_excepthook():
     """Override default except hook to log exceptions in a JSONL file and stderr."""
+
     def log_exception(exc_type, exc_value, tb):
         console = Console(file=sys.stderr, force_terminal=True)
         console.print(Traceback.from_exception(exc_type, exc_value, tb))
-        if os.environ.get('LOCAL_RANK') is not None and os.environ.get('NODE_RANK') is not None and os.environ.get('RESUMPTION_ID') is not None:
+        log_file_prefix = os.environ.get(MOSAICML_GPU_EXCEPTION_LOG_FILE_PREFIX_ENV_VAR)
+        local_rank = os.environ.get('LOCAL_RANK')
+        if local_rank is not None and os.environ.get('NODE_RANK') is not None and os.environ.get(
+                'RESUMPTION_ID') is not None and log_file_prefix is not None:
             exception = {
                 'asctime': datetime.now(),
-                'gpu_rank': os.environ.get('LOCAL_RANK'),
+                'gpu_rank': local_rank,
                 'node_rank': os.environ.get('NODE_RANK'),
                 'resumption_id': os.environ.get('RESUMPTION_ID'),
-                'exception_class': exc_type.__name__, 
+                'exception_class': exc_type.__name__,
                 'message': str(exc_value),
                 'traceback': Traceback.from_exception(exc_type, exc_value, tb)
             }
-            with open(f"{MOSAICML_GPU_EXCEPTION_LOG_FILE_PREFIX_ENV_VAR}{os.environ.get('LOCAL_RANK')}.jsonl", "a") as log_file:
+            with open(f'{log_file_prefix}{local_rank}.jsonl', 'a') as log_file:
                 json.dump(exception, log_file)
-                log_file.write("\n")
+                log_file.write('\n')
+
     sys.excepthook = log_exception
 
-if hasattr(sys, "excepthook"):
+
+if hasattr(sys, 'excepthook'):
     override_excepthook()
