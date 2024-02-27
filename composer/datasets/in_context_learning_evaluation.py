@@ -1185,8 +1185,6 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         Returns:
             Dict: Contains a dictionary with the tokenized data
         """
-        ic(example)
-        print(example)
         prompt_and_fewshot = self._generate_few_shot_prompt(num_fewshot, example_idx, prompt_string, fewshot_rng)
         ctxt = self._construct_multiple_contexts(example, prompt_and_fewshot)
         tokenized_example = self.tokenize_example(prompt_and_fewshot, ctxt, example)
