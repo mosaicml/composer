@@ -3,9 +3,12 @@
 
 """Periodically log generations from a set of prompts."""
 
+import gc
 import logging
 import time
 from typing import Any, List, Optional, Union, cast
+
+import torch
 
 from composer.core import Callback, Event, State, Time, get_precision_context
 from composer.loggers import Logger
@@ -88,6 +91,11 @@ class Generate(Callback):
         output_token_ids = []
         # dummy forward call needed for FSDP to work consistently
         model.dummy_forward_called = False
+
+        # Call garbage collection to free any unused memory before generation.
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         n_prompts = len(self.prompts)
         for start in range(0, n_prompts, self.batch_size):
