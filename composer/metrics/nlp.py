@@ -390,30 +390,21 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
 
 
 class InContextLearningMultipleChoiceMultipleAnswersProb(InContextLearningMetric):
-    r"""Computes the probability for In-context learning (ICL) multiple choice (MC) tasks where questions can have multiple answers (MA)
-    that are correct.
+    r"""Metric for In-context learning (ICL) multiple choice (MC) tasks where questions can have multiple correct answers (MA).
 
     ICL MC tasks consists of a series of questions with some number of possible choices (one or more of which must be correct).
-    At inference time each possible choice is given to the model as a separate input. For each choice, we compute the normalized probability
-    mass and then sum the probability mass of all the correct choices. This metric tracks the average of this sum, i.e. the average
-    probability of all the correct choices.
-
-    one for which the model assigns
-    the normalized probability mass for correct answers
-    the lowest perplexity to the choice is considered the model's choice. The model is correct if it "chooses" the right answer.
+    At inference time each possible choice is given to the model as a separate input. We compute the normalized probability
+    mass of each choice and then sum the probability mass of all the correct choices. This metric tracks the average of this sum,
+    i.e. the average sum of the probability of all the correct choices.
 
     This metric differs from the `InContextLearningMultipleChoice` metric in several key ways:
     1. This metric allows a question to have multiple correct answers while in `InContextLearningMultipleChoice` each question
     can only have one correct answer.
-    2. This metric is fundamentally the average probability the model predicts the correct answers whereas
-    `InContextLearningMultipleChoice` measures the accuracy.
-
-
-    Context: `The dog is->fuzzy\nthe water is->hot\nthe tree is->`
-    Continuation: `green`
+    2. This metric is fundamentally the average sum of the probability of all the correct choices whereas
+    `InContextLearningMultipleChoice` measures the accuracy of giving the lowest perplexity the correct choice.
 
     Adds metric state variables:
-        correct (float): The number of instances where the prediction masked the target.
+        correct_prob (float): The sum of the probability of all correct choices.
         total (float): The number of total instances that were predicted.
 
     Args:
@@ -440,7 +431,7 @@ class InContextLearningMultipleChoiceMultipleAnswersProb(InContextLearningMetric
                                                                      labels=labels,
                                                                      outputs=outputs)
 
-        cont_probs = []
+        choice_probs = [] # prob of all choices
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
 
             # Get log probs over the entire vocabulary
@@ -454,7 +445,7 @@ class InContextLearningMultipleChoiceMultipleAnswersProb(InContextLearningMetric
 
             # Get total probability mass of the continuation tokens
             total_cont_tok_probs = cont_tok_log_probs.sum().exp().item()
-            cont_probs.append(total_cont_tok_probs)
+            choice_probs.append(total_cont_tok_probs)
 
             # from transformers import AutoTokenizer
             # tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-125m")
@@ -473,9 +464,10 @@ class InContextLearningMultipleChoiceMultipleAnswersProb(InContextLearningMetric
             #     )
 
         for (start, end), gold_idxs in zip(batch['choice_groupings'], batch['gold_indices']):
-            _cont_probs = cont_probs[start: end]
-            probs_true = [p for idx, p in enumerate(_cont_probs, start=start) if idx in gold_idxs]
-            correct_prob = sum(probs_true) / sum(_cont_probs)
+            probs = choice_probs[start: end]
+            correct_probs_list = [p for idx, p in enumerate(probs, start=start) if idx in gold_idxs]
+            correct_probs_list = [p / sum(probs) for p in correct_probs_list] # normalize
+            correct_prob = sum(correct_probs_list)
             self.correct_prob += correct_prob
             self.total += torch.tensor(1.0)
 
