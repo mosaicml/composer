@@ -442,9 +442,9 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
             log_probs = logits.log_softmax(-1) # (seq, vocab)
 
             # Obtain log-probs at the corresponding continuation token indices
-            cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1) # (continuation,)
+            cont_tok_targ_idxs = labels[batch_idx].index_select(dim=0, index=cont_idx - 1) # (continuation,)
             cont_tok_log_probs_over_vocab = log_probs.index_select(dim=0, index=cont_idx - 1) # (continuation, vocab)
-            cont_tok_log_probs = torch.gather(cont_tok_log_probs_over_vocab, 1, cont_tok_targ.unsqueeze(1)) # (continuation,)
+            cont_tok_log_probs = torch.gather(cont_tok_log_probs_over_vocab, 1, cont_tok_targ_idxs.unsqueeze(1)) # (continuation,)
 
             # Get total probability mass of the continuation
             total_cont_tok_probs = cont_tok_log_probs.sum().exp().item()
