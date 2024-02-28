@@ -44,14 +44,10 @@ def override_excepthook():
                 log_file.write('\n')
 
     sys.excepthook = log_exception
-
-
-if __name__ == '__main__':
-    override_excepthook()
-    training_script = os.environ.get('TRAINING_SCRIPT')
-    if training_script is not None:
-        with open(training_script) as f:
-            code = compile(f.read(), training_script, 'exec')
-            exec(code, globals(), locals())
-    else:
-        raise ValueError('TRAINING_SCRIPT environment variable not set')
+    # training_script = os.environ.get('TRAINING_SCRIPT')
+    # if training_script is not None:
+    #     with open(training_script) as f:
+    #         code = compile(f.read(), training_script, 'exec')
+    #         exec(code, globals(), locals())
+    # else:
+    #     raise ValueError('TRAINING_SCRIPT environment variable not set')

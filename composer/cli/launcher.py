@@ -16,6 +16,7 @@ import time
 import traceback
 import warnings
 from argparse import ArgumentParser
+from importlib import import_module
 from typing import Any, Dict, List, Union
 
 import psutil
@@ -23,7 +24,7 @@ import torch
 
 import composer
 from composer.loggers.mosaicml_logger import (MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR, MOSAICML_LOG_DIR_ENV_VAR,
-                                              MOSAICML_PLATFORM_ENV_VAR,)
+                                              MOSAICML_PLATFORM_ENV_VAR)
 from composer.utils import get_free_tcp_port
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
@@ -276,17 +277,16 @@ def _launch_processes(
         if command_mode and module_mode:
             raise ValueError('Either `command_mode` or `module_mode` should be set, but not both.')
         cmd = []
-        if not command_mode:
-            cmd.append(sys.executable)
-        if module_mode:
-            cmd.append('-m')
-
-        warnings.warn(os.path.abspath('../composer/utils/override_excepthook.py'))
-        warnings.warn(os.path.abspath('/../utils/override_excepthook.py'))
-
         if override_excepthook:
-            cmd.append(os.path.abspath('../composer/utils/override_excepthook.py'))
+            override_command = f"import sys; from composer.utils import override_excepthook; override_excepthook(); exec(open('{training_script}').read())"
+            cmd.append(sys.executable)
+            cmd.append('-c')
+            cmd.append(override_command)
         else:
+            if not command_mode:
+                cmd.append(sys.executable)
+            if module_mode:
+                cmd.append('-m')
             cmd.append(training_script)
 
         # Update the env with the distributed variables
@@ -300,7 +300,6 @@ def _launch_processes(
                 MASTER_PORT=str(master_port),
                 PYTHONUNBUFFERED='1',
                 NCCL_ASYNC_ERROR_HANDLING='1',
-                TRAINING_SCRIPT=str(training_script),
         ):
             # Populate the distributed variables in all launcher args
             for arg in training_script_args:
