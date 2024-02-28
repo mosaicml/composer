@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Excepthook override for MosaicML logging"""
+"""Excepthook override for MosaicML logging."""
 
 import json
 import os
@@ -9,6 +9,7 @@ import sys
 import time
 import warnings
 from datetime import datetime
+from io import StringIO
 
 from rich.console import Console
 from rich.traceback import Traceback
@@ -24,6 +25,11 @@ def override_excepthook():
         warnings.warn('in override excepthook log exception')
         console = Console(file=sys.stderr, force_terminal=True)
         console.print(Traceback.from_exception(exc_type, exc_value, tb))
+
+        string_io = StringIO()
+        string_console = Console(file=string_io, force_terminal=True)
+        string_console.print(Traceback.from_exception(exc_type, exc_value, tb))
+        traceback_string = string_io.getvalue()
         log_file_prefix = os.environ.get(MOSAICML_GPU_EXCEPTION_LOG_FILE_PREFIX_ENV_VAR)
         local_rank = os.environ.get('LOCAL_RANK')
         if local_rank is not None and os.environ.get('NODE_RANK') is not None and os.environ.get(
@@ -35,7 +41,7 @@ def override_excepthook():
                 'resumption_id': os.environ.get('RESUMPTION_ID'),
                 'exception_class': exc_type.__name__,
                 'message': str(exc_value),
-                'traceback': Traceback.from_exception(exc_type, exc_value, tb)
+                'traceback': traceback_string
             }
             warnings.warn(
                 f'Logging exception to {os.environ.get(MOSAICML_LOG_DIR_ENV_VAR)}/{log_file_prefix}{local_rank}.jsonl')
