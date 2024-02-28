@@ -16,6 +16,9 @@ from composer.core.time import Time
 from composer.devices import Device, DeviceGPU
 from composer.utils import create_interval_scheduler
 
+# from icecream import ic
+
+
 __all__ = ['Evaluator', 'ensure_evaluator', 'validate_eval_automicrobatching']
 
 
@@ -90,6 +93,7 @@ class Evaluator:
             if not isinstance(metric_names, list):
                 raise ValueError(f'``metric_names`` should be a list of strings, not a {type(metric_names)}')
         self.metric_names = metric_names
+        # ic(self.metric_names)
 
         self.subset_num_batches = subset_num_batches
         self._eval_interval = None

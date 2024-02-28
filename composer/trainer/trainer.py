@@ -20,14 +20,29 @@ import warnings
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
-from typing import (Any, Callable, ContextManager, Dict, Iterable, List, Mapping, Optional, Sequence, TextIO, Tuple,
-                    Union, cast)
+from typing import (
+    Any,
+    Callable,
+    ContextManager,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    TextIO,
+    Tuple,
+    Union,
+    cast,
+)
 
 import coolname
 import torch
 import torch.distributed
 import torch.nn as nn
 import torch.utils.data
+
+# from icecream import ic
 from torch._dynamo import OptimizedModule
 from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
 from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
@@ -36,29 +51,92 @@ from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
 
-from composer.callbacks import CheckpointSaver, MemorySnapshot, OOMObserver, OptimizerMonitor
-from composer.core import (Algorithm, AlgorithmPass, Batch, Callback, DataSpec, Engine, Evaluator, Event, Precision,
-                           State, Time, Timestamp, TimeUnit, TrainerMode, ensure_data_spec, ensure_evaluator,
-                           ensure_time, get_precision_context, validate_eval_automicrobatching)
+from composer.callbacks import (
+    CheckpointSaver,
+    MemorySnapshot,
+    OOMObserver,
+    OptimizerMonitor,
+)
+from composer.core import (
+    Algorithm,
+    AlgorithmPass,
+    Batch,
+    Callback,
+    DataSpec,
+    Engine,
+    Evaluator,
+    Event,
+    Precision,
+    State,
+    Time,
+    Timestamp,
+    TimeUnit,
+    TrainerMode,
+    ensure_data_spec,
+    ensure_evaluator,
+    ensure_time,
+    get_precision_context,
+    validate_eval_automicrobatching,
+)
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
-from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, MLFlowLogger, MosaicMLLogger, ProgressBarLogger,
-                              RemoteUploaderDownloader, WandBLogger)
-from composer.loggers.mosaicml_logger import MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR
+from composer.loggers import (
+    ConsoleLogger,
+    Logger,
+    LoggerDestination,
+    MLFlowLogger,
+    MosaicMLLogger,
+    ProgressBarLogger,
+    RemoteUploaderDownloader,
+    WandBLogger,
+)
+from composer.loggers.mosaicml_logger import (
+    MOSAICML_ACCESS_TOKEN_ENV_VAR,
+    MOSAICML_PLATFORM_ENV_VAR,
+)
 from composer.models import ComposerModel
 from composer.optim import ComposerScheduler, DecoupledSGDW, compile_composer_scheduler
 from composer.profiler import Profiler
-from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
+from composer.trainer._deepspeed import (
+    _fix_batch_precision_for_deepspeed,
+    _parse_deepspeed_config,
+)
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
-from composer.trainer.dist_strategy import (DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module,
-                                            set_fsdp_default)
-from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectStore, Transform, checkpoint, dist,
-                            ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist,
-                            get_composer_env_dict, get_device, get_file, is_tpu_installed, map_collection,
-                            maybe_create_object_store_from_uri, maybe_create_remote_uploader_downloader_from_uri,
-                            model_eval_mode, parse_uri, partial_format, reproducibility)
+from composer.trainer.dist_strategy import (
+    DDPSyncStrategy,
+    ddp_sync_context,
+    prepare_ddp_module,
+    prepare_fsdp_module,
+    set_fsdp_default,
+)
+from composer.utils import (
+    ExportFormat,
+    MissingConditionalImportError,
+    ObjectStore,
+    Transform,
+    checkpoint,
+    dist,
+    ensure_tuple,
+    export_with_logger,
+    extract_hparams,
+    format_name_with_dist,
+    get_composer_env_dict,
+    get_device,
+    get_file,
+    is_tpu_installed,
+    map_collection,
+    maybe_create_object_store_from_uri,
+    maybe_create_remote_uploader_downloader_from_uri,
+    model_eval_mode,
+    parse_uri,
+    partial_format,
+    reproducibility,
+)
 from composer.utils.misc import is_model_deepspeed
-from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
+from composer.utils.object_store.mlflow_object_store import (
+    MLFLOW_EXPERIMENT_ID_FORMAT_KEY,
+    MLFLOW_RUN_ID_FORMAT_KEY,
+)
 
 if is_tpu_installed():
     import torch_xla.core.xla_model as xm
@@ -109,6 +187,7 @@ def _get_default_scheduler_frequency(schedulers: Optional[Union[Scheduler, Seque
 def _filter_metrics(metrics: Dict[str, Metric], metric_names: Optional[List[str]]) -> Dict[str, Metric]:
     """Filter the metrics based on the given metric_names as regex strings (e.g. 'Accuracy', 'f1' for 'BinaryF1Score', 'Top-.' for 'Top-1 Accuracy' and 'Top-2 Accuracy', etc). If no metric_names are provided, all metrics will be returned."""
     metrics = deepcopy(metrics)
+    # ic(metrics, metric_names)
     if metric_names is None:
         return metrics
     filtered_metrics = {}
@@ -1259,6 +1338,7 @@ class Trainer:
         else:
             eval_metrics = deepcopy(self.state.model.get_metrics(is_train=False))
             model_metric_names = [str(k) for k in eval_metrics.keys()]
+            # ic(eval_metrics, model_metric_names)
             eval_dataloader = ensure_tuple(eval_dataloader)
 
             evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in eval_dataloader]
@@ -1889,6 +1969,7 @@ class Trainer:
             # could be DDP / DeepSpeed wrapped.
             eval_metrics = self._original_model.get_metrics(is_train=False)
             metric_names = [str(k) for k in eval_metrics.keys()]
+            # ic(eval_metrics, model_metric_names)
             eval_dataloader = ensure_tuple(eval_dataloader)
 
             evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in eval_dataloader]
@@ -2800,6 +2881,7 @@ class Trainer:
             eval_passed_in = True
             eval_metrics = deepcopy(self._original_model.get_metrics(is_train=False))
             metric_names = [str(k) for k in eval_metrics.keys()]
+            # ic(eval_metrics)
 
             eval_dataloader = ensure_tuple(eval_dataloader)
 

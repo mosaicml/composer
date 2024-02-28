@@ -11,16 +11,18 @@ import random
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
 
 import torch
-from icecream import ic
-
-ic.configureOutput(includeContext=True)
-
 from torch.utils.data import DataLoader, Dataset
 
 from composer.core import DataSpec
 from composer.core.data_spec import _default_split_batch, _split_list
 from composer.datasets.utils import stop_sequences_criteria
 from composer.utils import MissingConditionalImportError, dist, get_file
+
+# from icecream import ic
+
+# ic.configureOutput(includeContext=True)
+
+
 
 if TYPE_CHECKING:
     import transformers
