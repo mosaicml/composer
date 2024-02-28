@@ -735,7 +735,8 @@ class State(Serializable):
 
     @property
     def fsdp_elastic_sharded_enabled(self):
-        warnings.warn('state.fsdp_elastic_sharded_enabled is deprecated and will be removed v0.21.0')
+        warnings.warn('state.fsdp_elastic_sharded_enabled is deprecated and will be removed v0.21.0',
+                      DeprecationWarning)
         return self.fsdp_sharded_state_dict_enabled
 
     @property
