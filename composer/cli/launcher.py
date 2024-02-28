@@ -486,7 +486,9 @@ def main():
             os.environ.get(MOSAICML_LOG_DIR_ENV_VAR, 'false')).lower() != 'false' and os.environ.get(
                 MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR, 'false').lower() != 'false':
         log.info('Logging all GPU ranks and exceptions to Mosaic Platform.')
-        log.info('Overriding the excepthook')
+        warnings.warn(
+                'Overriding the excepthook.'
+            )
         override_excepthook()
         log_file_format = f'{os.environ.get(MOSAICML_LOG_DIR_ENV_VAR)}/{os.environ.get(MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR)}{{local_rank}}.txt'
         if args.stderr is not None or args.stdout is not None:
