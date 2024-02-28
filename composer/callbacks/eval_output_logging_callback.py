@@ -9,12 +9,14 @@ from typing import Any, Dict, List, Sequence, Union
 
 import torch
 
+import logging
 from composer.core import Callback, State
 from composer.loggers import ConsoleLogger, Logger
 from composer.utils.dist import all_gather_object
 
 # from torch.utils.data import DataLoader, Dataset
 
+log = logging.getLogger(__name__)
 
 class EvalOutputLogging(Callback):
     """Logs eval outputs for each sample of each ICL evaluation dataset.
@@ -88,11 +90,13 @@ class EvalOutputLogging(Callback):
         if not self.name:
             self.name = f'{state.run_name}_{state.dataloader_label}_step_{step}'
             self.columns = columns
+            log.info(f"Setting name to {self.name} and columns to {self.columns}")
         self.rows.extend(rows)
 
     def eval_end(self, state: State, logger: Logger) -> None:
         list_of_rows = all_gather_object(self.rows)
         rows = [row for rows in list_of_rows for row in rows]
+        log.info(f"Logging {len(rows)} rows during eval_end!")
         for dest_logger in logger.destinations:
             if not isinstance(dest_logger, ConsoleLogger):
                 dest_logger.log_table(self.columns, rows, name=self.name, step=state.timestamp.batch.value)
