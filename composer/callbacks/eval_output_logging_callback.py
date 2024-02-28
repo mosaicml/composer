@@ -11,6 +11,7 @@ import torch
 
 from composer.core import Callback, State
 from composer.loggers import ConsoleLogger, Logger
+from composer.utils.dist import all_gather_object
 
 # from torch.utils.data import DataLoader, Dataset
 
@@ -24,9 +25,13 @@ class EvalOutputLogging(Callback):
     any keys from the batch pased into `batch_keys_to_log`. It will do so after every eval batch.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, log_tokens=False, *args, **kwargs):
         super().__init__(self, *args, **kwargs)
         self.warn_batch_is_not_dict = True
+        self.log_tokens = log_tokens
+        self.columns = None
+        self.name = None
+        self.rows = []
 
     def eval_batch_end(self, state: State, logger: Logger) -> None:
         if not isinstance(state.batch, Dict):
@@ -58,6 +63,11 @@ class EvalOutputLogging(Callback):
                 state.dataloader.dataset.tokenizer.decode(depadded_input))  # pyright: ignore[reportGeneralTypeIssues]
         logging_dict['input'] = logged_input
 
+        if self.log_tokens:
+            logging_dict['input_tokens'] = input_ids.tolist()
+            if not state.batch['mode'] == 'generate':
+                logged_input['label_tokens'] = state.outputs.tolist()
+
         # Get column names
         columns = list(logging_dict.keys())
         # Convert logging_dict from kv pairs of column name and column values to a list of rows
@@ -75,7 +85,21 @@ class EvalOutputLogging(Callback):
 
         assert state.dataloader_label is not None
         step = state.timestamp.batch.value
-        name = f'{state.dataloader_label}_step_{step}'
+        if not self.name:
+            self.name = f'{state.dataloader_label}_step_{step}'
+            self.columns = columns
+        self.rows.extend(rows)
+        # for dest_logger in logger.destinations:
+        #     if not isinstance(dest_logger, ConsoleLogger):
+        #         dest_logger.log_table(columns, rows, name=name, step=state.timestamp.batch.value)
+
+    def eval_end(self, state: State, logger: Logger) -> None:
+        list_of_rows = all_gather_object(self.rows)
+        rows = [row for rows in list_of_rows for row in rows]
         for dest_logger in logger.destinations:
             if not isinstance(dest_logger, ConsoleLogger):
-                dest_logger.log_table(columns, rows, name=name, step=state.timestamp.batch.value)
+                dest_logger.log_table(self.columns, rows, name=self.name, step=state.timestamp.batch.value)
+
+        self.rows = []
+        self.name = None
+        self.columns = None
