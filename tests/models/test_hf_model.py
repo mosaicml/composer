@@ -1195,17 +1195,38 @@ def test_eval_forward_generate(device, world_size, hf_model, hf_tokenizer, use_f
     for k, v in input_dict.items():
         input_dict[k] = device.tensor_to_device(v)
     input_dict['mode'] = 'generate'
+    input_dict['generation_kwargs'] = {}
 
-    input_dict['generation_length'] = 5
+    input_dict['generation_kwargs']['max_new_tokens'] = 5
     input_dict['labels'] = [['answer1'], ['answer2']]
     generation1 = model.eval_forward(input_dict, None)
-    input_dict['generation_length'] = 3
+    input_dict['generation_kwargs']['max_new_tokens'] = 3
     input_dict['labels'] = [['answer1'], ['answer2']]
     generation2 = model.eval_forward(input_dict, None)
 
     assert len(generation1) == len(generation2) == 2
     assert all(isinstance(decoded_generation, str) for decoded_generation in generation1)
     assert all(isinstance(decoded_generation, str) for decoded_generation in generation2)
+
+
+def test_eval_forward_generate_adjust_generation_length(tiny_gpt2_model, tiny_gpt2_tokenizer):
+    model = HuggingFaceModel(tiny_gpt2_model, tokenizer=tiny_gpt2_tokenizer, use_logits=True)
+    input_dict = tiny_gpt2_tokenizer(['hello', 'goodbyes'], return_tensors='pt', padding=True)
+
+    input_dict['mode'] = 'generate'
+    input_dict['generation_kwargs'] = {}
+    input_dict['generation_length'] = 5
+    input_dict['labels'] = [['answer1'], ['answer2']]
+    with pytest.warns(DeprecationWarning):
+        generation1 = model.eval_forward(input_dict, None)
+
+        input_dict['generation_length'] = 3
+        input_dict['labels'] = [['answer1'], ['answer2']]
+        generation2 = model.eval_forward(input_dict, None)
+
+        assert len(generation1) == len(generation2) == 2
+        assert all(isinstance(decoded_generation, str) for decoded_generation in generation1)
+        assert all(isinstance(decoded_generation, str) for decoded_generation in generation2)
 
 
 @pytest.mark.parametrize('peft_type', ['LORA', 'loRa'])

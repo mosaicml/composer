@@ -715,10 +715,10 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
             'mode': 'generate',
             'labels': [],
             'cot_delimiter': self.cot_delimiter,
-            'generation_length': self.max_answer_length,
             'stopping_criteria': early_stopping_criteria,
             'do_normalization': do_normalization,
             'generation_kwargs': {
+                'max_new_tokens': self.max_answer_length,
                 'pad_token_id': self.pad_tok_id,
                 'use_cache': True,
                 'eos_token_id': self.tokenizer.eos_token_id,
@@ -1260,7 +1260,6 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
     - test_outputs: List of test outputs
     - languages:  List of languages
     - pass_at_k: Passed value for pass_at_k
-    - generation_length: Derrived maximum generation length
     - generation_kwargs: Dictionary of kwargs neeeded for generation. Includes the following, which will be individually overwritten
       by keys in generaiton_kwargs if set (see https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig
       for more details):
@@ -1349,7 +1348,6 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             'test_outputs': [],
             'languages': [],
             'pass_at_k': pass_at_k,
-            'generation_length': min(self.max_answer_length, self.max_seq_len - self.max_prompt_length),
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
                 'num_beams': 1,  # single beam
@@ -1357,6 +1355,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
                 'temperature': 0.2,  # good default for code
                 'use_cache': True,
                 'eos_token_id': self.tokenizer.eos_token_id,
+                'max_new_tokens': min(self.max_answer_length, self.max_seq_len - self.max_prompt_length),
             },
             'sample_id': [],
             'pass_at_k': list(pass_at_k),
