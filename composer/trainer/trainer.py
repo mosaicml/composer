@@ -29,7 +29,8 @@ import torch.distributed
 import torch.nn as nn
 import torch.utils.data
 from torch._dynamo import OptimizedModule
-from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
+from torch.amp.grad_scaler import _refresh_per_optimizer_state
+from torch.cuda.amp.grad_scaler import GradScaler
 from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.distributed.fsdp._runtime_utils import _post_backward_final_callback
 from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
