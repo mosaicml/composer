@@ -12,12 +12,13 @@ from rich.console import Console
 from rich.traceback import Traceback
 
 MOSAICML_GPU_EXCEPTION_LOG_FILE_PREFIX_ENV_VAR = 'MOSAICML_GPU_EXCEPTION_LOG_FILE_PREFIX'
-
+MOSAICML_LOG_DIR_ENV_VAR = 'MOSAICML_LOG_DIR'
 
 def override_excepthook():
     """Override default except hook to log exceptions in a JSONL file and stderr."""
 
     def log_exception(exc_type, exc_value, tb):
+        print("in override excepthook log exception")
         console = Console(file=sys.stderr, force_terminal=True)
         console.print(Traceback.from_exception(exc_type, exc_value, tb))
         log_file_prefix = os.environ.get(MOSAICML_GPU_EXCEPTION_LOG_FILE_PREFIX_ENV_VAR)
@@ -33,7 +34,8 @@ def override_excepthook():
                 'message': str(exc_value),
                 'traceback': Traceback.from_exception(exc_type, exc_value, tb)
             }
-            with open(f'{log_file_prefix}{local_rank}.jsonl', 'a') as log_file:
+            print(f'Logging exception to {os.environ.get(MOSAICML_LOG_DIR_ENV_VAR)}/{log_file_prefix}{local_rank}.jsonl')
+            with open(f'{os.environ.get(MOSAICML_LOG_DIR_ENV_VAR)}/{log_file_prefix}{local_rank}.jsonl', 'a') as log_file:
                 json.dump(exception, log_file)
                 log_file.write('\n')
 
