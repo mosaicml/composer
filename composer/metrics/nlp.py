@@ -17,8 +17,6 @@ from torch import Tensor
 from torch.nn import functional as F
 from torchmetrics import Metric
 
-ic.configureOutput(includeContext=True)
-
 from composer.utils import dist
 from composer.utils.eval_client import (
     EvalClient,
@@ -26,6 +24,9 @@ from composer.utils.eval_client import (
     LocalEvalClient,
     MosaicMLLambdaEvalClient,
 )
+
+# ic.configureOutput(includeContext=True)
+
 
 log = logging.getLogger(__name__)
 
