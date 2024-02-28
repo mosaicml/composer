@@ -86,7 +86,7 @@ class EvalOutputLogging(Callback):
         assert state.dataloader_label is not None
         step = state.timestamp.batch.value
         if not self.name:
-            self.name = f'{state.dataloader_label}_step_{step}'
+            self.name = f'{state.run_name}_{state.dataloader_label}_step_{step}'
             self.columns = columns
         self.rows.extend(rows)
 
