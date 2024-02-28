@@ -91,6 +91,7 @@ class EvalOutputLogging(Callback):
             self.name = f'{state.run_name}_{state.dataloader_label}_step_{step}'
             self.columns = columns
             log.info(f"Setting name to {self.name} and columns to {self.columns}")
+        log.info(f"Adding additional {len(rows)} into rows for table {self.name}")
         self.rows.extend(rows)
 
     def eval_end(self, state: State, logger: Logger) -> None:
@@ -99,6 +100,7 @@ class EvalOutputLogging(Callback):
         log.info(f"Logging {len(rows)} rows during eval_end!")
         for dest_logger in logger.destinations:
             if not isinstance(dest_logger, ConsoleLogger):
+                log.info(f"Logging to logger {type(dest_logger)}")
                 dest_logger.log_table(self.columns, rows, name=self.name, step=state.timestamp.batch.value)
 
         self.rows = []
