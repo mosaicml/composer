@@ -23,7 +23,7 @@ import torch
 
 import composer
 from composer.loggers.mosaicml_logger import (MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR, MOSAICML_LOG_DIR_ENV_VAR,
-                                              MOSAICML_PLATFORM_ENV_VAR)
+                                              MOSAICML_PLATFORM_ENV_VAR,)
 from composer.utils import get_free_tcp_port
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
@@ -281,8 +281,11 @@ def _launch_processes(
         if module_mode:
             cmd.append('-m')
 
+        warnings.warn(os.path.abspath('../composer/utils/override_excepthook.py'))
+        warnings.warn(os.path.abspath('/../utils/override_excepthook.py'))
+
         if override_excepthook:
-            cmd.append(os.path.abspath('/composer/utils/override_excepthook.py'))
+            cmd.append(os.path.abspath('../composer/utils/override_excepthook.py'))
         else:
             cmd.append(training_script)
 
