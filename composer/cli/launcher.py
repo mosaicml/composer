@@ -23,7 +23,7 @@ import torch
 
 import composer
 from composer.loggers.mosaicml_logger import (MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR, MOSAICML_LOG_DIR_ENV_VAR,
-                                              MOSAICML_PLATFORM_ENV_VAR,)
+                                              MOSAICML_PLATFORM_ENV_VAR)
 from composer.utils import get_free_tcp_port, override_excepthook
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
@@ -257,6 +257,7 @@ def _launch_processes(
     world_size: int,
     base_rank: int,
     node_rank: int,
+    override_excepthook: bool,
     master_addr: str,
     master_port: int,
     module_mode: bool,
@@ -280,7 +281,10 @@ def _launch_processes(
         if module_mode:
             cmd.append('-m')
 
-        cmd.append(training_script)
+        if override_excepthook:
+            cmd.append(os.path.abspath('../utils/override_excepthook.py'))
+        else:
+            cmd.append(training_script)
 
         # Update the env with the distributed variables
         with _patch_env(
@@ -293,6 +297,7 @@ def _launch_processes(
                 MASTER_PORT=str(master_port),
                 PYTHONUNBUFFERED='1',
                 NCCL_ASYNC_ERROR_HANDLING='1',
+                TRAINING_SCRIPT=str(training_script),
         ):
             # Populate the distributed variables in all launcher args
             for arg in training_script_args:
@@ -482,14 +487,12 @@ def main():
         args.stderr = f'{log_tmpdir.name}/rank{{rank}}.stderr.txt'
 
     # If running on the Mosaic platform, log all gpu ranks' stderr and stdout to Mosaic platform
+    override_excepthook = False
     if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and str(
             os.environ.get(MOSAICML_LOG_DIR_ENV_VAR, 'false')).lower() != 'false' and os.environ.get(
                 MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR, 'false').lower() != 'false':
         log.info('Logging all GPU ranks and exceptions to Mosaic Platform.')
-        warnings.warn(
-                'Overriding the excepthook.'
-            )
-        override_excepthook()
+        override_excepthook = True
         log_file_format = f'{os.environ.get(MOSAICML_LOG_DIR_ENV_VAR)}/{os.environ.get(MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR)}{{local_rank}}.txt'
         if args.stderr is not None or args.stdout is not None:
             warnings.warn(
@@ -503,6 +506,7 @@ def main():
                           world_size=args.world_size,
                           base_rank=args.base_rank,
                           node_rank=args.node_rank,
+                          override_excepthook=override_excepthook,
                           master_addr=args.master_addr,
                           master_port=args.master_port,
                           module_mode=args.module_mode,
