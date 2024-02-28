@@ -126,15 +126,8 @@ class WandBLogger(LoggerDestination):
                   step: Optional[int] = None) -> None:
         if self._enabled:
             import wandb
-            if name in self.table_dict:
-                for row in rows:
-                    self.table_dict[name].add_data(*row)
-            else:
-                table = wandb.Table(columns=columns, rows=rows)
-                self.table_dict[name] = table
-            # Need to do this copy because apparently wandb table logging is broken LOL
-            # https://github.com/wandb/wandb/issues/2981#issuecomment-1458447291
-            wandb.log({name: copy.copy(self.table_dict[name])}, step=step)
+            table = wandb.Table(columns=columns, rows=rows)
+            wandb.log({name: table}, step=step)
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         if self._enabled:

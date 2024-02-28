@@ -89,9 +89,6 @@ class EvalOutputLogging(Callback):
             self.name = f'{state.dataloader_label}_step_{step}'
             self.columns = columns
         self.rows.extend(rows)
-        # for dest_logger in logger.destinations:
-        #     if not isinstance(dest_logger, ConsoleLogger):
-        #         dest_logger.log_table(columns, rows, name=name, step=state.timestamp.batch.value)
 
     def eval_end(self, state: State, logger: Logger) -> None:
         list_of_rows = all_gather_object(self.rows)
