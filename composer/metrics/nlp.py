@@ -204,6 +204,11 @@ class InContextLearningMetric(Metric):
         self.needs_batch = True
 
     def _wrap_update(self, update: Callable) -> Callable:
+        """
+        Torch metrics wraps update with following wrapped_func but explicitly does not return the value.
+        In general, torchmetrics update() does not return a value, but we want to in order to pass it on
+        to state.metric_outputs. As such, we overwrite that wrapped_func here and return the value of update().
+        """
 
         @functools.wraps(update)
         def wrapped_func(*args: Any, **kwargs: Any) -> None:
