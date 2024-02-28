@@ -76,7 +76,6 @@ jobs:
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
       composer_package_name: ${{ matrix.composer_package_name }}
-      pytest-s3-bucket: "mosaicml-internal-integration-testing"
       pytest-wandb-entity: "mosaicml-public-integration-tests"
       pytest-wandb-project: "integration-tests-${{ github.sha }}"
     secrets:
