@@ -152,6 +152,7 @@ def set_fsdp_default(fsdp_config: Dict[str, Any]):
     fsdp_config.setdefault('sync_module_states', False)
     fsdp_config.setdefault('use_orig_params', True)
     fsdp_config.setdefault('verbose', False)
+    fsdp_config.setdefault('async_save', False)
     return fsdp_config
 
 

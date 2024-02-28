@@ -1171,6 +1171,7 @@ def _save_checkpoint(
         save_planner = state.fsdp_config['save_planner']
         _validate_save_planner(save_planner)
 
+        async_save = state.fsdp_config['async_save']:
         import torch.distributed.checkpoint as dist_cp
 
         log.debug(f'Saving sharded checkpoints to {save_filename}...')
@@ -1185,15 +1186,27 @@ def _save_checkpoint(
         else:
             expect_file = True
 
-        dist.barrier()
+        if not async_save:
+            dist.barrier()
+
         if expect_file:
             if version.parse(torch.__version__) > version.parse('2.2.9'):
-                dist_cp.save(  # type: ignore
-                    state_dict=state_dict,
-                    storage_writer=dist_cp.FileSystemWriter(dirname),
-                    planner=save_planner,
-                    process_group=process_group,
-                )
+                if async_save:
+                    from torch.distributed.checkpoint.state_dict_saver import _async_save
+                    log.debug('Using async save!')
+                    _async_save(  # type: ignore
+                        state_dict=state_dict,
+                        storage_writer=dist_cp.FileSystemWriter(dirname),
+                        planner=save_planner,
+                        process_group=process_group,
+                    )
+                else:
+                    dist_cp.save(  # type: ignore
+                        state_dict=state_dict,
+                        storage_writer=dist_cp.FileSystemWriter(dirname),
+                        planner=save_planner,
+                        process_group=process_group,
+                    )
             else:
                 dist_cp.save_state_dict(
                     state_dict=state_dict,
@@ -1201,9 +1214,10 @@ def _save_checkpoint(
                     planner=save_planner,
                     process_group=process_group,
                 )
-        log.debug('Waiting for all ranks to finish pytorch save state dict')
-        dist.barrier()
-        log.debug('Finished pytorch save state dict')
+        if not async_save:
+            log.debug('Waiting for all ranks to finish pytorch save state dict')
+            dist.barrier()
+            log.debug('Finished pytorch save state dict')
 
     # Only rank 0 saves the state_dict unless you are using sharded checkpointing with torch <2.0
     elif dist.get_global_rank() == 0 or state.fsdp_sharded_state_dict_enabled:
