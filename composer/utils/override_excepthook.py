@@ -6,6 +6,7 @@
 import json
 import os
 import sys
+import time
 import warnings
 from datetime import datetime
 
@@ -28,7 +29,7 @@ def override_excepthook():
         if local_rank is not None and os.environ.get('NODE_RANK') is not None and os.environ.get(
                 'RESUMPTION_ID') is not None and log_file_prefix is not None:
             exception = {
-                'asctime': datetime.now(),
+                'asctime': time.asctime(datetime.now().timetuple()),
                 'gpu_rank': local_rank,
                 'node_rank': os.environ.get('NODE_RANK'),
                 'resumption_id': os.environ.get('RESUMPTION_ID'),
