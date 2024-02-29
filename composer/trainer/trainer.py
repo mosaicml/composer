@@ -2076,7 +2076,7 @@ class Trainer:
         if isinstance(num_samples, float):
             sample_token_tensor_int = sample_token_tensor.to(torch.int)
             if torch.any(torch.ne(sample_token_tensor_int, sample_token_tensor)):
-                raise ValueError('The sum of of samples and tokens across ranks should be integers.')
+                raise ValueError('The sums of samples and tokens across ranks should each be integers.')
             sample_token_tensor = sample_token_tensor_int
         batch_time_tensor = self.state.device.tensor_to_device(
             torch.tensor([batch_time.total_seconds()], dtype=torch.float32))
