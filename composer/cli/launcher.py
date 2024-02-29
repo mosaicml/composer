@@ -471,7 +471,7 @@ def main():
     args = _parse_args()
 
     logging.basicConfig()
-    log.setLevel(logging.INFO if args.verbose else logging.WARN)
+    log.setLevel(logging.INFO if args.verbose else logging.WARNING)
 
     processes = {}
 

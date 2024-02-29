@@ -86,7 +86,7 @@ install_requires = [
     'coolname>=1.1.0,<3',
     'tabulate==0.9.0',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<10',
-    'packaging>=21.3.0,<23',
+    'packaging>=21.3.0,<23.3',
     'importlib-metadata>=5.0.0,<7',
     'mosaicml-cli>=0.5.25,<0.7',
 ]
@@ -99,7 +99,7 @@ extra_deps['dev'] = [
     # Pinning versions strictly to avoid random test failures.
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
-    'junitparser==3.1.1',
+    'junitparser==3.1.2',
     'coverage[toml]==7.4.1',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
