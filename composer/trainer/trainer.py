@@ -2996,7 +2996,7 @@ class Trainer:
                                     rank_num_samples -= 1
                                     num_samples_in_microbatch = data_spec.get_num_samples_in_batch(self.state.batch)
                                     # Skip updating metric if batch is only padded samples
-                                    if num_samples_in_microbatch <= 1 or rank_num_samples <= 0:
+                                    if num_samples_in_microbatch == 1 or rank_num_samples <= 0:
                                         skip_metric_update = True
                                     # Remove padded samples from batch
                                     else:
