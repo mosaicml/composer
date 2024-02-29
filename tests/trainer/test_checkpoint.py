@@ -864,6 +864,9 @@ class TestCheckpointLoading:
             device=device,
         )
 
+        # TODO(GRT-2735): Update remote checkpoint with iteration.
+        trainer_2.state.timestamp._epoch_in_iteration = Time.from_input(2, TimeUnit.EPOCH)
+
         # check weights loaded properly
         self._assert_weights_equivalent(
             trainer_1.state.model,
