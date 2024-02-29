@@ -1182,8 +1182,9 @@ class State(Serializable):
                     else:
                         raise e
 
-                if len(missing_keys) > 0:
-                    log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
+                # NOTE: Remove warning because it is too verbose
+                # if len(missing_keys) > 0:
+                #     log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
                 if len(unexpected_keys) > 0:
                     log.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
 
