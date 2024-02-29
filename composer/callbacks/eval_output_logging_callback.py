@@ -13,6 +13,7 @@ from composer.core import Callback, State
 from composer.loggers import ConsoleLogger, Logger
 from composer.utils.dist import all_gather_object
 
+
 class EvalOutputLogging(Callback):
     """Logs eval outputs for each sample of each ICL evaluation dataset.
 
@@ -24,7 +25,6 @@ class EvalOutputLogging(Callback):
 
     def __init__(self, log_tokens=False, *args, **kwargs):
         super().__init__(self, *args, **kwargs)
-        self.warn_batch_is_not_dict = True
         self.log_tokens = log_tokens
         self.columns = None
         self.name = None
@@ -32,11 +32,9 @@ class EvalOutputLogging(Callback):
 
     def eval_batch_end(self, state: State, logger: Logger) -> None:
         if not isinstance(state.batch, Dict):
-            if self.warn_batch_is_not_dict:
-                warnings.warn(f'''EvalOutputLogging only supports batchs that are dictionary. \
-                    Found batch for type {type(state.batch)}. \
-                    Not logging eval outputs.''')
-                self.warn_batch_is_not_dict = False
+            warnings.warn(f'''EvalOutputLogging only supports batchs that are dictionary. \
+                Found batch for type {type(state.batch)}. \
+                Not logging eval outputs.''')
             return
 
         assert state.outputs is not None
@@ -71,7 +69,6 @@ class EvalOutputLogging(Callback):
         # Add run_name as a column
         run_name_list = [state.run_name for _ in range(0, len(logging_dict['input']))]
         logging_dict['run_name'] = run_name_list
-
 
         # Convert logging_dict from kv pairs of column name and column values to a list of rows
         # Example:
