@@ -149,7 +149,7 @@ class DataSpec:
             the ``dataloader`` yields batches not of type :class:`torch.Tensor`, Mapping, Tuple, or List, then
             this function must be specified.
 
-        get_num_samples_in_batch ((Batch) -> int, optional): Function that is called by the :class:`.Trainer`
+        get_num_samples_in_batch ((Batch) -> Union[int, float], optional): Function that is called by the :class:`.Trainer`
             to get the number of samples in the provided batch.
 
             By default, if the batch contains tensors that all have the same 0th dim, then the value of the 0th dim will
@@ -171,7 +171,7 @@ class DataSpec:
         num_tokens: Optional[int] = None,
         device_transforms: Optional[Callable[[Batch], Batch]] = None,
         split_batch: Optional[Callable[[Batch, int], Sequence[Batch]]] = None,
-        get_num_samples_in_batch: Optional[Callable[[Batch], int]] = None,
+        get_num_samples_in_batch: Optional[Callable[[Batch], Union[int, float]]] = None,
         get_num_tokens_in_batch: Optional[Callable[[Batch], int]] = None,
     ) -> None:
         self.dataloader: Union[Iterable, torch.utils.data.DataLoader] = dataloader

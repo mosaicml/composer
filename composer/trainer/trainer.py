@@ -2056,7 +2056,7 @@ class Trainer:
 
     def _accumulate_time_across_ranks(
         self,
-        num_samples: int,
+        num_samples: Union[int, float],
         num_tokens: int,
         batch_time: datetime.timedelta,
     ) -> Tuple[int, int, datetime.timedelta]:
@@ -2066,9 +2066,18 @@ class Trainer:
         """
         # Samples and tokens should be summed
         # Batch time should be the value from rank 0
-        sample_token_tensor = self.state.device.tensor_to_device(
-            torch.tensor([num_samples, num_tokens], dtype=torch.int))
+        if isinstance(num_samples, float):
+            sample_token_tensor = self.state.device.tensor_to_device(
+                torch.tensor([num_samples, num_tokens], dtype=torch.float32))
+        else:
+            sample_token_tensor = self.state.device.tensor_to_device(
+                torch.tensor([num_samples, num_tokens], dtype=torch.int))
         dist.all_reduce(sample_token_tensor, reduce_operation='SUM')
+        if isinstance(num_samples, float):
+            sample_token_tensor_int = sample_token_tensor.to(torch.int)
+            if torch.any(torch.ne(sample_token_tensor_int, sample_token_tensor)):
+                raise ValueError('The sum of of samples and tokens across ranks should be integers.')
+            sample_token_tensor = sample_token_tensor_int
         batch_time_tensor = self.state.device.tensor_to_device(
             torch.tensor([batch_time.total_seconds()], dtype=torch.float32))
         dist.broadcast(batch_time_tensor, src=0)
@@ -2457,13 +2466,13 @@ class Trainer:
 
             return total_loss_dict['loss/train/total']
 
-    def _train_microbatch(self, use_grad_scaling: bool, current_batch_size: int,
+    def _train_microbatch(self, use_grad_scaling: bool, current_batch_size: Union[int, float],
                           is_final_microbatch: bool) -> Dict[str, torch.Tensor]:
         """Train and compute the loss of ``state.batch``, which is assumed to be a single microbatch.
 
         Args:
             use_grad_scaling (bool): Whether to use gradient scaling.
-            current_batch_size (int): The current batch size.
+            current_batch_size (int, float): The current batch size.
             minibatch_num_samples (int): Number of samples in the minibatch.
             is_final_microbatch (bool): If current microbatch is the last one.
         """
@@ -2953,7 +2962,9 @@ class Trainer:
                 if dist_sampler is not None and drop_last == False and dataset_len is not None:
                     batch_num_samples_tensor = self.state.device.tensor_to_device(torch.tensor(rank_num_samples))
                     dist.all_reduce(batch_num_samples_tensor, reduce_operation='SUM')
-                    batch_num_samples = batch_num_samples_tensor.item()
+                    batch_num_samples = int(batch_num_samples_tensor.item())
+                    if batch_num_samples != batch_num_samples_tensor.item():
+                        raise ValueError('Number of samples in a batch should be integral.')
                     last_batch = self.state.eval_timestamp.sample + batch_num_samples >= dataset_len
 
                 if self.state.deepspeed_enabled:
@@ -2980,7 +2991,7 @@ class Trainer:
                                     rank_num_samples -= 1
                                     num_samples_in_microbatch = data_spec.get_num_samples_in_batch(self.state.batch)
                                     # Skip updating metric if batch is only padded samples
-                                    if num_samples_in_microbatch == 1:
+                                    if num_samples_in_microbatch <= 1 or rank_num_samples <= 0:
                                         skip_metric_update = True
                                     # Remove padded samples from batch
                                     else:
