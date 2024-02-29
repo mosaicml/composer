@@ -32,7 +32,7 @@ class EvalOutputLogging(Callback):
 
     def eval_batch_end(self, state: State, logger: Logger) -> None:
         if not isinstance(state.batch, Dict):
-            warnings.warn(f'''EvalOutputLogging only supports batchs that are dictionary. \
+            warnings.warn(f'''EvalOutputLogging only supports batches that are dictionary. \
                 Found batch for type {type(state.batch)}. \
                 Not logging eval outputs.''')
             return
