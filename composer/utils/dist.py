@@ -47,9 +47,9 @@ import torch.distributed as dist
 import torch.utils.data
 from packaging import version
 
-from composer.utils.device import get_device, is_hpu_installed, is_tpu_installed
+from composer.utils.device import get_device, is_hpu_installed, is_xla_installed
 
-if is_tpu_installed():
+if is_xla_installed():
     import torch_xla
 
 if TYPE_CHECKING:
