@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 jobs:
   pytest-gpu:
-    uses: ./.github/workflows/pytest-gpu.yaml
+    uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml@v0.0.2
     strategy:
       matrix:
         include:
@@ -23,8 +23,10 @@ jobs:
     with:
       composer_package_name: ${{ matrix.composer_package_name }}
       container: ${{ matrix.container }}
+      git_repo: mosaicml/composer
       mcloud-timeout: 1500
       name: ${{ matrix.name }}
+      pip_deps: "[all]"
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
       python-version: 3.9
