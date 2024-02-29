@@ -17,9 +17,6 @@ on:
       pytest-markers:
         required: true
         type: string
-      pytest-s3-bucket:
-        required: false
-        type: string
       pytest-wandb-entity:
         required: false
         type: string
@@ -81,9 +78,7 @@ jobs:
         export GCS_SECRET='${{ secrets.gcs-secret }}'
         export AZURE_ACCOUNT_NAME='${{ secrets.azure-account-name }}'
         export AZURE_ACCOUNT_ACCESS_KEY='${{ secrets.azure-account-access-key }}'
-        export S3_BUCKET='${{ inputs.pytest-s3-bucket }}'
-        export COMMON_ARGS="-v --durations=20 -m '${{ inputs.pytest-markers }}' --s3_bucket '$S3_BUCKET' \
-          -o tmp_path_retention_policy=none"
+        export COMMON_ARGS="-v --durations=20 -m '${{ inputs.pytest-markers }}' -o tmp_path_retention_policy=none"
 
         # Necessary to run git diff for doctests
         git config --global --add safe.directory /__w/composer/composer

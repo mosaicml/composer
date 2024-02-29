@@ -71,9 +71,11 @@ def _assert_checkpoints_equivalent(file1, file2, atol=0.0, rtol=0.0):
 
     # Remove the wall clock time
     del checkpoint_1['state']['timestamp']['Timestamp']['total_wct']
+    del checkpoint_1['state']['timestamp']['Timestamp']['iteration_wct']
     del checkpoint_1['state']['timestamp']['Timestamp']['epoch_wct']
     del checkpoint_1['state']['timestamp']['Timestamp']['batch_wct']
     del checkpoint_2['state']['timestamp']['Timestamp']['total_wct']
+    del checkpoint_2['state']['timestamp']['Timestamp']['iteration_wct']
     del checkpoint_2['state']['timestamp']['Timestamp']['epoch_wct']
     del checkpoint_2['state']['timestamp']['Timestamp']['batch_wct']
 
@@ -861,6 +863,9 @@ class TestCheckpointLoading:
             load_strict_model_weights=load_weights_only,
             device=device,
         )
+
+        # TODO(GRT-2735): Update remote checkpoint with iteration.
+        trainer_2.state.timestamp._epoch_in_iteration = Time.from_input(2, TimeUnit.EPOCH)
 
         # check weights loaded properly
         self._assert_weights_equivalent(
