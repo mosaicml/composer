@@ -740,9 +740,11 @@ def glob_filter(exclude_globs: list[str]) -> Callable[[dict], None]:
                     f'No parts from loaded checkpoint state_dict were ignored by load_ignore_key {exclude_glob}')
             filtered_paths.extend(filtered_paths_from_glob)
         filtered_paths = list(set(filtered_paths))
-        if filtered_paths:
-            filtered_paths_str = ', '.join(filtered_paths)
-            log.info(f'Ignoring the following paths from the loaded checkpoint state_dict: {filtered_paths_str}')
+
+        # NOTE: Commenting this out for now as it's too verbose
+        # if filtered_paths:
+        #     filtered_paths_str = ', '.join(filtered_paths)
+        #     log.info(f'Ignoring the following paths from the loaded checkpoint state_dict: {filtered_paths_str}')
 
         # Loop through all paths to exclude
         paths_to_remove = [path.split('/') for path in filtered_paths if len(path) > 0]
