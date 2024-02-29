@@ -112,7 +112,7 @@ def s3_bucket(request: pytest.FixtureRequest):
     if request.node.get_closest_marker('remote') is None:
         return 'my-bucket'
     else:
-        return _get_option(request.config, 's3_bucket')
+        return 'mosaicml-internal-integration-testing'
 
 
 @pytest.fixture

@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 jobs:
   daily-pytest-cpu:
-    uses: ./.github/workflows/pytest-cpu.yaml
+    uses: mosaicml/ci-testing/.github/workflows/pytest-cpu.yaml@v0.0.2
     strategy:
       matrix:
         include:
@@ -73,12 +73,13 @@ jobs:
     with:
       container: ${{ matrix.container }}
       name: ${{ matrix.name }}
+      pip_deps: "[all]"
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
       composer_package_name: ${{ matrix.composer_package_name }}
-      pytest-s3-bucket: "mosaicml-internal-integration-testing"
       pytest-wandb-entity: "mosaicml-public-integration-tests"
       pytest-wandb-project: "integration-tests-${{ github.sha }}"
+      safe_directory: composer
     secrets:
       aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -99,7 +100,7 @@ jobs:
       download-path: artifacts
 
   daily-pytest-gpu:
-    uses: ./.github/workflows/pytest-gpu.yaml
+    uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml@v0.0.2
     strategy:
       matrix:
         # Unlike CPU tests, we run daily tests together with GPU tests to minimize launch time
@@ -125,8 +126,10 @@ jobs:
     with:
       composer_package_name: ${{ matrix.composer_package_name }}
       container: ${{ matrix.container }}
+      git_repo: mosaicml/composer
       mcloud-timeout: 2700
       name: ${{ matrix.name }}
+      pip_deps: "[all]"
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
       python-version: 3.9
