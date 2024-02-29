@@ -4,13 +4,12 @@
 """Enum class for the numerical precision to be used by the model."""
 
 import contextlib
-import os
 import textwrap
 from typing import Any, Dict, Generator, Optional, Union
 
 import torch
 
-from composer.utils import StringEnum
+from composer.utils import StringEnum, is_xla_installed
 
 try:
     import transformer_engine.pytorch as te
@@ -57,14 +56,22 @@ def get_precision_context(precision: Union[str, Precision],
             yield
     elif precision == Precision.AMP_FP16:
         # Retain compatibility with PyTorch < 1.10
-        with torch.cuda.amp.autocast(True):
+        if torch.cuda.is_available():
+            with torch.cuda.amp.autocast(True):
+                yield
+        elif is_xla_installed():
+            with torch.autocast('xla', dtype=torch.float16):
+                yield
+        else:
             yield
     elif precision == Precision.AMP_BF16:
         if torch.cuda.is_available():
             with torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16):
                 yield
+        elif is_xla_installed():
+            with torch.autocast('xla', dtype=torch.bfloat16):
+                yield
         else:
-            os.environ['XLA_USE_BF16'] = '1'
             yield
     elif precision == Precision.AMP_FP8:
         if te_installed and torch.cuda.get_device_capability() >= (8, 9):
