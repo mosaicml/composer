@@ -30,6 +30,8 @@ import torch.nn as nn
 import torch.utils.data
 from torch._dynamo import OptimizedModule
 from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
+from torch.distributed.fsdp import FullyShardedDataParallel
+from torch.distributed.fsdp._runtime_utils import _post_backward_final_callback
 from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim.lr_scheduler import LRScheduler
@@ -54,13 +56,13 @@ from composer.trainer.dist_strategy import (DDPSyncStrategy, ddp_sync_context, p
                                             set_fsdp_default)
 from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectStore, Transform, checkpoint, dist,
                             ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist,
-                            get_composer_env_dict, get_device, get_file, is_tpu_installed, map_collection,
+                            get_composer_env_dict, get_device, get_file, is_xla_installed, map_collection,
                             maybe_create_object_store_from_uri, maybe_create_remote_uploader_downloader_from_uri,
                             model_eval_mode, parse_uri, partial_format, reproducibility)
 from composer.utils.misc import is_model_deepspeed
 from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
 
-if is_tpu_installed():
+if is_xla_installed():
     import torch_xla.core.xla_model as xm
     import torch_xla.distributed.parallel_loader as pl
 
@@ -232,6 +234,21 @@ def _is_cuda_oom(e: RuntimeError):
     return False
 
 
+def _fsdp_reshard_and_cleanup(model: torch.nn.Module):
+    """Manually reshard and clean up FSDP model.
+
+    When an exception like OOM happens, _post_backward_final_callback, which
+    is registered as a backward callback, will not run. We manually call it to cleanup
+    loose memory.
+    """
+    for __, module in model.named_modules():
+        if isinstance(module, FullyShardedDataParallel):
+            if module.check_is_root():
+                # Only call _post_backward_final_callback on root module. It will
+                # traverse and reshard all FSDP sub-modules
+                _post_backward_final_callback(module, module)
+
+
 def _adjust_device_train_microbatch_size(state: State):
     """Adjust device_train_microbatch_size if we encounter OOM.
 
@@ -259,6 +276,7 @@ def _adjust_device_train_microbatch_size(state: State):
         optimizer.zero_grad(set_to_none=True)
     if state.scaler is not None:
         state.scaler._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
+    _fsdp_reshard_and_cleanup(state.model)
     torch.cuda.empty_cache()
 
 
@@ -1302,7 +1320,7 @@ class Trainer:
         if self._train_data_spec is not None:
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label,
                                       train_subset_num_batches)
-            if isinstance(self.state.device, DeviceTPU):
+            if self.state.device.dist_backend == 'xla':
                 self.state.train_dataloader = pl.MpDeviceLoader(self.state.dataloader, xm.xla_device())
             else:
                 self.state.train_dataloader = self.state.dataloader
@@ -1429,25 +1447,28 @@ class Trainer:
                     'Multiple concurrent uploads is not currently supported when using autoresume. Please set `num_concurrent_uploads` to 1 '
                     'for all `RemoteUploaderDownloader` instances.')
             assert latest_remote_file_name is not None
-            if self.state.fsdp_elastic_sharded_enabled:
+            if self.state.fsdp_sharded_state_dict_enabled:
                 ar_object_store = maybe_create_object_store_from_uri(save_folder)
-                # Symlink is on object store.
+                # Symlink is on object store
                 if ar_object_store is not None:
-                    with tempfile.TemporaryDirectory() as temp_dir:
-                        local_symlink_file = str(Path(temp_dir) / Path('autoresume.symlink'))
-                        formatted_latest_remote_file_name = format_name_with_dist(latest_remote_file_name,
-                                                                                  self.state.run_name) + '.symlink'
-                        rank0_formatted_latest_remote_file_name = dist.all_gather_object(
-                            formatted_latest_remote_file_name)[0]
-                        try:
-                            ar_object_store.download_object(rank0_formatted_latest_remote_file_name, local_symlink_file)
-                            with open(local_symlink_file, 'r') as f:
-                                real_path = f.read()
-                                log.debug(f'Read path {real_path} from symlink file')
-                            autoresume_checkpoint_path = ar_object_store.get_uri(real_path)
-                        except FileNotFoundError:
-                            autoresume_checkpoint_path = None
-                # Symlink is local.
+                    autoresume_checkpoint_path = None
+                    if dist.get_global_rank() == 0:
+                        with tempfile.TemporaryDirectory() as temp_dir:
+                            local_symlink_file = str(Path(temp_dir) / Path('autoresume.symlink'))
+                            symlink_file_name = format_name_with_dist(latest_remote_file_name,
+                                                                      self.state.run_name) + '.symlink'
+                            try:
+                                ar_object_store.download_object(symlink_file_name, local_symlink_file)
+                                with open(local_symlink_file, 'r') as f:
+                                    real_path = f.read()
+                                    log.debug(f'Read path {real_path} from symlink file')
+                                autoresume_checkpoint_path = ar_object_store.get_uri(real_path)
+                            except FileNotFoundError:
+                                pass
+                    autoresume_path_list = [autoresume_checkpoint_path]
+                    dist.broadcast_object_list(autoresume_path_list)
+                    autoresume_checkpoint_path = autoresume_path_list[0]
+                # Symlink is local
                 else:
                     save_latest_filename = format_name_with_dist(save_latest_filename, self.state.run_name)
                     rank0_save_latest_filename = dist.all_gather_object(save_latest_filename)[0]
@@ -1460,7 +1481,7 @@ class Trainer:
                     else:
                         autoresume_checkpoint_path = None
 
-            # Standard non-elastic codepath for autoresume.
+            # Standard non-elastic codepath for autoresume
             else:
                 autoresume_checkpoint_path = self._get_autoresume_checkpoint(
                     save_folder=save_folder,
@@ -2321,10 +2342,7 @@ class Trainer:
                             if use_grad_scaling:
                                 self.state.scaler.step(optimizer)
                             else:
-                                if isinstance(self.state.device, DeviceTPU):
-                                    xm.optimizer_step(optimizer, barrier=True)
-                                else:
-                                    optimizer.step()
+                                optimizer.step()
             except RuntimeError as e:
                 if self.state.auto_microbatching and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
@@ -2545,6 +2563,11 @@ class Trainer:
                 # Scale loss based on the number of samples in the microbatch to maintain gradient numerics
                 microbatch_loss.mul_(microbatch_num_samples / current_batch_size)
                 microbatch_loss.backward(create_graph=self._backwards_create_graph)
+
+            if self.state.device.dist_backend == 'xla':
+                # For xla devices, the program between any pair of mark_steps() calls is compiled. With out this, the
+                # microbatching loop is unrolled, drastically increasing compile time.
+                xm.mark_step()
 
             self.engine.run_event(Event.AFTER_BACKWARD)
 
@@ -3136,7 +3159,7 @@ class Trainer:
         if self.state.deepspeed_enabled:
             return False
 
-        if isinstance(self.state.device, DeviceTPU):
+        if self.state.device.dist_backend == 'xla':
             return False
 
         if self.state.precision != Precision.AMP_FP16:

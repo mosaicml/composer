@@ -301,7 +301,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
             log.debug(f'Rank {dist.get_global_rank()} finished transferring files to all ranks.')
             dist.barrier()
             log.debug(
-                f'Done waiting for all ranks to finish transferring files. Local checkpoint files: {os.listdir(self.destination_path)}'
+                f'Done waiting for all ranks to finish transferring files. Local checkpoint files: {sorted(os.listdir(self.destination_path))}'
             )
 
         # 5. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
@@ -464,13 +464,13 @@ def load_checkpoint(
     """
     path = partial_format(path, run_name=state.run_name)
     using_legacy_sharded = False
-    if state.fsdp_elastic_sharded_enabled:
+    if state.fsdp_sharded_state_dict_enabled:
         assert object_store is None or isinstance(
             object_store,
             ObjectStore), 'For loading sharded checkpoints load_object_store must be set with the class ObjectStore'
         using_legacy_sharded = is_checkpoint_legacy_sharded(object_store, path)
 
-    if state.fsdp_elastic_sharded_enabled and not using_legacy_sharded:
+    if state.fsdp_sharded_state_dict_enabled and not using_legacy_sharded:
         rng_state_dicts = load_sharded_checkpoint(
             source_path=path,
             state=state,
@@ -1013,16 +1013,18 @@ def _save_checkpoint(
         state_dict['state'] = state_dict.get('state', {})
 
     if state.fsdp_sharded_state_dict_enabled:
+        # Only rank 0 saves RNG
+        if dist.get_global_rank() > 0:
+            state_dict.pop('rng')
         # To load optimizer states with 2.0 <= torch < 2.2.9 , the optimizer state must be at the top
         # level of the state dict because the load_sharded_optimizer_state_dict function
         # requires a top level state dict key for the optimizer.
         # See https://github.com/pytorch/pytorch/blob/v2.0.1/torch/distributed/checkpoint/optimizer.py#L271
         # for more info.
-        if version.parse(torch.__version__) < version.parse('2.2.9'):
-            if not weights_only:
-                state_dict['optimizers'] = state_dict['state'].pop('optimizers')
-    log.debug('State dict created.')
+        if version.parse(torch.__version__) < version.parse('2.2.9') and not weights_only:
+            state_dict['optimizers'] = state_dict['state'].pop('optimizers')
 
+    log.debug('State dict created.')
     dirname = os.path.dirname(save_filename)
     if dirname:
         os.makedirs(dirname, exist_ok=True)
@@ -1030,7 +1032,7 @@ def _save_checkpoint(
     # Only some ranks are meant to save checkpoint and produce a file
     expect_file = False
 
-    # All ranks save for deepspeed
+    # Save deepspeed checkpoint
     if is_deepspeed:
         expect_file = True
         log.debug('Saving deepspeed checkpoints to %s...', save_filename)
@@ -1041,9 +1043,8 @@ def _save_checkpoint(
                 _compress_file(save_filename, basename=_COMPOSER_STATES_FILENAME)
 
         _save_deepspeed_model(state.deepspeed_model, save_filename)
-
-    # Sharded checkpointing
-    elif state.fsdp_elastic_sharded_enabled:
+    # Save sharded checkpoint
+    elif state.fsdp_sharded_state_dict_enabled:
         if state.fsdp_config is None:
             raise ValueError('Saving a sharded checkpoint requires passing an FSDP config to Trainer.')
 
@@ -1075,24 +1076,21 @@ def _save_checkpoint(
                     process_group=process_group,
                 )
         log.debug('Finished pytorch save state dict')
-
-    # Only rank 0 saves the state_dict unless you are using sharded checkpointing with torch <2.0
-    elif dist.get_global_rank() == 0 or state.fsdp_sharded_state_dict_enabled:
+    # Save monolith checkpoint
+    elif dist.get_global_rank() == 0:
         expect_file = True
-        log_msg = f'Saving sharded checkpoints to {save_filename}...' if state.fsdp_sharded_state_dict_enabled else f'Saving monolithic checkpoint to {save_filename}'
         with open(save_filename, 'wb') as f:
-            log.debug(log_msg)
+            log.debug(f'Saving monolithic checkpoint to {save_filename}')
             torch.save(state_dict, f)
 
         log.debug(f'Global rank 0 done saving checkpoint to disk at {save_filename}.')
 
         if is_tar(save_filename):
             _compress_file(save_filename, basename=_COMPOSER_STATES_FILENAME)
-
     else:
         log.debug(f'Only rank 0 is saving a checkpoint, so rank {dist.get_global_rank()} skips checkpointing.')
 
-    dist.barrier()  # ensure all ranks saved their files
+    dist.barrier()  # Ensure all ranks saved their files
 
     if expect_file:
         assert os.path.exists(save_filename), 'Expected file to have been saved.'

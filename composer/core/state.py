@@ -732,6 +732,12 @@ class State(Serializable):
         return self.fsdp_config is not None and self.fsdp_enabled and self.fsdp_state_dict_type == 'sharded'
 
     @property
+    def fsdp_elastic_sharded_enabled(self):
+        warnings.warn('state.fsdp_elastic_sharded_enabled is deprecated and will be removed v0.21.0',
+                      DeprecationWarning)
+        return self.fsdp_sharded_state_dict_enabled
+
+    @property
     def fsdp_device_mesh(self):
         if self.fsdp_enabled:
             if not hasattr(self.model, 'model'):
@@ -744,10 +750,6 @@ class State(Serializable):
     def load_fsdp_monolith_rank0_only(self):
         return self.fsdp_config is not None and self.fsdp_auto_wrap and self.fsdp_config[
             'state_dict_type'] == 'full' and self.fsdp_config['load_monolith_rank0_only'] == True
-
-    @property
-    def fsdp_elastic_sharded_enabled(self):
-        return self.fsdp_sharded_state_dict_enabled
 
     def _get_integrations_state_dict(self) -> Dict[str, Any]:
         """Gets a dictionary of information about integrations to store in the state dict.
