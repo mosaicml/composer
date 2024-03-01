@@ -25,6 +25,7 @@ import composer
 from composer.loggers.mosaicml_logger import (MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR, MOSAICML_LOG_DIR_ENV_VAR,
                                               MOSAICML_PLATFORM_ENV_VAR)
 from composer.utils import get_free_tcp_port
+from composer.utils.device import is_xla_installed
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
 
@@ -282,6 +283,13 @@ def _launch_processes(
 
         cmd.append(training_script)
 
+        # A temporary fix until we can properly initialize the distributed neuron device.
+        optional_environment = {}
+        if is_xla_installed() and os.environ.get('PJRT_DEVICE', '') == 'NEURON':
+            optional_environment = {
+                'TORCHELASTIC_RUN_ID': 'none'
+            }
+
         # Update the env with the distributed variables
         with _patch_env(
                 RANK=str(global_rank),
@@ -293,6 +301,7 @@ def _launch_processes(
                 MASTER_PORT=str(master_port),
                 PYTHONUNBUFFERED='1',
                 NCCL_ASYNC_ERROR_HANDLING='1',
+                **optional_environment,
         ):
             # Populate the distributed variables in all launcher args
             for arg in training_script_args:
