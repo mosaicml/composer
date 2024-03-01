@@ -421,21 +421,28 @@ class TestCheckpointSaving:
         else:
             assert set(composer_state_dict['state'].keys()) != {'model', 'metadata', 'integrations'}
 
-    @pytest.mark.parametrize(('save_interval', 'max_duration', 'expected_save_calls'), [
-        (1, '5ep', 5),
-        (Time(2, TimeUnit.EPOCH), '8ep', 4),
-        (Time(10, TimeUnit.BATCH), '8ep', 4),
-        (Time(0.25, TimeUnit.DURATION), '4ep', 4),
-        ('1ep', '4ep', 4),
-        ('5ba', '4ep', 4),
-        ('5ba', '10ba', 2),
-        ('0.35dur', '4ep', 3),
-        ('0.01dur', '100ba', 100),
-        ('0.10dur', '70sp', 10),
-        ('0.05dur', '80sp', 20),
+    @pytest.mark.parametrize(('save_interval', 'max_duration', 'expected_save_calls', 'iteration_length'), [
+        (1, '5ep', 5, None),
+        (Time(2, TimeUnit.ITERATION), '8ep', 2, '2ep'),
+        (Time(2, TimeUnit.EPOCH), '8ep', 4, None),
+        (Time(10, TimeUnit.BATCH), '8ep', 4, None),
+        (Time(0.25, TimeUnit.DURATION), '4ep', 4, None),
+        ('1ep', '4ep', 4, None),
+        ('5ba', '4ep', 4, None),
+        ('5ba', '10ba', 2, None),
+        ('0.35dur', '4ep', 3, None),
+        ('0.01dur', '100ba', 100, None),
+        ('0.10dur', '70sp', 10, None),
+        ('0.05dur', '80sp', 20, None),
     ])
-    def test_checkpoint_intervals(self, save_interval: Union[str, Time, int], max_duration: str,
-                                  expected_save_calls: int, tmp_path: pathlib.Path):
+    def test_checkpoint_intervals(
+        self,
+        save_interval: Union[str, Time, int],
+        max_duration: str,
+        expected_save_calls: int,
+        iteration_length: str,
+        tmp_path: pathlib.Path,
+    ):
         train_dataset = RandomClassificationDataset(size=10)
         train_dataloader = DataLoader(
             dataset=train_dataset,
@@ -450,6 +457,7 @@ class TestCheckpointSaving:
             max_duration=max_duration,
             save_folder=str(tmp_path / 'checkpoints'),
         )
+        trainer.state._iteration_length = iteration_length
 
         assert trainer._checkpoint_saver is not None
         trainer._checkpoint_saver._save_checkpoint = MagicMock(wraps=trainer._checkpoint_saver._save_checkpoint)
