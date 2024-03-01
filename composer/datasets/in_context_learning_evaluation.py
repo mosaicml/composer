@@ -1152,6 +1152,8 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
             else:
                 cont_del = self.continuation_delimiter
             context_options = [f'{self.prelimiter}{self.example_delimiter}{c}{cont_del}' for c in context_options]
+        else:
+            context_options = [f'{self.prelimiter}{c}' for c in context_options]
         return context_options
 
     def _prep_example(
