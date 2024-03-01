@@ -80,7 +80,6 @@ class EvalOutputLogging(Callback):
                 else:
                     logging_dict[key] = [state.dataloader.dataset.tokenizer.decode(t) for t in value]
 
-
         # Convert logging_dict from kv pairs of column name and column values to a list of rows
         # Example:
         # logging_dict = {"a": ["1a", "2a"], "b": ["1b", "2b"]}
