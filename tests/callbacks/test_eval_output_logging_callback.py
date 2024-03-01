@@ -33,6 +33,7 @@ class MockState(State):
     def __init__(self) -> None:
         self.eval_metrics = {}
         self.metric_outputs = {}
+        self.run_name = 'mock_name'
         self.timestamp = Timestamp()
 
     def add_metric(self, metric_name, metric):
@@ -86,6 +87,7 @@ def mock_mc_computation(metric, tokenizer, state):
         for context, continuation in zip(contexts, continuations)
     ]
     inputs = torch.tensor([input + [pad] * (2048 - len(input)) for input in inputs])
+    attention_mask = ~(inputs == pad)
 
     cont_idxs = []
     for context, continuation in zip(contexts, continuations):
@@ -98,6 +100,7 @@ def mock_mc_computation(metric, tokenizer, state):
         'continuation_indices': cont_idxs,
         'labels': inputs.roll(-1),
         'input_ids': inputs,
+        'attention_mask': attention_mask,
         'gold_indices': gold_indices,
         'choice_groupings': choice_groupings
     }
@@ -138,29 +141,30 @@ def test_eval_output_logging_lm(device, tiny_gpt2_tokenizer):
             'lm_acc',
         )
         mock_lm_computation(state.eval_metrics['lm_acc']['InContextLearningLMAccuracy()'], tiny_gpt2_tokenizer, state)
-        state.metric_outputs['name'] = [
+        state.metric_outputs['metric_name'] = [
             lm_metric.__class__.__name__ for _ in range(0, state.batch['input_ids'].shape[0])
         ]
         eval_output_logging.eval_batch_end(state, logger)
         state.timestamp = Timestamp(batch=state.timestamp.batch.value + 1)
+    eval_output_logging.eval_end(state, logger)
 
-        assert f'lm_acc_step_{i}' in in_memory_logger.tables
-        # We use the same data in each batch
-        assert json.loads(in_memory_logger.tables[f'lm_acc_step_{i}'])['columns'] == [
-            'context',
-            'label',
-            'output',
-            'result',
-            'name',
-            'input',
-        ]
-        assert json.loads(in_memory_logger.tables[f'lm_acc_step_{i}'])['data'] == [
-            ['The dog is', ' furry', ' furry', 1, 'InContextLearningLMAccuracy', 'The dog is furry'],
-            ['I love to eat', ' pie', '[PAD]', 0, 'InContextLearningLMAccuracy', 'I love to eat pie'],
-            ['I hate', ' long lines', ' long lines', 1, 'InContextLearningLMAccuracy', 'I hate long lines'],
-            ['The weather is', ' snowy', ' snowy', 1, 'InContextLearningLMAccuracy', 'The weather is snowy']
-        ]
-    assert len(in_memory_logger.tables) == 2
+    assert f'lm_acc_step_0' in in_memory_logger.tables
+    # Only want one table - we log once to a single step value during eval_end()
+    assert len(in_memory_logger.tables) == 1
+    assert json.loads(in_memory_logger.tables[f'lm_acc_step_0'])['columns'] == [
+        'context', 'label', 'output', 'result', 'metric_name', 'input', 'run_name'
+    ]
+    # We use the same data in each batch
+    assert json.loads(in_memory_logger.tables[f'lm_acc_step_0'])['data'] == [
+        ['The dog is', ' furry', ' furry', 1, 'InContextLearningLMAccuracy', 'The dog is furry', 'mock_name'],
+        ['I love to eat', ' pie', '[PAD]', 0, 'InContextLearningLMAccuracy', 'I love to eat pie', 'mock_name'],
+        ['I hate', ' long lines', ' long lines', 1, 'InContextLearningLMAccuracy', 'I hate long lines', 'mock_name'],
+        ['The weather is', ' snowy', ' snowy', 1, 'InContextLearningLMAccuracy', 'The weather is snowy', 'mock_name'],
+        ['The dog is', ' furry', ' furry', 1, 'InContextLearningLMAccuracy', 'The dog is furry', 'mock_name'],
+        ['I love to eat', ' pie', '[PAD]', 0, 'InContextLearningLMAccuracy', 'I love to eat pie', 'mock_name'],
+        ['I hate', ' long lines', ' long lines', 1, 'InContextLearningLMAccuracy', 'I hate long lines', 'mock_name'],
+        ['The weather is', ' snowy', ' snowy', 1, 'InContextLearningLMAccuracy', 'The weather is snowy', 'mock_name']
+    ]
 
 
 @device('cpu')
@@ -182,26 +186,44 @@ def test_eval_output_logging_mc(device, tiny_gpt2_tokenizer):
         )
         mock_mc_computation(state.eval_metrics['mc_acc']['InContextLearningMultipleChoiceAccuracy()'],
                             tiny_gpt2_tokenizer, state)
-        state.metric_outputs['name'] = [
+        state.metric_outputs['metric_name'] = [
             mc_metric.__class__.__name__ for _ in range(0, state.batch['input_ids'].shape[0])
         ]
         eval_output_logging.eval_batch_end(state, logger)
         state.timestamp = Timestamp(batch=state.timestamp.batch.value + 1)
+    eval_output_logging.eval_end(state, logger)
 
-        assert f'mc_acc_step_{i}' in in_memory_logger.tables
-        # We use the same data for each batch
-        assert json.loads(in_memory_logger.tables[f'mc_acc_step_{i}'])['columns'] == [
-            'context', 'correct_choice', 'selected_choice', 'result', 'name', 'input'
-        ]
-        assert json.loads(in_memory_logger.tables[f'mc_acc_step_{i}'])['data'] == [
+    assert f'mc_acc_step_0' in in_memory_logger.tables
+    # Only want one table - we log once to a single step value during eval_end()
+    assert len(in_memory_logger.tables) == 1
+    # We use the same data for each batch
+    assert json.loads(in_memory_logger.tables[f'mc_acc_step_0'])['columns'] == [
+        'context', 'correct_choice', 'correct_choice_idx', 'selected_choice', 'selected_choice_idx', 'all_choices',
+        'result', 'metric_name', 'input', 'run_name'
+    ]
+    assert json.loads(in_memory_logger.tables[f'mc_acc_step_0'])['data'] == [
+        [
+            'Q: How do you cook a cake?', ' A: turn on the oven', 0, ' A: turn on the oven', 0,
+            ['Q: How do you cook a cake? A: turn on the oven', 'Q: How do you cook a cake? A: do a backflip'], 1,
+            'InContextLearningMultipleChoiceAccuracy', 'Q: How do you cook a cake? A: turn on the oven', 'mock_name'
+        ],
+        [
+            'Q: How old is the earth?', ' A: 4.5 billion years', 1, ' A: 2 minutes', 0,
             [
-                'Q: How do you cook a cake?', ' A: turn on the oven', ' A: turn on the oven', 1,
-                'InContextLearningMultipleChoiceAccuracy', 'Q: How do you cook a cake? A: turn on the oven'
-            ],
+                'Q: How old is the earth? A: 2 minutes[PAD][PAD][PAD]',
+                'Q: How old is the earth? A: 4.5 billion years[PAD]'
+            ], 0, 'InContextLearningMultipleChoiceAccuracy', 'Q: How do you cook a cake? A: do a backflip', 'mock_name'
+        ],
+        [
+            'Q: How do you cook a cake?', ' A: turn on the oven', 0, ' A: turn on the oven', 0,
+            ['Q: How do you cook a cake? A: turn on the oven', 'Q: How do you cook a cake? A: do a backflip'], 1,
+            'InContextLearningMultipleChoiceAccuracy', 'Q: How do you cook a cake? A: turn on the oven', 'mock_name'
+        ],
+        [
+            'Q: How old is the earth?', ' A: 4.5 billion years', 1, ' A: 2 minutes', 0,
             [
-                'Q: How old is the earth?', ' A: 4.5 billion years', ' A: 2 minutes', 0,
-                'InContextLearningMultipleChoiceAccuracy', 'Q: How do you cook a cake? A: do a backflip'
-            ]
+                'Q: How old is the earth? A: 2 minutes[PAD][PAD][PAD]',
+                'Q: How old is the earth? A: 4.5 billion years[PAD]'
+            ], 0, 'InContextLearningMultipleChoiceAccuracy', 'Q: How do you cook a cake? A: do a backflip', 'mock_name'
         ]
-
-    assert len(in_memory_logger.tables) == 2
+    ]
