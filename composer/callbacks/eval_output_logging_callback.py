@@ -72,13 +72,17 @@ class EvalOutputLogging(Callback):
 
         # NOTE: This assumes _any_ tensor logged are tokens to be decoded.
         #       This might not be true if, for example, logits are logged.
+
         # Detokenize data in rows
         for key, value in logging_dict.items():
+            # All types in list are the same
             if isinstance(value[0], torch.Tensor):
-                if len(value[0].shape) > 1:
-                    logging_dict[key] = [state.dataloader.dataset.tokenizer.batch_decode(t) for t in value]
-                else:
-                    logging_dict[key] = [state.dataloader.dataset.tokenizer.decode(t) for t in value]
+                logging_dict[key] = [state.dataloader.dataset.tokenizer.decode(t) for t in value]
+            elif isinstance(value[0], list):
+                if isinstance(value[0][0], torch.Tensor):
+                    logging_dict[key] = [
+                        [state.dataloader.dataset.tokenizer.decode(choice) for choice in t] for t in value
+                    ]
 
         # Convert logging_dict from kv pairs of column name and column values to a list of rows
         # Example:
