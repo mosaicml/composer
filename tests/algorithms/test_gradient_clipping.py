@@ -44,8 +44,14 @@ def cnn_model_with_grads():
         def __init__(self, n_ch, num_fmaps, h, num_classes, filter_size):
             super().__init__()
             self.conv_model = nn.Sequential(nn.Conv2d(n_ch, num_fmaps, kernel_size=filter_size), nn.ReLU())
-            self.mlp = nn.Sequential(nn.Linear(num_fmaps, h), nn.ReLU(), nn.Linear(h, h), nn.ReLU(),
-                                     nn.Linear(h, num_classes), nn.Softmax(dim=1))
+            self.mlp = nn.Sequential(
+                nn.Linear(num_fmaps, h),
+                nn.ReLU(),
+                nn.Linear(h, h),
+                nn.ReLU(),
+                nn.Linear(h, num_classes),
+                nn.Softmax(dim=1),
+            )
 
         def forward(self, x):
             fmaps = self.conv_model(x)
@@ -96,7 +102,8 @@ def hf_model_with_grads():
     tiny_bert_config = configure_tiny_bert_config()
     tiny_bert_config.num_labels = 3  # type: ignore
     hf_model = transformers.AutoModelForSequenceClassification.from_config(
-        tiny_bert_config)  # type: ignore (thirdparty)
+        tiny_bert_config,
+    )  # type: ignore (thirdparty)
 
     model = HuggingFaceModel(hf_model, metrics=[], use_logits=True)
     # Force wrap every module in FSDP, to allow for testing FSDP
@@ -134,7 +141,8 @@ def test_gradient_clipping_functional(monkeypatch):
 @pytest.mark.parametrize('clipping_type', [('adaptive',), ('norm',), ('value',)])
 @pytest.mark.parametrize(
     'model_with_grads',
-    [simple_model_with_grads, cnn_model_with_grads, simple_transformer_model_with_grads, hf_model_with_grads])
+    [simple_model_with_grads, cnn_model_with_grads, simple_transformer_model_with_grads, hf_model_with_grads],
+)
 def test_gradient_clipping_algorithm(monkeypatch, clipping_type, model_with_grads, dummy_state: State):
     model = model_with_grads()
     apply_gc_fn = Mock()
@@ -154,10 +162,13 @@ def test_gradient_clipping_algorithm(monkeypatch, clipping_type, model_with_grad
 
 @pytest.mark.parametrize(
     'model_with_grads',
-    [simple_model_with_grads(),
-     cnn_model_with_grads(),
-     simple_transformer_model_with_grads(),
-     hf_model_with_grads()])
+    [
+        simple_model_with_grads(),
+        cnn_model_with_grads(),
+        simple_transformer_model_with_grads(),
+        hf_model_with_grads(),
+    ],
+)
 def test_gradient_clipping_algorithm_with_deepspeed_enabled(
     monkeypatch: pytest.MonkeyPatch,
     model_with_grads,
@@ -184,8 +195,8 @@ def test_gradient_clipping_algorithm_with_deepspeed_enabled(
     engine.run_event(Event.INIT)
 
     # Make sure deepspeed_config's gradient_clipping field is set properly.
-    assert 'gradient_clipping' in state.deepspeed_config and state.deepspeed_config[
-        'gradient_clipping'] == clipping_threshold
+    assert 'gradient_clipping' in state.deepspeed_config and state.deepspeed_config['gradient_clipping'
+                                                                                   ] == clipping_threshold
 
     # Make sure apply_gradient_clipping is not called.
     apply_gc_fn.assert_not_called()
@@ -204,12 +215,18 @@ def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, nonwrapped_numel: 
     return False
 
 
-@pytest.mark.parametrize('model_with_grads', [
-    simple_model_with_grads, cnn_model_with_grads,
-    pytest.param(simple_transformer_model_with_grads,
-                 marks=pytest.mark.xfail(reason='SimpleTransformerBase cannot be recursively FSDP wrapped.')),
-    hf_model_with_grads
-])
+@pytest.mark.parametrize(
+    'model_with_grads',
+    [
+        simple_model_with_grads,
+        cnn_model_with_grads,
+        pytest.param(
+            simple_transformer_model_with_grads,
+            marks=pytest.mark.xfail(reason='SimpleTransformerBase cannot be recursively FSDP wrapped.'),
+        ),
+        hf_model_with_grads,
+    ],
+)
 @pytest.mark.parametrize('clipping_type', ['norm', 'value'])
 @pytest.mark.gpu
 @world_size(2)
@@ -227,10 +244,12 @@ def test_gradient_clipping_algorithm_with_fsdp_enabled_does_not_error(
     clipping_threshold = 0.1191
     state = dummy_state
 
-    state.model = FullyShardedDataParallel(model,
-                                           auto_wrap_policy=_auto_wrap_policy,
-                                           device_id=torch.cuda.current_device(),
-                                           use_orig_params=True)
+    state.model = FullyShardedDataParallel(
+        model,
+        auto_wrap_policy=_auto_wrap_policy,
+        device_id=torch.cuda.current_device(),
+        use_orig_params=True,
+    )
 
     state.algorithms = [GradientClipping(clipping_type=clipping_type, clipping_threshold=clipping_threshold)]
     logger = Mock()
@@ -241,7 +260,8 @@ def test_gradient_clipping_algorithm_with_fsdp_enabled_does_not_error(
 
 @pytest.mark.parametrize(
     'model_with_grads',
-    [simple_model_with_grads, cnn_model_with_grads, simple_transformer_model_with_grads, hf_model_with_grads])
+    [simple_model_with_grads, cnn_model_with_grads, simple_transformer_model_with_grads, hf_model_with_grads],
+)
 def test_algorithm_with_deepspeed_enabled_errors_out_for_non_norm(
     monkeypatch: pytest.MonkeyPatch,
     dummy_state: State,
@@ -277,7 +297,8 @@ def test_algorithm_with_deepspeed_enabled_errors_out_for_non_norm(
 
 @pytest.mark.parametrize(
     'model_with_grads',
-    [simple_model_with_grads, cnn_model_with_grads, simple_transformer_model_with_grads, hf_model_with_grads])
+    [simple_model_with_grads, cnn_model_with_grads, simple_transformer_model_with_grads, hf_model_with_grads],
+)
 def test_apply_agc(model_with_grads):
 
     model = model_with_grads()
@@ -294,10 +315,13 @@ def test_apply_agc(model_with_grads):
 
 @pytest.mark.parametrize(
     'model_with_grads',
-    [simple_model_with_grads(),
-     cnn_model_with_grads(),
-     simple_transformer_model_with_grads(),
-     hf_model_with_grads()])
+    [
+        simple_model_with_grads(),
+        cnn_model_with_grads(),
+        simple_transformer_model_with_grads(),
+        hf_model_with_grads(),
+    ],
+)
 def test_apply_agc_does_not_error(model_with_grads):
     """This test is just to ensure that no errors are raised.
 
@@ -315,18 +339,28 @@ def test_get_clipped_gradients_1D():
     clipping_threshold = 0.5
     expected = torch.Tensor([0.7, 2.4])
     clipped_grads = grad * _get_clipped_gradient_coeff(
-        weights=weights, grad=grad, clipping_threshold=clipping_threshold)
+        weights=weights,
+        grad=grad,
+        clipping_threshold=clipping_threshold,
+    )
     assert torch.equal(clipped_grads, expected)
 
 
-@pytest.mark.parametrize('weights,grad,expected',
-                         [(torch.Tensor([0., 0.]), torch.Tensor([1., 1.]), torch.Tensor([0., 0.])),
-                          (torch.Tensor([1., 1.]), torch.Tensor([0., 0.]), torch.Tensor([0., 0.])),
-                          (torch.Tensor([0., 0.]), torch.Tensor([0., 0.]), torch.Tensor([0., 0.]))])
+@pytest.mark.parametrize(
+    'weights,grad,expected',
+    [
+        (torch.Tensor([0., 0.]), torch.Tensor([1., 1.]), torch.Tensor([0., 0.])),
+        (torch.Tensor([1., 1.]), torch.Tensor([0., 0.]), torch.Tensor([0., 0.])),
+        (torch.Tensor([0., 0.]), torch.Tensor([0., 0.]), torch.Tensor([0., 0.])),
+    ],
+)
 def test_get_clipped_gradients_1D_with_zeros(weights: torch.Tensor, grad: torch.Tensor, expected: torch.Tensor):
     clipping_threshold = 1e-4
     clipped_grads = grad * _get_clipped_gradient_coeff(
-        weights=weights, grad=grad, clipping_threshold=clipping_threshold)
+        weights=weights,
+        grad=grad,
+        clipping_threshold=clipping_threshold,
+    )
     assert torch.equal(clipped_grads, expected)
 
 
@@ -336,7 +370,10 @@ def test_get_clipped_gradients_2D():
     clipping_threshold = 0.5
     expected = torch.Tensor([[0.7, 2.4], [5., 12.]])
     clipped_grads = grad * _get_clipped_gradient_coeff(
-        weights=weights, grad=grad, clipping_threshold=clipping_threshold)
+        weights=weights,
+        grad=grad,
+        clipping_threshold=clipping_threshold,
+    )
     assert torch.equal(clipped_grads, expected)
 
 
@@ -347,7 +384,10 @@ def test_get_clipped_gradients_3D():
     clipping_threshold = 1 / 3.
     expected = torch.Tensor([[[0.5000, 0.5000], [1.5000, 2.5000]], [[1.0000, 1.0000], [1.0000, 1.0000]]])
     clipped_grads = grad * _get_clipped_gradient_coeff(
-        weights=weights, grad=grad, clipping_threshold=clipping_threshold)
+        weights=weights,
+        grad=grad,
+        clipping_threshold=clipping_threshold,
+    )
     assert torch.equal(clipped_grads, expected)
 
 
@@ -358,5 +398,8 @@ def test_get_clipped_gradients_4D():
     clipping_threshold = 1 / 3.
     expected = torch.Tensor([[[[0.5], [0.5]], [[1.5], [2.5]]], [[[1.0], [1.0]], [[1.0], [1.0]]]])
     clipped_grads = grad * _get_clipped_gradient_coeff(
-        weights=weights, grad=grad, clipping_threshold=clipping_threshold)
+        weights=weights,
+        grad=grad,
+        clipping_threshold=clipping_threshold,
+    )
     assert torch.equal(clipped_grads, expected)

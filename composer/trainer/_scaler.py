@@ -133,8 +133,14 @@ class ClosureGradScaler(GradScaler):
             # This is the only line changed from original grad_scaler implementation
             dist.all_reduce(found_inf_combined, reduce_operation='SUM')
 
-            torch._amp_update_scale_(_scale, _growth_tracker, found_inf_combined, self._growth_factor,
-                                     self._backoff_factor, self._growth_interval)
+            torch._amp_update_scale_(
+                _scale,
+                _growth_tracker,
+                found_inf_combined,
+                self._growth_factor,
+                self._backoff_factor,
+                self._growth_interval,
+            )
 
         # To prepare for next iteration, clear the data collected from optimizers this iteration.
         self._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)

@@ -43,11 +43,13 @@ def test_update_factorized_conv2d_twice():
     C_latent = 16
     X = torch.randn(batch_size, C_in, h, w)
     kernel_size = (3, 3)
-    module = FactorizedConv2d(in_channels=C_in,
-                              out_channels=C_out,
-                              latent_channels=C_latent,
-                              kernel_size=kernel_size,
-                              padding=0)
+    module = FactorizedConv2d(
+        in_channels=C_in,
+        out_channels=C_out,
+        latent_channels=C_latent,
+        kernel_size=kernel_size,
+        padding=0,
+    )
 
     def _check_conv_shapes(module: FactorizedConv2d, C_in, C_out, C_latent):
         assert module.latent_channels == C_latent

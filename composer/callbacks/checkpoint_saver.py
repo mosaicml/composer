@@ -16,10 +16,20 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 from composer.core import Callback, Event, State, Time, Timestamp
 from composer.loggers import Logger, MLFlowLogger
-from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE, PartialFilePath,
-                            checkpoint, create_interval_scheduler, create_symlink_file, dist,
-                            ensure_folder_has_no_conflicting_files, format_name_with_dist,
-                            format_name_with_dist_and_time, is_model_deepspeed, partial_format)
+from composer.utils import (
+    FORMAT_NAME_WITH_DIST_AND_TIME_TABLE,
+    FORMAT_NAME_WITH_DIST_TABLE,
+    PartialFilePath,
+    checkpoint,
+    create_interval_scheduler,
+    create_symlink_file,
+    dist,
+    ensure_folder_has_no_conflicting_files,
+    format_name_with_dist,
+    format_name_with_dist_and_time,
+    is_model_deepspeed,
+    partial_format,
+)
 from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
 
 log = logging.getLogger(__name__)
@@ -256,7 +266,8 @@ class CheckpointSaver(Callback):  # noqa: D101
         folder: Union[str, pathlib.Path] = '{run_name}/checkpoints',
         filename: Union[str, pathlib.Path] = 'ep{epoch}-ba{batch}-rank{rank}.pt',
         remote_file_name: Optional[Union[str,
-                                         pathlib.Path]] = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}.pt',
+                                         pathlib.Path,
+                                        ]] = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}.pt',
         latest_filename: Optional[Union[str, pathlib.Path]] = 'latest-rank{rank}.pt',
         latest_remote_file_name: Optional[Union[str, pathlib.Path]] = '{run_name}/checkpoints/latest-rank{rank}.pt',
         save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = '1ep',
@@ -300,7 +311,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             if isinstance(destination, MLFlowLogger):
                 mlflow_format_kwargs = {
                     MLFLOW_EXPERIMENT_ID_FORMAT_KEY: destination._experiment_id,
-                    MLFLOW_RUN_ID_FORMAT_KEY: destination._run_id
+                    MLFLOW_RUN_ID_FORMAT_KEY: destination._run_id,
                 }
                 self.folder = partial_format(self.folder, **mlflow_format_kwargs)
 
@@ -310,11 +321,15 @@ class CheckpointSaver(Callback):  # noqa: D101
 
                 # The remote paths have the placeholders in their filename rather than folder
                 if self.remote_file_name is not None:
-                    self.remote_file_name.filename = partial_format(self.remote_file_name.filename,
-                                                                    **mlflow_format_kwargs)
+                    self.remote_file_name.filename = partial_format(
+                        self.remote_file_name.filename,
+                        **mlflow_format_kwargs,
+                    )
                 if self.latest_remote_file_name is not None:
-                    self.latest_remote_file_name.filename = partial_format(self.latest_remote_file_name.filename,
-                                                                           **mlflow_format_kwargs)
+                    self.latest_remote_file_name.filename = partial_format(
+                        self.latest_remote_file_name.filename,
+                        **mlflow_format_kwargs,
+                    )
 
                 break
 
@@ -405,8 +420,10 @@ class CheckpointSaver(Callback):  # noqa: D101
         metadata_local_file_path = None
         if dist.get_global_rank() == 0 and state.fsdp_sharded_state_dict_enabled:
             metadata_local_file_path = format_name_with_dist_and_time(
-                os.path.join(Path(saved_path).parent, _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME), state.run_name,
-                state.timestamp)
+                os.path.join(Path(saved_path).parent, _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME),
+                state.run_name,
+                state.timestamp,
+            )
 
         if self.latest_filename is not None and self.num_checkpoints_to_keep != 0:
             symlink = self.latest_filename.format(state, is_deepspeed)
@@ -442,11 +459,15 @@ class CheckpointSaver(Callback):  # noqa: D101
                 if dist.get_global_rank() == 0 and state.fsdp_sharded_state_dict_enabled:
                     metadata_remote_file_name = format_name_with_dist_and_time(
                         os.path.join(Path(remote_file_name).parent, _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME),
-                        state.run_name, state.timestamp)
+                        state.run_name,
+                        state.timestamp,
+                    )
                     assert metadata_local_file_path is not None
-                    logger.upload_file(remote_file_name=metadata_remote_file_name,
-                                       file_path=metadata_local_file_path,
-                                       overwrite=self.overwrite)
+                    logger.upload_file(
+                        remote_file_name=metadata_remote_file_name,
+                        file_path=metadata_local_file_path,
+                        overwrite=self.overwrite,
+                    )
             else:
                 remote_file_name = self.remote_file_name.format(
                     state,
@@ -458,7 +479,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                 logger.upload_file(remote_file_name=remote_file_name, file_path=saved_path, overwrite=self.overwrite)
             except FileExistsError as e:
                 raise FileExistsError(
-                    f'Uploading checkpoint failed with error: {e}. overwrite was set to {self.overwrite}. To overwrite checkpoints with Trainer, set save_overwrite to True.'
+                    f'Uploading checkpoint failed with error: {e}. overwrite was set to {self.overwrite}. To overwrite checkpoints with Trainer, set save_overwrite to True.',
                 ) from e
 
             # symlinks stay the same with sharded checkpointing

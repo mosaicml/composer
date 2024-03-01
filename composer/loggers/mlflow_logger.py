@@ -81,9 +81,11 @@ class MLFlowLogger(LoggerDestination):
             import mlflow
             from mlflow import MlflowClient
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='mlflow',
-                                                conda_package='mlflow',
-                                                conda_channel='conda-forge') from e
+            raise MissingConditionalImportError(
+                extra_deps_group='mlflow',
+                conda_package='mlflow',
+                conda_channel='conda-forge',
+            ) from e
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
 
         self.experiment_name = experiment_name
@@ -97,8 +99,10 @@ class MLFlowLogger(LoggerDestination):
         self.ignore_hyperparameters = [] if ignore_hyperparameters is None else ignore_hyperparameters
         if self.model_registry_uri == 'databricks-uc':
             if len(self.model_registry_prefix.split('.')) != 2:
-                raise ValueError(f'When registering to Unity Catalog, model_registry_prefix must be in the format ' +
-                                 f'{{catalog_name}}.{{schema_name}}, but got {self.model_registry_prefix}')
+                raise ValueError(
+                    f'When registering to Unity Catalog, model_registry_prefix must be in the format ' +
+                    f'{{catalog_name}}.{{schema_name}}, but got {self.model_registry_prefix}',
+                )
 
         self._rank_zero_only = rank_zero_only
         self._last_flush_time = time.time()
@@ -161,17 +165,21 @@ class MLFlowLogger(LoggerDestination):
             else:
                 # Search for an existing run tagged with this Composer run.
                 assert self._experiment_id is not None
-                existing_runs = mlflow.search_runs(experiment_ids=[self._experiment_id],
-                                                   filter_string=f'tags.run_name = "{state.run_name}"',
-                                                   output_format='list')
+                existing_runs = mlflow.search_runs(
+                    experiment_ids=[self._experiment_id],
+                    filter_string=f'tags.run_name = "{state.run_name}"',
+                    output_format='list',
+                )
 
                 # Check for the old tag (`composer_run_name`) For backwards compatibility in case a run using the old
                 # tag fails and the run is resumed with a newer version of Composer that uses `run_name` instead of
                 # `composer_run_name`.
                 if len(existing_runs) == 0:
-                    existing_runs = mlflow.search_runs(experiment_ids=[self._experiment_id],
-                                                       filter_string=f'tags.composer_run_name = "{state.run_name}"',
-                                                       output_format='list')
+                    existing_runs = mlflow.search_runs(
+                        experiment_ids=[self._experiment_id],
+                        filter_string=f'tags.composer_run_name = "{state.run_name}"',
+                        output_format='list',
+                    )
 
                 if len(existing_runs) > 0:
                     self._run_id = existing_runs[0].info.run_id
@@ -197,19 +205,23 @@ class MLFlowLogger(LoggerDestination):
     def after_load(self, state: State, logger: Logger) -> None:
         logger.log_hyperparameters({'mlflow_experiment_id': self._experiment_id, 'mlflow_run_id': self._run_id})
 
-    def log_table(self,
-                  columns: List[str],
-                  rows: List[List[Any]],
-                  name: str = 'Table',
-                  step: Optional[int] = None) -> None:
+    def log_table(
+        self,
+        columns: List[str],
+        rows: List[List[Any]],
+        name: str = 'Table',
+        step: Optional[int] = None,
+    ) -> None:
         del step
         if self._enabled:
             try:
                 import pandas as pd
             except ImportError as e:
-                raise MissingConditionalImportError(extra_deps_group='pandas',
-                                                    conda_package='pandas',
-                                                    conda_channel='conda-forge') from e
+                raise MissingConditionalImportError(
+                    extra_deps_group='pandas',
+                    conda_package='pandas',
+                    conda_channel='conda-forge',
+                ) from e
             table = pd.DataFrame.from_records(data=rows, columns=columns)
             assert isinstance(self._run_id, str)
             self._mlflow_client.log_table(
@@ -294,7 +306,7 @@ class MLFlowLogger(LoggerDestination):
         if self._enabled:
             import mlflow
             if flavor == 'transformers':
-                mlflow.transformers.save_model(**kwargs,)
+                mlflow.transformers.save_model(**kwargs)
             elif flavor == 'peft':
                 import transformers
 
@@ -304,7 +316,8 @@ class MLFlowLogger(LoggerDestination):
                 # This is a temporary workaround until MLflow adds full support for saving PEFT models.
                 # https://github.com/mlflow/mlflow/issues/9256
                 log.warning(
-                    'Saving PEFT models using MLflow is experimental and the API is subject to change without warning.')
+                    'Saving PEFT models using MLflow is experimental and the API is subject to change without warning.',
+                )
                 expected_keys = {'path', 'save_pretrained_dir'}
                 if not expected_keys.issubset(kwargs.keys()):
                     raise ValueError(f'Expected keys {expected_keys} but got {kwargs.keys()}')
@@ -315,9 +328,11 @@ class MLFlowLogger(LoggerDestination):
 
                     def load_context(self, context):
                         self.model = transformers.AutoModelForCausalLM.from_pretrained(
-                            context.artifacts['lora_checkpoint'])
+                            context.artifacts['lora_checkpoint'],
+                        )
                         self.tokenizer = transformers.AutoTokenizer.from_pretrained(
-                            context.artifacts['lora_checkpoint'])
+                            context.artifacts['lora_checkpoint'],
+                        )
 
                 from mlflow.models.signature import ModelSignature
                 from mlflow.types import ColSpec, DataType, Schema
@@ -356,7 +371,7 @@ class MLFlowLogger(LoggerDestination):
         if self._enabled:
             import mlflow
             if flavor == 'transformers':
-                mlflow.transformers.log_model(**kwargs,)
+                mlflow.transformers.log_model(**kwargs)
             else:
                 raise NotImplementedError(f'flavor {flavor} not supported.')
 
@@ -388,8 +403,8 @@ class MLFlowLogger(LoggerDestination):
                 log.info(f'Successfully registered model {name} with {create_model_response.name}')
             except MlflowException as e:
                 if e.error_code in (
-                        ErrorCode.Name(RESOURCE_ALREADY_EXISTS),
-                        ErrorCode.Name(ALREADY_EXISTS),
+                    ErrorCode.Name(RESOURCE_ALREADY_EXISTS),
+                    ErrorCode.Name(ALREADY_EXISTS),
                 ):
                     log.info(f'Registered model {name} already exists. Creating a new version of this model...')
                 else:
@@ -404,7 +419,7 @@ class MLFlowLogger(LoggerDestination):
             )
 
             log.info(
-                f'Successfully created model version {create_version_response.version} for model {create_version_response.name}'
+                f'Successfully created model version {create_version_response.version} for model {create_version_response.name}',
             )
 
     def log_images(
@@ -420,17 +435,22 @@ class MLFlowLogger(LoggerDestination):
         unused_args = (masks, mask_class_labels)  # Unused (only for wandb)
         if any(unused_args):
             warnings.warn(
-                textwrap.dedent(f"""MLFlowLogger does not support masks, class labels, or tables of images,
-                          but got masks={masks}, mask_class_labels={mask_class_labels}"""))
+                textwrap.dedent(
+                    f"""MLFlowLogger does not support masks, class labels, or tables of images,
+                          but got masks={masks}, mask_class_labels={mask_class_labels}""",
+                ),
+            )
         if self._enabled:
             if not isinstance(images, Sequence) and images.ndim <= 3:
                 images = [images]
             for im_ind, image in enumerate(images):
                 image = _convert_to_mlflow_image(image, channels_last)
                 assert isinstance(self._run_id, str)
-                self._mlflow_client.log_image(image=image,
-                                              artifact_file=f'{name}_{step}_{im_ind}.png',
-                                              run_id=self._run_id)
+                self._mlflow_client.log_image(
+                    image=image,
+                    artifact_file=f'{name}_{step}_{im_ind}.png',
+                    run_id=self._run_id,
+                )
 
     def post_close(self):
         if self._enabled:
@@ -465,20 +485,26 @@ def _convert_to_mlflow_image(image: Union[np.ndarray, torch.Tensor], channels_la
 
     if image.ndim != 3:
         raise ValueError(
-            textwrap.dedent(f'''Input image must be 3 dimensions, but instead
+            textwrap.dedent(
+                f'''Input image must be 3 dimensions, but instead
                             got {image.ndim} dims at shape: {image.shape}
                             Your input image was interpreted as a batch of {image.ndim}
                             -dimensional images because you either specified a
                             {image.ndim + 1}D image or a list of {image.ndim}D images.
-                            Please specify either a 4D image of a list of 3D images'''))
+                            Please specify either a 4D image of a list of 3D images''',
+            ),
+        )
 
     assert isinstance(image, np.ndarray)
     if not channels_last:
         image = image.transpose(1, 2, 0)
     if image.shape[-1] not in [1, 3, 4]:
         raise ValueError(
-            textwrap.dedent(f'''Input image must have 1, 3, or 4 channels, but instead
+            textwrap.dedent(
+                f'''Input image must have 1, 3, or 4 channels, but instead
                             got {image.shape[-1]} channels at shape: {image.shape}
                             Please specify either a 1-, 3-, or 4-channel image or a list of
-                            1-, 3-, or 4-channel images'''))
+                            1-, 3-, or 4-channel images''',
+            ),
+        )
     return image

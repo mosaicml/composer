@@ -32,16 +32,31 @@ class LocalEvalClient(EvalClient):
     def invoke_helper(self, payload: Dict[str, str]) -> bool:
         """Invoke a provided dictionary payload to a multiprocessing subprocess that performs code eval."""
         ret = multiprocessing.Value('b', 0)  # Store result of test case in shared memory
-        p = multiprocessing.Process(target=self.update_offline_helper,
-                                    args=(payload['code'], payload['input'], payload['output'], payload['entry_point'],
-                                          payload['language'], ret))  # Evaluate test case in an independent subprocess
+        p = multiprocessing.Process(
+            target=self.update_offline_helper,
+            args=(
+                payload['code'],
+                payload['input'],
+                payload['output'],
+                payload['entry_point'],
+                payload['language'],
+                ret,
+            ),
+        )  # Evaluate test case in an independent subprocess
         p.start()
         p.join(TIMEOUT)  # wait for timeout to terminate
         p.terminate()
         return bool(ret.value)  # pyright: ignore[reportGeneralTypeIssues]
 
-    def update_offline_helper(self, code_gen: str, test_input: str, test_output: str, entry_point: str, language: str,
-                              val: multiprocessing.Value):  # type: ignore
+    def update_offline_helper(
+        self,
+        code_gen: str,
+        test_input: str,
+        test_output: str,
+        entry_point: str,
+        language: str,
+        val: multiprocessing.Value,
+    ):  # type: ignore
         """Helper function to evaluate test case in a subprocess.
 
         This function compiles the code generation,
@@ -179,9 +194,16 @@ class LocalEvalClient(EvalClient):
             with open(f'test_code_{rank}.cpp', 'w') as f:
                 f.write(code_gen)
             compilation_process = subprocess.run(
-                ['g++', '-std=c++11', f'test_code_{rank}.cpp', '-o', f'test_code_{rank}'],
+                [
+                    'g++',
+                    '-std=c++11',
+                    f'test_code_{rank}.cpp',
+                    '-o',
+                    f'test_code_{rank}',
+                ],
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE)
+                stderr=subprocess.PIPE,
+            )
             if compilation_process.returncode == 0:
                 run_process = subprocess.run(f'./test_code_{rank}', stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 output = run_process.stdout.decode()
@@ -200,9 +222,11 @@ class LocalEvalClient(EvalClient):
             with open(f'test_code_{rank}.js', 'w') as f:
                 f.write(code_gen)
 
-            run_process = subprocess.run(['node', f'test_code_{rank}.js'],
-                                         stdout=subprocess.PIPE,
-                                         stderr=subprocess.PIPE)
+            run_process = subprocess.run(
+                ['node', f'test_code_{rank}.js'],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
             output = run_process.stdout.decode()
             if f'test_code_{rank}.js' in os.listdir():
                 os.remove(f'test_code_{rank}.js')
@@ -243,9 +267,11 @@ class LocalEvalClient(EvalClient):
             code_gen = code_gen + '\n' + textwrap.dedent(ending)
             with open(f'test_code_{rank}.c', 'w') as f:
                 f.write(code_gen)
-            compilation_process = subprocess.run(['gcc', f'test_code_{rank}.c', '-o', f'test_code_{rank}'],
-                                                 stdout=subprocess.PIPE,
-                                                 stderr=subprocess.PIPE)
+            compilation_process = subprocess.run(
+                ['gcc', f'test_code_{rank}.c', '-o', f'test_code_{rank}'],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
             if compilation_process.returncode == 0:
                 run_process = subprocess.run(f'./test_code_{rank}', stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 output = run_process.stdout.decode()

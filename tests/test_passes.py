@@ -19,11 +19,13 @@ from .test_engine import run_event
 @pytest.fixture
 def always_match_algorithms():
     return [
-        Mock(**{
-            'match.return.value': True,
-            'apply.return_value': n,  # return encodes order
-            'interpolate_loss': False,
-        }) for n in range(5)
+        Mock(
+            **{
+                'match.return.value': True,
+                'apply.return_value': n,  # return encodes order
+                'interpolate_loss': False,
+            },
+        ) for n in range(5)
     ]
 
 
@@ -52,12 +54,20 @@ def test_register_pass(dummy_state, dummy_logger):
 
 class TestLIFOPass:
 
-    @pytest.mark.parametrize('event', [
-        Event.BEFORE_LOSS,
-        Event.BEFORE_BACKWARD,
-    ])
-    def test_lifo_first_in(self, event: Event, dummy_state: State, dummy_logger: Logger,
-                           always_match_algorithms: List[Algorithm]):
+    @pytest.mark.parametrize(
+        'event',
+        [
+            Event.BEFORE_LOSS,
+            Event.BEFORE_BACKWARD,
+        ],
+    )
+    def test_lifo_first_in(
+        self,
+        event: Event,
+        dummy_state: State,
+        dummy_logger: Logger,
+        always_match_algorithms: List[Algorithm],
+    ):
         dummy_state.algorithms = always_match_algorithms
         trace = run_event(event, dummy_state, dummy_logger)
         order = [tr.order for tr in trace.values()]
@@ -65,12 +75,20 @@ class TestLIFOPass:
 
         assert order == expected_order
 
-    @pytest.mark.parametrize('event', [
-        Event.AFTER_LOSS,
-        Event.AFTER_BACKWARD,
-    ])
-    def test_lifo_last_out(self, event: Event, dummy_state: State, always_match_algorithms: List[Algorithm],
-                           dummy_logger: Logger):
+    @pytest.mark.parametrize(
+        'event',
+        [
+            Event.AFTER_LOSS,
+            Event.AFTER_BACKWARD,
+        ],
+    )
+    def test_lifo_last_out(
+        self,
+        event: Event,
+        dummy_state: State,
+        always_match_algorithms: List[Algorithm],
+        dummy_logger: Logger,
+    ):
         dummy_state.algorithms = always_match_algorithms
         trace = run_event(event, dummy_state, dummy_logger)
         order = [tr.order for tr in trace.values()]
@@ -82,8 +100,13 @@ class TestLIFOPass:
 class TestAlgorithmOrderingPasses:
 
     @pytest.mark.parametrize('algorithm_cls', [LowPrecisionLayerNorm])
-    def test_algorithm_last(self, algorithm_cls: Type[Algorithm], always_match_algorithms: List[Algorithm],
-                            dummy_logger: Logger, dummy_state: State):
+    def test_algorithm_last(
+        self,
+        algorithm_cls: Type[Algorithm],
+        always_match_algorithms: List[Algorithm],
+        dummy_logger: Logger,
+        dummy_state: State,
+    ):
         algorithm = algorithm_cls()
         algorithm.apply = Mock(return_value='algo')
         algorithm.match = Mock(return_value=True)
@@ -99,8 +122,13 @@ class TestAlgorithmOrderingPasses:
         assert actual == expected
 
     @pytest.mark.parametrize('algorithm_cls', [SelectiveBackprop])
-    def test_algorithm_first(self, algorithm_cls: Type[Algorithm], always_match_algorithms: List[Algorithm],
-                             dummy_logger: Logger, dummy_state: State):
+    def test_algorithm_first(
+        self,
+        algorithm_cls: Type[Algorithm],
+        always_match_algorithms: List[Algorithm],
+        dummy_logger: Logger,
+        dummy_state: State,
+    ):
 
         algorithm = algorithm_cls()
         algorithm.apply = Mock(return_value='algo')
@@ -156,7 +184,8 @@ class TestTrainerArg:
             [[sort_by_name, 0], [sort_by_name] + get_default_passes()],  # type: ignore
             [(sort_by_name, 0), [sort_by_name] + get_default_passes()],  # type: ignore
             [[(sort_by_name, 0)], [sort_by_name] + get_default_passes()],  # type: ignore
-        ])
+        ],
+    )
     def test_add_pass(self, algorithm_passes, expected_passes):
         trainer = Trainer(model=SimpleModel(), algorithm_passes=algorithm_passes)
         assert trainer.engine.algorithm_passes == expected_passes

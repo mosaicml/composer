@@ -47,10 +47,13 @@ def apply_weight_standardization(module: torch.nn.Module, n_last_layers_ignore: 
     except:
         if n_last_layers_ignore > 0:
             log.warning(
-                textwrap.dedent(f"""\
+                textwrap.dedent(
+                    f"""\
                 Module could not be symbolically traced likely due to logic in forward() which is not traceable. Modules
                 ignored due to n_last_layers={n_last_layers_ignore} may not actually be the last layers of the network.
-                To determine the error, try torch.fx.symbolic_trace(module)."""))
+                To determine the error, try torch.fx.symbolic_trace(module).""",
+                ),
+            )
         module_trace = module
 
     # Count the number of convolution modules in the model

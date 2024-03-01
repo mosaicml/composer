@@ -103,8 +103,10 @@ def apply_alibi(
     count = len(replaced_pairs)
     if count == 0:
         supported_modules = ''.join(sorted(['\n\t' + c.__module__ + '.' + c.__name__ for c in policy_registry.keys()]))
-        log.warning(f'ALiBi had no effect on the model! Support for ALiBi surgery '
-                    f'is currently limited to the following classes: {supported_modules}')
+        log.warning(
+            f'ALiBi had no effect on the model! Support for ALiBi surgery '
+            f'is currently limited to the following classes: {supported_modules}',
+        )
     else:
         log.info(f' {count} instances of ALiBi added')
 

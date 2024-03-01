@@ -81,13 +81,15 @@ class LibcloudObjectStore(ObjectStore):
             used if 'secret' is not in ``provider_kwargs``. Default: None.
     """
 
-    def __init__(self,
-                 provider: str,
-                 container: str,
-                 chunk_size: int = 1_024 * 1_024,
-                 key_environ: Optional[str] = None,
-                 secret_environ: Optional[str] = None,
-                 provider_kwargs: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(
+        self,
+        provider: str,
+        container: str,
+        chunk_size: int = 1_024 * 1_024,
+        key_environ: Optional[str] = None,
+        secret_environ: Optional[str] = None,
+        provider_kwargs: Optional[Dict[str, Any]] = None,
+    ) -> None:
         try:
             from libcloud.storage.providers import get_driver
         except ImportError as e:
@@ -119,8 +121,11 @@ class LibcloudObjectStore(ObjectStore):
         callback: Optional[Callable[[int, int], None]] = None,
     ):
         with open(filename, 'rb') as f:
-            stream = iterate_with_callback(_file_to_iterator(f, self.chunk_size),
-                                           os.fstat(f.fileno()).st_size, callback)
+            stream = iterate_with_callback(
+                _file_to_iterator(f, self.chunk_size),
+                os.fstat(f.fileno()).st_size,
+                callback,
+            )
             try:
                 self._provider.upload_object_via_stream(
                     stream,
