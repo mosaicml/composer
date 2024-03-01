@@ -64,7 +64,7 @@ class EvalOutputLogging(Callback):
         if self.log_tokens:
             logging_dict['input_tokens'] = input_ids.tolist()
             if not state.batch['mode'] == 'generate':
-                logged_input['label_tokens'] = state.outputs.tolist()
+                logging_dict['label_tokens'] = state.outputs.tolist()
 
         # Add run_name as a column
         run_name_list = [state.run_name for _ in range(0, len(logging_dict['input']))]
@@ -77,11 +77,17 @@ class EvalOutputLogging(Callback):
         for key, value in logging_dict.items():
             # All types in list are the same
             if isinstance(value[0], torch.Tensor):
-                logging_dict[key] = [state.dataloader.dataset.tokenizer.decode(t) for t in value]
+                logging_dict[key] = [
+                    state.dataloader.dataset.tokenizer.decode(t)  # pyright: ignore[reportGeneralTypeIssues]
+                    for t in value
+                ]
             elif isinstance(value[0], list):
                 if isinstance(value[0][0], torch.Tensor):
                     logging_dict[key] = [
-                        [state.dataloader.dataset.tokenizer.decode(choice) for choice in t] for t in value
+                        [
+                            state.dataloader.dataset.tokenizer.decode(  # pyright: ignore[reportGeneralTypeIssues]
+                                choice) for choice in t
+                        ] for t in value
                     ]
 
         # Convert logging_dict from kv pairs of column name and column values to a list of rows
