@@ -70,6 +70,17 @@ class EvalOutputLogging(Callback):
         run_name_list = [state.run_name for _ in range(0, len(logging_dict['input']))]
         logging_dict['run_name'] = run_name_list
 
+        # NOTE: This assumes _any_ tensor logged are tokens to be decoded.
+        #       This might not be true if, for example, logits are logged.
+        # Detokenize data in rows
+        for key, value in logging_dict.items():
+            if isinstance(value[0], torch.Tensor):
+                if len(value[0].shape) > 1:
+                    logging_dict[key] = [state.dataloader.dataset.tokenizer.batch_decode(t) for t in value]
+                else:
+                    logging_dict[key] = [state.dataloader.dataset.tokenizer.decode(t) for t in value]
+
+
         # Convert logging_dict from kv pairs of column name and column values to a list of rows
         # Example:
         # logging_dict = {"a": ["1a", "2a"], "b": ["1b", "2b"]}
@@ -77,16 +88,6 @@ class EvalOutputLogging(Callback):
         # columns = {"a", "b"}, rows = [["1a", "1b"], ["2a", "2b"]]
         columns = list(logging_dict.keys())
         rows = [list(item) for item in zip(*logging_dict.values())]
-
-        # NOTE: This assumes _any_ tensor logged are tokens to be decoded.
-        #       This might not be true if, for example, logits are logged.
-        # Detokenize data in rows
-        rows = [
-            [
-                state.dataloader.dataset.tokenizer.decode(x)  # pyright: ignore[reportGeneralTypeIssues]
-                if isinstance(x, torch.Tensor) else x for x in row
-            ] for row in rows
-        ]
 
         assert state.dataloader_label is not None
         if not self.name:

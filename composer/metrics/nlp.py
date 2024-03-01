@@ -521,7 +521,10 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
             metric_result_dict['correct_choice_idx'].append(gold_idx)
             metric_result_dict['selected_choice'].append(selected_choice)
             metric_result_dict['selected_choice_idx'].append(idx_min)
-            metric_result_dict['all_choices'].append(batch['input_ids'][start:end])
+            all_choices = batch['input_ids'][start:end]
+            total_choices = all_choices.shape[0]
+            all_choices = all_choices[batch['attention_mask'][start:end]].reshape(total_choices, -1)
+            metric_result_dict['all_choices'].append(all_choices)
 
             self.total += torch.tensor(1.0)
 
