@@ -524,10 +524,15 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
             metric_result_dict['selected_choice_idx'].append(idx_min)
             all_choices = batch['input_ids'][start:end]
             # Unpads the choices. Necessary in case different choices have different token lengths.
-            all_choices_list = [choice[batch['attention_mask'][i]] for i, choice in enumerate(all_choices)]
-            metric_result_dict['all_choices'].append(all_choices_list)
+            if 'attention_mask' in batch:
+                all_choices_list = [choice[batch['attention_mask'][i]] for i, choice in enumerate(all_choices)]
+                metric_result_dict['all_choices'].append(all_choices_list)
 
             self.total += torch.tensor(1.0)
+
+        # Don't return all_choices if we didn't fill it up (i.e. didn't use causal lms)
+        if metric_result_dict['all_choices'] == []:
+            metric_result_dict.pop('all_choices')
 
         return metric_result_dict
 
