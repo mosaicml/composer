@@ -64,7 +64,7 @@ class EvalOutputLogging(Callback):
         if self.log_tokens:
             logging_dict['input_tokens'] = input_ids.tolist()
             if not state.batch['mode'] == 'generate':
-                if isinstance(state.outputs, torch.Tensor): # pyright
+                if isinstance(state.outputs, torch.Tensor):  # pyright
                     logging_dict['label_tokens'] = state.outputs.tolist()
 
         # Add run_name as a column
