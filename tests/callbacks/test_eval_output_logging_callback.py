@@ -135,7 +135,7 @@ def test_eval_output_logging_lm(device, tiny_gpt2_tokenizer):
     # Construct the callback
     eval_output_logging = EvalOutputLogging(loggers_to_use=['InMemoryLogger'])
 
-    for i in range(2):
+    for _ in range(2):
         state.update_curr_eval(
             MockDataLoader(tiny_gpt2_tokenizer),
             'lm_acc',
@@ -179,7 +179,7 @@ def test_eval_output_logging_mc(device, tiny_gpt2_tokenizer):
 
     # Construct the callback
     eval_output_logging = EvalOutputLogging(loggers_to_use=['InMemoryLogger'])
-    for i in range(2):
+    for _ in range(2):
         state.update_curr_eval(
             MockDataLoader(tiny_gpt2_tokenizer),
             'mc_acc',
@@ -196,11 +196,11 @@ def test_eval_output_logging_mc(device, tiny_gpt2_tokenizer):
     assert f'mc_acc_step_0' in in_memory_logger.tables
     # Only want one table - we log once to a single step value during eval_end()
     assert len(in_memory_logger.tables) == 1
-    # We use the same data for each batch
     assert json.loads(in_memory_logger.tables[f'mc_acc_step_0'])['columns'] == [
         'context', 'correct_choice', 'correct_choice_idx', 'selected_choice', 'selected_choice_idx', 'all_choices',
         'result', 'metric_name', 'input', 'run_name'
     ]
+    # We use the same data for each batch
     assert json.loads(in_memory_logger.tables[f'mc_acc_step_0'])['data'] == [
         [
             'Q: How do you cook a cake?', ' A: turn on the oven', 0, ' A: turn on the oven', 0,
