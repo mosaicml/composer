@@ -470,7 +470,15 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.0), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.0), dist_reduce_fx='sum')
-        self.metric_result_dict = {'context': [], 'correct_choice': [], 'selected_choice': [], 'result': []}
+        self.metric_result_dict = {
+            'context': [],
+            'correct_choice': [],
+            'correct_choice_idx': [],
+            'selected_choice': [],
+            'selected_choice_idx': [],
+            'all_choices': [],
+            'result': []
+        }
 
     def update(self,
                batch: dict,
@@ -504,14 +512,16 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
 
             question = batch['input_ids'][start][:batch['continuation_indices'][start][0]]
 
-            # TODO: Seems broken for schema tasks
             correct_choice = batch['input_ids'][start:end][gold_idx][batch['continuation_indices'][start:end][gold_idx][
                 0]:batch['continuation_indices'][start:end][gold_idx][-1] + 1]
             selected_choice = batch['input_ids'][start:end][idx_min][batch['continuation_indices'][start:end][idx_min][
                 0]:batch['continuation_indices'][start:end][idx_min][-1] + 1]
             metric_result_dict['context'].append(question)
             metric_result_dict['correct_choice'].append(correct_choice)
+            metric_result_dict['correct_choice_idx'].append(gold_idx)
             metric_result_dict['selected_choice'].append(selected_choice)
+            metric_result_dict['selected_choice_idx'].append(idx_min)
+            metric_result_dict['all_choices'].append(batch['input_ids'][start:end])
 
             self.total += torch.tensor(1.0)
 
