@@ -197,6 +197,7 @@ class LanguagePerplexity(LanguageCrossEntropy):
 
 
 class InContextLearningMetric(Metric):
+    """Base class for In-context learning (ICL) metrics."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
