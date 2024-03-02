@@ -213,7 +213,7 @@ def _get_initial_device_train_microbatch_size(device_train_microbatch_size: Opti
                 "`device_train_microbatch_size='auto'` requires the `state.train_dataloader` to have a `batch_size` attribute."
             ) from e
         return batch_size
-    elif isinstance(device_train_microbatch_size, int):
+    elif isinstance(device_train_microbatch_size, Union[int, float]):
         return device_train_microbatch_size
     else:
         raise ValueError("device_train_microbatch_size must be an int or ``'auto'``")
@@ -2381,6 +2381,7 @@ class Trainer:
                     dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
                     all_ranks_finished = all_ranks_finished_tensor.item() == 1
                 if found_cuda_oom == 1:
+                    # TODO: Throw error if sequence parallel
                     _adjust_device_train_microbatch_size(self.state)
                     # Skip return and rerun after handling oom
                     continue
@@ -2993,10 +2994,11 @@ class Trainer:
                             if dist_sampler is not None and drop_last == False and dataset_len is not None and last_batch and last_microbatch:
                                 padding = dist_sampler.total_size - dataset_len
                                 if dist.get_global_rank() >= dist.get_world_size() - padding:
+                                    # TODO!!!! Throw error if sequence parallel
                                     rank_num_samples -= 1
                                     num_samples_in_microbatch = data_spec.get_num_samples_in_batch(self.state.batch)
                                     # Skip updating metric if batch is only padded samples
-                                    if num_samples_in_microbatch == 1 or rank_num_samples <= 0:
+                                    if num_samples_in_microbatch == 1:
                                         skip_metric_update = True
                                     # Remove padded samples from batch
                                     else:
@@ -3065,6 +3067,7 @@ class Trainer:
                             torch.tensor([found_cuda_oom], dtype=torch.uint8))
                         dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
                         if found_cuda_oom.item() == 1:
+                            # TODO: Throw error if sequence parallel
                             _adjust_device_eval_microbatch_size(evaluator)
                             # Skip return and rerun after handling oom
                             continue
