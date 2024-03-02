@@ -22,6 +22,7 @@ from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalCl
 log = logging.getLogger(__name__)
 
 __all__ = [
+    'InContextLearningMetric',
     'InContextLearningLMAccuracy',
     'InContextLearningMultipleChoiceAccuracy',
     'InContextLearningQAAccuracy',
