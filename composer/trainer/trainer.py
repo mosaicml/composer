@@ -2159,9 +2159,8 @@ class Trainer:
 
                 total_loss_dict = self._train_batch(use_grad_scaling)
 
-                # Handle this scaler update through the callback in foundry.
-                # if use_grad_scaling:
-                #     self.state.scaler.update()
+                if use_grad_scaling:
+                    self.state.scaler.update()
 
                 # total_loss_dict can be None if gradient scaling failed
                 if total_loss_dict is not None:  # pyright: ignore[reportUnnecessaryComparison]
