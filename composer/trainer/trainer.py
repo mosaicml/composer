@@ -988,6 +988,9 @@ class Trainer:
 
         # Microbatching
         auto_microbatching = _is_auto_microbatching(device_train_microbatch_size, device=device)
+        if auto_microbatching and train_dataloader is not None and hasattr(train_dataloader, 'spg_ws'):
+            raise ValueError('`device_train_microbatch_size="auto"` is not compatible with sequence parallelism.')
+
         if auto_microbatching and profiler:
             raise ValueError("`device_train_microbatch_size='auto'` is not compatible with the profiler. It is "
                              "recommended to run a mini-run with `device_train_microbatch_size='auto'` to identify "
@@ -1301,6 +1304,9 @@ class Trainer:
 
             for evaluator in evaluators:
                 validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
+                if evaluator.auto_microbatching and evaluator.dataloader is not None and hasattr(
+                        evaluator.dataloader, 'spg_ws'):
+                    raise ValueError('`validate_eval_automicrobatching` is not compatible with sequence parallelism.')
         if len(evaluators) == 0:
             if eval_subset_num_batches != -1:
                 raise ValueError(
@@ -1935,6 +1941,9 @@ class Trainer:
 
             for evaluator in evaluators:
                 validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
+                if evaluator.auto_microbatching and evaluator.dataloader is not None and hasattr(
+                        evaluator.dataloader, 'spg_ws'):
+                    raise ValueError('`validate_eval_automicrobatching` is not compatible with sequence parallelism.')
 
             if len(evaluators) == 0:
                 if eval_subset_num_batches != -1:
@@ -1948,6 +1957,9 @@ class Trainer:
         if device_train_microbatch_size is not None:
             self.state.auto_microbatching = _is_auto_microbatching(device_train_microbatch_size,
                                                                    device=self.state.device)
+            if self.state.auto_microbatching and self._train_data_spec is not None and hasattr(
+                    self._train_data_spec, 'spg_ws'):
+                raise ValueError('`device_train_microbatch_size="auto"` is not compatible with sequence parallelism.')
             if self.state.auto_microbatching and self.state.profiler:
                 raise ValueError("`device_train_microbatch_size='auto'` is not compatible with the profiler. It is "
                                  "recommended to run a mini-run with `device_train_microbatch_size='auto'` to identify "
@@ -2381,7 +2393,6 @@ class Trainer:
                     dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
                     all_ranks_finished = all_ranks_finished_tensor.item() == 1
                 if found_cuda_oom == 1:
-                    # TODO: Throw error if sequence parallel
                     _adjust_device_train_microbatch_size(self.state)
                     # Skip return and rerun after handling oom
                     continue
@@ -2870,6 +2881,9 @@ class Trainer:
 
             for evaluator in evaluators:
                 validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
+                if evaluator.auto_microbatching and evaluator.dataloader is not None and hasattr(
+                        evaluator.dataloader, 'spg_ws'):
+                    raise ValueError('`validate_eval_automicrobatching` is not compatible with sequence parallelism.')
 
             self.state.evaluators.extend(evaluators)  # Add evaluators to state.evaluators
         else:
@@ -2994,11 +3008,10 @@ class Trainer:
                             if dist_sampler is not None and drop_last == False and dataset_len is not None and last_batch and last_microbatch:
                                 padding = dist_sampler.total_size - dataset_len
                                 if dist.get_global_rank() >= dist.get_world_size() - padding:
-                                    # TODO!!!! Throw error if sequence parallel
                                     rank_num_samples -= 1
                                     num_samples_in_microbatch = data_spec.get_num_samples_in_batch(self.state.batch)
                                     # Skip updating metric if batch is only padded samples
-                                    if num_samples_in_microbatch == 1:
+                                    if num_samples_in_microbatch == 1 or hasattr(data_spec, 'spg_ws'):
                                         skip_metric_update = True
                                     # Remove padded samples from batch
                                     else:
@@ -3067,7 +3080,6 @@ class Trainer:
                             torch.tensor([found_cuda_oom], dtype=torch.uint8))
                         dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
                         if found_cuda_oom.item() == 1:
-                            # TODO: Throw error if sequence parallel
                             _adjust_device_eval_microbatch_size(evaluator)
                             # Skip return and rerun after handling oom
                             continue
