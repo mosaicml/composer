@@ -157,7 +157,9 @@ class OOMObserver(Callback):
                             snapshot_file, trace_plot_file, segment_plot_file, segment_flamegraph_file,
                             memory_flamegraph_file
                     ]:
-                        remote_file_name = (self.remote_path_in_bucket + os.path.basename(f)).lstrip('/')
+                        base_file_name = os.path.basename(f)
+                        remote_file_name = os.path.join(self.remote_path_in_bucket, base_file_name)
+                        remote_file_name = remote_file_name.lstrip('/')  # remove leading slashes
                         log.info(f'Uploading memory visualization to remote: {remote_file_name} from {f}')
                         try:
                             logger.upload_file(remote_file_name=remote_file_name, file_path=f, overwrite=self.overwrite)

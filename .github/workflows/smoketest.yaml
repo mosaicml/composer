@@ -27,16 +27,14 @@ jobs:
         - "3.10"
         - "3.11"
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Get composite run steps repository
+      uses: actions/checkout@v3
       with:
-        python-version: ${{ matrix.python_version }}
-    - name: Setup
-      run: |
-        set -ex
-        python -m pip install --upgrade 'pip<23' wheel
-        python -m pip install --upgrade .
-        python -m pip install pytest==7.2.1 pytest_codeblocks==0.16.1
-    - name: Run checks
-      run: |
-        pytest tests/test_smoketest.py
+        repository: mosaicml/ci-testing
+        ref: v0.0.2
+        path: ./ci-testing
+    - uses: ./ci-testing/.github/actions/smoketest
+      with:
+        python_version: ${{ matrix.python_version }}

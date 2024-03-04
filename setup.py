@@ -76,7 +76,7 @@ while True:
 install_requires = [
     'pyyaml>=6.0,<7',
     'tqdm>=4.62.3,<5',
-    'torchmetrics>=0.10.0,<1.3.1',
+    'torchmetrics>=0.10.0,<1.3.2',
     'torch_optimizer>=0.3.0,<0.4',
     'torchvision>=0.13.1,<0.20',  # TODO: Tighten before release
     'torch>=2.0.1,<2.3.1',  # TODO: Tighten before release
@@ -86,7 +86,7 @@ install_requires = [
     'coolname>=1.1.0,<3',
     'tabulate==0.9.0',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<10',
-    'packaging>=21.3.0,<23',
+    'packaging>=21.3.0,<23.3',
     'importlib-metadata>=5.0.0,<7',
     'mosaicml-cli>=0.5.25,<0.7',
 ]
@@ -99,14 +99,14 @@ extra_deps['dev'] = [
     # Pinning versions strictly to avoid random test failures.
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
-    'junitparser==3.1.1',
+    'junitparser==3.1.2',
     'coverage[toml]==7.4.1',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
     'ipython==8.11.0',
     'ipykernel==6.29.2',
     'jupyter==1.0.0',
-    'yamllint==1.34.0',
+    'yamllint==1.35.1',
     'recommonmark==0.7.1',
     'sphinx==4.4.0',
     'pre-commit>=3.4.0,<4',
@@ -133,8 +133,8 @@ extra_deps['dev'] = [
     'traitlets==5.14.1',
     'nbsphinx==0.9.1',
     'pandoc==2.3',
-    'pypandoc==1.12',
-    'GitPython==3.1.41',
+    'pypandoc==1.13',
+    'GitPython==3.1.42',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
     'cryptography==41.0.5',
@@ -186,7 +186,7 @@ extra_deps['peft'] = [
 
 extra_deps['sentencepiece'] = [
     'protobuf<3.21',
-    'sentencepiece==0.1.99',
+    'sentencepiece==0.2.0',
 ]
 
 extra_deps['mlperf'] = [
