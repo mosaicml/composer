@@ -2078,6 +2078,8 @@ class Trainer:
         """
         # Samples and tokens should be summed
         # Batch time should be the value from rank 0
+
+        # num_samples can be floating point if we are doing sequence parallelism, since in that case each rank works on only a part of the sample. For example, with sequence parallelism world size 2, each rank trains on half of a sample.
         if isinstance(num_samples, float):
             sample_token_tensor = self.state.device.tensor_to_device(
                 torch.tensor([num_samples, num_tokens], dtype=torch.float32))
@@ -2981,7 +2983,7 @@ class Trainer:
                     dist.all_reduce(batch_num_samples_tensor, reduce_operation='SUM')
                     batch_num_samples = int(batch_num_samples_tensor.item())
                     if batch_num_samples != batch_num_samples_tensor.item():
-                        raise ValueError('Number of samples in a batch should be integral.')
+                        raise ValueError('Number of samples in a batch should be an integer.')
                     last_batch = self.state.eval_timestamp.sample + batch_num_samples >= dataset_len
 
                 if self.state.deepspeed_enabled:
