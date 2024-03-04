@@ -89,3 +89,10 @@ def patch_pytorch():
 
         from composer.trainer.mosaic_fsdp_utils import _shard_orig_param_state
         _optim_utils._shard_orig_param_state = _shard_orig_param_state
+
+        # Monkeypatch checkpointing full state dict
+        from torch.distributed.fsdp import _state_dict_utils
+
+        from composer.trainer.mosaic_fsdp_utils import _full_pre_state_dict_hook, _set_use_dtensor
+        _state_dict_utils._full_pre_state_dict_hook = _full_pre_state_dict_hook
+        _state_dict_utils._set_use_dtensor = _set_use_dtensor
