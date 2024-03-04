@@ -28,7 +28,7 @@ def test_neptune_logger() -> NeptuneLogger:
         api_token=neptune_api_token,
         rank_zero_only=False,
         mode='debug',
-        upload_artifacts=True,
+        upload_checkpoints=True,
     )
 
     return neptune_logger

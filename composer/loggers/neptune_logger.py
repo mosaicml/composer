@@ -38,7 +38,7 @@ class NeptuneLogger(LoggerDestination):
             You can find your API token in the user menu of the Neptune web app.
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process.
             (default: ``True``).
-        upload_artifacts (bool, optional): Whether the logger should upload artifacts to Neptune.
+        upload_checkpoints (bool, optional): Whether the logger should upload checkpoints to Neptune.
             (default: ``False``).
         base_namespace (str, optional): The name of the base namespace to log the metadata to.
             (default: "training").
@@ -58,7 +58,7 @@ class NeptuneLogger(LoggerDestination):
         project: Optional[str] = None,
         api_token: Optional[str] = None,
         rank_zero_only: bool = True,
-        upload_artifacts: bool = False,
+        upload_checkpoints: bool = False,
         base_namespace: str = 'training',
         **neptune_kwargs,
     ) -> None:
@@ -72,7 +72,7 @@ class NeptuneLogger(LoggerDestination):
         verify_type('project', project, (str, type(None)))
         verify_type('api_token', api_token, (str, type(None)))
         verify_type('rank_zero_only', rank_zero_only, bool)
-        verify_type('upload_artifacts', upload_artifacts, bool)
+        verify_type('upload_checkpoints', upload_checkpoints, bool)
         verify_type('base_namespace', base_namespace, str)
 
         if not base_namespace:
@@ -81,7 +81,7 @@ class NeptuneLogger(LoggerDestination):
         self._project = project
         self._api_token = api_token
         self._rank_zero_only = rank_zero_only
-        self._upload_artifacts = upload_artifacts
+        self._upload_checkpoints = upload_checkpoints
         self._base_namespace = base_namespace
         self._neptune_kwargs = neptune_kwargs
 
@@ -211,7 +211,7 @@ class NeptuneLogger(LoggerDestination):
 
     def can_upload_files(self) -> bool:
         """Whether the logger supports uploading files."""
-        return self._enabled and self._upload_artifacts
+        return self._enabled and self._upload_checkpoints
 
     def upload_file(
         self,
