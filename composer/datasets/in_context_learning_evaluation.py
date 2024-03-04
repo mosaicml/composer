@@ -940,6 +940,8 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         """
         choices = example[self.choices_key]
         gold_idxs = example['gold']
+        if not isinstance(gold_idxs, list):
+            gold_idxs = [gold_idxs]
         answer = '.\n'.join([choices[gold_idx] for gold_idx in gold_idxs])
         return answer
 
@@ -1023,7 +1025,10 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
                 batch['continuation_indices'].append(data_pair['continuation_indices'][i])
                 batch['labels'].append(context_enc)
 
-            batch['gold_indices'].append(data_pair['gold'])
+            gold = data_pair['gold']
+            if not isinstance(gold, list):
+                gold = [gold]
+            batch['gold_indices'].append(gold)
             choice_end_idx = len(batch['continuation_indices'])
             batch['choice_groupings'].append((choice_start_idx, choice_end_idx))
         batch = convert_tokens_to_tensors(batch, self.tokenize_labels)
