@@ -186,7 +186,7 @@ extra_deps['peft'] = [
 
 extra_deps['sentencepiece'] = [
     'protobuf<3.21',
-    'sentencepiece==0.1.99',
+    'sentencepiece==0.2.0',
 ]
 
 extra_deps['mlperf'] = [
