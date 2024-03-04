@@ -11,6 +11,7 @@ import random
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
 
 import torch
+from icecream import ic
 from torch.utils.data import DataLoader, Dataset
 
 from composer.core import DataSpec
@@ -18,9 +19,7 @@ from composer.core.data_spec import _default_split_batch, _split_list
 from composer.datasets.utils import stop_sequences_criteria
 from composer.utils import MissingConditionalImportError, dist, get_file
 
-# from icecream import ic
-
-# ic.configureOutput(includeContext=True)
+ic.configureOutput(includeContext=True)
 
 
 
@@ -943,6 +942,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         if not isinstance(gold_idxs, list):
             gold_idxs = [gold_idxs]
         answer = '.\n'.join([choices[gold_idx] for gold_idx in gold_idxs])
+        # ic(answer)
         return answer
 
     def tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
@@ -998,6 +998,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
             tokenized_example['continuation_indices'].append(continuation_indices)
 
         tokenized_example['gold'] = example['gold']
+        # ic(tokenized_example['gold'])
         return tokenized_example
 
     def collate_fn(self, data: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -1033,6 +1034,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
             batch['choice_groupings'].append((choice_start_idx, choice_end_idx))
         batch = convert_tokens_to_tensors(batch, self.tokenize_labels)
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
+        # ic(batch['gold_indices'])
         return batch
 
     def get_num_samples_in_batch(self, batch) -> int:
