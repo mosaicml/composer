@@ -11,8 +11,7 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 
 import numpy as np
 import torch
-
-# from icecream import ic
+from icecream import ic
 from torch import Tensor
 from torch.nn import functional as F
 from torchmetrics import Metric
@@ -25,7 +24,7 @@ from composer.utils.eval_client import (
     MosaicMLLambdaEvalClient,
 )
 
-# ic.configureOutput(includeContext=True)
+ic.configureOutput(includeContext=True)
 
 
 log = logging.getLogger(__name__)
@@ -443,8 +442,9 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
         for (start, end), gold_idx in zip(batch['choice_groupings'], batch['gold_indices']):
             subset = perplexities[start:end]
             idx_min = subset.index(min(subset))
+            # ic(idx_min, gold_idx)
 
-            if idx_min == gold_idx:
+            if idx_min in gold_idx:
                 self.correct += torch.tensor(1.0)
             self.total += torch.tensor(1.0)
 
@@ -512,11 +512,11 @@ class InContextLearningMultipleChoiceMultipleAnswersProb(InContextLearningMetric
             total_cont_tok_probs = cont_tok_log_probs.sum().exp().item()
             choice_probs.append(total_cont_tok_probs)
 
-            # from icecream import ic
             # from transformers import AutoTokenizer
             # tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-125m")
             # text = ''.join(tokenizer.batch_decode(batch["input_ids"][batch_idx].index_select(dim=0, index=cont_idx - 1)))
             # text2 = text.replace("\n", "\t")
+            # ic(batch_idx, text2)
             # ic(
             #     batch_idx,
             #     text,
