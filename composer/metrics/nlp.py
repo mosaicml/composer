@@ -512,15 +512,15 @@ class InContextLearningMultipleChoiceMultipleAnswersProb(InContextLearningMetric
             total_cont_tok_probs = cont_tok_log_probs.sum().exp().item()
             choice_probs.append(total_cont_tok_probs)
 
+            # from icecream import ic
             # from transformers import AutoTokenizer
             # tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-125m")
-            # max_idx = 200
-            # text = ''.join(tokenizer.batch_decode(batch["input_ids"][batch_idx][:max_idx]))
-            # # print
+            # text = ''.join(tokenizer.batch_decode(batch["input_ids"][batch_idx].index_select(dim=0, index=cont_idx - 1)))
+            # text2 = text.replace("\n", "\t")
             # ic(
             #     batch_idx,
             #     text,
-            #     batch["input_ids"][batch_idx].shape,  batch["input_ids"][batch_idx][:max_idx],
+            #     batch["input_ids"][batch_idx].shape, batch["input_ids"][batch_idx][:max_idx],
             #     logits.shape, logits,
             #     log_probs.shape, log_probs,
             #     cont_tok_log_probs_over_vocab.shape, cont_tok_log_probs_over_vocab,
@@ -535,6 +535,9 @@ class InContextLearningMultipleChoiceMultipleAnswersProb(InContextLearningMetric
             correct_prob = sum(correct_probs_list)
             self.correct_prob += correct_prob
             self.total += torch.tensor(1.0)
+
+        # line = "-"* 20 + "\n" + "-"* 20
+        # ic(line)
 
     def compute(self):
         assert isinstance(self.correct_prob, Tensor)
