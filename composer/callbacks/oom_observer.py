@@ -174,7 +174,7 @@ class OOMObserver(Callback):
                 log.info(f'Saved memory visualizations to local files with prefix = {filename} during OOM')
 
                 if self.remote_path_in_bucket is not None:
-                    for f in self.filename_config.list_file_names():
+                    for f in self.filename_config.list_filenames():
                         base_file_name = os.path.basename(f)
                         remote_file_name = os.path.join(self.remote_path_in_bucket, base_file_name)
                         remote_file_name = remote_file_name.lstrip('/')  # remove leading slashes
