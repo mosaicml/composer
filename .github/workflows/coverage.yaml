@@ -16,7 +16,7 @@ jobs:
       uses: actions/checkout@v3
       with:
         repository: mosaicml/ci-testing
-        ref: v0.0.2
+        ref: v0.0.3
         path: ./ci-testing
     - uses: ./ci-testing/.github/actions/coverage
       with:
