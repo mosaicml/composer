@@ -750,7 +750,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
             return 1.0
         return 1.0 - float(np.prod(1.0 - k / np.arange(n - c + 1, n + 1)))
 
-    def _initialize_state(self, batch: Dict[str, Any]):
+    def _initialize_state(self, batch: dict[str, Any]):
         device = batch['input_ids'].device
         self.dataset_size = batch['dataset_size']
         self.pass_at_k = batch['pass_at_k']
