@@ -15,12 +15,12 @@ import numpy as np
 import torch
 
 from composer._version import __version__
-from composer.callbacks import OOMObserver
 from composer.loggers import LoggerDestination
 from composer.utils import MissingConditionalImportError, dist
 
 if TYPE_CHECKING:
     from composer import Callback, Logger
+    from composer.callbacks import OOMObserver
     from composer.core import State
 
 
@@ -98,7 +98,7 @@ class NeptuneLogger(LoggerDestination):
 
         self._metrics_dict: Dict[str, int] = {}  # used to prevent duplicate step logging
 
-        self._oom_observer = None
+        self._oom_observer: Optional['OOMObserver'] = None
 
         super().__init__()
 
@@ -323,7 +323,9 @@ def _validate_image(img: Union[np.ndarray, torch.Tensor], channels_last: bool) -
     return img_numpy
 
 
-def _find_oom_callback(callbacks: List['Callback']) -> Optional[OOMObserver]:
+def _find_oom_callback(callbacks: List['Callback']) -> Optional['OOMObserver']:
+    from composer.callbacks import OOMObserver
+
     for callback in callbacks:
         if isinstance(callback, OOMObserver):
             return callback
