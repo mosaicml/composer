@@ -2078,7 +2078,7 @@ class Trainer:
 
     def _train_loop(self) -> None:
         """Run training for the specified number of epochs and log results."""
-        # print training start
+        # Log training start
         log.info('Using precision %s', self.state.precision)
         self.logger.log_hyperparameters(
             {'enabled_algorithms/' + algo.__class__.__name__: True for algo in self.state.algorithms})
@@ -2109,6 +2109,9 @@ class Trainer:
 
         log.debug('Starting training loop')
         while self.state.timestamp < self.state.max_duration:
+            if int(self.state.timestamp.epoch_in_iteration) == 0 and int(self.state.timestamp.batch_in_epoch) == 0:
+                self.engine.run_event(Event.ITERATION_START)
+
             if int(self.state.timestamp.batch_in_epoch) == 0:
                 self.engine.run_event(Event.EPOCH_START)
                 self.logger.log_metrics({'time/epoch': self.state.timestamp.epoch.value})
@@ -2243,6 +2246,14 @@ class Trainer:
                 last_wct = datetime.datetime.now() - duration
 
                 self.engine.run_event(Event.EPOCH_CHECKPOINT)
+
+                # Increment iteration
+                if (self.state._iteration_length is not None and
+                        self.state.timestamp.epoch_in_iteration == self.state._iteration_length):
+                    self.state.previous_timestamp = self.state.timestamp
+                    self.state.timestamp = self.state.timestamp.to_next_iteration()
+                    self.engine.run_event(Event.ITERATION_END)
+                    self.engine.run_event(Event.ITERATION_CHECKPOINT)
 
         # Log final time values
         self.logger.log_metrics({
