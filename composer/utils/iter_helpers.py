@@ -6,11 +6,14 @@
 # All methods signatures must be defined in there.
 
 """Utilities for iterating over collections."""
+from __future__ import annotations
+
 import collections.abc
 import io
+from typing import Any
 
 
-def map_collection(collection, map_fn):
+def map_collection(collection, map_fn) -> Any:
     """Applies ``map_fn`` on each element in ``collection``.
 
     * If ``collection`` is a tuple or list of elements, ``map_fn`` is applied on each element,
@@ -37,7 +40,7 @@ def map_collection(collection, map_fn):
     return map_fn(collection)
 
 
-def ensure_tuple(x):
+def ensure_tuple(x) -> tuple[Any, ...]:
     """Converts ``x`` into a tuple.
 
     * If ``x`` is ``None``, then ``tuple()`` is returned.

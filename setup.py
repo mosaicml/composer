@@ -76,19 +76,19 @@ while True:
 install_requires = [
     'pyyaml>=6.0,<7',
     'tqdm>=4.62.3,<5',
-    'torchmetrics>=0.10.0,<1.1',
+    'torchmetrics>=0.10.0,<1.3.2',
     'torch_optimizer>=0.3.0,<0.4',
-    'torchvision>=0.13.1,<0.19',
-    'torch>=1.13.1,<2.2.1',
+    'torchvision>=0.13.1,<0.20',  # TODO: Tighten before release
+    'torch>=2.0.1,<2.3.1',  # TODO: Tighten before release
     'requests>=2.26.0,<3',
     'numpy>=1.21.5,<1.27.0',
     'psutil>=5.8.0,<6',
     'coolname>=1.1.0,<3',
     'tabulate==0.9.0',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<10',
-    'packaging>=21.3.0,<23',
+    'packaging>=21.3.0,<23.3',
     'importlib-metadata>=5.0.0,<7',
-    'mosaicml-cli>=0.5.25,<0.6',
+    'mosaicml-cli>=0.5.25,<0.7',
 ]
 extra_deps = {}
 
@@ -99,15 +99,14 @@ extra_deps['dev'] = [
     # Pinning versions strictly to avoid random test failures.
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
-    'junitparser==3.1.1',
-    'coverage[toml]==7.3.4',
+    'junitparser==3.1.2',
+    'coverage[toml]==7.4.1',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
-    'toml==0.10.2',
     'ipython==8.11.0',
-    'ipykernel==6.28.0',
+    'ipykernel==6.29.2',
     'jupyter==1.0.0',
-    'yamllint==1.33.0',
+    'yamllint==1.35.1',
     'recommonmark==0.7.1',
     'sphinx==4.4.0',
     'pre-commit>=3.4.0,<4',
@@ -117,6 +116,11 @@ extra_deps['dev'] = [
     'sphinx_markdown_tables==0.0.17',
     'sphinx-argparse==0.4.0',
     'sphinxcontrib.katex==0.9.6',
+    'sphinxcontrib-applehelp==1.0.0',
+    'sphinxcontrib-devhelp==1.0.0',
+    'sphinxcontrib-htmlhelp==2.0.0',
+    'sphinxcontrib-serializinghtml==1.1.5',
+    'sphinxcontrib-qthelp==1.0.0',
     'sphinxext.opengraph==0.9.1',
     'sphinxemoji==0.2.0',
     'furo==2022.9.29',
@@ -129,18 +133,14 @@ extra_deps['dev'] = [
     'traitlets==5.14.1',
     'nbsphinx==0.9.1',
     'pandoc==2.3',
-    'pypandoc==1.12',
-    'GitPython==3.1.40',
+    'pypandoc==1.13',
+    'GitPython==3.1.42',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
     'cryptography==41.0.5',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
 ]
-
-extra_deps['health_checker'] = {
-    'pynvml>=11.5.0,<12',
-}
 
 extra_deps['system_metrics_monitor'] = {
     'pynvml>=11.5.0,<12',
@@ -163,21 +163,12 @@ extra_deps['comet_ml'] = [
     'comet_ml>=3.31.12,<4.0.0',
 ]
 
+extra_deps['neptune'] = [
+    'neptune>=1.6.2,<2.0.0',
+]
+
 extra_deps['tensorboard'] = [
     'tensorboard>=2.9.1,<3.0.0',
-]
-
-extra_deps['unet'] = [
-    'monai>=0.9.1,<1.4',
-    'scikit-learn>=1.0.1,<2',
-]
-
-extra_deps['vit'] = [
-    'vit_pytorch==1.6.1',
-]
-
-extra_deps['timm'] = [
-    'timm>=0.5.4,<0.6',
 ]
 
 extra_deps['coco'] = [
@@ -185,13 +176,17 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,<4.37,!=4.34.0',
+    'transformers>=4.11,<4.38,!=4.34.0',
     'datasets>=2.4,<3',
+]
+
+extra_deps['peft'] = [
+    'peft>=0.7.0,<0.8',
 ]
 
 extra_deps['sentencepiece'] = [
     'protobuf<3.21',
-    'sentencepiece==0.1.99',
+    'sentencepiece==0.2.0',
 ]
 
 extra_deps['mlperf'] = [
@@ -229,7 +224,7 @@ extra_deps['mlflow'] = [
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk>=0.15.0,<1.0']
+extra_deps['databricks'] = ['databricks-sdk==0.18.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 
@@ -258,9 +253,9 @@ setup(name=package_name,
       packages=setuptools.find_packages(exclude=['docker*', 'examples*', 'scripts*', 'tests*']),
       classifiers=[
           'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.8',
           'Programming Language :: Python :: 3.9',
           'Programming Language :: Python :: 3.10',
+          'Programming Language :: Python :: 3.11',
       ],
       install_requires=install_requires,
       entry_points={
@@ -272,7 +267,7 @@ setup(name=package_name,
       },
       extras_require=extra_deps,
       dependency_links=['https://developer.download.nvidia.com/compute/redist'],
-      python_requires='>=3.8',
+      python_requires='>=3.9',
       ext_package='composer',
       cmdclass={'develop': develop})
 

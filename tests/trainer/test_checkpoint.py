@@ -71,9 +71,11 @@ def _assert_checkpoints_equivalent(file1, file2, atol=0.0, rtol=0.0):
 
     # Remove the wall clock time
     del checkpoint_1['state']['timestamp']['Timestamp']['total_wct']
+    del checkpoint_1['state']['timestamp']['Timestamp']['iteration_wct']
     del checkpoint_1['state']['timestamp']['Timestamp']['epoch_wct']
     del checkpoint_1['state']['timestamp']['Timestamp']['batch_wct']
     del checkpoint_2['state']['timestamp']['Timestamp']['total_wct']
+    del checkpoint_2['state']['timestamp']['Timestamp']['iteration_wct']
     del checkpoint_2['state']['timestamp']['Timestamp']['epoch_wct']
     del checkpoint_2['state']['timestamp']['Timestamp']['batch_wct']
 
@@ -285,6 +287,7 @@ class TestCheckpointSaving:
             'weights_only': False,
             'save_interval': '1ep',
             'num_checkpoints_to_keep': -1,
+            'ignore_keys': None,
         }
         expected_folder = expected_path.rstrip('/') if expected_path != '' else '.'
         mock_checkpoint_saver.assert_called_once_with(folder=expected_folder, **rest_of_checkpoint_saver_kwargs)
@@ -418,21 +421,28 @@ class TestCheckpointSaving:
         else:
             assert set(composer_state_dict['state'].keys()) != {'model', 'metadata', 'integrations'}
 
-    @pytest.mark.parametrize(('save_interval', 'max_duration', 'expected_save_calls'), [
-        (1, '5ep', 5),
-        (Time(2, TimeUnit.EPOCH), '8ep', 4),
-        (Time(10, TimeUnit.BATCH), '8ep', 4),
-        (Time(0.25, TimeUnit.DURATION), '4ep', 4),
-        ('1ep', '4ep', 4),
-        ('5ba', '4ep', 4),
-        ('5ba', '10ba', 2),
-        ('0.35dur', '4ep', 3),
-        ('0.01dur', '100ba', 100),
-        ('0.10dur', '70sp', 10),
-        ('0.05dur', '80sp', 20),
+    @pytest.mark.parametrize(('save_interval', 'max_duration', 'expected_save_calls', 'iteration_length'), [
+        (1, '5ep', 5, None),
+        (Time(2, TimeUnit.ITERATION), '8ep', 2, '2ep'),
+        (Time(2, TimeUnit.EPOCH), '8ep', 4, None),
+        (Time(10, TimeUnit.BATCH), '8ep', 4, None),
+        (Time(0.25, TimeUnit.DURATION), '4ep', 4, None),
+        ('1ep', '4ep', 4, None),
+        ('5ba', '4ep', 4, None),
+        ('5ba', '10ba', 2, None),
+        ('0.35dur', '4ep', 3, None),
+        ('0.01dur', '100ba', 100, None),
+        ('0.10dur', '70sp', 10, None),
+        ('0.05dur', '80sp', 20, None),
     ])
-    def test_checkpoint_intervals(self, save_interval: Union[str, Time, int], max_duration: str,
-                                  expected_save_calls: int, tmp_path: pathlib.Path):
+    def test_checkpoint_intervals(
+        self,
+        save_interval: Union[str, Time, int],
+        max_duration: str,
+        expected_save_calls: int,
+        iteration_length: str,
+        tmp_path: pathlib.Path,
+    ):
         train_dataset = RandomClassificationDataset(size=10)
         train_dataloader = DataLoader(
             dataset=train_dataset,
@@ -447,6 +457,7 @@ class TestCheckpointSaving:
             max_duration=max_duration,
             save_folder=str(tmp_path / 'checkpoints'),
         )
+        trainer.state._iteration_length = iteration_length
 
         assert trainer._checkpoint_saver is not None
         trainer._checkpoint_saver._save_checkpoint = MagicMock(wraps=trainer._checkpoint_saver._save_checkpoint)
@@ -695,7 +706,7 @@ class TestCheckpointLoading:
         last_checkpoint = os.path.join('first', 'ep2.pt')
         if missing_key or unexpected_key:
             message = r'Error\(s\) in loading state_dict'
-            if version.parse(torch.__version__) < version.parse('2.1.3'):
+            if version.parse(torch.__version__) < version.parse('2.2.9'):
                 # Composer implements strict for older torch versions
                 message = 'Failed to load checkpoint due to'
             error_context = pytest.raises(RuntimeError, match=message)
@@ -750,6 +761,7 @@ class TestCheckpointLoading:
                 assert metrics_equal
 
     @pytest.mark.parametrize('load_ignore_keys,weights_equal,callbacks_equal,rng_equal', [
+        ['*', False, False, False],
         ['state/model/*', False, True, True],
         ['state/callbacks/*', True, False, True],
         ['rng', True, True, False],
@@ -789,6 +801,44 @@ class TestCheckpointLoading:
             assert trainer_1_rng_state is not None
             deep_compare(trainer_1_rng_state, trainer_2._rng_state)
 
+    @pytest.mark.parametrize('save_ignore_keys,weights_equal,callbacks_equal,rng_equal', [
+        ['*', False, False, False],
+        ['state/model/*', False, True, True],
+        ['state/callbacks/*', True, False, True],
+        ['rng', True, True, False],
+    ])
+    @pytest.mark.filterwarnings('ignore:.* is not in the state_dict.*:UserWarning')
+    def test_save_ignore_keys(self, save_ignore_keys, weights_equal, callbacks_equal, rng_equal):
+
+        trainer_1 = self.get_trainer(save_folder='first', save_ignore_keys=[save_ignore_keys])
+        trainer_1.fit()
+        trainer_1_rng_state = reproducibility.get_rng_state()
+        trainer_1.close()
+
+        last_checkpoint = os.path.join('first', 'ep2.pt')
+        trainer_2 = self.get_trainer(load_path=last_checkpoint)
+
+        # Check weights loaded properly
+        with contextlib.nullcontext() if weights_equal else pytest.raises(AssertionError):
+            self._assert_weights_equivalent(
+                trainer_1.state.model,
+                trainer_2.state.model,
+            )
+
+        # Check callbacks state
+        stateful_callbacks_equal = self._stateful_callbacks_equal(
+            trainer_1.state.callbacks,
+            trainer_2.state.callbacks,
+        )
+        if callbacks_equal:
+            assert stateful_callbacks_equal
+        else:
+            assert not stateful_callbacks_equal
+
+        if rng_equal:
+            assert trainer_1_rng_state is not None
+            deep_compare(trainer_1_rng_state, trainer_2._rng_state)
+
     @pytest.mark.remote
     @device('cpu')
     @pytest.mark.parametrize('load_weights_only', [True, False])
@@ -799,8 +849,6 @@ class TestCheckpointLoading:
         ],
     )
     @pytest.mark.filterwarnings('ignore:.*The checkpoint included CUDA RNG state.*')
-    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                        reason='requires PyTorch 1.13 or higher')
     def test_load_remote_checkpoint(self, device, tmp_path: pathlib.Path, load_weights_only, remote_checkpoint_uri,
                                     remote_checkpoint_name, continue_training_dur, final_checkpoint_name, s3_bucket,
                                     s3_read_only_prefix):
@@ -823,6 +871,9 @@ class TestCheckpointLoading:
             load_strict_model_weights=load_weights_only,
             device=device,
         )
+
+        # TODO(GRT-2735): Update remote checkpoint with iteration.
+        trainer_2.state.timestamp._epoch_in_iteration = Time.from_input(2, TimeUnit.EPOCH)
 
         # check weights loaded properly
         self._assert_weights_equivalent(
@@ -982,7 +1033,7 @@ class TestCheckpointLoading:
         NoOpModel.__init__ = lambda self, x: None  # type: ignore
         NoOpModel.__repr__ = lambda self: 'NoOpModel(3)'
         error_context = pytest.raises(KeyError, match='module.0.weight')
-        if version.parse(torch.__version__) < version.parse('2.1.3'):
+        if version.parse(torch.__version__) < version.parse('2.2.9'):
             error_context = pytest.raises(ValueError, match='loaded state dict contains a parameter group.*')
         with pytest.warns(UserWarning, match='required_on_load algorithm.*'), error_context:
             trainer_3 = self.get_trainer(load_path=os.path.join('first', 'ep1.pt'),)
@@ -1256,6 +1307,36 @@ class TestCheckpointResumption:
                 save_folder / 'first' / 'latest-rank{rank}.pt',
                 save_folder / 'second' / 'latest-rank{rank}.pt',
             )
+
+    def test_format_load_path(self, tmp_path: pathlib.Path):
+        run_name = 'a-quick-rabbit'
+        save_folder = os.path.join(tmp_path, '{run_name}')
+        trainer = self.get_trainer(
+            run_name=run_name,
+            save_folder=os.path.join(save_folder, 'first'),
+            save_filename='ep{epoch}-rank{rank}.pt',
+            save_interval='1ep',
+        )
+
+        trainer.fit()
+        trainer.close()
+
+        resume_file = os.path.join(save_folder, 'first', 'ep1-rank0.pt')
+        trainer = self.get_trainer(
+            run_name=run_name,
+            save_folder=os.path.join(save_folder, 'second'),
+            save_filename='ep{epoch}-rank{rank}.pt',
+            save_interval='1ep',
+            load_path=resume_file,  # <-- resume training from file
+        )
+        trainer.fit()
+        trainer.close()
+
+        save_folder = save_folder.replace('{run_name}', run_name)
+        _assert_checkpoints_equivalent(
+            os.path.join(save_folder, 'first', 'latest-rank{rank}.pt'),
+            os.path.join(save_folder, 'second', 'latest-rank{rank}.pt'),
+        )
 
     def _assert_expected_num_checkpoints(
         self,

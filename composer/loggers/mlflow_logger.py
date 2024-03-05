@@ -5,12 +5,14 @@
 
 from __future__ import annotations
 
+import fnmatch
+import logging
 import os
 import pathlib
 import textwrap
 import time
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Sequence, Union
 
 import numpy as np
 import torch
@@ -21,7 +23,9 @@ from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import MissingConditionalImportError, dist
 
 if TYPE_CHECKING:
-    from mlflow import ModelVersion
+    from mlflow import ModelVersion  # pyright: ignore[reportGeneralTypeIssues]
+
+log = logging.getLogger(__name__)
 
 __all__ = ['MLFlowLogger']
 
@@ -54,6 +58,8 @@ class MLFlowLogger(LoggerDestination):
             synchronously to the MLflow backend. If ``False``, Mlflow will log asynchronously. (default: ``False``)
         log_system_metrics (bool, optional): Whether to log system metrics. If ``True``, Mlflow will
             log system metrics (CPU/GPU/memory/network usage) during training. (default: ``True``)
+        ignore_metrics (List[str], optional): A list of glob patterns for metrics to ignore when logging. (default: ``None``)
+        ignore_hyperparameters (List[str], optional): A list of glob patterns for hyperparameters to ignore when logging. (default: ``None``)
     """
 
     def __init__(
@@ -68,6 +74,8 @@ class MLFlowLogger(LoggerDestination):
         model_registry_uri: Optional[str] = None,
         synchronous: bool = False,
         log_system_metrics: bool = True,
+        ignore_metrics: Optional[List[str]] = None,
+        ignore_hyperparameters: Optional[List[str]] = None,
     ) -> None:
         try:
             import mlflow
@@ -85,6 +93,8 @@ class MLFlowLogger(LoggerDestination):
         self.model_registry_uri = model_registry_uri
         self.synchronous = synchronous
         self.log_system_metrics = log_system_metrics
+        self.ignore_metrics = [] if ignore_metrics is None else ignore_metrics
+        self.ignore_hyperparameters = [] if ignore_hyperparameters is None else ignore_hyperparameters
         if self.model_registry_uri == 'databricks-uc':
             if len(self.model_registry_prefix.split('.')) != 2:
                 raise ValueError(f'When registering to Unity Catalog, model_registry_prefix must be in the format ' +
@@ -93,6 +103,10 @@ class MLFlowLogger(LoggerDestination):
         self._rank_zero_only = rank_zero_only
         self._last_flush_time = time.time()
         self._flush_interval = flush_interval
+
+        self._experiment_id: Optional[str] = None
+        self._run_id = None
+
         if self._enabled:
             self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
             mlflow.set_tracking_uri(self.tracking_uri)
@@ -102,11 +116,16 @@ class MLFlowLogger(LoggerDestination):
             # Set up MLflow state
             self._run_id = None
             if self.experiment_name is None:
-                self.experiment_name = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,
-                                                 DEFAULT_MLFLOW_EXPERIMENT_NAME)
+                self.experiment_name = os.getenv(
+                    mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,  # type: ignore
+                    DEFAULT_MLFLOW_EXPERIMENT_NAME,
+                )
             self._mlflow_client = MlflowClient(self.tracking_uri)
             # Set experiment.
-            env_exp_id = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, None)
+            env_exp_id = os.getenv(
+                mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name,  # pyright: ignore[reportGeneralTypeIssues]
+                None,
+            )
             if env_exp_id is not None:
                 self._experiment_id = env_exp_id
             else:
@@ -123,28 +142,67 @@ class MLFlowLogger(LoggerDestination):
         if self.run_name is None:
             self.run_name = state.run_name
 
+        # Store the Composer run name in the MLFlow run tags so it can be retrieved for autoresume.
+        self.tags = self.tags or {}
+        self.tags['run_name'] = state.run_name
+
         # Adjust name and group based on `rank_zero_only`.
         if not self._rank_zero_only:
             self.run_name += f'-rank{dist.get_global_rank()}'
 
         # Start run
         if self._enabled:
-            env_run_id = os.getenv(mlflow.environment_variables.MLFLOW_RUN_ID.name, None)
+            env_run_id = os.getenv(
+                mlflow.environment_variables.MLFLOW_RUN_ID.name,  # pyright: ignore[reportGeneralTypeIssues]
+                None,
+            )
             if env_run_id is not None:
                 self._run_id = env_run_id
             else:
-                new_run = self._mlflow_client.create_run(
-                    experiment_id=self._experiment_id,
-                    run_name=self.run_name,
-                )
-                self._run_id = new_run.info.run_id
+                # Search for an existing run tagged with this Composer run.
+                assert self._experiment_id is not None
+                existing_runs = mlflow.search_runs(experiment_ids=[self._experiment_id],
+                                                   filter_string=f'tags.run_name = "{state.run_name}"',
+                                                   output_format='list')
+
+                # Check for the old tag (`composer_run_name`) For backwards compatibility in case a run using the old
+                # tag fails and the run is resumed with a newer version of Composer that uses `run_name` instead of
+                # `composer_run_name`.
+                if len(existing_runs) == 0:
+                    existing_runs = mlflow.search_runs(experiment_ids=[self._experiment_id],
+                                                       filter_string=f'tags.composer_run_name = "{state.run_name}"',
+                                                       output_format='list')
+
+                if len(existing_runs) > 0:
+                    self._run_id = existing_runs[0].info.run_id
+                else:
+                    new_run = self._mlflow_client.create_run(
+                        experiment_id=self._experiment_id,
+                        run_name=self.run_name,
+                    )
+                    self._run_id = new_run.info.run_id
             mlflow.start_run(
                 run_id=self._run_id,
                 tags=self.tags,
                 log_system_metrics=self.log_system_metrics,
             )
 
-    def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
+        # If rank zero only, broadcast the MLFlow experiment and run IDs to other ranks, so the MLFlow run info is
+        # available to other ranks during runtime.
+        if self._rank_zero_only:
+            mlflow_ids_list = [self._experiment_id, self._run_id]
+            dist.broadcast_object_list(mlflow_ids_list, src=0)
+            self._experiment_id, self._run_id = mlflow_ids_list
+
+    def after_load(self, state: State, logger: Logger) -> None:
+        logger.log_hyperparameters({'mlflow_experiment_id': self._experiment_id, 'mlflow_run_id': self._run_id})
+
+    def log_table(self,
+                  columns: List[str],
+                  rows: List[List[Any]],
+                  name: str = 'Table',
+                  step: Optional[int] = None) -> None:
+        del step
         if self._enabled:
             try:
                 import pandas as pd
@@ -153,6 +211,7 @@ class MLFlowLogger(LoggerDestination):
                                                     conda_package='pandas',
                                                     conda_channel='conda-forge') from e
             table = pd.DataFrame.from_records(data=rows, columns=columns)
+            assert isinstance(self._run_id, str)
             self._mlflow_client.log_table(
                 run_id=self._run_id,
                 data=table,
@@ -163,7 +222,11 @@ class MLFlowLogger(LoggerDestination):
         from mlflow import log_metrics
         if self._enabled:
             # Convert all metrics to floats to placate mlflow.
-            metrics = {k: float(v) for k, v in metrics.items()}
+            metrics = {
+                k: float(v)
+                for k, v in metrics.items()
+                if not any(fnmatch.fnmatch(k, pattern) for pattern in self.ignore_metrics)
+            }
             log_metrics(
                 metrics=metrics,
                 step=step,
@@ -174,6 +237,11 @@ class MLFlowLogger(LoggerDestination):
         from mlflow import log_params
 
         if self._enabled:
+            hyperparameters = {
+                k: v
+                for k, v in hyperparameters.items()
+                if not any(fnmatch.fnmatch(k, pattern) for pattern in self.ignore_hyperparameters)
+            }
             log_params(
                 params=hyperparameters,
                 synchronous=self.synchronous,
@@ -183,7 +251,7 @@ class MLFlowLogger(LoggerDestination):
         self,
         model_uri: str,
         name: str,
-        await_registration_for: Optional[int] = 300,
+        await_registration_for: int = 300,
         tags: Optional[Dict[str, Any]] = None,
     ) -> 'ModelVersion':
         """Register a model to model registry.
@@ -191,10 +259,10 @@ class MLFlowLogger(LoggerDestination):
         Args:
             model_uri (str): The URI of the model to register.
             name (str): The name of the model to register. Will be appended to ``model_registry_prefix``.
-            await_registration_for (Optional[int], optional): The number of seconds to wait for the model to be registered.
+            await_registration_for (int, optional): The number of seconds to wait for the model to be registered.
                 Defaults to 300.
-            tags (Dict[str, Any], optional): A dictionary of tags to add to the model. Defaults to None.
-            registry_uri (str, optional): The URI of the model registry. Defaults to 'databricks-uc' which will register to
+            tags (Optional[Dict[str, Any]], optional): A dictionary of tags to add to the model. Defaults to None.
+            registry_uri (str, optional): The URI of the model registry. Defaults to `None` which will register to
                 the Databricks Unity Catalog.
 
         Returns:
@@ -211,28 +279,75 @@ class MLFlowLogger(LoggerDestination):
                 tags=tags,
             )
 
-    def save_model(self, flavor: str, **kwargs):
+    def save_model(self, flavor: Literal['transformers', 'peft'], **kwargs):
         """Save a model to MLflow.
 
+        Note: The ``'peft'`` flavor is experimental and the API is subject to change without warning.
+
         Args:
-            flavor (str): The MLflow model flavor to use. Currently only ``'transformers'`` is supported.
+            flavor (Literal['transformers', 'peft']): The MLflow model flavor to use. Currently only ``'transformers'`` and ``'peft'`` are supported.
             **kwargs: Keyword arguments to pass to the MLflow model saving function.
 
         Raises:
-            NotImplementedError: If ``flavor`` is not ``'transformers'``.
+            NotImplementedError: If ``flavor`` is not ``'transformers'`` or ``'peft'``.
         """
         if self._enabled:
             import mlflow
             if flavor == 'transformers':
                 mlflow.transformers.save_model(**kwargs,)
+            elif flavor == 'peft':
+                import transformers
+
+                # TODO: Remove after mlflow fixes the bug that makes this necessary
+                mlflow.store._unity_catalog.registry.rest_store.get_feature_dependencies = lambda *args, **kwargs: ''  # type: ignore
+
+                # This is a temporary workaround until MLflow adds full support for saving PEFT models.
+                # https://github.com/mlflow/mlflow/issues/9256
+                log.warning(
+                    'Saving PEFT models using MLflow is experimental and the API is subject to change without warning.')
+                expected_keys = {'path', 'save_pretrained_dir'}
+                if not expected_keys.issubset(kwargs.keys()):
+                    raise ValueError(f'Expected keys {expected_keys} but got {kwargs.keys()}')
+
+                # This does not implement predict for now, as we will wait for the full MLflow support
+                # for PEFT models.
+                class PeftModel(mlflow.pyfunc.PythonModel):
+
+                    def load_context(self, context):
+                        self.model = transformers.AutoModelForCausalLM.from_pretrained(
+                            context.artifacts['lora_checkpoint'])
+                        self.tokenizer = transformers.AutoTokenizer.from_pretrained(
+                            context.artifacts['lora_checkpoint'])
+
+                from mlflow.models.signature import ModelSignature
+                from mlflow.types import ColSpec, DataType, Schema
+
+                # This is faked for now, until MLflow adds full support for saving PEFT models.
+                input_schema = Schema([
+                    ColSpec(DataType.string, 'fake_input'),
+                ])
+                output_schema = Schema([ColSpec(DataType.string)])
+                signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+
+                # Symlink the directory so that we control the path that MLflow saves the model under
+                os.symlink(kwargs['save_pretrained_dir'], 'lora_checkpoint')
+
+                mlflow.pyfunc.save_model(
+                    path=kwargs['path'],
+                    artifacts={'lora_checkpoint': 'lora_checkpoint'},
+                    python_model=PeftModel(),
+                    signature=signature,
+                )
+
+                os.unlink('lora_checkpoint')
             else:
                 raise NotImplementedError(f'flavor {flavor} not supported.')
 
-    def log_model(self, flavor: str, **kwargs):
+    def log_model(self, flavor: Literal['transformers'], **kwargs):
         """Log a model to MLflow.
 
         Args:
-            flavor (str): The MLflow model flavor to use. Currently only ``'transformers'`` is supported.
+            flavor (Literal['transformers']): The MLflow model flavor to use. Currently only ``'transformers'`` is supported.
             **kwargs: Keyword arguments to pass to the MLflow model logging function.
 
         Raises:
@@ -244,6 +359,53 @@ class MLFlowLogger(LoggerDestination):
                 mlflow.transformers.log_model(**kwargs,)
             else:
                 raise NotImplementedError(f'flavor {flavor} not supported.')
+
+    def register_model_with_run_id(
+        self,
+        model_uri: str,
+        name: str,
+        await_creation_for: int = 300,
+        tags: Optional[Dict[str, Any]] = None,
+    ):
+        """Similar to ``register_model``, but uses a different MLflow API to allow passing in the run id.
+
+        Args:
+            model_uri (str): The URI of the model to register.
+            name (str): The name of the model to register. Will be appended to ``model_registry_prefix``.
+            await_creation_for (int, optional): The number of seconds to wait for the model to be registered. Defaults to 300.
+            tags (Optional[Dict[str, Any]], optional): A dictionary of tags to add to the model. Defaults to None.
+        """
+        if self._enabled:
+            from mlflow.exceptions import MlflowException
+            from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS, ErrorCode
+
+            full_name = f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name
+
+            # This try/catch code is copied from
+            # https://github.com/mlflow/mlflow/blob/3ba1e50e90a38be19920cb9118593a43d7cfa90e/mlflow/tracking/_model_registry/fluent.py#L90-L103
+            try:
+                create_model_response = self._mlflow_client.create_registered_model(full_name)
+                log.info(f'Successfully registered model {name} with {create_model_response.name}')
+            except MlflowException as e:
+                if e.error_code in (
+                        ErrorCode.Name(RESOURCE_ALREADY_EXISTS),
+                        ErrorCode.Name(ALREADY_EXISTS),
+                ):
+                    log.info(f'Registered model {name} already exists. Creating a new version of this model...')
+                else:
+                    raise e
+
+            create_version_response = self._mlflow_client.create_model_version(
+                name=full_name,
+                source=model_uri,
+                run_id=self._run_id,
+                await_creation_for=await_creation_for,
+                tags=tags,
+            )
+
+            log.info(
+                f'Successfully created model version {create_version_response.version} for model {create_version_response.name}'
+            )
 
     def log_images(
         self,
@@ -265,6 +427,7 @@ class MLFlowLogger(LoggerDestination):
                 images = [images]
             for im_ind, image in enumerate(images):
                 image = _convert_to_mlflow_image(image, channels_last)
+                assert isinstance(self._run_id, str)
                 self._mlflow_client.log_image(image=image,
                                               artifact_file=f'{name}_{step}_{im_ind}.png',
                                               run_id=self._run_id)
@@ -273,6 +436,7 @@ class MLFlowLogger(LoggerDestination):
         if self._enabled:
             import mlflow
 
+            assert isinstance(self._run_id, str)
             self._mlflow_client.set_terminated(self._run_id)
             mlflow.end_run()
 

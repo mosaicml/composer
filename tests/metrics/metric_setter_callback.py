@@ -60,6 +60,7 @@ class MetricSetterCallback(Callback):
         # assert for pyright error: "module_to_device" is not a known member of "None"
         assert self.device is not None
         self.device.module_to_device(raw_metric)
+        assert state.train_metrics is not None
         if self.dataloader_label == 'train':
             state.train_metrics[self.monitor] = raw_metric
         else:

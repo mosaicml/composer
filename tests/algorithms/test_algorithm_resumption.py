@@ -127,9 +127,11 @@ def _assert_checkpoints_equal(file1, file2):
     # compare state
     # remove the wall clock time fields since they will always differ
     del checkpoint1['state']['timestamp']['Timestamp']['total_wct']
+    del checkpoint1['state']['timestamp']['Timestamp']['iteration_wct']
     del checkpoint1['state']['timestamp']['Timestamp']['epoch_wct']
     del checkpoint1['state']['timestamp']['Timestamp']['batch_wct']
     del checkpoint2['state']['timestamp']['Timestamp']['total_wct']
+    del checkpoint2['state']['timestamp']['Timestamp']['iteration_wct']
     del checkpoint2['state']['timestamp']['Timestamp']['epoch_wct']
     del checkpoint2['state']['timestamp']['Timestamp']['batch_wct']
 

@@ -6,6 +6,7 @@ import inspect
 import os
 from urllib.parse import urlparse
 
+import importlib_metadata
 import pytest
 import testbook
 from testbook.client import TestbookNotebookClient
@@ -20,6 +21,16 @@ NOTEBOOKS = [
     os.path.join(nb_root, nb) \
     for nb in glob.glob(os.path.join(nb_root, '*.ipynb')) \
 ]
+
+try:
+    importlib_metadata.files('mosaicml')
+    package_name = 'mosaicml'
+except importlib_metadata.PackageNotFoundError:
+    try:
+        importlib_metadata.files('composer')
+        package_name = 'composer'
+    except importlib_metadata.PackageNotFoundError:
+        raise RuntimeError('Could not find the package under mosaicml or composer.')
 
 
 def patch_notebooks():
@@ -80,10 +91,14 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
         cell_source = cell_source.replace('batch_size = 1024', 'batch_size = 64')
         cell_source = cell_source.replace('download=True', 'download=False')
     if notebook_name == 'auto_microbatching':
+        cell_source = cell_source.replace('batch_size = 2048', 'batch_size = 1024')
         cell_source = cell_source.replace('download=True', 'download=False')
     if notebook_name == 'migrate_from_ptl':
         cell_source = cell_source.replace('batch_size=256', 'batch_size=64')
         cell_source = cell_source.replace('download=True', 'download=False')
+
+    cell_source = cell_source.replace("pip install 'mosaicml", f"pip install '{package_name}")
+    cell_source = cell_source.replace('pip install mosaicml', f'pip install {package_name}')
 
     return cell_source
 
@@ -122,7 +137,7 @@ def test_notebook(notebook: str, device: str, s3_bucket: str):
 
     obj = urlparse('s3://mosaicml-internal-integration-testing/read_only/CIFAR-10/')
     s3 = boto3.resource('s3')
-    bucket = s3.Bucket(obj.netloc)
+    bucket = s3.Bucket(obj.netloc)  # pyright: ignore[reportGeneralTypeIssues]
     files = bucket.objects.filter(Prefix=obj.path.lstrip('/'))
     for file in files:
         target = os.path.join(os.getcwd(), 'data', os.path.relpath(file.key, obj.path.lstrip('/')))

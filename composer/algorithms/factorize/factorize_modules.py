@@ -327,8 +327,8 @@ class FactorizedConv2d(_FactorizedModule):
 
     def apply_solution(self, solution: LowRankSolution):
         self.latent_size = solution.rank
-        self.module0.out_channels = solution.rank
-        self.module1.in_channels = solution.rank
+        self.module0.out_channels = solution.rank  # pyright: ignore[reportGeneralTypeIssues]
+        self.module1.in_channels = solution.rank  # pyright: ignore[reportGeneralTypeIssues]
         _apply_solution_to_module_parameters(solution, self.module0, self.module1, transpose=False)
 
     @staticmethod
@@ -452,8 +452,8 @@ class FactorizedLinear(_FactorizedModule):
 
     def apply_solution(self, solution: LowRankSolution) -> None:
         self.latent_size = solution.rank
-        self.module0.out_features = solution.rank
-        self.module1.in_features = solution.rank
+        self.module0.out_features = solution.rank  # pyright: ignore[reportGeneralTypeIssues]
+        self.module1.in_features = solution.rank  # pyright: ignore[reportGeneralTypeIssues]
         _apply_solution_to_module_parameters(solution, self.module0, self.module1, transpose=True)
 
     @staticmethod
@@ -471,9 +471,10 @@ class FactorizedLinear(_FactorizedModule):
 
     @staticmethod
     def from_linear(module: torch.nn.Linear, module_ix: int = -1, **kwargs) -> FactorizedLinear:
-        ret = FactorizedLinear(in_features=module.in_features,
-                               out_features=module.out_features,
-                               bias=((module.bias is not None) and (module.bias is not False)),
-                               **kwargs)
+        ret = FactorizedLinear(
+            in_features=module.in_features,
+            out_features=module.out_features,
+            bias=(module.bias is not None and module.bias is not False),  # pyright: ignore[reportUnnecessaryComparison]
+            **kwargs)
         ret.reset_parameters()
         return ret

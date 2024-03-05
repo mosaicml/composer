@@ -5,7 +5,6 @@ import math
 
 import pytest
 import torch
-from packaging import version
 from torch.utils.data import DataLoader
 
 from composer import Trainer
@@ -89,8 +88,6 @@ class TestEventCalls:
                          id='gpu-fsdp',
                          marks=[
                              pytest.mark.gpu,
-                             pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                                                reason='requires PyTorch 1.13 or higher'),
                              pytest.mark.filterwarnings('ignore::UserWarning'),
                          ]),
         ])
@@ -153,7 +150,9 @@ class TestEventCalls:
 
         expected_num_calls = {
             Event.INIT: 1,
+            Event.BEFORE_LOAD: 1,
             Event.AFTER_LOAD: 1,
+            Event.ITERATION_START: 1,
             Event.EPOCH_START: num_epochs,
             Event.BATCH_START: total_steps,
             Event.BEFORE_DATALOADER: total_steps + num_epochs,  # extra call per epoch when dataloader is exhausted
@@ -170,6 +169,8 @@ class TestEventCalls:
             Event.BATCH_CHECKPOINT: total_steps,
             Event.EPOCH_END: num_epochs,
             Event.EPOCH_CHECKPOINT: num_epochs,
+            Event.ITERATION_END: 0,
+            Event.ITERATION_CHECKPOINT: 0,
             Event.EVAL_BEFORE_ALL: total_evals,
             Event.EVAL_START: total_evals_start,
             Event.EVAL_BATCH_START: total_eval_steps,

@@ -38,7 +38,7 @@ class LocalEvalClient(EvalClient):
         p.start()
         p.join(TIMEOUT)  # wait for timeout to terminate
         p.terminate()
-        return bool(ret.value)
+        return bool(ret.value)  # pyright: ignore[reportGeneralTypeIssues]
 
     def update_offline_helper(self, code_gen: str, test_input: str, test_output: str, entry_point: str, language: str,
                               val: multiprocessing.Value):  # type: ignore

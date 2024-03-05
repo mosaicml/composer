@@ -13,7 +13,10 @@ import torch
 from composer.core import Callback, State
 from composer.loggers import Logger
 from composer.models.base import ComposerModel
-from composer.utils import dist
+from composer.utils import dist, is_xla_installed
+
+if is_xla_installed():
+    import torch_xla.core.xla_model as xm
 
 __all__ = ['SpeedMonitor']
 
@@ -83,6 +86,17 @@ GPU_AVAILABLE_FLOPS = {
         'int8': 130e12,
         'int4': 260e12,
     },
+    # source: https://aws.amazon.com/blogs/machine-learning/aws-inferentia2-builds-on-aws-inferentia1-by-delivering-4x-higher-throughput-and-10x-lower-latency/
+    # Numbers are halved as the above flops is per chip and each chip appears as 2 devices.
+    'trn1': {
+        'fp32': 47.5e12 / 2,
+        'tf32': 47.5e12 / 2,
+        'fp16': 190e12 / 2,
+        'amp_fp16': 190e12 / 2,
+        'bf16': 190e12 / 2,
+        'amp_bf16': 190e12 / 2,
+        'int8': 380e12 / 2,
+    }
 }
 
 
@@ -90,23 +104,30 @@ def get_gpu_flops_available(state: State):
     gpu_flops_available = None
 
     # Return 0 if no CUDA device (e.g., when running with CPU only)
-    if not torch.cuda.is_available():
+    if torch.cuda.is_available():
+        # torch.cuda.get_device_name() ex output: 'NVIDIA A100-SXM4-40GB'
+        device_name = torch.cuda.get_device_name().lower()
+        if 'h100' in device_name and 'hbm3' in device_name:
+            device_name = 'h100-sxm'
+        elif 'h100' in device_name and ('pcie' in device_name or 'hbm2e' in device_name):
+            device_name = 'h100-pcie'
+        elif 'a100' in device_name:
+            device_name = 'a100'
+        elif 'v100-sxm' in device_name:
+            device_name = 'v100-sxm'
+        elif 'v100-pcie' in device_name:
+            device_name = 'v100-pcie'
+        elif 't4' in device_name:
+            device_name = 't4'
+    elif is_xla_installed():
+        if xm.xla_device_hw(xm.xla_device()) == 'NEURON':
+            device_name = 'trn1'
+        else:
+            # For TPU return 0
+            return 0
+    else:
+        # When running on CPU, return 0 without warning
         return 0
-
-    # torch.cuda.get_device_name() ex output: 'NVIDIA A100-SXM4-40GB'
-    device_name = torch.cuda.get_device_name().lower()
-    if 'h100' in device_name and 'hbm3' in device_name:
-        device_name = 'h100-sxm'
-    elif 'h100' in device_name and ('pcie' in device_name or 'hbm2e' in device_name):
-        device_name = 'h100-pcie'
-    elif 'a100' in device_name:
-        device_name = 'a100'
-    elif 'v100-sxm' in device_name:
-        device_name = 'v100-sxm'
-    elif 'v100-pcie' in device_name:
-        device_name = 'v100-pcie'
-    elif 't4' in device_name:
-        device_name = 't4'
 
     if device_name in GPU_AVAILABLE_FLOPS and state.precision.value in GPU_AVAILABLE_FLOPS[device_name]:
         gpu_flops_available = int(GPU_AVAILABLE_FLOPS[device_name][state.precision.value])
