@@ -1304,8 +1304,7 @@ class Trainer:
 
             for evaluator in evaluators:
                 validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
-                if evaluator.auto_microbatching and evaluator.dataloader is not None and hasattr(
-                        evaluator.dataloader, 'spg_ws'):
+                if evaluator.auto_microbatching and hasattr(evaluator.dataloader, 'spg_ws'):
                     raise ValueError('`validate_eval_automicrobatching` is not compatible with sequence parallelism.')
         if len(evaluators) == 0:
             if eval_subset_num_batches != -1:
@@ -1941,8 +1940,7 @@ class Trainer:
 
             for evaluator in evaluators:
                 validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
-                if evaluator.auto_microbatching and evaluator.dataloader is not None and hasattr(
-                        evaluator.dataloader, 'spg_ws'):
+                if evaluator.auto_microbatching and hasattr(evaluator.dataloader, 'spg_ws'):
                     raise ValueError('`validate_eval_automicrobatching` is not compatible with sequence parallelism.')
 
             if len(evaluators) == 0:
@@ -2880,8 +2878,7 @@ class Trainer:
 
             for evaluator in evaluators:
                 validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
-                if evaluator.auto_microbatching and evaluator.dataloader is not None and hasattr(
-                        evaluator.dataloader, 'spg_ws'):
+                if evaluator.auto_microbatching and hasattr(evaluator.dataloader, 'spg_ws'):
                     raise ValueError('`validate_eval_automicrobatching` is not compatible with sequence parallelism.')
 
             self.state.evaluators.extend(evaluators)  # Add evaluators to state.evaluators
@@ -3014,6 +3011,8 @@ class Trainer:
                                         skip_metric_update = True
                                     # Remove padded samples from batch
                                     else:
+                                        if not isinstance(num_samples_in_microbatch, int):
+                                            raise ValueError('Number of samples in a batch should be an integer.')
                                         self.state.batch = data_spec.split_batch(self.state.batch,
                                                                                  num_samples_in_microbatch - 1)[0]
 
