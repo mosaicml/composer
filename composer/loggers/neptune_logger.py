@@ -9,17 +9,18 @@ import os
 import pathlib
 import warnings
 from functools import partial
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Set, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Set, Union
 
 import numpy as np
 import torch
 
 from composer._version import __version__
+from composer.callbacks import OOMObserver
 from composer.loggers import LoggerDestination
 from composer.utils import MissingConditionalImportError, dist
 
 if TYPE_CHECKING:
-    from composer import Logger
+    from composer import Callback, Logger
     from composer.core import State
 
 
@@ -50,6 +51,7 @@ class NeptuneLogger(LoggerDestination):
     metric_namespace = 'metrics'
     hyperparam_namespace = 'hyperparameters'
     trace_namespace = 'traces'
+    oom_snaphot_namespace = 'oom_snapshots'
     integration_version_key = 'source_code/integrations/neptune-MosaicML'
 
     def __init__(
@@ -95,6 +97,8 @@ class NeptuneLogger(LoggerDestination):
         self._base_handler = None
 
         self._metrics_dict: Dict[str, int] = {}  # used to prevent duplicate step logging
+
+        self._oom_observer = None
 
         super().__init__()
 
@@ -153,6 +157,8 @@ class NeptuneLogger(LoggerDestination):
         if self._enabled:
             self.neptune_run['sys/name'] = state.run_name
             self.neptune_run[self.integration_version_key] = __version__
+
+        self._oom_observer = _find_oom_callback(state.callbacks)
 
     def _sanitize_metrics(self, metrics: Dict[str, float], step: Optional[int]) -> Dict[str, float]:
         """Sanitize metrics to prevent duplicate step logging.
@@ -291,6 +297,16 @@ class NeptuneLogger(LoggerDestination):
             self._neptune_run.stop()
             self._neptune_run = None
 
+        if self._oom_observer:
+            self._log_oom_snapshots()
+
+    def _log_oom_snapshots(self) -> None:
+        if self._oom_observer is None or self._oom_observer.filename_config is None:
+            return
+
+        for file_name in self._oom_observer.filename_config.list_filenames():
+            self.base_handler[f'{NeptuneLogger.oom_snaphot_namespace}/{file_name}'].upload(file_name)
+
 
 def _validate_image(img: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:
     img_numpy = img.data.cpu().numpy() if isinstance(img, torch.Tensor) else img
@@ -305,3 +321,10 @@ def _validate_image(img: Union[np.ndarray, torch.Tensor], channels_last: bool) -
         img_numpy = np.moveaxis(img_numpy, 0, -1)
 
     return img_numpy
+
+
+def _find_oom_callback(callbacks: List['Callback']) -> Optional[OOMObserver]:
+    for callback in callbacks:
+        if isinstance(callback, OOMObserver):
+            return callback
+    return None
