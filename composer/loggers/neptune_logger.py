@@ -320,7 +320,31 @@ def _validate_image(img: Union[np.ndarray, torch.Tensor], channels_last: bool) -
     if not channels_last:
         img_numpy = np.moveaxis(img_numpy, 0, -1)
 
-    return img_numpy
+    return _validate_image_value_range(img_numpy)
+
+
+def _validate_image_value_range(img: np.ndarray) -> np.ndarray:
+    array_min = img.min()
+    array_max = img.max()
+
+    if (array_min >= 0 and 1 < array_max <= 255) or (array_min >= 0 and array_max <= 1):
+        return img
+
+    from neptune.common.warnings import NeptuneWarning, warn_once
+
+    warn_once(
+        'Image value range is not in the expected range of [0.0, 1.0] or [0, 255]. '
+        'This might be due to the presence of `transforms.Normalize` in the data pipeline. '
+        'Logged images may not display correctly in Neptune.',
+        exception=NeptuneWarning,
+    )
+
+    return _scale_image_to_0_255(img, array_min, array_max)
+
+
+def _scale_image_to_0_255(img: np.ndarray, array_min: Union[int, float], array_max: Union[int, float]) -> np.ndarray:
+    scaled_image = 255 * (img - array_min) / (array_max - array_min)
+    return scaled_image.astype(np.uint8)
 
 
 def _find_oom_callback(callbacks: List['Callback']) -> Optional['OOMObserver']:
