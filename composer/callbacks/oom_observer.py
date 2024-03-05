@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Generate a memory snapshot during an OutOfMemory exception."""
-
+import dataclasses
 import logging
 import os
 import pickle
@@ -13,7 +13,6 @@ from typing import List, Optional
 import torch.cuda
 from packaging import version
 
-from composer import State
 from composer.core import Callback, State
 from composer.loggers import Logger
 from composer.utils import ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time, parse_uri
@@ -42,14 +41,8 @@ class SnapshotFileNameConfig:
             memory_flamegraph_file=filename + '_memory_flamegraph.svg',
         )
 
-    def list_files(self) -> List[str]:
-        return [
-            self.snapshot_file,
-            self.trace_plot_file,
-            self.segment_plot_file,
-            self.segment_flamegraph_file,
-            self.memory_flamegraph_file,
-        ]
+    def list_filenames(self) -> List[str]:
+        return [getattr(self, field.name) for field in dataclasses.fields(self)]
 
 
 class OOMObserver(Callback):
@@ -181,7 +174,7 @@ class OOMObserver(Callback):
                 log.info(f'Saved memory visualizations to local files with prefix = {filename} during OOM')
 
                 if self.remote_path_in_bucket is not None:
-                    for f in self.filename_config.list_files():
+                    for f in self.filename_config.list_file_names():
                         base_file_name = os.path.basename(f)
                         remote_file_name = os.path.join(self.remote_path_in_bucket, base_file_name)
                         remote_file_name = remote_file_name.lstrip('/')  # remove leading slashes
