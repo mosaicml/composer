@@ -1138,6 +1138,25 @@ class TestTrainerInitOrFit:
         assert (torch.equal(next(compiled_model_trainer.state.model.parameters()),
                             next(uncompiled_model_trainer.state.model.parameters())))
 
+    def test_iteration(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+    ):
+        """Tests iteration is properly incremented during training when _iteration_length is set."""
+
+        # Train with max_duration set to 5 epochs with 2 epoch per iteration
+        trainer = Trainer(
+            model=model,
+            max_duration='5ep',
+            train_dataloader=train_dataloader,
+        )
+        trainer.state._iteration_length = '2ep'
+        trainer.fit()
+
+        assert trainer.state.timestamp.epoch == Time(5, TimeUnit.EPOCH)
+        assert trainer.state.timestamp.iteration == Time(2, TimeUnit.ITERATION)
+
 
 @world_size(1, 2)
 @device('cpu', 'gpu', 'gpu-amp', precision=True)
