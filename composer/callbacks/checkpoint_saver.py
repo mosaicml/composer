@@ -351,6 +351,15 @@ class CheckpointSaver(Callback):  # noqa: D101
                 logger,
             )
 
+    def iteration_checkpoint(self, state: State, logger: Logger):
+        assert callable(self.save_interval)
+        if (self.save_interval(state, Event.ITERATION_CHECKPOINT) and
+                self.last_checkpoint_batch != state.timestamp.batch):
+            self._save_checkpoint(
+                state,
+                logger,
+            )
+
     def state_dict(self) -> Dict[str, Any]:
         state_dict = {}
 
