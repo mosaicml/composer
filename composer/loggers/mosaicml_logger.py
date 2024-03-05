@@ -94,6 +94,9 @@ class MosaicMLLogger(LoggerDestination):
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         self._log_metadata(metrics)
 
+    def log_failure_reason(self, reason: str):
+        self._log_metadata({'failure_reason': reason})
+
     def after_load(self, state: State, logger: Logger) -> None:
         # Log model data downloaded and initialized for run events
         log.debug(f'Logging model initialized time to metadata')
