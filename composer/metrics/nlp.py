@@ -342,7 +342,6 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
 
     def update(self, outputs: List[str], labels: List[List[str]], batch: Dict[str, Any]):
         cot_delimiter = batch.get('cot_delimiter', '')
-
         do_normalization = batch.get('do_normalization', True)
         stopping_criteria = batch.get('stopping_criteria', None)
         metric_result_dict = copy.deepcopy(self.metric_result_dict)
