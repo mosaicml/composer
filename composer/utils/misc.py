@@ -33,8 +33,8 @@ def create_interval_scheduler(interval: Union[str, int, 'Time'],
 
     Args:
         interval (Union[str, int, :class:`.Time`]): If an integer, it will be assumed to be in :attr:`.TimeUnit.EPOCH`.
-            Otherwise, the unit must be either :attr:`.TimeUnit.EPOCH`, :attr:`.TimeUnit.BATCH`,
-            :attr:`.TimeUnit.TOKEN`, or :attr:`.TimeUnit.SAMPLE`.
+            Otherwise, the unit must be either :attr:`.TimeUnit.ITERATION`, :attr:`.TimeUnit.EPOCH`,
+            :attr:`.TimeUnit.BATCH`, :attr:`.TimeUnit.TOKEN`, or :attr:`.TimeUnit.SAMPLE`.
         include_end_of_training (bool): If true, the returned callable will return true at the end of training as well.
             Otherwise, the returned callable will return true at intervals only.
         checkpoint_events (bool): If true, will use the EPOCH_CHECKPOINT and BATCH_CHECKPOINT events. If False, will use
@@ -54,11 +54,13 @@ def create_interval_scheduler(interval: Union[str, int, 'Time'],
     time_interval: Time = Time.from_input(interval, TimeUnit.EPOCH)
     if time_interval.unit == TimeUnit.EPOCH:
         interval_event = Event.EPOCH_CHECKPOINT if checkpoint_events else Event.EPOCH_END
+    elif time_interval.unit == TimeUnit.ITERATION:
+        interval_event = Event.ITERATION_CHECKPOINT if checkpoint_events else Event.ITERATION_END
     elif time_interval.unit in {TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE, TimeUnit.DURATION}:
         interval_event = Event.BATCH_CHECKPOINT if checkpoint_events else Event.BATCH_END
     else:
         raise NotImplementedError(
-            f'Unknown interval: {time_interval.unit}. Must be TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.'
+            f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.'
         )
 
     last_batch_seen = -1
@@ -80,7 +82,7 @@ def create_interval_scheduler(interval: Union[str, int, 'Time'],
         if include_end_of_training and event in final_events and elapsed_duration >= 1.0 and state.timestamp.batch != last_batch_seen:
             return True
 
-        if time_interval.unit in {TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE}:
+        if time_interval.unit in {TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE}:
             previous_count = state.previous_timestamp.get(time_interval.unit)
             count = state.timestamp.get(time_interval.unit)
         # If the eval_interval is a duration, we will track progress in terms of the unit of max_duration
@@ -90,7 +92,7 @@ def create_interval_scheduler(interval: Union[str, int, 'Time'],
             count = state.timestamp.get(state.max_duration.unit)
         else:
             raise NotImplementedError(
-                f'Unknown interval: {time_interval.unit}. Must be TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.'
+                f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.'
             )
 
         threshold_passed = math.floor(previous_count / time_interval.value) != math.floor(count / time_interval.value)
