@@ -427,7 +427,7 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
             cont_tok_pred = outputs[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
             cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
-            # TODO: okay to do context_tok here? or do we wanna do that in the logger?
+
             metric_result_dict['context'].append(batch['input_ids'][batch_idx][:cont_idx[0]])
             metric_result_dict['label'].append(cont_tok_targ)
             metric_result_dict['output'].append(cont_tok_pred)
