@@ -242,7 +242,7 @@ class NeptuneLogger(LoggerDestination):
         from neptune.types import File
 
         with open(str(file_path), 'rb') as fp:
-            self.base_handler[remote_file_name].upload(File.from_content(fp.read()))
+            self.base_handler[remote_file_name].upload(File.from_content(fp.read(), extension=file_path.suffix))
 
     def download_file(
         self,
