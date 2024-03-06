@@ -28,16 +28,20 @@ import torch
 import torch.distributed
 import torch.nn as nn
 import torch.utils.data
-from packaging import version
+from torch._dynamo import OptimizedModule
 from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
+from torch.distributed.fsdp import FullyShardedDataParallel
+from torch.distributed.fsdp._runtime_utils import _post_backward_final_callback
+from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
 from torch.nn.parallel import DistributedDataParallel
+from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
 
-from composer.callbacks import CheckpointSaver, OptimizerMonitor
+from composer.callbacks import CheckpointSaver, MemorySnapshot, OOMObserver, OptimizerMonitor
 from composer.core import (Algorithm, AlgorithmPass, Batch, Callback, DataSpec, Engine, Evaluator, Event, Precision,
-                           PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode, ensure_data_spec,
-                           ensure_evaluator, ensure_time, get_precision_context, validate_eval_automicrobatching)
+                           State, Time, Timestamp, TimeUnit, TrainerMode, ensure_data_spec, ensure_evaluator,
+                           ensure_time, get_precision_context, validate_eval_automicrobatching)
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, MLFlowLogger, MosaicMLLogger, ProgressBarLogger,
                               RemoteUploaderDownloader, WandBLogger)
@@ -52,13 +56,13 @@ from composer.trainer.dist_strategy import (DDPSyncStrategy, ddp_sync_context, p
                                             set_fsdp_default)
 from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectStore, Transform, checkpoint, dist,
                             ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist,
-                            get_composer_env_dict, get_device, get_file, is_tpu_installed, map_collection,
+                            get_composer_env_dict, get_device, get_file, is_xla_installed, map_collection,
                             maybe_create_object_store_from_uri, maybe_create_remote_uploader_downloader_from_uri,
-                            model_eval_mode, parse_uri, partial_format, reproducibility, using_torch_2)
+                            model_eval_mode, parse_uri, partial_format, reproducibility)
 from composer.utils.misc import is_model_deepspeed
 from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
 
-if is_tpu_installed():
+if is_xla_installed():
     import torch_xla.core.xla_model as xm
     import torch_xla.distributed.parallel_loader as pl
 
@@ -67,7 +71,7 @@ log = logging.getLogger(__name__)
 __all__ = ['Trainer']
 
 # syntax to shorten the Scheduler type annotations
-Scheduler = Union[ComposerScheduler, PyTorchScheduler]
+Scheduler = Union[ComposerScheduler, LRScheduler]
 
 
 def _raise_missing_argument_exception(arg_name: str):
@@ -91,7 +95,7 @@ def _scale_max_duration_by_ssr(
 
 
 def _get_default_scheduler_frequency(schedulers: Optional[Union[Scheduler, Sequence[Scheduler]]]):
-    has_pytorch_scheduler = any(isinstance(scheduler, PyTorchScheduler) for scheduler in ensure_tuple(schedulers))
+    has_pytorch_scheduler = any(isinstance(scheduler, LRScheduler) for scheduler in ensure_tuple(schedulers))
     if has_pytorch_scheduler:
         log.info(('Stepping schedulers every epoch, as a PyTorch scheduler was provided. '
                   'The trainer cannot automatically convert the parameters (e.g. step_size, T_max) of the '
@@ -125,10 +129,10 @@ def _compile_schedulers(
     schedulers: Optional[Union[Scheduler, Sequence[Scheduler]]],
     state: State,
     scale_schedule_ratio: float,
-) -> List[PyTorchScheduler]:
+) -> List[LRScheduler]:
     compiled_schedulers = []
     for scheduler in ensure_tuple(schedulers):
-        if isinstance(scheduler, PyTorchScheduler):
+        if isinstance(scheduler, LRScheduler):
             scale_pytorch_scheduler(scheduler, scale_schedule_ratio)
             compiled_schedulers.append(scheduler)
         # It's a composer scheduler
@@ -230,6 +234,21 @@ def _is_cuda_oom(e: RuntimeError):
     return False
 
 
+def _fsdp_reshard_and_cleanup(model: torch.nn.Module):
+    """Manually reshard and clean up FSDP model.
+
+    When an exception like OOM happens, _post_backward_final_callback, which
+    is registered as a backward callback, will not run. We manually call it to cleanup
+    loose memory.
+    """
+    for __, module in model.named_modules():
+        if isinstance(module, FullyShardedDataParallel):
+            if module.check_is_root():
+                # Only call _post_backward_final_callback on root module. It will
+                # traverse and reshard all FSDP sub-modules
+                _post_backward_final_callback(module, module)
+
+
 def _adjust_device_train_microbatch_size(state: State):
     """Adjust device_train_microbatch_size if we encounter OOM.
 
@@ -257,6 +276,7 @@ def _adjust_device_train_microbatch_size(state: State):
         optimizer.zero_grad(set_to_none=True)
     if state.scaler is not None:
         state.scaler._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
+    _fsdp_reshard_and_cleanup(state.model)
     torch.cuda.empty_cache()
 
 
@@ -456,7 +476,7 @@ class Trainer:
             If ``None``, will be set to ``DecoupledSGDW(model.parameters(), lr=0.1)``. (default: ``None``)
 
             .. seealso:: :mod:`composer.optim` for the different optimizers built into Composer.
-        schedulers (PyTorchScheduler | ComposerScheduler | Sequence[PyTorchScheduler | ComposerScheduler], optional):
+        schedulers (LRScheduler | ComposerScheduler | Sequence[LRScheduler | ComposerScheduler], optional):
             The learning rate schedulers. If ``[]`` or ``None``, the learning rate will be constant.
             (default: ``None``).
 
@@ -850,8 +870,8 @@ class Trainer:
 
         # Optimizers and Scheduling
         optimizers: Optional[torch.optim.Optimizer] = None,
-        schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
-                                                                                       PyTorchScheduler]]]] = None,
+        schedulers: Optional[Union[ComposerScheduler, LRScheduler, Sequence[Union[ComposerScheduler,
+                                                                                  LRScheduler]]]] = None,
         scale_schedule_ratio: float = 1.0,
         step_schedulers_every_batch: Optional[bool] = None,
 
@@ -949,25 +969,22 @@ class Trainer:
         _validate_precision(precision, device)
 
         # check if provided model is compiled or not
-        is_torch_2_0 = using_torch_2()
         is_model_compiled = False
-        if is_torch_2_0:
-            from torch._dynamo import OptimizedModule
-            if isinstance(model, OptimizedModule):
-                log.warning(f'Provided `model` is already compiled with `torch.compile`. Ignoring ' +
-                            f'parameter `compile_config` if provided. If you would like `Trainer` ' +
-                            f'to takes care of model compilation, provide a not-compiled model and ' +
-                            f'`compile_config` parameter.')
-                # The `torch.compile` function returns an object of type `torch._dynamo.OptimizedModule`
-                # which wraps the original `nn.Module` object and later patches its forward method to
-                # optimized `self.forward` method.
-                is_model_compiled = True
-                compiled_model = model._orig_mod
-                if not isinstance(compiled_model, ComposerModel):
-                    raise ValueError(f'Provided `model` must be a subclass of ComposerModel. ' +
-                                     f'Instead found as type `{type(compiled_model)}`')
-                compiled_model.forward = model.dynamo_ctx(compiled_model.forward)
-                model = compiled_model
+        if isinstance(model, OptimizedModule):
+            log.warning(f'Provided `model` is already compiled with `torch.compile`. Ignoring ' +
+                        f'parameter `compile_config` if provided. If you would like `Trainer` ' +
+                        f'to takes care of model compilation, provide a not-compiled model and ' +
+                        f'`compile_config` parameter.')
+            # The `torch.compile` function returns an object of type `torch._dynamo.OptimizedModule`
+            # which wraps the original `nn.Module` object and later patches its forward method to
+            # optimized `self.forward` method.
+            is_model_compiled = True
+            compiled_model = model._orig_mod
+            if not isinstance(compiled_model, ComposerModel):
+                raise ValueError(f'Provided `model` must be a subclass of ComposerModel. ' +
+                                 f'Instead found as type `{type(compiled_model)}`')
+            compiled_model.forward = model.dynamo_ctx(compiled_model.forward)
+            model = compiled_model
 
         # Microbatching
         auto_microbatching = _is_auto_microbatching(device_train_microbatch_size, device=device)
@@ -1072,6 +1089,15 @@ class Trainer:
                 if remote_ud is not None:
                     loggers.append(remote_ud)
             self.state.profiler.bind_to_state(self.state)
+
+        # MemorySnapshot, OOMObserver
+        for cb in self.state.callbacks:
+            if isinstance(cb, MemorySnapshot) or isinstance(cb, OOMObserver):
+                if cb.remote_file_name:
+                    remote_ud = maybe_create_remote_uploader_downloader_from_uri(uri=cb.remote_file_name,
+                                                                                 loggers=loggers)
+                    if remote_ud is not None:
+                        loggers.append(remote_ud)
 
         if progress_bar and log_to_console:
             warnings.warn(
@@ -1216,7 +1242,10 @@ class Trainer:
 
         # Log hparams.
         if self.auto_log_hparams:
-            self.local_hparams = extract_hparams(locals())
+            locs = locals()
+            if 'cb' in locs:
+                del locs['cb']
+            self.local_hparams = extract_hparams(locs)
             self.logger.log_hyperparameters(self.local_hparams)
 
         # Log composer version
@@ -1291,7 +1320,7 @@ class Trainer:
         if self._train_data_spec is not None:
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label,
                                       train_subset_num_batches)
-            if isinstance(self.state.device, DeviceTPU):
+            if self.state.device.dist_backend == 'xla':
                 self.state.train_dataloader = pl.MpDeviceLoader(self.state.dataloader, xm.xla_device())
             else:
                 self.state.train_dataloader = self.state.dataloader
@@ -1328,10 +1357,6 @@ class Trainer:
         self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
 
         if self.state.fsdp_config is not None:
-            if version.parse(torch.__version__) < version.parse('1.13.0'):
-                raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-            from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
-
             # This state should never be reached, but we raise a ValueError just in case
             if self._use_closures() and self.state.precision == Precision.AMP_FP16:
                 raise ValueError(f'Using closures and precision {self.state.precision} is not supported'
@@ -1392,6 +1417,8 @@ class Trainer:
             if 'optimizers' in self.state.serialized_attributes:
                 self.state.serialized_attributes.remove('optimizers')
 
+        self.engine.run_event(Event.BEFORE_LOAD)
+
         # Load Checkpoint
         self._rng_state = None
         # If autoresume is enabled, first check for existing checkpoints to load
@@ -1420,25 +1447,28 @@ class Trainer:
                     'Multiple concurrent uploads is not currently supported when using autoresume. Please set `num_concurrent_uploads` to 1 '
                     'for all `RemoteUploaderDownloader` instances.')
             assert latest_remote_file_name is not None
-            if self.state.fsdp_elastic_sharded_enabled:
+            if self.state.fsdp_sharded_state_dict_enabled:
                 ar_object_store = maybe_create_object_store_from_uri(save_folder)
-                # Symlink is on object store.
+                # Symlink is on object store
                 if ar_object_store is not None:
-                    with tempfile.TemporaryDirectory() as temp_dir:
-                        local_symlink_file = str(Path(temp_dir) / Path('autoresume.symlink'))
-                        formatted_latest_remote_file_name = format_name_with_dist(latest_remote_file_name,
-                                                                                  self.state.run_name) + '.symlink'
-                        rank0_formatted_latest_remote_file_name = dist.all_gather_object(
-                            formatted_latest_remote_file_name)[0]
-                        try:
-                            ar_object_store.download_object(rank0_formatted_latest_remote_file_name, local_symlink_file)
-                            with open(local_symlink_file, 'r') as f:
-                                real_path = f.read()
-                                log.debug(f'Read path {real_path} from symlink file')
-                            autoresume_checkpoint_path = ar_object_store.get_uri(real_path)
-                        except FileNotFoundError:
-                            autoresume_checkpoint_path = None
-                # Symlink is local.
+                    autoresume_checkpoint_path = None
+                    if dist.get_global_rank() == 0:
+                        with tempfile.TemporaryDirectory() as temp_dir:
+                            local_symlink_file = str(Path(temp_dir) / Path('autoresume.symlink'))
+                            symlink_file_name = format_name_with_dist(latest_remote_file_name,
+                                                                      self.state.run_name) + '.symlink'
+                            try:
+                                ar_object_store.download_object(symlink_file_name, local_symlink_file)
+                                with open(local_symlink_file, 'r') as f:
+                                    real_path = f.read()
+                                    log.debug(f'Read path {real_path} from symlink file')
+                                autoresume_checkpoint_path = ar_object_store.get_uri(real_path)
+                            except FileNotFoundError:
+                                pass
+                    autoresume_path_list = [autoresume_checkpoint_path]
+                    dist.broadcast_object_list(autoresume_path_list)
+                    autoresume_checkpoint_path = autoresume_path_list[0]
+                # Symlink is local
                 else:
                     save_latest_filename = format_name_with_dist(save_latest_filename, self.state.run_name)
                     rank0_save_latest_filename = dist.all_gather_object(save_latest_filename)[0]
@@ -1451,7 +1481,7 @@ class Trainer:
                     else:
                         autoresume_checkpoint_path = None
 
-            # Standard non-elastic codepath for autoresume.
+            # Standard non-elastic codepath for autoresume
             else:
                 autoresume_checkpoint_path = self._get_autoresume_checkpoint(
                     save_folder=save_folder,
@@ -1506,9 +1536,9 @@ class Trainer:
         self.engine.run_event(Event.AFTER_LOAD)
 
         # reseed here. This helps with a couple of issues:
-        # 1. rng state may change at Event.INIT/Event.AFTER_LOAD. For example, if an algorithm
-        # creates a new module and module parameters are initialized randomly, rng state will
-        # change. This reseeding nullifies such effects.
+        # 1. rng state may change at Event.INIT/Event.BEFORE_LOAD/Event.AFTER_LOAD. For example,
+        # if an algorithm creates a new module and module parameters are initialized randomly, rng
+        # state will change. This reseeding nullifies such effects.
         # 2. While resuming from a checkpoint, we want to spin dataloader and bring it back to the
         # same state as at the time of the checkpoint. Therefore, spinning needs to start from the
         # same rng state as in the original run.
@@ -1521,7 +1551,7 @@ class Trainer:
 
         # The model would need to be torch.compile()'d after being wrapped in a distributed strategy
         # to take advantage of any graph breaks.
-        if is_torch_2_0 and not is_model_compiled and compile_config is not None:
+        if not is_model_compiled and compile_config is not None:
             compiled_model = torch.compile(self.state.model, **compile_config)
             self.state.model = compiled_model._orig_mod
             self.state.model.forward = compiled_model.dynamo_ctx(self.state.model.forward)
@@ -1530,10 +1560,6 @@ class Trainer:
             # debugging purpose and for unit test.
             if self.auto_log_hparams:
                 self.local_hparams['is_model_compiled'] = is_model_compiled
-        elif not is_torch_2_0 and compile_config is not None:
-            raise ValueError(f'`torch.compile` is supported for PyTorch 2.0 or higher.' +
-                             f'Either update your PyTorch version or disable parameter by providing ' +
-                             f'`compile_config` to `None`.')
 
     @property
     def saved_checkpoints(self) -> List[str]:
@@ -1682,8 +1708,8 @@ class Trainer:
         reset_time: bool = False,
 
         # Schedulers
-        schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
-                                                                                       PyTorchScheduler]]]] = None,
+        schedulers: Optional[Union[ComposerScheduler, LRScheduler, Sequence[Union[ComposerScheduler,
+                                                                                  LRScheduler]]]] = None,
         scale_schedule_ratio: float = 1.0,
         step_schedulers_every_batch: Optional[bool] = None,
 
@@ -1796,7 +1822,7 @@ class Trainer:
                 If ``reset_time`` is True, then :attr:`.State.max_duration` will be set to this parameter.
 
             optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): See :class:`.Trainer`.
-            schedulers (PyTorchScheduler | ComposerScheduler | Sequence[PyTorchScheduler | ComposerScheduler], optional): See :class:`.Trainer`.
+            schedulers (LRScheduler | ComposerScheduler | Sequence[LRScheduler | ComposerScheduler], optional): See :class:`.Trainer`.
             scale_schedule_ratio (float, optional): See :class:`.Trainer`.
             step_schedulers_every_batch (bool, optional): See :class:`.Trainer`.
             eval_dataloader (Iterable | DataSpec | Evaluator | Sequence[Evaluator], optional): See :class:`.Trainer`.
@@ -2052,7 +2078,7 @@ class Trainer:
 
     def _train_loop(self) -> None:
         """Run training for the specified number of epochs and log results."""
-        # print training start
+        # Log training start
         log.info('Using precision %s', self.state.precision)
         self.logger.log_hyperparameters(
             {'enabled_algorithms/' + algo.__class__.__name__: True for algo in self.state.algorithms})
@@ -2081,7 +2107,11 @@ class Trainer:
             # asserted to be not None when Trainer.fit() is called
             raise RuntimeError('max_duration must be specified when initializing the Trainer')
 
+        log.debug('Starting training loop')
         while self.state.timestamp < self.state.max_duration:
+            if int(self.state.timestamp.epoch_in_iteration) == 0 and int(self.state.timestamp.batch_in_epoch) == 0:
+                self.engine.run_event(Event.ITERATION_START)
+
             if int(self.state.timestamp.batch_in_epoch) == 0:
                 self.engine.run_event(Event.EPOCH_START)
                 self.logger.log_metrics({'time/epoch': self.state.timestamp.epoch.value})
@@ -2217,6 +2247,14 @@ class Trainer:
 
                 self.engine.run_event(Event.EPOCH_CHECKPOINT)
 
+                # Increment iteration
+                if (self.state._iteration_length is not None and
+                        self.state.timestamp.epoch_in_iteration == self.state._iteration_length):
+                    self.state.previous_timestamp = self.state.timestamp
+                    self.state.timestamp = self.state.timestamp.to_next_iteration()
+                    self.engine.run_event(Event.ITERATION_END)
+                    self.engine.run_event(Event.ITERATION_CHECKPOINT)
+
         # Log final time values
         self.logger.log_metrics({
             'time/epoch': self.state.timestamp.epoch.value,
@@ -2315,10 +2353,7 @@ class Trainer:
                             if use_grad_scaling:
                                 self.state.scaler.step(optimizer)
                             else:
-                                if isinstance(self.state.device, DeviceTPU):
-                                    xm.optimizer_step(optimizer, barrier=True)
-                                else:
-                                    optimizer.step()
+                                optimizer.step()
             except RuntimeError as e:
                 if self.state.auto_microbatching and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
@@ -2531,7 +2566,7 @@ class Trainer:
                 microbatch_loss_dict[k] = loss.detach().clone().mean() * (microbatch_num_samples / current_batch_size)
 
             if use_grad_scaling:
-                microbatch_loss = cast(torch.Tensor, self.state.scaler.scale(microbatch_loss))
+                microbatch_loss = cast(torch.Tensor, self.state.scaler.scale(microbatch_loss))  # type: ignore
 
             if self.state.deepspeed_enabled:
                 self.state.deepspeed_model.backward(microbatch_loss)
@@ -2539,6 +2574,11 @@ class Trainer:
                 # Scale loss based on the number of samples in the microbatch to maintain gradient numerics
                 microbatch_loss.mul_(microbatch_num_samples / current_batch_size)
                 microbatch_loss.backward(create_graph=self._backwards_create_graph)
+
+            if self.state.device.dist_backend == 'xla':
+                # For xla devices, the program between any pair of mark_steps() calls is compiled. With out this, the
+                # microbatching loop is unrolled, drastically increasing compile time.
+                xm.mark_step()
 
             self.engine.run_event(Event.AFTER_BACKWARD)
 
@@ -3130,7 +3170,7 @@ class Trainer:
         if self.state.deepspeed_enabled:
             return False
 
-        if isinstance(self.state.device, DeviceTPU):
+        if self.state.device.dist_backend == 'xla':
             return False
 
         if self.state.precision != Precision.AMP_FP16:

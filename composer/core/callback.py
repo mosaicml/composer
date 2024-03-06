@@ -105,6 +105,16 @@ class Callback(Serializable, abc.ABC):
         del state, logger  # unused
         pass
 
+    def before_load(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`.Event.BEFORE_LOAD` event.
+
+        Args:
+            state (State): The training state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
     def after_load(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`.Event.AFTER_LOAD` event.
 
@@ -117,6 +127,16 @@ class Callback(Serializable, abc.ABC):
 
     def fit_start(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`.Event.FIT_START` event.
+
+        Args:
+            state (State): The training state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def iteration_start(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`.Event.ITERATION_START` event.
 
         Args:
             state (State): The training state.
@@ -289,8 +309,14 @@ class Callback(Serializable, abc.ABC):
 
         .. note::
 
-            :attr:`.State.timestamp` member variable :attr:`.Timestamp.epoch`
-            is incremented immediately before :attr:`.Event.EPOCH_END`.
+           The following :attr:`.State.timestamp` member variables are
+           incremented immediately before the :attr:`.Event.EPOCH_END` event.
+
+           +--------------------------------------+
+           | :attr:`.Timestamp.epoch`             |
+           +--------------------------------------+
+           | :attr:`.Timestamp.epoch_in_iteration`|
+           +--------------------------------------+
 
         Args:
             state (State): The training state.
@@ -301,6 +327,31 @@ class Callback(Serializable, abc.ABC):
 
     def epoch_checkpoint(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`.Event.EPOCH_CHECKPOINT` event.
+
+        Args:
+            state (State): The training state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def iteration_end(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`.Event.ITERATION_END` event.
+
+        .. note::
+
+            :attr:`.State.timestamp` member variable :attr:`.Timestamp.iteration`
+            is incremented immediately before :attr:`.Event.ITERATION_END`.
+
+        Args:
+            state (State): The training state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def iteration_checkpoint(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`.Event.ITERATION_CHECKPOINT` event.
 
         Args:
             state (State): The training state.

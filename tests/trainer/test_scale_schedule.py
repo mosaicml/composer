@@ -7,11 +7,11 @@ import numpy as np
 import pytest
 import torch
 from torch.optim import Optimizer
-from torch.optim.lr_scheduler import ExponentialLR
+from torch.optim.lr_scheduler import ExponentialLR, LRScheduler
 from torch.utils.data import DataLoader
 
 from composer import Trainer
-from composer.core import Callback, PyTorchScheduler, State, TimeUnit
+from composer.core import Callback, State, TimeUnit
 from composer.loggers.logger import Logger
 from composer.optim import MultiStepScheduler
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
@@ -33,7 +33,7 @@ def flatten(lst: list):
 class TestScaleSchedule():
 
     @staticmethod
-    def _test(targets: List[float], scheduler: PyTorchScheduler, epochs: int, optimizer: Optimizer, ssr: float):
+    def _test(targets: List[float], scheduler: LRScheduler, epochs: int, optimizer: Optimizer, ssr: float):
         scale_pytorch_scheduler(scheduler, ssr)
         for epoch in range(epochs):
             for param_group in optimizer.param_groups:

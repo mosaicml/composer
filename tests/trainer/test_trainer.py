@@ -14,7 +14,6 @@ from typing import Any, Dict, List, Optional, Union
 
 import pytest
 import torch
-from packaging import version
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
 
@@ -122,8 +121,6 @@ class TestTrainerInit():
         if call_eval:
             trainer.eval(subset_num_batches=1)
 
-    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
-                        reason='requires PyTorch 2.0 or higher')
     @pytest.mark.parametrize('compile_config', [(None, False), ({}, True), ({'mode': 'reduce-overhead'}, True)])
     def test_torch_compile(self, model: ComposerModel, compile_config: Any):
         train_dataset = RandomClassificationDataset()
@@ -137,8 +134,6 @@ class TestTrainerInit():
                           compile_config=compile_config[0])
         assert trainer.local_hparams['is_model_compiled'] is compile_config[1]
 
-    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
-                        reason='requires PyTorch 2.0 or higher')
     def test_already_compiled_warning(self, caplog, model: ComposerModel):
         with caplog.at_level(logging.WARNING):
             train_dataset = RandomClassificationDataset()
@@ -152,20 +147,6 @@ class TestTrainerInit():
                         auto_log_hparams=True,
                         compile_config=None)
             assert '`model` is already compiled with `torch.compile`' in caplog.text
-
-    @pytest.mark.skipif(version.parse(torch.__version__) >= version.parse('2.0.0'),
-                        reason='requires PyTorch 1.13 or lower')
-    def test_compile_unsupported_torch_version_exception(self, caplog, model: ComposerModel):
-        with pytest.raises(ValueError, match='`torch.compile` is supported for PyTorch 2.0 or higher.'):
-            train_dataset = RandomClassificationDataset()
-            optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
-            max_duration = '2ba'
-            _ = Trainer(model=model,
-                        max_duration=max_duration,
-                        train_dataloader=DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset)),
-                        optimizers=optimizer,
-                        auto_log_hparams=True,
-                        compile_config={})
 
     def test_eval_metrics(self):
         model = SimpleModel()
@@ -627,8 +608,6 @@ class TestTrainerInitOrFit:
         trainer.fit()
 
     @pytest.mark.gpu
-    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                        reason='requires PyTorch 1.13 or higher')
     @pytest.mark.parametrize('precision', [Precision.FP32, Precision.AMP_BF16, Precision.AMP_FP16])
     @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_fsdp(
@@ -672,8 +651,6 @@ class TestTrainerInitOrFit:
             trainer.fit()
 
     @pytest.mark.gpu
-    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
-                        reason='requires PyTorch 2.0 or higher')
     @pytest.mark.parametrize('precision', [Precision.AMP_BF16, Precision.AMP_FP16])
     @pytest.mark.parametrize('compile_config', [None, {}])
     @pytest.mark.filterwarnings('ignore::UserWarning')
@@ -1112,8 +1089,6 @@ class TestTrainerInitOrFit:
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_END] == 2
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_CHECKPOINT] == 2
 
-    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
-                        reason='requires PyTorch 2.0 or higher')
     @pytest.mark.parametrize('is_model_compiled', [True, False])
     def test_compile_uncompile_model_weights_trainer_fit(
         self,
@@ -1162,6 +1137,25 @@ class TestTrainerInitOrFit:
 
         assert (torch.equal(next(compiled_model_trainer.state.model.parameters()),
                             next(uncompiled_model_trainer.state.model.parameters())))
+
+    def test_iteration(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+    ):
+        """Tests iteration is properly incremented during training when _iteration_length is set."""
+
+        # Train with max_duration set to 5 epochs with 2 epoch per iteration
+        trainer = Trainer(
+            model=model,
+            max_duration='5ep',
+            train_dataloader=train_dataloader,
+        )
+        trainer.state._iteration_length = '2ep'
+        trainer.fit()
+
+        assert trainer.state.timestamp.epoch == Time(5, TimeUnit.EPOCH)
+        assert trainer.state.timestamp.iteration == Time(2, TimeUnit.ITERATION)
 
 
 @world_size(1, 2)

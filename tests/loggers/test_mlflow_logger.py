@@ -167,7 +167,7 @@ def test_mlflow_experiment_init_experiment_name(monkeypatch):
 
 
 def test_mlflow_experiment_init_existing_composer_run(monkeypatch):
-    """ Test that an existing MLFlow run is used if one already exists in the experiment for the Composer run.
+    """ Test that an existing MLFlow run is used if one tagged with `run_name` exists in the experiment for the Composer run.
     """
     mlflow = pytest.importorskip('mlflow')
 
@@ -176,6 +176,26 @@ def test_mlflow_experiment_init_existing_composer_run(monkeypatch):
 
     mock_state = MagicMock()
     mock_state.run_name = 'dummy-run-name'
+
+    existing_id = 'dummy-id'
+    mock_search_runs = MagicMock(return_value=[MagicMock(info=MagicMock(run_id=existing_id))])
+    monkeypatch.setattr(mlflow, 'search_runs', mock_search_runs)
+
+    test_logger = MLFlowLogger()
+    test_logger.init(state=mock_state, logger=MagicMock())
+    assert test_logger._run_id == existing_id
+
+
+def test_mlflow_experiment_init_existing_composer_run_with_old_tag(monkeypatch):
+    """ Test that an existing MLFlow run is used if one exists with the old `composer_run_name` tag.
+    """
+    mlflow = pytest.importorskip('mlflow')
+
+    monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
+    monkeypatch.setattr(mlflow, 'start_run', MagicMock())
+
+    mock_state = MagicMock()
+    mock_state.composer_run_name = 'dummy-run-name'
 
     existing_id = 'dummy-id'
     mock_search_runs = MagicMock(return_value=[MagicMock(info=MagicMock(run_id=existing_id))])
@@ -231,7 +251,7 @@ def test_mlflow_experiment_set_up(tmp_path):
     assert actual_run_name == expected_run_name
 
     # Check run tagged with Composer run name.
-    assert tags['composer_run_name'] == mock_state.run_name
+    assert tags['run_name'] == mock_state.run_name
 
     # Check run ended.
     test_mlflow_logger.post_close()
@@ -364,6 +384,48 @@ def test_mlflow_save_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
 
 @pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
 @pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
+def test_mlflow_save_peft_model(tmp_path, tiny_mistral_model, tiny_mistral_tokenizer):
+    mlflow = pytest.importorskip('mlflow')
+    peft = pytest.importorskip('peft')
+
+    # Reload just so the model has the update base model name
+    tiny_mistral_model.save_pretrained(tmp_path / Path('tiny_mistral_save_pt'))
+    tiny_mistral_model = tiny_mistral_model.from_pretrained(tmp_path / Path('tiny_mistral_save_pt'))
+
+    peft_config = {'peft_type': 'LORA'}
+    peft_model = peft.get_peft_model(tiny_mistral_model, peft.get_peft_config(peft_config))
+
+    mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
+    mlflow_exp_name = 'test-log-model-exp-name'
+    test_mlflow_logger = MLFlowLogger(
+        tracking_uri=mlflow_uri,
+        experiment_name=mlflow_exp_name,
+    )
+
+    mock_state = MagicMock()
+    mock_state.run_name = 'dummy-run-name'  # this run name should be unused.
+    mock_logger = MagicMock()
+
+    peft_model.save_pretrained(tmp_path / Path('peft_model_save_pt'))
+    tiny_mistral_tokenizer.save_pretrained(tmp_path / Path('peft_model_save_pt'))
+
+    local_mlflow_save_path = str(tmp_path / Path('my_model_local'))
+    test_mlflow_logger.init(state=mock_state, logger=mock_logger)
+    test_mlflow_logger.save_model(
+        flavor='peft',
+        path=local_mlflow_save_path,
+        save_pretrained_dir=str(tmp_path / Path('peft_model_save_pt')),
+    )
+    test_mlflow_logger.post_close()
+
+    loaded_model = mlflow.pyfunc.load_model(local_mlflow_save_path).unwrap_python_model()
+
+    check_hf_model_equivalence(loaded_model.model, tiny_mistral_model)
+    check_hf_tokenizer_equivalence(loaded_model.tokenizer, tiny_mistral_tokenizer)
+
+
+@pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
+@pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
 def test_mlflow_register_model(tmp_path, monkeypatch):
     mlflow = pytest.importorskip('mlflow')
 
@@ -390,11 +452,54 @@ def test_mlflow_register_model(tmp_path, monkeypatch):
         name='my_model',
     )
 
-    assert mlflow.register_model.called_with(model_uri=local_mlflow_save_path,
-                                             name='my_catalog.my_schema.my_model',
-                                             await_registration_for=300,
-                                             tags=None,
-                                             registry_uri='databricks-uc')
+    mlflow.register_model.assert_called_with(
+        model_uri=local_mlflow_save_path,
+        name='my_catalog.my_schema.my_model',
+        await_registration_for=300,
+        tags=None,
+    )
+    assert mlflow.get_registry_uri() == 'databricks-uc'
+
+    test_mlflow_logger.post_close()
+
+
+@pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
+@pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
+def test_mlflow_register_model_with_run_id(tmp_path, monkeypatch):
+    mlflow = pytest.importorskip('mlflow')
+
+    mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
+    mlflow_exp_name = 'test-log-model-exp-name'
+    test_mlflow_logger = MLFlowLogger(
+        tracking_uri=mlflow_uri,
+        experiment_name=mlflow_exp_name,
+        model_registry_prefix='my_catalog.my_schema',
+        model_registry_uri='databricks-uc',
+    )
+
+    monkeypatch.setattr(test_mlflow_logger._mlflow_client, 'create_model_version', MagicMock())
+    monkeypatch.setattr(test_mlflow_logger._mlflow_client, 'create_registered_model',
+                        MagicMock(return_value=type('MockResponse', (), {'name': 'my_catalog.my_schema.my_model'})))
+
+    mock_state = MagicMock()
+    mock_state.run_name = 'dummy-run-name'  # this run name should be unused.
+    mock_logger = MagicMock()
+
+    local_mlflow_save_path = str(tmp_path / Path('my_model_local'))
+    test_mlflow_logger.init(state=mock_state, logger=mock_logger)
+
+    test_mlflow_logger.register_model_with_run_id(
+        model_uri=local_mlflow_save_path,
+        name='my_model',
+    )
+
+    test_mlflow_logger._mlflow_client.create_model_version.assert_called_with(
+        name='my_catalog.my_schema.my_model',
+        source=local_mlflow_save_path,
+        run_id=test_mlflow_logger._run_id,
+        await_creation_for=300,
+        tags=None,
+    )
     assert mlflow.get_registry_uri() == 'databricks-uc'
 
     test_mlflow_logger.post_close()
@@ -580,8 +685,6 @@ def test_mlflow_log_image_works(tmp_path, device):
 
 @device('cpu')
 def test_mlflow_ignore_metrics(tmp_path, device):
-    mlflow = pytest.importorskip('mlflow')
-
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
     experiment_name = 'mlflow_logging_test'
     test_mlflow_logger = MLFlowLogger(
@@ -590,8 +693,6 @@ def test_mlflow_ignore_metrics(tmp_path, device):
         log_system_metrics=False,
         ignore_metrics=['metrics/eval/*', 'nothing/should/match', 'metrics/train/CrossEntropy'],
     )
-    # Reduce the system metrics sampling interval to speed up the test.
-    mlflow.set_system_metrics_sampling_interval(1)
 
     dataset_size = 64
     batch_size = 4
@@ -640,5 +741,36 @@ def test_mlflow_ignore_metrics(tmp_path, device):
     metric_file = run_file_path / Path('metrics') / Path('system/cpu_utilization_percentage')
     assert not os.path.exists(metric_file)
 
-    # Undo the setup to avoid affecting other test cases.
-    mlflow.set_system_metrics_sampling_interval(None)
+
+def test_mlflow_ignore_hyperparameters(tmp_path):
+    mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
+    experiment_name = 'mlflow_logging_test'
+    test_mlflow_logger = MLFlowLogger(tracking_uri=mlflow_uri,
+                                      experiment_name=experiment_name,
+                                      log_system_metrics=False,
+                                      ignore_hyperparameters=['num*', 'mlflow_run_id', 'nothing'])
+
+    Trainer(model=SimpleConvModel(), loggers=test_mlflow_logger, max_duration=f'4ba')
+    # Allow async logging to finish.
+    time.sleep(3)
+    test_mlflow_logger.post_close()
+
+    run = _get_latest_mlflow_run(
+        experiment_name=experiment_name,
+        tracking_uri=mlflow_uri,
+    )
+    run_file_path = mlflow_uri / Path(run.info.experiment_id) / Path(run.info.run_id)
+
+    # Test params logged.
+    param_path = run_file_path / Path('params')
+    actual_params_list = [param_filepath.stem for param_filepath in param_path.iterdir()]
+
+    # should not see num_cpus_per_node, num_nodes, mlflow_run_id
+    expected_params_list = [
+        'node_name',
+        'rank_zero_seed',
+        'composer_version',
+        'composer_commit_hash',
+        'mlflow_experiment_id',
+    ]
+    assert set(expected_params_list) == set(actual_params_list)

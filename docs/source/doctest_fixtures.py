@@ -48,7 +48,6 @@ from composer.core import Time as Time
 from composer.core import Timestamp as Timestamp
 from composer.core import TimeUnit as TimeUnit
 from composer.core import types as types
-from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.devices import DeviceCPU
 from composer.loggers import InMemoryLogger as InMemoryLogger
 from composer.loggers import Logger as Logger
@@ -73,6 +72,13 @@ except ImportError:
     _COMETML_INSTALLED = False
 
 try:
+    import neptune
+    _NEPTUNE_INSTALLED = True
+    del neptune  # unused
+except ImportError:
+    _NEPTUNE_INSTALLED = False
+
+try:
     import libcloud
     _LIBCLOUD_INSTALLED = True
     del libcloud  # unused
@@ -87,7 +93,7 @@ if sys.path[0] != _repo_root:
     sys.path.insert(0, _repo_root)
 
 from tests.common import SimpleModel
-from tests.common.datasets import RandomTextClassificationDataset
+from tests.common.datasets import RandomClassificationDataset, RandomTextClassificationDataset
 
 # Disable mosaicml logger
 os.environ['MOSAICML_PLATFORM'] = 'False'
@@ -112,11 +118,10 @@ optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 
 scheduler = CosineAnnealingLR(optimizer, T_max=1)
 
-dataset = SyntheticBatchPairDataset(
-    total_dataset_size=100,
-    data_shape=data_shape,
+dataset = RandomClassificationDataset(
+    shape=data_shape,
+    size=100,
     num_classes=num_classes,
-    num_unique_samples_to_create=10,
 )
 
 train_dataset = dataset

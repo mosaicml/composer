@@ -14,13 +14,16 @@ import sys
 import tempfile
 import time
 import traceback
+import warnings
 from argparse import ArgumentParser
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 import psutil
 import torch
 
 import composer
+from composer.loggers.mosaicml_logger import (MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR, MOSAICML_LOG_DIR_ENV_VAR,
+                                              MOSAICML_PLATFORM_ENV_VAR)
 from composer.utils import get_free_tcp_port
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
@@ -260,7 +263,7 @@ def _launch_processes(
     command_mode: bool,
     training_script: str,
     stdout_file_format: str,
-    stderr_file_format: str,
+    stderr_file_format: Union[str, None],
     training_script_args: List[Any],
     processes: Dict[int, subprocess.Popen],
 ):
@@ -315,17 +318,18 @@ def _launch_processes(
                     )
                     return open(filename, 'x+')
 
-                stderr_file = _get_file(stderr_file_format)
                 stdout_file = _get_file(stdout_file_format)
+                stderr_file = _get_file(stderr_file_format) if stderr_file_format is not None else None
 
                 process = subprocess.Popen(
                     cmd,
                     stdout=stdout_file,
-                    stderr=stderr_file,
+                    stderr=stderr_file if stderr_file is not None else subprocess.STDOUT,
                     text=True,
                 )
-                process.stderr = stderr_file
                 process.stdout = stdout_file
+                if stderr_file is not None:
+                    process.stderr = stderr_file
             processes[global_rank] = process
 
 
@@ -357,6 +361,7 @@ def _monitor_processes(processes: Dict[int, subprocess.Popen]):
 
 
 def _print_process_exit_status(global_rank: int, process: subprocess.Popen):
+    stdOutLabel = 'STDOUT'
     if process.stdout is None:
         output = None
     else:
@@ -365,6 +370,7 @@ def _print_process_exit_status(global_rank: int, process: subprocess.Popen):
 
     if process.stderr is None:
         stderr = None
+        stdOutLabel = 'logs'
     else:
         process.stderr.seek(0)
         stderr = process.stderr.read()
@@ -374,13 +380,15 @@ def _print_process_exit_status(global_rank: int, process: subprocess.Popen):
         output=output,
         stderr=stderr,
     )
+
     error_msg = [f'Global rank {global_rank} (PID {process.pid}) exited with code {process.returncode}']
     if output is not None:
         error_msg.extend([
-            f'----------Begin global rank {global_rank} STDOUT----------',
+            f'----------Begin global rank {global_rank} {stdOutLabel}----------',
             output,
-            f'----------End global rank {global_rank} STDOUT----------',
+            f'----------End global rank {global_rank} {stdOutLabel}----------',
         ])
+
     if stderr is not None:
         error_msg.extend([
             f'----------Begin global rank {global_rank} STDERR----------',
@@ -463,7 +471,7 @@ def main():
     args = _parse_args()
 
     logging.basicConfig()
-    log.setLevel(logging.INFO if args.verbose else logging.WARN)
+    log.setLevel(logging.INFO if args.verbose else logging.WARNING)
 
     processes = {}
 
@@ -472,6 +480,19 @@ def main():
         args.stdout = f'{log_tmpdir.name}/rank{{rank}}.stdout.txt'
     if args.stderr is None:
         args.stderr = f'{log_tmpdir.name}/rank{{rank}}.stderr.txt'
+
+    # If running on the Mosaic platform, log all gpu ranks' stderr and stdout to Mosaic platform
+    if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and str(
+            os.environ.get(MOSAICML_LOG_DIR_ENV_VAR, 'false')).lower() != 'false' and os.environ.get(
+                MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR, 'false').lower() != 'false':
+        log.info('Logging all GPU ranks to Mosaic Platform.')
+        log_file_format = f'{os.environ.get(MOSAICML_LOG_DIR_ENV_VAR)}/{os.environ.get(MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR)}{{local_rank}}.txt'
+        if args.stderr is not None or args.stdout is not None:
+            warnings.warn(
+                'Logging to Mosaic Platform. Ignoring provided stdout and stderr args. To use provided stdout and stderr, set MOSAICML_LOG_DIR=false.'
+            )
+        args.stdout = log_file_format
+        args.stderr = None
 
     try:
         _launch_processes(nproc=args.nproc,
