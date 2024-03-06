@@ -122,6 +122,15 @@ class ConsoleLogger(LoggerDestination):
             self.last_logged_batch = cur_batch
             self.logged_metrics = {}  # Clear logged metrics.
 
+    def iteration_end(self, state: State, logger: Logger) -> None:
+        cur_iteration = int(state.timestamp.iteration)  # iteration gets incremented right before ITERATION_END
+        unit = self.log_interval.unit
+
+        if unit == TimeUnit.ITERATION and (cur_iteration % int(self.log_interval) == 0 or self.last_logged_batch == 0):
+            self.log_to_console(self.logged_metrics, prefix='Train ', state=state)
+            self.last_logged_batch = int(state.timestamp.batch)
+            self.logged_metrics = {}  # Clear logged metrics.
+
     def fit_end(self, state: State, logger: Logger) -> None:
         # Always clear logged metrics so they don't get logged in a subsequent eval call.
         cur_batch = int(state.timestamp.batch)
