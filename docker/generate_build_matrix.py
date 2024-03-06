@@ -58,7 +58,7 @@ def _get_cuda_version_tag(cuda_version: str):
 
 
 def _get_cuda_override(cuda_version: str):
-    if cuda_version == '12.1.0':
+    if cuda_version == '12.1.1':
         cuda_121_override_string = ('cuda>=12.1 brand=tesla,driver>=450,driver<451 '
                                     'brand=tesla,driver>=470,driver<471 brand=unknown,driver>=470,driver<471 '
                                     'brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471 '
