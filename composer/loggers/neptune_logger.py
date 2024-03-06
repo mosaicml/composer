@@ -7,6 +7,8 @@ __all__ = ['NeptuneLogger']
 
 import os
 import pathlib
+import shutil
+import tempfile
 import warnings
 from functools import partial
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Set, Union
@@ -238,7 +240,11 @@ class NeptuneLogger(LoggerDestination):
             return
 
         del state  # unused
-        self.base_handler[remote_file_name].upload(str(file_path))
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_file_path = os.path.join(temp_dir, str(file_path.name))
+            shutil.copy2(file_path, temp_dir)
+            self.base_handler[remote_file_name].upload(temp_file_path)
 
     def download_file(
         self,
