@@ -1178,14 +1178,18 @@ class TestTrainerInitOrFit:
         )
 
         num_tokens = 10
-        batch_time = datetime.timedelta(seconds=0.1)
+        batch_time = datetime.timedelta(seconds=0.1 * (1 + dist.get_global_rank()))
 
         num_samples_accum, num_tokens_accum, batch_time_accum = init_trainer._accumulate_time_across_ranks(
             num_samples, num_tokens, batch_time)
 
+        assert isinstance(num_tokens_accum, int)
+        assert isinstance(num_samples_accum, int)
+        assert isinstance(batch_time_accum, datetime.timedelta)
+
         assert num_samples_accum == num_samples * 2
-        assert num_tokens_accum == num_tokens_accum * 2
-        # TODO: test batch_time_accum
+        assert num_tokens_accum == num_tokens * 2
+        assert batch_time_accum == datetime.timedelta(seconds=0.1 * (1 + 0))
 
 
 @world_size(1, 2)
