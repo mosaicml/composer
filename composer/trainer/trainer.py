@@ -56,13 +56,13 @@ from composer.trainer.dist_strategy import (DDPSyncStrategy, ddp_sync_context, p
                                             set_fsdp_default)
 from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectStore, Transform, checkpoint, dist,
                             ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist,
-                            get_composer_env_dict, get_device, get_file, is_tpu_installed, map_collection,
+                            get_composer_env_dict, get_device, get_file, is_xla_installed, map_collection,
                             maybe_create_object_store_from_uri, maybe_create_remote_uploader_downloader_from_uri,
                             model_eval_mode, parse_uri, partial_format, reproducibility)
 from composer.utils.misc import is_model_deepspeed
 from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
 
-if is_tpu_installed():
+if is_xla_installed():
     import torch_xla.core.xla_model as xm
     import torch_xla.distributed.parallel_loader as pl
 
@@ -1320,7 +1320,7 @@ class Trainer:
         if self._train_data_spec is not None:
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label,
                                       train_subset_num_batches)
-            if isinstance(self.state.device, DeviceTPU):
+            if self.state.device.dist_backend == 'xla':
                 self.state.train_dataloader = pl.MpDeviceLoader(self.state.dataloader, xm.xla_device())
             else:
                 self.state.train_dataloader = self.state.dataloader
@@ -2078,7 +2078,7 @@ class Trainer:
 
     def _train_loop(self) -> None:
         """Run training for the specified number of epochs and log results."""
-        # print training start
+        # Log training start
         log.info('Using precision %s', self.state.precision)
         self.logger.log_hyperparameters(
             {'enabled_algorithms/' + algo.__class__.__name__: True for algo in self.state.algorithms})
@@ -2109,6 +2109,9 @@ class Trainer:
 
         log.debug('Starting training loop')
         while self.state.timestamp < self.state.max_duration:
+            if int(self.state.timestamp.epoch_in_iteration) == 0 and int(self.state.timestamp.batch_in_epoch) == 0:
+                self.engine.run_event(Event.ITERATION_START)
+
             if int(self.state.timestamp.batch_in_epoch) == 0:
                 self.engine.run_event(Event.EPOCH_START)
                 self.logger.log_metrics({'time/epoch': self.state.timestamp.epoch.value})
@@ -2244,6 +2247,14 @@ class Trainer:
 
                 self.engine.run_event(Event.EPOCH_CHECKPOINT)
 
+                # Increment iteration
+                if (self.state._iteration_length is not None and
+                        self.state.timestamp.epoch_in_iteration == self.state._iteration_length):
+                    self.state.previous_timestamp = self.state.timestamp
+                    self.state.timestamp = self.state.timestamp.to_next_iteration()
+                    self.engine.run_event(Event.ITERATION_END)
+                    self.engine.run_event(Event.ITERATION_CHECKPOINT)
+
         # Log final time values
         self.logger.log_metrics({
             'time/epoch': self.state.timestamp.epoch.value,
@@ -2342,10 +2353,7 @@ class Trainer:
                             if use_grad_scaling:
                                 self.state.scaler.step(optimizer)
                             else:
-                                if isinstance(self.state.device, DeviceTPU):
-                                    xm.optimizer_step(optimizer, barrier=True)
-                                else:
-                                    optimizer.step()
+                                optimizer.step()
             except RuntimeError as e:
                 if self.state.auto_microbatching and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
@@ -3162,7 +3170,7 @@ class Trainer:
         if self.state.deepspeed_enabled:
             return False
 
-        if isinstance(self.state.device, DeviceTPU):
+        if self.state.device.dist_backend == 'xla':
             return False
 
         if self.state.precision != Precision.AMP_FP16:
