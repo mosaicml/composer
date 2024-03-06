@@ -230,6 +230,9 @@ class NeptuneLogger(LoggerDestination):
         if not self.can_upload_files():
             return
 
+        if file_path.is_symlink():
+            return  # skip symlinks
+
         neptune_path = f'{self._base_namespace}/{remote_file_name}'
         if self.neptune_run.exists(neptune_path) and not overwrite:
 
@@ -240,8 +243,6 @@ class NeptuneLogger(LoggerDestination):
         del state  # unused
 
         from neptune.types import File
-
-        file_path = file_path.resolve()  # resolve potential symlinks
 
         with open(str(file_path), 'rb') as fp:
             self.base_handler[remote_file_name].upload(File.from_content(fp.read(), extension=file_path.suffix))
