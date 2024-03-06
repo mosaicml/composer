@@ -241,6 +241,8 @@ class NeptuneLogger(LoggerDestination):
 
         from neptune.types import File
 
+        file_path = file_path.resolve()  # resolve potential symlinks
+
         with open(str(file_path), 'rb') as fp:
             self.base_handler[remote_file_name].upload(File.from_content(fp.read(), extension=file_path.suffix))
 
