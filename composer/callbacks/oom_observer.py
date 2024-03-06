@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 __all__ = ['OOMObserver']
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(frozen=True)
 class SnapshotFileNameConfig:
     """Configuration for the file names of the memory snapshot visualizations."""
     snapshot_file: str

@@ -9,7 +9,7 @@ import os
 import pathlib
 import warnings
 from functools import partial
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Set, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Sequence, Set, Union
 
 import numpy as np
 import torch
@@ -62,6 +62,7 @@ class NeptuneLogger(LoggerDestination):
         rank_zero_only: bool = True,
         upload_checkpoints: bool = False,
         base_namespace: str = 'training',
+        mode: Literal['async', 'sync', 'offline', 'read-only', 'debug'] = 'async',
         **neptune_kwargs,
     ) -> None:
         try:
@@ -87,11 +88,9 @@ class NeptuneLogger(LoggerDestination):
         self._base_namespace = base_namespace
         self._neptune_kwargs = neptune_kwargs
 
-        mode = self._neptune_kwargs.pop('mode', 'async')
-
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
 
-        self._mode = mode if self._enabled else 'debug'
+        self._mode: Literal['async', 'sync', 'offline', 'read-only', 'debug'] = mode if self._enabled else 'debug'
 
         self._neptune_run = None
         self._base_handler = None
