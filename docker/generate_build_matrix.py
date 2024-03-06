@@ -226,11 +226,11 @@ def _main():
 
     nightly_entry_311_aws = {
         'AWS_OFI_NCCL_VERSION': 'v1.7.4-aws',
-        'BASE_IMAGE': 'nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04',
-        'CUDA_VERSION': '12.1.0',
+        'BASE_IMAGE': 'nvidia/cuda:12.1.1-cudnn8-devel-ubuntu20.04',
+        'CUDA_VERSION': '12.1.1',
         'IMAGE_NAME': 'torch-nightly-2-3-0-20240110-cu121-python3-11-aws',
         'MOFED_VERSION': '',
-        'NVIDIA_REQUIRE_CUDA_OVERRIDE': _get_cuda_override('12.1.0'),
+        'NVIDIA_REQUIRE_CUDA_OVERRIDE': _get_cuda_override('12.1.1'),
         'PYTHON_VERSION': '3.11',
         'PYTORCH_VERSION': '2.3.0',
         'PYTORCH_NIGHTLY_URL': 'https://download.pytorch.org/whl/nightly/cu121',
@@ -243,11 +243,11 @@ def _main():
 
     nightly_entry_311 = {
         'AWS_OFI_NCCL_VERSION': '',
-        'BASE_IMAGE': 'nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04',
-        'CUDA_VERSION': '12.1.0',
+        'BASE_IMAGE': 'nvidia/cuda:12.1.1-cudnn8-devel-ubuntu20.04',
+        'CUDA_VERSION': '12.1.1',
         'IMAGE_NAME': 'torch-nightly-2-3-0-20240110-cu121-python3-11',
         'MOFED_VERSION': '5.5-1.0.3.2',
-        'NVIDIA_REQUIRE_CUDA_OVERRIDE': _get_cuda_override('12.1.0'),
+        'NVIDIA_REQUIRE_CUDA_OVERRIDE': _get_cuda_override('12.1.1'),
         'PYTHON_VERSION': '3.11',
         'PYTORCH_VERSION': '2.3.0',
         'PYTORCH_NIGHTLY_URL': 'https://download.pytorch.org/whl/nightly/cu121',
