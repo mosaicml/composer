@@ -353,7 +353,11 @@ class Engine():
 
         # dataloader should be set on all events except INIT/BEFORE_LOAD/AFTER_LOAD/EVAL_STANDALONE_START/EVAL_STANDALONE_END
         if event not in {
-                Event.INIT, Event.BEFORE_LOAD, Event.AFTER_LOAD, Event.EVAL_STANDALONE_START, Event.EVAL_STANDALONE_END
+                Event.INIT,
+                Event.BEFORE_LOAD,
+                Event.AFTER_LOAD,
+                Event.EVAL_STANDALONE_START,
+                Event.EVAL_STANDALONE_END,
         }:
             assert state.dataloader is not None, f'The trainer should have set state.dataloader for event {event}.'
 
@@ -384,15 +388,17 @@ class Engine():
                 exit_code = algorithm.apply(event, self.state, self.logger)
 
             trace_key = f'{algorithm}/{event}'
-            trace[trace_key] = Trace(name=algorithm.__class__.__name__,
-                                     event=event,
-                                     exit_code=exit_code,
-                                     order=order,
-                                     run=True)
+            trace[trace_key] = Trace(
+                name=algorithm.__class__.__name__,
+                event=event,
+                exit_code=exit_code,
+                order=order,
+                run=True,
+            )
 
         if len(trace) > 0:
             self.logger.log_traces(
-                {f'algorithm_traces/{tr.name}/{tr.event}': 1 if tr.run else 0 for _, tr in trace.items()})
+                ({f'algorithm_traces/{tr.name}/{tr.event}': 1 if tr.run else 0 for _, tr in trace.items()}))
 
         return trace
 

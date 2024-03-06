@@ -29,7 +29,7 @@ from composer.core.data_spec import DataSpec
 from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
-from composer.core.time import Time, Timestamp, TimeUnit
+from composer.core.time import Time, Timestamp, TimeUnit, ensure_time
 from composer.devices import Device
 from composer.utils import (batch_get, batch_set, dist, ensure_tuple, get_composer_env_dict, is_model_deepspeed,
                             reproducibility)
@@ -412,6 +412,8 @@ class State(Serializable):
         self.dataset_resumption = dataset_resumption or {}
         self._max_duration = None
         self.max_duration = max_duration
+        self.__iteration_length = None
+        self._iteration_length = self.__iteration_length
         self.save_metrics = save_metrics
 
         self._train_dataloader = train_dataloader
@@ -608,6 +610,26 @@ class State(Serializable):
             return None
         return self.timestamp.get(self.max_duration.unit) / self.max_duration
 
+    @property
+    def _iteration_length(self):
+        """The length of an iteration."""
+        return self.__iteration_length
+
+    @_iteration_length.setter
+    def _iteration_length(self, iteration_length: Optional[Union[str, Time[int]]]):
+        """Sets the length of an iteration.
+
+        An iteration must be defined as multiple epochs. See composer/core/event.py.
+        """
+        if iteration_length is None:
+            self.__iteration_length = None
+            return
+        if isinstance(iteration_length, str):
+            iteration_length = ensure_time(iteration_length, TimeUnit.EPOCH)
+        if iteration_length.unit != TimeUnit.EPOCH:
+            raise NotImplementedError(f'{iteration_length.unit} is not allowed as a unit for iteration_length.')
+        self.__iteration_length = iteration_length
+
     def stop_training(self):
         """Gracefully stop training.
 
@@ -742,7 +764,7 @@ class State(Serializable):
     @property
     def fsdp_device_mesh(self):
         if self.fsdp_enabled:
-            if not hasattr(self.model, 'model'):
+            if not hasattr(self.model, 'model') or not hasattr(self.model.model, '_device_mesh'):
                 return None
             return self.model.model._device_mesh
         else:
