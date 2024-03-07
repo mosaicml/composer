@@ -54,8 +54,9 @@ def check_batch_reshaping(before, after, length):
 
         assert k in after, 'No keys should be removed during sequence reshaping.'
 
-        assert after[k
-                    ].shape == input_ids_after_shape, 'All tensors should have the same size after sequence reshaping.'
+        assert after[k].shape == input_ids_after_shape, (
+            'All tensors should have the same size after sequence reshaping.'
+        )
 
         b_numel = before[k].shape[0] * before[k].shape[1]
         a_numel = after[k].shape[0] * after[k].shape[1]

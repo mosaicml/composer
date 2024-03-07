@@ -641,8 +641,9 @@ def prepare_fsdp_module(
                         first_wrap_fn = checkpoint_wrapper if activation_checkpointing else (lambda module: module)
                         second_wrap_fn = (
                             lambda module: offload_wrapper(
-                                first_wrap_fn(module) if activation_checkpointing else module,
-                            )  # type: ignore reportGeneralTypeIssues
+                                first_wrap_fn(module)
+                                if activation_checkpointing else module,  # type: ignore reportGeneralTypeIssues
+                            )
                         ) if activation_cpu_offload else first_wrap_fn
                 else:
                     if not activation_checkpointing_reentrant:

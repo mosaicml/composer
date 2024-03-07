@@ -67,14 +67,7 @@ class EarlyStopper(Callback):
         self,
         monitor: str,
         dataloader_label: str,
-        comp: Optional[Union[str,
-                             Callable[[
-                                 Any,
-                                 Any,
-                             ],
-                                      Any,
-                                     ],
-                            ]] = None,
+        comp: Optional[Union[str, Callable[[Any, Any], Any]]] = None,
         min_delta: float = 0.0,
         patience: Union[int, str, Time] = 1,
     ):

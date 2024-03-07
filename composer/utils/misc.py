@@ -62,7 +62,7 @@ def create_interval_scheduler(
         interval_event = Event.BATCH_CHECKPOINT if checkpoint_events else Event.BATCH_END
     else:
         raise NotImplementedError(
-            f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.'
+            f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.',
         )
 
     last_batch_seen = -1
@@ -94,7 +94,7 @@ def create_interval_scheduler(
             count = state.timestamp.get(state.max_duration.unit)
         else:
             raise NotImplementedError(
-                f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.'
+                f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.',
             )
 
         threshold_passed = math.floor(previous_count / time_interval.value) != math.floor(count / time_interval.value)

@@ -349,8 +349,9 @@ class SimpleDataset(Dataset):
             self.x = torch.randn(self.size * self.batch_size, self.feature_size)
         if self.y is None:
             self.y = torch.randint(0, self.num_classes, size=(self.size * self.batch_size,), dtype=torch.long)
-        return self.x[index * self.batch_size:(index + 1) *
-                      self.batch_size], self.y[index * self.batch_size:(index + 1) * self.batch_size]
+        start_index = index * self.batch_size
+        end_index = start_index + self.batch_size
+        return self.x[start_index:end_index], self.y[start_index:end_index]
 
 
 def dummy_transformer_classifier_batch(vocab_size=10, num_classes=2):

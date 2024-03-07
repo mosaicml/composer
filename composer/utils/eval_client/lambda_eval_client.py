@@ -33,10 +33,15 @@ class LambdaEvalClient(EvalClient):
 
     def invoke(self, payload: List[List[List[Dict[str, str]]]]) -> List[List[List[bool]]]:
         """Invoke a batch of provided payloads for code evaluations."""
-        ret = [[[self.invoke_helper(test_case)
-                 for test_case in generation_group]
-                for generation_group in prompt_group]
-               for prompt_group in payload]
+        ret = []
+        for prompt_group in payload:
+            ret_prompt_group = []
+            for generation_group in prompt_group:
+                ret_generation_group = []
+                for test_case in generation_group:
+                    ret_generation_group.append(self.invoke_helper(test_case))
+                ret_prompt_group.append(ret_generation_group)
+            ret.append(ret_prompt_group)
         return ret
 
     def invoke_helper(self, payload: Dict[str, str]) -> bool:

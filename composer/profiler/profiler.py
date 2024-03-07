@@ -105,8 +105,10 @@ class Profiler(Callback):
         torch_prof_filename: str = 'rank{rank}.{batch}.pt.trace.json',
         torch_prof_remote_file_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
         torch_prof_memory_filename: Optional[str] = None,
-        torch_prof_memory_remote_file_name: Optional[
-            str] = '{run_name}/torch_memory_traces/rank{rank}.{batch}.pt.memory_trace.html',
+        torch_prof_memory_remote_file_name: Optional[str] = (
+            '{run_name}/torch_memory_traces/'
+            'rank{rank}.{batch}.pt.memory_trace.html'
+        ),
         torch_prof_overwrite: bool = False,
         torch_prof_use_gzip: bool = False,
         torch_prof_record_shapes: bool = False,

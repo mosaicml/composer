@@ -24,10 +24,16 @@ class LocalEvalClient(EvalClient):
 
     def invoke(self, payload: List[List[List[Dict[str, str]]]]) -> List[List[List[bool]]]:
         """Invoke a batch of provided payloads for code evaluations."""
-        return [[[self.invoke_helper(test_case)
-                  for test_case in generation_group]
-                 for generation_group in prompt_group]
-                for prompt_group in payload]
+        ret = []
+        for prompt_group in payload:
+            ret_prompt_group = []
+            for generation_group in prompt_group:
+                ret_generation_group = []
+                for test_case in generation_group:
+                    ret_generation_group.append(self.invoke_helper(test_case))
+                ret_prompt_group.append(ret_generation_group)
+            ret.append(ret_prompt_group)
+        return ret
 
     def invoke_helper(self, payload: Dict[str, str]) -> bool:
         """Invoke a provided dictionary payload to a multiprocessing subprocess that performs code eval."""
@@ -55,8 +61,8 @@ class LocalEvalClient(EvalClient):
         test_output: str,
         entry_point: str,
         language: str,
-        val: multiprocessing.Value,
-    ):  # type: ignore
+        val: multiprocessing.Value,  # type: ignore
+    ):
         """Helper function to evaluate test case in a subprocess.
 
         This function compiles the code generation,

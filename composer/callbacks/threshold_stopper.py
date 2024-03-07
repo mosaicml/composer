@@ -59,14 +59,7 @@ class ThresholdStopper(Callback):
         dataloader_label: str,
         threshold: float,
         *,
-        comp: Optional[Union[str,
-                             Callable[[
-                                 Any,
-                                 Any,
-                             ],
-                                      Any,
-                                     ],
-                            ]] = None,
+        comp: Optional[Union[str, Callable[[Any, Any], Any]]] = None,
         stop_on_batch: bool = False,
     ):
         self.monitor = monitor

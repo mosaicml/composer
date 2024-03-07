@@ -20,6 +20,7 @@ select = [
     "LOG",
     "PERF",
     "PLE",
+    "COM812",
 ]
 
 ignore = [

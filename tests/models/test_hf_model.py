@@ -614,8 +614,10 @@ def test_loss_vs_ce_metric(tiny_gpt2_tokenizer, tiny_gpt2_model):
 
     in_memory_logger = [callback for callback in trainer.state.callbacks if isinstance(callback, InMemoryLogger)][0]
 
-    assert in_memory_logger.data['loss/train/total'][0][1] == in_memory_logger.data['metrics/train/LanguageCrossEntropy'
-                                                                                   ][0][1].item()
+    assert (
+        in_memory_logger.data['loss/train/total'][0][1] == in_memory_logger.data['metrics/train/LanguageCrossEntropy']
+        [0][1].item()
+    )
 
 
 @pytest.mark.xfail(
@@ -645,8 +647,10 @@ def test_loss_vs_ce_metric_with_padding_and_microbatching(tiny_gpt2_tokenizer, t
 
     in_memory_logger = [callback for callback in trainer.state.callbacks if isinstance(callback, InMemoryLogger)][0]
 
-    assert in_memory_logger.data['loss/train/total'][0][1] == in_memory_logger.data['metrics/train/LanguageCrossEntropy'
-                                                                                   ][0][1].item()
+    assert (
+        in_memory_logger.data['loss/train/total'][0][1] == in_memory_logger.data['metrics/train/LanguageCrossEntropy']
+        [0][1].item()
+    )
 
 
 @pytest.mark.parametrize('pass_in_tokenizer', [True, False])
@@ -665,8 +669,10 @@ def test_hf_no_tokenizer_warning(caplog, pass_in_tokenizer: bool, tiny_bert_mode
     if pass_in_tokenizer:
         assert len(caplog.messages) == 0
     else:
-        assert caplog.messages[
-            0] == 'The tokenizer was not provided. This means the tokenizer config will not be saved in the checkpoint.'
+        assert (
+            caplog.messages[0] ==
+            'The tokenizer was not provided. This means the tokenizer config will not be saved in the checkpoint.'
+        )
 
 
 @pytest.mark.parametrize('checkpoint_upload_path', [None, 's3://checkpoints-bucket/remote-checkpoint.pt'])

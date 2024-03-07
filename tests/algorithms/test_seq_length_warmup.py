@@ -25,8 +25,9 @@ def check_batch_truncation(before, after, length, preserve_end_of_sequence=False
 
         assert k in after, 'No keys should be removed during sequence truncation.'
 
-        assert before[k].shape[0] == after[k].shape[0
-                                                   ], 'The batch size should not be changed during sequence truncation.'
+        assert before[k].shape[0] == after[k].shape[0], (
+            'The batch size should not be changed during sequence truncation.'
+        )
 
         if before[k].ndim >= 2:
 
@@ -50,8 +51,9 @@ def check_batch_non_truncation(before, after, length):
 
         assert k in after, 'No keys should be removed during sequence reshaping.'
 
-        assert after[k
-                    ].shape == input_ids_after_shape, 'All tensors should have the same size after sequence reshaping.'
+        assert after[k].shape == input_ids_after_shape, (
+            'All tensors should have the same size after sequence reshaping.'
+        )
 
         b_numel = before[k].shape[0] * before[k].shape[1]
         a_numel = after[k].shape[0] * after[k].shape[1]

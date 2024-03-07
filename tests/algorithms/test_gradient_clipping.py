@@ -195,8 +195,10 @@ def test_gradient_clipping_algorithm_with_deepspeed_enabled(
     engine.run_event(Event.INIT)
 
     # Make sure deepspeed_config's gradient_clipping field is set properly.
-    assert 'gradient_clipping' in state.deepspeed_config and state.deepspeed_config['gradient_clipping'
-                                                                                   ] == clipping_threshold
+    assert (
+        'gradient_clipping' in state.deepspeed_config and
+        state.deepspeed_config['gradient_clipping'] == clipping_threshold
+    )
 
     # Make sure apply_gradient_clipping is not called.
     apply_gc_fn.assert_not_called()

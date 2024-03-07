@@ -313,13 +313,11 @@ class RemoteUploaderDownloader(LoggerDestination):
             self._exception_queue: Union[queue.Queue[Exception],
                                          multiprocessing.JoinableQueue[Exception],
                                         ] = mp_ctx.JoinableQueue()
-            self._finished_cls: Union[
-                Callable[
-                    [],
-                    multiprocessing._EventType,
-                ],  # pyright: ignore[reportGeneralTypeIssues]
-                Type[threading.Event],
-            ] = mp_ctx.Event
+            self._finished_cls: Union[Callable[[],
+                                               multiprocessing._EventType,  # pyright: ignore[reportGeneralTypeIssues]
+                                              ],
+                                      Type[threading.Event],
+                                     ] = mp_ctx.Event
             self._proc_class = mp_ctx.Process
         else:
             self._file_upload_queue = queue.Queue()

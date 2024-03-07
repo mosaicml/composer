@@ -1122,8 +1122,8 @@ class TestTrainerInitOrFit:
             assert event_counter_callback.event_to_num_calls[Event.EPOCH_START] == 2
             assert event_counter_callback.event_to_num_calls[Event.BATCH_START] == dataloader_len + num_batches_trained
             assert event_counter_callback.event_to_num_calls[Event.BATCH_END] == dataloader_len + num_batches_trained
-            assert event_counter_callback.event_to_num_calls[Event.BATCH_CHECKPOINT
-                                                            ] == dataloader_len + num_batches_trained
+            num_batch_checkpoint_calls = event_counter_callback.event_to_num_calls[Event.BATCH_CHECKPOINT]
+            assert num_batch_checkpoint_calls == dataloader_len + num_batches_trained
 
             if num_batches_trained < num_steps_per_epoch:
                 # Not yet finished the epoch

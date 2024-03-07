@@ -192,8 +192,10 @@ class TorchProfiler(Callback):  # noqa: D101
         filename: str = 'rank{rank}.{batch}.pt.trace.json',
         remote_file_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
         memory_filename: Optional[str] = None,
-        memory_remote_file_name: Optional[str
-                                         ] = '{run_name}/torch_memory_traces/rank{rank}.{batch}.pt.trace.memory.html',
+        memory_remote_file_name: Optional[str] = (
+            '{run_name}/torch_memory_traces/'
+            'rank{rank}.{batch}.pt.trace.memory.html'
+        ),
         overwrite: bool = False,
         use_gzip: bool = False,
         record_shapes: bool = False,
@@ -312,8 +314,8 @@ class TorchProfiler(Callback):  # noqa: D101
                     export_memory_timeline_html(
                         prof,
                         memory_trace_file_name,
-                        torch.cuda.current_device(),
-                    )  # type: ignore
+                        torch.cuda.current_device(),  # type: ignore
+                    )
                     log.debug(f'Uploaded memory trace to {self.memory_remote_file_name}')
                     if self.memory_remote_file_name is not None:
                         memory_trace_remote_file_name = format_name_with_dist_and_time(

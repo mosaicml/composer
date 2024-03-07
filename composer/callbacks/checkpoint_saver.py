@@ -265,9 +265,9 @@ class CheckpointSaver(Callback):  # noqa: D101
         self,
         folder: Union[str, pathlib.Path] = '{run_name}/checkpoints',
         filename: Union[str, pathlib.Path] = 'ep{epoch}-ba{batch}-rank{rank}.pt',
-        remote_file_name: Optional[Union[str,
-                                         pathlib.Path,
-                                        ]] = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}.pt',
+        remote_file_name: Optional[Union[str, pathlib.Path]
+                                  ] = ('{run_name}/checkpoints/'
+                                       'ep{epoch}-ba{batch}-rank{rank}.pt'),
         latest_filename: Optional[Union[str, pathlib.Path]] = 'latest-rank{rank}.pt',
         latest_remote_file_name: Optional[Union[str, pathlib.Path]] = '{run_name}/checkpoints/latest-rank{rank}.pt',
         save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = '1ep',
@@ -368,8 +368,10 @@ class CheckpointSaver(Callback):  # noqa: D101
 
     def iteration_checkpoint(self, state: State, logger: Logger):
         assert callable(self.save_interval)
-        if (self.save_interval(state, Event.ITERATION_CHECKPOINT) and
-                self.last_checkpoint_batch != state.timestamp.batch):
+        if (
+            self.save_interval(state, Event.ITERATION_CHECKPOINT) and
+            self.last_checkpoint_batch != state.timestamp.batch
+        ):
             self._save_checkpoint(
                 state,
                 logger,

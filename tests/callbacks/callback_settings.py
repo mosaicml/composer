@@ -104,55 +104,53 @@ try:
 except ImportError:
     _NEPTUNE_INSTALLED = False
 
-_callback_kwargs: Dict[Type[Callback],
-                       Dict[str, Any],
-                      ] = {
-                          Generate: {
-                              'prompts': ['a', 'b', 'c'],
-                              'interval': '1ba',
-                              'batch_size': 2,
-                              'max_new_tokens': 20,
-                          },
-                          RemoteUploaderDownloader: {
-                              'bucket_uri': 'libcloud://.',
-                              'backend_kwargs': {
-                                  'provider': 'local',
-                                  'container': '.',
-                                  'provider_kwargs': {
-                                      'key': '.',
-                                  },
-                              },
-                              'use_procs': False,
-                              'num_concurrent_uploads': 1,
-                          },
-                          ThresholdStopper: {
-                              'monitor': 'MulticlassAccuracy',
-                              'dataloader_label': 'train',
-                              'threshold': 0.99,
-                          },
-                          EarlyStopper: {
-                              'monitor': 'MulticlassAccuracy',
-                              'dataloader_label': 'train',
-                          },
-                          ExportForInferenceCallback: {
-                              'save_format': 'torchscript',
-                              'save_path': '/tmp/model.pth',
-                          },
-                          MLPerfCallback: {
-                              'root_folder': '.',
-                              'index': 0,
-                          },
-                          SpeedMonitor: {
-                              'window_size': 1,
-                          },
-                          NeptuneLogger: {
-                              'mode': 'debug',
-                          },
-                          composer.profiler.Profiler: {
-                              'trace_handlers': [MagicMock()],
-                              'schedule': composer.profiler.cyclic_schedule(),
-                          },
-                      }
+_callback_kwargs: Dict[Type[Callback], Dict[str, Any]] = {
+    Generate: {
+        'prompts': ['a', 'b', 'c'],
+        'interval': '1ba',
+        'batch_size': 2,
+        'max_new_tokens': 20,
+    },
+    RemoteUploaderDownloader: {
+        'bucket_uri': 'libcloud://.',
+        'backend_kwargs': {
+            'provider': 'local',
+            'container': '.',
+            'provider_kwargs': {
+                'key': '.',
+            },
+        },
+        'use_procs': False,
+        'num_concurrent_uploads': 1,
+    },
+    ThresholdStopper: {
+        'monitor': 'MulticlassAccuracy',
+        'dataloader_label': 'train',
+        'threshold': 0.99,
+    },
+    EarlyStopper: {
+        'monitor': 'MulticlassAccuracy',
+        'dataloader_label': 'train',
+    },
+    ExportForInferenceCallback: {
+        'save_format': 'torchscript',
+        'save_path': '/tmp/model.pth',
+    },
+    MLPerfCallback: {
+        'root_folder': '.',
+        'index': 0,
+    },
+    SpeedMonitor: {
+        'window_size': 1,
+    },
+    NeptuneLogger: {
+        'mode': 'debug',
+    },
+    composer.profiler.Profiler: {
+        'trace_handlers': [MagicMock()],
+        'schedule': composer.profiler.cyclic_schedule(),
+    },
+}
 
 _callback_marks: Dict[
     Type[Callback],

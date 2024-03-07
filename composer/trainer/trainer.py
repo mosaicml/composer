@@ -1862,9 +1862,7 @@ class Trainer:
         # Schedulers
         schedulers: Optional[Union[ComposerScheduler,
                                    LRScheduler,
-                                   Sequence[Union[ComposerScheduler,
-                                                  LRScheduler,
-                                                 ]],
+                                   Sequence[Union[ComposerScheduler, LRScheduler]],
                                   ]] = None,
         scale_schedule_ratio: float = 1.0,
         step_schedulers_every_batch: Optional[bool] = None,
@@ -2424,8 +2422,10 @@ class Trainer:
                 self.engine.run_event(Event.EPOCH_CHECKPOINT)
 
                 # Increment iteration
-                if (self.state._iteration_length is not None and
-                        self.state.timestamp.epoch_in_iteration == self.state._iteration_length):
+                if (
+                    self.state._iteration_length is not None and
+                    self.state.timestamp.epoch_in_iteration == self.state._iteration_length
+                ):
                     self.state.previous_timestamp = self.state.timestamp
                     self.state.timestamp = self.state.timestamp.to_next_iteration()
                     self.engine.run_event(Event.ITERATION_END)
@@ -2507,7 +2507,9 @@ class Trainer:
                 for metric in self.state.train_metrics.values():
                     metric.reset()
 
-            total_loss_dict = {'loss/train/total': self.state.device.tensor_to_device(torch.zeros(size=(1,)))}
+            total_loss_dict = {
+                'loss/train/total': self.state.device.tensor_to_device(torch.zeros(size=(1,))),
+            }
             found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
             try:
                 assert self.state.scaler is not None
