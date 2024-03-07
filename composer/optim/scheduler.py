@@ -521,20 +521,48 @@ class PolynomialScheduler(ComposerScheduler):
         return current_factor
 
 
-def _raise_if_warmup_and_max_duration_incompatible(t_warmup: Union[str, Time], t_max: Union[str, Time]):
+def _raise_if_max_duration_exceeds_t_max(t_max: Union[str, Time], state: State):
+    max_dur = state.max_duration
+    if isinstance(t_max, str):
+        t_max = Time.from_timestring(t_max)
+    if isinstance(max_dur, str):
+        max_dur = Time.from_timestring(max_dur)
+    if isinstance(time, str):
+        time = Time.from_timestring(time)
+
+    max_dur_exceeds_t_max = False
+    if t_max.unit == max_dur.unit:
+        if t_max.value < max_dur.value:
+            max_dur_exceeds_t_max = True
+    elif t_max.unit == TimeUnit.BATCH and max_dur.unit == TimeUnit.EPOCH:
+        max_dur_batches = max_dur.value * int(state.dataloader_len)
+        if t_max.value < max_dur_batches:
+            max_dur_exceeds_t_max = True
+    elif t_max.unit == TimeUnit.EPOCH and max_dur.unit == TimeUnit.BATCH:
+        t_max_batches = t_max.value * int(state.dataloader_len)
+        if t_max_batches < max_dur.value:
+            max_dur_exceeds_t_max = True
+    else:
+        warnings.warn(f'Since max_duration {max_dur} with units {max_dur.unit} and t_max ' +
+                      f'{t_max} with units {t_max.unit} are not comparable, make sure that ' +
+                      f'your LR schedule is defined at all points in the training duration.')
+        
+    if max_dur_exceeds_t_max:
+        raise ValueError(f't_max {t_max} must be greater than or equal to max_duration ' +
+                         f'{max_dur}. Otherwise, the LR schedule will not be defined for ' +
+                         f'the entire training duration.')
+    
+
+def _raise_if_warmup_and_max_incompatible(t_warmup: Union[str, Time], t_max: Union[str, Time]):
     if isinstance(t_warmup, str):
         t_warmup = Time.from_timestring(t_warmup)
     if isinstance(t_max, str):
         t_max = Time.from_timestring(t_max)
     units_same = t_warmup.unit == t_max.unit
-    warmup_is_dur = t_warmup.unit == TimeUnit('dur')
-    batches_vs_epochs = (t_warmup.unit == TimeUnit('ba') and
-                         t_max.unit == TimeUnit('ep')) or (t_warmup.unit == TimeUnit('ep') and
-                                                           t_max.unit == TimeUnit('ba'))
-    if not units_same and not warmup_is_dur and not batches_vs_epochs:
-        raise ValueError(f'Cannot use warmup scheduler with max_duration {t_max} and warmup {t_warmup}. '
-                         't_warmup units must be the same as max_duration units, warmup must be in units "dur", '
-                         'max_duration must be "ba" and t_warmup "ep", or max_duration must be "ep" and t_warmup "ba".')
+    if not units_same:
+        raise ValueError(f'Cannot use warmup scheduler with t_max {t_max} with units ' +
+                         f'{t_max.unit} and t_warmup {t_warmup} with units {t_warmup.unit}. ' +
+                         f't_warmup and t_max must use the same units.')
 
 
 class MultiStepWithWarmupScheduler(ComposerScheduler):
@@ -586,7 +614,6 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
 
     def __call__(self, state: State, ssr: float = 1.0):
         assert state.max_duration is not None, 'max_duration should be set whenever schedulers are invoked'
-        _raise_if_warmup_and_max_duration_incompatible(self.t_warmup, state.max_duration)
         t_warmup = _convert_time(self.t_warmup, state)
         if t_warmup.value == 0:
             warnings.warn(
@@ -706,8 +733,10 @@ class LinearWithWarmupScheduler(ComposerScheduler):
 
     def __call__(self, state: State, ssr: float = 1.0):
         assert state.max_duration is not None, 'max_duration should be set whenever schedulers are invoked'
-        _raise_if_warmup_and_max_duration_incompatible(self.t_warmup, state.max_duration)
         t_warmup = _convert_time(self.t_warmup, state)
+        t_max = _convert_time(self.t_max, state, ssr=ssr)
+        _raise_if_warmup_and_max_incompatible(t_warmup, t_max)
+        _raise_if_max_duration_exceeds_t_max(t_max, state)
         if t_warmup.value == 0:
             warnings.warn(
                 textwrap.dedent("""\
@@ -720,8 +749,11 @@ class LinearWithWarmupScheduler(ComposerScheduler):
                 return self.warmup_scheduler(state, ssr)
             return self.warmup_scheduler(state)
 
-        t_max = _convert_time(self.t_max, state, ssr=ssr)
         current_time = state.timestamp.get(t_warmup.unit)
+        if current_time > t_max:
+            raise ValueError(f'Current time {current_time} exceeds t_max {t_max}, meaning that ' +
+                             f'your training duration is longer than t_max in your LR ' +
+                             f'scheduler. Increase your t_max or decrease your training duration.')
         frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value if (t_max > t_warmup) else 0.0
         frac_of_total = min(1.0, frac_of_total)
 
@@ -776,8 +808,10 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
 
     def __call__(self, state: State, ssr: float = 1.0):
         assert state.max_duration is not None, 'max_duration should be set whenever schedulers are invoked'
-        _raise_if_warmup_and_max_duration_incompatible(self.t_warmup, state.max_duration)
         t_warmup = _convert_time(self.t_warmup, state)
+        t_max = _convert_time(self.t_max, state, ssr=ssr)
+        _raise_if_warmup_and_max_incompatible(t_warmup, t_max)
+        _raise_if_max_duration_exceeds_t_max(t_max, state)
         if t_warmup.value == 0:
             warnings.warn(
                 textwrap.dedent("""\
@@ -790,8 +824,11 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
                 return self.warmup_scheduler(state, ssr)
             return self.warmup_scheduler(state)
 
-        t_max = _convert_time(self.t_max, state, ssr=ssr)
         current_time = state.timestamp.get(t_warmup.unit)
+        if current_time > t_max:
+            raise ValueError(f'Current time {current_time} exceeds t_max {t_max}, meaning that ' +
+                             f'your training duration is longer than t_max in your LR ' +
+                             f'scheduler. Increase your t_max or decrease your training duration.')
         frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value if (t_max > t_warmup) else 0.0
         frac_of_total = min(1.0, frac_of_total)
 
@@ -848,8 +885,10 @@ class PolynomialWithWarmupScheduler(ComposerScheduler):
 
     def __call__(self, state: State, ssr: float = 1.0):
         assert state.max_duration is not None, 'max_duration should be set whenever schedulers are invoked'
-        _raise_if_warmup_and_max_duration_incompatible(self.t_warmup, state.max_duration)
         t_warmup = _convert_time(self.t_warmup, state)
+        t_max = _convert_time(self.t_max, state, ssr=ssr)
+        _raise_if_warmup_and_max_incompatible(t_warmup, t_max)
+        _raise_if_max_duration_exceeds_t_max(t_max, state)
         if t_warmup.value == 0:
             warnings.warn(
                 textwrap.dedent("""\
@@ -862,8 +901,11 @@ class PolynomialWithWarmupScheduler(ComposerScheduler):
                 return self.warmup_scheduler(state, ssr)
             return self.warmup_scheduler(state)
 
-        t_max = _convert_time(self.t_max, state, ssr=ssr)
         current_time = state.timestamp.get(t_warmup.unit)
+        if current_time > t_max:
+            raise ValueError(f'Current time {current_time} exceeds t_max {t_max}, meaning that ' +
+                             f'your training duration is longer than t_max in your LR ' +
+                             f'scheduler. Increase your t_max or decrease your training duration.')
         frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value if (t_max > t_warmup) else 0.0
         frac_of_total = min(1.0, frac_of_total)
 
