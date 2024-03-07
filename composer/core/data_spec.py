@@ -85,7 +85,7 @@ def _default_split_batch(batch: Any, microbatch_size: int) -> Sequence:
 
     Works with tensors, dictionaries of tensors, (x, y) tuples, and lists where ``batch`` is the 2nd dimension.
 
-    Args: 
+    Args:  
         batch (Any): output from the dataloader.
         microbatch_size (int): Size of microbatches to batch into.
     """
