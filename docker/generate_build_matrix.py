@@ -43,9 +43,9 @@ def _get_cuda_version(pytorch_version: str, use_cuda: bool):
     if not use_cuda:
         return ''
     if pytorch_version == '2.2.1':
-        return '12.1.0'
+        return '12.1.1'
     if pytorch_version == '2.1.2':
-        return '12.1.0'
+        return '12.1.1'
     if pytorch_version == '2.0.1':
         return '11.8.0'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
@@ -58,7 +58,7 @@ def _get_cuda_version_tag(cuda_version: str):
 
 
 def _get_cuda_override(cuda_version: str):
-    if cuda_version == '12.1.0':
+    if cuda_version == '12.1.1':
         cuda_121_override_string = ('cuda>=12.1 brand=tesla,driver>=450,driver<451 '
                                     'brand=tesla,driver>=470,driver<471 brand=unknown,driver>=470,driver<471 '
                                     'brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471 '
@@ -226,11 +226,11 @@ def _main():
 
     nightly_entry_311_aws = {
         'AWS_OFI_NCCL_VERSION': 'v1.7.4-aws',
-        'BASE_IMAGE': 'nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04',
-        'CUDA_VERSION': '12.1.0',
+        'BASE_IMAGE': 'nvidia/cuda:12.1.1-cudnn8-devel-ubuntu20.04',
+        'CUDA_VERSION': '12.1.1',
         'IMAGE_NAME': 'torch-nightly-2-3-0-20240110-cu121-python3-11-aws',
         'MOFED_VERSION': '',
-        'NVIDIA_REQUIRE_CUDA_OVERRIDE': _get_cuda_override('12.1.0'),
+        'NVIDIA_REQUIRE_CUDA_OVERRIDE': _get_cuda_override('12.1.1'),
         'PYTHON_VERSION': '3.11',
         'PYTORCH_VERSION': '2.3.0',
         'PYTORCH_NIGHTLY_URL': 'https://download.pytorch.org/whl/nightly/cu121',
@@ -243,11 +243,11 @@ def _main():
 
     nightly_entry_311 = {
         'AWS_OFI_NCCL_VERSION': '',
-        'BASE_IMAGE': 'nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04',
-        'CUDA_VERSION': '12.1.0',
+        'BASE_IMAGE': 'nvidia/cuda:12.1.1-cudnn8-devel-ubuntu20.04',
+        'CUDA_VERSION': '12.1.1',
         'IMAGE_NAME': 'torch-nightly-2-3-0-20240110-cu121-python3-11',
         'MOFED_VERSION': '5.5-1.0.3.2',
-        'NVIDIA_REQUIRE_CUDA_OVERRIDE': _get_cuda_override('12.1.0'),
+        'NVIDIA_REQUIRE_CUDA_OVERRIDE': _get_cuda_override('12.1.1'),
         'PYTHON_VERSION': '3.11',
         'PYTORCH_VERSION': '2.3.0',
         'PYTORCH_NIGHTLY_URL': 'https://download.pytorch.org/whl/nightly/cu121',
