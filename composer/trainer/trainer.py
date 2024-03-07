@@ -988,11 +988,11 @@ class Trainer:
 
         # Microbatching
         auto_microbatching = _is_auto_microbatching(device_train_microbatch_size, device=device)
-        if auto_microbatching and train_dataloader is not None and hasattr(train_dataloader, 'spg_ws'):
+        if auto_microbatching and train_dataloader is not None and hasattr(train_dataloader, 'seq_parallel_world_size'):
             raise ValueError('`device_train_microbatch_size="auto"` is not compatible with sequence parallelism.')
         if isinstance(device_train_microbatch_size, int) and train_dataloader is not None and hasattr(
-                train_dataloader,
-                'spg_ws') and device_train_microbatch_size * train_dataloader.spg_ws != 1:  # type: ignore
+                train_dataloader, 'seq_parallel_world_size'
+        ) and device_train_microbatch_size * train_dataloader.seq_parallel_world_size != 1:  # type: ignore
             raise ValueError(
                 '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.')
 
@@ -1309,11 +1309,11 @@ class Trainer:
 
             for evaluator in evaluators:
                 validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
-                if evaluator.auto_microbatching and hasattr(evaluator.dataloader, 'spg_ws'):
+                if evaluator.auto_microbatching and hasattr(evaluator.dataloader, 'seq_parallel_world_size'):
                     raise ValueError('`validate_eval_automicrobatching` is not compatible with sequence parallelism.')
                 if isinstance(evaluator.dataloader.get_num_samples_in_batch, int) and hasattr(
-                        evaluator.dataloader, 'spg_ws'
-                ) and evaluator.dataloader.get_num_samples_in_batch * evaluator.dataloader.spg_ws != 1:  # type: ignore
+                        evaluator.dataloader, 'seq_parallel_world_size'
+                ) and evaluator.dataloader.get_num_samples_in_batch * evaluator.dataloader.seq_parallel_world_size != 1:  # type: ignore
                     raise ValueError(
                         '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.'
                     )
@@ -1951,11 +1951,11 @@ class Trainer:
 
             for evaluator in evaluators:
                 validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
-                if evaluator.auto_microbatching and hasattr(evaluator.dataloader, 'spg_ws'):
+                if evaluator.auto_microbatching and hasattr(evaluator.dataloader, 'seq_parallel_world_size'):
                     raise ValueError('`validate_eval_automicrobatching` is not compatible with sequence parallelism.')
                 if isinstance(evaluator.dataloader.get_num_samples_in_batch, int) and hasattr(
-                        evaluator.dataloader, 'spg_ws'
-                ) and evaluator.dataloader.get_num_samples_in_batch * evaluator.dataloader.spg_ws != 1:  # type: ignore
+                        evaluator.dataloader, 'seq_parallel_world_size'
+                ) and evaluator.dataloader.get_num_samples_in_batch * evaluator.dataloader.seq_parallel_world_size != 1:  # type: ignore
                     raise ValueError(
                         '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.'
                     )
@@ -1973,11 +1973,11 @@ class Trainer:
             self.state.auto_microbatching = _is_auto_microbatching(device_train_microbatch_size,
                                                                    device=self.state.device)
             if self.state.auto_microbatching and self._train_data_spec is not None and hasattr(
-                    self._train_data_spec, 'spg_ws'):
+                    self._train_data_spec, 'seq_parallel_world_size'):
                 raise ValueError('`device_train_microbatch_size="auto"` is not compatible with sequence parallelism.')
             if isinstance(device_train_microbatch_size, int) and train_dataloader is not None and hasattr(
-                    train_dataloader,
-                    'spg_ws') and device_train_microbatch_size * train_dataloader.spg_ws != 1:  # type: ignore
+                    train_dataloader, 'seq_parallel_world_size'
+            ) and device_train_microbatch_size * train_dataloader.seq_parallel_world_size != 1:  # type: ignore
                 raise ValueError(
                     '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.'
                 )
@@ -2912,11 +2912,11 @@ class Trainer:
 
             for evaluator in evaluators:
                 validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
-                if evaluator.auto_microbatching and hasattr(evaluator.dataloader, 'spg_ws'):
+                if evaluator.auto_microbatching and hasattr(evaluator.dataloader, 'seq_parallel_world_size'):
                     raise ValueError('`validate_eval_automicrobatching` is not compatible with sequence parallelism.')
                 if isinstance(evaluator.dataloader.get_num_samples_in_batch, int) and hasattr(
-                        evaluator.dataloader, 'spg_ws'
-                ) and evaluator.dataloader.get_num_samples_in_batch * evaluator.dataloader.spg_ws != 1:  # type: ignore
+                        evaluator.dataloader, 'seq_parallel_world_size'
+                ) and evaluator.dataloader.get_num_samples_in_batch * evaluator.dataloader.seq_parallel_world_size != 1:  # type: ignore
                     raise ValueError(
                         '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.'
                     )
@@ -3047,7 +3047,7 @@ class Trainer:
                                     rank_num_samples -= 1
                                     num_samples_in_microbatch = data_spec.get_num_samples_in_batch(self.state.batch)
                                     # Skip updating metric if batch is only padded samples
-                                    if num_samples_in_microbatch == 1 or hasattr(data_spec, 'spg_ws'):
+                                    if num_samples_in_microbatch == 1 or hasattr(data_spec, 'seq_parallel_world_size'):
                                         skip_metric_update = True
                                     # Remove padded samples from batch
                                     else:
