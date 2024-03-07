@@ -16,6 +16,7 @@ from composer.loggers import Logger
 from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel
 from tests.conftest import _get_option
+import os
 
 
 @pytest.fixture
@@ -112,7 +113,7 @@ def s3_bucket(request: pytest.FixtureRequest):
     if request.node.get_closest_marker('remote') is None:
         return 'my-bucket'
     else:
-        return 'mosaicml-internal-integration-testing'
+        return os.environ.get('S3_BUCKET', 'mosaicml-internal-integration-testing')
 
 
 @pytest.fixture

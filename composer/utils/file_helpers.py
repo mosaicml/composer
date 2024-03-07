@@ -45,6 +45,19 @@ __all__ = [
 ]
 
 
+def extract_path_from_symlink(source_path: str, object_store: Optional[ObjectStore]=None) -> str:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        if object_store is not None:
+            _, _, source_path = parse_uri(source_path)
+            symlink_file_path = os.path.join(tmpdir, 'file.symlink')
+            object_store.download_object(object_name=source_path, filename=symlink_file_path)
+        else:
+            symlink_file_path = os.readlink(source_path)
+        with open(symlink_file_path, 'r') as f:
+            real_path = f.read()
+            log.debug(f'Read path {real_path} from symlink file.')
+        return real_path
+
 def _get_dist_config(strict: bool = True) -> Dict[str, Any]:
     """Returns a dict of distributed settings (rank, world_size, etc.).
 
