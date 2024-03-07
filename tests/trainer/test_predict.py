@@ -86,8 +86,8 @@ class TestTrainerPredict():
         trainer.predict(predict_dataloader)
 
         # Ensure that the predict timestamp matches the number of prediction events
-        assert event_counter_callback.event_to_num_calls[
-            Event.PREDICT_BATCH_START] == trainer.state.predict_timestamp.batch
+        num_predict_events = event_counter_callback.event_to_num_calls[Event.PREDICT_BATCH_START]
+        assert (num_predict_events == trainer.state.predict_timestamp.batch)
         assert trainer.state.predict_timestamp.batch == trainer.state.predict_timestamp.batch_in_epoch
 
         # Ensure that if we predict again, the predict timestamp was reset
@@ -99,8 +99,8 @@ class TestTrainerPredict():
         trainer.predict(predict_dataloader)
 
         # Validate the same invariants
-        assert event_counter_callback.event_to_num_calls[
-            Event.PREDICT_BATCH_START] == trainer.state.predict_timestamp.batch
+        assert event_counter_callback.event_to_num_calls[Event.PREDICT_BATCH_START
+                                                        ] == trainer.state.predict_timestamp.batch
         assert trainer.state.predict_timestamp.batch == trainer.state.predict_timestamp.batch_in_epoch
 
     @pytest.mark.parametrize('return_outputs', [True, False])

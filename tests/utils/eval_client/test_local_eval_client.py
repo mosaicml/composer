@@ -41,5 +41,5 @@ def test_local_invoke(code: str, result: str, language: str, world_size: int, tm
         'input': input,
         'output': '2',
         'entry_point': 'add_1',
-        'language': language
+        'language': language,
     }]]]) == [[[result]]]

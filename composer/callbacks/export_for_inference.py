@@ -87,12 +87,14 @@ class ExportForInferenceCallback(Callback):
         export_model = state.model.module if state.is_model_ddp else state.model
         if not isinstance(export_model, nn.Module):
             raise ValueError(f'Exporting Model requires type torch.nn.Module, got {type(export_model)}')
-        export_with_logger(model=export_model,
-                           save_format=self.save_format,
-                           save_path=self.save_path,
-                           logger=logger,
-                           save_object_store=self.save_object_store,
-                           sample_input=(self.sample_input, {}),
-                           transforms=self.transforms,
-                           input_names=self.input_names,
-                           output_names=self.output_names)
+        export_with_logger(
+            model=export_model,
+            save_format=self.save_format,
+            save_path=self.save_path,
+            logger=logger,
+            save_object_store=self.save_object_store,
+            sample_input=(self.sample_input, {}),
+            transforms=self.transforms,
+            input_names=self.input_names,
+            output_names=self.output_names,
+        )

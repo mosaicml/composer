@@ -15,7 +15,8 @@ def list_dirs(folder):
         folder (str): The folder to list dirs for.
     """
     return sorted(
-        child.name for child in folder.iterdir() if child.is_dir() and ('__pycache__' not in str(child.absolute())))
+        child.name for child in folder.iterdir() if child.is_dir() and ('__pycache__' not in str(child.absolute()))
+    )
 
 
 def assert_attributes_exist(name, module_dict, attributes):

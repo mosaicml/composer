@@ -48,8 +48,10 @@ def _local_rank_zero() -> bool:
 
 def _require_mlperf_logging():
     if not mlperf_available:
-        raise ImportError("""Please install with `pip install 'mosaicml[mlperf]'` and also
-                          install the logging library from: https://github.com/mlcommons/logging""")
+        raise ImportError(
+            """Please install with `pip install 'mosaicml[mlperf]'` and also
+                          install the logging library from: https://github.com/mlcommons/logging""",
+        )
 
 
 class MLPerfCallback(Callback):
@@ -299,11 +301,13 @@ class MLPerfCallback(Callback):
     def epoch_start(self, state: State, logger: Logger) -> None:
         if _global_rank_zero():
             self.mllogger.event(key=constants.EPOCH_START, metadata={'epoch_num': self._get_time(state)})
-            self.mllogger.event(key=constants.BLOCK_START,
-                                metadata={
-                                    'first_epoch_num': self._get_time(state),
-                                    'epoch_count': 1
-                                })
+            self.mllogger.event(
+                key=constants.BLOCK_START,
+                metadata={
+                    'first_epoch_num': self._get_time(state),
+                    'epoch_count': 1,
+                },
+            )
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         if _global_rank_zero():
@@ -319,9 +323,11 @@ class MLPerfCallback(Callback):
 
         if _global_rank_zero():
             self.mllogger.event(key=constants.EVAL_STOP, metadata={'epoch_num': self._get_time(state)})
-            self.mllogger.event(key=constants.EVAL_ACCURACY,
-                                value=accuracy,
-                                metadata={'epoch_num': self._get_time(state)})
+            self.mllogger.event(
+                key=constants.EVAL_ACCURACY,
+                value=accuracy,
+                metadata={'epoch_num': self._get_time(state)},
+            )
             self.mllogger.event(key=constants.BLOCK_STOP, metadata={'first_epoch_num': self._get_time(state)})
 
             if accuracy > self.target and not self.success:

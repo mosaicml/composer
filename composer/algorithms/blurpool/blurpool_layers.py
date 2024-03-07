@@ -31,10 +31,12 @@ def _padding_for_filt_2d_same(filt: torch.Tensor):
     return int(torch.div(h, 2)), int(torch.div(w, 2))
 
 
-def blur_2d(input: torch.Tensor,
-            channels: int = -1,
-            stride: _size_2_t = 1,
-            filter: Optional[torch.Tensor] = None) -> torch.Tensor:
+def blur_2d(
+    input: torch.Tensor,
+    channels: int = -1,
+    stride: _size_2_t = 1,
+    filter: Optional[torch.Tensor] = None,
+) -> torch.Tensor:
     """Applies a spatial low-pass filter.
 
     Args:
@@ -85,13 +87,15 @@ def blur_2d(input: torch.Tensor,
     return F.conv2d(input, filter, None, _pair(stride), _pair(padding), _pair(1), channels)
 
 
-def blurmax_pool2d(input: torch.Tensor,
-                   kernel_size: Optional[_size_2_t] = None,
-                   stride: _size_2_t = 2,
-                   padding: _size_2_t = 0,
-                   dilation: _size_2_t = 1,
-                   ceil_mode: bool = False,
-                   filter: Optional[torch.Tensor] = None) -> torch.Tensor:
+def blurmax_pool2d(
+    input: torch.Tensor,
+    kernel_size: Optional[_size_2_t] = None,
+    stride: _size_2_t = 2,
+    padding: _size_2_t = 0,
+    dilation: _size_2_t = 1,
+    ceil_mode: bool = False,
+    filter: Optional[torch.Tensor] = None,
+) -> torch.Tensor:
     """Max-pooling with anti-aliasing.
 
     This is a nearly drop-in replacement for PyTorch's :func:`torch.nn.functional.max_pool2d`.
@@ -143,12 +147,14 @@ def blurmax_pool2d(input: torch.Tensor,
     if kernel_size is None:
         kernel_size = (2, 2)
 
-    maxs = F.max_pool2d(input,
-                        kernel_size=kernel_size,
-                        stride=1,
-                        padding=padding,
-                        dilation=dilation,
-                        ceil_mode=ceil_mode)
+    maxs = F.max_pool2d(
+        input,
+        kernel_size=kernel_size,
+        stride=1,
+        padding=padding,
+        dilation=dilation,
+        ceil_mode=ceil_mode,
+    )
     return blur_2d(maxs, channels=-1, stride=stride, filter=filter)
 
 
@@ -166,12 +172,14 @@ class BlurMaxPool2d(nn.Module):
 
     # based on https://pytorch.org/docs/stable/_modules/torch/nn/modules/pooling.html#MaxPool2d # noqa
 
-    def __init__(self,
-                 kernel_size: _size_2_t,
-                 stride: Optional[_size_2_t] = None,
-                 padding: _size_2_t = 0,
-                 dilation: _size_2_t = 1,
-                 ceil_mode: bool = False):
+    def __init__(
+        self,
+        kernel_size: _size_2_t,
+        stride: Optional[_size_2_t] = None,
+        padding: _size_2_t = 0,
+        dilation: _size_2_t = 1,
+        ceil_mode: bool = False,
+    ):
         super(BlurMaxPool2d, self).__init__()
         self.kernel_size = kernel_size
         self.stride = stride if (stride is not None) else kernel_size
@@ -186,24 +194,29 @@ class BlurMaxPool2d(nn.Module):
     def extra_repr(self) -> str:
         return 'kernel_size={kernel_size}, stride={stride}, padding={padding}' \
             ', dilation={dilation}, ceil_mode={ceil_mode}'.format(
-                **self.__dict__)
+                **self.__dict__,
+            )
 
     def forward(self, input: torch.Tensor):
-        return blurmax_pool2d(input,
-                              kernel_size=self.kernel_size,
-                              stride=self.stride,
-                              padding=self.padding,
-                              dilation=self.dilation,
-                              ceil_mode=self.ceil_mode,
-                              filter=self.filt2d)
+        return blurmax_pool2d(
+            input,
+            kernel_size=self.kernel_size,
+            stride=self.stride,
+            padding=self.padding,
+            dilation=self.dilation,
+            ceil_mode=self.ceil_mode,
+            filter=self.filt2d,
+        )
 
     @staticmethod
     def from_maxpool2d(module: torch.nn.MaxPool2d, module_index: int) -> 'BlurMaxPool2d':
-        return BlurMaxPool2d(kernel_size=module.kernel_size,
-                             stride=module.stride,
-                             padding=module.padding,
-                             dilation=module.dilation,
-                             ceil_mode=module.ceil_mode)
+        return BlurMaxPool2d(
+            kernel_size=module.kernel_size,
+            stride=module.stride,
+            padding=module.padding,
+            dilation=module.dilation,
+            ceil_mode=module.ceil_mode,
+        )
 
 
 class BlurConv2d(nn.Module):

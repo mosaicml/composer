@@ -13,14 +13,15 @@ from composer.loggers import Logger
 class MetricSetterCallback(Callback):
 
     def __init__(
-            self,
-            monitor: str,
-            dataloader_label: str,
-            metric_cls: Callable,  # metric function
-            metric_sequence: Sequence,
-            unit: TimeUnit,
-            device: Optional[Device] = None,
-            metric_args: Optional[Dict] = None):
+        self,
+        monitor: str,
+        dataloader_label: str,
+        metric_cls: Callable,  # metric function
+        metric_sequence: Sequence,
+        unit: TimeUnit,
+        device: Optional[Device] = None,
+        metric_args: Optional[Dict] = None,
+    ):
         self.monitor = monitor
         self.dataloader_label = dataloader_label
         self.metric_cls = metric_cls

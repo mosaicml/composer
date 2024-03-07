@@ -32,8 +32,16 @@ from composer.utils import dist, is_tar, reproducibility
 from composer.utils.checkpoint import _ensure_valid_checkpoint, glob_filter
 from composer.utils.object_store.object_store import ObjectStore
 from composer.utils.object_store.s3_object_store import S3ObjectStore
-from tests.common import (RandomClassificationDataset, RandomImageDataset, RandomTextLMDataset, SimpleConvModel,
-                          SimpleModel, SimpleTransformerMaskedLM, deep_compare, device)
+from tests.common import (
+    RandomClassificationDataset,
+    RandomImageDataset,
+    RandomTextLMDataset,
+    SimpleConvModel,
+    SimpleModel,
+    SimpleTransformerMaskedLM,
+    deep_compare,
+    device,
+)
 from tests.common.markers import world_size
 
 
@@ -108,12 +116,17 @@ def _assert_checkpoints_equivalent(file1, file2, atol=0.0, rtol=0.0):
 @pytest.mark.parametrize(
     'remove_field_paths,filter_params',
     [
-        [[['state', 'model', 'classifier', 'weights'], ['state', 'model', 'classifier', 'bias']],
-         ['state/model/classifier/weights', 'state/model/classifier/bias']],
-        [[
-            ['state', 'model', 'classifier', 'weights'],
-            ['state', 'model', 'classifier', 'bias'],
-        ], ['state/model/classifier/*']],
+        [
+            [['state', 'model', 'classifier', 'weights'], ['state', 'model', 'classifier', 'bias']],
+            ['state/model/classifier/weights', 'state/model/classifier/bias'],
+        ],
+        [
+            [
+                ['state', 'model', 'classifier', 'weights'],
+                ['state', 'model', 'classifier', 'bias'],
+            ],
+            ['state/model/classifier/*'],
+        ],
         [
             [['state', 'timestep']],
             ['state/timestep'],
@@ -151,23 +164,26 @@ def test_ignore_params(remove_field_paths: List[List[str]], filter_params: List[
         'state': {
             'run_name': 'my_first_run',
             'timestep': 7,
-            'list_element': [{
-                'nested_list_element': 'hello'
-            }, 'world'],
+            'list_element': [
+                {
+                    'nested_list_element': 'hello',
+                },
+                'world',
+            ],
             'model': {
                 'layer1': {
                     'weights': 6,
-                    'bias': 2
+                    'bias': 2,
                 },
                 'layer2': {
                     'weights': 7,
-                    'bias': 1
+                    'bias': 1,
                 },
                 'classifier': {
                     'weights': 5,
-                    'bias': 3
-                }
-            }
+                    'bias': 3,
+                },
+            },
         },
         'rng': 0,
     }
@@ -184,9 +200,13 @@ def test_ignore_params(remove_field_paths: List[List[str]], filter_params: List[
     assert base_dict == new_dict
 
 
-@pytest.mark.parametrize('folder,filename',
-                         [('{run_name}/my_checkpoints', 'ep{epoch}-rank{rank}.pt'),
-                          (pathlib.Path('{run_name}/my_checkpoints'), pathlib.Path('ep{epoch}-rank{rank}.pt'))])
+@pytest.mark.parametrize(
+    'folder,filename',
+    [
+        ('{run_name}/my_checkpoints', 'ep{epoch}-rank{rank}.pt'),
+        (pathlib.Path('{run_name}/my_checkpoints'), pathlib.Path('ep{epoch}-rank{rank}.pt')),
+    ],
+)
 def test_checkpoint_saver_folder_filename_path(folder: Union[str, pathlib.Path], filename: Union[str, pathlib.Path]):
     checkpoint_saver = CheckpointSaver(folder=folder, filename=filename)
 
@@ -196,16 +216,29 @@ def test_checkpoint_saver_folder_filename_path(folder: Union[str, pathlib.Path],
 
 @pytest.mark.parametrize(
     'remote_file_name,latest_filename,latest_remote_file_name',
-    [('{run_name}/my_checkpoints/ep{epoch}-ba{batch}-rank{rank}.pt', 'latest-rank{rank}.pt',
-      '{run_name}/checkpoints/latest-rank{rank}.pt'),
-     (pathlib.Path('{run_name}/my_checkpoints/ep{epoch}-ba{batch}-rank{rank}.pt'), pathlib.Path('latest-rank{rank}.pt'),
-      pathlib.Path('{run_name}/checkpoints/latest-rank{rank}.pt'))])
-def test_checkpoint_filenames(remote_file_name: Optional[Union[str, pathlib.Path]],
-                              latest_filename: Optional[Union[str, pathlib.Path]],
-                              latest_remote_file_name: Optional[Union[str, pathlib.Path]]):
-    checkpoint_saver = CheckpointSaver(remote_file_name=remote_file_name,
-                                       latest_filename=latest_filename,
-                                       latest_remote_file_name=latest_remote_file_name)
+    [
+        (
+            '{run_name}/my_checkpoints/ep{epoch}-ba{batch}-rank{rank}.pt',
+            'latest-rank{rank}.pt',
+            '{run_name}/checkpoints/latest-rank{rank}.pt',
+        ),
+        (
+            pathlib.Path('{run_name}/my_checkpoints/ep{epoch}-ba{batch}-rank{rank}.pt'),
+            pathlib.Path('latest-rank{rank}.pt'),
+            pathlib.Path('{run_name}/checkpoints/latest-rank{rank}.pt'),
+        ),
+    ],
+)
+def test_checkpoint_filenames(
+    remote_file_name: Optional[Union[str, pathlib.Path]],
+    latest_filename: Optional[Union[str, pathlib.Path]],
+    latest_remote_file_name: Optional[Union[str, pathlib.Path]],
+):
+    checkpoint_saver = CheckpointSaver(
+        remote_file_name=remote_file_name,
+        latest_filename=latest_filename,
+        latest_remote_file_name=latest_remote_file_name,
+    )
 
     assert checkpoint_saver.remote_file_name is not None
     assert checkpoint_saver.latest_filename is not None
@@ -217,12 +250,16 @@ def test_checkpoint_filenames(remote_file_name: Optional[Union[str, pathlib.Path
 
 
 @pytest.mark.parametrize('remote_file_name,latest_filename,latest_remote_file_name', [(None, None, None)])
-def test_checkpoint_filenames_none(remote_file_name: Optional[Union[str, pathlib.Path]],
-                                   latest_filename: Optional[Union[str, pathlib.Path]],
-                                   latest_remote_file_name: Optional[Union[str, pathlib.Path]]):
-    checkpoint_saver = CheckpointSaver(remote_file_name=remote_file_name,
-                                       latest_filename=latest_filename,
-                                       latest_remote_file_name=latest_remote_file_name)
+def test_checkpoint_filenames_none(
+    remote_file_name: Optional[Union[str, pathlib.Path]],
+    latest_filename: Optional[Union[str, pathlib.Path]],
+    latest_remote_file_name: Optional[Union[str, pathlib.Path]],
+):
+    checkpoint_saver = CheckpointSaver(
+        remote_file_name=remote_file_name,
+        latest_filename=latest_filename,
+        latest_remote_file_name=latest_remote_file_name,
+    )
 
     assert checkpoint_saver.remote_file_name == None
     assert checkpoint_saver.latest_filename == None
@@ -241,11 +278,12 @@ class TestCheckpointSaving:
         monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
         if add_remote_ud:
             with pytest.warns(UserWarning):
-                trainer = self.get_trainer(save_folder='s3://bucket_name/{run_name}/checkpoints',
-                                           loggers=[
-                                               RemoteUploaderDownloader('s3://bucket_name',
-                                                                        file_path_format_string='{remote_file_name}')
-                                           ])
+                trainer = self.get_trainer(
+                    save_folder='s3://bucket_name/{run_name}/checkpoints',
+                    loggers=[
+                        RemoteUploaderDownloader('s3://bucket_name', file_path_format_string='{remote_file_name}'),
+                    ],
+                )
         else:
             trainer = self.get_trainer(save_folder='s3://bucket_name/{run_name}/checkpoints')
 
@@ -267,11 +305,20 @@ class TestCheckpointSaving:
     def test_local_paths_work(self, local_path: str):
         self.get_trainer(save_folder=local_path)
 
-    @pytest.mark.parametrize('save_folder,expected_path',
-                             [('s3://bucket_name/{run_name}/my_checkpoints', '{run_name}/my_checkpoints'),
-                              ('{run_name}/my_checkpoints', '{run_name}/my_checkpoints'), ('s3://bucket_name', '')])
-    def test_checkpoint_saver_properly_constructed(self, save_folder: str, expected_path: str,
-                                                   monkeypatch: MonkeyPatch):
+    @pytest.mark.parametrize(
+        'save_folder,expected_path',
+        [
+            ('s3://bucket_name/{run_name}/my_checkpoints', '{run_name}/my_checkpoints'),
+            ('{run_name}/my_checkpoints', '{run_name}/my_checkpoints'),
+            ('s3://bucket_name', ''),
+        ],
+    )
+    def test_checkpoint_saver_properly_constructed(
+        self,
+        save_folder: str,
+        expected_path: str,
+        monkeypatch: MonkeyPatch,
+    ):
         mock_validate_credentials = MagicMock()
         monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
         mock_checkpoint_saver = MagicMock()
@@ -295,8 +342,14 @@ class TestCheckpointSaving:
     @pytest.mark.parametrize('save_interval', ['1tok', '64tok', '65tok'])
     @pytest.mark.parametrize('batch_size', [1, 4])
     @pytest.mark.parametrize('sequence_length', [1, 16])
-    def test_checkpoint_save_token_interval(self, tiny_bert_tokenizer, save_interval: str, batch_size: int,
-                                            sequence_length: int, tmp_path: pathlib.Path):
+    def test_checkpoint_save_token_interval(
+        self,
+        tiny_bert_tokenizer,
+        save_interval: str,
+        batch_size: int,
+        sequence_length: int,
+        tmp_path: pathlib.Path,
+    ):
         tokens_per_batch = batch_size * sequence_length
         max_duration_time = Time.from_timestring('5ba')
         save_interval_time = Time.from_timestring(save_interval)
@@ -320,22 +373,28 @@ class TestCheckpointSaving:
 
         transformers = pytest.importorskip('transformers')
         model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
-        pretraining_train_dataset = RandomTextLMDataset(size=100,
-                                                        vocab_size=tiny_bert_tokenizer.vocab_size,
-                                                        sequence_length=sequence_length,
-                                                        use_keys=True)
+        pretraining_train_dataset = RandomTextLMDataset(
+            size=100,
+            vocab_size=tiny_bert_tokenizer.vocab_size,
+            sequence_length=sequence_length,
+            use_keys=True,
+        )
 
         collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer, mlm_probability=0.15)
-        dataloader = DataLoader(pretraining_train_dataset,
-                                batch_size=batch_size,
-                                sampler=dist.get_sampler(pretraining_train_dataset),
-                                collate_fn=collator)
+        dataloader = DataLoader(
+            pretraining_train_dataset,
+            batch_size=batch_size,
+            sampler=dist.get_sampler(pretraining_train_dataset),
+            collate_fn=collator,
+        )
 
-        trainer = Trainer(model=model,
-                          train_dataloader=dataloader,
-                          max_duration=max_duration_time,
-                          save_interval=save_interval_time,
-                          save_folder=str(tmp_path / 'checkpoints'))
+        trainer = Trainer(
+            model=model,
+            train_dataloader=dataloader,
+            max_duration=max_duration_time,
+            save_interval=save_interval_time,
+            save_folder=str(tmp_path / 'checkpoints'),
+        )
         trainer.fit()
 
         assert trainer._checkpoint_saver is not None
@@ -344,8 +403,14 @@ class TestCheckpointSaving:
     @pytest.mark.parametrize('save_interval', ['1sp', '4sp', '5sp'])
     @pytest.mark.parametrize('batch_size', [1, 4])
     @pytest.mark.parametrize('sequence_length', [1, 16])
-    def test_checkpoint_save_sample_interval(self, tiny_bert_tokenizer, save_interval: str, batch_size: int,
-                                             sequence_length: int, tmp_path: pathlib.Path):
+    def test_checkpoint_save_sample_interval(
+        self,
+        tiny_bert_tokenizer,
+        save_interval: str,
+        batch_size: int,
+        sequence_length: int,
+        tmp_path: pathlib.Path,
+    ):
         max_duration_time = Time.from_timestring('5ba')
         save_interval_time = Time.from_timestring(save_interval)
         max_duration_samples = max_duration_time.value * batch_size
@@ -368,22 +433,28 @@ class TestCheckpointSaving:
 
         transformers = pytest.importorskip('transformers')
         model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
-        pretraining_train_dataset = RandomTextLMDataset(size=100,
-                                                        vocab_size=tiny_bert_tokenizer.vocab_size,
-                                                        sequence_length=sequence_length,
-                                                        use_keys=True)
+        pretraining_train_dataset = RandomTextLMDataset(
+            size=100,
+            vocab_size=tiny_bert_tokenizer.vocab_size,
+            sequence_length=sequence_length,
+            use_keys=True,
+        )
 
         collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer, mlm_probability=0.15)
-        dataloader = DataLoader(pretraining_train_dataset,
-                                batch_size=batch_size,
-                                sampler=dist.get_sampler(pretraining_train_dataset),
-                                collate_fn=collator)
+        dataloader = DataLoader(
+            pretraining_train_dataset,
+            batch_size=batch_size,
+            sampler=dist.get_sampler(pretraining_train_dataset),
+            collate_fn=collator,
+        )
 
-        trainer = Trainer(model=model,
-                          train_dataloader=dataloader,
-                          max_duration=max_duration_time,
-                          save_interval=save_interval_time,
-                          save_folder=str(tmp_path / 'checkpoints'))
+        trainer = Trainer(
+            model=model,
+            train_dataloader=dataloader,
+            max_duration=max_duration_time,
+            save_interval=save_interval_time,
+            save_folder=str(tmp_path / 'checkpoints'),
+        )
         trainer.fit()
 
         assert trainer._checkpoint_saver is not None
@@ -400,13 +471,15 @@ class TestCheckpointSaving:
         )
         save_filename = 'ba{batch}-test'
         save_folder = str(tmp_path / 'checkpoints')
-        trainer = Trainer(model=model,
-                          train_dataloader=train_dataloader,
-                          max_duration='1ba',
-                          save_folder=save_folder,
-                          save_filename=save_filename,
-                          save_weights_only=save_weights_only,
-                          save_interval='1ba')
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            max_duration='1ba',
+            save_folder=save_folder,
+            save_filename=save_filename,
+            save_weights_only=save_weights_only,
+            save_interval='1ba',
+        )
         trainer.fit()
         expected_metadata = trainer.state._get_state_metadata()
         expected_integrations = trainer.state._get_integrations_state_dict()
@@ -421,20 +494,23 @@ class TestCheckpointSaving:
         else:
             assert set(composer_state_dict['state'].keys()) != {'model', 'metadata', 'integrations'}
 
-    @pytest.mark.parametrize(('save_interval', 'max_duration', 'expected_save_calls', 'iteration_length'), [
-        (1, '5ep', 5, None),
-        (Time(2, TimeUnit.ITERATION), '8ep', 2, '2ep'),
-        (Time(2, TimeUnit.EPOCH), '8ep', 4, None),
-        (Time(10, TimeUnit.BATCH), '8ep', 4, None),
-        (Time(0.25, TimeUnit.DURATION), '4ep', 4, None),
-        ('1ep', '4ep', 4, None),
-        ('5ba', '4ep', 4, None),
-        ('5ba', '10ba', 2, None),
-        ('0.35dur', '4ep', 3, None),
-        ('0.01dur', '100ba', 100, None),
-        ('0.10dur', '70sp', 10, None),
-        ('0.05dur', '80sp', 20, None),
-    ])
+    @pytest.mark.parametrize(
+        ('save_interval', 'max_duration', 'expected_save_calls', 'iteration_length'),
+        [
+            (1, '5ep', 5, None),
+            (Time(2, TimeUnit.ITERATION), '8ep', 2, '2ep'),
+            (Time(2, TimeUnit.EPOCH), '8ep', 4, None),
+            (Time(10, TimeUnit.BATCH), '8ep', 4, None),
+            (Time(0.25, TimeUnit.DURATION), '4ep', 4, None),
+            ('1ep', '4ep', 4, None),
+            ('5ba', '4ep', 4, None),
+            ('5ba', '10ba', 2, None),
+            ('0.35dur', '4ep', 3, None),
+            ('0.01dur', '100ba', 100, None),
+            ('0.10dur', '70sp', 10, None),
+            ('0.05dur', '80sp', 20, None),
+        ],
+    )
     def test_checkpoint_intervals(
         self,
         save_interval: Union[str, Time, int],
@@ -604,15 +680,22 @@ class TestCheckpointLoading:
 
         if save_metrics:
             assert self._metrics_equal(
-                trainer_1.state.train_metrics, trainer_2.state.train_metrics, trainer_1.state.eval_metrics,
-                trainer_2.state.eval_metrics), 'Original metrics do not equal metrics from loaded checkpoint.'
+                trainer_1.state.train_metrics,
+                trainer_2.state.train_metrics,
+                trainer_1.state.eval_metrics,
+                trainer_2.state.eval_metrics,
+            ), 'Original metrics do not equal metrics from loaded checkpoint.'
 
         assert trainer_1.state.run_name == trainer_2.state.run_name
 
-    @pytest.mark.parametrize('load_path,load_object_store',
-                             [('s3://my-bucket/my-run-name/my-checkpoints', None),
-                              ('s3://my-bucket/my-run-name/my-checkpoints', S3ObjectStore(bucket='my-bucket')),
-                              ('my-run-name/my-checkpoints', S3ObjectStore(bucket='my-bucket'))])
+    @pytest.mark.parametrize(
+        'load_path,load_object_store',
+        [
+            ('s3://my-bucket/my-run-name/my-checkpoints', None),
+            ('s3://my-bucket/my-run-name/my-checkpoints', S3ObjectStore(bucket='my-bucket')),
+            ('my-run-name/my-checkpoints', S3ObjectStore(bucket='my-bucket')),
+        ],
+    )
     def test_load_from_uri(self, load_path: str, load_object_store: Optional[ObjectStore], monkeypatch: MonkeyPatch):
 
         mock_validate_credentials = MagicMock()
@@ -626,10 +709,14 @@ class TestCheckpointLoading:
         assert isinstance(call_kwargs['object_store'], S3ObjectStore)
         assert call_kwargs['object_store'].bucket == 'my-bucket'
 
-    @pytest.mark.parametrize('load_path', [
-        'sftp://my-bucket/my-run-name/my-checkpoints', 'wandb://my-bucket/my-run-name/my-checkpoints',
-        'gcs://my-bucket/my-run-name/my-checkpoints'
-    ])
+    @pytest.mark.parametrize(
+        'load_path',
+        [
+            'sftp://my-bucket/my-run-name/my-checkpoints',
+            'wandb://my-bucket/my-run-name/my-checkpoints',
+            'gcs://my-bucket/my-run-name/my-checkpoints',
+        ],
+    )
     def test_other_backends_error(self, load_path: str, monkeypatch: MonkeyPatch):
         mock_validate_credentials = MagicMock()
         monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
@@ -685,8 +772,11 @@ class TestCheckpointLoading:
         )
 
         assert self._metrics_equal(
-            trainer_1.state.train_metrics, trainer_2.state.train_metrics, trainer_1.state.eval_metrics,
-            trainer_2.state.eval_metrics), 'Original metrics do not equal metrics from loaded checkpoint.'
+            trainer_1.state.train_metrics,
+            trainer_2.state.train_metrics,
+            trainer_1.state.eval_metrics,
+            trainer_2.state.eval_metrics,
+        ), 'Original metrics do not equal metrics from loaded checkpoint.'
 
     @pytest.mark.parametrize('missing_key', [True, False])
     @pytest.mark.parametrize('unexpected_key', [True, False])
@@ -743,8 +833,12 @@ class TestCheckpointLoading:
         )
 
         # check metrics loaded
-        metrics_equal = self._metrics_equal(trainer_1.state.train_metrics, trainer_2.state.train_metrics,
-                                            trainer_1.state.eval_metrics, trainer_2.state.eval_metrics)
+        metrics_equal = self._metrics_equal(
+            trainer_1.state.train_metrics,
+            trainer_2.state.train_metrics,
+            trainer_1.state.eval_metrics,
+            trainer_2.state.eval_metrics,
+        )
 
         # check callbacks state
         stateful_callbacks_equal = self._stateful_callbacks_equal(
@@ -760,12 +854,15 @@ class TestCheckpointLoading:
             if save_metrics:
                 assert metrics_equal
 
-    @pytest.mark.parametrize('load_ignore_keys,weights_equal,callbacks_equal,rng_equal', [
-        ['*', False, False, False],
-        ['state/model/*', False, True, True],
-        ['state/callbacks/*', True, False, True],
-        ['rng', True, True, False],
-    ])
+    @pytest.mark.parametrize(
+        'load_ignore_keys,weights_equal,callbacks_equal,rng_equal',
+        [
+            ['*', False, False, False],
+            ['state/model/*', False, True, True],
+            ['state/callbacks/*', True, False, True],
+            ['rng', True, True, False],
+        ],
+    )
     @pytest.mark.filterwarnings('ignore:.* is not in the state_dict.*:UserWarning')
     def test_load_ignore_keys(self, load_ignore_keys, weights_equal, callbacks_equal, rng_equal):
 
@@ -801,12 +898,15 @@ class TestCheckpointLoading:
             assert trainer_1_rng_state is not None
             deep_compare(trainer_1_rng_state, trainer_2._rng_state)
 
-    @pytest.mark.parametrize('save_ignore_keys,weights_equal,callbacks_equal,rng_equal', [
-        ['*', False, False, False],
-        ['state/model/*', False, True, True],
-        ['state/callbacks/*', True, False, True],
-        ['rng', True, True, False],
-    ])
+    @pytest.mark.parametrize(
+        'save_ignore_keys,weights_equal,callbacks_equal,rng_equal',
+        [
+            ['*', False, False, False],
+            ['state/model/*', False, True, True],
+            ['state/callbacks/*', True, False, True],
+            ['rng', True, True, False],
+        ],
+    )
     @pytest.mark.filterwarnings('ignore:.* is not in the state_dict.*:UserWarning')
     def test_save_ignore_keys(self, save_ignore_keys, weights_equal, callbacks_equal, rng_equal):
 
@@ -849,9 +949,18 @@ class TestCheckpointLoading:
         ],
     )
     @pytest.mark.filterwarnings('ignore:.*The checkpoint included CUDA RNG state.*')
-    def test_load_remote_checkpoint(self, device, tmp_path: pathlib.Path, load_weights_only, remote_checkpoint_uri,
-                                    remote_checkpoint_name, continue_training_dur, final_checkpoint_name, s3_bucket,
-                                    s3_read_only_prefix):
+    def test_load_remote_checkpoint(
+        self,
+        device,
+        tmp_path: pathlib.Path,
+        load_weights_only,
+        remote_checkpoint_uri,
+        remote_checkpoint_name,
+        continue_training_dur,
+        final_checkpoint_name,
+        s3_bucket,
+        s3_read_only_prefix,
+    ):
         """
         This test checks if our checkpointing is backwards compatible.
         We should be able to load in a saved checkpoint and continue training.
@@ -882,8 +991,12 @@ class TestCheckpointLoading:
         )
 
         # check metrics loaded
-        metrics_equal = self._metrics_equal(trainer_1.state.train_metrics, trainer_2.state.train_metrics,
-                                            trainer_1.state.eval_metrics, trainer_2.state.eval_metrics)
+        metrics_equal = self._metrics_equal(
+            trainer_1.state.train_metrics,
+            trainer_2.state.train_metrics,
+            trainer_1.state.eval_metrics,
+            trainer_2.state.eval_metrics,
+        )
 
         if load_weights_only:
             assert not metrics_equal
@@ -906,10 +1019,12 @@ class TestCheckpointLoading:
         trainer_3.fit()
         trainer_3.close()
 
-        _assert_checkpoints_equivalent(os.path.join('third', final_checkpoint_name),
-                                       os.path.join('second', final_checkpoint_name),
-                                       rtol=1e-7,
-                                       atol=1e-7)
+        _assert_checkpoints_equivalent(
+            os.path.join('third', final_checkpoint_name),
+            os.path.join('second', final_checkpoint_name),
+            rtol=1e-7,
+            atol=1e-7,
+        )
 
     def _stateful_callbacks_equal(self, callbacks1, callbacks2):
 
@@ -1036,7 +1151,7 @@ class TestCheckpointLoading:
         if version.parse(torch.__version__) < version.parse('2.2.9'):
             error_context = pytest.raises(ValueError, match='loaded state dict contains a parameter group.*')
         with pytest.warns(UserWarning, match='required_on_load algorithm.*'), error_context:
-            trainer_3 = self.get_trainer(load_path=os.path.join('first', 'ep1.pt'),)
+            trainer_3 = self.get_trainer(load_path=os.path.join('first', 'ep1.pt'))
             trainer_3.fit(duration='1ba')
         # Restore algorithm
         NoOpModel.__init__, NoOpModel.__repr__ = old_init, old_repr
@@ -1044,12 +1159,14 @@ class TestCheckpointLoading:
 
 class TestCheckpointResumption:
 
-    def get_trainer(self,
-                    model_init_device='cpu',
-                    precision='fp32',
-                    max_duration='2ep',
-                    train_subset_num_batches=5,
-                    **kwargs):
+    def get_trainer(
+        self,
+        model_init_device='cpu',
+        precision='fp32',
+        max_duration='2ep',
+        train_subset_num_batches=5,
+        **kwargs,
+    ):
         model = SimpleModel()
         model.fc1.to(model_init_device)
         model.fc2.to(model_init_device)
@@ -1081,30 +1198,61 @@ class TestCheckpointResumption:
             **kwargs,
         )
 
-    @pytest.mark.parametrize('world_size', [
-        pytest.param(1),
-        pytest.param(2, marks=pytest.mark.world_size(2)),
-    ])
-    @pytest.mark.parametrize('device,deepspeed_zero_stage', [
-        pytest.param('cpu', None, id='cpu-ddp'),
-        pytest.param('gpu', None, id='gpu-ddp', marks=pytest.mark.gpu),
-        pytest.param('gpu', 0, id='deepspeed-zero0', marks=pytest.mark.gpu),
-        pytest.param('gpu', 1, id='deepspeed-zero1', marks=pytest.mark.gpu),
-        pytest.param('gpu', 2, id='deepspeed-zero2', marks=pytest.mark.gpu),
-    ])
+    @pytest.mark.parametrize(
+        'world_size',
+        [
+            pytest.param(1),
+            pytest.param(2, marks=pytest.mark.world_size(2)),
+        ],
+    )
+    @pytest.mark.parametrize(
+        'device,deepspeed_zero_stage',
+        [
+            pytest.param('cpu', None, id='cpu-ddp'),
+            pytest.param('gpu', None, id='gpu-ddp', marks=pytest.mark.gpu),
+            pytest.param('gpu', 0, id='deepspeed-zero0', marks=pytest.mark.gpu),
+            pytest.param('gpu', 1, id='deepspeed-zero1', marks=pytest.mark.gpu),
+            pytest.param('gpu', 2, id='deepspeed-zero2', marks=pytest.mark.gpu),
+        ],
+    )
     @pytest.mark.parametrize(
         'seed,save_interval,save_filename,resume_file,final_checkpoint',
         [
-            [None, '1ep', 'ep{epoch}-rank{rank}.pt', 'ep1-rank{rank}.pt', 'latest-rank{rank}.pt'
+            [
+                None,
+                '1ep',
+                'ep{epoch}-rank{rank}.pt',
+                'ep1-rank{rank}.pt',
+                'latest-rank{rank}.pt',
             ],  # test randomized seed saving and symlinking
             [42, '1ep', 'ep{epoch}-rank{rank}.pt', 'ep1-rank{rank}.pt', 'ep2-rank{rank}.pt'],  # test save at epoch end
-            [42, '1ep', 'ep{epoch}-rank{rank}.tgz', 'ep1-rank{rank}.tgz', 'ep2-rank{rank}.tgz'
+            [
+                42,
+                '1ep',
+                'ep{epoch}-rank{rank}.tgz',
+                'ep1-rank{rank}.tgz',
+                'ep2-rank{rank}.tgz',
             ],  # test tarball with compression
-            [42, '2ba', 'ba{batch}-rank{rank}.pt', 'ba4-rank{rank}.pt', 'ba8-rank{rank}.pt'
+            [
+                42,
+                '2ba',
+                'ba{batch}-rank{rank}.pt',
+                'ba4-rank{rank}.pt',
+                'ba8-rank{rank}.pt',
             ],  # test save batch in partial epoch
-            [42, '1ba', 'ba{batch}-rank{rank}.pt', 'ba5-rank{rank}.pt', 'ba8-rank{rank}.pt'
+            [
+                42,
+                '1ba',
+                'ba{batch}-rank{rank}.pt',
+                'ba5-rank{rank}.pt',
+                'ba8-rank{rank}.pt',
             ],  # test save batch at epoch end
-            [42, '2ba', 'ba{batch}-rank{rank}.pt', 'ba6-rank{rank}.pt', 'ba8-rank{rank}.pt'
+            [
+                42,
+                '2ba',
+                'ba{batch}-rank{rank}.pt',
+                'ba6-rank{rank}.pt',
+                'ba8-rank{rank}.pt',
             ],  # test save batch after complete epoch
         ],
     )
@@ -1183,12 +1331,18 @@ class TestCheckpointResumption:
             save_folder / 'second' / final_checkpoint,
         )
 
-    @pytest.mark.parametrize('world_size', [
-        pytest.param(2, marks=pytest.mark.world_size(2)),
-    ])
-    @pytest.mark.parametrize('device', [
-        pytest.param('gpu', marks=pytest.mark.gpu),
-    ])
+    @pytest.mark.parametrize(
+        'world_size',
+        [
+            pytest.param(2, marks=pytest.mark.world_size(2)),
+        ],
+    )
+    @pytest.mark.parametrize(
+        'device',
+        [
+            pytest.param('gpu', marks=pytest.mark.gpu),
+        ],
+    )
     @pytest.mark.parametrize(
         'use_orig_params,sync_module_states,model_1_init_device,model_2_init_device',
         [
@@ -1197,10 +1351,12 @@ class TestCheckpointResumption:
             pytest.param(True, True, 'cpu', 'cpu'),  # fail
             pytest.param(False, False, 'cpu', 'cpu'),  # fail
             pytest.param(False, True, 'meta', 'cpu'),  # fail
-        ])
+        ],
+    )
     @pytest.mark.filterwarnings('ignore:An unexpected prefix is detected. This case.*')
     @pytest.mark.filterwarnings(
-        'ignore:``FullyShardedDataParallel.scatter_full_optim_state_dict``is being deprecated and is replaced by.*')
+        'ignore:``FullyShardedDataParallel.scatter_full_optim_state_dict``is being deprecated and is replaced by.*',
+    )
     def test_fsdp_monolith_resumption(
         self,
         device: str,
@@ -1361,18 +1517,24 @@ class TestCheckpointResumption:
         assert len(files) == expected_num_files
 
 
-@pytest.mark.parametrize('world_size', [
-    pytest.param(1),
-    pytest.param(2, marks=pytest.mark.world_size(2)),
-])
+@pytest.mark.parametrize(
+    'world_size',
+    [
+        pytest.param(1),
+        pytest.param(2, marks=pytest.mark.world_size(2)),
+    ],
+)
 @pytest.mark.parametrize('num_keep', list(range(-1, 5)))
-@pytest.mark.parametrize('device,deepspeed_enabled,zero_stage', [
-    pytest.param('cpu', False, None, id='cpu-ddp'),
-    pytest.param('gpu', False, None, id='gpu-ddp', marks=pytest.mark.gpu),
-    pytest.param('gpu', True, 0, id='deepspeed-zero0', marks=pytest.mark.gpu),
-    pytest.param('gpu', True, 1, id='deepspeed-zero1', marks=pytest.mark.gpu),
-    pytest.param('gpu', True, 2, id='deepspeed-zero2', marks=pytest.mark.gpu),
-])
+@pytest.mark.parametrize(
+    'device,deepspeed_enabled,zero_stage',
+    [
+        pytest.param('cpu', False, None, id='cpu-ddp'),
+        pytest.param('gpu', False, None, id='gpu-ddp', marks=pytest.mark.gpu),
+        pytest.param('gpu', True, 0, id='deepspeed-zero0', marks=pytest.mark.gpu),
+        pytest.param('gpu', True, 1, id='deepspeed-zero1', marks=pytest.mark.gpu),
+        pytest.param('gpu', True, 2, id='deepspeed-zero2', marks=pytest.mark.gpu),
+    ],
+)
 def test_rotate_checkpoints(
     world_size,
     device,

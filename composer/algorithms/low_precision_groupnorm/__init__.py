@@ -5,7 +5,9 @@
 By default, torch.autocast always runs torch.nn.GroupNorm in float32, so this surgery forces a lower precision.
 """
 
-from composer.algorithms.low_precision_groupnorm.low_precision_groupnorm import (LowPrecisionGroupNorm,
-                                                                                 apply_low_precision_groupnorm)
+from composer.algorithms.low_precision_groupnorm.low_precision_groupnorm import (
+    LowPrecisionGroupNorm,
+    apply_low_precision_groupnorm,
+)
 
 __all__ = ['LowPrecisionGroupNorm', 'apply_low_precision_groupnorm']

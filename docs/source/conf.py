@@ -138,7 +138,11 @@ source_suffix = ['.rst', '.md']
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = [
-    '_build', 'Thumbs.db', '.DS_Store', 'examples/imagenet/README.md', 'examples/segmentation/README.md'
+    '_build',
+    'Thumbs.db',
+    '.DS_Store',
+    'examples/imagenet/README.md',
+    'examples/segmentation/README.md',
 ]
 
 napoleon_custom_sections = [('Returns', 'params_style')]
@@ -192,7 +196,7 @@ autodoc_type_aliases = {
 autodoc_default_options = {
     # don't document the forward() method. Because of how torch.nn.Module.forward is defined in the
     # base class, sphinx does not realize that forward overrides an inherited method.
-    'exclude-members': 'hparams_registry'
+    'exclude-members': 'hparams_registry',
 }
 autodoc_inherit_docstrings = False
 
@@ -532,8 +536,9 @@ class PatchedHTMLTranslator(HTML5Translator):
             atts['class'] += ' external'
             # ---------------------------------------------------------
             # Customize behavior (open in new tab, secure linking site)
-            if 'refid' not in node and (not any(node['refuri'].startswith(x)
-                                                for x in ('/', 'https://docs.mosaicml.com', '#'))):
+            if 'refid' not in node and (
+                not any(node['refuri'].startswith(x) for x in ('/', 'https://docs.mosaicml.com', '#'))
+            ):
                 # If there's a refid, or the refuri starts with a non-external uri scheme, then it's an internal
                 # (hardcoded) link, so don't open that in a new tab
                 # Otherwise, it's really an external link. Open it in a new tab.

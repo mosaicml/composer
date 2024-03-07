@@ -23,15 +23,19 @@ def infer_target_type(input: torch.Tensor, targets: torch.Tensor) -> str:
     elif input.ndim == targets.ndim + 1:
         return 'indices'
     else:
-        raise RuntimeError(f'Unable to infer indices or one_hot. Targets has shape {targets.shape}'
-                           f' and the inputs to cross entropy has shape {input.shape}. For one_hot, '
-                           'expect targets.shape == inputs.shape. For indices, expect '
-                           'inputs.ndim == targets.ndim + 1')
+        raise RuntimeError(
+            f'Unable to infer indices or one_hot. Targets has shape {targets.shape}'
+            f' and the inputs to cross entropy has shape {input.shape}. For one_hot, '
+            'expect targets.shape == inputs.shape. For indices, expect '
+            'inputs.ndim == targets.ndim + 1',
+        )
 
 
-def ensure_targets_one_hot(input: torch.Tensor,
-                           targets: torch.Tensor,
-                           num_classes: Optional[int] = None) -> torch.Tensor:
+def ensure_targets_one_hot(
+    input: torch.Tensor,
+    targets: torch.Tensor,
+    num_classes: Optional[int] = None,
+) -> torch.Tensor:
     r"""Ensures that the targets are in a one-hot format rather than an index format.
 
     Args:

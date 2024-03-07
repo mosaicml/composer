@@ -39,10 +39,12 @@ class ConsoleLogger(LoggerDestination):
         log_traces (bool): Whether to log traces or not. (default: ``False``)
     """
 
-    def __init__(self,
-                 log_interval: Union[int, str, Time] = '1ba',
-                 stream: Union[str, TextIO] = sys.stderr,
-                 log_traces: bool = False) -> None:
+    def __init__(
+        self,
+        log_interval: Union[int, str, Time] = '1ba',
+        stream: Union[str, TextIO] = sys.stderr,
+        log_traces: bool = False,
+    ) -> None:
 
         log_interval = Time.from_input(log_interval, TimeUnit.EPOCH)
         self.last_logged_batch = 0
@@ -77,18 +79,22 @@ class ConsoleLogger(LoggerDestination):
         # Lazy logging of hyperparameters.
         self.hparams.update(hyperparameters)
 
-    def log_table(self,
-                  columns: List[str],
-                  rows: List[List[Any]],
-                  name: str = 'Table',
-                  step: Optional[int] = None) -> None:
+    def log_table(
+        self,
+        columns: List[str],
+        rows: List[List[Any]],
+        name: str = 'Table',
+        step: Optional[int] = None,
+    ) -> None:
         del step
         try:
             import pandas as pd
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='pandas',
-                                                conda_package='pandas',
-                                                conda_channel='conda-forge') from e
+            raise MissingConditionalImportError(
+                extra_deps_group='pandas',
+                conda_package='pandas',
+                conda_channel='conda-forge',
+            ) from e
         table = pd.DataFrame.from_records(data=rows, columns=columns).to_json(orient='split', index=False)
         self.tables[name] = str(table)
 
@@ -135,8 +141,11 @@ class ConsoleLogger(LoggerDestination):
         # Always clear logged metrics so they don't get logged in a subsequent eval call.
         cur_batch = int(state.timestamp.batch)
         if self.last_logged_batch != cur_batch:
-            self.log_to_console(self.logged_metrics, prefix='Train ',
-                                state=state)  # log at the end of training if you didn't just log
+            self.log_to_console(
+                self.logged_metrics,
+                prefix='Train ',
+                state=state,
+            )  # log at the end of training if you didn't just log
 
         self.logged_metrics = {}
 
@@ -188,7 +197,8 @@ class ConsoleLogger(LoggerDestination):
     def _get_total_eval_batches(self, state: State) -> int:
         cur_evaluator = [evaluator for evaluator in state.evaluators if evaluator.label == state.dataloader_label][0]
         total_eval_batches = int(
-            state.dataloader_len) if state.dataloader_len is not None else cur_evaluator.subset_num_batches
+            state.dataloader_len,
+        ) if state.dataloader_len is not None else cur_evaluator.subset_num_batches
         # To please pyright. Based on _set_evaluator_interval_and_subset_num_batches, total_eval_batches can't be None
         assert total_eval_batches is not None
         return total_eval_batches
