@@ -1448,11 +1448,13 @@ class Trainer:
                     'for all `RemoteUploaderDownloader` instances.')
             assert latest_remote_file_name is not None
             if self.state.fsdp_sharded_state_dict_enabled:
+                log.debug('searching for sharded state dict symlink')
                 ar_object_store = maybe_create_object_store_from_uri(save_folder)
                 # Symlink is on object store
                 if ar_object_store is not None:
                     autoresume_checkpoint_path = None
                     if dist.get_global_rank() == 0:
+                        log.debug('Rank 0 searching for symlink file')
                         with tempfile.TemporaryDirectory() as temp_dir:
                             local_symlink_file = str(Path(temp_dir) / Path('autoresume.symlink'))
                             symlink_file_name = format_name_with_dist(latest_remote_file_name,
@@ -1463,7 +1465,8 @@ class Trainer:
                                     real_path = f.read()
                                     log.debug(f'Read path {real_path} from symlink file')
                                 autoresume_checkpoint_path = ar_object_store.get_uri(real_path)
-                            except FileNotFoundError:
+                            except FileNotFoundError as e:
+                                log.debug(f'Could not find symlink file {symlink_file_name} in object store with {e}')
                                 pass
                     autoresume_path_list = [autoresume_checkpoint_path]
                     dist.broadcast_object_list(autoresume_path_list)
