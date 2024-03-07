@@ -272,7 +272,8 @@ def exception_to_json_serializable_dict(exc: Exception):
     """Converts exception into a JSON serializable dictionary for run metadata."""
     exc_data = {'class': exc.__class__.__name__, 'message': str(exc), 'attributes': {}}
     for attr in dir(exc):
-        if not attr.startswith('__'):
+        if not attr.startswith('__') and attr not in ['args', 'with_traceback']:
+            # ignore the traceback and default args in exception object
             try:
                 value = getattr(exc, attr)
                 if isinstance(value, (str, int, float, bool, list, dict, type(None))):
