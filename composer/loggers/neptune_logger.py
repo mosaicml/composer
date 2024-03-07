@@ -59,7 +59,7 @@ class NeptuneLogger(LoggerDestination):
         project: Optional[str] = None,
         api_token: Optional[str] = None,
         rank_zero_only: bool = True,
-        upload_artifacts: Optional[bool] = False,
+        upload_artifacts: Optional[bool] = None,
         upload_checkpoints: bool = False,
         base_namespace: str = 'training',
         mode: Literal['async', 'sync', 'offline', 'read-only', 'debug'] = 'async',
