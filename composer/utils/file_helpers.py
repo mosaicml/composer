@@ -52,7 +52,7 @@ __all__ = [
 ]
 
 
-def extract_path_from_symlink(source_path: str, object_store: Optional[ObjectStore] = None) -> str:
+def extract_path_from_symlink(source_path: str, object_store: Optional[Union[ObjectStore, LoggerDestination]] = None) -> str:
     with tempfile.TemporaryDirectory() as tmpdir:
         if object_store is not None:
             _, _, source_path = parse_uri(source_path)
