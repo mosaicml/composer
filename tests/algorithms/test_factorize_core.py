@@ -68,13 +68,15 @@ class _RankReduceConv2d(object):
             biasA = torch.randn(self.C_out)
             biasB = None
 
-        return factorize.factorize_conv2d(X,
-                                          Wa,
-                                          Wb,
-                                          biasA=biasA,
-                                          biasB=biasB,
-                                          rank=self.C_latent_new,
-                                          n_iters=self.n_iters)
+        return factorize.factorize_conv2d(
+            X,
+            Wa,
+            Wb,
+            biasA=biasA,
+            biasB=biasB,
+            rank=self.C_latent_new,
+            n_iters=self.n_iters,
+        )
 
 
 @pytest.fixture(params=[_RankReduce(), _RankReduceConv2d()])
@@ -82,9 +84,11 @@ def factorize_task(request):
     return request.param
 
 
-def _check_factorization(f: Union[_RankReduce, _RankReduceConv2d],
-                         prev_nmse: Optional[float] = None,
-                         already_factorized: bool = True):
+def _check_factorization(
+    f: Union[_RankReduce, _RankReduceConv2d],
+    prev_nmse: Optional[float] = None,
+    already_factorized: bool = True,
+):
     info = f(already_factorized=already_factorized)
     Wa = info.Wa
     Wb = info.Wb
@@ -142,7 +146,8 @@ def _check_factorization(f: Union[_RankReduce, _RankReduceConv2d],
         (16, 16, 32, 16),  # requested rank > input rank
         (16, 16, 16, 8),  # requested rank > output rank
         (32, 16, 16, 16),  # requested rank >= output rank, and underdetermined
-    ])
+    ],
+)
 @pytest.mark.parametrize('already_factorized', [False, True])
 def test_factorize_edge_cases(shapes, factorize_task, already_factorized):
     """Test edge cases regarding current and requested matrix shapes."""

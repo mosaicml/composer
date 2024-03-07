@@ -21,13 +21,15 @@ log = logging.getLogger(__name__)
 __all__ = ['CutMix', 'cutmix_batch']
 
 
-def cutmix_batch(input: Tensor,
-                 target: Tensor,
-                 length: Optional[float] = None,
-                 alpha: float = 1.,
-                 bbox: Optional[Tuple] = None,
-                 indices: Optional[torch.Tensor] = None,
-                 uniform_sampling: bool = False) -> Tuple[torch.Tensor, torch.Tensor, float, Tuple]:
+def cutmix_batch(
+    input: Tensor,
+    target: Tensor,
+    length: Optional[float] = None,
+    alpha: float = 1.,
+    bbox: Optional[Tuple] = None,
+    indices: Optional[torch.Tensor] = None,
+    uniform_sampling: bool = False,
+) -> Tuple[torch.Tensor, torch.Tensor, float, Tuple]:
     """Create new samples using combinations of pairs of samples.
 
     This is done by masking a region of each image in ``input`` and filling
@@ -232,18 +234,22 @@ class CutMix(Algorithm):
             self._indices = _gen_indices(input)
 
             _cutmix_lambda = _gen_cutmix_coef(alpha)
-            self._bbox = _rand_bbox(input.shape[2],
-                                    input.shape[3],
-                                    _cutmix_lambda,
-                                    uniform_sampling=self._uniform_sampling)
+            self._bbox = _rand_bbox(
+                input.shape[2],
+                input.shape[3],
+                _cutmix_lambda,
+                uniform_sampling=self._uniform_sampling,
+            )
             self._adjusted_lambda = _adjust_lambda(input, self._bbox)
 
-            new_input, self._permuted_target, _, _ = cutmix_batch(input=input,
-                                                                  target=target,
-                                                                  alpha=self.alpha,
-                                                                  bbox=self._bbox,
-                                                                  indices=self._indices,
-                                                                  uniform_sampling=self._uniform_sampling)
+            new_input, self._permuted_target, _, _ = cutmix_batch(
+                input=input,
+                target=target,
+                alpha=self.alpha,
+                bbox=self._bbox,
+                indices=self._indices,
+                uniform_sampling=self._uniform_sampling,
+            )
 
             state.batch_set_item(key=self.input_key, value=new_input)
 
@@ -326,12 +332,14 @@ def _gen_cutmix_coef(alpha: float) -> float:
     return cutmix_lambda
 
 
-def _rand_bbox(W: int,
-               H: int,
-               cutmix_lambda: float,
-               cx: Optional[int] = None,
-               cy: Optional[int] = None,
-               uniform_sampling: bool = False) -> Tuple[int, int, int, int]:
+def _rand_bbox(
+    W: int,
+    H: int,
+    cutmix_lambda: float,
+    cx: Optional[int] = None,
+    cy: Optional[int] = None,
+    uniform_sampling: bool = False,
+) -> Tuple[int, int, int, int]:
     """Randomly samples a bounding box with area determined by ``cutmix_lambda``.
 
     Adapted from original implementation https://github.com/clovaai/CutMix-PyTorch

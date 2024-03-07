@@ -23,16 +23,18 @@ def _generate_state(request: pytest.FixtureRequest, model_cls, epoch: int, max_e
         device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
         break
     assert device != None
-    state = State(model=model,
-                  rank_zero_seed=0,
-                  device=device,
-                  run_name='run_name',
-                  optimizers=torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.99),
-                  precision=Precision.FP32,
-                  dataloader=Mock(__len__=lambda x: 100),
-                  dataloader_label='train',
-                  device_train_microbatch_size=1,
-                  max_duration=f'{max_epochs}ep')
+    state = State(
+        model=model,
+        rank_zero_seed=0,
+        device=device,
+        run_name='run_name',
+        optimizers=torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.99),
+        precision=Precision.FP32,
+        dataloader=Mock(__len__=lambda x: 100),
+        dataloader_label='train',
+        device_train_microbatch_size=1,
+        max_duration=f'{max_epochs}ep',
+    )
 
     # fast forward by epochs
     state.timestamp = Timestamp(epoch=epoch)

@@ -59,7 +59,7 @@ def test_wandb_log_image(test_wandb_logger):
         (torch.rand(3, 4, 4), False),  # with channels, not channels last
         ([torch.rand(4, 4, 3)], True),  # with channels, channels last
         (torch.rand(2, 4, 4, 3), True),  # multiple images, channels last
-        ([torch.rand(4, 4, 3), torch.rand(4, 4, 3)], True)  # multiple images in list
+        ([torch.rand(4, 4, 3), torch.rand(4, 4, 3)], True),  # multiple images in list
     ]
 
     expected_num_images_total = 0
@@ -90,7 +90,8 @@ def test_wandb_log_image(test_wandb_logger):
         (torch.rand(32, 0), False),  # Has zero in dimension.
         (torch.rand(4, 4, 8, 32, 32), False),  # > 4 dim.
         ([torch.rand(4, 32, 32, 3)], True),
-    ])  # sequence > 3 dim.
+    ],
+)  # sequence > 3 dim.
 def test_wandb_ml_log_image_errors_out(test_wandb_logger, images, channels_last):
     pytest.importorskip('wandb', reason='wandb is optional')
     with pytest.raises(ValueError):
@@ -103,31 +104,55 @@ def test_wandb_log_image_with_masks(test_wandb_logger):
     # We group all the image size variants into one test because calling comet_experiment.end() is slow
     image_variants = [
         # single image, single mask, channels last
-        (torch.randint(0, 256, (4, 4, 3)), {
-            'pred': torch.randint(0, 10, (4, 4))
-        }, True),
+        (
+            torch.randint(0, 256, (4, 4, 3)),
+            {
+                'pred': torch.randint(0, 10, (4, 4)),
+            },
+            True,
+        ),
         # multiple images, single mask, channels last
-        (torch.rand(2, 4, 4, 3), {
-            'pred': torch.randint(0, 10, (2, 4, 4))
-        }, True),
+        (
+            torch.rand(2, 4, 4, 3),
+            {
+                'pred': torch.randint(0, 10, (2, 4, 4)),
+            },
+            True,
+        ),
         # multiple images, multiple masks, channels last
-        (torch.rand(2, 4, 4, 3), {
-            'pred': torch.randint(0, 10, (2, 4, 4)),
-            'pred2': torch.randint(0, 10, (2, 4, 4))
-        }, True),
+        (
+            torch.rand(2, 4, 4, 3),
+            {
+                'pred': torch.randint(0, 10, (2, 4, 4)),
+                'pred2': torch.randint(0, 10, (2, 4, 4)),
+            },
+            True,
+        ),
         # single image, single mask, not channels last
-        (torch.randint(0, 256, (3, 4, 4)), {
-            'pred': torch.randint(0, 10, (4, 4))
-        }, False),
+        (
+            torch.randint(0, 256, (3, 4, 4)),
+            {
+                'pred': torch.randint(0, 10, (4, 4)),
+            },
+            False,
+        ),
         # multiple images, single mask, not channels last
-        (torch.rand(2, 3, 4, 4), {
-            'pred': torch.randint(0, 10, (2, 4, 4))
-        }, False),
+        (
+            torch.rand(2, 3, 4, 4),
+            {
+                'pred': torch.randint(0, 10, (2, 4, 4)),
+            },
+            False,
+        ),
         # multiple images, multiple masks, not channels last
-        (torch.rand(2, 3, 4, 4), {
-            'pred': torch.randint(0, 10, (2, 4, 4)),
-            'pred2': torch.randint(0, 10, (2, 4, 4))
-        }, False)
+        (
+            torch.rand(2, 3, 4, 4),
+            {
+                'pred': torch.randint(0, 10, (2, 4, 4)),
+                'pred2': torch.randint(0, 10, (2, 4, 4)),
+            },
+            False,
+        ),
     ]
 
     expected_num_masks_total = 0
@@ -156,9 +181,15 @@ def test_wandb_log_image_with_masks(test_wandb_logger):
     assert actual_num_masks == expected_num_masks_total
 
 
-@pytest.mark.parametrize('images,masks', [(torch.randint(0, 256, (32, 32, 3)), {
-    'pred': torch.randint(0, 10, (32, 32))
-})])
+@pytest.mark.parametrize(
+    'images,masks',
+    [(
+        torch.randint(0, 256, (32, 32, 3)),
+        {
+            'pred': torch.randint(0, 10, (32, 32)),
+        },
+    )],
+)
 def test_wandb_log_image_with_masks_and_table(images, masks, test_wandb_logger):
     wandb = pytest.importorskip('wandb', reason='wandb is optional')
 
@@ -212,11 +243,13 @@ def test_wandb_log_metrics(test_wandb_logger):
     dataset_size = 40
     batch_size = 4
 
-    trainer = Trainer(model=SimpleConvModel(),
-                      loggers=test_wandb_logger,
-                      train_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
-                      eval_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
-                      max_duration='1ep')
+    trainer = Trainer(
+        model=SimpleConvModel(),
+        loggers=test_wandb_logger,
+        train_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
+        eval_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
+        max_duration='1ep',
+    )
 
     trainer.fit()
 
@@ -237,8 +270,9 @@ def test_wandb_log_metrics(test_wandb_logger):
     train_loss_count = all_run_text.count('loss/train/total')
 
     expected_number_train_loss_count = (dataset_size / batch_size) + 1  # wandb includes it in the file one extra time
-    expected_number_train_metrics_count = (dataset_size /
-                                           batch_size) + 2  # wandb includes it in the file two extra times
+    expected_number_train_metrics_count = (
+        dataset_size / batch_size
+    ) + 2  # wandb includes it in the file two extra times
     expected_number_eval_metrics_count = 2  # wandb includes it in the file twice
     assert train_metrics_accuracy_count == expected_number_train_metrics_count
     assert train_loss_count == expected_number_train_loss_count
@@ -305,12 +339,16 @@ def test_wandb_artifacts(monkeypatch: MonkeyPatch, rank_zero_only: bool, tmp_pat
     os.environ['WANDB_MODE'] = 'offline'
     # Create the logger
     ctx = pytest.warns(
-        UserWarning, match='`rank_zero_only` should be set to False.') if rank_zero_only else contextlib.nullcontext()
+        UserWarning,
+        match='`rank_zero_only` should be set to False.',
+    ) if rank_zero_only else contextlib.nullcontext()
     with ctx:
-        wandb_logger = WandBLogger(rank_zero_only=rank_zero_only,
-                                   log_artifacts=True,
-                                   entity='entity',
-                                   project='project')
+        wandb_logger = WandBLogger(
+            rank_zero_only=rank_zero_only,
+            log_artifacts=True,
+            entity='entity',
+            project='project',
+        )
     dummy_state.callbacks.append(wandb_logger)
     logger = Logger(dummy_state, [wandb_logger])
     engine = Engine(dummy_state, logger)

@@ -30,13 +30,13 @@ To install composer, once inside the image, run `pip install mosaicml`.
 <!-- BEGIN_PYTORCH_BUILD_MATRIX -->
 | Linux Distro   | Flavor   | PyTorch Version   | CUDA Version        | Python Version   | Docker Tags                                                                              |
 |----------------|----------|-------------------|---------------------|------------------|------------------------------------------------------------------------------------------|
-| Ubuntu 20.04   | Base     | 2.3.0             | 12.1.0 (Infiniband) | 3.11             | `mosaicml/pytorch:2.3.0_cu121-nightly20240110-python3.11-ubuntu20.04`                    |
-| Ubuntu 20.04   | Base     | 2.3.0             | 12.1.0 (EFA)        | 3.11             | `mosaicml/pytorch:2.3.0_cu121-nightly20240110-python3.11-ubuntu20.04-aws`                |
-| Ubuntu 20.04   | Base     | 2.2.1             | 12.1.0 (Infiniband) | 3.11             | `mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04`                                    |
-| Ubuntu 20.04   | Base     | 2.2.1             | 12.1.0 (EFA)        | 3.11             | `mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04-aws`                                |
+| Ubuntu 20.04   | Base     | 2.3.0             | 12.1.1 (Infiniband) | 3.11             | `mosaicml/pytorch:2.3.0_cu121-nightly20240110-python3.11-ubuntu20.04`                    |
+| Ubuntu 20.04   | Base     | 2.3.0             | 12.1.1 (EFA)        | 3.11             | `mosaicml/pytorch:2.3.0_cu121-nightly20240110-python3.11-ubuntu20.04-aws`                |
+| Ubuntu 20.04   | Base     | 2.2.1             | 12.1.1 (Infiniband) | 3.11             | `mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04`                                    |
+| Ubuntu 20.04   | Base     | 2.2.1             | 12.1.1 (EFA)        | 3.11             | `mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04-aws`                                |
 | Ubuntu 20.04   | Base     | 2.2.1             | cpu                 | 3.11             | `mosaicml/pytorch:2.2.1_cpu-python3.11-ubuntu20.04`                                      |
-| Ubuntu 20.04   | Base     | 2.1.2             | 12.1.0 (Infiniband) | 3.10             | `mosaicml/pytorch:latest`, `mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04`         |
-| Ubuntu 20.04   | Base     | 2.1.2             | 12.1.0 (EFA)        | 3.10             | `mosaicml/pytorch:latest-aws`, `mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04-aws` |
+| Ubuntu 20.04   | Base     | 2.1.2             | 12.1.1 (Infiniband) | 3.10             | `mosaicml/pytorch:latest`, `mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04`         |
+| Ubuntu 20.04   | Base     | 2.1.2             | 12.1.1 (EFA)        | 3.10             | `mosaicml/pytorch:latest-aws`, `mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04-aws` |
 | Ubuntu 20.04   | Base     | 2.1.2             | cpu                 | 3.10             | `mosaicml/pytorch:latest_cpu`, `mosaicml/pytorch:2.1.2_cpu-python3.10-ubuntu20.04`       |
 | Ubuntu 20.04   | Base     | 2.0.1             | 11.8.0 (Infiniband) | 3.10             | `mosaicml/pytorch:2.0.1_cu118-python3.10-ubuntu20.04`                                    |
 | Ubuntu 20.04   | Base     | 2.0.1             | 11.8.0 (EFA)        | 3.10             | `mosaicml/pytorch:2.0.1_cu118-python3.10-ubuntu20.04-aws`                                |

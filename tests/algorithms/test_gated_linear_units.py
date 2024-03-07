@@ -28,13 +28,15 @@ def _layernorm(input_tensor, layernorm_eps):
 @pytest.mark.parametrize('act_fn', [relu, gelu])
 @pytest.mark.parametrize('layernorm_eps', [1e-6])
 def test_glu_outputs(batch_size, seq_length, d_embed, d_ff, dropout_rate, act_fn, layernorm_eps):
-    gated_ff = BERTGatedFFOutput(d_embed=d_embed,
-                                 d_ff=d_ff,
-                                 dropout_rate=dropout_rate,
-                                 act_fn=act_fn,
-                                 layernorm_eps=layernorm_eps,
-                                 gated_layer_bias=False,
-                                 non_gated_layer_bias=False)
+    gated_ff = BERTGatedFFOutput(
+        d_embed=d_embed,
+        d_ff=d_ff,
+        dropout_rate=dropout_rate,
+        act_fn=act_fn,
+        layernorm_eps=layernorm_eps,
+        gated_layer_bias=False,
+        non_gated_layer_bias=False,
+    )
     hidden_states = torch.rand(batch_size, seq_length, d_embed)
     residual_connection = torch.zeros_like(hidden_states)
     model_output = gated_ff(hidden_states, residual_connection)
@@ -59,7 +61,8 @@ def assert_is_glu_instance(model):
     assert model.modules is not None, 'model has .modules method'
     for module_class in model.modules():
         assert not isinstance(
-            module_class, BertOutput
+            module_class,
+            BertOutput,
         ), 'A transformers.models.bert.modeling_bert.BertOutput should not be found in the model after surgery is applied.'
 
     assert any(
@@ -67,13 +70,19 @@ def assert_is_glu_instance(model):
     ), 'composer.algorithms.gated_linear_units.gated_linear_unit_layers.BERTGatedFFOutput is not found in the post-surgery model.'
 
 
-@pytest.mark.parametrize('model,dataloader', [
-    (configure_tiny_bert_hf_model, dummy_bert_lm_dataloader),
-    (pytest.param(
-        SimpleTransformerClassifier,
-        dummy_text_classification_dataloader,
-        marks=pytest.mark.xfail(reason='Gated Linear Units does not currently support non-HuggingFace models'))),
-])
+@pytest.mark.parametrize(
+    'model,dataloader',
+    [
+        (configure_tiny_bert_hf_model, dummy_bert_lm_dataloader),
+        (
+            pytest.param(
+                SimpleTransformerClassifier,
+                dummy_text_classification_dataloader,
+                marks=pytest.mark.xfail(reason='Gated Linear Units does not currently support non-HuggingFace models'),
+            )
+        ),
+    ],
+)
 def test_gated_linear_units_functional(model, dataloader):
     model = model()
     dataloader = dataloader()
@@ -90,13 +99,19 @@ def test_gated_linear_units_functional(model, dataloader):
     assert_is_glu_instance(state.model.model)
 
 
-@pytest.mark.parametrize('model,dataloader', [
-    (configure_tiny_bert_hf_model, dummy_bert_lm_dataloader),
-    (pytest.param(
-        SimpleTransformerClassifier,
-        dummy_text_classification_dataloader,
-        marks=pytest.mark.xfail(reason='Gated Linear Units does not currently support non-HuggingFace models'))),
-])
+@pytest.mark.parametrize(
+    'model,dataloader',
+    [
+        (configure_tiny_bert_hf_model, dummy_bert_lm_dataloader),
+        (
+            pytest.param(
+                SimpleTransformerClassifier,
+                dummy_text_classification_dataloader,
+                marks=pytest.mark.xfail(reason='Gated Linear Units does not currently support non-HuggingFace models'),
+            )
+        ),
+    ],
+)
 def test_gated_linear_units_algorithm(model, dataloader, empty_logger: Logger):
     pytest.importorskip('transformers')
     from transformers import BertForMaskedLM, BertForSequenceClassification
@@ -116,8 +131,10 @@ def test_gated_linear_units_algorithm(model, dataloader, empty_logger: Logger):
     gated_linear_units = GatedLinearUnits()
 
     # state.model wrapped in HuggingFaceModel wrapped
-    assert isinstance(state.model.model, BertForMaskedLM) or isinstance(state.model.model,
-                                                                        BertForSequenceClassification)
+    assert isinstance(
+        state.model.model,
+        BertForMaskedLM,
+    ) or isinstance(state.model.model, BertForSequenceClassification)
     gated_linear_units.apply(Event.INIT, state, empty_logger)
 
     assert_is_glu_instance(state.model.model)

@@ -11,8 +11,11 @@ from torch import nn
 from transformers.models.bert.modeling_bert import BertEmbeddings, BertSelfAttention
 from transformers.models.roberta.modeling_roberta import RobertaEmbeddings, RobertaSelfAttention
 
-from composer.algorithms.alibi.attention_surgery_functions.utils import (policy_registry, register_alibi,
-                                                                         zero_and_freeze_expand_position_embeddings)
+from composer.algorithms.alibi.attention_surgery_functions.utils import (
+    policy_registry,
+    register_alibi,
+    zero_and_freeze_expand_position_embeddings,
+)
 
 
 @policy_registry.register(BertEmbeddings, RobertaEmbeddings)
@@ -22,9 +25,11 @@ def bert_embedding_converter(module: torch.nn.Module, module_index: int, max_seq
     assert isinstance(module, (BertEmbeddings, RobertaEmbeddings))
     del module_index  # unused
     new_module = copy.deepcopy(module)
-    zero_and_freeze_expand_position_embeddings(new_module,
-                                               max_sequence_length,
-                                               position_embedding_attribute='position_embeddings')
+    zero_and_freeze_expand_position_embeddings(
+        new_module,
+        max_sequence_length,
+        position_embedding_attribute='position_embeddings',
+    )
 
     module_device = next(new_module.parameters()).device
     new_module.register_buffer('position_ids', torch.arange(max_sequence_length).expand((1, -1)).to(module_device))
@@ -36,10 +41,12 @@ def bert_attention_converter(module: torch.nn.Module, module_index: int, max_seq
     """Adds ALiBi to Bert-style SelfAttention."""
     assert isinstance(module, (BertSelfAttention, RobertaSelfAttention))
     del module_index  # unused
-    module = register_alibi(module=module,
-                            n_heads=int(module.num_attention_heads),
-                            max_token_length=max_sequence_length,
-                            causal=False)
+    module = register_alibi(
+        module=module,
+        n_heads=int(module.num_attention_heads),
+        max_token_length=max_sequence_length,
+        causal=False,
+    )
     setattr(module, 'forward', MethodType(forward, module))
 
     return module
@@ -101,8 +108,9 @@ def forward(
     attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
 
     if self.position_embedding_type == 'relative_key' or self.position_embedding_type == 'relative_key_query':
-        raise NotImplementedError('ALiBi is not supported for BERT with position_embedding_type: {}'.format(
-            self.position_embedding_type))
+        raise NotImplementedError(
+            'ALiBi is not supported for BERT with position_embedding_type: {}'.format(self.position_embedding_type),
+        )
         #### REMOVES THE FOLLOWING CODE ########
         # seq_length = hidden_states.size()[1]
         # position_ids_l = torch.arange(seq_length, dtype=torch.long, device=hidden_states.device).view(-1, 1)

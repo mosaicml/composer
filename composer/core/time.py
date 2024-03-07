@@ -48,8 +48,10 @@ class TimeUnit(StringEnum):
 
 
 # regex for parsing time string, matches timeunit and chars prior to unit as value
-_TIME_STR_REGEX = re.compile(r'^(.+)(' + r'|'.join([fr'{time_unit.value}' for time_unit in TimeUnit]) + r')$',
-                             flags=re.IGNORECASE)
+_TIME_STR_REGEX = re.compile(
+    r'^(.+)(' + r'|'.join([fr'{time_unit.value}' for time_unit in TimeUnit]) + r')$',
+    flags=re.IGNORECASE,
+)
 
 TValue = TypeVar('TValue', int, float)
 
@@ -343,9 +345,11 @@ class Time(Generic[TValue], Serializable):
         return hash((self.value, self.unit))
 
     @classmethod
-    def from_input(cls,
-                   i: Union[str, int, float, 'Time'],
-                   default_int_unit: Optional[Union[TimeUnit, str]] = None) -> Time:
+    def from_input(
+        cls,
+        i: Union[str, int, float, 'Time'],
+        default_int_unit: Optional[Union[TimeUnit, str]] = None,
+    ) -> Time:
         """Parse a time input into a :class:`Time` instance.
 
         Args:
@@ -472,26 +476,34 @@ class Timestamp(Serializable):
 
         epoch_in_iteration = Time.from_input(epoch_in_iteration, TimeUnit.EPOCH)
         if epoch_in_iteration.unit != TimeUnit.EPOCH:
-            raise ValueError((f'The `epoch_in_iteration` argument has units of {epoch_in_iteration.unit}; '
-                              f'not {TimeUnit.EPOCH}.'))
+            raise ValueError((
+                f'The `epoch_in_iteration` argument has units of {epoch_in_iteration.unit}; '
+                f'not {TimeUnit.EPOCH}.'
+            ))
         self._epoch_in_iteration = epoch_in_iteration
 
         batch_in_epoch = Time.from_input(batch_in_epoch, TimeUnit.BATCH)
         if batch_in_epoch.unit != TimeUnit.BATCH:
-            raise ValueError((f'The `batch_in_epoch` argument has units of {batch_in_epoch.unit}; '
-                              f'not {TimeUnit.BATCH}.'))
+            raise ValueError(
+                (f'The `batch_in_epoch` argument has units of {batch_in_epoch.unit}; '
+                 f'not {TimeUnit.BATCH}.'),
+            )
         self._batch_in_epoch = batch_in_epoch
 
         sample_in_epoch = Time.from_input(sample_in_epoch, TimeUnit.SAMPLE)
         if sample_in_epoch.unit != TimeUnit.SAMPLE:
-            raise ValueError((f'The `sample_in_epoch` argument has units of {sample_in_epoch.unit}; '
-                              f'not {TimeUnit.SAMPLE}.'))
+            raise ValueError(
+                (f'The `sample_in_epoch` argument has units of {sample_in_epoch.unit}; '
+                 f'not {TimeUnit.SAMPLE}.'),
+            )
         self._sample_in_epoch = sample_in_epoch
 
         token_in_epoch = Time.from_input(token_in_epoch, TimeUnit.TOKEN)
         if token_in_epoch.unit != TimeUnit.TOKEN:
-            raise ValueError((f'The `token_in_epoch` argument has units of {token_in_epoch.unit}; '
-                              f'not {TimeUnit.TOKEN}.'))
+            raise ValueError(
+                (f'The `token_in_epoch` argument has units of {token_in_epoch.unit}; '
+                 f'not {TimeUnit.TOKEN}.'),
+            )
         self._token_in_epoch = token_in_epoch
 
         if total_wct is None:
@@ -913,21 +925,23 @@ class Timestamp(Serializable):
         )
 
     def __repr__(self) -> str:
-        return (f'Timestamp('
-                f'iteration={int(self.iteration)}, '
-                f'epoch={int(self.epoch)}, '
-                f'batch={int(self.batch)}, '
-                f'sample={int(self.sample)}, '
-                f'token={int(self.token)}, '
-                f'epoch_in_iteration={int(self.epoch_in_iteration)}, '
-                f'batch_in_epoch={int(self.batch_in_epoch)}, '
-                f'sample_in_epoch={int(self.sample_in_epoch)}, '
-                f'token_in_epoch={int(self.token_in_epoch)}, '
-                f'total_wct={repr(self.total_wct)}, '
-                f'iteration_wct={repr(self.iteration_wct)}, '
-                f'epoch_wct={repr(self.epoch_wct)}, '
-                f'batch_wct={repr(self.batch_wct)}'
-                ')')
+        return (
+            f'Timestamp('
+            f'iteration={int(self.iteration)}, '
+            f'epoch={int(self.epoch)}, '
+            f'batch={int(self.batch)}, '
+            f'sample={int(self.sample)}, '
+            f'token={int(self.token)}, '
+            f'epoch_in_iteration={int(self.epoch_in_iteration)}, '
+            f'batch_in_epoch={int(self.batch_in_epoch)}, '
+            f'sample_in_epoch={int(self.sample_in_epoch)}, '
+            f'token_in_epoch={int(self.token_in_epoch)}, '
+            f'total_wct={repr(self.total_wct)}, '
+            f'iteration_wct={repr(self.iteration_wct)}, '
+            f'epoch_wct={repr(self.epoch_wct)}, '
+            f'batch_wct={repr(self.batch_wct)}'
+            ')'
+        )
 
 
 def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str]) -> Time:
