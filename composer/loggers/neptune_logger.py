@@ -39,6 +39,7 @@ class NeptuneLogger(LoggerDestination):
             ``NEPTUNE_API_TOKEN`` environment variable (recommended).
             You can find your API token in the user menu of the Neptune web app.
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process (default: ``True``).
+        upload_artifacts (bool, optional): Deprecated. See `upload_checkpoints`.
         upload_checkpoints (bool, optional): Whether the logger should upload checkpoints to Neptune
             (default: ``False``).
         base_namespace (str, optional): The name of the base namespace to log the metadata to (default: "training").
@@ -58,6 +59,7 @@ class NeptuneLogger(LoggerDestination):
         project: Optional[str] = None,
         api_token: Optional[str] = None,
         rank_zero_only: bool = True,
+        upload_artifacts: bool = False,
         upload_checkpoints: bool = False,
         base_namespace: str = 'training',
         mode: Literal['async', 'sync', 'offline', 'read-only', 'debug'] = 'async',
@@ -76,6 +78,7 @@ class NeptuneLogger(LoggerDestination):
         verify_type('project', project, (str, type(None)))
         verify_type('api_token', api_token, (str, type(None)))
         verify_type('rank_zero_only', rank_zero_only, bool)
+        verify_type('upload_artifacts', upload_artifacts, bool)
         verify_type('upload_checkpoints', upload_checkpoints, bool)
         verify_type('base_namespace', base_namespace, str)
 
@@ -85,7 +88,7 @@ class NeptuneLogger(LoggerDestination):
         self._project = project
         self._api_token = api_token
         self._rank_zero_only = rank_zero_only
-        self._upload_checkpoints = upload_checkpoints
+        self._upload_checkpoints = upload_checkpoints or upload_artifacts
         self._base_namespace = base_namespace
         self._neptune_kwargs = neptune_kwargs
 
@@ -369,7 +372,7 @@ def _find_oom_callback(callbacks: List['Callback']) -> Optional['OOMObserver']:
 def _warn_about_deprecated_upload_artifacts() -> None:
     from neptune.common.warnings import NeptuneDeprecationWarning, warn_once
     warn_once(
-        'The \'upload_artifacts\' parameter is deprecated. '
+        'The \'upload_artifacts\' parameter has been deprecated and will be removed in the next verion. '
         'Please use the \'upload_checkpoints\' parameter instead.',
         exception=NeptuneDeprecationWarning,
     )
