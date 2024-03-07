@@ -1167,9 +1167,6 @@ class TestTrainerInitOrFit:
         max_duration: Time[int],
         num_samples: Union[int, float],
     ):
-        # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
-        copied_model = copy.deepcopy(model)
-
         # Train once with the max_duration param on Trainer.__init__()
         init_trainer = Trainer(
             model=model,
