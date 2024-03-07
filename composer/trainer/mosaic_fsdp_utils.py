@@ -1033,3 +1033,48 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
             new_optim_state[state_name] = value
         torch.cuda.synchronize()
         return new_optim_state
+
+
+    from torch.distributed.fsdp import _state_dict_utils
+    from torch.distributed.fsdp._common_utils import _FSDPState
+    from torch.distributed.fsdp.api import FullStateDictConfig, StateDictType
+
+    @no_type_check
+    def _full_pre_state_dict_hook(
+            fsdp_state: _FSDPState,
+            module: nn.Module,
+            *args: Any,  # type: ignore
+            **kwargs: Any,  # type: ignore
+    ) -> None:
+        """Hook that runs before model.state_dict() is called.
+
+        pre-state_dict hook is not actually supported by ``nn.Module``. As a result,
+        this API is called from ``_full_post_state_dict_hook()`` to simulate the
+        case. Once pre-state_dict is supported in ``nn.Module``, this hook will be
+        registered as a hook in ``nn.Module``.
+        """
+        _state_dict_utils._common_pre_state_dict_hook(module, fsdp_state)
+        _state_dict_utils._common_unshard_pre_state_dict_hook(
+            module,
+            fsdp_state,
+            offload_to_cpu=fsdp_state._state_dict_config.offload_to_cpu,
+            rank0_only=cast(FullStateDictConfig,
+                            fsdp_state._state_dict_config).rank0_only,
+        )
+
+    @no_type_check
+    def _set_use_dtensor(fsdp_state: _FSDPState) -> None:
+        # If device_mesh is passed in when initalizing FSDP, we automatically turn the
+        # _use_dtensor flag to be true for ShardedStateDictConfig().
+        if getattr(fsdp_state, '_device_mesh', None):
+            state_dict_type = fsdp_state._state_dict_type
+            if state_dict_type == StateDictType.LOCAL_STATE_DICT:
+                raise RuntimeError(
+                    'Found state_dict_type LOCAL_STATE_DICT',
+                    'DeviceMesh is not compatible with LOCAL_STATE_DICT.',
+                    'Please set state_dict_type to SHARDED_STATE_DICT to get DTensor state_dict.',
+                )
+            elif state_dict_type == StateDictType.FULL_STATE_DICT:
+                pass
+            else:
+                fsdp_state._state_dict_config._use_dtensor = True  # type: ignore

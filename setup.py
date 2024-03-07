@@ -86,7 +86,7 @@ install_requires = [
     'coolname>=1.1.0,<3',
     'tabulate==0.9.0',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<10',
-    'packaging>=21.3.0,<23',
+    'packaging>=21.3.0,<23.3',
     'importlib-metadata>=5.0.0,<7',
     'mosaicml-cli>=0.5.25,<0.7',
 ]
@@ -99,7 +99,7 @@ extra_deps['dev'] = [
     # Pinning versions strictly to avoid random test failures.
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
-    'junitparser==3.1.1',
+    'junitparser==3.1.2',
     'coverage[toml]==7.4.1',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
@@ -186,7 +186,7 @@ extra_deps['peft'] = [
 
 extra_deps['sentencepiece'] = [
     'protobuf<3.21',
-    'sentencepiece==0.1.99',
+    'sentencepiece==0.2.0',
 ]
 
 extra_deps['mlperf'] = [
@@ -219,7 +219,7 @@ extra_deps['onnx'] = [
 ]
 
 extra_deps['mlflow'] = [
-    'mlflow>=2.9.2,<3.0',
+    'mlflow>=2.11.0,<3.0',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']

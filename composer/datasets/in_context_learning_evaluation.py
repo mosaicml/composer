@@ -715,10 +715,10 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
             'mode': 'generate',
             'labels': [],
             'cot_delimiter': self.cot_delimiter,
-            'generation_length': self.max_answer_length,
             'stopping_criteria': early_stopping_criteria,
             'do_normalization': do_normalization,
             'generation_kwargs': {
+                'max_new_tokens': self.max_answer_length,
                 'pad_token_id': self.pad_tok_id,
                 'use_cache': True,
                 'eos_token_id': self.tokenizer.eos_token_id,
@@ -1130,7 +1130,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         context = context_options[gold_idx]
         if len(preceding_text) > 0:
             context = f'{self.example_delimiter}{context}'
-        context = f'{context}{self.continuation_delimiter}{continuation}'
+        context = f'{self.prelimiter}{context}{self.continuation_delimiter}{continuation}'
         return context
 
     def _construct_multiple_contexts(self, example: Dict, preceding_text: str = '') -> List[str]:
@@ -1151,7 +1151,9 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
                 cont_del = self.continuation_delimiter.rstrip()
             else:
                 cont_del = self.continuation_delimiter
-            context_options = [f'{self.example_delimiter}{c}{cont_del}' for c in context_options]
+            context_options = [f'{self.prelimiter}{self.example_delimiter}{c}{cont_del}' for c in context_options]
+        else:
+            context_options = [f'{self.prelimiter}{c}' for c in context_options]
         return context_options
 
     def _prep_example(
@@ -1260,7 +1262,6 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
     - test_outputs: List of test outputs
     - languages:  List of languages
     - pass_at_k: Passed value for pass_at_k
-    - generation_length: Derrived maximum generation length
     - generation_kwargs: Dictionary of kwargs neeeded for generation. Includes the following, which will be individually overwritten
       by keys in generaiton_kwargs if set (see https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig
       for more details):
@@ -1349,7 +1350,6 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             'test_outputs': [],
             'languages': [],
             'pass_at_k': pass_at_k,
-            'generation_length': min(self.max_answer_length, self.max_seq_len - self.max_prompt_length),
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
                 'num_beams': 1,  # single beam
@@ -1357,6 +1357,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
                 'temperature': 0.2,  # good default for code
                 'use_cache': True,
                 'eos_token_id': self.tokenizer.eos_token_id,
+                'max_new_tokens': min(self.max_answer_length, self.max_seq_len - self.max_prompt_length),
             },
             'sample_id': [],
             'pass_at_k': list(pass_at_k),
@@ -1481,6 +1482,7 @@ def build_icl_dataloader(
             example_delimiter=example_delimiter,
             continuation_delimiter=continuation_delimiter,
             destination_path=destination_path,
+            prelimiter=prelimiter,
             fewshot_random_seed=fewshot_random_seed,
             hf_loading_vars=hf_loading_vars,
             hf_parsing_map=hf_parsing_map,
@@ -1499,6 +1501,7 @@ def build_icl_dataloader(
             example_delimiter=example_delimiter,
             continuation_delimiter=continuation_delimiter,
             destination_path=destination_path,
+            prelimiter=prelimiter,
             fewshot_random_seed=fewshot_random_seed,
             hf_loading_vars=hf_loading_vars,
             hf_parsing_map=hf_parsing_map,
@@ -1517,6 +1520,7 @@ def build_icl_dataloader(
             example_delimiter=example_delimiter,
             continuation_delimiter=continuation_delimiter,
             destination_path=destination_path,
+            prelimiter=prelimiter,
             fewshot_random_seed=fewshot_random_seed,
             hf_loading_vars=hf_loading_vars,
             hf_parsing_map=hf_parsing_map,

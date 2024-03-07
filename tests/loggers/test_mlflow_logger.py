@@ -167,7 +167,7 @@ def test_mlflow_experiment_init_experiment_name(monkeypatch):
 
 
 def test_mlflow_experiment_init_existing_composer_run(monkeypatch):
-    """ Test that an existing MLFlow run is used if one already exists in the experiment for the Composer run.
+    """ Test that an existing MLFlow run is used if one tagged with `run_name` exists in the experiment for the Composer run.
     """
     mlflow = pytest.importorskip('mlflow')
 
@@ -176,6 +176,26 @@ def test_mlflow_experiment_init_existing_composer_run(monkeypatch):
 
     mock_state = MagicMock()
     mock_state.run_name = 'dummy-run-name'
+
+    existing_id = 'dummy-id'
+    mock_search_runs = MagicMock(return_value=[MagicMock(info=MagicMock(run_id=existing_id))])
+    monkeypatch.setattr(mlflow, 'search_runs', mock_search_runs)
+
+    test_logger = MLFlowLogger()
+    test_logger.init(state=mock_state, logger=MagicMock())
+    assert test_logger._run_id == existing_id
+
+
+def test_mlflow_experiment_init_existing_composer_run_with_old_tag(monkeypatch):
+    """ Test that an existing MLFlow run is used if one exists with the old `composer_run_name` tag.
+    """
+    mlflow = pytest.importorskip('mlflow')
+
+    monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
+    monkeypatch.setattr(mlflow, 'start_run', MagicMock())
+
+    mock_state = MagicMock()
+    mock_state.composer_run_name = 'dummy-run-name'
 
     existing_id = 'dummy-id'
     mock_search_runs = MagicMock(return_value=[MagicMock(info=MagicMock(run_id=existing_id))])
@@ -231,7 +251,7 @@ def test_mlflow_experiment_set_up(tmp_path):
     assert actual_run_name == expected_run_name
 
     # Check run tagged with Composer run name.
-    assert tags['composer_run_name'] == mock_state.run_name
+    assert tags['run_name'] == mock_state.run_name
 
     # Check run ended.
     test_mlflow_logger.post_close()
@@ -567,8 +587,8 @@ def test_mlflow_logging_works(tmp_path, device):
                       eval_interval=eval_interval,
                       device=device)
     trainer.fit()
-    # Allow async logging to finish.
-    time.sleep(3)
+    # Allow system metrics to be collected.
+    time.sleep(2)
     test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(
@@ -687,8 +707,6 @@ def test_mlflow_ignore_metrics(tmp_path, device):
                       eval_interval=eval_interval,
                       device=device)
     trainer.fit()
-    # Allow async logging to finish.
-    time.sleep(3)
     test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(
@@ -731,8 +749,6 @@ def test_mlflow_ignore_hyperparameters(tmp_path):
                                       ignore_hyperparameters=['num*', 'mlflow_run_id', 'nothing'])
 
     Trainer(model=SimpleConvModel(), loggers=test_mlflow_logger, max_duration=f'4ba')
-    # Allow async logging to finish.
-    time.sleep(3)
     test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(

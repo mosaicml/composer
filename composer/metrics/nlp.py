@@ -22,6 +22,7 @@ from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalCl
 log = logging.getLogger(__name__)
 
 __all__ = [
+    'InContextLearningMetric',
     'InContextLearningLMAccuracy',
     'InContextLearningMultipleChoiceAccuracy',
     'InContextLearningQAAccuracy',
@@ -196,6 +197,7 @@ class LanguagePerplexity(LanguageCrossEntropy):
 
 
 class InContextLearningMetric(Metric):
+    """Base class for In-context learning (ICL) metrics."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -316,8 +318,9 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
                 cleaned_final_answer = self.normalize_answer(final_answer)
                 cleaned_sample_labels = {self.normalize_answer(label) for label in sample_labels}
             else:
-                cleaned_final_answer = final_answer
-                cleaned_sample_labels = set(sample_labels)
+                # even if normalization is off, we should still strip leading/trailing whitespaces
+                cleaned_final_answer = final_answer.strip()
+                cleaned_sample_labels = {sample_label.strip() for sample_label in sample_labels}
 
             if any(cleaned_final_answer.startswith(label) for label in cleaned_sample_labels):
                 self.correct += torch.tensor(1.0)
