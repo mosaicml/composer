@@ -189,8 +189,15 @@ def test_neptune_log_image_warns_about_improper_value_range(test_neptune_logger)
 
 @patch('composer.loggers.neptune_logger._scale_image_to_0_255', return_value=np.ones((4, 4)))
 def test_neptune_log_image_scales_improper_image(mock_scale_img, test_neptune_logger):
-    image = np.ones((4, 4)) * 300
+    image_variants = [
+        np.ones((4, 4)) * 300,
+        np.ones((4, 4)) * -1,
+        np.identity(4) * 300 - 1,
+    ]
 
-    test_neptune_logger.log_images(images=image)
+    for image in image_variants:
+        test_neptune_logger.log_images(images=image)
 
-    mock_scale_img.assert_called_once()
+        mock_scale_img.assert_called_once()
+
+        mock_scale_img.reset_mock()
