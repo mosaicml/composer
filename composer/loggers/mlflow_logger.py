@@ -437,6 +437,7 @@ class MLFlowLogger(LoggerDestination):
             import mlflow
 
             assert isinstance(self._run_id, str)
+            mlflow.flush_async_logging()
             self._mlflow_client.set_terminated(self._run_id)
             mlflow.end_run()
 
