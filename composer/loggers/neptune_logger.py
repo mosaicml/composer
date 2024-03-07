@@ -70,6 +70,9 @@ class NeptuneLogger(LoggerDestination):
                                                 conda_package='neptune',
                                                 conda_channel='conda-forge') from e
 
+        if 'upload_artifacts' in neptune_kwargs:
+            _warn_about_deprecated_upload_artifacts()
+
         verify_type('project', project, (str, type(None)))
         verify_type('api_token', api_token, (str, type(None)))
         verify_type('rank_zero_only', rank_zero_only, bool)
@@ -361,3 +364,12 @@ def _find_oom_callback(callbacks: List['Callback']) -> Optional['OOMObserver']:
         if isinstance(callback, OOMObserver):
             return callback
     return None
+
+
+def _warn_about_deprecated_upload_artifacts() -> None:
+    from neptune.common.warnings import NeptuneDeprecationWarning, warn_once
+    warn_once(
+        'The \'upload_artifacts\' parameter is deprecated. '
+        'Please use the \'upload_checkpoints\' parameter instead.',
+        exception=NeptuneDeprecationWarning,
+    )
