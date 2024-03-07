@@ -1,11 +1,13 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
+import contextlib
 import os
 import uuid
 from pathlib import Path
-from typing import Sequence
+from typing import Generator, Sequence
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 import torch
 from torch.utils.data import DataLoader
@@ -147,3 +149,48 @@ def test_neptune_log_image(test_neptune_logger):
 
         test_neptune_logger.post_close()
         assert mock_extend.call_count == 2 * len(image_variants)  # One set of torch tensors, one set of numpy arrays
+
+
+def test_neptune_logger_doesnt_upload_symlinks(test_neptune_logger, dummy_state):
+    with _manage_symlink_creation('test.txt') as symlink_name:
+        test_neptune_logger.upload_file(
+            state=dummy_state,
+            remote_file_name='test_symlink',
+            file_path=Path(symlink_name),
+        )
+
+    assert not test_neptune_logger.neptune_run.exists(f'{test_neptune_logger._base_namespace}/test_symlink')
+
+
+@contextlib.contextmanager
+def _manage_symlink_creation(file_name: str) -> Generator[str, None, None]:
+    with open(file_name, 'w') as f:
+        f.write('This is a test file.')
+
+    symlink_name = 'test_symlink.txt'
+
+    os.symlink(file_name, symlink_name)
+
+    assert Path(symlink_name).is_symlink()
+
+    yield symlink_name
+
+    os.remove(symlink_name)
+    os.remove(file_name)
+
+
+def test_neptune_log_image_warns_about_improper_value_range(test_neptune_logger):
+    image = np.ones((4, 4)) * 300
+    with pytest.warns() as record:
+        test_neptune_logger.log_images(images=image)
+
+    assert 'Image value range is not in the expected range of [0.0, 1.0] or [0, 255].' in str(record[0].message)
+
+
+@patch('composer.loggers.neptune_logger._scale_image_to_0_255', return_value=np.ones((4, 4)))
+def test_neptune_log_image_scales_improper_image(mock_scale_img, test_neptune_logger):
+    image = np.ones((4, 4)) * 300
+
+    test_neptune_logger.log_images(images=image)
+
+    mock_scale_img.assert_called_once()
