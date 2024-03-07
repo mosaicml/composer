@@ -16,31 +16,67 @@ from torch.utils.data import DataLoader
 import composer
 import composer.algorithms
 from composer import Algorithm
-from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
-                                 Factorize, GatedLinearUnits, GhostBatchNorm, GradientClipping, GyroDropout,
-                                 LabelSmoothing, LayerFreezing, LowPrecisionGroupNorm, LowPrecisionLayerNorm, MixUp,
-                                 NoOpModel, ProgressiveResizing, RandAugment, SelectiveBackprop, SeqLengthWarmup,
-                                 SqueezeExcite, StochasticDepth, WeightStandardization)
+from composer.algorithms import (
+    EMA,
+    SAM,
+    SWA,
+    Alibi,
+    AugMix,
+    BlurPool,
+    ChannelsLast,
+    ColOut,
+    CutMix,
+    CutOut,
+    Factorize,
+    GatedLinearUnits,
+    GhostBatchNorm,
+    GradientClipping,
+    GyroDropout,
+    LabelSmoothing,
+    LayerFreezing,
+    LowPrecisionGroupNorm,
+    LowPrecisionLayerNorm,
+    MixUp,
+    NoOpModel,
+    ProgressiveResizing,
+    RandAugment,
+    SelectiveBackprop,
+    SeqLengthWarmup,
+    SqueezeExcite,
+    StochasticDepth,
+    WeightStandardization,
+)
 from composer.models.base import ComposerModel
 from composer.utils import dist
 from tests.common import get_module_subclasses
 from tests.common.datasets import RandomImageDataset, SimpleDataset, dummy_bert_lm_dataloader, dummy_gpt_lm_dataloader
-from tests.common.models import (SimpleConvModel, SimpleModelWithDropout, composer_resnet, configure_tiny_bert_hf_model,
-                                 configure_tiny_gpt2_hf_model)
+from tests.common.models import (
+    SimpleConvModel,
+    SimpleModelWithDropout,
+    composer_resnet,
+    configure_tiny_bert_hf_model,
+    configure_tiny_gpt2_hf_model,
+)
 
 simple_bert_settings = {
     'model': configure_tiny_bert_hf_model,
-    'dataloader': (dummy_bert_lm_dataloader, {
-        'size': 8
-    }),
+    'dataloader': (
+        dummy_bert_lm_dataloader,
+        {
+            'size': 8,
+        },
+    ),
     'kwargs': {},
 }
 
 simple_gpt2_settings = {
     'model': configure_tiny_gpt2_hf_model,
-    'dataloader': (dummy_gpt_lm_dataloader, {
-        'size': 8
-    }),
+    'dataloader': (
+        dummy_gpt_lm_dataloader,
+        {
+            'size': 8,
+        },
+    ),
     'kwargs': {},
 }
 
@@ -52,20 +88,29 @@ simple_vision_settings = {
 
 simple_vision_pil_settings = {
     'model': SimpleConvModel,
-    'dataset': (RandomImageDataset, {
-        'is_PIL': True
-    }),
+    'dataset': (
+        RandomImageDataset,
+        {
+            'is_PIL': True,
+        },
+    ),
     'kwargs': {},
 }
 
 simple_resnet_settings = {
-    'model': (composer_resnet, {
-        'model_name': 'resnet18',
-        'num_classes': 2
-    }),
-    'dataset': (RandomImageDataset, {
-        'shape': (3, 224, 224),
-    }),
+    'model': (
+        composer_resnet,
+        {
+            'model_name': 'resnet18',
+            'num_classes': 2,
+        },
+    ),
+    'dataset': (
+        RandomImageDataset,
+        {
+            'shape': (3, 224, 224),
+        },
+    ),
     'kwargs': {},
 }
 
@@ -75,16 +120,19 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
         'dataset': RandomImageDataset,
         'kwargs': {
             'clipping_type': 'norm',
-            'clipping_threshold': 0.1
+            'clipping_threshold': 0.1,
         },
     },
     Alibi: {
         'model': configure_tiny_bert_hf_model,
-        'dataloader': (dummy_bert_lm_dataloader, {
-            'size': 8
-        }),
+        'dataloader': (
+            dummy_bert_lm_dataloader,
+            {
+                'size': 8,
+            },
+        ),
         'kwargs': {
-            'max_sequence_length': 256
+            'max_sequence_length': 256,
         },
     },
     AugMix: simple_vision_settings,
@@ -113,21 +161,27 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     Factorize: simple_resnet_settings,
     GatedLinearUnits: simple_bert_settings,
     GhostBatchNorm: {
-        'model': (SimpleConvModel, {
-            'norm': 'group',
-        }),
+        'model': (
+            SimpleConvModel,
+            {
+                'norm': 'group',
+            },
+        ),
         'dataset': RandomImageDataset,
         'kwargs': {
             'ghost_batch_size': 2,
-        }
+        },
     },
     LabelSmoothing: simple_vision_settings,
     LayerFreezing: simple_vision_settings,
     LowPrecisionLayerNorm: simple_bert_settings,
     LowPrecisionGroupNorm: {
-        'model': (SimpleConvModel, {
-            'norm': 'group',
-        }),
+        'model': (
+            SimpleConvModel,
+            {
+                'norm': 'group',
+            },
+        ),
         'dataset': RandomImageDataset,
         'kwargs': {},
     },
@@ -139,31 +193,40 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     SelectiveBackprop: simple_vision_settings,
     SeqLengthWarmup: {
         'model': configure_tiny_bert_hf_model,
-        'dataloader': (dummy_bert_lm_dataloader, {
-            'size': 8
-        }),
+        'dataloader': (
+            dummy_bert_lm_dataloader,
+            {
+                'size': 8,
+            },
+        ),
         'kwargs': {
             'duration': 0.5,
             'min_seq_length': 8,
-            'max_seq_length': 16
+            'max_seq_length': 16,
         },
     },
     SqueezeExcite: simple_resnet_settings,
     StochasticDepth: {
-        'model': (composer_resnet, {
-            'model_name': 'resnet50',
-            'num_classes': 2
-        }),
-        'dataset': (RandomImageDataset, {
-            'shape': (3, 224, 224),
-        }),
+        'model': (
+            composer_resnet,
+            {
+                'model_name': 'resnet50',
+                'num_classes': 2,
+            },
+        ),
+        'dataset': (
+            RandomImageDataset,
+            {
+                'shape': (3, 224, 224),
+            },
+        ),
         'kwargs': {
             'stochastic_method': 'block',
             'target_layer_name': 'ResNetBottleneck',
             'drop_rate': 0.2,
             'drop_distribution': 'linear',
             'drop_warmup': '0.0dur',
-        }
+        },
     },
     SWA: {
         'model': SimpleConvModel,
@@ -173,19 +236,22 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
             'swa_end': '0.97dur',
             'update_interval': '1ep',
             'schedule_swa_lr': True,
-        }
+        },
     },
     WeightStandardization: simple_vision_settings,
     GyroDropout: {
         'model': SimpleModelWithDropout,
-        'dataloader': (DataLoader, {
-            'dataset': SimpleDataset(batch_size=2, feature_size=64, num_classes=10)
-        }),
+        'dataloader': (
+            DataLoader,
+            {
+                'dataset': SimpleDataset(batch_size=2, feature_size=64, num_classes=10),
+            },
+        ),
         'kwargs': {
             'p': 0.5,
             'sigma': 2,
-            'tau': 1
-        }
+            'tau': 1,
+        },
     },
 }
 
@@ -264,29 +330,38 @@ def get_algs_with_marks():
             # TODO(matthew): Fix
             marks.append(
                 pytest.mark.filterwarnings(
-                    r'ignore:Detected call of `lr_scheduler.step\(\)` before `optimizer.step\(\)`:UserWarning'))
+                    r'ignore:Detected call of `lr_scheduler.step\(\)` before `optimizer.step\(\)`:UserWarning',
+                ),
+            )
             marks.append(
-                pytest.mark.filterwarnings('ignore:SWA has known issues when resuming from a checkpoint.*:UserWarning'))
+                pytest.mark.filterwarnings('ignore:SWA has known issues when resuming from a checkpoint.*:UserWarning'),
+            )
 
         if alg_cls == GyroDropout:
             marks.append(
                 pytest.mark.filterwarnings(
-                    'ignore:GyroDropout is not implemented in a way that allows correct resumption.*:UserWarning'))
+                    'ignore:GyroDropout is not implemented in a way that allows correct resumption.*:UserWarning',
+                ),
+            )
 
         if alg_cls == SAM:
             marks.append(
                 pytest.mark.filterwarnings(
-                    'ignore:SAM has known issues of weight mismatch when loading from a checkpoint.*:UserWarning'))
+                    'ignore:SAM has known issues of weight mismatch when loading from a checkpoint.*:UserWarning',
+                ),
+            )
 
         if alg_cls == MixUp:
             # TODO(Landen): Fix
             marks.append(
-                pytest.mark.filterwarnings(r'ignore:Some targets have less than 1 total probability:UserWarning'))
+                pytest.mark.filterwarnings(r'ignore:Some targets have less than 1 total probability:UserWarning'),
+            )
 
         if alg_cls == SelectiveBackprop:
             marks.append(
-                pytest.mark.filterwarnings(
-                    r'ignore:Cannot split tensor of length .* into batches of size .*:UserWarning'))
+                pytest.mark.
+                filterwarnings(r'ignore:Cannot split tensor of length .* into batches of size .*:UserWarning'),
+            )
 
         if settings is None:
             marks.append(pytest.mark.xfail(reason=f'Algorithm {alg_cls.__name__} is missing settings.'))

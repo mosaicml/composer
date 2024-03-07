@@ -87,15 +87,24 @@ class CheckBatch0(Callback):
         # TODO: Remove filterwarnings after FSDP removes deprecated code
         pytest.param('gpu', True, False, id='deepspeed', marks=pytest.mark.gpu),
         pytest.param(
-            'gpu', False, True, id='fsdp', marks=[
+            'gpu',
+            False,
+            True,
+            id='fsdp',
+            marks=[
                 pytest.mark.gpu,
                 pytest.mark.filterwarnings('ignore::UserWarning'),
-            ]),
-    ])
-@pytest.mark.parametrize('world_size', [
-    pytest.param(1),
-    pytest.param(2, marks=pytest.mark.world_size(2)),
-])
+            ],
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    'world_size',
+    [
+        pytest.param(1),
+        pytest.param(2, marks=pytest.mark.world_size(2)),
+    ],
+)
 def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path: pathlib.Path) -> None:
     """test strategy for ddp: 1) Train a dummy model on two gps, for two epochs, using the tracked dataset. 2) The
     tracked dataset should record two -- and only two -- accesses for each sample -- one for each epoch If each sample
@@ -113,7 +122,7 @@ def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path
     train_subset_num_batches = 3
 
     train_dataset = TrackedDataset(
-        dataset=RandomClassificationDataset(size=train_batch_size * train_subset_num_batches,),
+        dataset=RandomClassificationDataset(size=train_batch_size * train_subset_num_batches),
         is_train=True,
         tmp_path=tmp_path,
     )
@@ -136,7 +145,7 @@ def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path
     eval_subset_num_batches = 3
 
     eval_dataset = TrackedDataset(
-        dataset=RandomClassificationDataset(size=eval_batch_size * eval_subset_num_batches,),
+        dataset=RandomClassificationDataset(size=eval_batch_size * eval_subset_num_batches),
         is_train=False,
         tmp_path=tmp_path,
     )
@@ -160,7 +169,7 @@ def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path
             'backward_prefetch': 'BACKWARD_PRE',
             'activation_checkpointing': False,
             'activation_cpu_offload': False,
-            'verbose': False
+            'verbose': False,
         }
 
     max_epochs = 2

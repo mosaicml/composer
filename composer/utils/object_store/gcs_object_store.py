@@ -23,9 +23,11 @@ def _reraise_gcs_errors(uri: str, e: Exception):
         from google.api_core.exceptions import GatewayTimeout, NotFound
 
     except ImportError as import_exception:
-        raise MissingConditionalImportError(conda_package='google-cloud-storage',
-                                            extra_deps_group='google-cloud-storage',
-                                            conda_channel='conda-forge') from import_exception
+        raise MissingConditionalImportError(
+            conda_package='google-cloud-storage',
+            extra_deps_group='google-cloud-storage',
+            conda_channel='conda-forge',
+        ) from import_exception
 
     # If it's a google service NotFound error
     if isinstance(e, NotFound):
@@ -86,17 +88,21 @@ class GCSObjectStore(ObjectStore):
 
             from composer.utils.object_store.s3_object_store import S3ObjectStore
 
-            self.s3_object_store = S3ObjectStore(bucket=self.bucket_name,
-                                                 prefix=self.prefix,
-                                                 region_name='auto',
-                                                 endpoint_url='https://storage.googleapis.com',
-                                                 aws_access_key_id=os.environ['GCS_KEY'],
-                                                 aws_secret_access_key=os.environ['GCS_SECRET'])
+            self.s3_object_store = S3ObjectStore(
+                bucket=self.bucket_name,
+                prefix=self.prefix,
+                region_name='auto',
+                endpoint_url='https://storage.googleapis.com',
+                aws_access_key_id=os.environ['GCS_KEY'],
+                aws_secret_access_key=os.environ['GCS_SECRET'],
+            )
             self.client = None
             self.use_gcs_sdk = False
         else:
-            raise ValueError(f'GOOGLE_APPLICATION_CREDENTIALS needs to be set for ' +
-                             f'service level accounts or GCS_KEY and GCS_SECRET env variables must be set.')
+            raise ValueError(
+                f'GOOGLE_APPLICATION_CREDENTIALS needs to be set for ' +
+                f'service level accounts or GCS_KEY and GCS_SECRET env variables must be set.',
+            )
 
     def get_key(self, object_name: str) -> str:
         return f'{self.prefix}{object_name}'
@@ -138,10 +144,12 @@ class GCSObjectStore(ObjectStore):
             return -1
         return blob.size  # size in bytes
 
-    def upload_object(self,
-                      object_name: str,
-                      filename: Union[str, pathlib.Path],
-                      callback: Optional[Callable[[int, int], None]] = None):
+    def upload_object(
+        self,
+        object_name: str,
+        filename: Union[str, pathlib.Path],
+        callback: Optional[Callable[[int, int], None]] = None,
+    ):
         """Uploads a file to the cloud storage bucket.
 
         Args:

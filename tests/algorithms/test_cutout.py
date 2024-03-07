@@ -81,8 +81,16 @@ def test_cutout_mask(tensor_sizes, cutout_length_pixels, anchors):
 @pytest.mark.parametrize('width', [32, 71])
 @pytest.mark.parametrize('cutout_length', [0.25, 0.5])
 @pytest.mark.parametrize('uniform_sampling', [True, False])
-def test_cutout_algorithm(batch_size, channels, height, width, cutout_length, empty_logger, minimal_state,
-                          uniform_sampling):
+def test_cutout_algorithm(
+    batch_size,
+    channels,
+    height,
+    width,
+    cutout_length,
+    empty_logger,
+    minimal_state,
+    uniform_sampling,
+):
 
     # Initialize input tensor
     #   - Add bias to prevent 0. pixels, causes check_box() to fail since based on search for 0's

@@ -3,8 +3,14 @@
 
 from collections import Counter
 
-from torch.optim.lr_scheduler import (CosineAnnealingLR, CosineAnnealingWarmRestarts, ExponentialLR, LRScheduler,
-                                      MultiStepLR, StepLR)
+from torch.optim.lr_scheduler import (
+    CosineAnnealingLR,
+    CosineAnnealingWarmRestarts,
+    ExponentialLR,
+    LRScheduler,
+    MultiStepLR,
+    StepLR,
+)
 
 
 def scale_pytorch_scheduler(scheduler: LRScheduler, ssr: float):
@@ -69,5 +75,7 @@ def scale_pytorch_scheduler(scheduler: LRScheduler, ssr: float):
         factor = 1 / ssr
         scheduler.gamma = scheduler.gamma**factor  # type: ignore  -- unknown attribute
     else:
-        raise ValueError(f'Scale schedule being applied to unrecognized Scheduler {scheduler}. '
-                         'Please implement your scheduler as a function instead.')
+        raise ValueError(
+            f'Scale schedule being applied to unrecognized Scheduler {scheduler}. '
+            'Please implement your scheduler as a function instead.',
+        )

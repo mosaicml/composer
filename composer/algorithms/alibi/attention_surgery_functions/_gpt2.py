@@ -7,8 +7,11 @@ from typing import Tuple
 import torch
 from transformers.models.gpt2.modeling_gpt2 import GPT2Attention, GPT2Model
 
-from composer.algorithms.alibi.attention_surgery_functions.utils import (policy_registry, register_alibi,
-                                                                         zero_and_freeze_expand_position_embeddings)
+from composer.algorithms.alibi.attention_surgery_functions.utils import (
+    policy_registry,
+    register_alibi,
+    zero_and_freeze_expand_position_embeddings,
+)
 
 
 @policy_registry.register(GPT2Model)
@@ -31,7 +34,8 @@ def gpt2_attention_converter(module: torch.nn.Module, module_index: int, max_seq
         module=module,
         n_heads=int(module.num_heads),  #type: ignore num_heads member of GPT2Attention
         max_token_length=max_sequence_length,
-        causal=True)
+        causal=True,
+    )
     setattr(module, '_attn', MethodType(_attn, module))
 
     module = enlarge_mask(module, max_sequence_length)
@@ -92,6 +96,8 @@ def enlarge_mask(module: torch.nn.Module, max_sequence_length: int) -> torch.nn.
         torch.ones(
             (max_sequence_length, max_sequence_length),  # type: ignore
             dtype=torch.uint8,
-            device=old_mask.device)).view(1, 1, max_sequence_length, max_sequence_length)  # type: ignore
+            device=old_mask.device,
+        ),
+    ).view(1, 1, max_sequence_length, max_sequence_length)  # type: ignore
     setattr(module, 'bias', new_mask)
     return module
