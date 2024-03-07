@@ -78,11 +78,13 @@ class ObjectStore(abc.ABC):
         """
         raise NotImplementedError(f'{type(self).__name__}.get_uri is not implemented')
 
-    def upload_object(self,
-                      object_name: str,
-                      filename: Union[str, pathlib.Path],
-                      callback: Optional[Callable[[int, int], None]] = None,
-                      **kwargs) -> None:
+    def upload_object(
+        self,
+        object_name: str,
+        filename: Union[str, pathlib.Path],
+        callback: Optional[Callable[[int, int], None]] = None,
+        **kwargs,
+    ) -> None:
         """Upload an object currently located on a disk.
 
         Args:

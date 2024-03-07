@@ -90,11 +90,14 @@ class NoOpReplacementPolicy(SimpleReplacementPolicy):
 
 
 @pytest.mark.parametrize('recurse_on_replacements', [True, False])
-@pytest.mark.parametrize('model_cls', [
-    SimpleReplacementPolicy,
-    ModuleIdxReplacementPolicy,
-    NoOpReplacementPolicy,
-])
+@pytest.mark.parametrize(
+    'model_cls',
+    [
+        SimpleReplacementPolicy,
+        ModuleIdxReplacementPolicy,
+        NoOpReplacementPolicy,
+    ],
+)
 def test_module_replacement(
     model_cls: Type[SimpleReplacementPolicy],
     recurse_on_replacements: bool,
@@ -158,7 +161,7 @@ def optimizer_surgery_state():
     """Returns a tuple of (old_layers, new_layers, and optimizer)."""
     model = SimpleModel(num_features=1, num_classes=10)
     policy: Mapping[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
-        torch.nn.Linear: _CopyLinear.from_linear
+        torch.nn.Linear: _CopyLinear.from_linear,
     }
     opt = torch.optim.SGD(model.parameters(), lr=.001)
 
@@ -219,9 +222,11 @@ def test_update_params_in_optimizer():
     m2 = ParamTestModel()
     optimizer = torch.optim.Adam(m1.parameters(), lr=0.01)
     current_order = list(m2.parameters())
-    module_surgery.update_params_in_optimizer(old_params=m1.parameters(),
-                                              new_params=m2.parameters(),
-                                              optimizers=optimizer)
+    module_surgery.update_params_in_optimizer(
+        old_params=m1.parameters(),
+        new_params=m2.parameters(),
+        optimizers=optimizer,
+    )
     post_replacement_order = optimizer.param_groups[0]['params']
     for idx, value in enumerate(current_order):
         assert torch.all(value.eq(post_replacement_order[idx]))

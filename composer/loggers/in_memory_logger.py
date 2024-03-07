@@ -71,18 +71,22 @@ class InMemoryLogger(LoggerDestination):
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         self.hyperparameters.update(hyperparameters)
 
-    def log_table(self,
-                  columns: List[str],
-                  rows: List[List[Any]],
-                  name: str = 'Table',
-                  step: Optional[int] = None) -> None:
+    def log_table(
+        self,
+        columns: List[str],
+        rows: List[List[Any]],
+        name: str = 'Table',
+        step: Optional[int] = None,
+    ) -> None:
         del step
         try:
             import pandas as pd
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='pandas',
-                                                conda_package='pandas',
-                                                conda_channel='conda-forge') from e
+            raise MissingConditionalImportError(
+                extra_deps_group='pandas',
+                conda_package='pandas',
+                conda_channel='conda-forge',
+            ) from e
         table = pd.DataFrame.from_records(data=rows, columns=columns).to_json(orient='split', index=False)
         assert isinstance(table, str)
         self.tables[name] = table
@@ -147,8 +151,10 @@ class InMemoryLogger(LoggerDestination):
         """
         # Check that desired metric is in present data
         if metric not in self.data.keys():
-            raise ValueError(f'Invalid value for argument `metric`: {metric}. Requested '
-                             'metric is not present in self.data.keys().')
+            raise ValueError(
+                f'Invalid value for argument `metric`: {metric}. Requested '
+                'metric is not present in self.data.keys().',
+            )
 
         timeseries = {}
         # Iterate through datapoints

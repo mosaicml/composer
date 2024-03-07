@@ -9,8 +9,12 @@ from composer.callbacks import SpeedMonitor
 from composer.core import Precision
 from composer.loggers import InMemoryLogger
 from composer.trainer import Trainer
-from composer.utils import (StringEnum, convert_flat_dict_to_nested_dict, convert_nested_dict_to_flat_dict,
-                            extract_hparams)
+from composer.utils import (
+    StringEnum,
+    convert_flat_dict_to_nested_dict,
+    convert_nested_dict_to_flat_dict,
+    extract_hparams,
+)
 from tests.common.datasets import RandomClassificationDataset
 from tests.common.models import SimpleModel
 
@@ -50,7 +54,7 @@ def test_extract_hparams():
         'a': 1.5,
         'b': {
             'c': 2.5,
-            'd': 3
+            'd': 3,
         },
         'e': [4, 5, 6.2],
         'f': Foo(),
@@ -65,14 +69,14 @@ def test_extract_hparams():
         'a': 1.5,
         'b': {
             'c': 2.5,
-            'd': 3
+            'd': 3,
         },
         'e': [4, 5, 6.2],
         'f': 'Foo',
         'p': {
             'Bar': {
                 'm': 11,
-            }
+            },
         },
         'h': None,
         'i': True,

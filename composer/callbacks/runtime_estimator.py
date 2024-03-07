@@ -78,7 +78,8 @@ class RuntimeEstimator(Callback):
             self.divider = 60 * 60 * 24
         else:
             raise ValueError(
-                f'Invalid time_unit: {time_unit}. Must be one of "seconds", "minutes", "hours", or "days".')
+                f'Invalid time_unit: {time_unit}. Must be one of "seconds", "minutes", "hours", or "days".',
+            )
 
         # Keep track of time spent evaluating
         self.total_eval_wct = 0.0
@@ -97,8 +98,9 @@ class RuntimeEstimator(Callback):
             return None
         if state.max_duration.unit == TimeUnit('ep'):
             if state.timestamp.epoch.value >= 1:
-                batches_per_epoch = (state.timestamp.batch -
-                                     state.timestamp.batch_in_epoch).value / state.timestamp.epoch.value
+                batches_per_epoch = (
+                    state.timestamp.batch - state.timestamp.batch_in_epoch
+                ).value / state.timestamp.epoch.value
                 return state.timestamp.get('ba').value / (state.max_duration.value * batches_per_epoch)
             elif self.train_dataloader_len is not None:
                 return state.timestamp.get('ba').value / (state.max_duration.value * self.train_dataloader_len)

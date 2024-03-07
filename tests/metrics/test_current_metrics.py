@@ -46,7 +46,7 @@ class MetricsCallback(Callback):
 
 
 @pytest.mark.parametrize('eval_interval', ['1ba', '1ep', '0ep'])
-def test_current_metrics(eval_interval: str,):
+def test_current_metrics(eval_interval: str):
     # Configure the trainer
     mock_logger_destination = MagicMock()
     mock_logger_destination.log_metrics = MagicMock()

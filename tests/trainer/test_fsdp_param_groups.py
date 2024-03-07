@@ -34,16 +34,18 @@ def test_fsdp_param_groups_without_orig_params(mixed_precision: str, device: str
     expected_error = 'Multiple optimizer groups with FSDP are only supported with use_orig_params=True.'
 
     with pytest.raises(RuntimeError, match=expected_error):
-        _ = Trainer(model=model,
-                    optimizers=optimizer,
-                    train_dataloader=dataloader,
-                    fsdp_config={
-                        'activation_checkpointing_reentrant': reentrant,
-                        'mixed_precision': mixed_precision,
-                        'use_orig_params': False
-                    },
-                    max_duration='3ba',
-                    device=device)
+        _ = Trainer(
+            model=model,
+            optimizers=optimizer,
+            train_dataloader=dataloader,
+            fsdp_config={
+                'activation_checkpointing_reentrant': reentrant,
+                'mixed_precision': mixed_precision,
+                'use_orig_params': False,
+            },
+            max_duration='3ba',
+            device=device,
+        )
     gc.collect()
 
 
@@ -52,8 +54,10 @@ def test_fsdp_param_groups_without_orig_params(mixed_precision: str, device: str
 @pytest.mark.filterwarnings('ignore::UserWarning')
 @device('gpu')
 @world_size(2)
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2'),
-                    reason='FSDP use_orig_params requires torch 2.0 or higher')
+@pytest.mark.skipif(
+    version.parse(torch.__version__) < version.parse('2'),
+    reason='FSDP use_orig_params requires torch 2.0 or higher',
+)
 def test_fsdp_with_param_groups(mixed_precision: str, device: str, reentrant: bool, world_size: int):
     """
     Test whether an optimizer with multiple param groups maintains the same param groups when
@@ -75,15 +79,17 @@ def test_fsdp_with_param_groups(mixed_precision: str, device: str, reentrant: bo
 
     optimizer_groups_pre_fsdp = optimizer.param_groups
 
-    trainer = Trainer(model=model,
-                      optimizers=optimizer,
-                      train_dataloader=dataloader,
-                      fsdp_config={
-                          'activation_checkpointing_reentrant': reentrant,
-                          'mixed_precision': mixed_precision
-                      },
-                      max_duration='3ba',
-                      device=device)
+    trainer = Trainer(
+        model=model,
+        optimizers=optimizer,
+        train_dataloader=dataloader,
+        fsdp_config={
+            'activation_checkpointing_reentrant': reentrant,
+            'mixed_precision': mixed_precision,
+        },
+        max_duration='3ba',
+        device=device,
+    )
     trainer.fit()
 
     assert misc.is_model_fsdp(trainer.state.model)
@@ -92,8 +98,10 @@ def test_fsdp_with_param_groups(mixed_precision: str, device: str, reentrant: bo
     assert len(trainer_optimizer.param_groups) == len(optimizer_groups_pre_fsdp)
 
     with trainer.state.model.module.summon_full_params(trainer.state.model.module):  # type: ignore
-        for unwrapped_param_group, wrapped_param_group in zip(unwrapped_optimizer.param_groups,
-                                                              trainer_optimizer.param_groups):
+        for unwrapped_param_group, wrapped_param_group in zip(
+            unwrapped_optimizer.param_groups,
+            trainer_optimizer.param_groups,
+        ):
 
             unwrapped_param_list = unwrapped_param_group['params']
             wrapped_param_list = wrapped_param_group['params']

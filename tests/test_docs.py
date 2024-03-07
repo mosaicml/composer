@@ -18,14 +18,16 @@ def check_output(proc: subprocess.CompletedProcess):
     # The `check=True` flag available in `subprocess.run` does not print stdout/stderr
     if proc.returncode == 0:
         return
-    error_msg = textwrap.dedent(f"""\
+    error_msg = textwrap.dedent(
+        f"""\
         Command {proc.args} failed with exit code {proc.returncode}.
         ----Begin stdout----
         {proc.stdout}
         ----End stdout------
         ----Begin stderr----
         {proc.stderr}
-        ----End stderr------""")
+        ----End stderr------""",
+    )
 
     raise RuntimeError(error_msg)
 
@@ -53,10 +55,13 @@ def test_docker_build_matrix():
 
     # Run the script
     check_output(
-        subprocess.run(['python', os.path.join(docker_folder, 'generate_build_matrix.py')],
-                       cwd=docker_folder,
-                       capture_output=True,
-                       text=True))
+        subprocess.run(
+            ['python', os.path.join(docker_folder, 'generate_build_matrix.py')],
+            cwd=docker_folder,
+            capture_output=True,
+            text=True,
+        ),
+    )
 
     # Assert that the files did not change
 
