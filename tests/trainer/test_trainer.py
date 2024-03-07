@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional, Union
 import pytest
 import torch
 from torch.nn.parallel import DistributedDataParallel
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader 
 
 from composer import Callback, Evaluator, Trainer
 from composer.algorithms import CutOut, LabelSmoothing
