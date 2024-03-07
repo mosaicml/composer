@@ -2110,7 +2110,7 @@ class Trainer:
         dist.all_reduce(sample_token_tensor, reduce_operation='SUM')
         if isinstance(num_samples, float):
             sample_token_tensor_int = sample_token_tensor.to(torch.int)
-            if torch.any(torch.ne(sample_token_tensor_int, sample_token_tensor)):
+            if torch.any(torch.abs(sample_token_tensor_int - sample_token_tensor) > 1e-4):
                 raise ValueError('The sums of samples and tokens across ranks should each be integers.')
             sample_token_tensor = sample_token_tensor_int
         batch_time_tensor = self.state.device.tensor_to_device(
@@ -3020,7 +3020,7 @@ class Trainer:
                     batch_num_samples_tensor = self.state.device.tensor_to_device(torch.tensor(rank_num_samples))
                     dist.all_reduce(batch_num_samples_tensor, reduce_operation='SUM')
                     batch_num_samples = int(batch_num_samples_tensor.item())
-                    if batch_num_samples != batch_num_samples_tensor.item():
+                    if abs(batch_num_samples - batch_num_samples_tensor.item()) > 1e-4:
                         raise ValueError('Number of samples in a batch should be an integer.')
                     last_batch = self.state.eval_timestamp.sample + batch_num_samples >= dataset_len
 
