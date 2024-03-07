@@ -68,13 +68,15 @@ class ImageVisualizer(Callback):
             element is the target. Default: ``1``.
     """
 
-    def __init__(self,
-                 interval: Union[int, str, Time] = '100ba',
-                 mode: str = 'input',
-                 num_images: int = 8,
-                 channels_last: bool = False,
-                 input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
-                 target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1):
+    def __init__(
+        self,
+        interval: Union[int, str, Time] = '100ba',
+        mode: str = 'input',
+        num_images: int = 8,
+        channels_last: bool = False,
+        input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
+        target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
+    ):
         self.mode = mode
         self.num_images = num_images
         self.channels_last = channels_last
@@ -90,8 +92,10 @@ class ImageVisualizer(Callback):
 
         # Verify that the interval has supported units
         if self.interval.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
-            raise ValueError(f'Invalid time unit for parameter interval: '
-                             f'{self.interval.unit}')
+            raise ValueError(
+                f'Invalid time unit for parameter interval: '
+                f'{self.interval.unit}',
+            )
 
         self.last_train_time_value_logged = -1
 
@@ -141,11 +145,13 @@ def _make_input_images(inputs: torch.Tensor, num_images: int):
     return images
 
 
-def _make_segmentation_images(inputs: torch.Tensor,
-                              targets: torch.Tensor,
-                              outputs: Union[torch.Tensor, Sequence[torch.Tensor]],
-                              num_images: int,
-                              channels_last: bool = False):
+def _make_segmentation_images(
+    inputs: torch.Tensor,
+    targets: torch.Tensor,
+    outputs: Union[torch.Tensor, Sequence[torch.Tensor]],
+    num_images: int,
+    channels_last: bool = False,
+):
     if isinstance(outputs, Sequence):
         outputs = torch.stack(list(outputs))
     if min([inputs.shape[0], targets.shape[0], outputs.shape[0]]) < num_images:

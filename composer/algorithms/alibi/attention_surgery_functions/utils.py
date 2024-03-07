@@ -19,8 +19,10 @@ AlibiReplacementFunction = Callable[[torch.nn.Module, int, int], Optional[torch.
 class PolicyRegistry(Dict[Type[torch.nn.Module], AlibiReplacementFunction]):
     """A registry mapping for ALiBi surgery."""
 
-    def register(self,
-                 *modules: Type[torch.nn.Module]) -> Callable[[AlibiReplacementFunction], AlibiReplacementFunction]:
+    def register(
+        self,
+        *modules: Type[torch.nn.Module],
+    ) -> Callable[[AlibiReplacementFunction], AlibiReplacementFunction]:
         """This decorator registers mappings from torch module types to their ALiBi surgery functions.
 
         To accommodate the specifics of composer's module surgery, our ALiBi implementation uses a
@@ -76,11 +78,13 @@ class PolicyRegistry(Dict[Type[torch.nn.Module], AlibiReplacementFunction]):
             parameters = signature.parameters
             if len(parameters) != 3:
                 raise ValueError(
-                    f'Each alibi surgery function must accept 3 arguments, {func} accepts {len(parameters)}')
+                    f'Each alibi surgery function must accept 3 arguments, {func} accepts {len(parameters)}',
+                )
             ((_, module_param), (_, index_param), (max_seq_name, max_seq_param)) = parameters.items()
             if module_param.annotation != torch.nn.Module:
                 raise TypeError(
-                    f'The first argument of alibi surgery function {func} must be of type "torch.nn.Module"')
+                    f'The first argument of alibi surgery function {func} must be of type "torch.nn.Module"',
+                )
             if index_param.annotation != int:
                 raise TypeError(f'The second argument of alibi surgery function {func} must be of type "int"')
             if max_seq_param.annotation != int:
@@ -93,7 +97,8 @@ class PolicyRegistry(Dict[Type[torch.nn.Module], AlibiReplacementFunction]):
                 raise TypeError(f'Module {module.__name__} is not a subclass of `torch.nn.Module`.')
             if module in self:
                 raise ValueError(
-                    f'An AlibiReplacementFunction has already been registered for module {module.__name__}.')
+                    f'An AlibiReplacementFunction has already been registered for module {module.__name__}.',
+                )
             self[module] = func
             return
 
@@ -123,22 +128,29 @@ def zero_and_freeze_expand_position_embeddings(
         pos_embedding_module = attrgetter(position_embedding_attribute)(module)
         old_weight = getattr(pos_embedding_module, 'weight')
         if not isinstance(old_weight, torch.nn.Parameter):
-            raise TypeError(f'Module {module._get_name()}, position embedding {position_embedding_attribute}, '
-                            f"'weight' attribute must be of type torch.nn.Module")
+            raise TypeError(
+                f'Module {module._get_name()}, position embedding {position_embedding_attribute}, '
+                f"'weight' attribute must be of type torch.nn.Module",
+            )
         new_weight = torch.nn.Parameter(
-            torch.zeros((max_sequence_length, old_weight.shape[1]),
-                        dtype=old_weight.dtype,
-                        layout=old_weight.layout,
-                        device=old_weight.device))
+            torch.zeros(
+                (max_sequence_length, old_weight.shape[1]),
+                dtype=old_weight.dtype,
+                layout=old_weight.layout,
+                device=old_weight.device,
+            ),
+        )
         new_weight.requires_grad = False
         setattr(pos_embedding_module, 'weight', new_weight)
 
         log.info(f' Position embedding expanded to sequence length {max_sequence_length}, zeroed, and frozen')
 
     except AttributeError:
-        log.error(f'Unable to zero and freeze position embeddings. Module '
-                  f'{module} may lack attribute {position_embedding_attribute}, or position '
-                  f"embeddings may lack attribute 'weight'.")
+        log.error(
+            f'Unable to zero and freeze position embeddings. Module '
+            f'{module} may lack attribute {position_embedding_attribute}, or position '
+            f"embeddings may lack attribute 'weight'.",
+        )
         raise
 
 
@@ -196,4 +208,5 @@ def _get_alibi_head_slopes(n_heads: int):
     else:
         closest_power_of_2 = 2**math.floor(math.log2(n_heads))
         return get_slopes_power_of_2(closest_power_of_2) + _get_alibi_head_slopes(
-            2 * closest_power_of_2)[0::2][:n_heads - closest_power_of_2]
+            2 * closest_power_of_2,
+        )[0::2][:n_heads - closest_power_of_2]

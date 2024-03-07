@@ -27,15 +27,17 @@ def state(minimal_state: State):
     return minimal_state
 
 
-@pytest.fixture(params=[
-    # replace_conv, replace_pool, blur_first
-    (True, True, True),
-    (True, True, False),
-    (True, False, True),
-    (True, False, False),
-    (False, True, True),
-    (False, True, False),
-])
+@pytest.fixture(
+    params=[
+        # replace_conv, replace_pool, blur_first
+        (True, True, True),
+        (True, True, False),
+        (True, False, True),
+        (True, False, False),
+        (False, True, True),
+        (False, True, False),
+    ],
+)
 def blurpool_instance(request) -> BlurPool:
     replace_conv, replace_pool, blur_first = request.param
     return BlurPool(

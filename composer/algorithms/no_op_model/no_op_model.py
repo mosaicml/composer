@@ -89,9 +89,11 @@ class NoOpModel(Algorithm):
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         new_model = NoOpModelClass(state.model)
-        module_surgery.update_params_in_optimizer(old_params=state.model.parameters(),
-                                                  new_params=new_model.parameters(),
-                                                  optimizers=state.optimizers)
+        module_surgery.update_params_in_optimizer(
+            old_params=state.model.parameters(),
+            new_params=new_model.parameters(),
+            optimizers=state.optimizers,
+        )
         state.model = new_model
 
         log.info('Replaced model with a NoOpModel')

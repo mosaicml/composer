@@ -34,8 +34,14 @@ def console_logger_test_stream(console_logger_test_file_path):
 @pytest.mark.parametrize('max_duration_unit', ['ba', 'ep'])
 @pytest.mark.parametrize('log_interval', [1, 2, 3])
 @pytest.mark.parametrize('max_duration', [8, 9, 10, 11])
-def test_console_logger_interval(console_logger_test_stream, console_logger_test_file_path, log_interval, max_duration,
-                                 log_interval_unit, max_duration_unit):
+def test_console_logger_interval(
+    console_logger_test_stream,
+    console_logger_test_file_path,
+    log_interval,
+    max_duration,
+    log_interval_unit,
+    max_duration_unit,
+):
 
     batch_size = 4
     dataset_size = 17
@@ -61,8 +67,9 @@ def test_console_logger_interval(console_logger_test_stream, console_logger_test
     # Make a regular expression for matches for any line that contains "Train" followed by
     # a colon.
     reg_exp = re.compile('Train *:*')
-    actual_num_log_lines = sum(
-        [1 if bool(reg_exp.search(line)) and ('trainer/' not in line and 'time/' not in line) else 0 for line in lines])
+    actual_num_log_lines = sum([
+        1 if bool(reg_exp.search(line)) and ('trainer/' not in line and 'time/' not in line) else 0 for line in lines
+    ])
 
     assert model.train_metrics is not None
     num_metrics = len(list(model.train_metrics.keys())) if isinstance(model.train_metrics, MetricCollection) else 1
@@ -144,8 +151,9 @@ def test_console_logger_fit(
     actual_num_eval_log_lines = sum([1 if bool(eval_reg_exp.search(line)) else 0 for line in lines])
 
     assert model.val_metrics is not None
-    num_eval_metrics_per_event = len(list(model.val_metrics.keys())) if isinstance(model.val_metrics,
-                                                                                   MetricCollection) else 1
+    num_eval_metrics_per_event = len(
+        list(model.val_metrics.keys()),
+    ) if isinstance(model.val_metrics, MetricCollection) else 1
     num_eval_losses = 0
     num_eval_metrics_and_losses_per_logging_event = num_eval_metrics_per_event + num_eval_losses
 
@@ -164,8 +172,9 @@ def test_console_logger_fit(
     if remainder:
         expected_num_eval_logging_events += 1
 
-    expected_num_eval_lines = expected_num_eval_logging_events * (num_eval_metrics_and_losses_per_logging_event +
-                                                                  num_eval_progress_lines_per_eval_event)
+    expected_num_eval_lines = expected_num_eval_logging_events * (
+        num_eval_metrics_and_losses_per_logging_event + num_eval_progress_lines_per_eval_event
+    )
 
     assert actual_num_eval_log_lines == expected_num_eval_lines
 
@@ -201,9 +210,12 @@ def test_console_logger_eval(
         max_duration=f'{max_duration}{max_duration_unit}',
     )
 
-    trainer.eval(eval_dataloader=Evaluator(label='trainer.eval_dataloader',
-                                           dataloader=DataLoader(RandomClassificationDataset(size=eval_dataset_size),
-                                                                 batch_size=eval_batch_size)),)
+    trainer.eval(
+        eval_dataloader=Evaluator(
+            label='trainer.eval_dataloader',
+            dataloader=DataLoader(RandomClassificationDataset(size=eval_dataset_size), batch_size=eval_batch_size),
+        ),
+    )
     console_logger_test_stream.flush()
     console_logger_test_stream.close()
 
@@ -216,8 +228,9 @@ def test_console_logger_eval(
     actual_num_eval_log_lines = sum([1 if bool(eval_reg_exp.search(line)) else 0 for line in lines])
 
     assert model.val_metrics is not None
-    num_eval_metrics_per_event = len(list(model.val_metrics.keys())) if isinstance(model.val_metrics,
-                                                                                   MetricCollection) else 1
+    num_eval_metrics_per_event = len(
+        list(model.val_metrics.keys()),
+    ) if isinstance(model.val_metrics, MetricCollection) else 1
 
     if eval_interval_unit == max_duration_unit:
         expected_num_eval_logging_events, remainder = divmod(max_duration, eval_interval)
@@ -235,7 +248,8 @@ def test_console_logger_eval(
 
     expected_num_eval_logging_events_for_trainer_eval_call = 1
     expected_num_eval_lines = expected_num_eval_logging_events_for_trainer_eval_call * (
-        num_eval_progress_lines_per_eval_event + num_eval_metrics_per_event)
+        num_eval_progress_lines_per_eval_event + num_eval_metrics_per_event
+    )
 
     assert actual_num_eval_log_lines == expected_num_eval_lines
 
@@ -298,8 +312,14 @@ def test_console_logger_log_table(console_logger_test_stream, console_logger_tes
 @pytest.mark.parametrize('max_duration_unit', ['ba', 'ep'])
 @pytest.mark.parametrize('log_interval', [1])
 @pytest.mark.parametrize('max_duration', [8])
-def test_console_logger_with_a_callback(console_logger_test_stream, console_logger_test_file_path, log_interval,
-                                        max_duration, log_interval_unit, max_duration_unit):
+def test_console_logger_with_a_callback(
+    console_logger_test_stream,
+    console_logger_test_file_path,
+    log_interval,
+    max_duration,
+    log_interval_unit,
+    max_duration_unit,
+):
 
     batch_size = 4
     dataset_size = 16
@@ -389,8 +409,9 @@ def test_console_logger_overlapping(console_logger_test_stream, console_logger_t
     # Make a regular expression for matches for any line that contains "Train" followed by
     # a colon.
     reg_exp = re.compile('Train *:*')
-    actual_num_log_lines = sum(
-        [1 if bool(reg_exp.search(line)) and ('trainer/' not in line and 'time/' not in line) else 0 for line in lines])
+    actual_num_log_lines = sum([
+        1 if bool(reg_exp.search(line)) and ('trainer/' not in line and 'time/' not in line) else 0 for line in lines
+    ])
 
     assert model.train_metrics is not None
     num_metrics = len(list(model.train_metrics.keys())) if isinstance(model.train_metrics, MetricCollection) else 1

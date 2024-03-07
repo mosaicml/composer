@@ -37,8 +37,10 @@ class Precision(StringEnum):
 
 
 @contextlib.contextmanager
-def get_precision_context(precision: Union[str, Precision],
-                          precision_config: Optional[Dict[str, Any]] = None) -> Generator[None, None, None]:
+def get_precision_context(
+    precision: Union[str, Precision],
+    precision_config: Optional[Dict[str, Any]] = None,
+) -> Generator[None, None, None]:
     """Returns a context manager to automatically cast to a specific precision.
 
     Args:
@@ -95,9 +97,12 @@ def get_precision_context(precision: Union[str, Precision],
                 raise RuntimeError('AMP_FP8 precision is used but current device does not support it.')
             else:
                 raise ImportError(
-                    textwrap.dedent("""\
+                    textwrap.dedent(
+                        """\
                         AMP_FP8 precision is used but TransformerEngine is not installed.
                         After making sure torch is already installed, please install it using
-                        pip install --upgrade git+https://github.com/NVIDIA/TransformerEngine.git@stable"""))
+                        pip install --upgrade git+https://github.com/NVIDIA/TransformerEngine.git@stable""",
+                    ),
+                )
     else:
         raise ValueError(f'Unsupported precision: {precision}')
