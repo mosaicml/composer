@@ -72,7 +72,8 @@ class StringEnum(Enum):
             warnings.warn(
                 f"Detected comparision between a string and {cls_name}. Please use {cls_name}('{other}') "
                 f'to convert both types to {cls_name} before comparing.',
-                category=UserWarning)
+                category=UserWarning,
+            )
             try:
                 o_enum = type(self)(other)
             except ValueError:  # `other` is not a valid enum option
@@ -83,16 +84,22 @@ class StringEnum(Enum):
     def __init__(self, *args: object) -> None:
         if self.name.upper() != self.name:
             raise ValueError(
-                textwrap.dedent(f"""\
+                textwrap.dedent(
+                    f"""\
                 {self.__class__.__name__}.{self.name} is invalid.
                 All keys in {self.__class__.__name__} must be uppercase.
-                To fix, rename to '{self.name.upper()}'."""))
+                To fix, rename to '{self.name.upper()}'.""",
+                ),
+            )
         if self.value.lower() != self.value:
             raise ValueError(
-                textwrap.dedent(f"""\
+                textwrap.dedent(
+                    f"""\
                 The value for {self.__class__.__name__}.{self.name}={self.value} is invalid.
                 All values in {self.__class__.__name__} must be lowercase. "
-                To fix, rename to '{self.value.lower()}'."""))
+                To fix, rename to '{self.value.lower()}'.""",
+                ),
+            )
 
     @classmethod
     def _missing_(cls, value: object) -> StringEnum:

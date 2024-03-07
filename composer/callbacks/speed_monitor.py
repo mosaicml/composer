@@ -96,7 +96,7 @@ GPU_AVAILABLE_FLOPS = {
         'bf16': 190e12 / 2,
         'amp_bf16': 190e12 / 2,
         'int8': 380e12 / 2,
-    }
+    },
 }
 
 
@@ -258,7 +258,8 @@ class SpeedMonitor(Callback):
             self.divider = 60 * 60 * 24
         else:
             raise ValueError(
-                f'Invalid time_unit: {time_unit}. Must be one of "seconds", "minutes", "hours", or "days".')
+                f'Invalid time_unit: {time_unit}. Must be one of "seconds", "minutes", "hours", or "days".',
+            )
 
         # Keep track of time spent evaluating
         self.total_eval_wct = 0.0
@@ -314,13 +315,16 @@ class SpeedMonitor(Callback):
         if hasattr(composer_model, 'flops_per_batch'):
             model_flops_per_batch = composer_model.flops_per_batch  # type: ignore
             if not isinstance(model_flops_per_batch, Callable):
-                raise TypeError('flops_per_batch must a callable accepting a batch and '
-                                f'returning an int or float. Instead, got {type(model_flops_per_batch)}.')
+                raise TypeError(
+                    'flops_per_batch must a callable accepting a batch and '
+                    f'returning an int or float. Instead, got {type(model_flops_per_batch)}.',
+                )
             device_flops_per_batch = model_flops_per_batch(state.batch)
 
             # Sum flops across all ranks since each rank computes the flops for its own batch
             flops_per_batch_tensor = state.device.tensor_to_device(
-                torch.tensor(device_flops_per_batch, dtype=torch.float))
+                torch.tensor(device_flops_per_batch, dtype=torch.float),
+            )
             dist.all_reduce(flops_per_batch_tensor, reduce_operation='SUM')
             flops_per_batch = flops_per_batch_tensor.item()
 

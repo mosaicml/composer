@@ -68,14 +68,18 @@ def test_profiler_init(minimal_state: State):
 
 def test_marker(dummy_state: State):
     mock_trace_handler = MagicMock()
-    profiler = Profiler(trace_handlers=[mock_trace_handler],
-                        schedule=cyclic_schedule(),
-                        torch_prof_memory_filename=None)
+    profiler = Profiler(
+        trace_handlers=[mock_trace_handler],
+        schedule=cyclic_schedule(),
+        torch_prof_memory_filename=None,
+    )
     profiler.bind_to_state(dummy_state)
     dummy_state.profiler = profiler
-    marker = profiler.marker('name',
-                             actions=[ProfilerAction.SKIP, ProfilerAction.WARMUP, ProfilerAction.ACTIVE],
-                             categories=['cat1'])
+    marker = profiler.marker(
+        'name',
+        actions=[ProfilerAction.SKIP, ProfilerAction.WARMUP, ProfilerAction.ACTIVE],
+        categories=['cat1'],
+    )
     marker.start()  # call #1
     with pytest.raises(RuntimeError):
         marker.start()  # cannot call start twice without finishing
@@ -108,11 +112,17 @@ def test_marker(dummy_state: State):
 @pytest.mark.parametrize('torch_prof_record_shapes', [True, False])
 @pytest.mark.parametrize('torch_prof_profile_memory', [True, False])
 @pytest.mark.parametrize('torch_prof_memory_filename', [None, 'test.html'])
-def test_profiler_error_message(torch_prof_with_stack: bool, torch_prof_record_shapes: bool,
-                                torch_prof_profile_memory: bool, torch_prof_memory_filename: Union[None, str]) -> None:
+def test_profiler_error_message(
+    torch_prof_with_stack: bool,
+    torch_prof_record_shapes: bool,
+    torch_prof_profile_memory: bool,
+    torch_prof_memory_filename: Union[None, str],
+) -> None:
     # Construct a profiler and assert that it triggers the ValueError if the arguments are invalid
-    if (torch_prof_memory_filename is not None and
-            not (torch_prof_with_stack and torch_prof_record_shapes and torch_prof_profile_memory)):
+    if (
+        torch_prof_memory_filename is not None and
+        not (torch_prof_with_stack and torch_prof_record_shapes and torch_prof_profile_memory)
+    ):
         with pytest.raises(ValueError):
             _ = Profiler(
                 trace_handlers=[MagicMock()],

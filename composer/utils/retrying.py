@@ -94,8 +94,10 @@ def retry(  # type: ignore
 
         return cast(TCallable, new_func)
 
-    if not isinstance(exc_class, collections.abc.Sequence) and not (isinstance(exc_class, type) and
-                                                                    issubclass(exc_class, Exception)):
+    if not isinstance(
+        exc_class,
+        collections.abc.Sequence,
+    ) and not (isinstance(exc_class, type) and issubclass(exc_class, Exception)):
         # Using the decorator without (), like @retry_with_backoff
         func = cast(TCallable, exc_class)
         exc_class = Exception

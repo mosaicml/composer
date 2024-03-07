@@ -55,9 +55,11 @@ class TestCallbacks:
         """Test that callbacks do not crash when Event.FIT_START and Event.FIT_END is called multiple times."""
         cb_kwargs = get_cb_kwargs(cb_cls)
         dummy_state.callbacks.append(cb_cls(**cb_kwargs))
-        dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP,
-                                        trace_handlers=[],
-                                        torch_prof_memory_filename=None)
+        dummy_state.profiler = Profiler(
+            schedule=lambda _: ProfilerAction.SKIP,
+            trace_handlers=[],
+            torch_prof_memory_filename=None,
+        )
         dummy_state.profiler.bind_to_state(dummy_state)
 
         logger = Logger(dummy_state)
@@ -76,9 +78,11 @@ class TestCallbacks:
         """Test that callbacks do not crash when .close() and .post_close() are called multiple times."""
         cb_kwargs = get_cb_kwargs(cb_cls)
         dummy_state.callbacks.append(cb_cls(**cb_kwargs))
-        dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP,
-                                        trace_handlers=[],
-                                        torch_prof_memory_filename=None)
+        dummy_state.profiler = Profiler(
+            schedule=lambda _: ProfilerAction.SKIP,
+            trace_handlers=[],
+            torch_prof_memory_filename=None,
+        )
         dummy_state.profiler.bind_to_state(dummy_state)
 
         logger = Logger(dummy_state)
@@ -93,9 +97,11 @@ class TestCallbacks:
         """Test that callbacks do not crash when INIT/.close()/.post_close() are called multiple times in that order."""
         cb_kwargs = get_cb_kwargs(cb_cls)
         dummy_state.callbacks.append(cb_cls(**cb_kwargs))
-        dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP,
-                                        trace_handlers=[],
-                                        torch_prof_memory_filename=None)
+        dummy_state.profiler = Profiler(
+            schedule=lambda _: ProfilerAction.SKIP,
+            trace_handlers=[],
+            torch_prof_memory_filename=None,
+        )
         dummy_state.profiler.bind_to_state(dummy_state)
 
         logger = Logger(dummy_state)
@@ -115,9 +121,10 @@ class TestCallbacks:
 
 @pytest.mark.parametrize('cb_cls', get_cbs_and_marks(callbacks=True, loggers=True, profilers=True))
 # Parameterized across @pytest.mark.remote as some loggers (e.g. wandb) support integration testing
-@pytest.mark.parametrize('device_train_microbatch_size,_remote',
-                         [(1, False),
-                          (2, False), pytest.param(1, True, marks=pytest.mark.remote)])
+@pytest.mark.parametrize(
+    'device_train_microbatch_size,_remote',
+    [(1, False), (2, False), pytest.param(1, True, marks=pytest.mark.remote)],
+)
 @pytest.mark.filterwarnings(r'ignore:The profiler is enabled:UserWarning')
 class TestCallbackTrains:
 
@@ -135,9 +142,11 @@ class TestCallbackTrains:
             device_train_microbatch_size=device_train_microbatch_size,
             callbacks=callbacks,
             loggers=loggers,
-            profiler=Profiler(schedule=lambda _: ProfilerAction.SKIP,
-                              trace_handlers=[],
-                              torch_prof_memory_filename=None),
+            profiler=Profiler(
+                schedule=lambda _: ProfilerAction.SKIP,
+                trace_handlers=[],
+                torch_prof_memory_filename=None,
+            ),
         )
 
     @pytest.mark.filterwarnings('ignore::UserWarning')

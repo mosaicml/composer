@@ -52,11 +52,13 @@ def test_sd_algorithm(state: State, stochastic_method: str, target_layer_name: s
     target_layer, _ = _STOCHASTIC_LAYER_MAPPING[target_layer_name]
     target_block_count = module_surgery.count_module_instances(state.model, target_layer)
 
-    sd = StochasticDepth(stochastic_method=stochastic_method,
-                         target_layer_name=target_layer_name,
-                         drop_rate=0.5,
-                         drop_distribution='linear',
-                         drop_warmup=0.0)
+    sd = StochasticDepth(
+        stochastic_method=stochastic_method,
+        target_layer_name=target_layer_name,
+        drop_rate=0.5,
+        drop_distribution='linear',
+        drop_warmup=0.0,
+    )
     sd.apply(Event.INIT, state, logger=Mock())
     stochastic_forward_count = count_sd_forward(state.model, target_layer)
 
@@ -69,11 +71,13 @@ def test_sd_functional(state: State, stochastic_method: str, target_layer_name: 
     target_layer, _ = _STOCHASTIC_LAYER_MAPPING[target_layer_name]
     target_block_count = module_surgery.count_module_instances(state.model, target_layer)
 
-    apply_stochastic_depth(model=state.model,
-                           stochastic_method=stochastic_method,
-                           target_layer_name=target_layer_name,
-                           drop_rate=0.5,
-                           drop_distribution='linear')
+    apply_stochastic_depth(
+        model=state.model,
+        stochastic_method=stochastic_method,
+        target_layer_name=target_layer_name,
+        drop_rate=0.5,
+        drop_distribution='linear',
+    )
 
     stochastic_forward_count = count_sd_forward(state.model, target_layer)
 
@@ -86,12 +90,14 @@ class TestStochasticBottleneckForward:
     def test_block_stochastic_bottleneck_drop(self, drop_rate: float):
         X = torch.randn(4, 4, 16, 16)
         bottleneck_block = Bottleneck(inplanes=4, planes=1)
-        stochastic_block = make_resnet_bottleneck_stochastic(module=bottleneck_block,
-                                                             module_index=0,
-                                                             module_count=1,
-                                                             drop_rate=drop_rate,
-                                                             drop_distribution='linear',
-                                                             stochastic_method='block')
+        stochastic_block = make_resnet_bottleneck_stochastic(
+            module=bottleneck_block,
+            module_index=0,
+            module_count=1,
+            drop_rate=drop_rate,
+            drop_distribution='linear',
+            stochastic_method='block',
+        )
         stochastic_X = stochastic_block(X)
         assert stochastic_X is X
 
@@ -99,12 +105,14 @@ class TestStochasticBottleneckForward:
     def test_block_stochastic_bottleneck_keep(self, drop_rate: float):
         X = torch.randn(4, 4, 16, 16)
         bottleneck_block = Bottleneck(inplanes=4, planes=1)
-        stochastic_block = make_resnet_bottleneck_stochastic(module=bottleneck_block,
-                                                             module_index=0,
-                                                             module_count=1,
-                                                             drop_rate=drop_rate,
-                                                             drop_distribution='linear',
-                                                             stochastic_method='block')
+        stochastic_block = make_resnet_bottleneck_stochastic(
+            module=bottleneck_block,
+            module_index=0,
+            module_count=1,
+            drop_rate=drop_rate,
+            drop_distribution='linear',
+            stochastic_method='block',
+        )
         stochastic_X = stochastic_block(X)
         assert stochastic_X is not X
 
@@ -112,12 +120,14 @@ class TestStochasticBottleneckForward:
     def test_sample_stochastic_bottleneck_drop_all(self, drop_rate: float):
         X = F.relu(torch.randn(4, 4, 16, 16))  # inputs and outputs will match if the input has been ReLUed
         bottleneck_block = Bottleneck(inplanes=4, planes=1)
-        stochastic_block = make_resnet_bottleneck_stochastic(module=bottleneck_block,
-                                                             module_index=0,
-                                                             module_count=1,
-                                                             drop_rate=drop_rate,
-                                                             drop_distribution='linear',
-                                                             stochastic_method='sample')
+        stochastic_block = make_resnet_bottleneck_stochastic(
+            module=bottleneck_block,
+            module_index=0,
+            module_count=1,
+            drop_rate=drop_rate,
+            drop_distribution='linear',
+            stochastic_method='sample',
+        )
         stochastic_X = stochastic_block(X)
         assert torch.all(X == stochastic_X)
 
@@ -195,6 +205,8 @@ class TestStochasticDepthInputValidation():
     @pytest.mark.parametrize('drop_distribution', ['nonsense_pt3'])
     def test_invalid_drop_distribution(self, stochastic_method: str, target_layer_name: str, drop_distribution: str):
         with pytest.raises(ValueError):
-            StochasticDepth(stochastic_method=stochastic_method,
-                            target_layer_name=target_layer_name,
-                            drop_distribution=drop_distribution)
+            StochasticDepth(
+                stochastic_method=stochastic_method,
+                target_layer_name=target_layer_name,
+                drop_distribution=drop_distribution,
+            )

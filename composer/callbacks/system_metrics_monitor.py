@@ -30,17 +30,19 @@ class SystemMetricsMonitor(Callback):
             try:
                 import pynvml
             except ImportError as e:
-                raise MissingConditionalImportError(extra_deps_group='pynvml',
-                                                    conda_package='pynvml',
-                                                    conda_channel='conda-forge') from e
+                raise MissingConditionalImportError(
+                    extra_deps_group='pynvml',
+                    conda_package='pynvml',
+                    conda_channel='conda-forge',
+                ) from e
             pynvml.nvmlInit()
 
     def run_event(self, event: Event, state: State, logger: Logger):
         # only run on the following events
         if event in [
-                Event.BATCH_START,
-                Event.EVAL_BATCH_START,
-                Event.PREDICT_BATCH_START,
+            Event.BATCH_START,
+            Event.EVAL_BATCH_START,
+            Event.PREDICT_BATCH_START,
         ]:
             local_node_system_metrics = self.compute_system_metrics()
             all_system_metrics = dist.all_gather_object(local_node_system_metrics)

@@ -24,11 +24,13 @@ from tests.common.events import EventCounterCallback
 @pytest.fixture
 def always_match_algorithms():
     return [
-        Mock(**{
-            'match.return.value': True,
-            'apply.return_value': n,  # return encodes order
-            'interpolate_loss': False,
-        }) for n in range(5)
+        Mock(
+            **{
+                'match.return.value': True,
+                'apply.return_value': n,  # return encodes order
+                'interpolate_loss': False,
+            },
+        ) for n in range(5)
     ]
 
 
@@ -94,31 +96,51 @@ def test_engine_runs_callbacks_in_correct_order(dummy_state, tmp_path):
 @pytest.mark.parametrize('event', list(Event))
 class TestAlgorithms:
 
-    def test_algorithms_always_called(self, event: Event, dummy_state: State, always_match_algorithms: List[Algorithm],
-                                      dummy_logger: Logger):
+    def test_algorithms_always_called(
+        self,
+        event: Event,
+        dummy_state: State,
+        always_match_algorithms: List[Algorithm],
+        dummy_logger: Logger,
+    ):
         dummy_state.algorithms = always_match_algorithms
         _ = run_event(event, dummy_state, dummy_logger)
         for algo in always_match_algorithms:
             algo.apply.assert_called_once()
             algo.match.assert_called_once()
 
-    def test_algorithms_never_called(self, event: Event, dummy_state: State, never_match_algorithms: List[Algorithm],
-                                     dummy_logger: Logger):
+    def test_algorithms_never_called(
+        self,
+        event: Event,
+        dummy_state: State,
+        never_match_algorithms: List[Algorithm],
+        dummy_logger: Logger,
+    ):
         dummy_state.algorithms = never_match_algorithms
         _ = run_event(event, dummy_state, dummy_logger)
         for algo in never_match_algorithms:
             algo.apply.assert_not_called()
             algo.match.assert_called_once()
 
-    def test_engine_trace_all(self, event: Event, dummy_state: State, always_match_algorithms: List[Algorithm],
-                              dummy_logger: Logger):
+    def test_engine_trace_all(
+        self,
+        event: Event,
+        dummy_state: State,
+        always_match_algorithms: List[Algorithm],
+        dummy_logger: Logger,
+    ):
         dummy_state.algorithms = always_match_algorithms
         trace = run_event(event, dummy_state, dummy_logger)
 
         assert all(tr.run for tr in trace.values())
 
-    def test_engine_trace_never(self, event: Event, dummy_state: State, never_match_algorithms: List[Algorithm],
-                                dummy_logger: Logger):
+    def test_engine_trace_never(
+        self,
+        event: Event,
+        dummy_state: State,
+        never_match_algorithms: List[Algorithm],
+        dummy_logger: Logger,
+    ):
         dummy_state.algorithms = never_match_algorithms
         trace = run_event(event, dummy_state, dummy_logger)
 
@@ -214,8 +236,10 @@ def test_engine_errors_if_previous_trainer_was_not_closed(dummy_state: State, du
 
     # Create a new trainer with the same callback. Should raise an exception
     # because trainer.close() was not called before
-    with pytest.raises(RuntimeError,
-                       match=r'Cannot create a new trainer with an open callback or logger from a previous trainer'):
+    with pytest.raises(
+        RuntimeError,
+        match=r'Cannot create a new trainer with an open callback or logger from a previous trainer',
+    ):
         DummyTrainer(dummy_state, dummy_logger)
 
 
@@ -224,14 +248,16 @@ def check_output(proc: subprocess.CompletedProcess):
     # The `check=True` flag available in `subprocess.run` does not print stdout/stderr
     if proc.returncode == 0:
         return
-    error_msg = textwrap.dedent(f"""\
+    error_msg = textwrap.dedent(
+        f"""\
         Command {proc.args} failed with exit code {proc.returncode}.
         ----Begin stdout----
         {proc.stdout}
         ----End stdout------
         ----Begin stderr----
         {proc.stderr}
-        ----End stderr------""")
+        ----End stderr------""",
+    )
 
     raise RuntimeError(error_msg)
 
@@ -240,7 +266,8 @@ def check_output(proc: subprocess.CompletedProcess):
 def test_engine_closes_on_atexit(exception: bool):
     # Running this test via a subprocess, as atexit() must trigger
 
-    code = textwrap.dedent("""\
+    code = textwrap.dedent(
+        """\
     from composer import Trainer, Callback
     from tests.common import SimpleModel
 
@@ -256,7 +283,8 @@ def test_engine_closes_on_atexit(exception: bool):
         max_duration="1ep",
         train_dataloader=None,
     )
-    """)
+    """,
+    )
     if exception:
         # Should raise an exception, since no dataloader was provided
         code += 'trainer.fit()'
