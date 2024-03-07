@@ -763,7 +763,7 @@ class State(Serializable):
     @property
     def fsdp_device_mesh(self):
         if self.fsdp_enabled:
-            if not hasattr(self.model, 'model'):
+            if not hasattr(self.model, 'model') or not hasattr(self.model.model, '_device_mesh'):
                 return None
             return self.model.model._device_mesh
         else:
