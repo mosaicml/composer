@@ -68,8 +68,11 @@ def count_op_instances(gm: GraphModule, ops: Union[Callable, str, List[Union[Cal
     return count
 
 
-def replace_op(gm: GraphModule, src_ops: Union[Callable, str, List[Union[Callable, str]]],
-               tgt_op: Callable[..., Any]) -> GraphModule:
+def replace_op(
+    gm: GraphModule,
+    src_ops: Union[Callable, str, List[Union[Callable, str]]],
+    tgt_op: Callable[..., Any],
+) -> GraphModule:
     """Replace a single operator, torch method or function with another.
 
     .. rubric:: Example
@@ -198,10 +201,12 @@ def _get_residual_modules(gm: GraphModule, node: Node) -> Tuple[Optional[GraphMo
         return None, None, 0
 
 
-def _replace_residual_pattern(gm: GraphModule,
-                              original_node: Node,
-                              replacement_module: str,
-                              has_residual_ops: bool = False) -> None:
+def _replace_residual_pattern(
+    gm: GraphModule,
+    original_node: Node,
+    replacement_module: str,
+    has_residual_ops: bool = False,
+) -> None:
     """Replaces main, residual and add_node with the ``replacement_module``.
 
     ``replacement_module`` is already added to the gm.
@@ -231,7 +236,8 @@ def apply_stochastic_residual(gm: GraphModule, drop_rate: float = 0.2) -> Tuple[
     """
     if not isinstance(gm, GraphModule):
         raise ValueError(
-            f'Input to apply_stochastic_residual should be an instance of GraphModule. Received {type(gm)}')
+            f'Input to apply_stochastic_residual should be an instance of GraphModule. Received {type(gm)}',
+        )
     all_tags, count = _tag_residual_nodes(gm)
     split_gm = split_by_tags(gm, all_tags)
     assert isinstance(split_gm, GraphModule)
@@ -257,9 +263,11 @@ def _can_linears_be_fused(linear_nodes: List[Node], all_modules: Mapping[str, nn
     return all(bias == (all_modules[str(node.target)].bias is None) for node in linear_nodes)
 
 
-def _create_fused_linear(linear_nodes: List[Node],
-                         all_modules: Mapping[str, nn.Module],
-                         keep_weights: bool = False) -> Tuple[nn.Module, List[int]]:
+def _create_fused_linear(
+    linear_nodes: List[Node],
+    all_modules: Mapping[str, nn.Module],
+    keep_weights: bool = False,
+) -> Tuple[nn.Module, List[int]]:
     """Check if the linears can be fused.
 
     If the linears can be fused, create a fused nn.Linear instance and return it.

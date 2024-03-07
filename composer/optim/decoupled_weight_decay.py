@@ -49,30 +49,43 @@ class DecoupledSGDW(SGD):
     """
 
     def __init__(
-            self,
-            params: Union[Iterable[torch.Tensor], Iterable[dict]],
-            lr: float = required,  # type: ignore
-            momentum: float = 0,
-            dampening: float = 0,
-            weight_decay: float = 0,
-            nesterov: bool = False):
+        self,
+        params: Union[Iterable[torch.Tensor], Iterable[dict]],
+        lr: float = required,  # type: ignore
+        momentum: float = 0,
+        dampening: float = 0,
+        weight_decay: float = 0,
+        nesterov: bool = False,
+    ):
         if weight_decay >= 1e-3:
             log.warning(
                 f'You are using a high value of `weight_decay={weight_decay}` for the `DecoupledSGDW` optimizer. Are you sure you want to do this? '
-                f'Your model\'s weights will be multiplied by {1.0 - weight_decay} on every step!')
-        super().__init__(params=params,
-                         lr=lr,
-                         momentum=momentum,
-                         dampening=dampening,
-                         weight_decay=weight_decay,
-                         nesterov=nesterov)
+                f'Your model\'s weights will be multiplied by {1.0 - weight_decay} on every step!',
+            )
+        super().__init__(
+            params=params,
+            lr=lr,
+            momentum=momentum,
+            dampening=dampening,
+            weight_decay=weight_decay,
+            nesterov=nesterov,
+        )
         for group in self.param_groups:
             group['initial_lr'] = group['lr']
 
     @staticmethod
-    def sgdw(params: List[torch.Tensor], d_p_list: List[torch.Tensor],
-             momentum_buffer_list: List[Optional[torch.Tensor]], *, weight_decay: float, momentum: float, lr: float,
-             initial_lr: float, dampening: float, nesterov: bool):
+    def sgdw(
+        params: List[torch.Tensor],
+        d_p_list: List[torch.Tensor],
+        momentum_buffer_list: List[Optional[torch.Tensor]],
+        *,
+        weight_decay: float,
+        momentum: float,
+        lr: float,
+        initial_lr: float,
+        dampening: float,
+        nesterov: bool,
+    ):
         r"""Functional API that performs SGDW algorithm computation.
 
         Args:
@@ -145,15 +158,17 @@ class DecoupledSGDW(SGD):
                     else:
                         momentum_buffer_list.append(state['momentum_buffer'])
 
-            self.sgdw(params_with_grad,
-                      d_p_list,
-                      momentum_buffer_list,
-                      weight_decay=weight_decay,
-                      momentum=momentum,
-                      lr=lr,
-                      initial_lr=initial_lr,
-                      dampening=dampening,
-                      nesterov=nesterov)
+            self.sgdw(
+                params_with_grad,
+                d_p_list,
+                momentum_buffer_list,
+                weight_decay=weight_decay,
+                momentum=momentum,
+                lr=lr,
+                initial_lr=initial_lr,
+                dampening=dampening,
+                nesterov=nesterov,
+            )
 
             # update momentum_buffers in state
             for p, momentum_buffer in zip(params_with_grad, momentum_buffer_list):
@@ -197,27 +212,42 @@ class DecoupledAdamW(AdamW):
         'l2_norm/grad': lambda param, optim_state, step_tensor: torch.linalg.vector_norm(param.grad),
     }
 
-    def __init__(self,
-                 params: Union[Iterable[torch.Tensor], Iterable[dict]],
-                 lr: float = 1e-3,
-                 betas: Tuple[float, float] = (0.9, 0.95),
-                 eps: float = 1e-8,
-                 weight_decay: float = 1e-5,
-                 amsgrad: bool = False):
+    def __init__(
+        self,
+        params: Union[Iterable[torch.Tensor], Iterable[dict]],
+        lr: float = 1e-3,
+        betas: Tuple[float, float] = (0.9, 0.95),
+        eps: float = 1e-8,
+        weight_decay: float = 1e-5,
+        amsgrad: bool = False,
+    ):
         if weight_decay >= 1e-3:
             log.warning(
                 f'You are using a high value of `weight_decay={weight_decay}` for the `DecoupledAdamW` optimizer. Are you sure you want to do this? '
-                f'Your model\'s weights will be multiplied by {1.0 - weight_decay} on every step!')
+                f'Your model\'s weights will be multiplied by {1.0 - weight_decay} on every step!',
+            )
         super().__init__(params=params, lr=lr, betas=betas, eps=eps, weight_decay=weight_decay, amsgrad=amsgrad)
         for group in self.param_groups:
             group['initial_lr'] = group['lr']
         self.amsgrad = amsgrad
 
     @staticmethod
-    def adamw(params: List[torch.Tensor], grads: List[torch.Tensor], exp_avgs: List[torch.Tensor],
-              exp_avg_sqs: List[torch.Tensor], max_exp_avg_sqs: List[torch.Tensor], state_steps: List[torch.Tensor], *,
-              amsgrad: bool, beta1: float, beta2: float, lr: float, initial_lr: float, weight_decay: float,
-              eps: float) -> None:
+    def adamw(
+        params: List[torch.Tensor],
+        grads: List[torch.Tensor],
+        exp_avgs: List[torch.Tensor],
+        exp_avg_sqs: List[torch.Tensor],
+        max_exp_avg_sqs: List[torch.Tensor],
+        state_steps: List[torch.Tensor],
+        *,
+        amsgrad: bool,
+        beta1: float,
+        beta2: float,
+        lr: float,
+        initial_lr: float,
+        weight_decay: float,
+        eps: float,
+    ) -> None:
         r"""Functional API that performs AdamW algorithm computation with decoupled weight decay.
 
         Args:
@@ -324,19 +354,21 @@ class DecoupledAdamW(AdamW):
                 # Record the step after step update
                 state_steps.append(state['step'])
 
-            self.adamw(params_with_grad,
-                       grads,
-                       exp_avgs,
-                       exp_avg_sqs,
-                       max_exp_avg_sqs,
-                       state_steps,
-                       amsgrad=amsgrad,
-                       beta1=beta1,
-                       beta2=beta2,
-                       lr=lr,
-                       initial_lr=initial_lr,
-                       weight_decay=weight_decay,
-                       eps=eps)
+            self.adamw(
+                params_with_grad,
+                grads,
+                exp_avgs,
+                exp_avg_sqs,
+                max_exp_avg_sqs,
+                state_steps,
+                amsgrad=amsgrad,
+                beta1=beta1,
+                beta2=beta2,
+                lr=lr,
+                initial_lr=initial_lr,
+                weight_decay=weight_decay,
+                eps=eps,
+            )
 
         return loss
 
@@ -392,7 +424,10 @@ class DecoupledAdamW(AdamW):
             decay_factor = (lr / initial_lr) if initial_lr else 1.0
             step_tensor.add_(param, alpha=-weight_decay * decay_factor)
             for metric in self.metric_functions:
-                optimizer_metrics[f'{metric}/{name}'] = self.metric_functions[metric](param, param_optim_state,
-                                                                                      step_tensor)
+                optimizer_metrics[f'{metric}/{name}'] = self.metric_functions[metric](
+                    param,
+                    param_optim_state,
+                    step_tensor,
+                )
 
         return optimizer_metrics

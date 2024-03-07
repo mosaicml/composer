@@ -141,7 +141,7 @@ class NotParallelLinears(nn.Module):
     ],
 )
 @pytest.mark.filterwarnings(
-    r'ignore:Attempted to insert a call_module Node with no underlying reference in the owning GraphModule!.*:UserWarning'
+    r'ignore:Attempted to insert a call_module Node with no underlying reference in the owning GraphModule!.*:UserWarning',
 )
 def test_fuse_parallel_linears(model_cls, before_count, after_count):
     model = model_cls()
@@ -161,7 +161,7 @@ def test_fuse_parallel_linears(model_cls, before_count, after_count):
     [(models.resnet18, 8)],
 )
 @pytest.mark.filterwarnings(
-    r'ignore:Attempted to insert a call_module Node with no underlying reference in the owning GraphModule!.*:UserWarning'
+    r'ignore:Attempted to insert a call_module Node with no underlying reference in the owning GraphModule!.*:UserWarning',
 )
 def test_stochastic_depth(model_cls, block_count):
     model = model_cls()
@@ -175,6 +175,8 @@ def test_stochastic_depth(model_cls, block_count):
 
     out_traced = traced(inp)
     out_traced_st_depth_no_drop = traced_st_depth_no_drop(inp)
-    assert torch.allclose(out_traced,
-                          out_traced_st_depth_no_drop), 'mismatch in outputs with 0 drop rate for stochastic modules'
+    assert torch.allclose(
+        out_traced,
+        out_traced_st_depth_no_drop,
+    ), 'mismatch in outputs with 0 drop rate for stochastic modules'
     assert residual_count == block_count

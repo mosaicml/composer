@@ -59,39 +59,43 @@ def _get_cuda_version_tag(cuda_version: str):
 
 def _get_cuda_override(cuda_version: str):
     if cuda_version == '12.1.1':
-        cuda_121_override_string = ('cuda>=12.1 brand=tesla,driver>=450,driver<451 '
-                                    'brand=tesla,driver>=470,driver<471 brand=unknown,driver>=470,driver<471 '
-                                    'brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471 '
-                                    'brand=geforce,driver>=470,driver<471 brand=geforcertx,driver>=470,driver<471 '
-                                    'brand=quadro,driver>=470,driver<471 brand=quadrortx,driver>=470,driver<471 '
-                                    'brand=titan,driver>=470,driver<471 brand=titanrtx,driver>=470,driver<471 '
-                                    'brand=tesla,driver>=510,driver<511 brand=unknown,driver>=510,driver<511 '
-                                    'brand=nvidia,driver>=510,driver<511 brand=nvidiartx,driver>=510,driver<511 '
-                                    'brand=geforce,driver>=510,driver<511 brand=geforcertx,driver>=510,driver<511 '
-                                    'brand=quadro,driver>=510,driver<511 brand=quadrortx,driver>=510,driver<511 '
-                                    'brand=titan,driver>=510,driver<511 brand=titanrtx,driver>=510,driver<511 '
-                                    'brand=tesla,driver>=515,driver<516 brand=unknown,driver>=515,driver<516 '
-                                    'brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=515,driver<516 '
-                                    'brand=geforce,driver>=515,driver<516 brand=geforcertx,driver>=515,driver<516 '
-                                    'brand=quadro,driver>=515,driver<516 brand=quadrortx,driver>=515,driver<516 '
-                                    'brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=515,driver<516 '
-                                    'brand=tesla,driver>=525,driver<526 brand=unknown,driver>=525,driver<526 '
-                                    'brand=nvidia,driver>=525,driver<526 brand=nvidiartx,driver>=525,driver<526 '
-                                    'brand=geforce,driver>=525,driver<526 brand=geforcertx,driver>=525,driver<526 '
-                                    'brand=quadro,driver>=525,driver<526 brand=quadrortx,driver>=525,driver<526 '
-                                    'brand=titan,driver>=525,driver<526 brand=titanrtx,driver>=525,driver<526')
+        cuda_121_override_string = (
+            'cuda>=12.1 brand=tesla,driver>=450,driver<451 '
+            'brand=tesla,driver>=470,driver<471 brand=unknown,driver>=470,driver<471 '
+            'brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471 '
+            'brand=geforce,driver>=470,driver<471 brand=geforcertx,driver>=470,driver<471 '
+            'brand=quadro,driver>=470,driver<471 brand=quadrortx,driver>=470,driver<471 '
+            'brand=titan,driver>=470,driver<471 brand=titanrtx,driver>=470,driver<471 '
+            'brand=tesla,driver>=510,driver<511 brand=unknown,driver>=510,driver<511 '
+            'brand=nvidia,driver>=510,driver<511 brand=nvidiartx,driver>=510,driver<511 '
+            'brand=geforce,driver>=510,driver<511 brand=geforcertx,driver>=510,driver<511 '
+            'brand=quadro,driver>=510,driver<511 brand=quadrortx,driver>=510,driver<511 '
+            'brand=titan,driver>=510,driver<511 brand=titanrtx,driver>=510,driver<511 '
+            'brand=tesla,driver>=515,driver<516 brand=unknown,driver>=515,driver<516 '
+            'brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=515,driver<516 '
+            'brand=geforce,driver>=515,driver<516 brand=geforcertx,driver>=515,driver<516 '
+            'brand=quadro,driver>=515,driver<516 brand=quadrortx,driver>=515,driver<516 '
+            'brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=515,driver<516 '
+            'brand=tesla,driver>=525,driver<526 brand=unknown,driver>=525,driver<526 '
+            'brand=nvidia,driver>=525,driver<526 brand=nvidiartx,driver>=525,driver<526 '
+            'brand=geforce,driver>=525,driver<526 brand=geforcertx,driver>=525,driver<526 '
+            'brand=quadro,driver>=525,driver<526 brand=quadrortx,driver>=525,driver<526 '
+            'brand=titan,driver>=525,driver<526 brand=titanrtx,driver>=525,driver<526'
+        )
 
         return cuda_121_override_string
     elif cuda_version == '11.8.0':
-        cuda_118_override_string = ('cuda>=11.8 brand=tesla,driver>=470,driver<471 '
-                                    'brand=tesla,driver>=515,driver<516 brand=unknown,driver>=470,driver<471 '
-                                    'brand=unknown,driver>=515,driver<516 brand=nvidia,driver>=470,driver<471 '
-                                    'brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=470,driver<471 '
-                                    'brand=nvidiartx,driver>=515,driver<516 brand=geforce,driver>=470,driver<471 '
-                                    'brand=geforce,driver>=515,driver<516 brand=quadro,driver>=470,driver<471 '
-                                    'brand=quadro,driver>=515,driver<516 brand=titan,driver>=470,driver<471 '
-                                    'brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=470,driver<471 '
-                                    'brand=titanrtx,driver>=515,driver<516')
+        cuda_118_override_string = (
+            'cuda>=11.8 brand=tesla,driver>=470,driver<471 '
+            'brand=tesla,driver>=515,driver<516 brand=unknown,driver>=470,driver<471 '
+            'brand=unknown,driver>=515,driver<516 brand=nvidia,driver>=470,driver<471 '
+            'brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=470,driver<471 '
+            'brand=nvidiartx,driver>=515,driver<516 brand=geforce,driver>=470,driver<471 '
+            'brand=geforce,driver>=515,driver<516 brand=quadro,driver>=470,driver<471 '
+            'brand=quadro,driver>=515,driver<516 brand=titan,driver>=470,driver<471 '
+            'brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=470,driver<471 '
+            'brand=titanrtx,driver>=515,driver<516'
+        )
         return cuda_118_override_string
     return ''
 
@@ -237,7 +241,7 @@ def _main():
         'PYTORCH_NIGHTLY_VERSION': 'dev20240110+cu121',
         'TAGS': ['mosaicml/pytorch:2.3.0_cu121-nightly20240110-python3.11-ubuntu20.04-aws'],
         'TARGET': 'pytorch_stage',
-        'TORCHVISION_VERSION': '0.18.0'
+        'TORCHVISION_VERSION': '0.18.0',
     }
     pytorch_entries.append(nightly_entry_311_aws)
 
@@ -254,7 +258,7 @@ def _main():
         'PYTORCH_NIGHTLY_VERSION': 'dev20240110+cu121',
         'TAGS': ['mosaicml/pytorch:2.3.0_cu121-nightly20240110-python3.11-ubuntu20.04'],
         'TARGET': 'pytorch_stage',
-        'TORCHVISION_VERSION': '0.18.0'
+        'TORCHVISION_VERSION': '0.18.0',
     }
     pytorch_entries.append(nightly_entry_311)
 
@@ -319,7 +323,8 @@ def _main():
             ', '.join(reversed([f'`{x}`' for x in entry['TAGS']])),  # Docker tags
         ])
     table.sort(
-        key=lambda x: x[3].replace('Infiniband', '1').replace('EFA', '2'))  # cuda version, put infiniband ahead of EFA
+        key=lambda x: x[3].replace('Infiniband', '1').replace('EFA', '2'),
+    )  # cuda version, put infiniband ahead of EFA
     table.sort(key=lambda x: packaging.version.parse(x[4]), reverse=True)  # python version
     table.sort(key=lambda x: packaging.version.parse(x[2]), reverse=True)  # pytorch version
     table.sort(key=lambda x: x[1])  # flavor
@@ -341,8 +346,10 @@ def _main():
             ', '.join(reversed([f'`{x}`' for x in entry['TAGS']])),  # Docker tags
         ])
     table.sort(key=lambda x: x[1], reverse=True)  # cuda support
-    table.sort(key=lambda x: packaging.version.parse('9999999999999'
-                                                     if x[0] == 'latest' else x[0]), reverse=True)  # Composer version
+    table.sort(
+        key=lambda x: packaging.version.parse('9999999999999' if x[0] == 'latest' else x[0]),
+        reverse=True,
+    )  # Composer version
     table_contents = tabulate.tabulate(table, headers, tablefmt='github', floatfmt='', disable_numparse=True)
     _write_table('COMPOSER_BUILD_MATRIX', table_contents)
 

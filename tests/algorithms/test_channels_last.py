@@ -19,8 +19,10 @@ def _has_singleton_dimension(tensor: torch.Tensor) -> bool:
 
 def _infer_memory_format(tensor: torch.Tensor) -> str:
     if _has_singleton_dimension(tensor):
-        raise ValueError(f'Tensor of shape {tensor.shape} has singleton dimensions, '
-                         'memory format cannot be infered from strides.')
+        raise ValueError(
+            f'Tensor of shape {tensor.shape} has singleton dimensions, '
+            'memory format cannot be infered from strides.',
+        )
     base_order = list('nchw')  # type: ignore
 
     strides = tensor.stride()
