@@ -27,7 +27,8 @@ if TYPE_CHECKING:
 class NeptuneLogger(LoggerDestination):
     """Log to `neptune.ai <https://neptune.ai/>`_.
 
-    For more, see the [Neptune-Composer integration guide](https://docs.neptune.ai/integrations/composer/).
+    For instructions, see the
+    `Neptune-Composer integration guide <https://docs.neptune.ai/integrations/mosaicml_composer/>`_.
 
     Args:
         project (str, optional): The name of your Neptune project,
@@ -37,16 +38,13 @@ class NeptuneLogger(LoggerDestination):
             You can leave out this argument if you save your token to the
             ``NEPTUNE_API_TOKEN`` environment variable (recommended).
             You can find your API token in the user menu of the Neptune web app.
-        rank_zero_only (bool, optional): Whether to log only on the rank-zero process.
-            (default: ``True``).
-        upload_checkpoints (bool, optional): Whether the logger should upload checkpoints to Neptune.
+        rank_zero_only (bool, optional): Whether to log only on the rank-zero process (default: ``True``).
+        upload_checkpoints (bool, optional): Whether the logger should upload checkpoints to Neptune
             (default: ``False``).
-        base_namespace (str, optional): The name of the base namespace to log the metadata to.
-            (default: "training").
+        base_namespace (str, optional): The name of the base namespace to log the metadata to (default: "training").
         neptune_kwargs (Dict[str, Any], optional): Any additional keyword arguments to the
             ``neptune.init_run()`` function. For options, see the
-            `Run API reference <https://docs.neptune.ai/api/neptune/#init_run>`_ in the
-            Neptune docs.
+            `Run API reference <https://docs.neptune.ai/api/neptune/#init_run>`_ in the Neptune docs.
     """
     metric_namespace = 'metrics'
     hyperparam_namespace = 'hyperparameters'
@@ -105,17 +103,18 @@ class NeptuneLogger(LoggerDestination):
     def neptune_run(self):
         """Gets the Neptune run object from a NeptuneLogger instance.
 
-        You can log additional metadata to the run by accessing a path inside the run and assigning metadata to it
-        with "=" or [Neptune logging methods](https://docs.neptune.ai/logging/methods/).
+        To log additional metadata to the run, access a path inside the run and assign metadata to it
+        with ``=`` or other `Neptune logging methods <https://docs.neptune.ai/logging/methods/>`_.
 
-        Example:
-                from composer import Trainer
-                from composer.loggers import NeptuneLogger
-                neptune_logger = NeptuneLogger()
-                trainer = Trainer(loggers=neptune_logger, ...)
-                trainer.fit()
-                neptune_logger.neptune_run["some_metric"] = 1
-                trainer.close()
+        Example::
+
+            from composer import Trainer
+            from composer.loggers import NeptuneLogger
+            neptune_logger = NeptuneLogger()
+            trainer = Trainer(loggers=neptune_logger, ...)
+            trainer.fit()
+            neptune_logger.neptune_run["some_metric"] = 1
+            trainer.close()
         """
         from neptune import Run
 
@@ -133,18 +132,20 @@ class NeptuneLogger(LoggerDestination):
         """Gets a handler for the base logging namespace.
 
         Use the handler to log extra metadata to the run and organize it under the base namespace (default: "training").
-        You can operate on it like a run object: Access a path inside the handler and assign metadata to it with "=" or
-        other [Neptune logging methods](https://docs.neptune.ai/logging/methods/).
+        You can operate on it like a run object: Access a path inside the handler and assign metadata to it
+        with ``=`` or other `Neptune logging methods <https://docs.neptune.ai/logging/methods/>`_.
 
-        Example:
-                from composer import Trainer
-                from composer.loggers import NeptuneLogger
-                neptune_logger = NeptuneLogger()
-                trainer = Trainer(loggers=neptune_logger, ...)
-                trainer.fit()
-                neptune_logger.base_handler["some_metric"] = 1
-                trainer.close()
-            Result: The value `1` is organized under "training/some_metric" inside the run.
+        Example::
+
+            from composer import Trainer
+            from composer.loggers import NeptuneLogger
+            neptune_logger = NeptuneLogger()
+            trainer = Trainer(loggers=neptune_logger, ...)
+            trainer.fit()
+            neptune_logger.base_handler["some_metric"] = 1
+            trainer.close()
+
+        Result: The value 1 is logged under "training/some_metric" inside the run.
         """
         return self.neptune_run[self._base_namespace]
 
