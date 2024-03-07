@@ -1090,10 +1090,12 @@ class Trainer:
         if auto_microbatching and train_dataloader is not None and hasattr(train_dataloader, 'seq_parallel_world_size'):
             raise ValueError('`device_train_microbatch_size="auto"` is not compatible with sequence parallelism.')
         if isinstance(device_train_microbatch_size, int) and train_dataloader is not None and hasattr(
-                train_dataloader, 'seq_parallel_world_size'
+            train_dataloader,
+            'seq_parallel_world_size',
         ) and device_train_microbatch_size * train_dataloader.seq_parallel_world_size != 1:  # type: ignore
             raise ValueError(
-                '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.')
+                '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.'
+            )
 
         if auto_microbatching and profiler:
             raise ValueError(
@@ -1430,10 +1432,11 @@ class Trainer:
                 if evaluator.auto_microbatching and hasattr(evaluator.dataloader, 'seq_parallel_world_size'):
                     raise ValueError('`validate_eval_automicrobatching` is not compatible with sequence parallelism.')
                 if isinstance(evaluator.dataloader.get_num_samples_in_batch, int) and hasattr(
-                        evaluator.dataloader, 'seq_parallel_world_size'
+                    evaluator.dataloader,
+                    'seq_parallel_world_size',
                 ) and evaluator.dataloader.get_num_samples_in_batch * evaluator.dataloader.seq_parallel_world_size != 1:  # type: ignore
                     raise ValueError(
-                        '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.'
+                        '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
                     )
         if len(evaluators) == 0:
             if eval_subset_num_batches != -1:
@@ -2117,10 +2120,11 @@ class Trainer:
                 if evaluator.auto_microbatching and hasattr(evaluator.dataloader, 'seq_parallel_world_size'):
                     raise ValueError('`validate_eval_automicrobatching` is not compatible with sequence parallelism.')
                 if isinstance(evaluator.dataloader.get_num_samples_in_batch, int) and hasattr(
-                        evaluator.dataloader, 'seq_parallel_world_size'
+                    evaluator.dataloader,
+                    'seq_parallel_world_size',
                 ) and evaluator.dataloader.get_num_samples_in_batch * evaluator.dataloader.seq_parallel_world_size != 1:  # type: ignore
                     raise ValueError(
-                        '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.'
+                        '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
                     )
 
             if len(evaluators) == 0:
@@ -2138,13 +2142,15 @@ class Trainer:
                 device=self.state.device,
             )
             if self.state.auto_microbatching and self._train_data_spec is not None and hasattr(
-                    self._train_data_spec, 'seq_parallel_world_size'):
+                self._train_data_spec, 'seq_parallel_world_size'
+            ):
                 raise ValueError('`device_train_microbatch_size="auto"` is not compatible with sequence parallelism.')
             if isinstance(device_train_microbatch_size, int) and train_dataloader is not None and hasattr(
-                    train_dataloader, 'seq_parallel_world_size'
+                train_dataloader,
+                'seq_parallel_world_size',
             ) and device_train_microbatch_size * train_dataloader.seq_parallel_world_size != 1:  # type: ignore
                 raise ValueError(
-                    '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.'
+                    '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
                 )
             if self.state.auto_microbatching and self.state.profiler:
                 raise ValueError(
@@ -3127,10 +3133,11 @@ class Trainer:
                 if evaluator.auto_microbatching and hasattr(evaluator.dataloader, 'seq_parallel_world_size'):
                     raise ValueError('`validate_eval_automicrobatching` is not compatible with sequence parallelism.')
                 if isinstance(evaluator.dataloader.get_num_samples_in_batch, int) and hasattr(
-                        evaluator.dataloader, 'seq_parallel_world_size'
+                    evaluator.dataloader,
+                    'seq_parallel_world_size',
                 ) and evaluator.dataloader.get_num_samples_in_batch * evaluator.dataloader.seq_parallel_world_size != 1:  # type: ignore
                     raise ValueError(
-                        '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.'
+                        '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
                     )
 
             self.state.evaluators.extend(evaluators)  # Add evaluators to state.evaluators
