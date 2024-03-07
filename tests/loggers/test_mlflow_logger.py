@@ -587,8 +587,8 @@ def test_mlflow_logging_works(tmp_path, device):
                       eval_interval=eval_interval,
                       device=device)
     trainer.fit()
-    # Allow async logging to finish.
-    time.sleep(3)
+    # Allow system metrics to be collected.
+    time.sleep(2)
     test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(
@@ -707,8 +707,6 @@ def test_mlflow_ignore_metrics(tmp_path, device):
                       eval_interval=eval_interval,
                       device=device)
     trainer.fit()
-    # Allow async logging to finish.
-    time.sleep(3)
     test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(
@@ -751,8 +749,6 @@ def test_mlflow_ignore_hyperparameters(tmp_path):
                                       ignore_hyperparameters=['num*', 'mlflow_run_id', 'nothing'])
 
     Trainer(model=SimpleConvModel(), loggers=test_mlflow_logger, max_duration=f'4ba')
-    # Allow async logging to finish.
-    time.sleep(3)
     test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(

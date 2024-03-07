@@ -615,6 +615,10 @@ class State(Serializable):
 
     @_iteration_length.setter
     def _iteration_length(self, iteration_length: Optional[Union[str, Time[int]]]):
+        """Sets the length of an iteration.
+
+        An iteration must be defined as multiple epochs. See composer/core/event.py.
+        """
         if iteration_length is None:
             self.__iteration_length = None
             return
@@ -762,7 +766,7 @@ class State(Serializable):
     @property
     def fsdp_device_mesh(self):
         if self.fsdp_enabled:
-            if not hasattr(self.model, 'model'):
+            if not hasattr(self.model, 'model') or not hasattr(self.model.model, '_device_mesh'):
                 return None
             return self.model.model._device_mesh
         else:
