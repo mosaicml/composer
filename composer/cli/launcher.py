@@ -14,7 +14,6 @@ import sys
 import tempfile
 import time
 import traceback
-import warnings
 from argparse import ArgumentParser
 from typing import Any, Dict, List, Union
 
@@ -488,7 +487,7 @@ def main():
         log.info('Logging all GPU ranks to Mosaic Platform.')
         log_file_format = f'{os.environ.get(MOSAICML_LOG_DIR_ENV_VAR)}/{os.environ.get(MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR)}{{local_rank}}.txt'
         if args.stderr is not None or args.stdout is not None:
-            warnings.warn(
+            log.info(
                 'Logging to Mosaic Platform. Ignoring provided stdout and stderr args. To use provided stdout and stderr, set MOSAICML_LOG_DIR=false.'
             )
         args.stdout = log_file_format
