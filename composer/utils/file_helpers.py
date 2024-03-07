@@ -52,7 +52,7 @@ __all__ = [
 ]
 
 
-def extract_path_from_symlink(source_path: str, object_store: Optional[ObjectStore]=None) -> str:
+def extract_path_from_symlink(source_path: str, object_store: Optional[ObjectStore] = None) -> str:
     with tempfile.TemporaryDirectory() as tmpdir:
         if object_store is not None:
             _, _, source_path = parse_uri(source_path)
@@ -64,6 +64,7 @@ def extract_path_from_symlink(source_path: str, object_store: Optional[ObjectSto
             real_path = f.read()
             log.debug(f'Read path {real_path} from symlink file.')
         return real_path
+
 
 def _get_dist_config(strict: bool = True) -> Dict[str, Any]:
     """Returns a dict of distributed settings (rank, world_size, etc.).

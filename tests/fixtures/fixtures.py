@@ -3,6 +3,7 @@
 
 """These fixtures are shared globally across the test suite."""
 import copy
+import os
 import time
 
 import coolname
@@ -16,7 +17,6 @@ from composer.loggers import Logger
 from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel
 from tests.conftest import _get_option
-import os
 
 
 @pytest.fixture
