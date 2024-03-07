@@ -692,7 +692,8 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
 @world_size(2)
 @pytest.mark.parametrize('use_remote', [pytest.param(True, marks=pytest.mark.remote), False])
 @pytest.mark.parametrize(
-    'weights_only,optimizer,precision,autoresume,load_ignore_keys,use_symlink', [
+    'weights_only,optimizer,precision,autoresume,load_ignore_keys,use_symlink',
+    [
         [False, 'adamw', 'amp_bf16', False, None, True],
         [False, 'adamw', 'amp_bf16', False, None, False],
         [True, 'adamw', 'amp_bf16', False, None, False],
@@ -700,7 +701,7 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
         [False, 'adamw', 'amp_fp16', False, None, False],
         [False, 'adamw', 'amp_bf16', True, None, False],
         [False, 'adamw', 'amp_bf16', False, ['rng'], False],
-    ]
+    ],
 )
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
@@ -759,7 +760,7 @@ def test_fsdp_partitioned_state_dict_load(
 
     if use_remote:
         load_path = 's3://' + save_folder.strip('s3://').format(
-            run_name=run_name
+            run_name=run_name,
         ) + ('/ba2' if not use_symlink else '/latest-rank0.pt.symlink')
         object_store = S3ObjectStore(bucket=f'{s3_bucket}')
     else:

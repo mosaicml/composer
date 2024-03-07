@@ -27,9 +27,15 @@ from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_
 from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
 
 from composer.utils import dist, reproducibility
-from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, extract_path_from_symlink,
-                                         format_name_with_dist, format_name_with_dist_and_time, get_file, is_tar,
-                                         parse_uri,)
+from composer.utils.file_helpers import (
+    FORMAT_NAME_WITH_DIST_AND_TIME_TABLE,
+    extract_path_from_symlink,
+    format_name_with_dist,
+    format_name_with_dist_and_time,
+    get_file,
+    is_tar,
+    parse_uri,
+)
 from composer.utils.misc import is_model_deepspeed, partial_format
 from composer.utils.object_store import ObjectStore
 

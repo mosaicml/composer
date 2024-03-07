@@ -1,6 +1,9 @@
+# Copyright 2024 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 def get_model_state_dict(model: ComposerModel, sharded: bool, precision: str) -> Dict[str, Any]:
     """Generate the state dict of the model.
-    
+
     Args:
         model: The model to get the state dict from.
         sharded: Whether the model is sharded or not. If True, every rank returns the state dict of its shards.
@@ -20,7 +23,7 @@ def get_optim_state_dict(optimizer: torch.optim.Optimizer, sharded: bool, precis
         sharded: Whether the optimizer is sharded or not. If True, every rank returns the state dict of its shards.
             If False, then rank 0 returns the state dict of the entire optimizer.
         precision: The precision of the optimizer.
-    
+
     Returns:
         The state dict of the optimizer.
     """
@@ -35,7 +38,7 @@ def get_resumption_state_dict() -> Dict[str, Any]:
         * dataset_state
         * scaler
         * rank_zero_seed
-        * callbacks 
+        * callbacks
         * algorithms?
 
     Returns:
@@ -77,10 +80,10 @@ def save_state_dict_to_disk(
         save_format: The format to save the state dict in. Can be 'pt', 'hf', or 'safetensor'.
         async_save: Whether to save the state dict asynchronously.
         sharded: Whether the state dict is sharded.
-     
+
     Returns:
         The path to the dir where checkpoints that was saved.
-    """    
+    """
 
 def _save_sharded_state_dict_to_disk(
         state_dict: Dict[str, Any],
@@ -92,9 +95,9 @@ def _save_sharded_state_dict_to_disk(
     """Saves a sharded state dict to local disk by calling torch.distributed.checkpoint.save
 
     No filename needed for sharded as torch hardcodes the filename based on rank.
-    If async_save is True, then the save is done asynchronously either using 
+    If async_save is True, then the save is done asynchronously either using
     torch.distributed.checkpoint.async_save or a separate process.
-    
+
     """
 
 def _save_full_state_dict_to_disk():
