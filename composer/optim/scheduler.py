@@ -549,15 +549,18 @@ def _raise_if_max_duration_exceeds_t_max(t_max: Union[str, Time], state: State):
         if t_max_batches < max_dur.value:
             max_dur_exceeds_t_max = True
     else:
-        warnings.warn(f'Since max_duration {max_dur} with units {max_dur.unit} and t_max ' +
-                      f'{t_max} with units {t_max.unit} are not comparable, make sure that ' +
-                      f'your LR schedule is defined at all points in the training duration.')
-        
+        warnings.warn(
+            f'Since max_duration {max_dur} with units {max_dur.unit} and t_max ' +
+            f'{t_max} with units {t_max.unit} are not comparable, make sure that ' +
+            f'your LR schedule is defined at all points in the training duration.'
+        )
+
     if max_dur_exceeds_t_max:
-        raise ValueError(f't_max {t_max} must be greater than or equal to max_duration ' +
-                         f'{max_dur}. Otherwise, the LR schedule will not be defined for ' +
-                         f'the entire training duration.')
-    
+        raise ValueError(
+            f't_max {t_max} must be greater than or equal to max_duration ' +
+            f'{max_dur}. Otherwise, the LR schedule will not be defined for ' + f'the entire training duration.'
+        )
+
 
 def _raise_if_warmup_and_max_incompatible(t_warmup: Union[str, Time], t_max: Union[str, Time]):
     if isinstance(t_warmup, str):
@@ -566,9 +569,11 @@ def _raise_if_warmup_and_max_incompatible(t_warmup: Union[str, Time], t_max: Uni
         t_max = Time.from_timestring(t_max)
     units_same = t_warmup.unit == t_max.unit
     if not units_same:
-        raise ValueError(f'Cannot use warmup scheduler with t_max {t_max} with units ' +
-                         f'{t_max.unit} and t_warmup {t_warmup} with units {t_warmup.unit}. ' +
-                         f't_warmup and t_max must use the same units.')
+        raise ValueError(
+            f'Cannot use warmup scheduler with t_max {t_max} with units ' +
+            f'{t_max.unit} and t_warmup {t_warmup} with units {t_warmup.unit}. ' +
+            f't_warmup and t_max must use the same units.'
+        )
 
 
 class MultiStepWithWarmupScheduler(ComposerScheduler):
@@ -771,9 +776,11 @@ class LinearWithWarmupScheduler(ComposerScheduler):
 
         current_time = state.timestamp.get(t_warmup.unit)
         if current_time > t_max:
-            raise ValueError(f'Current time {current_time} exceeds t_max {t_max}, meaning that ' +
-                             f'your training duration is longer than t_max in your LR ' +
-                             f'scheduler. Increase your t_max or decrease your training duration.')
+            raise ValueError(
+                f'Current time {current_time} exceeds t_max {t_max}, meaning that ' +
+                f'your training duration is longer than t_max in your LR ' +
+                f'scheduler. Increase your t_max or decrease your training duration.'
+            )
         frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value if (t_max > t_warmup) else 0.0
         frac_of_total = min(1.0, frac_of_total)
 
@@ -851,9 +858,11 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
 
         current_time = state.timestamp.get(t_warmup.unit)
         if current_time > t_max:
-            raise ValueError(f'Current time {current_time} exceeds t_max {t_max}, meaning that ' +
-                             f'your training duration is longer than t_max in your LR ' +
-                             f'scheduler. Increase your t_max or decrease your training duration.')
+            raise ValueError(
+                f'Current time {current_time} exceeds t_max {t_max}, meaning that ' +
+                f'your training duration is longer than t_max in your LR ' +
+                f'scheduler. Increase your t_max or decrease your training duration.'
+            )
         frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value if (t_max > t_warmup) else 0.0
         frac_of_total = min(1.0, frac_of_total)
 
@@ -933,9 +942,11 @@ class PolynomialWithWarmupScheduler(ComposerScheduler):
 
         current_time = state.timestamp.get(t_warmup.unit)
         if current_time > t_max:
-            raise ValueError(f'Current time {current_time} exceeds t_max {t_max}, meaning that ' +
-                             f'your training duration is longer than t_max in your LR ' +
-                             f'scheduler. Increase your t_max or decrease your training duration.')
+            raise ValueError(
+                f'Current time {current_time} exceeds t_max {t_max}, meaning that ' +
+                f'your training duration is longer than t_max in your LR ' +
+                f'scheduler. Increase your t_max or decrease your training duration.'
+            )
         frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value if (t_max > t_warmup) else 0.0
         frac_of_total = min(1.0, frac_of_total)
 
