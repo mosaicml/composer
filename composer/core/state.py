@@ -630,8 +630,11 @@ class State(Serializable):
         The current batch of training will finish, and any scheduled evaluation,
         logging, and evaluation for that batch, as well as any epoch end events.
         """
-        max_duration_unit = Time.from_input(self.max_duration).unit
-        self.max_duration = self.timestamp.get(max_duration_unit)
+        if self.max_duration is not None:
+            max_duration_unit = Time.from_input(self.max_duration).unit
+            self.max_duration = self.timestamp.get(max_duration_unit)
+        else:
+            self.max_duration = self.timestamp.batch
 
     @property
     def optimizers(self):
