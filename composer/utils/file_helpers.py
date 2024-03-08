@@ -477,6 +477,23 @@ def validate_remote_path():
     print(f'Found {len(objects)} objects at {remote_path} \n{objects_str}')
 
 
+def validate_given_remote_path(remote_path: str) -> bool:
+    """Validate the given remote path.
+
+    If the remote path is valid, prints a list of objects at the path.
+    Otherwise, raises an error.
+    """
+    objects = list_remote_objects(remote_path)
+    if len(objects) == 0:
+        return False
+    objects_str = '\n'.join(objects)
+    log.info(
+        'Found %s objects at %s \n%s',
+        len(objects), remote_path, objects_str
+    )
+    return True
+
+
 def get_file(path: str,
              destination: str,
              object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
