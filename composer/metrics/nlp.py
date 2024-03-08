@@ -203,11 +203,13 @@ class InContextLearningMetric(Metric):
         super().__init__(*args, **kwargs)
         self.needs_batch = True
 
-    def update(self,
-               batch: dict,
-               output_logits: Optional[torch.Tensor] = None,
-               labels: Optional[torch.Tensor] = None,
-               outputs: Optional[torch.Tensor] = None):
+    def update(
+        self,
+        batch: dict,
+        output_logits: Optional[torch.Tensor] = None,
+        labels: Optional[torch.Tensor] = None,
+        outputs: Optional[torch.Tensor] = None,
+    ):
         """Abstract interface for computing an in-context learning metrics.
 
         The `output_logits` argument is deprecated and will be removed in v0.21 while it's functionality will
@@ -225,10 +227,12 @@ class InContextLearningMetric(Metric):
         raise NotImplementedError
 
     @staticmethod
-    def rename_args(batch: dict,
-                    output_logits: Optional[torch.Tensor] = None,
-                    labels: Optional[torch.Tensor] = None,
-                    outputs: Optional[torch.Tensor] = None) -> Tuple[dict, torch.Tensor, torch.Tensor]:
+    def rename_args(
+        batch: dict,
+        output_logits: Optional[torch.Tensor] = None,
+        labels: Optional[torch.Tensor] = None,
+        outputs: Optional[torch.Tensor] = None,
+    ) -> Tuple[dict, torch.Tensor, torch.Tensor]:
         if outputs is not None and output_logits is not None:
             raise ValueError('Cannot use both `outputs` and `output_logits`')
         if output_logits is not None:
@@ -362,15 +366,19 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
-    def update(self,
-               batch: dict,
-               output_logits: Optional[torch.Tensor] = None,
-               labels: Optional[torch.Tensor] = None,
-               outputs: Optional[torch.Tensor] = None):
-        batch, outputs, labels = InContextLearningMetric.rename_args(batch=batch,
-                                                                     output_logits=output_logits,
-                                                                     labels=labels,
-                                                                     outputs=outputs)
+    def update(
+        self,
+        batch: dict,
+        output_logits: Optional[torch.Tensor] = None,
+        labels: Optional[torch.Tensor] = None,
+        outputs: Optional[torch.Tensor] = None,
+    ):
+        batch, outputs, labels = InContextLearningMetric.rename_args(
+            batch=batch,
+            output_logits=output_logits,
+            labels=labels,
+            outputs=outputs,
+        )
 
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
             cont_tok_pred = outputs[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
@@ -413,15 +421,19 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
         self.add_state('correct', default=torch.tensor(0.0), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.0), dist_reduce_fx='sum')
 
-    def update(self,
-               batch: dict,
-               output_logits: Optional[torch.Tensor] = None,
-               labels: Optional[torch.Tensor] = None,
-               outputs: Optional[torch.Tensor] = None):
-        batch, outputs, labels = InContextLearningMetric.rename_args(batch=batch,
-                                                                     output_logits=output_logits,
-                                                                     labels=labels,
-                                                                     outputs=outputs)
+    def update(
+        self,
+        batch: dict,
+        output_logits: Optional[torch.Tensor] = None,
+        labels: Optional[torch.Tensor] = None,
+        outputs: Optional[torch.Tensor] = None,
+    ):
+        batch, outputs, labels = InContextLearningMetric.rename_args(
+            batch=batch,
+            output_logits=output_logits,
+            labels=labels,
+            outputs=outputs,
+        )
 
         perplexities = []
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
@@ -507,15 +519,19 @@ class InContextLearningMCExpectedCalibrationError(InContextLearningExpectedCalib
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def update(self,
-               batch: dict,
-               output_logits: Optional[torch.Tensor] = None,
-               labels: Optional[torch.Tensor] = None,
-               outputs: Optional[torch.Tensor] = None):
-        batch, outputs, labels = InContextLearningMetric.rename_args(batch=batch,
-                                                                     output_logits=output_logits,
-                                                                     labels=labels,
-                                                                     outputs=outputs)
+    def update(
+        self,
+        batch: dict,
+        output_logits: Optional[torch.Tensor] = None,
+        labels: Optional[torch.Tensor] = None,
+        outputs: Optional[torch.Tensor] = None,
+    ):
+        batch, outputs, labels = InContextLearningMetric.rename_args(
+            batch=batch,
+            output_logits=output_logits,
+            labels=labels,
+            outputs=outputs,
+        )
 
         outputs = torch.softmax(outputs, dim=2)
         probabilites = []
@@ -552,15 +568,19 @@ class InContextLearningLMExpectedCalibrationError(InContextLearningExpectedCalib
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def update(self,
-               batch: dict,
-               output_logits: Optional[torch.Tensor] = None,
-               labels: Optional[torch.Tensor] = None,
-               outputs: Optional[torch.Tensor] = None):
-        batch, outputs, labels = InContextLearningMetric.rename_args(batch=batch,
-                                                                     output_logits=output_logits,
-                                                                     labels=labels,
-                                                                     outputs=outputs)
+    def update(
+        self,
+        batch: dict,
+        output_logits: Optional[torch.Tensor] = None,
+        labels: Optional[torch.Tensor] = None,
+        outputs: Optional[torch.Tensor] = None,
+    ):
+        batch, outputs, labels = InContextLearningMetric.rename_args(
+            batch=batch,
+            output_logits=output_logits,
+            labels=labels,
+            outputs=outputs,
+        )
 
         outputs = torch.softmax(outputs, dim=2)
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
@@ -619,7 +639,8 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
             warnings.warn(
                 'Running code eval locally may be insecure. Please set environment variable CODE_EVAL_DEVICE '
                 'to LAMBDA to run on remote. To use Lambdas, spin up your instance that checks code, set the URL as '
-                'CODE_EVAL_URL and the API key as CODE_EVAL_APIKEY.')
+                'CODE_EVAL_URL and the API key as CODE_EVAL_APIKEY.',
+            )
             log.debug('Running code eval locally.')
             client = LocalEvalClient()
         elif self.eval_device == 'LAMBDA':
@@ -631,10 +652,13 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
                 'Attempting to use InContextLearningCodeEvalAccuracy but environment '
                 'variable `CODE_EVAL_DEVICE` is not set. Please set it to `CODE_EVAL_DEVICE` '
                 'to one of `LOCAL` (for unsafe local eval), `LAMBDA` (for AWS lambda ',
-                'evaluation), or `MOSAICML` (for lambda eval through MAPI).')
+                'evaluation), or `MOSAICML` (for lambda eval through MAPI).',
+            )
         else:
-            raise ValueError('Environment variable `CODE_EVAL_DEVICE` must be one of `LOCAL`, '
-                             f'`LAMBDA`, or `MOSAICML` but got {self.eval_device}.')
+            raise ValueError(
+                'Environment variable `CODE_EVAL_DEVICE` must be one of `LOCAL`, '
+                f'`LAMBDA`, or `MOSAICML` but got {self.eval_device}.',
+            )
 
         return client
 
@@ -693,8 +717,14 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         client = self.get_client()
 
         for sample_id, code_gen, sample_prompt, test_inputs, test_outputs, entry_point, language in zip(
-                batch['sample_id'], outputs, batch['prompts'], batch['test_inputs'], batch['test_outputs'],
-                batch['entry_points'], batch['languages']):
+            batch['sample_id'],
+            outputs,
+            batch['prompts'],
+            batch['test_inputs'],
+            batch['test_outputs'],
+            batch['entry_points'],
+            batch['languages'],
+        ):
 
             idx = sample_id
             self.total[idx] += 1.0
@@ -726,19 +756,22 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         complete = self.total == self.num_generations  # so that eval subset batches can be used
 
         if complete.sum() < (self.total != 0).sum():
-            warnings.warn('Some samples in the dataset have less than the expected number of generations. '
-                          'This is expected if you are using a subset of the dataset for evaluation.')
+            warnings.warn(
+                'Some samples in the dataset have less than the expected number of generations. '
+                'This is expected if you are using a subset of the dataset for evaluation.',
+            )
 
         if (self.correct > self.total).any().item():
             raise ValueError(
-                'Internal error some samples have more correct than  total generations. This should not happen.')
+                'Internal error some samples have more correct than  total generations. This should not happen.',
+            )
 
         results = {}
         n = self.num_generations
 
         for k in self.pass_at_k:
-            pass_at_k = sum([self.estimator(n, int(c.item()), k) for c in self.correct[complete]
-                            ]) / complete.sum().item()
+            estimators = [self.estimator(n, int(c.item()), k) for c in self.correct[complete]]
+            pass_at_k = sum(estimators) / complete.sum().item()
             results[f'pass@{k}'] = torch.tensor(pass_at_k)
 
         if len(results) == 1:  # backwards compatibility

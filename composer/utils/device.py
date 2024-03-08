@@ -41,13 +41,13 @@ def get_device(device: Optional[Union[str, 'Device']]) -> 'Device':
         elif device.lower() == 'tpu':
             if not is_xla_installed():
                 raise ImportError(
-                    'Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla'
+                    'Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla',
                 )
             device = DeviceTPU()
         elif device.lower() == 'neuron':
             if not is_xla_installed():
                 raise ImportError(
-                    'Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla'
+                    'Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla',
                 )
             device = DeviceNeuron()
         elif device.lower() == 'hpu':

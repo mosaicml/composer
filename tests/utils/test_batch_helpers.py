@@ -29,11 +29,14 @@ for char, num in zip(keys, my_list):
     counter_list.extend(num * [char])
 
 
-@pytest.fixture(scope='module', params=[
-    my_list,
-    tuple(my_list),
-    deque(my_list),
-])
+@pytest.fixture(
+    scope='module',
+    params=[
+        my_list,
+        tuple(my_list),
+        deque(my_list),
+    ],
+)
 def example_sequence(request):
     return request.param
 
@@ -45,14 +48,16 @@ def example_dequeless_sequence(request):
 
 
 # All key value pair data structures that have a __getitem__ function thats takes str.
-@pytest.fixture(scope='module',
-                params=[
-                    dict(zip(keys, my_list)),
-                    defaultdict(list, **dict(zip(keys, my_list))),
-                    ChainMap(dict(zip(keys, my_list)), dict(a=7, j=3)),
-                    Counter(counter_list),
-                    OrderedDict(**dict(zip(keys, my_list)))
-                ])
+@pytest.fixture(
+    scope='module',
+    params=[
+        dict(zip(keys, my_list)),
+        defaultdict(list, **dict(zip(keys, my_list))),
+        ChainMap(dict(zip(keys, my_list)), dict(a=7, j=3)),
+        Counter(counter_list),
+        OrderedDict(**dict(zip(keys, my_list))),
+    ],
+)
 def example_map(request):
     return request.param
 
@@ -62,10 +67,13 @@ def example_attr_store(request):
     return request.param
 
 
-@pytest.fixture(scope='module', params=[
-    torch.tensor(my_list),
-    np.asarray(my_list),
-])
+@pytest.fixture(
+    scope='module',
+    params=[
+        torch.tensor(my_list),
+        np.asarray(my_list),
+    ],
+)
 def example_array_tensor(request):
     return request.param
 
@@ -226,8 +234,17 @@ def test_batch_get_not_pair_of_callables(example_dict, dict_getter):
 
 
 # Test whether arrays and tensors can be indexed by a sequence of slice objects.
-@pytest.mark.parametrize('batch,key,expected', [(torch.tensor(my_list), [slice(1, 4), slice(
-    5, 7)], [torch.tensor([4, 5, 6]), torch.tensor([8, 9])])])
+@pytest.mark.parametrize(
+    'batch,key,expected',
+    [(
+        torch.tensor(my_list),
+        [slice(1, 4), slice(5, 7)],
+        [
+            torch.tensor([4, 5, 6]),
+            torch.tensor([8, 9]),
+        ],
+    )],
+)
 def test_batch_get_seq_of_slices_key_for_1D_tensors_and_arrays(batch, key, expected):
     for actual, expectation in zip(batch_get(batch, key), expected):
         assert all(actual == expectation)
@@ -239,9 +256,14 @@ def test_batch_get_2D_array_tensor_2D_tuple_key(example_2d, key, expected):
     assert int(actual) == expected
 
 
-@pytest.mark.parametrize('key,expected', [([1, 2], [[3, 4, 5], [6, 7, 8]]),
-                                          (np.asarray([1, 2]), [[3, 4, 5], [6, 7, 8]]),
-                                          (torch.tensor([1, 2]), [[3, 4, 5], [6, 7, 8]])])
+@pytest.mark.parametrize(
+    'key,expected',
+    [
+        ([1, 2], [[3, 4, 5], [6, 7, 8]]),
+        (np.asarray([1, 2]), [[3, 4, 5], [6, 7, 8]]),
+        (torch.tensor([1, 2]), [[3, 4, 5], [6, 7, 8]]),
+    ],
+)
 def test_batch_get_2D_array_tensor_2D_key(example_2d, key, expected):
     actual = batch_get(example_2d, key)
     assert actual.tolist() == expected
@@ -363,9 +385,14 @@ def test_batch_set_2D_array_and_tensor_2D_tuple_key(example_2d, key, value):
     assert batch_get(batch, key) == value
 
 
-@pytest.mark.parametrize('key,value', [([1, 2], torch.tensor([[3, 6, 9], [6, 12, 18]])),
-                                       (np.asarray([1, 2]), torch.tensor([[3, 6, 9], [6, 12, 18]])),
-                                       (torch.tensor([1, 2]), torch.tensor([[3, 6, 9], [6, 12, 18]]))])
+@pytest.mark.parametrize(
+    'key,value',
+    [
+        ([1, 2], torch.tensor([[3, 6, 9], [6, 12, 18]])),
+        (np.asarray([1, 2]), torch.tensor([[3, 6, 9], [6, 12, 18]])),
+        (torch.tensor([1, 2]), torch.tensor([[3, 6, 9], [6, 12, 18]])),
+    ],
+)
 def test_batch_set_2D_tensor_2D_seq_key(example_2D_tensor, key, value):
     new_batch = batch_set(example_2D_tensor, key=key, value=value)
     assert torch.equal(batch_get(new_batch, key), value)
@@ -378,9 +405,14 @@ def test_batch_set_2D_tensor_list_of_slices(example_2D_tensor):
     assert torch.equal(batch_get(new_batch, key), value)
 
 
-@pytest.mark.parametrize('key,value', [([1, 2], np.asarray([[3, 6, 9], [6, 12, 18]])),
-                                       (np.asarray([1, 2]), np.asarray([[3, 6, 9], [6, 12, 18]])),
-                                       (torch.tensor([1, 2]), np.asarray([[3, 6, 9], [6, 12, 18]]))])
+@pytest.mark.parametrize(
+    'key,value',
+    [
+        ([1, 2], np.asarray([[3, 6, 9], [6, 12, 18]])),
+        (np.asarray([1, 2]), np.asarray([[3, 6, 9], [6, 12, 18]])),
+        (torch.tensor([1, 2]), np.asarray([[3, 6, 9], [6, 12, 18]])),
+    ],
+)
 def test_batch_set_2D_array_2D_seq_key(example_2D_array, key, value):
     new_batch = batch_set(example_2D_array, key=key, value=value)
     assert np.all(np.equal(batch_get(new_batch, key), value))
@@ -430,13 +462,16 @@ def test_set_with_mismatched_key_values(example_list):
 
 # It's almost impossible to stop Counter and defaultdict from adding
 # new items, so we don't include them here.
-@pytest.mark.parametrize('batch', [
-    dict(zip(keys, my_list)),
-    MyClass(**dict(zip(keys, my_list))),
-    my_named_tuple(*my_list),
-    ChainMap(dict(zip(keys, my_list)), dict(a=7, j=3)),
-    OrderedDict(**dict(zip(keys, my_list)))
-])
+@pytest.mark.parametrize(
+    'batch',
+    [
+        dict(zip(keys, my_list)),
+        MyClass(**dict(zip(keys, my_list))),
+        my_named_tuple(*my_list),
+        ChainMap(dict(zip(keys, my_list)), dict(a=7, j=3)),
+        OrderedDict(**dict(zip(keys, my_list))),
+    ],
+)
 def test_batch_set_with_new_key_fails(batch):
     with pytest.raises(Exception):
         batch_set(batch, key='key_that_is_certainly_not_present', value=5)

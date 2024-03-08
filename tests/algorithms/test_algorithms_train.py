@@ -25,12 +25,14 @@ def test_algorithm_trains(alg_cls: Type[Algorithm]):
     trainer.fit()
 
     if alg_cls is LayerFreezing:
-        pytest.xfail(('Layer freezing is incompatible with a second call to .fit() '
-                      'since all layers are frozen, and it does not unfreeze layers.'))
+        pytest.xfail((
+            'Layer freezing is incompatible with a second call to .fit() '
+            'since all layers are frozen, and it does not unfreeze layers.'
+        ))
 
     if alg_cls is GyroDropout:
         pytest.xfail(
-            'GyroDropout is implemented to be applied on Event.FIT_START, so is not compatible with multiple calls to fit.'
+            'GyroDropout is implemented to be applied on Event.FIT_START, so is not compatible with multiple calls to fit.',
         )
 
     # fit again for another epoch

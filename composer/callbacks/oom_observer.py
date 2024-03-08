@@ -127,7 +127,7 @@ class OOMObserver(Callback):
 
         if model_device.type not in ('cuda', 'meta'):
             warnings.warn(
-                f'OOMObserver only works on CUDA devices, but the model is on {model_device.type}. Disabling OOMObserver.'
+                f'OOMObserver only works on CUDA devices, but the model is on {model_device.type}. Disabling OOMObserver.',
             )
             self._enabled = False
         else:
@@ -144,7 +144,8 @@ class OOMObserver(Callback):
             assert self.folder_name, 'folder_name must be set in init'
             filename = os.path.join(
                 self.folder_name,
-                format_name_with_dist_and_time(self.filename, run_name=state.run_name, timestamp=state.timestamp))
+                format_name_with_dist_and_time(self.filename, run_name=state.run_name, timestamp=state.timestamp),
+            )
 
             try:
                 self.filename_config = SnapshotFileNameConfig.from_file_name(filename)
@@ -174,6 +175,7 @@ class OOMObserver(Callback):
                 log.info(f'Saved memory visualizations to local files with prefix = {filename} during OOM')
 
                 if self.remote_path_in_bucket is not None:
+
                     for f in self.filename_config.list_filenames():
                         base_file_name = os.path.basename(f)
                         remote_file_name = os.path.join(self.remote_path_in_bucket, base_file_name)
@@ -183,7 +185,7 @@ class OOMObserver(Callback):
                             logger.upload_file(remote_file_name=remote_file_name, file_path=f, overwrite=self.overwrite)
                         except FileExistsError as e:
                             raise FileExistsError(
-                                f'Uploading memory visualizations failed with error: {e}. overwrite was set to {self.overwrite}. To overwrite memory visualizations with Trainer, set save_overwrite to True.'
+                                f'Uploading memory visualizations failed with error: {e}. overwrite was set to {self.overwrite}. To overwrite memory visualizations with Trainer, set save_overwrite to True.',
                             ) from e
 
             except Exception as e:
@@ -193,6 +195,7 @@ class OOMObserver(Callback):
             torch.cuda.memory._record_memory_history(
                 True,  # type: ignore
                 trace_alloc_max_entries=self.max_entries,
-                trace_alloc_record_context=True)
+                trace_alloc_record_context=True,
+            )
             torch._C._cuda_attach_out_of_memory_observer(oom_observer)  # type: ignore
             log.info('OOMObserver is enabled and registered')

@@ -10,19 +10,23 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 
-models = [{
-    'name': 'GPT-2 125M',
-    'baseline': 255,
-    'performance': 150
-}, {
-    'name': 'ResNet-50',
-    'baseline': 116,
-    'performance': 15
-}, {
-    'name': 'DeepLab-v3',
-    'baseline': 110,
-    'performance': 36
-}]
+models = [
+    {
+        'name': 'GPT-2 125M',
+        'baseline': 255,
+        'performance': 150,
+    },
+    {
+        'name': 'ResNet-50',
+        'baseline': 116,
+        'performance': 15,
+    },
+    {
+        'name': 'DeepLab-v3',
+        'baseline': 110,
+        'performance': 36,
+    },
+]
 
 
 def generate_graph(filename, light_mode=True):

@@ -19,7 +19,8 @@ __all__ = ['_fix_batch_precision_for_deepspeed', '_parse_deepspeed_config']
 def _add_batch_config(config: Dict[str, Any], state: State):
     if state.dataloader is None:
         raise ValueError(
-            'When using DeepSpeed, the `train_dataloader` must be specified when constructing the Trainer.')
+            'When using DeepSpeed, the `train_dataloader` must be specified when constructing the Trainer.',
+        )
 
     try:
         batch_size = state.dataloader.batch_size  # type: ignore as we catch the exception
@@ -29,10 +30,12 @@ def _add_batch_config(config: Dict[str, Any], state: State):
     assert state.device_train_microbatch_size is not None
     if batch_size % state.device_train_microbatch_size != 0:
         # DeepSpeed will throw an error in this configuration.
-        raise ValueError('The Mosaic trainer has been configured to use batch size='
-                         f'{batch_size}, but this is not divisible by the '
-                         f'train device microbatch size={state.device_train_microbatch_size}. '
-                         'This is unsupported when using DeepSpeed.')
+        raise ValueError(
+            'The Mosaic trainer has been configured to use batch size='
+            f'{batch_size}, but this is not divisible by the '
+            f'train device microbatch size={state.device_train_microbatch_size}. '
+            'This is unsupported when using DeepSpeed.',
+        )
 
     train_batch_size = batch_size * dist.get_world_size()
     # Per the check at the start of this function, the following division is always clean.
@@ -41,8 +44,10 @@ def _add_batch_config(config: Dict[str, Any], state: State):
     if 'train_batch_size' in config:
         ds_train_batch_size = config['train_batch_size']
         if ds_train_batch_size != train_batch_size:
-            raise ValueError(f'Provided DeepSpeed configuration specifies batch size={ds_train_batch_size}, '
-                             f'but the Mosaic trainer has been configured with batch size={train_batch_size}.')
+            raise ValueError(
+                f'Provided DeepSpeed configuration specifies batch size={ds_train_batch_size}, '
+                f'but the Mosaic trainer has been configured with batch size={train_batch_size}.',
+            )
     else:
         config['train_batch_size'] = train_batch_size
 
@@ -52,21 +57,27 @@ def _add_batch_config(config: Dict[str, Any], state: State):
     if 'train_micro_batch_size_per_gpu' in config:
         ds_per_gpu_microbatch_size = config['train_micro_batch_size_per_gpu']
         if ds_per_gpu_microbatch_size != state.device_train_microbatch_size:
-            raise ValueError('Provided DeepSpeed configuration specifies per-GPU microbatch size='
-                             f'{ds_per_gpu_microbatch_size}, but the Mosaic trainer has been '
-                             f'configured with per-GPU microbatch size={state.device_train_microbatch_size}.')
+            raise ValueError(
+                'Provided DeepSpeed configuration specifies per-GPU microbatch size='
+                f'{ds_per_gpu_microbatch_size}, but the Mosaic trainer has been '
+                f'configured with per-GPU microbatch size={state.device_train_microbatch_size}.',
+            )
     else:
         config['train_micro_batch_size_per_gpu'] = state.device_train_microbatch_size
 
 
 def _ensure_no_optim_in_config(config: Dict[str, Any]):
     if 'optimizer' in config:
-        raise ValueError(('The DeepSpeed configuration specifies an optimizer, but the Mosaic '
-                          'trainer will override this setting.'))
+        raise ValueError((
+            'The DeepSpeed configuration specifies an optimizer, but the Mosaic '
+            'trainer will override this setting.'
+        ))
 
     if 'scheduler' in config:
-        raise ValueError(('The DeepSpeed configuration specifies a scheduler, but the Mosaic '
-                          'trainer will override this setting.'))
+        raise ValueError((
+            'The DeepSpeed configuration specifies a scheduler, but the Mosaic '
+            'trainer will override this setting.'
+        ))
 
 
 def _add_precision_config(config: Dict[str, Any], state: State):
@@ -82,8 +93,10 @@ def _add_precision_config(config: Dict[str, Any], state: State):
     elif 'amp' in config and 'enabled' in config['amp'] and config['amp']['enabled']:
         ds_precision = Precision.AMP_FP16
     if ds_precision is not None and ds_precision != precision:
-        raise ValueError((f'Provided DeepSpeed configuration specifies precision={ds_precision}, '
-                          f'but the Mosaic trainer has been configured with precision={precision}.'))
+        raise ValueError((
+            f'Provided DeepSpeed configuration specifies precision={ds_precision}, '
+            f'but the Mosaic trainer has been configured with precision={precision}.'
+        ))
 
     # Set DeepSpeed config based on state.precision if not set
     if precision == Precision.AMP_FP16 and 'fp16' not in config:
@@ -125,9 +138,11 @@ def _parse_deepspeed_config(
     _ensure_no_optim_in_config(new_config)
     _add_precision_config(new_config, state)
     if 'zero_allow_untested_optimizer' in new_config and not new_config['zero_allow_untested_optimizer']:
-        warnings.warn(('Provided DeepSpeed configuration specifies zero_allow_untested_optimizer=False. '
-                       'This causes DeepSpeed to reject certain Mosaic optimizers that are known to '
-                       'work well with DeepSpeed.'))
+        warnings.warn((
+            'Provided DeepSpeed configuration specifies zero_allow_untested_optimizer=False. '
+            'This causes DeepSpeed to reject certain Mosaic optimizers that are known to '
+            'work well with DeepSpeed.'
+        ))
 
     new_config['zero_allow_untested_optimizer'] = True
     return new_config

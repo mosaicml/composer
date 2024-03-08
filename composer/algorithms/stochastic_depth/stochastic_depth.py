@@ -29,11 +29,13 @@ _STOCHASTIC_LAYER_MAPPING = {'ResNetBottleneck': (Bottleneck, make_resnet_bottle
 __all__ = ['apply_stochastic_depth', 'StochasticDepth']
 
 
-def apply_stochastic_depth(model: torch.nn.Module,
-                           target_layer_name: str,
-                           stochastic_method: str = 'block',
-                           drop_rate: float = 0.2,
-                           drop_distribution: str = 'linear') -> None:
+def apply_stochastic_depth(
+    model: torch.nn.Module,
+    target_layer_name: str,
+    stochastic_method: str = 'block',
+    drop_rate: float = 0.2,
+    drop_distribution: str = 'linear',
+) -> None:
     """Applies Stochastic Depth (`Huang et al, 2016 <https://arxiv.org/abs/1603.09382>`_) to the specified model.
 
     The algorithm replaces the specified target layer with a stochastic version
@@ -78,18 +80,22 @@ def apply_stochastic_depth(model: torch.nn.Module,
                 target_layer_name='ResNetBottleneck'
             )
     """
-    _validate_stochastic_hparams(target_layer_name=target_layer_name,
-                                 stochastic_method=stochastic_method,
-                                 drop_rate=drop_rate,
-                                 drop_distribution=drop_distribution)
+    _validate_stochastic_hparams(
+        target_layer_name=target_layer_name,
+        stochastic_method=stochastic_method,
+        drop_rate=drop_rate,
+        drop_distribution=drop_distribution,
+    )
     transforms = {}
     target_layer, stochastic_converter = _STOCHASTIC_LAYER_MAPPING[target_layer_name]
     module_count = module_surgery.count_module_instances(model, target_layer)
-    stochastic_from_target_layer = functools.partial(stochastic_converter,
-                                                     drop_rate=drop_rate,
-                                                     drop_distribution=drop_distribution,
-                                                     module_count=module_count,
-                                                     stochastic_method=stochastic_method)
+    stochastic_from_target_layer = functools.partial(
+        stochastic_converter,
+        drop_rate=drop_rate,
+        drop_distribution=drop_distribution,
+        module_count=module_count,
+        stochastic_method=stochastic_method,
+    )
     transforms[target_layer] = stochastic_from_target_layer
     module_surgery.replace_module_classes(model, policies=transforms)
 
@@ -132,15 +138,17 @@ class StochasticDepth(Algorithm):
             `linear_drop_rate`. Default: ``0.0``.
     """
 
-    def __init__(self,
-                 target_layer_name: str,
-                 stochastic_method: str = 'block',
-                 drop_rate: float = 0.2,
-                 drop_distribution: str = 'linear',
-                 drop_warmup: Union[float, Time, str] = 0.0):
+    def __init__(
+        self,
+        target_layer_name: str,
+        stochastic_method: str = 'block',
+        drop_rate: float = 0.2,
+        drop_distribution: str = 'linear',
+        drop_warmup: Union[float, Time, str] = 0.0,
+    ):
 
         log.warning(
-            'Stochastic depth has known issues of weight mismatch when loading from a checkpoint, which will cause an error when resuming without `load_weights_only=True`.'
+            'Stochastic depth has known issues of weight mismatch when loading from a checkpoint, which will cause an error when resuming without `load_weights_only=True`.',
         )
 
         if drop_rate == 0.0:
@@ -156,11 +164,13 @@ class StochasticDepth(Algorithm):
             drop_warmup = Time(drop_warmup, TimeUnit.DURATION)
         self.drop_warmup = drop_warmup
         self.num_stochastic_layers = 0  # Initial count of stochastic layers
-        _validate_stochastic_hparams(stochastic_method=self.stochastic_method,
-                                     target_layer_name=self.target_layer_name,
-                                     drop_rate=self.drop_rate,
-                                     drop_distribution=self.drop_distribution,
-                                     drop_warmup=str(self.drop_warmup))
+        _validate_stochastic_hparams(
+            stochastic_method=self.stochastic_method,
+            target_layer_name=self.target_layer_name,
+            drop_rate=self.drop_rate,
+            drop_distribution=self.drop_distribution,
+            drop_warmup=str(self.drop_warmup),
+        )
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(target_layer_name='{self.target_layer_name}',stochastic_method='{self.stochastic_method}',drop_rate={self.drop_rate},drop_distribution='{self.drop_distribution}',drop_warmup={repr(self.drop_warmup)})"
@@ -184,11 +194,13 @@ class StochasticDepth(Algorithm):
             if module_surgery.count_module_instances(state.model, target_block) == 0:
                 log.warning(f'No {self.target_layer_name} found in model! Algorithm will function as a no-op.')
 
-            apply_stochastic_depth(state.model,
-                                   target_layer_name=self.target_layer_name,
-                                   stochastic_method=self.stochastic_method,
-                                   drop_rate=self.drop_rate,
-                                   drop_distribution=self.drop_distribution)
+            apply_stochastic_depth(
+                state.model,
+                target_layer_name=self.target_layer_name,
+                stochastic_method=self.stochastic_method,
+                drop_rate=self.drop_rate,
+                drop_distribution=self.drop_distribution,
+            )
             self.num_stochastic_layers = module_surgery.count_module_instances(state.model, target_block)
             logger.log_metrics({'stochastic_depth/num_stochastic_layers': self.num_stochastic_layers})
 
@@ -197,49 +209,61 @@ class StochasticDepth(Algorithm):
             assert elapsed_duration is not None, 'elapsed duration is set on BATCH_START'
             if elapsed_duration < self.drop_warmup:
                 current_drop_rate = float(elapsed_duration / self.drop_warmup) * self.drop_rate
-                _update_drop_rate(module=state.model,
-                                  target_block=target_block,
-                                  drop_rate=current_drop_rate,
-                                  drop_distribution=self.drop_distribution,
-                                  module_count=self.num_stochastic_layers)
+                _update_drop_rate(
+                    module=state.model,
+                    target_block=target_block,
+                    drop_rate=current_drop_rate,
+                    drop_distribution=self.drop_distribution,
+                    module_count=self.num_stochastic_layers,
+                )
             else:
                 current_drop_rate = self.drop_rate
             logger.log_metrics({'stochastic_depth/drop_rate': current_drop_rate})
 
 
-def _validate_stochastic_hparams(target_layer_name: str,
-                                 stochastic_method: str,
-                                 drop_rate: float,
-                                 drop_distribution: str,
-                                 drop_warmup: str = '0dur'):
+def _validate_stochastic_hparams(
+    target_layer_name: str,
+    stochastic_method: str,
+    drop_rate: float,
+    drop_distribution: str,
+    drop_warmup: str = '0dur',
+):
     """Helper function to validate the Stochastic Depth hyperparameter values.
     """
 
     if stochastic_method and (stochastic_method not in _VALID_STOCHASTIC_METHODS):
-        raise ValueError(f'stochastic_method {stochastic_method} is not supported.'
-                         f' Must be one of {_VALID_STOCHASTIC_METHODS}')
+        raise ValueError(
+            f'stochastic_method {stochastic_method} is not supported.'
+            f' Must be one of {_VALID_STOCHASTIC_METHODS}',
+        )
 
     if target_layer_name and (target_layer_name not in _STOCHASTIC_LAYER_MAPPING):
-        raise ValueError(f'target_layer_name {target_layer_name} is not supported with {stochastic_method}.'
-                         f' Must be one of {list(_STOCHASTIC_LAYER_MAPPING.keys())}')
+        raise ValueError(
+            f'target_layer_name {target_layer_name} is not supported with {stochastic_method}.'
+            f' Must be one of {list(_STOCHASTIC_LAYER_MAPPING.keys())}',
+        )
 
     if drop_rate and (drop_rate < 0 or drop_rate > 1):
         raise ValueError(f'drop_rate must be between 0 and 1: {drop_rate}')
 
     if drop_distribution and (drop_distribution not in _VALID_LAYER_DISTRIBUTIONS):
-        raise ValueError(f'drop_distribution "{drop_distribution}" is'
-                         f' not supported. Must be one of {list(_VALID_LAYER_DISTRIBUTIONS)}')
+        raise ValueError(
+            f'drop_distribution "{drop_distribution}" is'
+            f' not supported. Must be one of {list(_VALID_LAYER_DISTRIBUTIONS)}',
+        )
 
     if stochastic_method == 'sample' and Time.from_timestring(drop_warmup).value != 0:
         raise ValueError(f'drop_warmup can not be used with "sample" stochastic_method')
 
 
-def _update_drop_rate(module: torch.nn.Module,
-                      target_block: Type[torch.nn.Module],
-                      drop_rate: float,
-                      drop_distribution: str,
-                      module_count: int,
-                      module_id: int = 0):
+def _update_drop_rate(
+    module: torch.nn.Module,
+    target_block: Type[torch.nn.Module],
+    drop_rate: float,
+    drop_distribution: str,
+    module_count: int,
+    module_id: int = 0,
+):
     """Recursively updates a module's drop_rate attributes with a new value.
     """
 

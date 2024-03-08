@@ -113,10 +113,12 @@ def get_trainer(
 ):
     if fsdp_config is None:
         fsdp_config = FSDPConfig()
-    model = SimpleMLP(num_features=num_features,
-                      num_classes=num_classes,
-                      train_metrics=train_metrics,
-                      val_metrics=val_metrics)
+    model = SimpleMLP(
+        num_features=num_features,
+        num_classes=num_classes,
+        train_metrics=train_metrics,
+        val_metrics=val_metrics,
+    )
     model.to(model_init_device)
     dataset = RandomClassificationDataset(shape=(num_features,), size=128)
     dataloader = DataLoader(
@@ -173,7 +175,8 @@ def _compare_optims_between_state_dicts(state_dict1, state_dict2):
     assert len(state_dict1_keys.symmetric_difference(state_dict2_keys)) == 0, textwrap.dedent(
         f"""The two state dicts being compared must have the exact same set of keys,
         but instead these keys belong to one, but not the other:
-        {state_dict1_keys.symmetric_difference(state_dict2_keys)}""")
+        {state_dict1_keys.symmetric_difference(state_dict2_keys)}""",
+    )
 
     for param_name in state_dict2_optim_params.keys():
         state_dict1_param_moment_dict = state_dict1_optim_params[param_name]
@@ -181,10 +184,11 @@ def _compare_optims_between_state_dicts(state_dict1, state_dict2):
         for moment_name in state_dict2_param_moment_dict.keys():
             state_dict1_moment = state_dict1_param_moment_dict[moment_name].cpu()
             state_dict2_moment = state_dict2_param_moment_dict[moment_name].cpu()
-            assert torch.equal(state_dict1_moment,
-                               state_dict2_moment), (f'Moment {moment_name} for parameter {param_name} not the same '
-                                                     'between state dicts,\n\t{state_dict1_moment}\n\t'
-                                                     '{state_dict2_moment}')
+            assert torch.equal(state_dict1_moment, state_dict2_moment), (
+                f'Moment {moment_name} for parameter {param_name} not the same '
+                'between state dicts,\n\t{state_dict1_moment}\n\t'
+                '{state_dict2_moment}'
+            )
 
 
 def _compare_model_params_between_state_dicts(state_dict1, state_dict2):
@@ -197,13 +201,16 @@ def _compare_model_params_between_state_dicts(state_dict1, state_dict2):
     assert len(state_dict1_keys.symmetric_difference(state_dict2_keys)) == 0, textwrap.dedent(
         f"""The two state dicts being compared must have the exact same set of keys,
         but instead these keys that belong to one, but not the other:
-        {state_dict1_keys.symmetric_difference(state_dict2_keys)}""")
+        {state_dict1_keys.symmetric_difference(state_dict2_keys)}""",
+    )
 
     for param_name in state_dict2_model_params.keys():
         state_dict1_model_tensor = state_dict1_model_params[param_name].cpu()
         state_dict2_model_tensor = state_dict2_model_params[param_name].cpu()
-        assert torch.equal(state_dict1_model_tensor,
-                           state_dict2_model_tensor), f'Weight named {param_name} not the same between state_dicts'
+        assert torch.equal(
+            state_dict1_model_tensor,
+            state_dict2_model_tensor,
+        ), f'Weight named {param_name} not the same between state_dicts'
 
 
 def _compare_rng_states_between_trainers(rng_state1, rng_state2):
@@ -214,7 +221,8 @@ def _compare_rng_states_between_trainers(rng_state1, rng_state2):
         assert len(rank_state1_keys.symmetric_difference(rank_state2_keys)) == 0, textwrap.dedent(
             f"""The two rank rng state dicts being compared for rank {rank} must have the exact same set of keys,
             but instead these keys that belong to one, but not the other:
-            {rank_state1_keys.symmetric_difference(rank_state2_keys)}""")
+            {rank_state1_keys.symmetric_difference(rank_state2_keys)}""",
+        )
         python_state1 = rank_state1['python']
         python_state2 = rank_state2['python']
         assert python_state1 == python_state2, f'Python rng state not the same between state_dicts for rank {rank}'
@@ -223,16 +231,21 @@ def _compare_rng_states_between_trainers(rng_state1, rng_state2):
         numpy_state2 = rank_state2['numpy']
         _, keys1, pos1, has_gauss1, cached_gaussian1 = numpy_state1
         _, keys2, pos2, has_gauss2, cached_gaussian2 = numpy_state2
-        assert np.allclose(keys1, keys2,
-                           equal_nan=True), f'Numpy rng keys state not the same between state_dicts for rank {rank}'
+        assert np.allclose(
+            keys1,
+            keys2,
+            equal_nan=True,
+        ), f'Numpy rng keys state not the same between state_dicts for rank {rank}'
         assert pos1 == pos2, f'Numpy rng pos state not the same between state_dicts for rank {rank}'
         assert has_gauss1 == has_gauss2, f'Numpy rng has_gauss state not the same between state_dicts for rank {rank}'
         assert cached_gaussian1 == cached_gaussian2, f'Numpy rng cached_gaussian state not the same between state_dicts for rank {rank}'
 
         torch_state1 = rank_state1['torch']
         torch_state2 = rank_state2['torch']
-        assert torch.equal(torch_state1,
-                           torch_state2), f'Torch rng state not the same between state_dicts for rank {rank}'
+        assert torch.equal(
+            torch_state1,
+            torch_state2,
+        ), f'Torch rng state not the same between state_dicts for rank {rank}'
 
         if 'cuda' in rank_state1_keys:
             cuda_state1 = rank_state1['cuda']
@@ -362,43 +375,59 @@ def test_fsdp_mixed_with_sync(
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.parametrize('sharding_strategy', ['FULL_SHARD', 'SHARD_GRAD_OP'])
 @pytest.mark.parametrize('state_dict_type', ['full', 'sharded'])
-@pytest.mark.parametrize('composer_version', [
-    pytest.param(
-        '0.13.5',
-        marks=[
-            pytest.mark.filterwarnings(
-                (r'ignore:ShardedGradScaler is not in the state_dict. Its state will not be restored.:UserWarning')),
-            pytest.mark.filterwarnings((r'ignore:MosaicMLLogger is not in the state_dict. Its state '
-                                        r'will not be restored.:UserWarning')),
-        ],
-    ),
-    pytest.param(
-        '0.14.0',
-        marks=pytest.mark.filterwarnings((r'ignore:MosaicMLLogger is not in the state_dict. Its '
-                                          r'state will not be restored.:UserWarning')),
-    ),
-    pytest.param(
-        '0.14.1',
-        marks=pytest.mark.filterwarnings((r'ignore:MosaicMLLogger is not in the state_dict. Its '
-                                          r'state will not be restored.:UserWarning')),
-    ),
-    pytest.param(
-        '0.15.1',
-        marks=pytest.mark.filterwarnings((r'ignore:MosaicMLLogger is not in the state_dict. Its '
-                                          r'state will not be restored.:UserWarning')),
-    ),
-    pytest.param(
-        '0.16.0',
-        marks=pytest.mark.filterwarnings((r'ignore:MosaicMLLogger is not in the state_dict. Its '
-                                          r'state will not be restored.:UserWarning')),
-    ),
-    pytest.param(
-        '0.17.0',
-        marks=pytest.mark.filterwarnings((r'ignore:MosaicMLLogger is not in the state_dict. Its '
-                                          r'state will not be restored.:UserWarning')),
-    ),
-    '0.18.1',
-])
+@pytest.mark.parametrize(
+    'composer_version',
+    [
+        pytest.param(
+            '0.13.5',
+            marks=[
+                pytest.mark.filterwarnings(
+                    (r'ignore:ShardedGradScaler is not in the state_dict. Its state will not be restored.:UserWarning'),
+                ),
+                pytest.mark.filterwarnings((
+                    r'ignore:MosaicMLLogger is not in the state_dict. Its state '
+                    r'will not be restored.:UserWarning'
+                )),
+            ],
+        ),
+        pytest.param(
+            '0.14.0',
+            marks=pytest.mark.filterwarnings(
+                (r'ignore:MosaicMLLogger is not in the state_dict. Its '
+                 r'state will not be restored.:UserWarning'),
+            ),
+        ),
+        pytest.param(
+            '0.14.1',
+            marks=pytest.mark.filterwarnings(
+                (r'ignore:MosaicMLLogger is not in the state_dict. Its '
+                 r'state will not be restored.:UserWarning'),
+            ),
+        ),
+        pytest.param(
+            '0.15.1',
+            marks=pytest.mark.filterwarnings(
+                (r'ignore:MosaicMLLogger is not in the state_dict. Its '
+                 r'state will not be restored.:UserWarning'),
+            ),
+        ),
+        pytest.param(
+            '0.16.0',
+            marks=pytest.mark.filterwarnings(
+                (r'ignore:MosaicMLLogger is not in the state_dict. Its '
+                 r'state will not be restored.:UserWarning'),
+            ),
+        ),
+        pytest.param(
+            '0.17.0',
+            marks=pytest.mark.filterwarnings(
+                (r'ignore:MosaicMLLogger is not in the state_dict. Its '
+                 r'state will not be restored.:UserWarning'),
+            ),
+        ),
+        '0.18.1',
+    ],
+)
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*The CUDA RNG state could not be loaded.*:UserWarning')
 def test_fsdp_load_old_checkpoint(
@@ -417,9 +446,11 @@ def test_fsdp_load_old_checkpoint(
     if composer_version in ['0.13.5', '0.14.0', '0.14.1', '0.15.1']:
         rank = 0 if state_dict_type == 'full' else '{rank}'
 
-        load_path_dir = (f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/'
-                         f'{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_'
-                         f'{precision}/')
+        load_path_dir = (
+            f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/'
+            f'{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_'
+            f'{precision}/'
+        )
         if ((version.parse(composer_version) > version.parse('0.15.0')) and state_dict_type != 'full'):
             load_path_dir = (load_path_dir + 'ep0-ba2/')
 
@@ -429,9 +460,11 @@ def test_fsdp_load_old_checkpoint(
             source_path=load_path.lstrip(f's3://{s3_bucket}/'),
         )
     else:
-        load_path = (f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/'
-                     f'{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_'
-                     f'{precision}/')
+        load_path = (
+            f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/'
+            f'{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_'
+            f'{precision}/'
+        )
         if state_dict_type == 'full':
             load_path += 'ba2_rank0.pt'
         else:
@@ -496,10 +529,12 @@ def test_fsdp_load_old_checkpoint(
                 state_dict['state'].pop('optimizers')
 
             object_store = S3ObjectStore(bucket=f'{s3_bucket}')
-            storage_reader = DistCPObjectStoreReader(source_path=parsed_load_path,
-                                                     destination_path=destination,
-                                                     object_store=object_store,
-                                                     device_mesh=None)
+            storage_reader = DistCPObjectStoreReader(
+                source_path=parsed_load_path,
+                destination_path=destination,
+                object_store=object_store,
+                device_mesh=None,
+            )
 
             process_group = None
             dist_cp.load_state_dict(
@@ -515,12 +550,17 @@ def test_fsdp_load_old_checkpoint(
                 model = trainer2.state.model
                 optim = trainer2.state.optimizers[0]
                 optim_name = type(optim).__qualname__
-                optim_state_dict = load_sharded_optimizer_state_dict(model_state_dict=model_state_dict,
-                                                                     optimizer_key='optimizers',
-                                                                     storage_reader=storage_reader)
+                optim_state_dict = load_sharded_optimizer_state_dict(
+                    model_state_dict=model_state_dict,
+                    optimizer_key='optimizers',
+                    storage_reader=storage_reader,
+                )
                 with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
                     optim_state_dict = FSDP.optim_state_dict_to_load(
-                        optim_state_dict=optim_state_dict['optimizers'][optim_name], model=model, optim=optim)
+                        optim_state_dict=optim_state_dict['optimizers'][optim_name],
+                        model=model,
+                        optim=optim,
+                    )
 
                 trainer2.state.optimizers[0].load_state_dict(optim_state_dict)
 
@@ -635,11 +675,15 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
 
     # Load checkpoints with checkpoint validation.
     with expectation:
-        with patch('composer.utils.checkpoint._get_checkpoint_validation_function',
-                   mock_get_checkpoint_validation_function):
-            trainer = get_trainer(load_path=os.path.join(save_folder, checkpoint_relpath),
-                                  max_duration='2ba',
-                                  fsdp_config=fsdp_config)
+        with patch(
+            'composer.utils.checkpoint._get_checkpoint_validation_function',
+            mock_get_checkpoint_validation_function,
+        ):
+            trainer = get_trainer(
+                load_path=os.path.join(save_folder, checkpoint_relpath),
+                max_duration='2ba',
+                fsdp_config=fsdp_config,
+            )
             trainer.fit()
             trainer.close()
 
@@ -647,14 +691,17 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
 @pytest.mark.gpu
 @world_size(2)
 @pytest.mark.parametrize('use_remote', [pytest.param(True, marks=pytest.mark.remote), False])
-@pytest.mark.parametrize('weights_only,optimizer,precision,autoresume,load_ignore_keys', [
-    [False, 'adamw', 'amp_bf16', False, None],
-    [True, 'adamw', 'amp_bf16', False, None],
-    [False, 'adam', 'amp_bf16', False, None],
-    [False, 'adamw', 'amp_fp16', False, None],
-    [False, 'adamw', 'amp_bf16', True, None],
-    [False, 'adamw', 'amp_bf16', False, ['rng']],
-])
+@pytest.mark.parametrize(
+    'weights_only,optimizer,precision,autoresume,load_ignore_keys',
+    [
+        [False, 'adamw', 'amp_bf16', False, None],
+        [True, 'adamw', 'amp_bf16', False, None],
+        [False, 'adam', 'amp_bf16', False, None],
+        [False, 'adamw', 'amp_fp16', False, None],
+        [False, 'adamw', 'amp_bf16', True, None],
+        [False, 'adamw', 'amp_bf16', False, ['rng']],
+    ],
+)
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning')
@@ -791,9 +838,11 @@ def test_elastic_resumption(
     else:
         run_name = None
 
-    base_path = (f's3://{s3_bucket}/{s3_read_only_prefix}/elastic_test/'
-                 f'{sharding_strategy.lower()}_sharded_{precision}_'
-                 f'{num_shards}/')
+    base_path = (
+        f's3://{s3_bucket}/{s3_read_only_prefix}/elastic_test/'
+        f'{sharding_strategy.lower()}_sharded_{precision}_'
+        f'{num_shards}/'
+    )
 
     mono_load_path = os.path.join(base_path, 'mono.pt')
     mono_trainer = get_trainer(
@@ -844,7 +893,7 @@ def test_elastic_resumption(
         optimizer = trainer.state.optimizers[0]
         state_dict['optimizers'] = {
             type(optimizer).__qualname__:
-                fsdp_get_optim_state_dict(trainer.state.model, optimizer, state_dict_type='full')
+                fsdp_get_optim_state_dict(trainer.state.model, optimizer, state_dict_type='full'),
         }
         return state_dict
 
