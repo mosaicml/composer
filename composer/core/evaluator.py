@@ -16,7 +16,7 @@ from composer.core.time import Time
 from composer.devices import Device, DeviceGPU
 from composer.utils import create_interval_scheduler
 
-__all__ = ['Evaluator', 'ensure_evaluator', 'validate_eval_automicrobatching']
+__all__ = ['Evaluator', 'ensure_evaluator', 'validate_evaluator']
 
 
 class Evaluator:
@@ -141,16 +141,26 @@ def ensure_evaluator(evaluator: Union[Evaluator, DataSpec, Iterable, Dict[str, A
         )
 
 
-def validate_eval_automicrobatching(auto_microbatching: bool, device: Device):
+def validate_evaluator(evaluator: Evaluator, device: Device):
     """Ensure automicrobatching is only on GPU.
 
     Unlike `device_train_microbatch_size`, this validation must be done separately from the
     `_is_auto_microbatching` check because `device` is not available during `Evaluator`
     initialization.
     """
+    auto_microbatching = evaluator.auto_microbatching
     if auto_microbatching and not isinstance(device, DeviceGPU):
         raise ValueError(
             'Can only use adaptive device_eval_microbatch_size on GPU. Please set device_eval_microbatch_size >= 1.',
+        )
+    if evaluator.auto_microbatching and hasattr(evaluator.dataloader, 'seq_parallel_world_size'):
+        raise ValueError('Auto microbatching on evaluators is not compatible with sequence parallelism.')
+    if isinstance(evaluator.dataloader.get_num_samples_in_batch, int) and hasattr(
+        evaluator.dataloader,
+        'seq_parallel_world_size',
+    ) and evaluator.dataloader.get_num_samples_in_batch * evaluator.dataloader.seq_parallel_world_size != 1:  # type: ignore
+        raise ValueError(
+            '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
         )
 
 
