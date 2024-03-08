@@ -193,7 +193,9 @@ def test_eval_output_logging_mc(device, tiny_gpt2_tokenizer):
             'mc_acc',
         )
         mock_mc_computation(
-            state.eval_metrics['mc_acc']['InContextLearningMultipleChoiceAccuracy()'], tiny_gpt2_tokenizer, state
+            state.eval_metrics['mc_acc']['InContextLearningMultipleChoiceAccuracy()'],
+            tiny_gpt2_tokenizer,
+            state,
         )
         state.metric_outputs['metric_name'] = [
             mc_metric.__class__.__name__ for _ in range(0, state.batch['input_ids'].shape[0])

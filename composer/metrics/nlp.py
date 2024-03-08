@@ -227,7 +227,7 @@ class InContextLearningMetric(Metric):
                             ' This could be due to the metric class not being on the same device as input.'
                             f' Instead of `metric={self.__class__.__name__}(...)` try to do'
                             f' `metric={self.__class__.__name__}(...).to(device)` where'
-                            ' device corresponds to the device of the input.'
+                            ' device corresponds to the device of the input.',
                         ) from err
                     raise err
 
@@ -242,7 +242,7 @@ class InContextLearningMetric(Metric):
         batch: dict,
         output_logits: Optional[torch.Tensor] = None,
         labels: Optional[torch.Tensor] = None,
-        outputs: Optional[torch.Tensor] = None
+        outputs: Optional[torch.Tensor] = None,
     ):
         """Abstract interface for computing an in-context learning metrics.
 

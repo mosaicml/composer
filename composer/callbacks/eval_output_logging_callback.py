@@ -35,7 +35,7 @@ class EvalOutputLogging(Callback):
             warnings.warn(
                 f'''EvalOutputLogging only supports batches that are dictionary. \
                 Found batch for type {type(state.batch)}. \
-                Not logging eval outputs.'''
+                Not logging eval outputs.''',
             )
             return
 
@@ -54,13 +54,9 @@ class EvalOutputLogging(Callback):
 
         # Depad and decode input_ids
         for input_list in input_ids.tolist():
-            depadded_input = [
-                tok for tok in input_list
-                if tok != state.dataloader.dataset.pad_tok_id  # pyright: ignore[reportGeneralTypeIssues]
-            ]
-            logged_input.append(
-                state.dataloader.dataset.tokenizer.decode(depadded_input)
-            )  # pyright: ignore[reportGeneralTypeIssues]
+            depadded_input = [tok for tok in input_list if tok != state.dataloader.dataset.pad_tok_id]
+            tokenizer = state.dataloader.dataset.tokenizer  # pyright: ignore[reportGeneralTypeIssues]
+            logged_input.append(tokenizer.decode(depadded_input))
         logging_dict['input'] = logged_input
 
         # Log token indices if toggled
@@ -87,14 +83,8 @@ class EvalOutputLogging(Callback):
                 ]
             elif isinstance(value[0], list):
                 if isinstance(value[0][0], torch.Tensor):
-                    logging_dict[key] = [
-                        [
-                            state.dataloader.dataset.tokenizer.
-                            decode(  # pyright: ignore[reportGeneralTypeIssues]
-                                choice
-                            ) for choice in t
-                        ] for t in value
-                    ]
+                    tokenizer = state.dataloader.dataset.tokenizer  # pyright: ignore[reportGeneralTypeIssues]
+                    logging_dict[key] = [[tokenizer.decode(choice) for choice in t] for t in value]
 
         # Convert logging_dict from kv pairs of column name and column values to a list of rows
         # Example:
