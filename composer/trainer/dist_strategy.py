@@ -137,7 +137,7 @@ def set_fsdp_default(fsdp_config: Dict[str, Any]):
     fsdp_config.setdefault('activation_checkpointing', False)
     fsdp_config.setdefault('activation_checkpointing_reentrant', True)
     fsdp_config.setdefault('activation_cpu_offload', False)
-    fsdp_config.setdefault('use_te_checkpoint_wrapper', False)
+    fsdp_config.setdefault('te_checkpoint_wrapper', False)
     fsdp_config.setdefault('te_shard_fp8_weight', False)
     fsdp_config.setdefault('backward_prefetch', 'BACKWARD_POST')
     fsdp_config.setdefault('backward_prefetch_limit', 1)
@@ -363,7 +363,7 @@ def prepare_fsdp_module(
     ignored_modules = fsdp_config['ignored_modules']
     state_dict_type = fsdp_config['state_dict_type']
     activation_checkpointing_reentrant = fsdp_config['activation_checkpointing_reentrant']
-    use_te_checkpoint_wrapper = fsdp_config['use_te_checkpoint_wrapper'] if precision == Precision.AMP_FP8 else False
+    te_checkpoint_wrapper = fsdp_config['te_checkpoint_wrapper'] if precision == Precision.AMP_FP8 else False
     te_shard_fp8_weight = fsdp_config['te_shard_fp8_weight'] if precision == Precision.AMP_FP8 else False
     sharded_ckpt_prefix_dir = fsdp_config['sharded_ckpt_prefix_dir']
     use_orig_params = fsdp_config['use_orig_params']
@@ -572,9 +572,9 @@ def prepare_fsdp_module(
             if te_shard_fp8_weight:
                 try:
                     from transformer_engine.pytorch.distributed import prepare_te_modules_for_fsdp
+                    prepare_te_modules_for_fsdp(fsdp_obj)
                 except ModuleNotFoundError:
                     raise ModuleNotFoundError('Please install transformer-engine to use prepare_te_modules_for_fsdp')
-                prepare_te_modules_for_fsdp(fsdp_obj)
 
             if hasattr(fsdp_obj, '_exec_order_data'):
                 if hasattr(fsdp_obj._exec_order_data, '_forward_prefetch_limit'):
@@ -596,12 +596,12 @@ def prepare_fsdp_module(
 
             # Activation Checkpointing
             if activation_checkpointing or activation_cpu_offload:
-                if use_te_checkpoint_wrapper:
+                if te_checkpoint_wrapper:
                     assert not activation_checkpointing_reentrant, 'TE checkpoint only works with non-reentrant checkpointing'
                 if version.parse(torch.__version__) > version.parse('2.1.0.dev'):
                     from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import offload_wrapper
                     if not activation_checkpointing_reentrant:
-                        if use_te_checkpoint_wrapper:
+                        if te_checkpoint_wrapper:
                             try:
                                 import transformer_engine.pytorch as te
                             except ModuleNotFoundError:
@@ -685,6 +685,8 @@ def prepare_fsdp_module(
         log.info(f'FSDP: Using backward_prefetch={backward_prefetch}')
         log.info(f'FSDP: Using activation_checkpointing={activation_checkpointing}')
         log.info(f'FSDP: Using activation_cpu_offload={activation_cpu_offload}')
+        log.info(f'FSDP: Using te_checkpoint_wrapper={te_checkpoint_wrapper}')
+        log.info(f'FSDP: Using te_shard_fp8_weight={te_shard_fp8_weight}')
         log.info(f'FSDP: Using sync_module_states={sync_module_states}')
         log.info(f'FSDP: Using forward_prefetch={forward_prefetch}')
         log.info(f'FSDP: Using limit_all_gathers={limit_all_gathers}')
