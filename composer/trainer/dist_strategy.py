@@ -572,9 +572,9 @@ def prepare_fsdp_module(
             if te_shard_fp8_weight:
                 try:
                     from transformer_engine.pytorch.distributed import prepare_te_modules_for_fsdp
-                    prepare_te_modules_for_fsdp(fsdp_obj)
                 except ModuleNotFoundError:
                     raise ModuleNotFoundError('Please install transformer-engine to use prepare_te_modules_for_fsdp')
+                prepare_te_modules_for_fsdp(fsdp_obj)
 
             if hasattr(fsdp_obj, '_exec_order_data'):
                 if hasattr(fsdp_obj._exec_order_data, '_forward_prefetch_limit'):
