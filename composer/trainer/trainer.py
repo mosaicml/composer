@@ -71,7 +71,6 @@ from composer.core import (
     ensure_evaluator,
     ensure_time,
     get_precision_context,
-    validate_evaluator,
 )
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.loggers import (
@@ -388,6 +387,32 @@ def _adjust_device_eval_microbatch_size(evaluator: Evaluator):
             ),
         )
     torch.cuda.empty_cache()
+
+
+def _validate_evaluator(evaluator: Evaluator, device: Device):
+    """Ensure automicrobatching is only on GPU.
+
+    Unlike `device_train_microbatch_size`, this validation must be done separately from the
+    `_is_auto_microbatching` check because `device` is not available during `Evaluator`
+    initialization.
+    """
+    auto_microbatching = evaluator.auto_microbatching
+    if auto_microbatching and not isinstance(device, DeviceGPU):
+        raise ValueError(
+            'Can only use adaptive device_eval_microbatch_size on GPU. Please set device_eval_microbatch_size >= 1.',
+        )
+    if evaluator.auto_microbatching and hasattr(evaluator.dataloader, 'seq_parallel_world_size'):
+        raise ValueError(
+            'Auto microbatching on evaluators is not compatible with sequence parallelism. '
+            'Please manually set device_eval_microbatch_size or disable sequence parallelism .'
+        )
+    if isinstance(evaluator.dataloader.get_num_samples_in_batch, int) and hasattr(
+        evaluator.dataloader,
+        'seq_parallel_world_size',
+    ) and evaluator.dataloader.get_num_samples_in_batch * evaluator.dataloader.seq_parallel_world_size != 1:  # type: ignore
+        raise ValueError(
+            'Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
+        )
 
 
 def _distribute_and_get_random_seed(seed: Optional[int], device: Device):
@@ -1428,7 +1453,7 @@ class Trainer:
             )
 
             for evaluator in evaluators:
-                validate_evaluator(evaluator, self.state.device)
+                _validate_evaluator(evaluator, self.state.device)
         if len(evaluators) == 0:
             if eval_subset_num_batches != -1:
                 warnings.warn(
@@ -2107,7 +2132,7 @@ class Trainer:
             )
 
             for evaluator in evaluators:
-                validate_evaluator(evaluator, self.state.device)
+                _validate_evaluator(evaluator, self.state.device)
 
             if len(evaluators) == 0:
                 if eval_subset_num_batches != -1:
@@ -3120,7 +3145,7 @@ class Trainer:
             )
 
             for evaluator in evaluators:
-                validate_evaluator(evaluator, self.state.device)
+                _validate_evaluator(evaluator, self.state.device)
 
             self.state.evaluators.extend(evaluators)  # Add evaluators to state.evaluators
         else:
