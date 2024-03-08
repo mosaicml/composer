@@ -75,8 +75,10 @@ def mock_lm_computation(metric, tokenizer, state):
 
 def mock_mc_computation(metric, tokenizer, state):
     contexts = [
-        'Q: How do you cook a cake?', 'Q: How do you cook a cake?', 'Q: How old is the earth?',
-        'Q: How old is the earth?'
+        'Q: How do you cook a cake?',
+        'Q: How do you cook a cake?',
+        'Q: How old is the earth?',
+        'Q: How old is the earth?',
     ]
     continuations = [' A: turn on the oven', ' A: do a backflip', ' A: 2 minutes', ' A: 4.5 billion years']
     gold_indices = [0, 1]
@@ -102,7 +104,7 @@ def mock_mc_computation(metric, tokenizer, state):
         'input_ids': inputs,
         'attention_mask': attention_mask,
         'gold_indices': gold_indices,
-        'choice_groupings': choice_groupings
+        'choice_groupings': choice_groupings,
     }
     logits = torch.nn.functional.one_hot(inputs.roll(-1), num_classes=pad + 1).float()
 
@@ -152,7 +154,13 @@ def test_eval_output_logging_lm(device, tiny_gpt2_tokenizer):
     # Only want one table - we log once to a single step value during eval_end()
     assert len(in_memory_logger.tables) == 1
     assert json.loads(in_memory_logger.tables[f'lm_acc_step_0'])['columns'] == [
-        'context', 'label', 'output', 'result', 'metric_name', 'input', 'run_name'
+        'context',
+        'label',
+        'output',
+        'result',
+        'metric_name',
+        'input',
+        'run_name',
     ]
     # We use the same data in each batch
     assert json.loads(in_memory_logger.tables[f'lm_acc_step_0'])['data'] == [
@@ -163,7 +171,7 @@ def test_eval_output_logging_lm(device, tiny_gpt2_tokenizer):
         ['The dog is', ' furry', ' furry', 1, 'InContextLearningLMAccuracy', 'The dog is furry', 'mock_name'],
         ['I love to eat', ' pie', '[PAD]', 0, 'InContextLearningLMAccuracy', 'I love to eat pie', 'mock_name'],
         ['I hate', ' long lines', ' long lines', 1, 'InContextLearningLMAccuracy', 'I hate long lines', 'mock_name'],
-        ['The weather is', ' snowy', ' snowy', 1, 'InContextLearningLMAccuracy', 'The weather is snowy', 'mock_name']
+        ['The weather is', ' snowy', ' snowy', 1, 'InContextLearningLMAccuracy', 'The weather is snowy', 'mock_name'],
     ]
 
 
@@ -184,8 +192,9 @@ def test_eval_output_logging_mc(device, tiny_gpt2_tokenizer):
             MockDataLoader(tiny_gpt2_tokenizer),
             'mc_acc',
         )
-        mock_mc_computation(state.eval_metrics['mc_acc']['InContextLearningMultipleChoiceAccuracy()'],
-                            tiny_gpt2_tokenizer, state)
+        mock_mc_computation(
+            state.eval_metrics['mc_acc']['InContextLearningMultipleChoiceAccuracy()'], tiny_gpt2_tokenizer, state
+        )
         state.metric_outputs['metric_name'] = [
             mc_metric.__class__.__name__ for _ in range(0, state.batch['input_ids'].shape[0])
         ]
@@ -197,33 +206,71 @@ def test_eval_output_logging_mc(device, tiny_gpt2_tokenizer):
     # Only want one table - we log once to a single step value during eval_end()
     assert len(in_memory_logger.tables) == 1
     assert json.loads(in_memory_logger.tables[f'mc_acc_step_0'])['columns'] == [
-        'context', 'correct_choice', 'correct_choice_idx', 'selected_choice', 'selected_choice_idx', 'all_choices',
-        'result', 'metric_name', 'input', 'run_name'
+        'context',
+        'correct_choice',
+        'correct_choice_idx',
+        'selected_choice',
+        'selected_choice_idx',
+        'all_choices',
+        'result',
+        'metric_name',
+        'input',
+        'run_name',
     ]
     # We use the same data for each batch
     assert json.loads(in_memory_logger.tables[f'mc_acc_step_0'])['data'] == [
         [
-            'Q: How do you cook a cake?', ' A: turn on the oven', 0, ' A: turn on the oven', 0,
-            ['Q: How do you cook a cake? A: turn on the oven', 'Q: How do you cook a cake? A: do a backflip'], 1,
-            'InContextLearningMultipleChoiceAccuracy', 'Q: How do you cook a cake? A: turn on the oven', 'mock_name'
+            'Q: How do you cook a cake?',
+            ' A: turn on the oven',
+            0,
+            ' A: turn on the oven',
+            0,
+            ['Q: How do you cook a cake? A: turn on the oven', 'Q: How do you cook a cake? A: do a backflip'],
+            1,
+            'InContextLearningMultipleChoiceAccuracy',
+            'Q: How do you cook a cake? A: turn on the oven',
+            'mock_name',
         ],
         [
-            'Q: How old is the earth?', ' A: 4.5 billion years', 1, ' A: 2 minutes', 0,
+            'Q: How old is the earth?',
+            ' A: 4.5 billion years',
+            1,
+            ' A: 2 minutes',
+            0,
             [
                 'Q: How old is the earth? A: 2 minutes[PAD][PAD][PAD]',
-                'Q: How old is the earth? A: 4.5 billion years[PAD]'
-            ], 0, 'InContextLearningMultipleChoiceAccuracy', 'Q: How do you cook a cake? A: do a backflip', 'mock_name'
+                'Q: How old is the earth? A: 4.5 billion years[PAD]',
+            ],
+            0,
+            'InContextLearningMultipleChoiceAccuracy',
+            'Q: How do you cook a cake? A: do a backflip',
+            'mock_name',
         ],
         [
-            'Q: How do you cook a cake?', ' A: turn on the oven', 0, ' A: turn on the oven', 0,
-            ['Q: How do you cook a cake? A: turn on the oven', 'Q: How do you cook a cake? A: do a backflip'], 1,
-            'InContextLearningMultipleChoiceAccuracy', 'Q: How do you cook a cake? A: turn on the oven', 'mock_name'
+            'Q: How do you cook a cake?',
+            ' A: turn on the oven',
+            0,
+            ' A: turn on the oven',
+            0,
+            ['Q: How do you cook a cake? A: turn on the oven', 'Q: How do you cook a cake? A: do a backflip'],
+            1,
+            'InContextLearningMultipleChoiceAccuracy',
+            'Q: How do you cook a cake? A: turn on the oven',
+            'mock_name',
         ],
         [
-            'Q: How old is the earth?', ' A: 4.5 billion years', 1, ' A: 2 minutes', 0,
+            'Q: How old is the earth?',
+            ' A: 4.5 billion years',
+            1,
+            ' A: 2 minutes',
+            0,
             [
                 'Q: How old is the earth? A: 2 minutes[PAD][PAD][PAD]',
-                'Q: How old is the earth? A: 4.5 billion years[PAD]'
-            ], 0, 'InContextLearningMultipleChoiceAccuracy', 'Q: How do you cook a cake? A: do a backflip', 'mock_name'
-        ]
+                'Q: How old is the earth? A: 4.5 billion years[PAD]',
+            ],
+            0,
+            'InContextLearningMultipleChoiceAccuracy',
+            'Q: How do you cook a cake? A: do a backflip',
+            'mock_name',
+        ],
     ]

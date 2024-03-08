@@ -82,12 +82,11 @@ class InMemoryLogger(LoggerDestination):
         try:
             import pandas as pd
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='pandas',
-                                                conda_package='pandas',
-                                                conda_channel='conda-forge') from e
-        table = pd.DataFrame.from_records(data=rows, columns=columns).to_json(orient='split',
-                                                                              index=False,
-                                                                              force_ascii=False)
+            raise MissingConditionalImportError(
+                extra_deps_group='pandas', conda_package='pandas', conda_channel='conda-forge'
+            ) from e
+        table = pd.DataFrame.from_records(data=rows,
+                                          columns=columns).to_json(orient='split', index=False, force_ascii=False)
         assert table is not None
         # Merged assert is different
         # assert isinstance(table, str)

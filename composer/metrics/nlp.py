@@ -227,7 +227,8 @@ class InContextLearningMetric(Metric):
                             ' This could be due to the metric class not being on the same device as input.'
                             f' Instead of `metric={self.__class__.__name__}(...)` try to do'
                             f' `metric={self.__class__.__name__}(...).to(device)` where'
-                            ' device corresponds to the device of the input.') from err
+                            ' device corresponds to the device of the input.'
+                        ) from err
                     raise err
 
             if self.compute_on_cpu:
@@ -236,11 +237,13 @@ class InContextLearningMetric(Metric):
 
         return wrapped_func
 
-    def update(self,
-               batch: dict,
-               output_logits: Optional[torch.Tensor] = None,
-               labels: Optional[torch.Tensor] = None,
-               outputs: Optional[torch.Tensor] = None):
+    def update(
+        self,
+        batch: dict,
+        output_logits: Optional[torch.Tensor] = None,
+        labels: Optional[torch.Tensor] = None,
+        outputs: Optional[torch.Tensor] = None
+    ):
         """Abstract interface for computing an in-context learning metrics.
 
         The `output_logits` argument is deprecated and will be removed in v0.21 while it's functionality will
@@ -486,7 +489,7 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
             'selected_choice': [],
             'selected_choice_idx': [],
             'all_choices': [],
-            'result': []
+            'result': [],
         }
 
     def update(

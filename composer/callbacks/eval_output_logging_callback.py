@@ -32,9 +32,11 @@ class EvalOutputLogging(Callback):
 
     def eval_batch_end(self, state: State, logger: Logger) -> None:
         if not isinstance(state.batch, Dict):
-            warnings.warn(f'''EvalOutputLogging only supports batches that are dictionary. \
+            warnings.warn(
+                f'''EvalOutputLogging only supports batches that are dictionary. \
                 Found batch for type {type(state.batch)}. \
-                Not logging eval outputs.''')
+                Not logging eval outputs.'''
+            )
             return
 
         assert state.outputs is not None
@@ -57,7 +59,8 @@ class EvalOutputLogging(Callback):
                 if tok != state.dataloader.dataset.pad_tok_id  # pyright: ignore[reportGeneralTypeIssues]
             ]
             logged_input.append(
-                state.dataloader.dataset.tokenizer.decode(depadded_input))  # pyright: ignore[reportGeneralTypeIssues]
+                state.dataloader.dataset.tokenizer.decode(depadded_input)
+            )  # pyright: ignore[reportGeneralTypeIssues]
         logging_dict['input'] = logged_input
 
         # Log token indices if toggled
@@ -86,8 +89,10 @@ class EvalOutputLogging(Callback):
                 if isinstance(value[0][0], torch.Tensor):
                     logging_dict[key] = [
                         [
-                            state.dataloader.dataset.tokenizer.decode(  # pyright: ignore[reportGeneralTypeIssues]
-                                choice) for choice in t
+                            state.dataloader.dataset.tokenizer.
+                            decode(  # pyright: ignore[reportGeneralTypeIssues]
+                                choice
+                            ) for choice in t
                         ] for t in value
                     ]
 
