@@ -1428,7 +1428,7 @@ class Trainer:
             )
 
             for evaluator in evaluators:
-                validate_evaluator(evaluator.auto_microbatching, self.state.device)
+                validate_evaluator(evaluator, self.state.device)
         if len(evaluators) == 0:
             if eval_subset_num_batches != -1:
                 warnings.warn(
@@ -2107,7 +2107,7 @@ class Trainer:
             )
 
             for evaluator in evaluators:
-                validate_evaluator(evaluator.auto_microbatching, self.state.device)
+                validate_evaluator(evaluator, self.state.device)
 
             if len(evaluators) == 0:
                 if eval_subset_num_batches != -1:
