@@ -1212,6 +1212,40 @@ class TestTrainerInitOrFit:
         assert trainer.state.timestamp.epoch == Time(5, TimeUnit.EPOCH)
         assert trainer.state.timestamp.iteration == Time(2, TimeUnit.ITERATION)
 
+    @pytest.mark.gpu
+    @pytest.mark.world_size(2)
+    @pytest.mark.parametrize('num_samples', [2, 0.5])
+    def test_accumulate_time_across_ranks(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        max_duration: Time[int],
+        num_samples: Union[int, float],
+    ):
+        # Train once with the max_duration param on Trainer.__init__()
+        init_trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+        )
+
+        num_tokens = 10
+        batch_time = datetime.timedelta(seconds=0.1 * (1 + dist.get_global_rank()))
+
+        num_samples_accum, num_tokens_accum, batch_time_accum = init_trainer._accumulate_time_across_ranks(
+            num_samples,
+            num_tokens,
+            batch_time,
+        )
+
+        assert isinstance(num_tokens_accum, int)
+        assert isinstance(num_samples_accum, int)
+        assert isinstance(batch_time_accum, datetime.timedelta)
+
+        assert num_samples_accum == num_samples * 2
+        assert num_tokens_accum == num_tokens * 2
+        assert batch_time_accum == datetime.timedelta(seconds=0.1 * (1 + 0))
+
 
 @world_size(1, 2)
 @device('cpu', 'gpu', 'gpu-amp', precision=True)
