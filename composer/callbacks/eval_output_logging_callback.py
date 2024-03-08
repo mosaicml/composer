@@ -54,9 +54,9 @@ class EvalOutputLogging(Callback):
 
         # Depad and decode input_ids
         for input_list in input_ids.tolist():
-            depadded_input = [tok for tok in input_list if tok != state.dataloader.dataset.pad_tok_id]
-            tokenizer = state.dataloader.dataset.tokenizer  # pyright: ignore[reportGeneralTypeIssues]
-            logged_input.append(tokenizer.decode(depadded_input))
+            dataset = state.dataloader.dataset  # pyright: ignore[reportGeneralTypeIssues]
+            depadded_input = [tok for tok in input_list if tok != dataset.pad_tok_id]
+            logged_input.append(dataset.tokenizer.decode(depadded_input))
         logging_dict['input'] = logged_input
 
         # Log token indices if toggled
