@@ -321,12 +321,15 @@ class RemoteUploaderDownloader(LoggerDestination):
             self._remote_backend = _build_remote_backend(self.remote_backend_name, self.backend_kwargs)
         return self._remote_backend
 
-    def init(self, state: State, logger: Logger) -> None:
+    def init(self, state: State | None = None, logger: Logger | None = None, run_name: str | None = None) -> None:
         del logger  # unused
         if self._worker_flag is not None:
             raise RuntimeError('The RemoteUploaderDownloader is already initialized.')
         self._worker_flag = self._finished_cls()
-        self._run_name = state.run_name
+        if state is not None:
+            self._run_name = state.run_name
+        elif run_name is not None:
+            self._run_name = run_name
         file_name_to_test = self._remote_file_name('.credentials_validated_successfully')
 
         # Create the enqueue thread
@@ -398,7 +401,7 @@ class RemoteUploaderDownloader(LoggerDestination):
 
     def upload_file(
         self,
-        state: State,
+        state: State | None,
         remote_file_name: str,
         file_path: pathlib.Path,
         *,
