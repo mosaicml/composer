@@ -47,49 +47,63 @@ def test_s3_upload_object_arguments(tmp_path: pathlib.Path, s3_bucket: str):
         os.environ.pop('S3_CANNED_ACL', None)
 
         object_store.upload_object(object_name=remote_obj_name, filename=filename)
-        object_store.client.upload_file.assert_called_with(Bucket='my-bucket',
-                                                           Key=remote_obj_name,
-                                                           Filename=filename,
-                                                           Callback=None,
-                                                           Config=ANY)
+        object_store.client.upload_file.assert_called_with(
+            Bucket='my-bucket',
+            Key=remote_obj_name,
+            Filename=filename,
+            Callback=None,
+            Config=ANY,
+        )
 
-        object_store.upload_object(object_name=remote_obj_name,
-                                   filename=filename,
-                                   ExtraArgs={'ACL': 'authenticated-read'})
-        object_store.client.upload_file.assert_called_with(Bucket='my-bucket',
-                                                           Key=remote_obj_name,
-                                                           Filename=filename,
-                                                           Callback=None,
-                                                           Config=ANY,
-                                                           ExtraArgs={'ACL': 'authenticated-read'})
+        object_store.upload_object(
+            object_name=remote_obj_name,
+            filename=filename,
+            ExtraArgs={'ACL': 'authenticated-read'},
+        )
+        object_store.client.upload_file.assert_called_with(
+            Bucket='my-bucket',
+            Key=remote_obj_name,
+            Filename=filename,
+            Callback=None,
+            Config=ANY,
+            ExtraArgs={'ACL': 'authenticated-read'},
+        )
 
         os.environ['S3_CANNED_ACL'] = 'bucket-owner-full-control'
 
         object_store.upload_object(object_name=remote_obj_name, filename=filename)
-        object_store.client.upload_file.assert_called_with(Bucket='my-bucket',
-                                                           Key=remote_obj_name,
-                                                           Filename=filename,
-                                                           Callback=None,
-                                                           Config=ANY,
-                                                           ExtraArgs={'ACL': 'bucket-owner-full-control'})
+        object_store.client.upload_file.assert_called_with(
+            Bucket='my-bucket',
+            Key=remote_obj_name,
+            Filename=filename,
+            Callback=None,
+            Config=ANY,
+            ExtraArgs={'ACL': 'bucket-owner-full-control'},
+        )
 
         object_store.upload_object(object_name=remote_obj_name, filename=filename, ExtraArgs={'Metadata': {}})
-        object_store.client.upload_file.assert_called_with(Bucket='my-bucket',
-                                                           Key=remote_obj_name,
-                                                           Filename=filename,
-                                                           Callback=None,
-                                                           Config=ANY,
-                                                           ExtraArgs={
-                                                               'ACL': 'bucket-owner-full-control',
-                                                               'Metadata': {}
-                                                           })
+        object_store.client.upload_file.assert_called_with(
+            Bucket='my-bucket',
+            Key=remote_obj_name,
+            Filename=filename,
+            Callback=None,
+            Config=ANY,
+            ExtraArgs={
+                'ACL': 'bucket-owner-full-control',
+                'Metadata': {},
+            },
+        )
 
-        object_store.upload_object(object_name=remote_obj_name,
-                                   filename=filename,
-                                   ExtraArgs={'ACL': 'authenticated-read'})
-        object_store.client.upload_file.assert_called_with(Bucket='my-bucket',
-                                                           Key=remote_obj_name,
-                                                           Filename=filename,
-                                                           Callback=None,
-                                                           Config=ANY,
-                                                           ExtraArgs={'ACL': 'authenticated-read'})
+        object_store.upload_object(
+            object_name=remote_obj_name,
+            filename=filename,
+            ExtraArgs={'ACL': 'authenticated-read'},
+        )
+        object_store.client.upload_file.assert_called_with(
+            Bucket='my-bucket',
+            Key=remote_obj_name,
+            Filename=filename,
+            Callback=None,
+            Config=ANY,
+            ExtraArgs={'ACL': 'authenticated-read'},
+        )

@@ -180,12 +180,14 @@ class RandomTextClassificationDataset(Dataset):
         use_keys: (bool): whether to return the item in a dictionary with keys for input and output
     """
 
-    def __init__(self,
-                 size: int = 100,
-                 vocab_size: int = 10,
-                 sequence_length: int = 8,
-                 num_classes: int = 2,
-                 use_keys: bool = False):
+    def __init__(
+        self,
+        size: int = 100,
+        vocab_size: int = 10,
+        sequence_length: int = 8,
+        num_classes: int = 2,
+        use_keys: bool = False,
+    ):
         self.vocab_size = vocab_size
         self.sequence_length = sequence_length
         self.num_classes = num_classes
@@ -271,15 +273,17 @@ class RandomTextLMDataset(Dataset):
         use_keys: (bool): whether to return the item in a dictionary with keys for input and output
     """
 
-    def __init__(self,
-                 size: int = 100,
-                 vocab_size: int = 10,
-                 sequence_length: int = 8,
-                 use_keys: bool = False,
-                 use_token_type_ids: bool = True,
-                 conditional_generation: bool = False,
-                 causal_lm: bool = False,
-                 pad_token_id: Optional[int] = None):
+    def __init__(
+        self,
+        size: int = 100,
+        vocab_size: int = 10,
+        sequence_length: int = 8,
+        use_keys: bool = False,
+        use_token_type_ids: bool = True,
+        conditional_generation: bool = False,
+        causal_lm: bool = False,
+        pad_token_id: Optional[int] = None,
+    ):
         self.vocab_size = vocab_size
         self.sequence_length = sequence_length
         self.use_keys = use_keys
@@ -345,18 +349,21 @@ class SimpleDataset(Dataset):
             self.x = torch.randn(self.size * self.batch_size, self.feature_size)
         if self.y is None:
             self.y = torch.randint(0, self.num_classes, size=(self.size * self.batch_size,), dtype=torch.long)
-        return self.x[index * self.batch_size:(index + 1) *
-                      self.batch_size], self.y[index * self.batch_size:(index + 1) * self.batch_size]
+        start_index = index * self.batch_size
+        end_index = start_index + self.batch_size
+        return self.x[start_index:end_index], self.y[start_index:end_index]
 
 
 def dummy_transformer_classifier_batch(vocab_size=10, num_classes=2):
     sequence_length = 32
     size = 8
     batch_size = 8
-    train_dataset = RandomTextClassificationDataset(size=size,
-                                                    vocab_size=vocab_size,
-                                                    sequence_length=sequence_length,
-                                                    num_classes=num_classes)
+    train_dataset = RandomTextClassificationDataset(
+        size=size,
+        vocab_size=vocab_size,
+        sequence_length=sequence_length,
+        num_classes=num_classes,
+    )
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=dist.get_sampler(train_dataset))
     return next(iter(train_dataloader))
 
@@ -367,11 +374,13 @@ def dummy_tiny_bert_classification_batch(num_classes=2):
     size = 8
     batch_size = 8
 
-    train_dataset = RandomTextClassificationDataset(size=size,
-                                                    vocab_size=vocab_size,
-                                                    sequence_length=sequence_length,
-                                                    num_classes=num_classes,
-                                                    use_keys=True)
+    train_dataset = RandomTextClassificationDataset(
+        size=size,
+        vocab_size=vocab_size,
+        sequence_length=sequence_length,
+        num_classes=num_classes,
+        use_keys=True,
+    )
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=dist.get_sampler(train_dataset))
     batch = next(iter(train_dataloader))
@@ -384,10 +393,12 @@ def dummy_tiny_bert_lm_batch():
     size = 8
     batch_size = 8
 
-    train_dataset = RandomTextLMDataset(size=size,
-                                        vocab_size=vocab_size,
-                                        sequence_length=sequence_length,
-                                        use_keys=True)
+    train_dataset = RandomTextLMDataset(
+        size=size,
+        vocab_size=vocab_size,
+        sequence_length=sequence_length,
+        use_keys=True,
+    )
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=dist.get_sampler(train_dataset))
     batch = next(iter(train_dataloader))
@@ -406,9 +417,11 @@ def dummy_hf_lm_dataloader(size: int, vocab_size: int, sequence_length: int, col
 def dummy_bert_lm_dataloader(sequence_length=4, size=4):
     transformers = pytest.importorskip('transformers')
     tokenizer = configure_tiny_bert_tokenizer()
-    collate_fn = transformers.data.data_collator.DataCollatorForLanguageModeling(tokenizer=tokenizer,
-                                                                                 mlm=True,
-                                                                                 mlm_probability=0.15)
+    collate_fn = transformers.data.data_collator.DataCollatorForLanguageModeling(
+        tokenizer=tokenizer,
+        mlm=True,
+        mlm_probability=0.15,
+    )
     return dummy_hf_lm_dataloader(vocab_size=30522, sequence_length=sequence_length, size=size, collate_fn=collate_fn)
 
 

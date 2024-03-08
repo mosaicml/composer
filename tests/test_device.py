@@ -55,7 +55,7 @@ def dummy_maskrcnn_batch() -> List[Tuple[torch.Tensor, Dict[str, torch.Tensor]]]
             'labels':
                 torch.randint(size=(num_detections,), low=0, high=num_classes),
             'masks':
-                torch.randint(size=(num_detections, image_height, image_width), low=0, high=2).type(torch.uint8)
+                torch.randint(size=(num_detections, image_height, image_width), low=0, high=2).type(torch.uint8),
         }
         return image, target
 
@@ -66,14 +66,17 @@ def dummy_maskrcnn_batch() -> List[Tuple[torch.Tensor, Dict[str, torch.Tensor]]]
 
 
 @device('cpu', 'gpu')
-@pytest.mark.parametrize('batch', [
-    dummy_tensor_batch(),
-    dummy_tuple_batch(),
-    dummy_tuple_batch_long(),
-    dummy_dict_batch(),
-    dummy_dict_batch_with_metadata(),
-    dummy_maskrcnn_batch()
-])
+@pytest.mark.parametrize(
+    'batch',
+    [
+        dummy_tensor_batch(),
+        dummy_tuple_batch(),
+        dummy_tuple_batch_long(),
+        dummy_dict_batch(),
+        dummy_dict_batch_with_metadata(),
+        dummy_maskrcnn_batch(),
+    ],
+)
 def test_to_device(device, batch):
     device_handler = DeviceCPU() if device == 'cpu' else DeviceGPU()
 

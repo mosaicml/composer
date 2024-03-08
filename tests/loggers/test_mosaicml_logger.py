@@ -13,8 +13,12 @@ from torch.utils.data import DataLoader
 
 from composer.core import Callback, Time, TimeUnit
 from composer.loggers import WandBLogger
-from composer.loggers.mosaicml_logger import (MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR, MosaicMLLogger,
-                                              format_data_to_json_serializable)
+from composer.loggers.mosaicml_logger import (
+    MOSAICML_ACCESS_TOKEN_ENV_VAR,
+    MOSAICML_PLATFORM_ENV_VAR,
+    MosaicMLLogger,
+    format_data_to_json_serializable,
+)
 from composer.trainer import Trainer
 from composer.utils import dist, get_composer_env_dict
 from tests.callbacks.callback_settings import get_cb_kwargs, get_cb_model_and_datasets, get_cbs_and_marks
@@ -61,7 +65,7 @@ def test_format_data_to_json_serializable():
         'key5': torch.tensor([1, 2, 3]),
         'key6': torch.tensor([42]),
         'key7': {
-            'inner_key': 'inner_value'
+            'inner_key': 'inner_value',
         },
         'key8': [1, 2, 3],
     }
@@ -75,7 +79,7 @@ def test_format_data_to_json_serializable():
         'key5': 'Tensor of shape torch.Size([3])',
         'key6': 42,
         'key7': {
-            'inner_key': 'inner_value'
+            'inner_key': 'inner_value',
         },
         'key8': [1, 2, 3],
     }
@@ -223,12 +227,16 @@ def test_wandb_run_url(monkeypatch):
     run_url = 'my_run_url'
     monkeypatch.setenv('WANDB_MODE', 'offline')
 
-    Trainer(model=SimpleModel(), loggers=[
-        MosaicMLLogger(),
-        WandBLogger(),
-    ], callbacks=[
-        SetWandBRunURL(run_url),
-    ])
+    Trainer(
+        model=SimpleModel(),
+        loggers=[
+            MosaicMLLogger(),
+            WandBLogger(),
+        ],
+        callbacks=[
+            SetWandBRunURL(run_url),
+        ],
+    )
 
     assert mock_mapi.run_metadata[run_name]['mosaicml/wandb/run_url'] == run_url
 
@@ -280,11 +288,13 @@ def test_run_events_logged(monkeypatch):
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
     run_name = 'test-run-name'
     monkeypatch.setenv('RUN_NAME', run_name)
-    trainer = Trainer(model=SimpleModel(),
-                      train_dataloader=DataLoader(RandomClassificationDataset()),
-                      train_subset_num_batches=1,
-                      max_duration='4ba',
-                      loggers=[MosaicMLLogger()])
+    trainer = Trainer(
+        model=SimpleModel(),
+        train_dataloader=DataLoader(RandomClassificationDataset()),
+        train_subset_num_batches=1,
+        max_duration='4ba',
+        loggers=[MosaicMLLogger()],
+    )
     trainer.fit()
     metadata = mock_mapi.run_metadata[run_name]
     assert isinstance(metadata['mosaicml/model_initialized_time'], float)

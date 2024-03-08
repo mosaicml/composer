@@ -71,11 +71,13 @@ class InMemoryLogger(LoggerDestination):
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         self.hyperparameters.update(hyperparameters)
 
-    def log_table(self,
-                  columns: List[str],
-                  rows: List[List[Any]],
-                  name: str = 'Table',
-                  step: Optional[int] = None) -> None:
+    def log_table(
+        self,
+        columns: List[str],
+        rows: List[List[Any]],
+        name: str = 'Table',
+        step: Optional[int] = None,
+    ) -> None:
         del step
         try:
             import pandas as pd
@@ -87,6 +89,8 @@ class InMemoryLogger(LoggerDestination):
                                                                               index=False,
                                                                               force_ascii=False)
         assert table is not None
+        # Merged assert is different
+        # assert isinstance(table, str)
         self.tables[name] = table
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
@@ -149,8 +153,10 @@ class InMemoryLogger(LoggerDestination):
         """
         # Check that desired metric is in present data
         if metric not in self.data.keys():
-            raise ValueError(f'Invalid value for argument `metric`: {metric}. Requested '
-                             'metric is not present in self.data.keys().')
+            raise ValueError(
+                f'Invalid value for argument `metric`: {metric}. Requested '
+                'metric is not present in self.data.keys().',
+            )
 
         timeseries = {}
         # Iterate through datapoints

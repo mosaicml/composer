@@ -54,23 +54,27 @@ class TestCutMix:
         # Get a random bounding box based on cutmix_lambda
         cx = np.random.randint(x_fake.shape[2])
         cy = np.random.randint(x_fake.shape[3])
-        bbx1, bby1, bbx2, bby2 = _rand_bbox(W=x_fake.shape[2],
-                                            H=x_fake.shape[3],
-                                            cutmix_lambda=cutmix_lambda,
-                                            cx=cx,
-                                            cy=cy,
-                                            uniform_sampling=uniform_sampling)
+        bbx1, bby1, bbx2, bby2 = _rand_bbox(
+            W=x_fake.shape[2],
+            H=x_fake.shape[3],
+            cutmix_lambda=cutmix_lambda,
+            cx=cx,
+            cy=cy,
+            uniform_sampling=uniform_sampling,
+        )
         bbox = (bbx1, bby1, bbx2, bby2)
         # Adjust lambda
         cutmix_lambda = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (x_fake.size()[-1] * x_fake.size()[-2]))
 
         # Apply cutmix
-        x_cutmix, y_perm, _, _ = cutmix_batch(x_fake,
-                                              y_fake,
-                                              alpha=1.0,
-                                              bbox=bbox,
-                                              indices=indices,
-                                              uniform_sampling=uniform_sampling)
+        x_cutmix, y_perm, _, _ = cutmix_batch(
+            x_fake,
+            y_fake,
+            alpha=1.0,
+            bbox=bbox,
+            indices=indices,
+            uniform_sampling=uniform_sampling,
+        )
 
         # Validate results
         validate_cutmix(x=x_fake, y=y_fake, indices=indices, x_cutmix=x_cutmix, y_perm=y_perm, bbox=bbox)

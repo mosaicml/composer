@@ -37,9 +37,10 @@ def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is
     Returns:
         None: The ``dataset`` is modified in-place.
     """
-    transform_added_logstring = textwrap.dedent(f"""\
-        Transform {transform} added to dataset.
-        Dataset now has the following transforms: {dataset.transform}""")
+    transform_added_logstring = textwrap.dedent(
+        f"""Transform {transform} added to dataset.
+        Dataset now has the following transforms: {dataset.transform}""",
+    )
 
     if dataset.transform is None:
         dataset.transform = transform

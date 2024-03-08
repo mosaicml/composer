@@ -56,21 +56,25 @@ def binary_cross_entropy_with_logits(
             (i.e. input.shape[0]). Default: ``True``.
     """
     target = ensure_targets_one_hot(input, target)
-    bce = F.binary_cross_entropy_with_logits(input=input,
-                                             target=target,
-                                             weight=weight,
-                                             reduction=reduction,
-                                             pos_weight=pos_weight)
+    bce = F.binary_cross_entropy_with_logits(
+        input=input,
+        target=target,
+        weight=weight,
+        reduction=reduction,
+        pos_weight=pos_weight,
+    )
     if scale_by_batch_size:
         bce /= torch.tensor(input.shape[0])
     return bce
 
 
-def soft_cross_entropy(input: Tensor,
-                       target: Tensor,
-                       weight: Optional[Tensor] = None,
-                       ignore_index: int = -100,
-                       reduction: str = 'mean'):
+def soft_cross_entropy(
+    input: Tensor,
+    target: Tensor,
+    weight: Optional[Tensor] = None,
+    ignore_index: int = -100,
+    reduction: str = 'mean',
+):
     r"""Drop-in replacement for :class:`~.F.cross_entropy` that handles class indices or one-hot labels.
 
     .. note::
@@ -101,11 +105,13 @@ def soft_cross_entropy(input: Tensor,
     target_type = infer_target_type(input, target)
 
     if target_type == 'indices':
-        return F.cross_entropy(input=input,
-                               target=target,
-                               weight=weight,
-                               ignore_index=ignore_index,
-                               reduction=reduction)
+        return F.cross_entropy(
+            input=input,
+            target=target,
+            weight=weight,
+            ignore_index=ignore_index,
+            reduction=reduction,
+        )
     elif target_type == 'one_hot':
         if reduction not in ['sum', 'mean', 'none']:
             raise ValueError(f'{reduction} reduction not supported.')
@@ -168,14 +174,16 @@ class DiceLoss(_Loss):
 
     """
 
-    def __init__(self,
-                 sigmoid: bool = False,
-                 softmax: bool = False,
-                 squared_pred: bool = False,
-                 jaccard: bool = False,
-                 batch: bool = False,
-                 ignore_absent_classes: bool = False,
-                 reduction: str = 'mean'):
+    def __init__(
+        self,
+        sigmoid: bool = False,
+        softmax: bool = False,
+        squared_pred: bool = False,
+        jaccard: bool = False,
+        batch: bool = False,
+        ignore_absent_classes: bool = False,
+        reduction: str = 'mean',
+    ):
         super().__init__(reduction=reduction)
         if sigmoid and softmax:
             raise ValueError('Both sigmoid and softmax should not be true.')
@@ -258,5 +266,5 @@ class DiceLoss(_Loss):
 
 loss_registry = {
     'binary_cross_entropy_with_logits': binary_cross_entropy_with_logits,
-    'soft_cross_entropy': soft_cross_entropy
+    'soft_cross_entropy': soft_cross_entropy,
 }

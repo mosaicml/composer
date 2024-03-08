@@ -93,7 +93,7 @@ def set_batch_sequence_length(
         if preserve_end_of_sequence:
             if 'attention_mask' not in batch:
                 raise ValueError(
-                    'Sequence Length Warmup requires that the batch has "attention_mask" when using ``preserve_end_of_sequence=True``.'
+                    'Sequence Length Warmup requires that the batch has "attention_mask" when using ``preserve_end_of_sequence=True``.',
                 )
             r_idx = torch.arange(batch['attention_mask'].shape[0])
             # eos_idx should point to the final token index for each batch sample
@@ -105,7 +105,8 @@ def set_batch_sequence_length(
                 if batch[k].ndim < 2:
                     raise ValueError(
                         f'Sequence Length Warmup requires that all tensors are sequence-shaped when ``truncate=True``. '
-                        f'Tensor "{k}" has shape {batch[k].shape}.')
+                        f'Tensor "{k}" has shape {batch[k].shape}.',
+                    )
                 eos_value = batch[k][r_idx, eos_idx]
                 batch[k] = batch[k][:, :curr_seq_len].contiguous()
                 batch[k][r_idx, eos_idx_truncated] = eos_value
@@ -115,13 +116,15 @@ def set_batch_sequence_length(
                 if batch[k].ndim < 2:
                     raise ValueError(
                         f'Sequence Length Warmup requires that all tensors are sequence-shaped when ``truncate=True``. '
-                        f'Tensor "{k}" has shape {batch[k].shape}.')
+                        f'Tensor "{k}" has shape {batch[k].shape}.',
+                    )
                 batch[k] = batch[k][:, :curr_seq_len].contiguous()
 
     else:
         if 'input_ids' not in batch:
             raise ValueError(
-                'Sequence Length Warmup requires that the batch has "input_ids" when using ``truncate=False``.')
+                'Sequence Length Warmup requires that the batch has "input_ids" when using ``truncate=False``.',
+            )
         input_ids_shape = batch['input_ids'].shape
         # ensure new tensor shape is divisible by curr_seq_len
         input_ids = batch['input_ids'].view(-1)
@@ -137,7 +140,8 @@ def set_batch_sequence_length(
             if v.shape != input_ids_shape:
                 raise ValueError(
                     f'When using ``truncate=False``, Sequence Length Warmup only supports batches where all tensors have the same shape. '
-                    f'Tensor "{k}" has shape {v.shape} but should have shape {input_ids_shape}.')
+                    f'Tensor "{k}" has shape {v.shape} but should have shape {input_ids_shape}.',
+                )
             v = v.view(-1)
             v = v[:tensor_len]
             batch[k] = v.view(-1, curr_seq_len)
@@ -235,8 +239,10 @@ class SeqLengthWarmup(Algorithm):
             raise ValueError(f'Duration must be between 0 and 1, got: {self.duration}')
 
         if self.max_seq_length < self.min_seq_length:
-            raise ValueError(f'max_seq_length={self.max_seq_length} must be '
-                             f'greater than min_seq_length={self.min_seq_length}')
+            raise ValueError(
+                f'max_seq_length={self.max_seq_length} must be '
+                f'greater than min_seq_length={self.min_seq_length}',
+            )
         self._activated = False
         self._original_model = None
 
@@ -262,7 +268,8 @@ class SeqLengthWarmup(Algorithm):
             per_gpu_macrobatch = getattr(state.dataloader, 'batch_size')
         except AttributeError as e:
             raise AttributeError(
-                'Sequence Length Warmup requires the `state.dataloader` to have a `batch_size` attribute.') from e
+                'Sequence Length Warmup requires the `state.dataloader` to have a `batch_size` attribute.',
+            ) from e
         if per_gpu_macrobatch is None:
             raise RuntimeError('Sequence Length Warmup algorithm requires constant batch size.')
 
@@ -270,8 +277,10 @@ class SeqLengthWarmup(Algorithm):
         batch_clone = {k: torch.clone(v) for k, v in state.batch.items()}
         for k, v in batch_clone.items():
             if v.ndim < 2:
-                raise ValueError(f'Sequence Length Warmup requires that all tensors are sequence-shaped. '
-                                 f'Tensor "{k}" has shape {v.shape}.')
+                raise ValueError(
+                    f'Sequence Length Warmup requires that all tensors are sequence-shaped. '
+                    f'Tensor "{k}" has shape {v.shape}.',
+                )
             batch_clone[k] = v[:, :self.max_seq_length].contiguous()
 
         # In-line to avoid circular dependency
@@ -323,7 +332,9 @@ class SeqLengthWarmup(Algorithm):
                     raise ValueError(
                         textwrap.dedent(
                             'Encountered non-addressable cuda error while using auto microbatching. '
-                            'If this repeatedly occurs, set `device_train_microbatch_size` manually.')) from e
+                            'If this repeatedly occurs, set `device_train_microbatch_size` manually.',
+                        ),
+                    ) from e
                 else:
                     raise
 
@@ -332,7 +343,8 @@ class SeqLengthWarmup(Algorithm):
                 while not all_ranks_finished:
                     # Propagate across all ranks if any rank hit CUDA OOM
                     found_cuda_oom_tensor = state.device.tensor_to_device(
-                        torch.tensor([found_cuda_oom], dtype=torch.uint8))
+                        torch.tensor([found_cuda_oom], dtype=torch.uint8),
+                    )
                     dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
                     found_cuda_oom = found_cuda_oom_tensor.item()
                     # Check if any rank is still not done with the batch. This may happen if only a
@@ -355,9 +367,11 @@ class SeqLengthWarmup(Algorithm):
         if event == Event.INIT:
             if not isinstance(state.model, HuggingFaceModel):
                 raise RuntimeError(
-                    textwrap.dedent(f"""\
-                    {type(self).__name__} requires state.model to be of type {HuggingFaceModel.__name__}, not of type {type(state.model)}"""
-                                   ))
+                    textwrap.dedent(
+                        f"""\
+                    {type(self).__name__} requires state.model to be of type {HuggingFaceModel.__name__}, not of type {type(state.model)}""",
+                    ),
+                )
 
             self._original_model = state.model
             return
@@ -377,11 +391,14 @@ class SeqLengthWarmup(Algorithm):
             num_optimization_steps = state.max_duration.value
         else:
             raise NotImplementedError(
-                textwrap.dedent("""\
+                textwrap.dedent(
+                    """\
                     To use sequential length warmup, the max_duration must be in epochs or batches.
                     Specifying the `max_duration` in tokens or samples for use with sequential
                     length warmup will be supported in a future Composer release. See
-                    https://github.com/mosaicml/composer/issues/226."""))
+                    https://github.com/mosaicml/composer/issues/226.""",
+                ),
+            )
         num_warmup_steps = int(num_optimization_steps * self.duration)  # in batches
 
         # assume the full sequence length is the unaltered sequence length
