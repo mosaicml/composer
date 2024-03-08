@@ -39,7 +39,7 @@ class NeptuneLogger(LoggerDestination):
             ``NEPTUNE_API_TOKEN`` environment variable (recommended).
             You can find your API token in the user menu of the Neptune web app.
         rank_zero_only (bool): Whether to log only on the rank-zero process (default: ``True``).
-        upload_artifacts (bool, optional): Deprecated. See `upload_checkpoints`.
+        upload_artifacts (bool, optional): Deprecated. See ``upload_checkpoints``.
         upload_checkpoints (bool): Whether the logger should upload checkpoints to Neptune
             (default: ``False``).
         base_namespace (str, optional): The name of the base namespace where the metadata
