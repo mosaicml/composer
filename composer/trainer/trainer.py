@@ -404,7 +404,7 @@ def _validate_evaluator(evaluator: Evaluator, device: Device):
     if evaluator.auto_microbatching and hasattr(evaluator.dataloader, 'seq_parallel_world_size'):
         raise ValueError(
             'Auto microbatching on evaluators is not compatible with sequence parallelism. '
-            'Please manually set device_eval_microbatch_size or disable sequence parallelism .'
+            'Please manually set device_eval_microbatch_size or disable sequence parallelism .',
         )
     if isinstance(evaluator.dataloader.get_num_samples_in_batch, int) and hasattr(
         evaluator.dataloader,
