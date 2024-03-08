@@ -30,20 +30,13 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v3
-    - name: Get Repo Token
-      id: REPO_TOKEN
-      uses: tibdex/github-app-token@v1
-      with:
-        app_id: ${{ secrets.DEVOGE_BOT_PUB_APPID }}
-        private_key: ${{ secrets.DEVOGE_BOT_PUB_PEM }}
     - name: Get composite run steps repository
       uses: actions/checkout@v3
       with:
-        repository: mosaicml/testing
-        ref: v0.0.2
-        path: ./testing
-        token: ${{ steps.REPO_TOKEN.outputs.token }}
-    - uses: ./testing/.github/actions/code-quality
+        repository: mosaicml/ci-testing
+        ref: v0.0.3
+        path: ./ci-testing
+    - uses: ./ci-testing/.github/actions/code-quality
       with:
         python_version: ${{ matrix.python_version }}
         pip_deps: ${{ matrix.pip_deps }}

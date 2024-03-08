@@ -65,7 +65,7 @@ class Initializer(StringEnum):
             'bn_ones': bn_ones,
             'xavier_uniform': xavier_uniform,
             'xavier_normal': xavier_normal,
-            'linear_log_constant_bias': linear_log_constant_bias
+            'linear_log_constant_bias': linear_log_constant_bias,
         }
         if self.value not in initializer_dict:
             raise ValueError(f"Initializer '{self.value}' not found.")

@@ -5,11 +5,6 @@ on:
       download-path:
         required: true
         type: string
-    secrets:
-      app_id:
-        required: true
-      private_key:
-        required: true
 jobs:
   coverage:
     timeout-minutes: 5
@@ -17,19 +12,12 @@ jobs:
     steps:
     - name: Checkout Repo
       uses: actions/checkout@v3
-    - name: Get Repo Token
-      id: REPO_TOKEN
-      uses: tibdex/github-app-token@v1
-      with:
-        app_id: ${{ secrets.app_id }}
-        private_key: ${{ secrets.private_key }}
     - name: Get composite run steps repository
       uses: actions/checkout@v3
       with:
-        repository: mosaicml/testing
-        ref: v0.0.2
-        path: ./testing
-        token: ${{ steps.REPO_TOKEN.outputs.token }}
-    - uses: ./testing/.github/actions/coverage
+        repository: mosaicml/ci-testing
+        ref: v0.0.3
+        path: ./ci-testing
+    - uses: ./ci-testing/.github/actions/coverage
       with:
         download-path: ${{ inputs.download-path }}

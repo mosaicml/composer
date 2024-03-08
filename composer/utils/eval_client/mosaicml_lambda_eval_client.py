@@ -55,8 +55,10 @@ class MosaicMLLambdaEvalClient(EvalClient):
                     log.warning(f'Failed to get code eval output, retrying in {self.backoff**i} seconds.')
                     time.sleep(self.backoff**i)
                 elif e.status == HTTPStatus.UNAUTHORIZED:
-                    raise RuntimeError('Failed to get code eval output due to UNAUTHORIZED error. '
-                                       'Please ensure you have access to MosaicMLLambdaEvalClient.') from e
+                    raise RuntimeError(
+                        'Failed to get code eval output due to UNAUTHORIZED error. '
+                        'Please ensure you have access to MosaicMLLambdaEvalClient.',
+                    ) from e
                 else:
                     log.error(f'Failed to get code eval output with unexpected MAPIException. Error: {e}')
                     break
@@ -69,8 +71,13 @@ class MosaicMLLambdaEvalClient(EvalClient):
                 log.error(f'Failed to get code eval output with unexpected error. Error: {e}')
                 break
 
-        ret = [[[ret_helper[cum_tests[i] + j * num_tests[i] + k]
-                 for k in range(num_tests[i])]
-                for j in range(num_beams)]
-               for i in range(len(payload))]
+        ret = []
+        for i in range(len(payload)):
+            ret_payload = []
+            for j in range(num_beams):
+                ret_num_beams = []
+                for k in range(num_tests[i]):
+                    ret_num_beams.append(ret_helper[cum_tests[i] + j * num_tests[i] + k])
+                ret_payload.append(ret_num_beams)
+            ret.append(ret_payload)
         return ret
