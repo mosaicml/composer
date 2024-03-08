@@ -9,8 +9,11 @@ from typing import Optional, Sequence, Type, Union, cast
 import torch
 from torch.optim import Optimizer
 
-from composer.algorithms.factorize.factorize_modules import (FactorizedConv2d, FactorizedLinear,
-                                                             factorizing_could_speedup)
+from composer.algorithms.factorize.factorize_modules import (
+    FactorizedConv2d,
+    FactorizedLinear,
+    factorizing_could_speedup,
+)
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
 from composer.utils import module_surgery
@@ -21,14 +24,16 @@ LOG_NUM_CONV2D_REPLACEMENTS_KEY = 'factorize/num_conv2d_replacements'
 LOG_NUM_LINEAR_REPLACEMENTS_KEY = 'factorize/num_linear_replacements'
 
 
-def apply_factorization(model: torch.nn.Module,
-                        factorize_convs: bool = True,
-                        factorize_linears: bool = True,
-                        min_channels: int = 512,
-                        latent_channels: Union[int, float] = 0.25,
-                        min_features: int = 512,
-                        latent_features: Union[int, float] = 0.25,
-                        optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None) -> None:
+def apply_factorization(
+    model: torch.nn.Module,
+    factorize_convs: bool = True,
+    factorize_linears: bool = True,
+    min_channels: int = 512,
+    latent_channels: Union[int, float] = 0.25,
+    min_features: int = 512,
+    latent_features: Union[int, float] = 0.25,
+    optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
+) -> None:
     """Replaces :class:`torch.nn.Linear` and :class:`torch.nn.Conv2d` modules with
     :class:`.FactorizedLinear` and :class:`.FactorizedConv2d` modules.
 
@@ -80,15 +85,19 @@ def apply_factorization(model: torch.nn.Module,
             cf.apply_factorization(model)
     """
     if factorize_convs:
-        _factorize_conv2d_modules(model,
-                                  min_channels=min_channels,
-                                  latent_channels=latent_channels,
-                                  optimizers=optimizers)
+        _factorize_conv2d_modules(
+            model,
+            min_channels=min_channels,
+            latent_channels=latent_channels,
+            optimizers=optimizers,
+        )
     if factorize_linears:
-        _factorize_linear_modules(model,
-                                  min_features=min_features,
-                                  latent_features=latent_features,
-                                  optimizers=optimizers)
+        _factorize_linear_modules(
+            model,
+            min_features=min_features,
+            latent_features=latent_features,
+            optimizers=optimizers,
+        )
 
 
 class Factorize(Algorithm):
@@ -142,13 +151,15 @@ class Factorize(Algorithm):
             minimum of 1. Default: ``128``.
     """
 
-    def __init__(self,
-                 factorize_convs: bool = True,
-                 factorize_linears: bool = True,
-                 min_channels: int = 256,
-                 latent_channels: Union[int, float] = 0.25,
-                 min_features: int = 256,
-                 latent_features: Union[int, float] = 128):
+    def __init__(
+        self,
+        factorize_convs: bool = True,
+        factorize_linears: bool = True,
+        min_channels: int = 256,
+        latent_channels: Union[int, float] = 0.25,
+        min_features: int = 256,
+        latent_features: Union[int, float] = 128,
+    ):
         self.factorize_convs = factorize_convs
         self.factorize_linears = factorize_linears
         self.min_channels = min_channels
@@ -169,14 +180,16 @@ class Factorize(Algorithm):
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         assert state.model is not None, 'Model must be part of state!'
 
-        apply_factorization(model=state.model,
-                            factorize_convs=self.factorize_convs,
-                            factorize_linears=self.factorize_linears,
-                            min_channels=self.min_channels,
-                            latent_channels=self.latent_channels,
-                            min_features=self.min_features,
-                            latent_features=self.latent_features,
-                            optimizers=state.optimizers)
+        apply_factorization(
+            model=state.model,
+            factorize_convs=self.factorize_convs,
+            factorize_linears=self.factorize_linears,
+            min_channels=self.min_channels,
+            latent_channels=self.latent_channels,
+            min_features=self.min_features,
+            latent_features=self.latent_features,
+            optimizers=state.optimizers,
+        )
 
         if self.factorize_convs:
             num_factorized = module_surgery.count_module_instances(state.model, FactorizedConv2d)
@@ -192,14 +205,18 @@ class Factorize(Algorithm):
 
 def _python_log_surgery_result(model: torch.nn.Module, new_class: Type[torch.nn.Module]):
     num_replaced_modules = module_surgery.count_module_instances(model, new_class)
-    log.info(f'Applied factorization to model {model.__class__.__name__}. ' +
-             f'Model now has {num_replaced_modules} {new_class.__name__} modules')
+    log.info(
+        f'Applied factorization to model {model.__class__.__name__}. ' +
+        f'Model now has {num_replaced_modules} {new_class.__name__} modules',
+    )
 
 
-def _factorize_conv2d_modules(model: torch.nn.Module,
-                              min_channels: int = 512,
-                              latent_channels: Union[int, float] = 0.25,
-                              optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None):
+def _factorize_conv2d_modules(
+    model: torch.nn.Module,
+    min_channels: int = 512,
+    latent_channels: Union[int, float] = 0.25,
+    optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
+):
     """Replaces :class:`torch.nn.Conv2d` modules in ``model`` with
     :class:`.FactorizedConv2d` modules.
 
@@ -213,17 +230,21 @@ def _factorize_conv2d_modules(model: torch.nn.Module,
             return FactorizedConv2d.from_conv2d(module, module_index, latent_channels=latent_channels)
         return None  # not enough rank reduction to be worth it
 
-    ret = module_surgery.replace_module_classes(model,
-                                                optimizers=optimizers,
-                                                policies={torch.nn.Conv2d: _maybe_replace_conv2d})
+    ret = module_surgery.replace_module_classes(
+        model,
+        optimizers=optimizers,
+        policies={torch.nn.Conv2d: _maybe_replace_conv2d},
+    )
     _python_log_surgery_result(model, FactorizedConv2d)
     return ret
 
 
-def _factorize_linear_modules(model: torch.nn.Module,
-                              min_features: int = 512,
-                              latent_features: Union[int, float] = 0.25,
-                              optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None):
+def _factorize_linear_modules(
+    model: torch.nn.Module,
+    min_features: int = 512,
+    latent_features: Union[int, float] = 0.25,
+    optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
+):
     """Replaces :class:`torch.nn.Linear` modules in ``model`` with
     :class:`.FactorizedLinear` modules.
 
@@ -237,8 +258,10 @@ def _factorize_linear_modules(model: torch.nn.Module,
             return FactorizedLinear.from_linear(module, module_index, latent_features=latent_features)
         return None  # not enough rank reduction to be worth it
 
-    ret = module_surgery.replace_module_classes(model,
-                                                optimizers=optimizers,
-                                                policies={torch.nn.Linear: _maybe_replace_linear})
+    ret = module_surgery.replace_module_classes(
+        model,
+        optimizers=optimizers,
+        policies={torch.nn.Linear: _maybe_replace_linear},
+    )
     _python_log_surgery_result(model, FactorizedLinear)
     return ret

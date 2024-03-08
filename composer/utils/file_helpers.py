@@ -21,8 +21,15 @@ import tqdm
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_callback
 from composer.utils.misc import partial_format
-from composer.utils.object_store import (GCSObjectStore, LibcloudObjectStore, MLFlowObjectStore, ObjectStore,
-                                         OCIObjectStore, S3ObjectStore, UCObjectStore)
+from composer.utils.object_store import (
+    GCSObjectStore,
+    LibcloudObjectStore,
+    MLFlowObjectStore,
+    ObjectStore,
+    OCIObjectStore,
+    S3ObjectStore,
+    UCObjectStore,
+)
 from composer.utils.object_store.mlflow_object_store import MLFLOW_DBFS_PATH_PREFIX
 
 if TYPE_CHECKING:
@@ -32,9 +39,16 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 __all__ = [
-    'get_file', 'ensure_folder_is_empty', 'ensure_folder_has_no_conflicting_files', 'format_name_with_dist',
-    'format_name_with_dist_and_time', 'is_tar', 'create_symlink_file', 'maybe_create_object_store_from_uri',
-    'maybe_create_remote_uploader_downloader_from_uri', 'parse_uri'
+    'get_file',
+    'ensure_folder_is_empty',
+    'ensure_folder_has_no_conflicting_files',
+    'format_name_with_dist',
+    'format_name_with_dist_and_time',
+    'is_tar',
+    'create_symlink_file',
+    'maybe_create_object_store_from_uri',
+    'maybe_create_remote_uploader_downloader_from_uri',
+    'parse_uri',
 ]
 
 
@@ -140,7 +154,8 @@ def ensure_folder_has_no_conflicting_files(folder_name: Union[str, pathlib.Path]
                 if int(value) > int(getattr(timestamp, unit)):
                     raise FileExistsError(
                         f'{os.path.join(folder_name, file)} may conflict with a future checkpoint of the current run.'
-                        'Please delete that file, change to a new folder, or set overwrite=True.')
+                        'Please delete that file, change to a new folder, or set overwrite=True.',
+                    )
 
 
 FORMAT_NAME_WITH_DIST_TABLE = """
@@ -349,8 +364,10 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
     if backend == 's3':
         return S3ObjectStore(bucket=bucket_name)
     elif backend == 'wandb':
-        raise NotImplementedError(f'There is no implementation for WandB load_object_store via URI. Please use '
-                                  'WandBLogger')
+        raise NotImplementedError(
+            f'There is no implementation for WandB load_object_store via URI. Please use '
+            'WandBLogger',
+        )
     elif backend == 'gs':
         return GCSObjectStore(bucket=bucket_name)
     elif backend == 'oci':
@@ -386,12 +403,16 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
             UCObjectStore.validate_path(path)
             return UCObjectStore(path=path)
     else:
-        raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
-                                  'one of the supported object stores')
+        raise NotImplementedError(
+            f'There is no implementation for the cloud backend {backend} via URI. Please use '
+            'one of the supported object stores',
+        )
 
 
 def maybe_create_remote_uploader_downloader_from_uri(
-        uri: str, loggers: List[LoggerDestination]) -> Optional['RemoteUploaderDownloader']:
+    uri: str,
+    loggers: List[LoggerDestination],
+) -> Optional['RemoteUploaderDownloader']:
     """Automatically creates a :class:`composer.loggers.RemoteUploaderDownloader` from supported URI formats.
 
     Currently supported backends are ``s3://``, ``oci://``, and local paths (in which case ``None`` will be returned)
@@ -415,7 +436,8 @@ def maybe_create_remote_uploader_downloader_from_uri(
         if ((existing_remote_ud.remote_backend_name == backend) and
             (existing_remote_ud.remote_bucket_name == bucket_name)):
             warnings.warn(
-                f'There already exists a RemoteUploaderDownloader object to handle the uri: {uri} you specified')
+                f'There already exists a RemoteUploaderDownloader object to handle the uri: {uri} you specified',
+            )
             return None
     if backend in ['s3', 'oci', 'gs']:
         return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}')
@@ -432,11 +454,15 @@ def maybe_create_remote_uploader_downloader_from_uri(
     elif backend == 'dbfs':
         return RemoteUploaderDownloader(bucket_uri=uri, backend_kwargs={'path': path})
     elif backend == 'wandb':
-        raise NotImplementedError(f'There is no implementation for WandB via URI. Please use '
-                                  'WandBLogger with log_artifacts set to True')
+        raise NotImplementedError(
+            f'There is no implementation for WandB via URI. Please use '
+            'WandBLogger with log_artifacts set to True',
+        )
     else:
-        raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
-                                  'one of the supported RemoteUploaderDownloader object stores')
+        raise NotImplementedError(
+            f'There is no implementation for the cloud backend {backend} via URI. Please use '
+            'one of the supported RemoteUploaderDownloader object stores',
+        )
 
 
 def list_remote_objects(remote_path: str) -> List[str]:
@@ -477,11 +503,13 @@ def validate_remote_path():
     print(f'Found {len(objects)} objects at {remote_path} \n{objects_str}')
 
 
-def get_file(path: str,
-             destination: str,
-             object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
-             overwrite: bool = False,
-             progress_bar: bool = True):
+def get_file(
+    path: str,
+    destination: str,
+    object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
+    overwrite: bool = False,
+    progress_bar: bool = True,
+):
     """Get a file from a local folder, URL, or object store.
 
     Args:
@@ -541,11 +569,13 @@ def get_file(path: str,
                 log.debug(f'Read path {real_path} from symlink file.')
 
         # Recurse
-        return get_file(path=real_path,
-                        destination=destination,
-                        object_store=object_store,
-                        overwrite=overwrite,
-                        progress_bar=progress_bar)
+        return get_file(
+            path=real_path,
+            destination=destination,
+            object_store=object_store,
+            overwrite=overwrite,
+            progress_bar=progress_bar,
+        )
 
     try:
         _get_file(
@@ -559,11 +589,13 @@ def get_file(path: str,
         new_path = path + '.symlink'
         try:
             # Follow the symlink
-            return get_file(path=new_path,
-                            destination=destination,
-                            object_store=object_store,
-                            overwrite=overwrite,
-                            progress_bar=progress_bar)
+            return get_file(
+                path=new_path,
+                destination=destination,
+                object_store=object_store,
+                overwrite=overwrite,
+                progress_bar=progress_bar,
+            )
         except FileNotFoundError as ee:
             # Raise the original not found error first, which contains the path to the user-specified file
             raise e from ee
@@ -615,9 +647,9 @@ def _get_file(
             try:
                 with open(tmp_path, 'wb') as f:
                     for data in iterate_with_callback(
-                            r.iter_content(2**20),
-                            total_size_in_bytes,
-                            callback=_get_callback(f'Downloading {path}') if progress_bar else None,
+                        r.iter_content(2**20),
+                        total_size_in_bytes,
+                        callback=_get_callback(f'Downloading {path}') if progress_bar else None,
                     ):
                         f.write(data)
             except:

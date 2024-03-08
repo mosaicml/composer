@@ -6,6 +6,7 @@ import inspect
 import os
 from urllib.parse import urlparse
 
+import importlib_metadata
 import pytest
 import testbook
 from testbook.client import TestbookNotebookClient
@@ -20,6 +21,16 @@ NOTEBOOKS = [
     os.path.join(nb_root, nb) \
     for nb in glob.glob(os.path.join(nb_root, '*.ipynb')) \
 ]
+
+try:
+    importlib_metadata.files('mosaicml')
+    package_name = 'mosaicml'
+except importlib_metadata.PackageNotFoundError:
+    try:
+        importlib_metadata.files('composer')
+        package_name = 'composer'
+    except importlib_metadata.PackageNotFoundError:
+        raise RuntimeError('Could not find the package under mosaicml or composer.')
 
 
 def patch_notebooks():
@@ -68,7 +79,8 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
     if notebook_name == 'finetune_huggingface':
         cell_source = cell_source.replace(
             'sst2_dataset = datasets.load_dataset("glue", "sst2")',
-            'sst2_dataset = datasets.load_dataset("glue", "sst2", download_mode="force_redownload")')
+            'sst2_dataset = datasets.load_dataset("glue", "sst2", download_mode="force_redownload")',
+        )
         cell_source = cell_source.replace('batch_size=16', 'batch_size=2')
     if notebook_name == 'pretrain_finetune_huggingface':
         cell_source = cell_source.replace('batch_size=64', 'batch_size=1')
@@ -85,6 +97,9 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
     if notebook_name == 'migrate_from_ptl':
         cell_source = cell_source.replace('batch_size=256', 'batch_size=64')
         cell_source = cell_source.replace('download=True', 'download=False')
+
+    cell_source = cell_source.replace("pip install 'mosaicml", f"pip install '{package_name}")
+    cell_source = cell_source.replace('pip install mosaicml', f'pip install {package_name}')
 
     return cell_source
 
@@ -110,11 +125,12 @@ def test_notebook(notebook: str, device: str, s3_bucket: str):
         pytest.skip('CIFAR10 download is flaky')
     if notebook_name == 'finetune_huggingface':
         pytest.skip(
-            "Error that is unreproducible locally: ModuleNotFoundError: No module named 'transformers.models.ernie_m.configuration_ernie_m'"
+            "Error that is unreproducible locally: ModuleNotFoundError: No module named 'transformers.models.ernie_m.configuration_ernie_m'",
         )
     if notebook_name == 'pretrain_finetune_huggingface':
         pytest.skip(
-            "Error that is unreproducible locally: No module named 'transformers.models.mega.configuration_mega'")
+            "Error that is unreproducible locally: No module named 'transformers.models.mega.configuration_mega'",
+        )
 
     try:
         import boto3
@@ -139,8 +155,10 @@ def test_notebook(notebook: str, device: str, s3_bucket: str):
         for i, cell in enumerate(tb.cells):
             if cell['cell_type'] != 'code':
                 continue
-            cell['source'] = modify_cell_source(tb,
-                                                notebook_name=notebook_name,
-                                                cell_source=cell['source'],
-                                                s3_bucket=s3_bucket)
+            cell['source'] = modify_cell_source(
+                tb,
+                notebook_name=notebook_name,
+                cell_source=cell['source'],
+                s3_bucket=s3_bucket,
+            )
             tb.execute_cell(i)

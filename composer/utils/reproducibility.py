@@ -203,16 +203,22 @@ def load_rng_state(rng_state_dicts: List[Dict[str, Any]]):
     """
     if dist.get_world_size() > len(rng_state_dicts):
         warnings.warn(
-            textwrap.dedent(f"""\
+            textwrap.dedent(
+                f"""\
                 The current world size ({dist.get_world_size()} is greater than the number of RNG state(s) serialized
                 ({len(rng_state_dicts)}). Only the first {len(rng_state_dicts)} rank(s) will have their RNG restored.
-                """))
+                """,
+            ),
+        )
     if dist.get_world_size() < len(rng_state_dicts):
         warnings.warn(
-            textwrap.dedent(f"""\
+            textwrap.dedent(
+                f"""\
             The current world size ({dist.get_world_size()} is less than the number of RNG state(s) serialized
             ({len(rng_state_dicts)}). Only the first {dist.get_world_size()} RNG state(s) will be consumed;
-            the remaining will be ignored."""))
+            the remaining will be ignored.""",
+            ),
+        )
 
     if dist.get_global_rank() < len(rng_state_dicts):
         rng_state_dict = rng_state_dicts[dist.get_global_rank()]
@@ -229,20 +235,28 @@ def load_rng_state(rng_state_dicts: List[Dict[str, Any]]):
             try:
                 torch.cuda.set_rng_state(rng_state_dict['cuda'])
             except RuntimeError as e:
-                if 'RNG state is wrong size' in str(e):
-                    warnings.warn('The CUDA RNG state could not be loaded from the checkpoint, '
-                                  'likely because a different version of torch was used to save the '
-                                  'checkpoint. Skipping loading the CUDA RNG state.')
+                if 'RNG state is wrong size' in str(e) or 'offset must be a multiple of 4' in str(e):
+                    warnings.warn(
+                        'The CUDA RNG state could not be loaded from the checkpoint, '
+                        'likely because a different version of torch was used to save the '
+                        'checkpoint. Skipping loading the CUDA RNG state.',
+                    )
                 else:
                     raise e
 
         if is_cuda_available and not has_cuda_rng_state:
             warnings.warn(
-                textwrap.dedent(f"""\
+                textwrap.dedent(
+                    f"""\
                 The checkpoint did not include the CUDA RNG state. The CUDA RNG will have a
-                non-deterministic state."""))
+                non-deterministic state.""",
+                ),
+            )
         if not is_cuda_available and has_cuda_rng_state:
             warnings.warn(
-                textwrap.dedent(f"""\
+                textwrap.dedent(
+                    f"""\
                 The checkpoint included CUDA RNG state, but CUDA is not being used.
-                As such, the CUDA RNG state will be ignored."""))
+                As such, the CUDA RNG state will be ignored.""",
+                ),
+            )

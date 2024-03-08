@@ -7,17 +7,15 @@ import pathlib
 import pytest
 import torch
 import torch.distributed
-from packaging import version
 from torch.utils.data import DataLoader
 
 import composer.core.types as types
 from composer import Callback, Event
 from composer.core import State
-from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.loggers import Logger
 from composer.trainer.trainer import Trainer
 from composer.utils import dist
-from tests.common import SimpleModel
+from tests.common import RandomClassificationDataset, SimpleModel
 
 
 def get_file_path(*, is_train: bool, tmp_path: pathlib.Path) -> str:
@@ -41,8 +39,8 @@ class TrackedDataset(types.Dataset):
     atomic file writes, it is slow and should not be used in any performance measurements.
     """
 
-    def __init__(self, is_train: bool, synthetic_dataset: SyntheticBatchPairDataset, tmp_path: pathlib.Path):
-        self.dataset = synthetic_dataset
+    def __init__(self, is_train: bool, dataset, tmp_path: pathlib.Path):
+        self.dataset = dataset
         self.is_train = is_train
         self.tmp_path = tmp_path
         self.counter = 0
@@ -88,21 +86,25 @@ class CheckBatch0(Callback):
         pytest.param('gpu', False, False, id='gpu', marks=pytest.mark.gpu),
         # TODO: Remove filterwarnings after FSDP removes deprecated code
         pytest.param('gpu', True, False, id='deepspeed', marks=pytest.mark.gpu),
-        pytest.param('gpu',
-                     False,
-                     True,
-                     id='fsdp',
-                     marks=[
-                         pytest.mark.gpu,
-                         pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                                            reason='requires PyTorch 1.13 or higher'),
-                         pytest.mark.filterwarnings('ignore::UserWarning'),
-                     ]),
-    ])
-@pytest.mark.parametrize('world_size', [
-    pytest.param(1),
-    pytest.param(2, marks=pytest.mark.world_size(2)),
-])
+        pytest.param(
+            'gpu',
+            False,
+            True,
+            id='fsdp',
+            marks=[
+                pytest.mark.gpu,
+                pytest.mark.filterwarnings('ignore::UserWarning'),
+            ],
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    'world_size',
+    [
+        pytest.param(1),
+        pytest.param(2, marks=pytest.mark.world_size(2)),
+    ],
+)
 def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path: pathlib.Path) -> None:
     """test strategy for ddp: 1) Train a dummy model on two gps, for two epochs, using the tracked dataset. 2) The
     tracked dataset should record two -- and only two -- accesses for each sample -- one for each epoch If each sample
@@ -116,19 +118,11 @@ def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path
     and 2) each ddp process is indeed getting different data.
     """
 
-    model = SimpleModel(num_classes=100)
-
     train_batch_size = 10
     train_subset_num_batches = 3
 
-    synthetic_dataset = SyntheticBatchPairDataset(
-        num_unique_samples_to_create=train_batch_size * train_subset_num_batches,
-        total_dataset_size=10_000,
-        data_shape=(model.num_features, 5, 5),
-        num_classes=model.num_classes,
-    )
     train_dataset = TrackedDataset(
-        synthetic_dataset=synthetic_dataset,
+        dataset=RandomClassificationDataset(size=train_batch_size * train_subset_num_batches),
         is_train=True,
         tmp_path=tmp_path,
     )
@@ -150,14 +144,8 @@ def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path
     eval_batch_size = 10
     eval_subset_num_batches = 3
 
-    eval_dataset = SyntheticBatchPairDataset(
-        num_unique_samples_to_create=eval_batch_size * eval_subset_num_batches,
-        total_dataset_size=10_000,
-        data_shape=(model.num_features, 5, 5),
-        num_classes=model.num_classes,
-    )
     eval_dataset = TrackedDataset(
-        synthetic_dataset=eval_dataset,
+        dataset=RandomClassificationDataset(size=eval_batch_size * eval_subset_num_batches),
         is_train=False,
         tmp_path=tmp_path,
     )
@@ -181,21 +169,23 @@ def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path
             'backward_prefetch': 'BACKWARD_PRE',
             'activation_checkpointing': False,
             'activation_cpu_offload': False,
-            'verbose': False
+            'verbose': False,
         }
 
     max_epochs = 2
-    trainer = Trainer(model=model,
-                      train_dataloader=train_dataloader,
-                      eval_dataloader=eval_dataloader,
-                      device=device,
-                      max_duration=f'{max_epochs}ep',
-                      eval_interval='1ep',
-                      eval_subset_num_batches=eval_subset_num_batches,
-                      train_subset_num_batches=train_subset_num_batches,
-                      deepspeed_config={} if deepspeed else None,
-                      fsdp_config=fsdp_config,
-                      callbacks=[CheckBatch0(tmp_path)])
+    trainer = Trainer(
+        model=SimpleModel(num_classes=100),
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        device=device,
+        max_duration=f'{max_epochs}ep',
+        eval_interval='1ep',
+        eval_subset_num_batches=eval_subset_num_batches,
+        train_subset_num_batches=train_subset_num_batches,
+        deepspeed_config={} if deepspeed else None,
+        fsdp_config=fsdp_config,
+        callbacks=[CheckBatch0(tmp_path)],
+    )
 
     trainer.fit()
 

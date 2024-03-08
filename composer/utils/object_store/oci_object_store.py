@@ -22,12 +22,20 @@ def _reraise_oci_errors(uri: str, e: Exception):
     try:
         import oci
     except ImportError as e:
-        raise MissingConditionalImportError(conda_package='oci', extra_deps_group='oci',
-                                            conda_channel='conda-forge') from e
+        raise MissingConditionalImportError(
+            conda_package='oci',
+            extra_deps_group='oci',
+            conda_channel='conda-forge',
+        ) from e
 
     # If it's an oci service error with code: ObjectNotFound or status 404
-    if isinstance(e, oci.exceptions.ServiceError) and e.status == 404:  # type: ignore
-        raise FileNotFoundError(f'Object {uri} not found. {e.message}') from e  # type: ignore
+    if isinstance(e, oci.exceptions.ServiceError):
+        if e.status == 404:  # type: ignore
+            if e.code == 'ObjectNotFound':  # type: ignore
+                raise FileNotFoundError(f'Object {uri} not found. {e.message}') from e  # type: ignore
+            if e.code == 'BucketNotFound':  # type: ignore
+                raise ValueError(f'Bucket specified in {uri} not found. {e.message}') from e  # type: ignore
+            raise FileNotFoundError(f'Object {uri} not found with no error code. {e.message}') from e  # type: ignore
 
     # Client errors
     if isinstance(e, oci.exceptions.ClientError):
@@ -55,9 +63,11 @@ class OCIObjectStore(ObjectStore):
         try:
             import oci
         except ImportError as e:
-            raise MissingConditionalImportError(conda_package='oci',
-                                                extra_deps_group='oci',
-                                                conda_channel='conda-forge') from e
+            raise MissingConditionalImportError(
+                conda_package='oci',
+                extra_deps_group='oci',
+                conda_channel='conda-forge',
+            ) from e
 
         # Format paths
         self.bucket = bucket.strip('/')
@@ -71,8 +81,10 @@ class OCIObjectStore(ObjectStore):
             else:
                 config = oci.config.from_file()
 
-            self.client = oci.object_storage.ObjectStorageClient(config=config,
-                                                                 retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
+            self.client = oci.object_storage.ObjectStorageClient(
+                config=config,
+                retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY,
+            )
         except Exception as e:
             _reraise_oci_errors(self.get_uri(object_name=''), e)
 
@@ -107,10 +119,12 @@ class OCIObjectStore(ObjectStore):
     ):
         del callback
         try:
-            self.upload_manager.upload_file(namespace_name=self.namespace,
-                                            bucket_name=self.bucket,
-                                            object_name=object_name,
-                                            file_path=filename)
+            self.upload_manager.upload_file(
+                namespace_name=self.namespace,
+                bucket_name=self.bucket,
+                object_name=object_name,
+                file_path=filename,
+            )
 
         except Exception as e:
             _reraise_oci_errors(self.get_uri(object_name), e)
@@ -118,10 +132,12 @@ class OCIObjectStore(ObjectStore):
     def _download_part(self, object_name, filename, start_byte, end_byte, part_number):
         range_header = f'bytes={start_byte}-{end_byte}'
         tmp_part_path = os.path.join(filename, f'part-{part_number}-{uuid.uuid4()}.tmp')
-        response = self.client.get_object(namespace_name=self.namespace,
-                                          bucket_name=self.bucket,
-                                          object_name=object_name,
-                                          range=range_header)
+        response = self.client.get_object(
+            namespace_name=self.namespace,
+            bucket_name=self.bucket,
+            object_name=object_name,
+            range=range_header,
+        )
         with open(tmp_part_path, 'wb') as f:
             f.write(response.data.content)  # pyright: ignore[reportOptionalMemberAccess]
         return part_number, tmp_part_path
@@ -132,6 +148,7 @@ class OCIObjectStore(ObjectStore):
         filename: Union[str, pathlib.Path],
         overwrite: bool = False,
         callback: Optional[Callable[[int, int], None]] = None,
+        min_part_size: int = 128000000,
         num_parts: int = 10,
     ):
         del callback
@@ -143,15 +160,20 @@ class OCIObjectStore(ObjectStore):
             os.makedirs(dirname, exist_ok=True)
 
         # Get the size of the object
+        object_size = 0
         try:
             head_object_response = self.client.head_object(self.namespace, self.bucket, object_name)
+            object_size = int(
+                head_object_response.headers['content-length'],
+            )  # pyright: ignore[reportOptionalMemberAccess]
         except Exception as e:
             _reraise_oci_errors(self.get_uri(object_name), e)
-        object_size = head_object_response.headers['content-length']  # pyright: ignore[reportOptionalMemberAccess]
         if int(object_size) < 20000000:
             num_parts = 1
         # Calculate the part sizes
-        base_part_size, remainder = divmod(int(object_size), num_parts)
+        num_parts_from_size = max(object_size // min_part_size, 1)
+        num_parts = min(num_parts, num_parts_from_size)
+        base_part_size, remainder = divmod(object_size, num_parts)
         part_sizes = [base_part_size] * num_parts
         for i in range(remainder):
             part_sizes[i] += 1
@@ -167,7 +189,8 @@ class OCIObjectStore(ObjectStore):
                     for i, part_size in enumerate(part_sizes):
                         end_byte = start_byte + part_size - 1
                         futures.append(
-                            executor.submit(self._download_part, object_name, temp_dir, start_byte, end_byte, i))
+                            executor.submit(self._download_part, object_name, temp_dir, start_byte, end_byte, i),
+                        )
                         start_byte = end_byte + 1
 
                     for future in concurrent.futures.as_completed(futures):
@@ -201,8 +224,11 @@ class OCIObjectStore(ObjectStore):
         try:
             while not response_complete:
                 response = self.client.list_objects(
-                    namespace_name=self.namespace, bucket_name=self.bucket, prefix=prefix,
-                    start=next_start_with).data  # pyright: ignore[reportOptionalMemberAccess]
+                    namespace_name=self.namespace,
+                    bucket_name=self.bucket,
+                    prefix=prefix,
+                    start=next_start_with,
+                ).data  # pyright: ignore[reportOptionalMemberAccess]
                 object_names.extend([obj.name for obj in response.objects])
                 next_start_with = response.next_start_with
                 if not next_start_with:

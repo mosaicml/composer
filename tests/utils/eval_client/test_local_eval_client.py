@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import pytest
 
-from composer.utils import LocalEvalClient
+from composer.utils import LocalEvalClient, dist
 from tests.common.markers import world_size
 
 
@@ -29,10 +29,11 @@ from tests.common.markers import world_size
 )
 @world_size(1, 2)
 def test_local_invoke(code: str, result: str, language: str, world_size: int, tmp_path: str):
-    """Test invocation function for LocalEvalClient with code that succeeds, fails compilation, times out, and is incorrect in C, C++, Python, JS.
+    """Test invocation function for LocalEvalClient.
+
+    Code can succeed, fail compilation, time out, or be incorrect in C, C++, Python, JS.
     """
-    import os
-    os.makedirs(os.path.dirname(tmp_path), exist_ok=True)
+    dist.barrier()  # Ensure all processes are ready to run the test as invoke doesn't use dist
     eval_client = LocalEvalClient()
     input = '(1,)' if language == 'python' else '1'
     assert eval_client.invoke([[[{
@@ -40,5 +41,5 @@ def test_local_invoke(code: str, result: str, language: str, world_size: int, tm
         'input': input,
         'output': '2',
         'entry_point': 'add_1',
-        'language': language
+        'language': language,
     }]]]) == [[[result]]]

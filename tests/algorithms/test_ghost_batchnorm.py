@@ -84,8 +84,12 @@ def test_batchnorm_gets_replaced_functional(num_dims: int):
 @pytest.mark.parametrize('batch_size', _TEST_BATCH_SIZES)
 class TestGhostBatchesNormalized:
 
-    def _assert_ghost_batches_normalized(self, module: ModuleWithBatchnorm, ghost_batch_size: int,
-                                         batch_size: int) -> None:
+    def _assert_ghost_batches_normalized(
+        self,
+        module: ModuleWithBatchnorm,
+        ghost_batch_size: int,
+        batch_size: int,
+    ) -> None:
         torch.manual_seed(123)
         size = [batch_size, module.num_features] + ([3] * module.num_dims)
         X = torch.randn(size=size)
@@ -106,8 +110,14 @@ class TestGhostBatchesNormalized:
         ghostbn.apply_ghost_batchnorm(module, ghost_batch_size=ghost_batch_size)
         self._assert_ghost_batches_normalized(module=module, ghost_batch_size=ghost_batch_size, batch_size=batch_size)
 
-    def test_normalization_correct_algorithm(self, state, algo_instance, num_dims: int, ghost_batch_size: int,
-                                             batch_size: int) -> None:
+    def test_normalization_correct_algorithm(
+        self,
+        state,
+        algo_instance,
+        num_dims: int,
+        ghost_batch_size: int,
+        batch_size: int,
+    ) -> None:
         algo_instance.apply(_GHOSTBN_CORRECT_EVENT, state, logger=Mock())
         module = cast(ModuleWithBatchnorm, state.model)
         self._assert_ghost_batches_normalized(module=module, ghost_batch_size=ghost_batch_size, batch_size=batch_size)

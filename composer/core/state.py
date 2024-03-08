@@ -16,8 +16,16 @@ import numpy as np
 import torch
 import torch.nn.modules.utils
 from packaging import version
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp.fully_sharded_data_parallel import (
+    FullOptimStateDictConfig,
+    FullStateDictConfig,
+    ShardedOptimStateDictConfig,
+    StateDictType,
+)
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader, Dataset
 from torchmetrics import Metric
 
@@ -25,16 +33,21 @@ from composer.core.data_spec import DataSpec
 from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
-from composer.core.time import Time, Timestamp, TimeUnit
+from composer.core.time import Time, Timestamp, TimeUnit, ensure_time
 from composer.devices import Device
-from composer.utils import (batch_get, batch_set, dist, ensure_tuple, get_composer_env_dict, is_model_deepspeed,
-                            reproducibility)
-from composer.utils.misc import using_torch_2
+from composer.utils import (
+    batch_get,
+    batch_set,
+    dist,
+    ensure_tuple,
+    get_composer_env_dict,
+    is_model_deepspeed,
+    reproducibility,
+)
 
 if TYPE_CHECKING:
     import deepspeed
 
-    import composer.core.types as types
     from composer.core.algorithm import Algorithm
     from composer.core.callback import Callback
     from composer.core.evaluator import Evaluator
@@ -55,22 +68,15 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
         module (torch.nn.Module): The torch module that you want to call `state_dict()`
             or `load_state_dict()` on.
         state_dict_type (str, optional): which of the three state dict types you want to use.
-            choices are ['full', 'sharded', 'local']. Defaults to 'full'.
+            choices are ['full', 'sharded']. Defaults to 'full'.
             * 'full': the full, unsharded state dict materialized only on rank 0 with cpu_offload if necessary
-            * 'local': the sharded, flattened state_dict, where each rank only gets a single shard.
             * 'sharded': the sharded, unflattened state_dict, where each rank only gets a single shard.
             See torch.distributed.fsdp.StateDictType for more info.
 
     Raises:
-        RuntimeError: if your torch version is earlier than 1.13.0 because FSDP is not available for those versions.
-        NotImplementedError: if you specify a state_dict_type not in ['full', 'sharded', 'local'].
+        NotImplementedError: if you specify a state_dict_type not in ['full', 'sharded'].
     """
-    if version.parse(torch.__version__) < version.parse('1.13.0'):
-        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-    from torch.distributed.fsdp import FullStateDictConfig
-    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-    from torch.distributed.fsdp import LocalStateDictConfig, StateDictType
-    # torch forgot to put ShardedStateDictConfig in torch/distributed/fsdp/__init__.py, so we
+    # Torch forgot to put ShardedStateDictConfig in torch/distributed/fsdp/__init__.py, so we
     # have to import it this way.
     from torch.distributed.fsdp.fully_sharded_data_parallel import ShardedStateDictConfig
 
@@ -82,91 +88,51 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
     if state_dict_type == 'full':
         fsdp_state_dict_type = StateDictType.FULL_STATE_DICT
         state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
-        if using_torch_2():
-            from torch.distributed.fsdp.fully_sharded_data_parallel import FullOptimStateDictConfig
-            optim_state_dict_config = FullOptimStateDictConfig(offload_to_cpu=True, rank0_only=True)
+        optim_state_dict_config = FullOptimStateDictConfig(offload_to_cpu=True, rank0_only=True)
 
     # Sharded is sharded state dict, but unflattened parameters (not useful for FSDP, but
     # useful if you plan to use the state dict outside of FSDP).
     elif state_dict_type == 'sharded':
         fsdp_state_dict_type = StateDictType.SHARDED_STATE_DICT
         state_dict_config = ShardedStateDictConfig()
-        if using_torch_2():
-            state_dict_config = ShardedStateDictConfig(offload_to_cpu=True)
-            from torch.distributed.fsdp.fully_sharded_data_parallel import ShardedOptimStateDictConfig
-            optim_state_dict_config = ShardedOptimStateDictConfig()
+        state_dict_config = ShardedStateDictConfig(offload_to_cpu=True)
+        optim_state_dict_config = ShardedOptimStateDictConfig()
 
-    # Local is the FSDP standard sharded, flattened parameters. This is what the parameters
-    # are formatted to for a single rank's FSDP module.
-    elif state_dict_type == 'local':
-        fsdp_state_dict_type = StateDictType.LOCAL_STATE_DICT
-        state_dict_config = LocalStateDictConfig()
-        if using_torch_2():
-            from torch.distributed.fsdp.fully_sharded_data_parallel import LocalOptimStateDictConfig
-            optim_state_dict_config = LocalOptimStateDictConfig()
     else:
         raise NotImplementedError(f'No valid FSDP state_dict_type for {state_dict_type}')
 
-    if using_torch_2():
-        with FSDP.state_dict_type(module,
-                                  state_dict_type=fsdp_state_dict_type,
-                                  state_dict_config=state_dict_config,
-                                  optim_state_dict_config=optim_state_dict_config):
-            yield
-    else:
-        with FSDP.state_dict_type(module, state_dict_type=fsdp_state_dict_type, state_dict_config=state_dict_config):
-            yield
+    with FSDP.state_dict_type(
+        module,
+        state_dict_type=fsdp_state_dict_type,
+        state_dict_config=state_dict_config,
+        optim_state_dict_config=optim_state_dict_config,
+    ):
+        yield
 
 
-def fsdp_get_optim_state_dict(model: torch.nn.Module,
-                              optim: torch.optim.Optimizer,
-                              state_dict_type: str = 'full') -> Dict[str, Any]:
+def fsdp_get_optim_state_dict(
+    model: torch.nn.Module,
+    optim: torch.optim.Optimizer,
+    state_dict_type: str = 'full',
+) -> Dict[str, Any]:
     """Materializes a given model's optimizer's state_dict.
 
     Args:
         model (torch.nn.Module): The model that the optimizer corresponds to.
         optim (torch.optim.Optimizer): The optimizer that you want a state dict for.
         state_dict_type (str, optional): which of the three state dict types you want to use.
-            choices are ['full', 'sharded', 'local']. Defaults to 'full'.
+            choices are ['full', 'sharded']. Defaults to 'full'.
             * 'full': the full, unsharded state dict materialized only on rank 0
-            * 'local': the sharded, flattened state_dict, where each rank only gets a single shard.
             * 'sharded': the sharded, unflattened state_dict, where each rank only gets a single shard.
 
     Raises:
-        RuntimeError: if your torch version is earlier than 1.13.0 because FSDP is not available for those versions.
-        NotImplementedError: if you specify a state_dict_type not in ['full', 'sharded', 'local'].
+        NotImplementedError: if you specify a state_dict_type not in ['full', 'sharded'].
 
     Returns:
         Dict[str, Any]: The state_dict for the given optimizer.
     """
-    if version.parse(torch.__version__) < version.parse('1.13.0'):
-        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-    if not using_torch_2():
-        optim_state_dict = _legacy_fsdp_get_optim_state_dict(model, optim, state_dict_type)
-    else:
-        with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
-            optim_state_dict = FSDP.optim_state_dict(model, optim)  # type: ignore
-    return optim_state_dict
-
-
-def _legacy_fsdp_get_optim_state_dict(model: torch.nn.Module,
-                                      optim: torch.optim.Optimizer,
-                                      state_dict_type: str = 'full') -> Dict[str, Any]:
-    if version.parse(torch.__version__) < version.parse('1.13.0'):
-        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-    if state_dict_type == 'full':
-        # Converts local state dict to full.
-        return FSDP.full_optim_state_dict(model=model, optim=optim)
-    elif state_dict_type == 'sharded':
-        # Converts local state dict to sharded.
-        return FSDP.sharded_optim_state_dict(model=model, optim=optim)
-    elif state_dict_type == 'local':
-        # State dict is already local, so just return state dict.
-        return optim.state_dict()
-    else:
-        raise NotImplementedError(f'No valid FSDP state_dict_type for {state_dict_type}')
+    with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
+        return FSDP.optim_state_dict(model, optim)  # type: ignore
 
 
 def _legacy_optim_state_dict_to_load(
@@ -175,42 +141,35 @@ def _legacy_optim_state_dict_to_load(
     optim: torch.optim.Optimizer,
     state_dict_type: str = 'full',
 ):
-    if version.parse(torch.__version__) < version.parse('1.13.0'):
-        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
     if state_dict_type == 'sharded':
         # Optimizer and optimizer state dict are already sharded, but not
         # flattened, so we flatten the state dict then load it.
         assert optim_state_dict is not None
-        flattened_optim_state_dict = FSDP.flatten_sharded_optim_state_dict(sharded_optim_state_dict=optim_state_dict,
-                                                                           model=model,
-                                                                           optim=optim)
+        flattened_optim_state_dict = FSDP.flatten_sharded_optim_state_dict(
+            sharded_optim_state_dict=optim_state_dict,
+            model=model,
+            optim=optim,
+        )
         return flattened_optim_state_dict
-    elif state_dict_type == 'local':
-        # Optimizer and optimizer state dict are already sharded and flattened,
-        # so just load the state_dict.
-        return optim_state_dict
     else:  # fsdp_state_dict_type == 'full'
         # FSDP enabled, but fsdp_state_dict is set to 'full', so the state dict
         # is a full state dict and we must shard and flatten it first before loading it.
-        sharded_optim_state_dict = FSDP.scatter_full_optim_state_dict(full_optim_state_dict=optim_state_dict,
-                                                                      model=model)
+        sharded_optim_state_dict = FSDP.scatter_full_optim_state_dict(
+            full_optim_state_dict=optim_state_dict,
+            model=model,
+        )
         return sharded_optim_state_dict
 
 
 def get_fsdp_sharded_optim_state_dict(full_optim_state_dict: Dict[str, Any], model: torch.nn.Module):
-    if version.parse(torch.__version__) < version.parse('1.13.0'):
-        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
     log.debug(
-        f'Scattering optimizer state dict with keys {full_optim_state_dict.keys()} and model of type {type(model)}')
+        f'Scattering optimizer state dict with keys {full_optim_state_dict.keys()} and model of type {type(model)}',
+    )
     return FSDP.scatter_full_optim_state_dict(full_optim_state_dict=full_optim_state_dict, model=model)
 
 
 def get_fsdp_full_optim_state_dict(model: torch.nn.Module, optim: torch.optim.Optimizer, rank0_only: bool = True):
-    if version.parse(torch.__version__) < version.parse('1.13.0'):
-        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
     return FSDP.full_optim_state_dict(model=model, optim=optim, rank0_only=rank0_only)
 
 
@@ -281,7 +240,7 @@ class State(Serializable):
             `DelayedScaling <https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/common.html?highlight=delayedscaling#transformer_engine.common.recipe.DelayedScaling>`_.
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer being used to
             train the model. Multiple optimizers are not currently supported.
-        schedulers (types.PyTorchScheduler | Sequence[types.PyTorchScheduler], optional):
+        schedulers (LRScheduler | Sequence[LRScheduler], optional):
             The learning rate scheduler (can also be a list or tuple of schedulers).
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
         save_metrics (bool, optional): Whether to save metrics in state_dict.
@@ -473,6 +432,8 @@ class State(Serializable):
         self.dataset_resumption = dataset_resumption or {}
         self._max_duration = None
         self.max_duration = max_duration
+        self.__iteration_length = None
+        self._iteration_length = self.__iteration_length
         self.save_metrics = save_metrics
 
         self._train_dataloader = train_dataloader
@@ -508,11 +469,12 @@ class State(Serializable):
             if fsdp_config['use_orig_params'] == True:
                 error_message += textwrap.dedent(
                     "load_fsdp_monolith_rank0_only requires fsdp_config['use_orig_params'] to be False. "
-                    "Either set fsdp_config['use_orig_params'] = False or set load_fsdp_monolith_rank0_only = False. ")
+                    "Either set fsdp_config['use_orig_params'] = False or set load_fsdp_monolith_rank0_only = False. ",
+                )
             if fsdp_config['sync_module_states'] == False:
                 error_message += textwrap.dedent(
                     "load_fsdp_monolith_rank0_only requires fsdp_config['sync_module_states'] to be True. "
-                    "Either set fsdp_config['sync_module_states'] = True or set load_fsdp_monolith_rank0_only = False. "
+                    "Either set fsdp_config['sync_module_states'] = True or set load_fsdp_monolith_rank0_only = False. ",
                 )
             # Broadcast rank 0 meta check to all ranks so error can be raised on all ranks
             rank0_on_meta = 0
@@ -524,7 +486,8 @@ class State(Serializable):
                 error_message += textwrap.dedent(
                     'load_fsdp_monolith_rank0_only requires the rank 0 model to be on cpu or gpu, '
                     'but detected model device as meta. Either move the model to cpu or gpu, or set '
-                    'load_fsdp_monolith_rank0_only = False. ')
+                    'load_fsdp_monolith_rank0_only = False. ',
+                )
             if error_message != '':
                 raise ValueError(error_message)
 
@@ -532,19 +495,28 @@ class State(Serializable):
         if self.fsdp_config is not None:
             self.sharded_ckpt_prefix_dir = self.fsdp_config['sharded_ckpt_prefix_dir']
 
-        if using_torch_2() and self.fsdp_state_dict_type == 'local':
-            raise DeprecationWarning(
-                textwrap.dedent(
-                    "FSDP state_dict_type='local' is deprecated in torch>=2.0.0. "
-                    "Please set fsdp_config['state_dict_type']='sharded' instead and will be removed in v0.17"))
+        if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
+            if self.fsdp_state_dict_type == 'local':
+                raise ValueError(
+                    'Composer and PyTorch no longer support saving or loading local state dicts. '
+                    'To upgrade an older checkpoint, use Composer version 0.18.1 and export as '
+                    'a monolithic checkpoint using a callback.',
+                )
+            raise ValueError(
+                f'fsdp_state_dict_type must be one of [None, "full", "sharded"], but got '
+                f'{self.fsdp_state_dict_type}',
+            )
         if self.fsdp_sharded_state_dict_enabled and self.save_metrics:
             # Sharded state dict breaks in many different ways with torchmetrics, due to both sharding
             # metric tensors and only sometimes flattening path names in state dict and _computed, so
             # saving metrics is not allowed with sharded state dict.
             raise ValueError(
-                textwrap.dedent('Saving metrics is not allowed with sharded state dict as metric tensors will '
-                                'be sharded and break on load. If you wish to save metric state, set '
-                                'fsdp_config["state_dict_type"] = "full" to disable sharded checkpoints.'))
+                textwrap.dedent(
+                    'Saving metrics is not allowed with sharded state dict as metric tensors will '
+                    'be sharded and break on load. If you wish to save metric state, set '
+                    'fsdp_config["state_dict_type"] = "full" to disable sharded checkpoints.',
+                ),
+            )
 
         # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None
@@ -665,6 +637,26 @@ class State(Serializable):
             return None
         return self.timestamp.get(self.max_duration.unit) / self.max_duration
 
+    @property
+    def _iteration_length(self):
+        """The length of an iteration."""
+        return self.__iteration_length
+
+    @_iteration_length.setter
+    def _iteration_length(self, iteration_length: Optional[Union[str, Time[int]]]):
+        """Sets the length of an iteration.
+
+        An iteration must be defined as multiple epochs. See composer/core/event.py.
+        """
+        if iteration_length is None:
+            self.__iteration_length = None
+            return
+        if isinstance(iteration_length, str):
+            iteration_length = ensure_time(iteration_length, TimeUnit.EPOCH)
+        if iteration_length.unit != TimeUnit.EPOCH:
+            raise NotImplementedError(f'{iteration_length.unit} is not allowed as a unit for iteration_length.')
+        self.__iteration_length = iteration_length
+
     def stop_training(self):
         """Gracefully stop training.
 
@@ -688,7 +680,7 @@ class State(Serializable):
         return self._schedulers
 
     @schedulers.setter
-    def schedulers(self, schedulers: Union[types.PyTorchScheduler, Sequence[types.PyTorchScheduler]]):
+    def schedulers(self, schedulers: Union[LRScheduler, Sequence[LRScheduler]]):
         self._schedulers[:] = ensure_tuple(schedulers)
 
     def batch_get_item(self, key: Union[str, int, Callable, Any]) -> Any:
@@ -773,11 +765,8 @@ class State(Serializable):
     @property
     def fsdp_enabled(self):
         """Indicates if FSDP is enabled."""
-        if version.parse(torch.__version__) < version.parse('1.13.0'):
-            return False
-        from torch.distributed.fsdp import FullyShardedDataParallel
         for module in self.model.modules():
-            if isinstance(module, FullyShardedDataParallel):
+            if isinstance(module, FSDP):
                 return True
         return False
 
@@ -791,12 +780,20 @@ class State(Serializable):
 
     @property
     def fsdp_sharded_state_dict_enabled(self):
-        return self.fsdp_config is not None and self.fsdp_enabled and self.fsdp_state_dict_type in ['sharded', 'local']
+        return self.fsdp_config is not None and self.fsdp_enabled and self.fsdp_state_dict_type == 'sharded'
+
+    @property
+    def fsdp_elastic_sharded_enabled(self):
+        warnings.warn(
+            'state.fsdp_elastic_sharded_enabled is deprecated and will be removed v0.21.0',
+            DeprecationWarning,
+        )
+        return self.fsdp_sharded_state_dict_enabled
 
     @property
     def fsdp_device_mesh(self):
         if self.fsdp_enabled:
-            if not hasattr(self.model, 'model'):
+            if not hasattr(self.model, 'model') or not hasattr(self.model.model, '_device_mesh'):
                 return None
             return self.model.model._device_mesh
         else:
@@ -804,12 +801,10 @@ class State(Serializable):
 
     @property
     def load_fsdp_monolith_rank0_only(self):
-        return self.fsdp_config is not None and self.fsdp_auto_wrap and self.fsdp_config[
-            'state_dict_type'] == 'full' and self.fsdp_config['load_monolith_rank0_only'] == True
-
-    @property
-    def fsdp_elastic_sharded_enabled(self):
-        return (self.fsdp_sharded_state_dict_enabled and using_torch_2())
+        return (
+            self.fsdp_config is not None and self.fsdp_auto_wrap and self.fsdp_config['state_dict_type'] == 'full' and
+            self.fsdp_config['load_monolith_rank0_only'] == True
+        )
 
     def _get_integrations_state_dict(self) -> Dict[str, Any]:
         """Gets a dictionary of information about integrations to store in the state dict.
@@ -878,9 +873,12 @@ class State(Serializable):
             from torch.distributed.checkpoint.state_dict import StateDictOptions, get_model_state_dict
             if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
                 raise NotImplementedError(
-                    textwrap.dedent(f'fsdp_state_dict_type={self.fsdp_state_dict_type} is not supported for '
-                                    f'torch version {{version.parse(torch.__version__)}} > 2.1.3. Please set '
-                                    'fsdp_state_dict_type to None, "full", or "sharded".'))
+                    textwrap.dedent(
+                        f'fsdp_state_dict_type={self.fsdp_state_dict_type} is not supported for '
+                        f'torch version {{version.parse(torch.__version__)}} > 2.1.3. Please set '
+                        'fsdp_state_dict_type to None, "full", or "sharded".',
+                    ),
+                )
 
             model_state_dict = get_model_state_dict(
                 model=self.model,
@@ -913,9 +911,12 @@ class State(Serializable):
             from torch.distributed.checkpoint.state_dict import StateDictOptions, get_optimizer_state_dict
             if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
                 raise NotImplementedError(
-                    textwrap.dedent(f'fsdp_state_dict_type={self.fsdp_state_dict_type} is not supported for '
-                                    f'torch version {{version.parse(torch.__version__)}} > 2.1.3. Please set '
-                                    'fsdp_state_dict_type to None, "full", or "sharded".'))
+                    textwrap.dedent(
+                        f'fsdp_state_dict_type={self.fsdp_state_dict_type} is not supported for '
+                        f'torch version {{version.parse(torch.__version__)}} > 2.1.3. Please set '
+                        'fsdp_state_dict_type to None, "full", or "sharded".',
+                    ),
+                )
 
             optimizer = ensure_tuple(self.optimizers)[0]
             optim_state_dict = get_optimizer_state_dict(
@@ -933,7 +934,7 @@ class State(Serializable):
             if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
                 optim_state_dict = {
                     type(optimizer).__qualname__:
-                        fsdp_get_optim_state_dict(self.model, optimizer, state_dict_type=self.fsdp_state_dict_type)
+                        fsdp_get_optim_state_dict(self.model, optimizer, state_dict_type=self.fsdp_state_dict_type),
                 }
             else:
                 optim_state_dict = {type(optimizer).__qualname__: optimizer.state_dict()}
@@ -1051,7 +1052,9 @@ class State(Serializable):
                                 f'loaded checkpoint. Attempted to check its presence but recreating the algorithm '
                                 "failed. This may be due to a change in the algorithm's API. If this required_on_load "
                                 'algorithm is not properly specified, it may lead to unexpected behavior, including '
-                                'failing to load weights for some layers.'))
+                                'failing to load weights for some layers.',
+                            ),
+                        )
                         continue
                     # Raise warning if we are unable to safely autoapply
                     if type(algo) in current_algos and not serialized_value['repr'] in current_algos[type(algo)]:
@@ -1060,7 +1063,9 @@ class State(Serializable):
                                 f"required_on_load algorithm {serialized_value['repr']} was enabled when training the "
                                 f"loaded checkpoint but is now specified in the following forms: {', '.join(current_algos[type(algo)])}."
                                 'Potential parameter discrepancies for this required_on_load algorithm may lead to '
-                                'unexpected behavior, including failing to load weights for some layers.'))
+                                'unexpected behavior, including failing to load weights for some layers.',
+                            ),
+                        )
                     # Otherwise, queue algorithm to be autoapplied
                     elif type(algo) not in current_algos:
                         missing_algos.add(algo)
@@ -1081,15 +1086,18 @@ class State(Serializable):
                 encountered_ckpt_algo = True
             elif encountered_ckpt_algo:
                 raise ValueError(
-                    textwrap.dedent('The following algorithms were enabled when training this checkpoint '
-                                    f'and are required to successfully load it: {missing_algo_reprs}. '
-                                    'Attempted to autocreate and apply required algorithms, but at least one '
-                                    'of the loaded algorithms was ordered before a user specified algorithm '
-                                    'which has already been applied, preventing automatic application of '
-                                    'algorithms. If you wish to use pretrained weights and reinitialize '
-                                    'layers which have undergone surgery, the following algorithms may be '
-                                    'excluded using `load_exclude_algorithms`, e.g. '
-                                    f'`load_exclude_algorithms=[{missing_algo_names}]`.'))
+                    textwrap.dedent(
+                        'The following algorithms were enabled when training this checkpoint '
+                        f'and are required to successfully load it: {missing_algo_reprs}. '
+                        'Attempted to autocreate and apply required algorithms, but at least one '
+                        'of the loaded algorithms was ordered before a user specified algorithm '
+                        'which has already been applied, preventing automatic application of '
+                        'algorithms. If you wish to use pretrained weights and reinitialize '
+                        'layers which have undergone surgery, the following algorithms may be '
+                        'excluded using `load_exclude_algorithms`, e.g. '
+                        f'`load_exclude_algorithms=[{missing_algo_names}]`.',
+                    ),
+                )
 
         try:
             for algo in missing_algos:  # TODO: use compiled algorithm order
@@ -1100,7 +1108,9 @@ class State(Serializable):
                         f'Automatically adding required_on_load algorithm {repr(algo)} to trainer, which was enabled '
                         'when training the loaded checkpoint. If you wish to use pretrained weights and ignore '
                         f'required_on_load algorithms, which may result in some weights failing to load, include {type(algo).__qualname__} '
-                        f"in `load_exclude_algorithms`, e.g. `load_exclude_algorithms=['{type(algo).__qualname__}']`."))
+                        f"in `load_exclude_algorithms`, e.g. `load_exclude_algorithms=['{type(algo).__qualname__}']`.",
+                    ),
+                )
         except Exception as e:
             raise ValueError(
                 textwrap.dedent(
@@ -1109,7 +1119,9 @@ class State(Serializable):
                     'Attempted to autocreate and apply required algorithms but an exception was '
                     'encountered. If you wish to use pretrained weights and reinitialize layers which '
                     'have undergone surgery, the following algorithms may be excluded using '
-                    f'`load_exclude_algorithms`, e.g. `load_exclude_algorithms=[{missing_algo_names}]`.')) from e
+                    f'`load_exclude_algorithms`, e.g. `load_exclude_algorithms=[{missing_algo_names}]`.',
+                ),
+            ) from e
 
     def _legacy_load_optim_state(self, state_dict: Dict[str, Any]):
         """Load the optimizer state.
@@ -1121,26 +1133,26 @@ class State(Serializable):
         for optimizer in ensure_tuple(self.optimizers):
             # Broadcast compatibility check as monolith rank 0 only loads won't have optimizer on all ranks
             skip_optimizer_load = 1 if serialized_value is not None and type(
-                optimizer).__qualname__ not in serialized_value else 0
+                optimizer,
+            ).__qualname__ not in serialized_value else 0
             skip_optimizer_load_tensor = self.device.tensor_to_device(
-                torch.tensor([skip_optimizer_load], dtype=torch.uint8))
+                torch.tensor([skip_optimizer_load], dtype=torch.uint8),
+            )
             dist.all_reduce(skip_optimizer_load_tensor, reduce_operation='MAX')
             if skip_optimizer_load_tensor.item() == 1:
                 warnings.warn(
                     f'{type(optimizer).__qualname__} is not in the state_dict. Its state will not be restored.',
-                    category=UserWarning)
+                    category=UserWarning,
+                )
                 continue
 
             optim_state_dict = serialized_value[type(optimizer).__qualname__] if serialized_value is not None else None
             if self.fsdp_enabled:
                 assert self.fsdp_state_dict_type is not None  # pyright
-                if version.parse(torch.__version__) < version.parse('1.13.0'):
-                    raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-                from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
                 log.debug(f'Loading FSDP optimizer with fsdp_state_dict_type={self.fsdp_state_dict_type}')
                 # Loading FSDP monolith on rank 0 only requires FSDP.scatter_full_optim_state_dict
                 # as the context manager does not seem to pass rank0_only=True for the optimizer config
-                if not using_torch_2() or self.load_fsdp_monolith_rank0_only:
+                if self.load_fsdp_monolith_rank0_only:
                     optim_state_dict = _legacy_optim_state_dict_to_load(
                         optim_state_dict=optim_state_dict,
                         model=self.model,
@@ -1151,7 +1163,8 @@ class State(Serializable):
                     assert optim_state_dict is not None
                     with fsdp_state_dict_type_context(module=self.model, state_dict_type=self.fsdp_state_dict_type):
                         optim_state_dict = FSDP.optim_state_dict_to_load(  #  type: ignore
-                            optim_state_dict=optim_state_dict, model=self.model, optim=optimizer)
+                            optim_state_dict=optim_state_dict, model=self.model, optim=optimizer,
+                        )
                 assert optim_state_dict is not None
                 optimizer.load_state_dict(optim_state_dict)
             else:
@@ -1229,11 +1242,13 @@ class State(Serializable):
                     # Load model if it exists
                     if self.fsdp_enabled and self.fsdp_state_dict_type is not None and not self.load_fsdp_monolith_rank0_only:
                         log.debug(
-                            f'Loading model state dict with strict={strict} and FSDP state_dict_type={self.fsdp_state_dict_type}'
+                            f'Loading model state dict with strict={strict} and FSDP state_dict_type={self.fsdp_state_dict_type}',
                         )
                         with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
-                            missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'],
-                                                                                       strict=strict)
+                            missing_keys, unexpected_keys = self.model.load_state_dict(
+                                state_dict['model'],
+                                strict=strict,
+                            )
                     else:
                         log.debug(f'Loading model state dict with strict={strict}')
                         missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
@@ -1243,20 +1258,15 @@ class State(Serializable):
                             textwrap.dedent(
                                 'Failed to load checkpoint due to missing or unexpected keys in state_dict. '
                                 'This is likely due to a change in the model architecture. If this is intentional, '
-                                'you can set load_strict_model_weights=False in the Trainer.')) from e
+                                'you can set load_strict_model_weights=False in the Trainer.',
+                            ),
+                        ) from e
                     else:
                         raise e
 
                 if len(missing_keys) > 0:
                     log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
                 if len(unexpected_keys) > 0:
-                    if self.fsdp_config is not None and self.fsdp_config[
-                            'use_orig_params'] and self.fsdp_state_dict_type == 'local':
-                        log.warning(
-                            'You are using use_orig_params=True and fsdp_state_dict_type=local. '
-                            'This results in both the original parameters and the flat parameters being '
-                            'in the state dict. If you see a warning with unexpected keys ending in ._flat_param, the model'
-                            'was still loaded correctly.')
                     log.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
 
         # If loading FSDP monolith checkpoint on rank 0 only, the model must be wrapped after loading
@@ -1265,8 +1275,14 @@ class State(Serializable):
             log.info('Wrapping model with FSDP after loading model_state.')
             from composer.trainer.dist_strategy import prepare_fsdp_module
             with reproducibility.seed_context(self.rank_zero_seed):
-                prepare_fsdp_module(self.model, self.optimizers, self.fsdp_config, self.precision, self.device,
-                                    self.auto_microbatching)
+                prepare_fsdp_module(
+                    self.model,
+                    self.optimizers,
+                    self.fsdp_config,
+                    self.precision,
+                    self.device,
+                    self.auto_microbatching,
+                )
             log.debug('Finished wrapping model with FSDP.')
 
     def load_optim_state(self, state_dict: Dict[str, Any], strict: bool = True):
@@ -1291,27 +1307,27 @@ class State(Serializable):
             for optimizer in ensure_tuple(self.optimizers):
                 # Broadcast compatibility check as monolith rank 0 only loads won't have optimizer on all ranks
                 skip_optimizer_load = 1 if serialized_value is not None and type(
-                    optimizer).__qualname__ not in serialized_value else 0
+                    optimizer,
+                ).__qualname__ not in serialized_value else 0
                 skip_optimizer_load_tensor = self.device.tensor_to_device(
-                    torch.tensor([skip_optimizer_load], dtype=torch.uint8))
+                    torch.tensor([skip_optimizer_load], dtype=torch.uint8),
+                )
                 dist.all_reduce(skip_optimizer_load_tensor, reduce_operation='MAX')
                 if skip_optimizer_load_tensor.item() == 1:
                     warnings.warn(
                         f'{type(optimizer).__qualname__} is not in the state_dict. Its state will not be restored.',
-                        category=UserWarning)
+                        category=UserWarning,
+                    )
                     continue
 
-                optim_state_dict = serialized_value[type(
-                    optimizer).__qualname__] if serialized_value is not None else None
+                optim_state_dict = serialized_value[type(optimizer).__qualname__
+                                                   ] if serialized_value is not None else None
                 if self.fsdp_enabled:
                     assert self.fsdp_state_dict_type is not None  # pyright
-                    if version.parse(torch.__version__) < version.parse('1.13.0'):
-                        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-                    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
                     log.debug(f'Loading FSDP optimizer with fsdp_state_dict_type={self.fsdp_state_dict_type}')
                     # Loading FSDP monolith on rank 0 only requires FSDP.scatter_full_optim_state_dict
                     # as the context manager does not seem to pass rank0_only=True for the optimizer config
-                    if not using_torch_2() or self.load_fsdp_monolith_rank0_only:
+                    if self.load_fsdp_monolith_rank0_only:
                         optim_state_dict = _legacy_optim_state_dict_to_load(
                             optim_state_dict=optim_state_dict,
                             model=self.model,
@@ -1322,7 +1338,8 @@ class State(Serializable):
                         assert optim_state_dict is not None
                         with fsdp_state_dict_type_context(module=self.model, state_dict_type=self.fsdp_state_dict_type):
                             optim_state_dict = FSDP.optim_state_dict_to_load(  #  type: ignore
-                                optim_state_dict=optim_state_dict, model=self.model, optim=optimizer)
+                                optim_state_dict=optim_state_dict, model=self.model, optim=optimizer,
+                            )
                     assert optim_state_dict is not None
                     optimizer.load_state_dict(optim_state_dict)
                 else:
@@ -1412,20 +1429,22 @@ class State(Serializable):
                                 metric_computed_field = metric_computed_field.to(metric_computed_device)
                     else:
                         raise ValueError(
-                            'Error while loading train metric. Train metric from serialization is neither a Torchmetrics Metric object nor a dictionary.'
+                            'Error while loading train metric. Train metric from serialization is neither a Torchmetrics Metric object nor a dictionary.',
                         )
-                    missing_keys, unexpected_keys = state_field_value[metric_name].load_state_dict(metric_state_dict,
-                                                                                                   strict=False)
+                    missing_keys, unexpected_keys = state_field_value[metric_name].load_state_dict(
+                        metric_state_dict,
+                        strict=False,
+                    )
                     state_field_value[metric_name]._computed = metric_computed_field
                     state_field_value[metric_name].persistent(mode=True)
                     self.device.module_to_device(state_field_value[metric_name])
                     if len(missing_keys) > 0:
                         warnings.warn(
-                            f"While loading train metric: {metric_name}, missing these keys:  {', '.join(missing_keys)}"
+                            f"While loading train metric: {metric_name}, missing these keys:  {', '.join(missing_keys)}",
                         )
                     if len(unexpected_keys) > 0:
                         warnings.warn(
-                            f"While loading train metric: {metric_name}, found these unexpected keys:  {', '.join(unexpected_keys)}"
+                            f"While loading train metric: {metric_name}, found these unexpected keys:  {', '.join(unexpected_keys)}",
                         )
             elif attribute_name == 'eval_metrics':
                 # Get current metrics object and populate each metric present
@@ -1456,26 +1475,31 @@ class State(Serializable):
                             if isinstance(eval_metric_computed_field, np.ndarray):
                                 eval_metric_computed_field = torch.from_numpy(eval_metric_computed_field)
                                 eval_metric_computed_device = serialized_value[eval_key][metric_name].get(
-                                    '_computed_device', None)
+                                    '_computed_device',
+                                    None,
+                                )
                                 if eval_metric_computed_device is not None:
                                     eval_metric_computed_field = eval_metric_computed_field.to(
-                                        eval_metric_computed_device)
+                                        eval_metric_computed_device,
+                                    )
                         else:
                             raise ValueError(
-                                'Error while loading evaluation metric. Evaluation metric from serialization is neither a Torchmetrics Metric object nor a dictionary.'
+                                'Error while loading evaluation metric. Evaluation metric from serialization is neither a Torchmetrics Metric object nor a dictionary.',
                             )
                         missing_keys, unexpected_keys = state_field_value[eval_key][metric_name].load_state_dict(
-                            eval_metric_state_dict, strict=False)
+                            eval_metric_state_dict,
+                            strict=False,
+                        )
                         state_field_value[eval_key][metric_name]._computed = eval_metric_computed_field
                         state_field_value[eval_key][metric_name].persistent(mode=True)
                         self.device.module_to_device(state_field_value[eval_key][metric_name])
                         if len(missing_keys) > 0:
                             warnings.warn(
-                                f"While loading evaluation metric: {metric_name} for eval dataloader {eval_key}, missing these keys: {', '.join(missing_keys)}"
+                                f"While loading evaluation metric: {metric_name} for eval dataloader {eval_key}, missing these keys: {', '.join(missing_keys)}",
                             )
                         if len(unexpected_keys) > 0:
                             warnings.warn(
-                                f"While loading evaluation metric: {metric_name} for eval dataloader {eval_key}, found these unexpected keys: {', '.join(unexpected_keys)}"
+                                f"While loading evaluation metric: {metric_name} for eval dataloader {eval_key}, found these unexpected keys: {', '.join(unexpected_keys)}",
                             )
 
             elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
@@ -1484,7 +1508,8 @@ class State(Serializable):
                     if type(target).__qualname__ not in serialized_value:
                         warnings.warn(
                             f'{type(target).__qualname__} is not in the state_dict. Its state will not be restored.',
-                            category=UserWarning)
+                            category=UserWarning,
+                        )
                         continue
                     source = serialized_value[type(target).__qualname__]
                     target.load_state_dict(source)
@@ -1571,9 +1596,11 @@ class State(Serializable):
         except (TypeError, NotImplementedError):
             dataloader_len = None
         if dataloader_len is not None and num_batches >= 0 and int(num_batches) > dataloader_len:
-            warnings.warn((f'DataloaderNumBatchesWarning: The dataloader_len ({int(num_batches)}) '
-                           f'is greater than the length (i.e. number of batches) of the dataloader, which is '
-                           f'{dataloader_len}. State.dataloader_len is thus being set to {dataloader_len}.'))
+            warnings.warn((
+                f'DataloaderNumBatchesWarning: The dataloader_len ({int(num_batches)}) '
+                f'is greater than the length (i.e. number of batches) of the dataloader, which is '
+                f'{dataloader_len}. State.dataloader_len is thus being set to {dataloader_len}.'
+            ))
             self._dataloader_len = Time(dataloader_len, TimeUnit.BATCH)
             return
         if num_batches < 0:

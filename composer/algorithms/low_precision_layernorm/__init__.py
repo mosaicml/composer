@@ -5,7 +5,9 @@
 By default, torch.autocast always runs torch.nn.LayerNorm in float32, so this surgery forces a lower precision.
 """
 
-from composer.algorithms.low_precision_layernorm.low_precision_layernorm import (LowPrecisionLayerNorm,
-                                                                                 apply_low_precision_layernorm)
+from composer.algorithms.low_precision_layernorm.low_precision_layernorm import (
+    LowPrecisionLayerNorm,
+    apply_low_precision_layernorm,
+)
 
 __all__ = ['LowPrecisionLayerNorm', 'apply_low_precision_layernorm']

@@ -48,7 +48,6 @@ from composer.core import Time as Time
 from composer.core import Timestamp as Timestamp
 from composer.core import TimeUnit as TimeUnit
 from composer.core import types as types
-from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.devices import DeviceCPU
 from composer.loggers import InMemoryLogger as InMemoryLogger
 from composer.loggers import Logger as Logger
@@ -73,6 +72,13 @@ except ImportError:
     _COMETML_INSTALLED = False
 
 try:
+    import neptune
+    _NEPTUNE_INSTALLED = True
+    del neptune  # unused
+except ImportError:
+    _NEPTUNE_INSTALLED = False
+
+try:
     import libcloud
     _LIBCLOUD_INSTALLED = True
     del libcloud  # unused
@@ -87,7 +93,7 @@ if sys.path[0] != _repo_root:
     sys.path.insert(0, _repo_root)
 
 from tests.common import SimpleModel
-from tests.common.datasets import RandomTextClassificationDataset
+from tests.common.datasets import RandomClassificationDataset, RandomTextClassificationDataset
 
 # Disable mosaicml logger
 os.environ['MOSAICML_PLATFORM'] = 'False'
@@ -112,11 +118,10 @@ optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 
 scheduler = CosineAnnealingLR(optimizer, T_max=1)
 
-dataset = SyntheticBatchPairDataset(
-    total_dataset_size=100,
-    data_shape=data_shape,
+dataset = RandomClassificationDataset(
+    shape=data_shape,
+    size=100,
     num_classes=num_classes,
-    num_unique_samples_to_create=10,
 )
 
 train_dataset = dataset
@@ -221,16 +226,18 @@ _original_RemoteUploaderDownloader_init = RemoteUploaderDownloader.__init__
 
 def _new_RemoteUploaderDownloader_init(self, fake_ellipses: None = None, **kwargs: Any):
     os.makedirs('./object_store', exist_ok=True)
-    kwargs.update(use_procs=False,
-                  num_concurrent_uploads=1,
-                  bucket_uri='libcloud://.',
-                  backend_kwargs={
-                      'provider': 'local',
-                      'container': '.',
-                      'provider_kwargs': {
-                          'key': os.path.abspath('./object_store'),
-                      },
-                  })
+    kwargs.update(
+        use_procs=False,
+        num_concurrent_uploads=1,
+        bucket_uri='libcloud://.',
+        backend_kwargs={
+            'provider': 'local',
+            'container': '.',
+            'provider_kwargs': {
+                'key': os.path.abspath('./object_store'),
+            },
+        },
+    )
     _original_RemoteUploaderDownloader_init(self, **kwargs)
 
 
@@ -268,8 +275,14 @@ except ImportError:
     TRANSFORMERS_INSTALLED = False
 
 if TRANSFORMERS_INSTALLED:
-    from tests.fixtures.fixtures import (tiny_bert_config_helper, tiny_bert_model_helper, tiny_bert_tokenizer_helper,
-                                         tiny_gpt2_config_helper, tiny_gpt2_model_helper, tiny_gpt2_tokenizer_helper)
+    from tests.fixtures.fixtures import (
+        tiny_bert_config_helper,
+        tiny_bert_model_helper,
+        tiny_bert_tokenizer_helper,
+        tiny_gpt2_config_helper,
+        tiny_gpt2_model_helper,
+        tiny_gpt2_tokenizer_helper,
+    )
     pytest.tiny_bert_config = tiny_bert_config_helper()  # type: ignore
     pytest.tiny_bert_model = tiny_bert_model_helper(pytest.tiny_bert_config)  # type: ignore
     pytest.tiny_bert_tokenizer = tiny_bert_tokenizer_helper()  # type: ignore

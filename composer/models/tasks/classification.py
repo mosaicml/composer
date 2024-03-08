@@ -57,12 +57,14 @@ class ComposerClassifier(ComposerModel):
 
     num_classes: Optional[int] = None
 
-    def __init__(self,
-                 module: torch.nn.Module,
-                 num_classes: Optional[int] = None,
-                 train_metrics: Optional[Union[Metric, MetricCollection]] = None,
-                 val_metrics: Optional[Union[Metric, MetricCollection]] = None,
-                 loss_fn: Callable = soft_cross_entropy) -> None:
+    def __init__(
+        self,
+        module: torch.nn.Module,
+        num_classes: Optional[int] = None,
+        train_metrics: Optional[Union[Metric, MetricCollection]] = None,
+        val_metrics: Optional[Union[Metric, MetricCollection]] = None,
+        loss_fn: Callable = soft_cross_entropy,
+    ) -> None:
         super().__init__()
 
         self.module = module
@@ -75,14 +77,19 @@ class ComposerClassifier(ComposerModel):
                 warnings.warn(
                     textwrap.dedent(
                         f'Specified num_classes={self.num_classes} does not match model num_classes={model_num_classes}.'
-                        'Using model num_classes.'))
+                        'Using model num_classes.',
+                    ),
+                )
             self.num_classes = model_num_classes
         if self.num_classes is None and (train_metrics is None or val_metrics is None):
             raise ValueError(
-                textwrap.dedent('Please specify the number of output classes. Either: \n (1) pass '
-                                'in num_classes to the ComposerClassifier \n (2) pass in both '
-                                'train_metrics and val_metrics to Composer Classifier, or \n (3) '
-                                'specify a num_classes parameter in the PyTorch network module.'))
+                textwrap.dedent(
+                    'Please specify the number of output classes. Either: \n (1) pass '
+                    'in num_classes to the ComposerClassifier \n (2) pass in both '
+                    'train_metrics and val_metrics to Composer Classifier, or \n (3) '
+                    'specify a num_classes parameter in the PyTorch network module.',
+                ),
+            )
 
         # Metrics for training
         if train_metrics is None:
@@ -93,8 +100,10 @@ class ComposerClassifier(ComposerModel):
         # Metrics for validation
         if val_metrics is None:
             assert self.num_classes is not None
-            val_metrics = MetricCollection(
-                [CrossEntropy(), MulticlassAccuracy(num_classes=self.num_classes, average='micro')])
+            val_metrics = MetricCollection([
+                CrossEntropy(),
+                MulticlassAccuracy(num_classes=self.num_classes, average='micro'),
+            ])
         self.val_metrics = val_metrics
 
     def loss(self, outputs: Tensor, batch: Tuple[Any, Tensor], *args, **kwargs) -> Tensor:

@@ -18,9 +18,9 @@ import textwrap
 import warnings
 from typing import TYPE_CHECKING, List, Union
 
-from torch.optim.lr_scheduler import LambdaLR
+from torch.optim.lr_scheduler import LambdaLR, LRScheduler
 
-from composer.core import PyTorchScheduler, State, Time, TimeUnit
+from composer.core import State, Time, TimeUnit
 
 if TYPE_CHECKING:
     from typing import Protocol
@@ -31,10 +31,21 @@ else:
 log = logging.getLogger(__name__)
 
 __all__ = [
-    'ComposerScheduler', 'compile_composer_scheduler', 'StepScheduler', 'MultiStepScheduler', 'ConstantScheduler',
-    'LinearScheduler', 'ExponentialScheduler', 'CosineAnnealingScheduler', 'CosineAnnealingWarmRestartsScheduler',
-    'PolynomialScheduler', 'MultiStepWithWarmupScheduler', 'ConstantWithWarmupScheduler', 'LinearWithWarmupScheduler',
-    'CosineAnnealingWithWarmupScheduler', 'PolynomialWithWarmupScheduler'
+    'ComposerScheduler',
+    'compile_composer_scheduler',
+    'StepScheduler',
+    'MultiStepScheduler',
+    'ConstantScheduler',
+    'LinearScheduler',
+    'ExponentialScheduler',
+    'CosineAnnealingScheduler',
+    'CosineAnnealingWarmRestartsScheduler',
+    'PolynomialScheduler',
+    'MultiStepWithWarmupScheduler',
+    'ConstantWithWarmupScheduler',
+    'LinearWithWarmupScheduler',
+    'CosineAnnealingWithWarmupScheduler',
+    'PolynomialWithWarmupScheduler',
 ]
 
 
@@ -147,7 +158,7 @@ def _convert_time(time: Union[str, Time[int], Time[float]], state: State, ssr: f
     return Time(value=int(time.value * ssr), unit=time.unit)
 
 
-def compile_composer_scheduler(scheduler: ComposerScheduler, state: State, ssr: float = 1.0) -> PyTorchScheduler:
+def compile_composer_scheduler(scheduler: ComposerScheduler, state: State, ssr: float = 1.0) -> LRScheduler:
     """Converts a stateless scheduler into a PyTorch scheduler object.
 
     While the resulting scheduler provides a ``.step()`` interface similar to other PyTorch schedulers, the scheduler is
@@ -160,7 +171,7 @@ def compile_composer_scheduler(scheduler: ComposerScheduler, state: State, ssr: 
         state (State): The Composer Trainer's state.
 
     Returns:
-        compiled_scheduler (PyTorchScheduler): The scheduler, in a form compatible with PyTorch scheduler interfaces.
+        compiled_scheduler (LRScheduler): The scheduler, in a form compatible with PyTorch scheduler interfaces.
     """
     optimizers = state.optimizers
     if len(optimizers) != 1:
@@ -179,9 +190,12 @@ def compile_composer_scheduler(scheduler: ComposerScheduler, state: State, ssr: 
                 return scheduler(state)
             else:
                 raise ValueError(
-                    textwrap.dedent(f"""\
+                    textwrap.dedent(
+                        f"""\
                     Scheduler {scheduler} does not support `scale_schedule_ratio`.
-                    To use `scale_schedule_ratio`, the scheduler must take two arguments (state, ssr)"""))
+                    To use `scale_schedule_ratio`, the scheduler must take two arguments (state, ssr)""",
+                    ),
+                )
         return scheduler(state, ssr)
 
     lambda_scheduler = LambdaLR(optimizer, scheduler_fn)
@@ -459,10 +473,13 @@ class CosineAnnealingWarmRestartsScheduler(ComposerScheduler):
         while current_interval_end <= state.timestamp.get(current_interval_end.unit):
             if current_interval_len.value == 0:
                 raise ValueError(
-                    'Interval between restarts for cosine annealing/warm restarts scheduler has decayed to 0.')
+                    'Interval between restarts for cosine annealing/warm restarts scheduler has decayed to 0.',
+                )
 
-            current_interval_len = Time(value=int(self.t_mult * current_interval_len.value),
-                                        unit=current_interval_len.unit)
+            current_interval_len = Time(
+                value=int(self.t_mult * current_interval_len.value),
+                unit=current_interval_len.unit,
+            )
             current_interval_end += current_interval_len
 
         current_interval_start = current_interval_end - current_interval_len
@@ -517,13 +534,14 @@ def _raise_if_warmup_and_max_duration_incompatible(t_warmup: Union[str, Time], t
         t_max = Time.from_timestring(t_max)
     units_same = t_warmup.unit == t_max.unit
     warmup_is_dur = t_warmup.unit == TimeUnit('dur')
-    batches_vs_epochs = (t_warmup.unit == TimeUnit('ba') and
-                         t_max.unit == TimeUnit('ep')) or (t_warmup.unit == TimeUnit('ep') and
-                                                           t_max.unit == TimeUnit('ba'))
+    batches_vs_epochs = (t_warmup.unit == TimeUnit('ba') and t_max.unit
+                         == TimeUnit('ep')) or (t_warmup.unit == TimeUnit('ep') and t_max.unit == TimeUnit('ba'))
     if not units_same and not warmup_is_dur and not batches_vs_epochs:
-        raise ValueError(f'Cannot use warmup scheduler with max_duration {t_max} and warmup {t_warmup}. '
-                         't_warmup units must be the same as max_duration units, warmup must be in units "dur", '
-                         'max_duration must be "ba" and t_warmup "ep", or max_duration must be "ep" and t_warmup "ba".')
+        raise ValueError(
+            f'Cannot use warmup scheduler with max_duration {t_max} and warmup {t_warmup}. '
+            't_warmup units must be the same as max_duration units, warmup must be in units "dur", '
+            'max_duration must be "ba" and t_warmup "ep", or max_duration must be "ep" and t_warmup "ba".',
+        )
 
 
 class MultiStepWithWarmupScheduler(ComposerScheduler):
@@ -561,11 +579,13 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
         scale_warmup (float): SSR also scales the warmup period. Default = ``False``.
     """
 
-    def __init__(self,
-                 t_warmup: Union[str, Time],
-                 milestones: List[Union[str, Time]],
-                 gamma: float = 0.1,
-                 scale_warmup: bool = False):
+    def __init__(
+        self,
+        t_warmup: Union[str, Time],
+        milestones: List[Union[str, Time]],
+        gamma: float = 0.1,
+        scale_warmup: bool = False,
+    ):
         self.t_warmup = t_warmup
         self.milestones = milestones
         self.gamma = gamma
@@ -579,10 +599,13 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
         t_warmup = _convert_time(self.t_warmup, state)
         if t_warmup.value == 0:
             warnings.warn(
-                textwrap.dedent("""\
+                textwrap.dedent(
+                    """\
                 The warmup duration is 0. If you specified warmup as a fraction of total
                 training duration, take note that the warmup duration is calculated in the
-                same unit as the trainer's max_duration parameter."""))
+                same unit as the trainer's max_duration parameter.""",
+                ),
+            )
 
         if state.timestamp < t_warmup:
             if self.scale_warmup:
@@ -622,20 +645,24 @@ class ConstantWithWarmupScheduler(ComposerScheduler):
         scale_warmup (float): SSR also scales the warmup period. Default = ``False``.
     """
 
-    def __init__(self,
-                 t_warmup: Union[str, Time],
-                 alpha: float = 1.0,
-                 t_max: Union[str, Time] = '1dur',
-                 scale_warmup: bool = False) -> None:
+    def __init__(
+        self,
+        t_warmup: Union[str, Time],
+        alpha: float = 1.0,
+        t_max: Union[str, Time] = '1dur',
+        scale_warmup: bool = False,
+    ) -> None:
         self.t_warmup = t_warmup
         self.alpha = alpha
         self.t_max = t_max
         self.scale_warmup = scale_warmup
-        self.scheduler = LinearWithWarmupScheduler(t_warmup=t_warmup,
-                                                   alpha_i=alpha,
-                                                   alpha_f=alpha,
-                                                   t_max=t_max,
-                                                   scale_warmup=scale_warmup)
+        self.scheduler = LinearWithWarmupScheduler(
+            t_warmup=t_warmup,
+            alpha_i=alpha,
+            alpha_f=alpha,
+            t_max=t_max,
+            scale_warmup=scale_warmup,
+        )
 
     def __call__(self, state: State, ssr: float = 1.0) -> float:
         return self.scheduler(state, ssr)
@@ -680,12 +707,14 @@ class LinearWithWarmupScheduler(ComposerScheduler):
         scale_warmup (float): SSR also scales the warmup period. Default = ``False``.
     """
 
-    def __init__(self,
-                 t_warmup: Union[str, Time],
-                 alpha_i: float = 1.0,
-                 alpha_f: float = 0.0,
-                 t_max: Union[str, Time] = '1dur',
-                 scale_warmup: bool = False):
+    def __init__(
+        self,
+        t_warmup: Union[str, Time],
+        alpha_i: float = 1.0,
+        alpha_f: float = 0.0,
+        t_max: Union[str, Time] = '1dur',
+        scale_warmup: bool = False,
+    ):
         self.t_warmup = t_warmup
         self.alpha_i = alpha_i
         self.alpha_f = alpha_f
@@ -699,10 +728,13 @@ class LinearWithWarmupScheduler(ComposerScheduler):
         t_warmup = _convert_time(self.t_warmup, state)
         if t_warmup.value == 0:
             warnings.warn(
-                textwrap.dedent("""\
+                textwrap.dedent(
+                    """\
                 The warmup duration is 0. If you specified warmup as a fraction of total
                 training duration, take note that the warmup duration is calculated in the
-                same unit as the trainer's max_duration parameter."""))
+                same unit as the trainer's max_duration parameter.""",
+                ),
+            )
 
         if state.timestamp < t_warmup:
             if self.scale_warmup:
@@ -752,11 +784,13 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
         scale_warmup (float): SSR also scales the warmup period. Default = ``False``.
     """
 
-    def __init__(self,
-                 t_warmup: Union[str, Time],
-                 t_max: Union[str, Time] = '1dur',
-                 alpha_f: float = 0.0,
-                 scale_warmup: bool = False):
+    def __init__(
+        self,
+        t_warmup: Union[str, Time],
+        t_max: Union[str, Time] = '1dur',
+        alpha_f: float = 0.0,
+        scale_warmup: bool = False,
+    ):
         self.t_warmup = t_warmup
         self.t_max = t_max
         self.alpha_f = alpha_f
@@ -769,10 +803,13 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
         t_warmup = _convert_time(self.t_warmup, state)
         if t_warmup.value == 0:
             warnings.warn(
-                textwrap.dedent("""\
+                textwrap.dedent(
+                    """\
                 The warmup duration is 0. If you specified warmup as a fraction of total
                 training duration, take note that the warmup duration is calculated in the
-                same unit as the trainer's max_duration parameter."""))
+                same unit as the trainer's max_duration parameter.""",
+                ),
+            )
 
         if state.timestamp < t_warmup:
             if self.scale_warmup:
@@ -822,12 +859,14 @@ class PolynomialWithWarmupScheduler(ComposerScheduler):
         scale_warmup (float): SSR also scales the warmup period. Default = ``False``.
     """
 
-    def __init__(self,
-                 t_warmup: Union[str, Time],
-                 power: float = 2.0,
-                 t_max: Union[str, Time] = '1dur',
-                 alpha_f: float = 0.0,
-                 scale_warmup: bool = False):
+    def __init__(
+        self,
+        t_warmup: Union[str, Time],
+        power: float = 2.0,
+        t_max: Union[str, Time] = '1dur',
+        alpha_f: float = 0.0,
+        scale_warmup: bool = False,
+    ):
         self.t_warmup = t_warmup
         self.power = power
         self.t_max = t_max
@@ -841,10 +880,13 @@ class PolynomialWithWarmupScheduler(ComposerScheduler):
         t_warmup = _convert_time(self.t_warmup, state)
         if t_warmup.value == 0:
             warnings.warn(
-                textwrap.dedent("""\
+                textwrap.dedent(
+                    """\
                 The warmup duration is 0. If you specified warmup as a fraction of total
                 training duration, take note that the warmup duration is calculated in the
-                same unit as the trainer's max_duration parameter."""))
+                same unit as the trainer's max_duration parameter.""",
+                ),
+            )
 
         if state.timestamp < t_warmup:
             if self.scale_warmup:

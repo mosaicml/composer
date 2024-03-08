@@ -11,7 +11,7 @@ The Composer :class:`.Trainer` implements a highly-optimized PyTorch training lo
    learning work, with reproducible results in time-to-train and
    accuracy.
 -  Integration with your favorite model hubs:
-   🤗 `Transformers`_, `TIMM`_, and `torchvision`_.
+   🤗 `Transformers`_ and `torchvision`_.
 -  Iterate faster! We take care of performance and efficiency.
 
 .. note::
@@ -215,11 +215,12 @@ well as Composer's custom schedulers.
 .. testcode::
 
     from composer import Trainer
-    from composer.models import composer_resnet
+    from composer.models.tasks import ComposerClassifier
+    import torchvision.models as models
     from torch.optim import SGD
     from torch.optim.lr_scheduler import LinearLR
 
-    model = composer_resnet(model_name="resnet50", num_classes=1000)
+    model = ComposerClassifier(module=models.resnet18(), num_classes=1000)
     optimizer = SGD(model.parameters(), lr=0.1)
     scheduler = LinearLR(optimizer)
 
@@ -626,5 +627,4 @@ This was just a quick tour of the features available within our trainer.
 Please see the other guides and notebooks for further details.
 
 .. _Transformers: https://huggingface.co/docs/transformers/index
-.. _TIMM: https://fastai.github.io/timmdocs/
 .. _torchvision: https://pytorch.org/vision/stable/models.html

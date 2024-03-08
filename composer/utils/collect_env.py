@@ -195,7 +195,7 @@ def _exc_report(exc_type) -> None:
             print_env(sys.stderr)
         else:
             print(
-                "Please run the \'composer_collect_env\' utility and include your environment information with the bug report\n"
+                "Please run the \'composer_collect_env\' utility and include your environment information with the bug report\n",
             )
 
 
@@ -378,7 +378,6 @@ def print_env(file: Optional[TextIO] = None) -> None:
         [pip3] torch-optimizer==0.1.0
         [pip3] torchmetrics==0.7.3
         [pip3] torchvision==0.10.1+cu111
-        [pip3] vit-pytorch==0.27.0
         [conda] Could not collect
 
 

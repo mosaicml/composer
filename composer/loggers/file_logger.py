@@ -185,13 +185,22 @@ class FileLogger(LoggerDestination):  # noqa: D101
                     trace_str + '\n',
                 )
 
-    def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
+    def log_table(
+        self,
+        columns: List[str],
+        rows: List[List[Any]],
+        name: str = 'Table',
+        step: Optional[int] = None,
+    ) -> None:
+        del step
         try:
             import pandas as pd
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='pandas',
-                                                conda_package='pandas',
-                                                conda_channel='conda-forge') from e
+            raise MissingConditionalImportError(
+                extra_deps_group='pandas',
+                conda_package='pandas',
+                conda_channel='conda-forge',
+            ) from e
         table = pd.DataFrame.from_records(columns=columns, data=rows).to_json(orient='split', index=False)
         self.write('[table]: ', f'{name}: {table}\n')
 

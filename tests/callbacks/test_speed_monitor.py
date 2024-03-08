@@ -63,8 +63,8 @@ def test_speed_monitor(flops_per_batch: bool):
     assert isinstance(trainer.state.dataloader, collections.abc.Sized)
     assert trainer.state.dataloader_label is not None
     assert trainer.state.dataloader_len is not None
-    expected_step_calls = (trainer.state.dataloader_len - len(speed_monitor.history_samples) + 1) * int(
-        trainer.state.timestamp.epoch)
+    calls_per_epoch = trainer.state.dataloader_len - len(speed_monitor.history_samples) + 1
+    expected_step_calls = calls_per_epoch * int(trainer.state.timestamp.epoch)
     assert len(in_memory_logger.data['throughput/batches_per_sec']) == expected_step_calls
     assert len(in_memory_logger.data['throughput/samples_per_sec']) == expected_step_calls
     assert len(in_memory_logger.data['throughput/device/batches_per_sec']) == expected_step_calls
@@ -108,8 +108,8 @@ def test_speed_monitor_tokens():
     assert isinstance(trainer.state.dataloader, collections.abc.Sized)
     assert trainer.state.dataloader_label is not None
     assert trainer.state.dataloader_len is not None
-    expected_step_calls = (trainer.state.dataloader_len - len(speed_monitor.history_samples) + 1) * int(
-        trainer.state.timestamp.epoch)
+    expected_step_calls = (trainer.state.dataloader_len - len(speed_monitor.history_samples) +
+                           1) * int(trainer.state.timestamp.epoch)
     assert len(in_memory_logger.data['throughput/batches_per_sec']) == expected_step_calls
     assert len(in_memory_logger.data['throughput/samples_per_sec']) == expected_step_calls
     assert len(in_memory_logger.data['throughput/tokens_per_sec']) == expected_step_calls

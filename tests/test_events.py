@@ -5,7 +5,6 @@ import math
 
 import pytest
 import torch
-from packaging import version
 from torch.utils.data import DataLoader
 
 from composer import Trainer
@@ -64,36 +63,42 @@ class TestEventCalls:
             **kwargs,
         )
 
-    @pytest.mark.parametrize('world_size', [
-        pytest.param(1),
-        pytest.param(2, marks=pytest.mark.world_size(2)),
-    ])
+    @pytest.mark.parametrize(
+        'world_size',
+        [
+            pytest.param(1),
+            pytest.param(2, marks=pytest.mark.world_size(2)),
+        ],
+    )
     @pytest.mark.parametrize(
         'device,deepspeed_zero_stage,use_fsdp,precision',
         [
             pytest.param('cpu', None, False, 'fp32', id='cpu-ddp'),
             # TODO: Remove filterwarnings after FSDP remove deprecated code
-            pytest.param('gpu',
-                         True,
-                         False,
-                         'fp32',
-                         id='gpu-ddp',
-                         marks=[
-                             pytest.mark.gpu,
-                             pytest.mark.filterwarnings('ignore::UserWarning'),
-                         ]),
-            pytest.param('gpu',
-                         None,
-                         True,
-                         'amp_fp16',
-                         id='gpu-fsdp',
-                         marks=[
-                             pytest.mark.gpu,
-                             pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                                                reason='requires PyTorch 1.13 or higher'),
-                             pytest.mark.filterwarnings('ignore::UserWarning'),
-                         ]),
-        ])
+            pytest.param(
+                'gpu',
+                True,
+                False,
+                'fp32',
+                id='gpu-ddp',
+                marks=[
+                    pytest.mark.gpu,
+                    pytest.mark.filterwarnings('ignore::UserWarning'),
+                ],
+            ),
+            pytest.param(
+                'gpu',
+                None,
+                True,
+                'amp_fp16',
+                id='gpu-fsdp',
+                marks=[
+                    pytest.mark.gpu,
+                    pytest.mark.filterwarnings('ignore::UserWarning'),
+                ],
+            ),
+        ],
+    )
     @pytest.mark.parametrize('save_interval', ['1ep', '1ba'])
     def test_event_calls(self, world_size, device, deepspeed_zero_stage, use_fsdp, precision, save_interval):
         save_interval = Time.from_timestring(save_interval)
@@ -111,7 +116,7 @@ class TestEventCalls:
                 'backward_prefetch': 'BACKWARD_PRE',
                 'activation_checkpointing': False,
                 'activation_ocpu_offload': False,
-                'verbose': False
+                'verbose': False,
             }
 
         trainer = self.get_trainer(
@@ -153,7 +158,9 @@ class TestEventCalls:
 
         expected_num_calls = {
             Event.INIT: 1,
+            Event.BEFORE_LOAD: 1,
             Event.AFTER_LOAD: 1,
+            Event.ITERATION_START: 1,
             Event.EPOCH_START: num_epochs,
             Event.BATCH_START: total_steps,
             Event.BEFORE_DATALOADER: total_steps + num_epochs,  # extra call per epoch when dataloader is exhausted
@@ -170,6 +177,8 @@ class TestEventCalls:
             Event.BATCH_CHECKPOINT: total_steps,
             Event.EPOCH_END: num_epochs,
             Event.EPOCH_CHECKPOINT: num_epochs,
+            Event.ITERATION_END: 0,
+            Event.ITERATION_CHECKPOINT: 0,
             Event.EVAL_BEFORE_ALL: total_evals,
             Event.EVAL_START: total_evals_start,
             Event.EVAL_BATCH_START: total_eval_steps,
