@@ -6,16 +6,16 @@ import contextlib
 import copy
 import datetime
 import logging
-import math 
+import math
 import os
 import pathlib
 import time
 from typing import Any, Dict, List, Optional, Union
 
-import pytest 
+import pytest
 import torch
 from torch.nn.parallel import DistributedDataParallel
-from torch.utils.data import DataLoader 
+from torch.utils.data import DataLoader
 
 from composer import Callback, Evaluator, Trainer
 from composer.algorithms import CutOut, LabelSmoothing
@@ -1233,7 +1233,10 @@ class TestTrainerInitOrFit:
         batch_time = datetime.timedelta(seconds=0.1 * (1 + dist.get_global_rank()))
 
         num_samples_accum, num_tokens_accum, batch_time_accum = init_trainer._accumulate_time_across_ranks(
-            num_samples, num_tokens, batch_time)
+            num_samples,
+            num_tokens,
+            batch_time,
+        )
 
         assert isinstance(num_tokens_accum, int)
         assert isinstance(num_samples_accum, int)

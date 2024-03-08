@@ -2264,7 +2264,7 @@ class Trainer:
                 for _ in dataloader:
                     break
 
-    def _accumulate_time_across_ranks(   
+    def _accumulate_time_across_ranks(
         self,
         num_samples: Union[int, float],
         num_tokens: int,
