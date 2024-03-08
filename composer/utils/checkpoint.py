@@ -608,7 +608,7 @@ def load_sharded_checkpoint(
                 device_mesh=state.fsdp_device_mesh,
             )
         else:
-            storage_reader = FileSystemReaderWithValidation(source_path, local_broadcast=True)
+            storage_reader = FileSystemReaderWithValidation(source_path)
 
         # We need no_grad because we overwrite tensor values with set_() when we do elastic loading and we don't want the set_ op recorded in the computation graph.
         with torch.no_grad():
