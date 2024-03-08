@@ -1484,27 +1484,30 @@ class Trainer:
             else:
                 log.info('No previous autoresume checkpoint found')
         # Actually load the checkpoint from potentially updated arguments
-        if load_path is not None:
-            if load_object_store is None:
-                load_object_store = maybe_create_object_store_from_uri(load_path)
-            if isinstance(load_object_store, WandBLogger):
-                import wandb
-                if wandb.run is None:
-                    load_object_store.init(self.state, self.logger)
-            _, _, parsed_load_path = parse_uri(load_path)
-            self._rng_state = checkpoint.load_checkpoint(
-                state=self.state,
-                logger=self.logger,
-                path=parsed_load_path,
-                object_store=load_object_store,
-                load_weights_only=load_weights_only,
-                strict_model_weights=load_strict_model_weights,
-                progress_bar=load_progress_bar,
-                ignore_keys=load_ignore_keys,
-                exclude_algorithms=load_exclude_algorithms,
-                algorithm_passes=self.engine.algorithm_passes,
-            )
-            self.state.run_name = run_name
+        try:
+            if load_path is not None:
+                if load_object_store is None:
+                    load_object_store = maybe_create_object_store_from_uri(load_path)
+                if isinstance(load_object_store, WandBLogger):
+                    import wandb
+                    if wandb.run is None:
+                        load_object_store.init(self.state, self.logger)
+                _, _, parsed_load_path = parse_uri(load_path)
+                self._rng_state = checkpoint.load_checkpoint(
+                    state=self.state,
+                    logger=self.logger,
+                    path=parsed_load_path,
+                    object_store=load_object_store,
+                    load_weights_only=load_weights_only,
+                    strict_model_weights=load_strict_model_weights,
+                    progress_bar=load_progress_bar,
+                    ignore_keys=load_ignore_keys,
+                    exclude_algorithms=load_exclude_algorithms,
+                    algorithm_passes=self.engine.algorithm_passes,
+                )
+                self.state.run_name = run_name
+        except FileNotFoundError:
+            log.info('No previous checkpoint found. Train from scratch...')
 
         # FSDP wrap if model is not yet wrapped and FSDP is enabled. This can happen if
         # load_fsdp_monolith_rank0_only=True but no checkpoint was loaded.
