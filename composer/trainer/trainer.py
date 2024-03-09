@@ -71,7 +71,6 @@ from composer.core import (
     ensure_evaluator,
     ensure_time,
     get_precision_context,
-    validate_eval_automicrobatching,
 )
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.loggers import (
@@ -221,7 +220,7 @@ def _set_evaluator_interval_and_subset_num_batches(
     eval_interval: Union[int, str, Time, Callable[[State, Event], bool]],
     subset_num_batches: int,
 ):
-    # convert eval_dataloader to `List[Evaluator]`
+    # Convert eval_dataloader to `List[Evaluator]`
     for evaluator in evaluators:
         if evaluator.subset_num_batches is None:
             evaluator.subset_num_batches = subset_num_batches
@@ -388,6 +387,32 @@ def _adjust_device_eval_microbatch_size(evaluator: Evaluator):
             ),
         )
     torch.cuda.empty_cache()
+
+
+def _validate_evaluator(evaluator: Evaluator, device: Device):
+    """Ensure automicrobatching is only on GPU.
+
+    Unlike `device_train_microbatch_size`, this validation must be done separately from the
+    `_is_auto_microbatching` check because `device` is not available during `Evaluator`
+    initialization.
+    """
+    auto_microbatching = evaluator.auto_microbatching
+    if auto_microbatching and not isinstance(device, DeviceGPU):
+        raise ValueError(
+            'Can only use adaptive device_eval_microbatch_size on GPU. Please set device_eval_microbatch_size >= 1.',
+        )
+    if evaluator.auto_microbatching and hasattr(evaluator.dataloader, 'seq_parallel_world_size'):
+        raise ValueError(
+            'Auto microbatching on evaluators is not compatible with sequence parallelism. '
+            'Please manually set device_eval_microbatch_size or disable sequence parallelism .',
+        )
+    if isinstance(evaluator.dataloader.get_num_samples_in_batch, int) and hasattr(
+        evaluator.dataloader,
+        'seq_parallel_world_size',
+    ) and evaluator.dataloader.get_num_samples_in_batch * evaluator.dataloader.seq_parallel_world_size != 1:  # type: ignore
+        raise ValueError(
+            'Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
+        )
 
 
 def _distribute_and_get_random_seed(seed: Optional[int], device: Device):
@@ -1428,25 +1453,16 @@ class Trainer:
             )
 
             for evaluator in evaluators:
-                validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
-                if evaluator.auto_microbatching and hasattr(evaluator.dataloader, 'seq_parallel_world_size'):
-                    raise ValueError('`validate_eval_automicrobatching` is not compatible with sequence parallelism.')
-                if isinstance(evaluator.dataloader.get_num_samples_in_batch, int) and hasattr(
-                    evaluator.dataloader,
-                    'seq_parallel_world_size',
-                ) and evaluator.dataloader.get_num_samples_in_batch * evaluator.dataloader.seq_parallel_world_size != 1:  # type: ignore
-                    raise ValueError(
-                        '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
-                    )
+                _validate_evaluator(evaluator, self.state.device)
         if len(evaluators) == 0:
             if eval_subset_num_batches != -1:
-                raise ValueError(
+                warnings.warn(
                     f'Specifying `eval_subset_num_batches={eval_subset_num_batches}` without an `eval_dataloader` '
                     'has no effect. If trying to run an evaluator, make sure `eval_dataloader` is specified. '
                     'Otherwise, set `eval_subset_num_batches` to default value -1.',
                 )
             if eval_interval != 0 and eval_interval != 1:
-                raise ValueError(
+                warnings.warn(
                     f'Specifying `eval_interval={eval_interval}` without an `eval_dataloader` has no effect. '
                     'If trying to run an evaluator, make sure `eval_dataloader` is specified. Otherwise, '
                     'set `eval_interval` to 0 or default value 1.',
@@ -2116,22 +2132,21 @@ class Trainer:
             )
 
             for evaluator in evaluators:
-                validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
-                if evaluator.auto_microbatching and hasattr(evaluator.dataloader, 'seq_parallel_world_size'):
-                    raise ValueError('`validate_eval_automicrobatching` is not compatible with sequence parallelism.')
-                if isinstance(evaluator.dataloader.get_num_samples_in_batch, int) and hasattr(
-                    evaluator.dataloader,
-                    'seq_parallel_world_size',
-                ) and evaluator.dataloader.get_num_samples_in_batch * evaluator.dataloader.seq_parallel_world_size != 1:  # type: ignore
-                    raise ValueError(
-                        '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
-                    )
+                _validate_evaluator(evaluator, self.state.device)
 
             if len(evaluators) == 0:
                 if eval_subset_num_batches != -1:
-                    raise ValueError('Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.')
-                if eval_interval != 1:
-                    raise ValueError('Specifying `eval_interval` without an `eval_dataloader` has no effect.')
+                    warnings.warn(
+                        f'Specifying `eval_subset_num_batches={eval_subset_num_batches}` without an `eval_dataloader` '
+                        'has no effect. If trying to run an evaluator, make sure `eval_dataloader` is specified. '
+                        'Otherwise, set `eval_subset_num_batches` to default value -1.',
+                    )
+                if eval_interval != 0 and eval_interval != 1:
+                    warnings.warn(
+                        f'Specifying `eval_interval={eval_interval}` without an `eval_dataloader` has no effect. '
+                        'If trying to run an evaluator, make sure `eval_dataloader` is specified. Otherwise, '
+                        'set `eval_interval` to 0 or default value 1.',
+                    )
 
             self.state.evaluators = evaluators
 
@@ -3130,16 +3145,7 @@ class Trainer:
             )
 
             for evaluator in evaluators:
-                validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
-                if evaluator.auto_microbatching and hasattr(evaluator.dataloader, 'seq_parallel_world_size'):
-                    raise ValueError('`validate_eval_automicrobatching` is not compatible with sequence parallelism.')
-                if isinstance(evaluator.dataloader.get_num_samples_in_batch, int) and hasattr(
-                    evaluator.dataloader,
-                    'seq_parallel_world_size',
-                ) and evaluator.dataloader.get_num_samples_in_batch * evaluator.dataloader.seq_parallel_world_size != 1:  # type: ignore
-                    raise ValueError(
-                        '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
-                    )
+                _validate_evaluator(evaluator, self.state.device)
 
             self.state.evaluators.extend(evaluators)  # Add evaluators to state.evaluators
         else:
