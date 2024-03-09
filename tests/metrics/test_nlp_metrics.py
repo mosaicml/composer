@@ -387,6 +387,7 @@ def test_in_context_learning_mc_accuracy(tiny_gpt2_tokenizer):
         for context, continuation in zip(contexts, continuations)
     ]
     inputs = torch.tensor([input + [pad] * (2048 - len(input)) for input in inputs])
+    attention_mask = ~(inputs == pad)
 
     cont_idxs = []
     for context, continuation in zip(contexts, continuations):
@@ -398,6 +399,7 @@ def test_in_context_learning_mc_accuracy(tiny_gpt2_tokenizer):
         'continuation_indices': cont_idxs,
         'labels': inputs.roll(-1),
         'input_ids': inputs,
+        'attention_mask': attention_mask,
         'gold_indices': gold_indices,
         'choice_groupings': choice_groupings,
     }

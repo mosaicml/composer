@@ -3325,11 +3325,12 @@ class Trainer:
                                     outputs = self.state.outputs
 
                                 for metric in metrics.values():
-                                    self._original_model.update_metric(
+                                    metric_outputs = self._original_model.update_metric(
                                         self.state.batch,
                                         outputs,
                                         metric,
                                     )
+                                    self.state.metric_outputs = metric_outputs or {}
 
                     except RuntimeError as e:
                         if evaluator.auto_microbatching and _is_cuda_oom(e):

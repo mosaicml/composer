@@ -112,6 +112,8 @@ class WandBLogger(LoggerDestination):
         self.run_dir: Optional[str] = None
         self.run_url: Optional[str] = None
 
+        self.table_dict = {}
+
     def _set_is_in_atexit(self):
         self._is_in_atexit = True
 
@@ -130,7 +132,7 @@ class WandBLogger(LoggerDestination):
         if self._enabled:
             import wandb
             table = wandb.Table(columns=columns, rows=rows)
-            wandb.log({name: table}, step)
+            wandb.log({name: table}, step=step)
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         if self._enabled:

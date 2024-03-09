@@ -87,8 +87,11 @@ class InMemoryLogger(LoggerDestination):
                 conda_package='pandas',
                 conda_channel='conda-forge',
             ) from e
-        table = pd.DataFrame.from_records(data=rows, columns=columns).to_json(orient='split', index=False)
-        assert isinstance(table, str)
+        table = pd.DataFrame.from_records(data=rows,
+                                          columns=columns).to_json(orient='split', index=False, force_ascii=False)
+        assert table is not None
+        # Merged assert is different
+        # assert isinstance(table, str)
         self.tables[name] = table
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
