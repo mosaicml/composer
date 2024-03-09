@@ -94,6 +94,25 @@ class MosaicMLLogger(LoggerDestination):
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         self._log_metadata(metrics)
 
+    def log_analytics(self, autoresume: bool, trainer_state: State, loggers: List[LoggerDestination]):
+        metrics = {'composer/autoresume': autoresume, 'composer/precision': trainer_state.precision}
+
+        if trainer_state.fsdp_config:   
+            metrics['composer/sharding_strategy'] = trainer_state.fsdp_config.get('sharding_strategy', None)
+            metrics['composer/activation_checkpointing'] = trainer_state.fsdp_config.get('activation_checkpointing', False)
+            metrics['composer/forward_prefetch'] = trainer_state.fsdp_config.get('forward_prefetch', False)
+            metrics['composer/backward_prefetch'] = trainer_state.fsdp_config.get('backward_prefetch', None)
+
+            mixed_precision = trainer_state.fsdp_config.get('mixed_precision', None)
+            if mixed_precision is not None and isinstance(mixed_precision, dict):
+                # Sorting the keys allows us to parse this dict value as JSON in a SQL query if needed
+                metrics['composer/mixed_precision'] = json.dumps(mixed_precision, sort_keys=True)
+            else:
+                metrics['composer/mixed_precision'] = mixed_precision
+
+        if trainer_state.fsdp_state_dict_type is not None:
+            metrics['composer/state_dict_type'] = trainer_state.fsdp_state_dict_type            
+
     def after_load(self, state: State, logger: Logger) -> None:
         # Log model data downloaded and initialized for run events
         log.debug(f'Logging model initialized time to metadata')

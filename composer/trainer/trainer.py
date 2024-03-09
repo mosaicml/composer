@@ -1113,6 +1113,7 @@ class Trainer:
 
         # MosaicML Logger
         # Keep MosaicML logger above the RemoteUploaderDownloader so that fit end is reported before the final checkpoint begins uploading
+        mosaicml_logger = None
         if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and os.environ.get(
                 MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None and not any(isinstance(x, MosaicMLLogger) for x in loggers):
             log.info('Detected run on MosaicML platform. Adding MosaicMLLogger to loggers.')
@@ -1131,6 +1132,8 @@ class Trainer:
 
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)
+        if mosaicml_logger:
+            mosaicml_logger.log_analytics(autoresume, self.state, loggers)
 
         if save_latest_filename is not None:
             remote_ud_has_format_string = [
