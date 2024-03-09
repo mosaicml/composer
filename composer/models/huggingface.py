@@ -589,11 +589,17 @@ class HuggingFaceModel(ComposerModel):
 
         return metrics if metrics else {}
 
-    def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
+    def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> Dict:
         if getattr(metric, 'needs_batch', False):
-            metric.update(batch=batch, outputs=outputs, labels=self.labels)
+            metric_result = metric.update(batch=batch, outputs=outputs, labels=self.labels)
         else:
-            metric.update(outputs, self.labels)
+            metric_result = metric.update(outputs, self.labels)
+        if metric_result is not None:
+            # Add the metric name once for each datapoint in the batch
+            metric_result['metric_name'] = [metric.__class__.__name__ for _ in range(0, batch['input_ids'].shape[0])]
+        else:
+            metric_result = {}
+        return metric_result
 
     def get_metadata(self):
         model_output = {}
