@@ -52,11 +52,15 @@ __all__ = [
 ]
 
 
-def extract_path_from_symlink(source_path: str, object_store: Optional[ObjectStore] = None) -> str:
+def extract_path_from_symlink(source_path: str, object_store: Optional[Union[LoggerDestination, ObjectStore]] = None) -> str:
     with tempfile.TemporaryDirectory() as tmpdir:
         if object_store is not None:
             _, _, source_path = parse_uri(source_path)
             symlink_file_path = os.path.join(tmpdir, 'file.symlink')
+            if isinstance(object_store, ObjectStore):
+                object_store.download_object(object_name=source_path, filename=symlink_file_path)
+            elif isinstance(object_store, LoggerDestination):
+                object_store.download_file(remote_file_name=source_path, destination=symlink_file_path)
             object_store.download_object(object_name=source_path, filename=symlink_file_path)
         else:
             symlink_file_path = os.readlink(source_path)

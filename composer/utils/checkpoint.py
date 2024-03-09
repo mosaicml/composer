@@ -355,7 +355,7 @@ class PartialFilePath:
                 ) + extra_suffix
 
 
-def is_checkpoint_legacy_sharded(object_store: Optional[ObjectStore], source_path: str):
+def is_checkpoint_legacy_sharded(object_store: Optional[Union[LoggerDestination, ObjectStore]], source_path: str):
     if source_path.endswith('.symlink') or os.path.islink(source_path):
         source_path = extract_path_from_symlink(source_path, object_store=object_store)
     metadata_path = str(Path(source_path) / Path('.metadata'))
