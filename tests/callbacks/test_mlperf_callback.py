@@ -95,8 +95,8 @@ class TestMLPerfCallbackEvents:
             'key': 'run_stop',
             'value': None,
             'metadata': {
-                'status': 'success'
-            }
+                'status': 'success',
+            },
         }
 
 

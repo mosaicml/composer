@@ -22,9 +22,11 @@ log = logging.getLogger(__name__)
 __all__ = ['EMA', 'compute_ema']
 
 
-def compute_ema(model: torch.nn.Module,
-                ema_model: Union[torch.nn.Module, EMAParameters],
-                smoothing: float = 0.99) -> None:
+def compute_ema(
+    model: torch.nn.Module,
+    ema_model: Union[torch.nn.Module, EMAParameters],
+    smoothing: float = 0.99,
+) -> None:
     r"""Updates the weights of ``ema_model`` to be closer to the weights of ``model``
     according to an exponential weighted average. Weights are updated according to
 
@@ -146,11 +148,13 @@ class EMA(Algorithm):
             )
     """
 
-    def __init__(self,
-                 half_life: Optional[str] = '1000ba',
-                 smoothing: Optional[float] = None,
-                 ema_start: str = '0.0dur',
-                 update_interval: Optional[str] = None):
+    def __init__(
+        self,
+        half_life: Optional[str] = '1000ba',
+        smoothing: Optional[float] = None,
+        ema_start: str = '0.0dur',
+        update_interval: Optional[str] = None,
+    ):
         self.ema_model = None
         self.ema_weights_active = False
         self.ema_started = False
@@ -188,8 +192,10 @@ class EMA(Algorithm):
 
         # Verify that the time strings have supported units.
         if self.update_interval.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
-            raise ValueError(f'Invalid time unit for parameter update_interval: '
-                             f'{self.update_interval.unit}')
+            raise ValueError(
+                f'Invalid time unit for parameter update_interval: '
+                f'{self.update_interval.unit}',
+            )
 
         # Calculate the appropriate weighting for the moving average
         if smoothing is None and self.half_life:

@@ -25,10 +25,12 @@ __all__ = ['RandAugment', 'RandAugmentTransform', 'randaugment_image']
 ImgT = TypeVar('ImgT', torch.Tensor, PillowImage)
 
 
-def randaugment_image(img: ImgT,
-                      severity: int = 9,
-                      depth: int = 2,
-                      augmentation_set: List = augmentation_sets['all']) -> ImgT:
+def randaugment_image(
+    img: ImgT,
+    severity: int = 9,
+    depth: int = 2,
+    augmentation_set: List = augmentation_sets['all'],
+) -> ImgT:
     """Randomly applies a sequence of image data augmentations  to an image or batch of images.
 
     This technique is adapted from `Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_).
@@ -115,10 +117,12 @@ class RandAugmentTransform(torch.nn.Module):
         self.augmentation_set = augmentation_sets[augmentation_set]
 
     def forward(self, img: ImgT) -> ImgT:
-        return randaugment_image(img=img,
-                                 severity=self.severity,
-                                 depth=self.depth,
-                                 augmentation_set=self.augmentation_set)
+        return randaugment_image(
+            img=img,
+            severity=self.severity,
+            depth=self.depth,
+            augmentation_set=self.augmentation_set,
+        )
 
 
 class RandAugment(Algorithm):
@@ -205,8 +209,11 @@ class RandAugment(Algorithm):
         dataset = state.dataloader.dataset
         if not isinstance(dataset, VisionDataset):
             raise TypeError(
-                textwrap.dedent(f"""\
+                textwrap.dedent(
+                    f"""\
                 To use {type(self).__name__}, the dataset must be a
-                {VisionDataset.__qualname__}, not {type(dataset).__name__}"""))
+                {VisionDataset.__qualname__}, not {type(dataset).__name__}""",
+                ),
+            )
         add_vision_dataset_transform(dataset, ra, is_tensor_transform=False)
         self._transformed_datasets.add(dataset)

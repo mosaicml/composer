@@ -112,12 +112,15 @@ def _input_validator(preds: List[Dict[str, torch.Tensor]], targets: List[Dict[st
         if item['boxes'].size(0) != item['labels'].size(0):
             raise ValueError(
                 f'Input boxes and labels of sample {i} in targets have a'
-                f" different length (expected {item['boxes'].size(0)} labels, got {item['labels'].size(0)})")
+                f" different length (expected {item['boxes'].size(0)} labels, got {item['labels'].size(0)})",
+            )
     for i, item in enumerate(preds):
         if item['boxes'].size(0) != item['labels'].size(0) != item['scores'].size(0):
-            raise ValueError(f'Input boxes, labels and scores of sample {i} in preds have a'
-                             f" different length (expected {item['boxes'].size(0)} labels and scores,"
-                             f" got {item['labels'].size(0)} labels and {item['scores'].size(0)})")
+            raise ValueError(
+                f'Input boxes, labels and scores of sample {i} in preds have a'
+                f" different length (expected {item['boxes'].size(0)} labels and scores,"
+                f" got {item['labels'].size(0)} labels and {item['scores'].size(0)})",
+            )
 
 
 class MAP(Metric):
@@ -151,11 +154,11 @@ class MAP(Metric):
     full_state_update = True
 
     def __init__(
-            self,
-            class_metrics: bool = False,
-            dist_sync_on_step: bool = False,
-            process_group: Optional[Any] = None,
-            dist_sync_fn: Callable = None,  # type: ignore
+        self,
+        class_metrics: bool = False,
+        dist_sync_on_step: bool = False,
+        process_group: Optional[Any] = None,
+        dist_sync_fn: Callable = None,  # type: ignore
     ) -> None:  # type: ignore
         super().__init__(
             dist_sync_on_step=dist_sync_on_step,
@@ -262,7 +265,8 @@ class MAP(Metric):
         coco_preds.dataset = self._get_coco_format(  # type: ignore
             self.detection_boxes,  # type: ignore
             self.detection_labels,  # type: ignore
-            self.detection_scores)  # type: ignore
+            self.detection_scores,
+        )  # type: ignore
 
         with _hide_prints():
             coco_target.createIndex()
@@ -279,8 +283,9 @@ class MAP(Metric):
         if self.class_metrics:
             map_per_class_list = []
             mar_100_per_class_list = []
-            for class_id in torch.cat(self.detection_labels +
-                                      self.groundtruth_labels).unique().cpu().tolist():  # type: ignore
+            for class_id in torch.cat(
+                self.detection_labels + self.groundtruth_labels,
+            ).unique().cpu().tolist():  # type: ignore
                 coco_eval.params.catIds = [class_id]
                 with _hide_prints():
                     coco_eval.evaluate()
@@ -311,10 +316,12 @@ class MAP(Metric):
         )
         return metrics.__dict__
 
-    def _get_coco_format(self,
-                         boxes: List[torch.Tensor],
-                         labels: List[torch.Tensor],
-                         scores: Optional[List[torch.Tensor]] = None) -> Dict:
+    def _get_coco_format(
+        self,
+        boxes: List[torch.Tensor],
+        labels: List[torch.Tensor],
+        scores: Optional[List[torch.Tensor]] = None,
+    ) -> Dict:
         """Transforms and returns all cached targets or predictions in COCO format.
 
         Format is defined at https://cocodataset.org/#format-data.
@@ -332,12 +339,14 @@ class MAP(Metric):
             for k, (image_box, image_label) in enumerate(zip(image_boxes, image_labels)):
                 if len(image_box) != 4:
                     raise ValueError(
-                        f'Invalid input box of sample {image_id}, element {k} (expected 4 values, got {len(image_box)})'
+                        f'Invalid input box of sample {image_id}, element {k} (expected 4 values, got {len(image_box)})',
                     )
 
                 if type(image_label) != int:
-                    raise ValueError(f'Invalid input class of sample {image_id}, element {k}'
-                                     f' (expected value of type integer, got type {type(image_label)})')
+                    raise ValueError(
+                        f'Invalid input class of sample {image_id}, element {k}'
+                        f' (expected value of type integer, got type {type(image_label)})',
+                    )
 
                 annotation = {
                     'id': annotation_id,
@@ -350,14 +359,16 @@ class MAP(Metric):
                 if scores is not None:  # type: ignore
                     score = scores[image_id][k].cpu().tolist()  # type: ignore
                     if type(score) != float:  # type: ignore
-                        raise ValueError(f'Invalid input score of sample {image_id}, element {k}'
-                                         f' (expected value of type float, got type {type(score)})')
+                        raise ValueError(
+                            f'Invalid input score of sample {image_id}, element {k}'
+                            f' (expected value of type float, got type {type(score)})',
+                        )
                     annotation['score'] = score
                 annotations.append(annotation)
                 annotation_id += 1
 
         classes = [{
             'id': i,
-            'name': str(i)
+            'name': str(i),
         } for i in torch.cat(self.detection_labels + self.groundtruth_labels).unique().cpu().tolist()]  # type: ignore
         return {'images': images, 'annotations': annotations, 'categories': classes}

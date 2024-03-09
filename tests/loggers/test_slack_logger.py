@@ -21,13 +21,15 @@ def test_slack_logger_metrics(include_keys: Sequence[str], interval: str):
     os.environ['SLACK_LOGGING_CHANNEL_ID'] = 'C1234'
 
     slack_logger = SlackLogger(
-        formatter_func=(lambda data, **kwargs: [{
-            'type': 'section',
-            'text': {
-                'type': 'mrkdwn',
-                'text': f'*{k}:* {v}'
-            }
-        } for k, v in data.items()]),
+        formatter_func=(
+            lambda data, **kwargs: [{
+                'type': 'section',
+                'text': {
+                    'type': 'mrkdwn',
+                    'text': f'*{k}:* {v}',
+                },
+            } for k, v in data.items()]
+        ),
         include_keys=include_keys,
         log_interval=interval,
     )

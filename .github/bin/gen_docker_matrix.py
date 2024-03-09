@@ -18,11 +18,13 @@ def _parse_args() -> Namespace:
     """
     args = ArgumentParser(description='Process a Docker matrix YAML file.')
     args.add_argument('yaml_file', type=FileType('r'), help='The YAML file to be processed.')
-    args.add_argument('-b',
-                      '--build_args',
-                      action='append',
-                      required=False,
-                      help='List of build args to override globally')
+    args.add_argument(
+        '-b',
+        '--build_args',
+        action='append',
+        required=False,
+        help='List of build args to override globally',
+    )
 
     return args.parse_args()
 

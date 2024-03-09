@@ -19,13 +19,15 @@ from torch.profiler.profiler import profile as TorchProfile
 log = logging.getLogger(__name__)
 
 
-def export_memory_timeline_html(prof: TorchProfile,
-                                path: str,
-                                device: Optional[str] = None,
-                                figsize=(20, 12),
-                                title=None,
-                                yxis_step_size: float = 1.0,
-                                return_fig: bool = False) -> Optional[Union[None, Any]]:
+def export_memory_timeline_html(
+    prof: TorchProfile,
+    path: str,
+    device: Optional[str] = None,
+    figsize=(20, 12),
+    title=None,
+    yxis_step_size: float = 1.0,
+    return_fig: bool = False,
+) -> Optional[Union[None, Any]]:
     """Exports a memory timeline to an HTML file. Similar to the PyTorch plotting function, but with adjusted axis tickers and grids."""
     if version.parse(torch.__version__) <= version.parse('2.1.0.dev'):
         log.warning('export_memory_timeline_html failed because memory timeline is supported after PyTorch 2.1.0.')
@@ -70,7 +72,7 @@ def export_memory_timeline_html(prof: TorchProfile,
     axes.set_yticks(np.arange(0, end, yxis_step_size))
     title = '\n\n'.join(([title] if title else []) + [
         f'Max memory allocated: {max_memory_allocated/(10**9):.2f} GB \n'
-        f'Max memory reserved: {max_memory_reserved/(10**9):.2f} GB'
+        f'Max memory reserved: {max_memory_reserved/(10**9):.2f} GB',
     ])
     axes.set_title(title)
 
@@ -93,5 +95,5 @@ def export_memory_timeline_html(prof: TorchProfile,
 
         with open(path, 'w') as f:
             f.write(html)
-    log.debug('Memory timeline exported to', path, '.')
+    log.debug('Memory timeline exported to %s.', path)
     remove(tmpfile.name)

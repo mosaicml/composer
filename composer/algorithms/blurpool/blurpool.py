@@ -21,12 +21,14 @@ from composer.utils import module_surgery
 log = logging.getLogger(__name__)
 
 
-def apply_blurpool(model: torch.nn.Module,
-                   replace_convs: bool = True,
-                   replace_maxpools: bool = True,
-                   blur_first: bool = True,
-                   min_channels: int = 16,
-                   optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None) -> None:
+def apply_blurpool(
+    model: torch.nn.Module,
+    replace_convs: bool = True,
+    replace_maxpools: bool = True,
+    blur_first: bool = True,
+    min_channels: int = 16,
+    optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
+) -> None:
     """Add anti-aliasing filters to strided :class:`torch.nn.Conv2d` and/or :class:`torch.nn.MaxPool2d` modules.
 
     These filters increase invariance to small spatial shifts in the input
@@ -110,7 +112,8 @@ class BlurPool(Algorithm):
 
         if self.replace_maxpools is False and self.replace_convs is False:
             raise ValueError(
-                'Both replace_maxpool and replace_convs are set to False. BlurPool will not be modifying the model.')
+                'Both replace_maxpool and replace_convs are set to False. BlurPool will not be modifying the model.',
+            )
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(replace_convs={self.replace_convs},replace_maxpools={self.replace_maxpools},blur_first={self.blur_first},min_channels={self.min_channels})'
@@ -125,12 +128,14 @@ class BlurPool(Algorithm):
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         assert state.model is not None
 
-        apply_blurpool(state.model,
-                       optimizers=state.optimizers,
-                       replace_convs=self.replace_convs,
-                       replace_maxpools=self.replace_maxpools,
-                       blur_first=self.blur_first,
-                       min_channels=self.min_channels)
+        apply_blurpool(
+            state.model,
+            optimizers=state.optimizers,
+            replace_convs=self.replace_convs,
+            replace_maxpools=self.replace_maxpools,
+            blur_first=self.blur_first,
+            min_channels=self.min_channels,
+        )
         self._log_results(event, state, logger)
 
     def _log_results(self, event: Event, state: State, logger: Logger) -> None:
@@ -141,11 +146,13 @@ class BlurPool(Algorithm):
         num_blurconv_layers = module_surgery.count_module_instances(state.model, BlurConv2d)
 
         # python logger
-        log.info(f'Applied BlurPool to model {state.model.__class__.__name__} '
-                 f'with replace_maxpools={self.replace_maxpools}, '
-                 f'replace_convs={self.replace_convs}. '
-                 f'Model now has {num_blurpool_layers} BlurMaxPool2d '
-                 f'and {num_blurconv_layers} BlurConv2D layers.')
+        log.info(
+            f'Applied BlurPool to model {state.model.__class__.__name__} '
+            f'with replace_maxpools={self.replace_maxpools}, '
+            f'replace_convs={self.replace_convs}. '
+            f'Model now has {num_blurpool_layers} BlurMaxPool2d '
+            f'and {num_blurconv_layers} BlurConv2D layers.',
+        )
 
         logger.log_hyperparameters({
             'blurpool/num_blurpool_layers': num_blurpool_layers,
@@ -158,11 +165,16 @@ def _log_surgery_result(model: torch.nn.Module):
     num_blurconv_layers = module_surgery.count_module_instances(model, BlurConv2d)
     if num_blurconv_layers == 0 and num_blurpool_layers == 0:
         warnings.warn(
-            NoEffectWarning('Applying BlurPool did not change any layers. '
-                            'No strided Conv2d or Pool2d layers were found.'))
-    log.info(f'Applied BlurPool to model {model.__class__.__name__}. '
-             f'Model now has {num_blurpool_layers} BlurMaxPool2d '
-             f'and {num_blurconv_layers} BlurConv2D layers.')
+            NoEffectWarning(
+                'Applying BlurPool did not change any layers. '
+                'No strided Conv2d or Pool2d layers were found.',
+            ),
+        )
+    log.info(
+        f'Applied BlurPool to model {model.__class__.__name__}. '
+        f'Model now has {num_blurpool_layers} BlurMaxPool2d '
+        f'and {num_blurconv_layers} BlurConv2D layers.',
+    )
 
 
 def _maybe_replace_strided_conv2d(

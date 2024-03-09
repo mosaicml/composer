@@ -125,11 +125,22 @@ class TestResizeInputs:
         assert check_scaled_shape(y, yc, scale_factor)
 
 
-@pytest.mark.parametrize('mode,initial_scale,finetune_fraction,delay_fraction,size_increment',
-                         [('foo', 0.5, 0.2, 0.2, 8), ('crop', 1.2, 0.2, 0.2, 8), ('crop', 0.5, 1.2, 0.2, 8),
-                          ('resize', 0.5, 0.6, 0.5, 8)])
-def test_invalid_hparams(mode: str, initial_scale: float, finetune_fraction: float, delay_fraction: float,
-                         size_increment: int):
+@pytest.mark.parametrize(
+    'mode,initial_scale,finetune_fraction,delay_fraction,size_increment',
+    [
+        ('foo', 0.5, 0.2, 0.2, 8),
+        ('crop', 1.2, 0.2, 0.2, 8),
+        ('crop', 0.5, 1.2, 0.2, 8),
+        ('resize', 0.5, 0.6, 0.5, 8),
+    ],
+)
+def test_invalid_hparams(
+    mode: str,
+    initial_scale: float,
+    finetune_fraction: float,
+    delay_fraction: float,
+    size_increment: int,
+):
     """Test that invalid hyperparameters error."""
     with pytest.raises(ValueError):
         ProgressiveResizing(mode, initial_scale, finetune_fraction, delay_fraction, size_increment, False)
@@ -139,8 +150,14 @@ class TestProgressiveResizingAlgorithm:
 
     @pytest.fixture
     def pr_algorithm(self, mode, initial_scale, finetune_fraction, delay_fraction, size_increment, resize_targets):
-        return ProgressiveResizing(mode, initial_scale, finetune_fraction, delay_fraction, size_increment,
-                                   resize_targets)
+        return ProgressiveResizing(
+            mode,
+            initial_scale,
+            finetune_fraction,
+            delay_fraction,
+            size_increment,
+            resize_targets,
+        )
 
     @pytest.mark.parametrize('event', [Event.AFTER_DATALOADER])
     def test_match_correct(self, event: Event, pr_algorithm, minimal_state: State):
@@ -153,8 +170,15 @@ class TestProgressiveResizingAlgorithm:
         assert not pr_algorithm.match(event, minimal_state)
 
     @pytest.mark.parametrize('epoch_frac', [0.0, 0.6, 0.8, 1.0])
-    def test_apply(self, epoch_frac: float, X: torch.Tensor, y: torch.Tensor, pr_algorithm: ProgressiveResizing,
-                   minimal_state: State, empty_logger: Logger):
+    def test_apply(
+        self,
+        epoch_frac: float,
+        X: torch.Tensor,
+        y: torch.Tensor,
+        pr_algorithm: ProgressiveResizing,
+        minimal_state: State,
+        empty_logger: Logger,
+    ):
         """Test apply at different epoch fractions (fraction of max epochs)"""
         assert minimal_state.max_duration is not None
         assert minimal_state.max_duration.unit == TimeUnit.EPOCH

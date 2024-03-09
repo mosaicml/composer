@@ -20,8 +20,12 @@ log = logging.getLogger(__name__)
 __all__ = ['GradientClipping', 'apply_gradient_clipping']
 
 
-def apply_gradient_clipping(model: Union[ComposerModel, torch.nn.Module], clipping_type: str, clipping_threshold: float,
-                            fsdp_enabled: bool):
+def apply_gradient_clipping(
+    model: Union[ComposerModel, torch.nn.Module],
+    clipping_type: str,
+    clipping_threshold: float,
+    fsdp_enabled: bool,
+):
     """Clips all gradients in model based on specified clipping_type.
 
     Args:
@@ -138,17 +142,20 @@ class GradientClipping(Algorithm):
                     state.deepspeed_config['gradient_clipping'] = self.clipping_threshold
                 else:
                     raise ValueError(
-                        f'Deepspeed only supports gradient clipping thresholds that are greater than zero, but the provided one is {self.clipping_threshold}'
+                        f'Deepspeed only supports gradient clipping thresholds that are greater than zero, but the provided one is {self.clipping_threshold}',
                     )
             else:
                 raise NotImplementedError(
-                    f"Deepspeed only supports gradient clipping of type 'norm' not of type '{self.clipping_type}'")
+                    f"Deepspeed only supports gradient clipping of type 'norm' not of type '{self.clipping_type}'",
+                )
 
         if event == Event.AFTER_TRAIN_BATCH and not state.deepspeed_enabled:
-            apply_gradient_clipping(model=state.model,
-                                    clipping_type=self.clipping_type,
-                                    clipping_threshold=self.clipping_threshold,
-                                    fsdp_enabled=state.fsdp_enabled)
+            apply_gradient_clipping(
+                model=state.model,
+                clipping_type=self.clipping_type,
+                clipping_threshold=self.clipping_threshold,
+                fsdp_enabled=state.fsdp_enabled,
+            )
 
 
 def _get_clipped_gradient_coeff(weights: torch.Tensor, grad: torch.Tensor, clipping_threshold: float = 0.01):
