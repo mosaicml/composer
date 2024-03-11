@@ -8,8 +8,8 @@ import copy
 import json
 import os
 import random
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
 import time
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
 
 import torch
 from torch.utils.data import DataLoader, Dataset
@@ -217,20 +217,20 @@ def _get_fewshot_sample_idxs(dataset_size: int, num_fewshot: int, example_idx: i
         fewshot_idxs.add(replacement_sample)
     return fewshot_idxs
 
-  
+
 def _rank_zero_download(dataset_uri, destination_path):
-  if TRTLLM_MULTIGPU == TRUE:
-      if tensorrt_llm.mpi_rank() == 0:
-          get_file(dataset_uri, destination_path, overwrite=True)
-      else:
-          while not os.path.exists(destination_path):
-              time.sleep(0.1)
-  else:  
-    with dist.local_rank_zero_download_and_wait(destination_path):
-    	if dist.get_local_rank() == 0:
+    if TRTLLM_MULTIGPU == True:
+        if tensorrt_llm.mpi_rank() == 0:
             get_file(dataset_uri, destination_path, overwrite=True)
-          
-          
+        else:
+            while not os.path.exists(destination_path):
+                time.sleep(0.1)
+    else:
+        with dist.local_rank_zero_download_and_wait(destination_path):
+            if dist.get_local_rank() == 0:
+                get_file(dataset_uri, destination_path, overwrite=True)
+
+
 class InContextLearningDataset(Dataset):
     """
     A base dataset that constructs batches for in-context learning task evaluations.
@@ -426,9 +426,7 @@ class InContextLearningDataset(Dataset):
                 assert isinstance(dataset, HFDataset)
                 dataset = dataset.map(dataset_parsing_func, remove_columns=dataset.column_names)
         else:
-            with dist.local_rank_zero_download_and_wait(destination_path):
-                if dist.get_local_rank() == 0:
-                    get_file(dataset_uri, destination_path, overwrite=True)
+            _rank_zero_download(dataset_uri, destination_path)
             dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
         assert isinstance(dataset, HFDataset)
         return dataset
@@ -1653,9 +1651,7 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_lo
             assert hasattr(dataset, 'column_names')
             dataset = dataset.map(dataset_parsing_func, remove_columns=dataset.column_names)
     else:
-        with dist.local_rank_zero_download_and_wait(destination_path):
-            if dist.get_local_rank() == 0:
-                get_file(dataset_uri, destination_path, overwrite=True)
+        _rank_zero_download(dataset_uri, destination_path)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
     assert isinstance(dataset, HFDataset) or isinstance(dataset, IterableDataset)
     assert hasattr(dataset, 'features')
