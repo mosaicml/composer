@@ -609,6 +609,7 @@ def prepare_fsdp_module(
                     from transformer_engine.pytorch.distributed import prepare_te_modules_for_fsdp
                 except ModuleNotFoundError:
                     raise ModuleNotFoundError('Please install transformer-engine to use prepare_te_modules_for_fsdp')
+                log.info(f'Calling prepare_te_modules_for_fsdp to shard TE weights')
                 prepare_te_modules_for_fsdp(fsdp_obj)
 
             if hasattr(fsdp_obj, '_exec_order_data'):
