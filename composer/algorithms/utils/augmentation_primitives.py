@@ -358,14 +358,36 @@ def sharpness_original(pil_img: Image.Image, level: float):
 
 augmentation_sets = {
     'all': [
-        autocontrast, equalize, posterize, rotate, solarize, shear_x, shear_y, translate_x, translate_y, color,
-        contrast, brightness, sharpness
+        autocontrast,
+        equalize,
+        posterize,
+        rotate,
+        solarize,
+        shear_x,
+        shear_y,
+        translate_x,
+        translate_y,
+        color,
+        contrast,
+        brightness,
+        sharpness,
     ],
     # Augmentations that don't overlap with ImageNet-C/CIFAR10-C test sets
     'safe': [autocontrast, equalize, posterize, rotate, solarize, shear_x, shear_y, translate_x, translate_y],
     # Augmentations that use original implementations of color, contrast, brightness, and sharpness
     'original': [
-        autocontrast, equalize, posterize, rotate, solarize, shear_x, shear_y, translate_x, translate_y, color_original,
-        contrast_original, brightness_original, sharpness_original
+        autocontrast,
+        equalize,
+        posterize,
+        rotate,
+        solarize,
+        shear_x,
+        shear_y,
+        translate_x,
+        translate_y,
+        color_original,
+        contrast_original,
+        brightness_original,
+        sharpness_original,
     ],
 }

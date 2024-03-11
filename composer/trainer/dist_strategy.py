@@ -11,8 +11,11 @@ from typing import Any, Callable, ContextManager, Dict, Iterator, List, Optional
 
 import torch
 from packaging import version
-from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (CheckpointImpl, apply_activation_checkpointing,
-                                                                         checkpoint_wrapper)
+from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
+    CheckpointImpl,
+    apply_activation_checkpointing,
+    checkpoint_wrapper,
+)
 from torch.distributed.fsdp import FullyShardedDataParallel, ShardingStrategy
 from torch.distributed.fsdp._common_utils import clean_tensor_name
 from torch.nn.parallel import DistributedDataParallel
@@ -22,8 +25,13 @@ from composer.core import Precision, State
 from composer.devices import Device
 from composer.trainer.meta_safe_apply import meta_safe_apply
 from composer.trainer.mosaic_fsdp import patch_pytorch
-from composer.trainer.mosaic_fsdp_utils import (BACKWARD_PREFETCH_MAP, SHARDING_MAP, _set_custom_fsdp_module_kwargs,
-                                                get_cpu_offload, get_mixed_precision)
+from composer.trainer.mosaic_fsdp_utils import (
+    BACKWARD_PREFETCH_MAP,
+    SHARDING_MAP,
+    _set_custom_fsdp_module_kwargs,
+    get_cpu_offload,
+    get_mixed_precision,
+)
 from composer.utils import StringEnum, dist, ensure_tuple
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare_fsdp_module']
@@ -127,9 +135,11 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) ->
     if dist.is_available():
         raise RuntimeError('Please call dist.initialize_dist() before calling ddp.prepare_module()')
 
-    raise RuntimeError('When the world size is > 1, ``torch.distributed`` must be used. However, it is '
-                       'not available in your installation of PyTorch. Please install or build PyTorch '
-                       'with distributed support.')
+    raise RuntimeError(
+        'When the world size is > 1, ``torch.distributed`` must be used. However, it is '
+        'not available in your installation of PyTorch. Please install or build PyTorch '
+        'with distributed support.',
+    )
 
 
 def set_fsdp_default(fsdp_config: Dict[str, Any]):
@@ -160,10 +170,10 @@ def set_fsdp_default(fsdp_config: Dict[str, Any]):
 
 
 def _recreate_fsdp_param_groups_from_unwrapped_opt_info(
-        fsdp_wrapped_named_params: Iterator[Tuple[str,
-                                                  torch.nn.Parameter]], non_wrapped_param_names_to_group_num: Dict[str,
-                                                                                                                   int],
-        group_num_to_optimizer_info: Dict[int, Dict[str, Any]]) -> List[Dict[str, Any]]:
+    fsdp_wrapped_named_params: Iterator[Tuple[str, torch.nn.Parameter]],
+    non_wrapped_param_names_to_group_num: Dict[str, int],
+    group_num_to_optimizer_info: Dict[int, Dict[str, Any]],
+) -> List[Dict[str, Any]]:
     """Helper function to recreate optimizer groups for FSDP wrapped modules.
 
     Optimizer param groups are formatted as:
@@ -227,10 +237,12 @@ def prepare_fsdp_module(
         any_ranks_meta = device.tensor_to_device(torch.tensor([rank_on_meta], dtype=torch.uint8))
         dist.all_reduce(any_ranks_meta, reduce_operation='MAX')
         if all_ranks_meta.item() == 0 and any_ranks_meta.item() == 1:
-            raise ValueError('Detected mixed initialization where some ranks have model on cpu or '
-                             'gpu and some ranks are on meta. Either keep all ranks on the same '
-                             "device or set fsdp_config['sync_module_states'] = True. Otherwise, "
-                             'some weights may be randomly initialized when loading a checkpoint.')
+            raise ValueError(
+                'Detected mixed initialization where some ranks have model on cpu or '
+                'gpu and some ranks are on meta. Either keep all ranks on the same '
+                "device or set fsdp_config['sync_module_states'] = True. Otherwise, "
+                'some weights may be randomly initialized when loading a checkpoint.',
+            )
 
     # Check if other ranks OOMed after forward/backward pass when using auto microbatching. This
     # may happen when close to memory limit or with uneven memory usage across ranks. Since we
@@ -266,8 +278,10 @@ def prepare_fsdp_module(
         num_param_groups = len(optim.param_groups)
         if num_param_groups > 1:
             if not fsdp_config['use_orig_params']:
-                raise RuntimeError('Multiple optimizer groups with FSDP are only supported with '
-                                   'use_orig_params=True.')
+                raise RuntimeError(
+                    'Multiple optimizer groups with FSDP are only supported with '
+                    'use_orig_params=True.',
+                )
             # optimizer.param_groups do not contain parameter names which are needed
             # to keep track of the different parameters in each group
             # so we use the pointers between model.parameters() and model.named_parameters()
@@ -282,7 +296,8 @@ def prepare_fsdp_module(
                     # Need to in-line to avoid a reference which causes FSDP to allocate extra GPU memory
                     # param = optim.param_groups[group_num]['params'][param_num]
                     param_name_to_group_num[param_pointer_to_param_name[id(
-                        optim.param_groups[group_num]['params'][param_num])]] = group_num
+                        optim.param_groups[group_num]['params'][param_num],
+                    )]] = group_num
 
                 # this includes optimizer-specific values like lr, eps
                 # this will be used as the kwargs for the optim param groups later
@@ -304,14 +319,22 @@ def prepare_fsdp_module(
         if 'device_mesh' in fsdp_config:
             device_mesh_size = len(fsdp_config['device_mesh'])
             if sharding_strategy in [
-                    ShardingStrategy.FULL_SHARD, ShardingStrategy.SHARD_GRAD_OP, ShardingStrategy.NO_SHARD
+                ShardingStrategy.FULL_SHARD,
+                ShardingStrategy.SHARD_GRAD_OP,
+                ShardingStrategy.NO_SHARD,
             ] and device_mesh_size != 1:
-                raise ValueError(f'FSDP sharding strategy {sharding_map_key.upper()} requires a device mesh '
-                                 f'of size 1 but got device mesh size of {device_mesh_size}.')
-            elif sharding_strategy in [ShardingStrategy.HYBRID_SHARD, ShardingStrategy._HYBRID_SHARD_ZERO2
-                                      ] and device_mesh_size != 2:
-                raise ValueError(f'FSDP sharding strategy {sharding_map_key.upper()} requires a device mesh '
-                                 f'of size 2 but got device mesh size of {device_mesh_size}.')
+                raise ValueError(
+                    f'FSDP sharding strategy {sharding_map_key.upper()} requires a device mesh '
+                    f'of size 1 but got device mesh size of {device_mesh_size}.',
+                )
+            elif sharding_strategy in [
+                ShardingStrategy.HYBRID_SHARD,
+                ShardingStrategy._HYBRID_SHARD_ZERO2,
+            ] and device_mesh_size != 2:
+                raise ValueError(
+                    f'FSDP sharding strategy {sharding_map_key.upper()} requires a device mesh '
+                    f'of size 2 but got device mesh size of {device_mesh_size}.',
+                )
             from torch.distributed._tensor import init_device_mesh
             kwargs['device_mesh'] = init_device_mesh(
                 'cuda',
@@ -322,9 +345,11 @@ def prepare_fsdp_module(
 
     mixed_precision = fsdp_config['mixed_precision']
     keep_low_precision_grads = fsdp_config['keep_low_precision_grads']
-    mixed_precision, param_dtype, _, _ = get_mixed_precision(precision,
-                                                             mixed_precision=mixed_precision,
-                                                             keep_low_precision_grads=keep_low_precision_grads)
+    mixed_precision, param_dtype, _, _ = get_mixed_precision(
+        precision,
+        mixed_precision=mixed_precision,
+        keep_low_precision_grads=keep_low_precision_grads,
+    )
 
     # Note: FSDP does support the use of torch.float32 with sharding.
     # They just never expected a user to pass in torch.float32 into mixed_precision as a param_dtype.
@@ -333,18 +358,22 @@ def prepare_fsdp_module(
     # Instead a user needs to pass in `None` as param_dtype to have the parameters as torch.float32.
     # TODO: remove these checks when PyTorch has a release that includes the fix.
     if sharding_map_key != 'NO_SHARD':
-        if (precision == Precision.AMP_FP16 and param_dtype not in [torch.float16, None] or
-                precision == Precision.AMP_BF16 and param_dtype not in [torch.bfloat16, None]):
+        if (
+            precision == Precision.AMP_FP16 and param_dtype not in [torch.float16, None] or
+            precision == Precision.AMP_BF16 and param_dtype not in [torch.bfloat16, None]
+        ):
             raise ValueError(
                 f'FSDP in PyTorch 1.13 does not support precision `{precision}` with sharding strategy `{sharding_strategy}` '
                 f'and param_dtype `{param_dtype}.` Consider using one of the predefined mixed_precision strategies '
-                "(choose: `'FULL'`, `'DEFAULT'`, `'PURE'`)")
+                "(choose: `'FULL'`, `'DEFAULT'`, `'PURE'`)",
+            )
 
         if param_dtype == torch.float32:
             raise ValueError(
                 f'FSDP in PyTorch 1.13 does not support param_dtype `{param_dtype}` with sharding_strategy `{sharding_map_key}` '
                 f'Consider using `amp` or `bf16` for precision or setting param_dtype in mixed_precision to `None` '
-                f'with sharding strategy `{sharding_map_key}.`')
+                f'with sharding strategy `{sharding_map_key}.`',
+            )
 
     process_group = None
     if fsdp_config['process_group'] is not None:
@@ -406,8 +435,8 @@ def prepare_fsdp_module(
                     # If we do not have any parameters or buffers on meta device managed by this module directly, we do not need to call the parameter init function.
                     # It is assumed that whatever process moved the parameters off of meta device initialized them.
                     # We expect this to occur if we have tied weights, as the second module will already have the weights initialized.
-                    is_meta = any(param.is_meta for param in module.parameters(recurse=False)) or any(
-                        buffer.is_meta for buffer in module.buffers(recurse=False))
+                    is_meta = any(param.is_meta for param in module.parameters(recurse=False)
+                                 ) or any(buffer.is_meta for buffer in module.buffers(recurse=False))
                     if not is_meta:
                         return
 
@@ -428,7 +457,8 @@ def prepare_fsdp_module(
                         raise ValueError(
                             f'Object `{obj_name}` does not have a ``param_init_fn`` or a ``reset_parameters`` function. '
                             'This leaves parameters without initialization. Please add a ``param_init_fn`` or ``reset_parameters`` '
-                            f'to module `{obj_name}`.')
+                            f'to module `{obj_name}`.',
+                        )
             else:
 
                 def _param_init_fn(module: torch.nn.Module) -> None:
@@ -468,17 +498,21 @@ def prepare_fsdp_module(
                         # Make sure at least one of the tied parameters is initialized
                         should_not_init_params.remove('.'.join([first, attr_type]))
 
-                    meta_safe_apply(module,
-                                    lambda t: torch.empty_like(t, device=f'cuda:{torch.cuda.current_device()}'),
-                                    should_not_init_params,
-                                    module_name='')
+                    meta_safe_apply(
+                        module,
+                        lambda t: torch.empty_like(t, device=f'cuda:{torch.cuda.current_device()}'),
+                        should_not_init_params,
+                        module_name='',
+                    )
 
                     if len(tied_mod_names) > 0:
-                        warnings.warn(('The passed in model appears to have tied weights. In order to '
-                                       'support effective weight tying, the tied modules need to be '
-                                       'in the same FSDP module. If the weights are not properly tied '
-                                       'it can lead to loss spikes. We have tried our best to ensure '
-                                       'the tied weights are in the same FSDP module.'))
+                        warnings.warn((
+                            'The passed in model appears to have tied weights. In order to '
+                            'support effective weight tying, the tied modules need to be '
+                            'in the same FSDP module. If the weights are not properly tied '
+                            'it can lead to loss spikes. We have tried our best to ensure '
+                            'the tied weights are in the same FSDP module.'
+                        ))
 
                     # Redoes weight tying
                     for name_attr, tied_names in tied_mod_names.items():
@@ -502,7 +536,8 @@ def prepare_fsdp_module(
                         raise ValueError(
                             f'Object `{obj_name}` does not have a ``param_init_fn`` or a ``reset_parameters`` function. '
                             'This leaves parameters without initialization. Please add a ``param_init_fn`` or ``reset_parameters`` '
-                            f'to module `{obj_name}`.')
+                            f'to module `{obj_name}`.',
+                        )
 
             if version.parse(torch.__version__) > version.parse('2.1.0.dev'):
                 # CustomPolicy is only supported in torch v2.1.0-rc1 or higher
@@ -567,56 +602,70 @@ def prepare_fsdp_module(
                 if hasattr(fsdp_obj._exec_order_data, '_forward_prefetch_limit'):
                     fsdp_obj._exec_order_data._forward_prefetch_limit = fsdp_config['forward_prefetch_limit']
                 else:
-                    warnings.warn('FSDP._exec_order_data does not have attribute _forward_prefetch_limit '
-                                  'which is unexpected and will result in `forward_prefetch_limit` from FSDP '
-                                  'config being ignored. Please open an issue to Composer to report this.')
+                    warnings.warn(
+                        'FSDP._exec_order_data does not have attribute _forward_prefetch_limit '
+                        'which is unexpected and will result in `forward_prefetch_limit` from FSDP '
+                        'config being ignored. Please open an issue to Composer to report this.',
+                    )
                 if hasattr(fsdp_obj._exec_order_data, '_backward_prefetch_limit'):
                     fsdp_obj._exec_order_data._backward_prefetch_limit = fsdp_config['backward_prefetch_limit']
                 else:
-                    warnings.warn('FSDP._exec_order_data does not have attribute _backward_prefetch_limit '
-                                  'which is unexpected and will result in `backward_prefetch_limit` from FSDP '
-                                  'config being ignored. Please open an issue to Composer to report this.')
+                    warnings.warn(
+                        'FSDP._exec_order_data does not have attribute _backward_prefetch_limit '
+                        'which is unexpected and will result in `backward_prefetch_limit` from FSDP '
+                        'config being ignored. Please open an issue to Composer to report this.',
+                    )
             else:
-                warnings.warn('FSDP does not have attribute _exec_order_data which is unexpected and will '
-                              'result in `forward_prefetch_limit` and `backward_prefetch_limit` from FSDP '
-                              'config being ignored. Please open an issue to Composer to report this.')
+                warnings.warn(
+                    'FSDP does not have attribute _exec_order_data which is unexpected and will '
+                    'result in `forward_prefetch_limit` and `backward_prefetch_limit` from FSDP '
+                    'config being ignored. Please open an issue to Composer to report this.',
+                )
 
             # Activation Checkpointing
             if activation_checkpointing or activation_cpu_offload:
                 if version.parse(torch.__version__) > version.parse('2.1.0.dev'):
                     from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import offload_wrapper
                     if not activation_checkpointing_reentrant:
-                        first_wrap_fn = lambda m: checkpoint_wrapper(m, checkpoint_impl=CheckpointImpl.NO_REENTRANT
-                                                                    ) if activation_checkpointing else (lambda module:
-                                                                                                        module)
+                        first_wrap_fn = lambda m: checkpoint_wrapper(
+                            m,
+                            checkpoint_impl=CheckpointImpl.NO_REENTRANT,
+                        ) if activation_checkpointing else (lambda module: module)
                         second_wrap_fn = (
                             lambda module: offload_wrapper(
                                 first_wrap_fn(module)
                                 if activation_checkpointing else module,  # type: ignore reportGeneralTypeIssues
-                            )) if activation_cpu_offload else first_wrap_fn
+                            )
+                        ) if activation_cpu_offload else first_wrap_fn
                     else:
                         first_wrap_fn = checkpoint_wrapper if activation_checkpointing else (lambda module: module)
                         second_wrap_fn = (
                             lambda module: offload_wrapper(
                                 first_wrap_fn(module)
-                                if activation_checkpointing else module)  # type: ignore reportGeneralTypeIssues
+                                if activation_checkpointing else module,  # type: ignore reportGeneralTypeIssues
+                            )
                         ) if activation_cpu_offload else first_wrap_fn
                 else:
                     if not activation_checkpointing_reentrant:
-                        first_wrap_fn = lambda m: checkpoint_wrapper(m, checkpoint_impl=CheckpointImpl.NO_REENTRANT
-                                                                    ) if activation_checkpointing else (lambda module:
-                                                                                                        module)
+                        first_wrap_fn = lambda m: checkpoint_wrapper(
+                            m,
+                            checkpoint_impl=CheckpointImpl.NO_REENTRANT,
+                        ) if activation_checkpointing else (lambda module: module)
                         second_wrap_fn = (
                             lambda module: checkpoint_wrapper(
                                 first_wrap_fn(module),  # type: ignore reportGeneralTypeIssues
                                 checkpoint_impl=CheckpointImpl.NO_REENTRANT,
-                                offload_to_cpu=True)) if activation_cpu_offload else first_wrap_fn
+                                offload_to_cpu=True,
+                            )
+                        ) if activation_cpu_offload else first_wrap_fn
                     else:
                         first_wrap_fn = checkpoint_wrapper if activation_checkpointing else (lambda module: module)
                         second_wrap_fn = (
                             lambda module: checkpoint_wrapper(
                                 first_wrap_fn(module),  # type: ignore reportGeneralTypeIssues
-                                offload_to_cpu=True)) if activation_cpu_offload else first_wrap_fn
+                                offload_to_cpu=True,
+                            )
+                        ) if activation_cpu_offload else first_wrap_fn
 
                 # Choose which modules to activation checkpoint according to the following priority:
                 # If module has attribute `module._activation_checkpointing = ...`, always respect it
@@ -626,8 +675,10 @@ def prepare_fsdp_module(
                         return False
                     if hasattr(module, '_activation_checkpointing'):
                         return bool(module._activation_checkpointing)
-                    if hasattr(obj, 'activation_checkpointing_fn') and isinstance(obj.activation_checkpointing_fn,
-                                                                                  Callable):
+                    if hasattr(
+                        obj,
+                        'activation_checkpointing_fn',
+                    ) and isinstance(obj.activation_checkpointing_fn, Callable):
                         return obj.activation_checkpointing_fn(module)
                     return False
 
@@ -664,9 +715,11 @@ def prepare_fsdp_module(
             assert param_name_to_group_num is not None
             assert group_num_to_param_group_info is not None
 
-            param_groups = _recreate_fsdp_param_groups_from_unwrapped_opt_info(model.named_parameters(),
-                                                                               param_name_to_group_num,
-                                                                               group_num_to_param_group_info)
+            param_groups = _recreate_fsdp_param_groups_from_unwrapped_opt_info(
+                model.named_parameters(),
+                param_name_to_group_num,
+                group_num_to_param_group_info,
+            )
             for param_group in param_groups:
                 optim.add_param_group(param_group)
         else:

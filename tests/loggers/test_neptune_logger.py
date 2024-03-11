@@ -56,21 +56,25 @@ def test_neptune_logging(device, test_neptune_logger):
     num_batches = 4
     eval_interval = '1ba'
 
-    trainer = Trainer(model=SimpleConvModel(),
-                      loggers=test_neptune_logger,
-                      train_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
-                      eval_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
-                      max_duration=f'{num_batches}ba',
-                      eval_interval=eval_interval,
-                      device=device)
+    trainer = Trainer(
+        model=SimpleConvModel(),
+        loggers=test_neptune_logger,
+        train_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
+        eval_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
+        max_duration=f'{num_batches}ba',
+        eval_interval=eval_interval,
+        device=device,
+    )
     trainer.fit()
 
     assert test_neptune_logger.neptune_run is not None
     assert test_neptune_logger.base_handler is not None
 
     for metric_name in [
-            'metrics/train/MulticlassAccuracy', 'metrics/eval/MulticlassAccuracy', 'metrics/eval/CrossEntropy',
-            'loss/train/total'
+        'metrics/train/MulticlassAccuracy',
+        'metrics/eval/MulticlassAccuracy',
+        'metrics/eval/CrossEntropy',
+        'loss/train/total',
     ]:
         path = f'{test_neptune_logger._base_namespace}/{test_neptune_logger.metric_namespace}/{metric_name}'
         assert test_neptune_logger.neptune_run.exists(path)
@@ -95,9 +99,11 @@ def test_upload_and_download_file(test_neptune_logger, tmp_path, dummy_state):
         with open(dummy_neptune_artifact_path, 'w+') as f:
             f.write(file_content)
 
-    test_neptune_logger.upload_file(state=dummy_state,
-                                    file_path=dummy_neptune_artifact_path,
-                                    remote_file_name=neptune_artifact_name)
+    test_neptune_logger.upload_file(
+        state=dummy_state,
+        file_path=dummy_neptune_artifact_path,
+        remote_file_name=neptune_artifact_name,
+    )
 
     dist.barrier()
 
@@ -127,7 +133,7 @@ def test_neptune_log_image(test_neptune_logger):
             (torch.rand(3, 4, 4), False),  # with channels, not channels last
             ([torch.rand(4, 4, 3)], True),  # with channels, channels last
             (torch.rand(2, 4, 4, 3), True),  # multiple images, channels last
-            ([torch.rand(4, 4, 3), torch.rand(4, 4, 3)], True)  # multiple images in list
+            ([torch.rand(4, 4, 3), torch.rand(4, 4, 3)], True),  # multiple images in list
         ]
 
         expected_num_images_total = 0

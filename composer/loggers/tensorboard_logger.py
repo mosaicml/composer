@@ -49,9 +49,11 @@ class TensorboardLogger(LoggerDestination):
         try:
             from torch.utils.tensorboard import SummaryWriter
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='tensorboard',
-                                                conda_package='tensorboard',
-                                                conda_channel='conda-forge') from e
+            raise MissingConditionalImportError(
+                extra_deps_group='tensorboard',
+                conda_package='tensorboard',
+                conda_channel='conda-forge',
+            ) from e
 
         self.log_dir = log_dir
         self.flush_interval = flush_interval
@@ -131,9 +133,11 @@ class TensorboardLogger(LoggerDestination):
             if 'metric' in name or 'loss' in name
         }
         assert self.writer is not None
-        self.writer.add_hparams(hparam_dict=self.hyperparameters,
-                                metric_dict=metrics_for_hparams,
-                                run_name=self.run_name)
+        self.writer.add_hparams(
+            hparam_dict=self.hyperparameters,
+            metric_dict=metrics_for_hparams,
+            run_name=self.run_name,
+        )
         self._flush(logger)
 
     def fit_end(self, state: State, logger: Logger) -> None:
@@ -179,10 +183,11 @@ class TensorboardLogger(LoggerDestination):
         file_path = self.writer.file_writer.event_writer._file_name
         event_file_name = Path(file_path).stem
 
-        logger.upload_file(remote_file_name=('tensorboard_logs/{run_name}/' +
-                                             f'{event_file_name}-{dist.get_global_rank()}'),
-                           file_path=file_path,
-                           overwrite=True)
+        logger.upload_file(
+            remote_file_name=('tensorboard_logs/{run_name}/' + f'{event_file_name}-{dist.get_global_rank()}'),
+            file_path=file_path,
+            overwrite=True,
+        )
 
         # Close writer, which creates new log file.
         self.writer.close()
@@ -194,7 +199,8 @@ class TensorboardLogger(LoggerDestination):
 
 
 def _convert_to_tensorboard_image(
-        t: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]) -> np.ndarray:
+    t: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
+) -> np.ndarray:
     if isinstance(t, torch.Tensor):
         return t.to(torch.float16).cpu().numpy()
     if isinstance(t, list):

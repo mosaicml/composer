@@ -89,11 +89,13 @@ class TestObjectStore:
         remote_backend_name_to_class = {'s3': S3ObjectStore, 'sftp': SFTPObjectStore, 'libcloud': LibcloudObjectStore}
         bucket_uri, kwargs = bucket_uri_and_kwargs
         remote_backend_name = urlparse(bucket_uri).scheme
-        with get_object_store_ctx(remote_backend_name_to_class[remote_backend_name],
-                                  kwargs,
-                                  monkeypatch,
-                                  tmp_path,
-                                  remote=remote):
+        with get_object_store_ctx(
+            remote_backend_name_to_class[remote_backend_name],
+            kwargs,
+            monkeypatch,
+            tmp_path,
+            remote=remote,
+        ):
             copied_config = copy.deepcopy(kwargs)
             # type error: Type[ObjectStore] is not callable
             object_store = remote_backend_name_to_class[remote_backend_name](**copied_config)  # type: ignore
