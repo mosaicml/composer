@@ -68,10 +68,12 @@ def test_inference_callback_onnx(model_cls):
             exp_for_inf_callback = ExportForInferenceCallback(save_format=save_format, save_path=str(save_path))
 
             # Construct the trainer and train
-            trainer = Trainer(model=model,
-                              callbacks=exp_for_inf_callback,
-                              train_dataloader=DataLoader(RandomImageDataset(shape=(3, 224, 224))),
-                              max_duration='1ba')
+            trainer = Trainer(
+                model=model,
+                callbacks=exp_for_inf_callback,
+                train_dataloader=DataLoader(RandomImageDataset(shape=(3, 224, 224))),
+                max_duration='1ba',
+            )
             trainer.fit()
 
             # Assert export_for_inference utility called with expected inputs

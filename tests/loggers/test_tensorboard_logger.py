@@ -29,7 +29,7 @@ def test_tensorboard_log_image(test_tensorboard_logger):
         (torch.rand(3, 4, 4), False),  # with channels, not channels last
         ([torch.rand(4, 4, 3)], True),  # with channels, channels last
         (torch.rand(2, 4, 4, 3), True),  # multiple images, channels last
-        ([torch.rand(4, 4, 3), torch.rand(4, 4, 3)], True)  # multiple images in list
+        ([torch.rand(4, 4, 3), torch.rand(4, 4, 3)], True),  # multiple images in list
     ]
 
     for idx, (images, channels_last) in enumerate(image_variants):
@@ -38,12 +38,16 @@ def test_tensorboard_log_image(test_tensorboard_logger):
 
         else:
             np_images = images.to(torch.float32).numpy()
-        test_tensorboard_logger.log_images(name='Image ' + str(idx) + ' tensor',
-                                           images=images,
-                                           channels_last=channels_last)
-        test_tensorboard_logger.log_images(name='Image ' + str(idx) + ' np',
-                                           images=np_images,
-                                           channels_last=channels_last)
+        test_tensorboard_logger.log_images(
+            name='Image ' + str(idx) + ' tensor',
+            images=images,
+            channels_last=channels_last,
+        )
+        test_tensorboard_logger.log_images(
+            name='Image ' + str(idx) + ' np',
+            images=np_images,
+            channels_last=channels_last,
+        )
 
     test_tensorboard_logger.post_close()
     # Tensorboard images are stored inline, so we can't check them automatically.

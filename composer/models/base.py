@@ -185,13 +185,16 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         batch: Any,
         outputs: Any,
         metric: Metric,
-    ) -> None:
+    ) -> Optional[Dict]:
         """Update the given metric.
 
 		Args:
 			batch: The dataloader batch
 			outputs: The output from :meth:`eval_forward`
 			metric (Metric): The metric to update.
+
+        Returns:
+            Optional[Dict]: Optionally return metric results to be stored in state.
 		"""
         raise NotImplementedError()
 

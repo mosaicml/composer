@@ -15,15 +15,20 @@ from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel
 
 
-@pytest.mark.parametrize('world_size', [
-    pytest.param(1),
-    pytest.param(2, marks=pytest.mark.world_size(2)),
-])
+@pytest.mark.parametrize(
+    'world_size',
+    [
+        pytest.param(1),
+        pytest.param(2, marks=pytest.mark.world_size(2)),
+    ],
+)
 @pytest.mark.parametrize(
     'max_duration',
-    [Time.from_timestring('2ep'),
-     Time.from_timestring('100sp'),
-     Time.from_timestring('5ba')],
+    [
+        Time.from_timestring('2ep'),
+        Time.from_timestring('100sp'),
+        Time.from_timestring('5ba'),
+    ],
 )
 def test_progress_bar_logger(max_duration: Time[int], monkeypatch: MonkeyPatch, world_size: int):
 

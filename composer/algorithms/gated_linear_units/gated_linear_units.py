@@ -29,15 +29,17 @@ from composer.utils import MissingConditionalImportError, module_surgery
 log = logging.getLogger(__name__)
 
 
-def from_BertOutput(layer: torch.nn.Module,
-                    module_index: int,
-                    act_fn: Callable[[torch.Tensor], torch.Tensor],
-                    gated_layer_bias: bool = False,
-                    non_gated_layer_bias: bool = False) -> BERTGatedFFOutput:
+def from_BertOutput(
+    layer: torch.nn.Module,
+    module_index: int,
+    act_fn: Callable[[torch.Tensor], torch.Tensor],
+    gated_layer_bias: bool = False,
+    non_gated_layer_bias: bool = False,
+) -> BERTGatedFFOutput:
     """Defines a replacement policy from a :class:`transformers.models.bert.modeling_bert.BertOutput` to a :class:`composer.algorithms.gated_linear_units.gated_linear_unit_layers.BERTGatedFFOutput`"""
     assert isinstance(
         layer,
-        BertOutput  # pyright: ignore[reportUnboundVariable]
+        BertOutput,  # pyright: ignore[reportUnboundVariable]
     ), 'The replacement policy requires an instance of transformers.models.bert.modeling_bert.BertOutput for the necessary fields to be defined.'
     return BERTGatedFFOutput(
         d_embed=layer.dense.out_features,  #type: ignore dense.out_features member of BertOutput
@@ -46,7 +48,8 @@ def from_BertOutput(layer: torch.nn.Module,
         act_fn=act_fn,
         layernorm_eps=layer.LayerNorm.eps,  #type: ignore LayerNorm.eps member of BertOutput
         gated_layer_bias=gated_layer_bias,
-        non_gated_layer_bias=non_gated_layer_bias)
+        non_gated_layer_bias=non_gated_layer_bias,
+    )
 
 
 def from_BertIntermediate(layer: torch.nn.Module, module_index: int) -> torch.nn.Identity:
@@ -57,11 +60,13 @@ def from_BertIntermediate(layer: torch.nn.Module, module_index: int) -> torch.nn
     return torch.nn.Identity()
 
 
-def apply_gated_linear_units(model: torch.nn.Module,
-                             optimizers: Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]],
-                             act_fn: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
-                             gated_layer_bias: bool = False,
-                             non_gated_layer_bias: bool = False) -> None:
+def apply_gated_linear_units(
+    model: torch.nn.Module,
+    optimizers: Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]],
+    act_fn: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
+    gated_layer_bias: bool = False,
+    non_gated_layer_bias: bool = False,
+) -> None:
     """
     Replaces the Linear layers in the feed-forward network with `Gated Linear Units <https://arxiv.org/abs/2002.05202>`_.
 
@@ -88,11 +93,14 @@ def apply_gated_linear_units(model: torch.nn.Module,
     # ensure that the model is an instance of a Hugging Face BertPreTrainedModel class, since our replacement policy is only defined for BERTs
     if not isinstance(unwrapped_model, BertPreTrainedModel):  # pyright: ignore[reportUnboundVariable]
         raise TypeError(
-            'Gated Linear Units only has a surgery policy defined for subclasses of transformers.BertPreTrainedModel')
+            'Gated Linear Units only has a surgery policy defined for subclasses of transformers.BertPreTrainedModel',
+        )
 
     # Early exit if nothing to replace
     if module_surgery.count_module_instances(
-            module=model, module_class=BertIntermediate) == 0:  # pyright: ignore[reportUnboundVariable]
+        module=model,
+        module_class=BertIntermediate,
+    ) == 0:  # pyright: ignore[reportUnboundVariable]
         return
 
     if act_fn is None:
@@ -102,48 +110,60 @@ def apply_gated_linear_units(model: torch.nn.Module,
         }  # pyright: ignore[reportUnboundVariable]
         if len(intermediate_modules) == 0:
             warnings.warn(
-                NoEffectWarning('No instances of BertIntermediate were found so Gated Linear Units will be skipped '
-                                'as no modules can be replaced. This is likely because Gated Linear Units has already '
-                                'been applied to this model.'))
+                NoEffectWarning(
+                    'No instances of BertIntermediate were found so Gated Linear Units will be skipped '
+                    'as no modules can be replaced. This is likely because Gated Linear Units has already '
+                    'been applied to this model.',
+                ),
+            )
 
         # get the activation functions used
         act_fns = {module.intermediate_act_fn for module in intermediate_modules}
         num_act_fns = len({type(act_fn) for act_fn in act_fns})
         if num_act_fns == 0:
-            raise ValueError('Tried to get the activation function from the model, but none were found. '
-                             'Please specify `act_fn` manually to use Gated Linear Units.')
+            raise ValueError(
+                'Tried to get the activation function from the model, but none were found. '
+                'Please specify `act_fn` manually to use Gated Linear Units.',
+            )
         elif num_act_fns > 1:
-            raise ValueError('Tried to get the activation function from the model, but multiple different '
-                             'functions are used. This is currently unsupported with Gated Linear Units. '
-                             'Please either use one activation function in BertIntermediate modules or '
-                             'specify `act_fn` to manually override activation functions.')
+            raise ValueError(
+                'Tried to get the activation function from the model, but multiple different '
+                'functions are used. This is currently unsupported with Gated Linear Units. '
+                'Please either use one activation function in BertIntermediate modules or '
+                'specify `act_fn` to manually override activation functions.',
+            )
 
         # since our set is of 1, let's extract the activation function
         act_fn = next(iter(act_fns))  # type: ignore will fail below if None
 
         if act_fn is None:
             raise ValueError(
-                'Found activation function was None. If this is an error, please manually specify `act_fn`.')
+                'Found activation function was None. If this is an error, please manually specify `act_fn`.',
+            )
 
     # now that we know the act fn, bind a few parameters of the replacement function
     def from_bound_BertOutput(layer: torch.nn.Module, module_index: int) -> BERTGatedFFOutput:
-        return from_BertOutput(layer=layer,
-                               module_index=module_index,
-                               act_fn=act_fn,
-                               gated_layer_bias=gated_layer_bias,
-                               non_gated_layer_bias=non_gated_layer_bias)
+        return from_BertOutput(
+            layer=layer,
+            module_index=module_index,
+            act_fn=act_fn,
+            gated_layer_bias=gated_layer_bias,
+            non_gated_layer_bias=non_gated_layer_bias,
+        )
 
     # prepare the replacement policy and perform replacement
     policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
         BertIntermediate: from_BertIntermediate,  # pyright: ignore[reportUnboundVariable]
-        BertOutput: from_bound_BertOutput  # pyright: ignore[reportUnboundVariable]
+        BertOutput: from_bound_BertOutput,  # pyright: ignore[reportUnboundVariable]
     }
     replaced_instances = module_surgery.replace_module_classes(module=model, optimizers=optimizers, policies=policy)
     if len(replaced_instances) == 0:
         warnings.warn(
-            NoEffectWarning('No instances of BertIntermediate and BertOutput were found so no modules were replaced.'))
+            NoEffectWarning('No instances of BertIntermediate and BertOutput were found so no modules were replaced.'),
+        )
     log.info(
-        f'Successfully replaced {len(replaced_instances)} of BertIntermediate and BertOutput with a GatedLinearUnit.')
+        f'Successfully replaced {len(replaced_instances)} of BertIntermediate and BertOutput with a GatedLinearUnit.',
+    )
 
 
 class GatedLinearUnits(Algorithm):
@@ -180,10 +200,12 @@ class GatedLinearUnits(Algorithm):
            )
     """
 
-    def __init__(self,
-                 act_fn: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
-                 gated_layer_bias: bool = False,
-                 non_gated_layer_bias: bool = False):
+    def __init__(
+        self,
+        act_fn: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
+        gated_layer_bias: bool = False,
+        non_gated_layer_bias: bool = False,
+    ):
         if not IS_TRANSFORMERS_INSTALLED:
             raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers')
         self.act_fn = act_fn
@@ -204,8 +226,10 @@ class GatedLinearUnits(Algorithm):
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         del event, logger  # unused
-        apply_gated_linear_units(model=state.model,
-                                 optimizers=state.optimizers,
-                                 act_fn=self.act_fn,
-                                 gated_layer_bias=self.gated_layer_bias,
-                                 non_gated_layer_bias=self.non_gated_layer_bias)
+        apply_gated_linear_units(
+            model=state.model,
+            optimizers=state.optimizers,
+            act_fn=self.act_fn,
+            gated_layer_bias=self.gated_layer_bias,
+            non_gated_layer_bias=self.non_gated_layer_bias,
+        )

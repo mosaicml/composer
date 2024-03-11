@@ -27,8 +27,13 @@ from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_
 from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
 
 from composer.utils import dist, reproducibility
-from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist,
-                                         format_name_with_dist_and_time, get_file, is_tar)
+from composer.utils.file_helpers import (
+    FORMAT_NAME_WITH_DIST_AND_TIME_TABLE,
+    format_name_with_dist,
+    format_name_with_dist_and_time,
+    get_file,
+    is_tar,
+)
 from composer.utils.misc import is_model_deepspeed, partial_format
 from composer.utils.object_store import ObjectStore
 
@@ -183,8 +188,13 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
 # A subclass of FileSystemReaderWithValidation that downloads files from the object store before reading them from the local filesystem.
 class DistCPObjectStoreReader(FileSystemReaderWithValidation):
 
-    def __init__(self, source_path: str, destination_path: str, object_store: Union[ObjectStore, LoggerDestination],
-                 device_mesh: Optional[DeviceMesh]):
+    def __init__(
+        self,
+        source_path: str,
+        destination_path: str,
+        object_store: Union[ObjectStore, LoggerDestination],
+        device_mesh: Optional[DeviceMesh],
+    ):
         self.source_path = source_path
         self.destination_path = destination_path
         self.object_store = object_store
@@ -215,7 +225,8 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
     def read_data(self, plan: LoadPlan, planner: LoadPlanner):
         # Download files if not using HSDP or if on first replica with HSDP enabled
         first_replica = self.device_mesh is None or self.device_mesh.ndim == 1 or (
-            self.device_mesh.ndim >= 2 and self.device_mesh.get_local_rank(mesh_dim=0) == 0)
+            self.device_mesh.ndim >= 2 and self.device_mesh.get_local_rank(mesh_dim=0) == 0
+        )
 
         # 1. Collect the relative paths to download for all ranks for deduplication
         relative_file_paths = set()
@@ -236,7 +247,8 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                 # i.e. if rank 0 and rank 1 on the same node have the same the same required file,
                 # only rank 0 should download it and not rank 1.
                 is_downloaded = any(
-                    relative_file_path in all_file_paths[i] for i in range(local_rank_0, dist.get_global_rank()))
+                    relative_file_path in all_file_paths[i] for i in range(local_rank_0, dist.get_global_rank())
+                )
 
                 # Download the shard file to the relative path it's associated to and save that relative path
                 # to the root directory specified to the FileSystem reader constructor.
@@ -289,9 +301,11 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                     if sender:
                         with open(full_path, 'rb') as f:
                             file_object = [{'content': f.read()}]
-                    dist.broadcast_object_list(file_object,
-                                               src=dist.get_global_rank() % shard_size,
-                                               group=replicate_process_group)
+                    dist.broadcast_object_list(
+                        file_object,
+                        src=dist.get_global_rank() % shard_size,
+                        group=replicate_process_group,
+                    )
                     received_file_object = file_object[0]
                     assert received_file_object is not None
                     if receiver and not os.path.exists(full_path):
@@ -301,7 +315,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
             log.debug(f'Rank {dist.get_global_rank()} finished transferring files to all ranks.')
             dist.barrier()
             log.debug(
-                f'Done waiting for all ranks to finish transferring files. Local checkpoint files: {sorted(os.listdir(self.destination_path))}'
+                f'Done waiting for all ranks to finish transferring files. Local checkpoint files: {sorted(os.listdir(self.destination_path))}',
             )
 
         # 5. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
@@ -467,7 +481,8 @@ def load_checkpoint(
     if state.fsdp_sharded_state_dict_enabled:
         assert object_store is None or isinstance(
             object_store,
-            ObjectStore), 'For loading sharded checkpoints load_object_store must be set with the class ObjectStore'
+            ObjectStore,
+        ), 'For loading sharded checkpoints load_object_store must be set with the class ObjectStore'
         using_legacy_sharded = is_checkpoint_legacy_sharded(object_store, path)
 
     if state.fsdp_sharded_state_dict_enabled and not using_legacy_sharded:
@@ -494,8 +509,9 @@ def load_checkpoint(
             try:
                 # Get the path to the proper checkpoint folder corresponding to the current rank's node.
                 # If fsdp_sharded_state_dict_enabled then just use that rank's unique tempdir.
-                node_checkpoint_folder = (tempdir if state.fsdp_sharded_state_dict_enabled else
-                                          _get_local_rank_zero_path(tempdir))
+                node_checkpoint_folder = (
+                    tempdir if state.fsdp_sharded_state_dict_enabled else _get_local_rank_zero_path(tempdir)
+                )
                 assert node_checkpoint_folder is not None
 
                 composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = download_checkpoint(
@@ -524,10 +540,12 @@ def load_checkpoint(
                 dist.barrier()
         log.info('%s loaded from %s', 'Model weights' if load_weights_only else 'Trainer checkpoint', path)
     step_to_resume_from = state.timestamp.batch.value
-    max_step_to_resume_from = state.device.tensor_to_device(torch.tensor(state.timestamp.batch.value,
-                                                                         dtype=torch.int64))
-    min_step_to_resume_from = state.device.tensor_to_device(torch.tensor(state.timestamp.batch.value,
-                                                                         dtype=torch.int64))
+    max_step_to_resume_from = state.device.tensor_to_device(
+        torch.tensor(state.timestamp.batch.value, dtype=torch.int64),
+    )
+    min_step_to_resume_from = state.device.tensor_to_device(
+        torch.tensor(state.timestamp.batch.value, dtype=torch.int64),
+    )
     dist.all_reduce(max_step_to_resume_from, reduce_operation='MAX')
     dist.all_reduce(min_step_to_resume_from, reduce_operation='MIN')
     if max_step_to_resume_from.data != min_step_to_resume_from.data:
@@ -539,7 +557,9 @@ def load_checkpoint(
                 'Please manually resume by disabling autoresume and explicitly setting load_path '
                 'to the most recent checkpoints that all ranks have saved. '
                 'E.g. for the 10th batch: trainer = Trainer(autoresume=False, load_path="/path/to/checkpoint/ba10-rank{rank}.pt", ...). '
-                'Remember to keep the {rank} placeholder!'))
+                'Remember to keep the {rank} placeholder!',
+            ),
+        )
     return rng_state_dicts
 
 
@@ -558,7 +578,7 @@ def load_sharded_checkpoint(
     using_multinode = dist.get_world_size() != dist.get_local_world_size()
     if not version.parse(torch.__version__) >= version.parse('2.0.1') and using_multinode:
         raise ValueError(
-            f'Sharded checkpoint loading on >1 node requires torch version >= 2.0.1. You have torch version {torch.__version__}'
+            f'Sharded checkpoint loading on >1 node requires torch version >= 2.0.1. You have torch version {torch.__version__}',
         )
 
     if state.fsdp_config is None:
@@ -642,9 +662,11 @@ def load_sharded_checkpoint(
             # 2. Optionally load optimizer
             # if we are using later than 2.2.9 then optimizer will already be loaded
             if version.parse(torch.__version__) < version.parse('2.2.9') and not load_weights_only:
-                optim_state = load_sharded_optimizer_state_dict(model_state_dict=state.state_dict()['model'],
-                                                                optimizer_key='optimizers',
-                                                                storage_reader=storage_reader)
+                optim_state = load_sharded_optimizer_state_dict(
+                    model_state_dict=state.state_dict()['model'],
+                    optimizer_key='optimizers',
+                    storage_reader=storage_reader,
+                )
                 state._legacy_load_optim_state(optim_state)
 
     return state_dict.get('rng', None)
@@ -659,12 +681,14 @@ def _get_local_rank_zero_path(path: Optional[str]) -> str:
     return local_rank_zero_path
 
 
-def download_checkpoint(path: str,
-                        node_checkpoint_folder: str,
-                        object_store: Optional[Union[ObjectStore, LoggerDestination]],
-                        progress_bar: bool,
-                        fsdp_sharded_state_dict_enabled: bool = False,
-                        deepspeed_sharded_checkpoint: bool = False) -> tuple[str, Optional[str], bool]:
+def download_checkpoint(
+    path: str,
+    node_checkpoint_folder: str,
+    object_store: Optional[Union[ObjectStore, LoggerDestination]],
+    progress_bar: bool,
+    fsdp_sharded_state_dict_enabled: bool = False,
+    deepspeed_sharded_checkpoint: bool = False,
+) -> tuple[str, Optional[str], bool]:
     """Download the checkpoint stored at ``path``, potentially in ``object_store``, to ``node_checkpoint_folder``.
 
     Returns a tuple of  (``composer_states_filepath``, ``extracted_checkpoint_folder``, ``extracted_rank_n``).
@@ -689,8 +713,9 @@ def download_checkpoint(path: str,
         # and only rank zero has this file unless fsdp_sharded_state_dict_enabled then
         # every rank has it's own file.
         extracted_checkpoint_folder = None
-        composer_states_filepath = (rank_n_checkpoint_filepath
-                                    if fsdp_sharded_state_dict_enabled else rank_zero_checkpoint_filepath)
+        composer_states_filepath = (
+            rank_n_checkpoint_filepath if fsdp_sharded_state_dict_enabled else rank_zero_checkpoint_filepath
+        )
 
     checkpoint_is_sharded = fsdp_sharded_state_dict_enabled or deepspeed_sharded_checkpoint
     try:
@@ -698,10 +723,12 @@ def download_checkpoint(path: str,
             # If the checkpoint is not sharded, then local rank 0 on each node needs to download the
             # global rank 0 checkpoint
             path = _format_path_with_rank_zero(path)
-            get_file(destination=rank_zero_checkpoint_filepath,
-                     path=path,
-                     object_store=object_store,
-                     progress_bar=progress_bar)
+            get_file(
+                destination=rank_zero_checkpoint_filepath,
+                path=path,
+                object_store=object_store,
+                progress_bar=progress_bar,
+            )
             if extracted_checkpoint_folder is not None:
                 try:
                     with tarfile.open(rank_zero_checkpoint_filepath) as tarball:
@@ -715,15 +742,18 @@ def download_checkpoint(path: str,
             # If the checkpoint is sharded, then every rank needs to download its own checkpoint
             path = _format_path_with_current_rank(path)
             try:
-                get_file(destination=rank_n_checkpoint_filepath,
-                         path=path,
-                         object_store=object_store,
-                         progress_bar=progress_bar)
+                get_file(
+                    destination=rank_n_checkpoint_filepath,
+                    path=path,
+                    object_store=object_store,
+                    progress_bar=progress_bar,
+                )
             except FileNotFoundError as e:
-                raise FileNotFoundError(
-                    (f'Checkpoint {path} does not exist, but is required for sharded checkpointing '
-                     f'on rank {dist.get_global_rank()}. Please ensure that the checkpoint exists '
-                     'and your load_path was specified as a format string with the {rank} argument.')) from e
+                raise FileNotFoundError((
+                    f'Checkpoint {path} does not exist, but is required for sharded checkpointing '
+                    f'on rank {dist.get_global_rank()}. Please ensure that the checkpoint exists '
+                    'and your load_path was specified as a format string with the {rank} argument.'
+                )) from e
 
             if extracted_checkpoint_folder is not None:
                 try:
@@ -739,8 +769,10 @@ def download_checkpoint(path: str,
     finally:
         # Use busy wait to avoid timeouts on large downloads for non-sharded checkpoints
         if not checkpoint_is_sharded:
-            signal_file_path = os.path.join(node_checkpoint_folder,
-                                            f'.node_{dist.get_node_rank()}_local_rank0_completed')
+            signal_file_path = os.path.join(
+                node_checkpoint_folder,
+                f'.node_{dist.get_node_rank()}_local_rank0_completed',
+            )
             if dist.get_local_rank() == 0:
                 with open(signal_file_path, 'wb') as f:
                     f.write(b'local_rank0_completed')
@@ -824,7 +856,8 @@ def glob_filter(exclude_globs: list[str]) -> Callable[[dict], None]:
             filtered_paths_from_glob = fnmatch.filter(paths, exclude_glob)
             if len(filtered_paths_from_glob) == 0:
                 warnings.warn(
-                    f'No parts from loaded checkpoint state_dict were ignored by load_ignore_key {exclude_glob}')
+                    f'No parts from loaded checkpoint state_dict were ignored by load_ignore_key {exclude_glob}',
+                )
             filtered_paths.extend(filtered_paths_from_glob)
         filtered_paths = list(set(filtered_paths))
         if filtered_paths:
@@ -853,7 +886,8 @@ def safe_torch_load(
     try:
         if load_fsdp_monolith_rank0_only:
             log.info(
-                'Loading monolith FSDP checkpoint. Only rank 0 will load and broadcast non-weight/optimizer state.')
+                'Loading monolith FSDP checkpoint. Only rank 0 will load and broadcast non-weight/optimizer state.',
+            )
             state_dict_list = [None]
             model = None
             optimizer = None
@@ -882,10 +916,12 @@ def safe_torch_load(
             return _torch_load_with_validation(composer_states_filepath, map_location=map_location)
     except TypeError as e:
         if 'Accuracy.__new__() missing 1 required positional argument' in str(e):
-            raise Exception('As of v0.10.0, torchmetrics introduces a new required argument to Accuracy which '
-                            'breaks backwards compatibility. Unfortunately, this means that older checkpoints '
-                            'cannot be loaded with the metrics. In order to successfully load this model, please '
-                            'pass `load_ignore_keys = ["state/train_metrics/*", "state/eval_metrics/*"]`.') from e
+            raise Exception(
+                'As of v0.10.0, torchmetrics introduces a new required argument to Accuracy which '
+                'breaks backwards compatibility. Unfortunately, this means that older checkpoints '
+                'cannot be loaded with the metrics. In order to successfully load this model, please '
+                'pass `load_ignore_keys = ["state/train_metrics/*", "state/eval_metrics/*"]`.',
+            ) from e
         raise e
 
 
