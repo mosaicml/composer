@@ -3327,12 +3327,14 @@ class Trainer:
                                                 outputs.append(v)
                                     else:
                                         outputs = self.state.outputs.cpu()
+                                    batch = DeviceCPU().batch_to_device(batch)
                                 else:
                                     outputs = self.state.outputs
+                                    batch = self.state.batch
 
                                 for metric in metrics.values():
                                     metric_outputs = self._original_model.update_metric(
-                                        self.state.batch,
+                                        batch,
                                         outputs,
                                         metric,
                                     )
