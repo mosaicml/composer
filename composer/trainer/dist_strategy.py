@@ -609,7 +609,7 @@ def prepare_fsdp_module(
                     from transformer_engine.pytorch.distributed import prepare_te_modules_for_fsdp
                 except ModuleNotFoundError:
                     raise ModuleNotFoundError('Please install transformer-engine to use prepare_te_modules_for_fsdp')
-                log.info(f'Calling prepare_te_modules_for_fsdp to shard TE weights')
+                log.info(f'Calling prepare_te_modules_for_fsdp to enable TE weights sharding')
                 prepare_te_modules_for_fsdp(fsdp_obj)
 
             if hasattr(fsdp_obj, '_exec_order_data'):
@@ -658,6 +658,8 @@ def prepare_fsdp_module(
                                 return CUDA_RNG_STATES_TRACKER
 
                             first_wrap_fn = lambda m: checkpoint_wrapper(m,
+                                                                         context_fn=te.distributed.
+                                                                         get_activation_recompute_contexts,
                                                                          checkpoint_fn=te.distributed.checkpoint,
                                                                          use_reentrant=False,
                                                                          get_rng_state_tracker=get_cuda_rng_tracker)
