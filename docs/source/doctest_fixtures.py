@@ -101,6 +101,9 @@ os.environ['MOSAICML_PLATFORM'] = 'False'
 # Disable wandb
 os.environ['WANDB_MODE'] = 'disabled'
 
+# Disable neptune
+os.environ['NEPTUNE_MODE'] = 'debug'
+
 # Change the cwd to be the tempfile, so we don't pollute the documentation source folder
 tmpdir = tempfile.mkdtemp()
 cwd = os.path.abspath('.')
