@@ -23,6 +23,8 @@ if TYPE_CHECKING:
     from composer.callbacks import OOMObserver
     from composer.core import State
 
+NEPTUNE_MODE_TYPE = Literal['async', 'sync', 'offline', 'read-only', 'debug']
+
 
 class NeptuneLogger(LoggerDestination):
     """Log to `neptune.ai <https://neptune.ai/>`_.
@@ -63,10 +65,10 @@ class NeptuneLogger(LoggerDestination):
         upload_artifacts: Optional[bool] = None,
         upload_checkpoints: bool = False,
         base_namespace: str = 'training',
+        mode: Optional[NEPTUNE_MODE_TYPE] = None,
         **neptune_kwargs,
     ) -> None:
         try:
-            from neptune.envs import CONNECTION_MODE as NEPTUNE_MODE
             from neptune.internal.utils import verify_type
         except ImportError as e:
             raise MissingConditionalImportError(
@@ -100,9 +102,7 @@ class NeptuneLogger(LoggerDestination):
 
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
 
-        mode = neptune_kwargs.pop('mode') if 'mode' in neptune_kwargs else os.getenv(NEPTUNE_MODE, 'async')
-
-        self._mode: Literal['async', 'sync', 'offline', 'read-only', 'debug'] = mode if self._enabled else 'debug'
+        self._mode: Optional[NEPTUNE_MODE_TYPE] = mode if self._enabled else 'debug'
 
         self._neptune_run = None
         self._base_handler = None

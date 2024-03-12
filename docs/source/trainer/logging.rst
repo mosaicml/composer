@@ -32,6 +32,9 @@ and also saves them to the file
     :skipif: not _WANDB_INSTALLED or not _COMETML_INSTALLED or not _NEPTUNE_INSTALLED
 
     import os
+    import logging
+
+    logging.getLogger("neptune").setLevel(logging.CRITICAL)
 
     os.environ["NEPTUNE_MODE"] = "debug"
     os.environ["WANDB_MODE"] = "disabled"
