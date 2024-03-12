@@ -20,8 +20,8 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 import mcli
 import torch
 
-from composer.core import Event, Time
-from composer.core.time import TimeUnit
+from composer.core.event import Event
+from composer.core.time import Time, TimeUnit
 # composer logger types for analytics logging
 from composer.loggers import Logger
 from composer.loggers.cometml_logger import CometMLLogger
@@ -30,7 +30,6 @@ from composer.loggers.file_logger import FileLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.mlflow_logger import MLFlowLogger
-from composer.loggers.mosaicml_logger import MosaicMLLogger
 from composer.loggers.neptune_logger import NeptuneLogger
 from composer.loggers.progress_bar_logger import ProgressBarLogger
 from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
@@ -62,7 +61,6 @@ LOGGER_TYPES = [
     NeptuneLogger,
     ConsoleLogger,
     CometMLLogger,
-    MosaicMLLogger,
     InMemoryLogger,
     TensorboardLogger,
     ProgressBarLogger,
@@ -151,7 +149,7 @@ class MosaicMLLogger(LoggerDestination):
         metrics['composer/algorithms'] = [
             json.dumps(algorithm.state_dict(), sort_keys=True) for algorithm in trainer_state.algorithms
         ]
-        metrics['composer/loggers'] = [get_logger_type(logger) for logger in loggers]
+        metrics['composer/loggers'] = [get_logger_type(logger) for logger in (loggers + [MosaicMLLogger])]
 
         # Take the service provider out of the URI and log it to metadata. If no service provider
         # is found (i.e. backend = ''), then we assume 'local' for the cloud provider.
