@@ -38,6 +38,7 @@ from composer.loggers.slack_logger import SlackLogger
 from composer.loggers.tensorboard_logger import TensorboardLogger
 from composer.loggers.wandb_logger import WandBLogger
 from composer.utils import dist
+from composer.utils.file_helpers import parse_uri
 
 if TYPE_CHECKING:
     from composer.core import State
@@ -139,6 +140,8 @@ class MosaicMLLogger(LoggerDestination):
         trainer_state: State,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]],
         loggers: List[LoggerDestination],
+        load_path: Optional[str] = None,
+        save_folder: Optional[str] = None
     ) -> None:
         metrics: Dict[str, Any] = {'composer/autoresume': autoresume, 'composer/precision': trainer_state.precision}
 
@@ -150,14 +153,23 @@ class MosaicMLLogger(LoggerDestination):
         ]
         metrics['composer/loggers'] = [get_logger_type(logger) for logger in loggers]
 
-        save_interval_str: str = ''
+        # Take the service provider out of the URI and log it to metadata. If no service provider
+        # is found (i.e. backend = ''), then we assume 'local' for the cloud provider.
+        if load_path is not None:
+            backend, _, _ = parse_uri(load_path)
+            metrics['composer/cloud_provider_data'] = backend if backend else 'local'
+        if save_folder is not None:
+            backend, _, _ = parse_uri(save_folder)
+            metrics['composer/cloud_provider_checkpoints'] = backend if backend else 'local'
+
+        # Save interval can be passed in w/ multiple types. If the type is a function, then 
+        # we log 'callable' as the save_interval value for analytics.
         if isinstance(save_interval, Union[str, int]):
             save_interval_str = str(save_interval)
         elif isinstance(save_interval, Time):
             save_interval_str = f'{save_interval._value}{save_interval._unit}'
         else:
             save_interval_str = 'callable'
-
         metrics['composer/save_interval'] = save_interval_str
 
         if trainer_state.fsdp_config:

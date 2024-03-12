@@ -1300,8 +1300,6 @@ class Trainer:
 
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)
-        if mosaicml_logger:
-            mosaicml_logger.log_analytics(autoresume, self.state, save_interval, loggers)
 
         if save_latest_filename is not None:
             remote_ud_has_format_string = [
@@ -1701,6 +1699,9 @@ class Trainer:
                 algorithm_passes=self.engine.algorithm_passes,
             )
             self.state.run_name = run_name
+
+        if mosaicml_logger is not None:
+            mosaicml_logger.log_analytics(autoresume, self.state, save_interval, loggers, load_path, save_folder)
 
         # FSDP wrap if model is not yet wrapped and FSDP is enabled. This can happen if
         # load_fsdp_monolith_rank0_only=True but no checkpoint was loaded.
