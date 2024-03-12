@@ -15,16 +15,30 @@ import time
 import warnings
 from concurrent.futures import wait
 from functools import reduce
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 import mcli
 import torch
 
+from composer.core import Time, Event
 from composer.core.time import TimeUnit
-from composer.loggers import Logger
-from composer.loggers.logger_destination import LoggerDestination
-from composer.loggers.wandb_logger import WandBLogger
 from composer.utils import dist
+
+# composer logger types for analytics logging
+from composer.loggers import Logger
+from composer.loggers.file_logger import FileLogger
+from composer.loggers.slack_logger import SlackLogger
+from composer.loggers.wandb_logger import WandBLogger
+from composer.loggers.mlflow_logger import MLFlowLogger
+from composer.loggers.neptune_logger import NeptuneLogger
+from composer.loggers.console_logger import ConsoleLogger
+from composer.loggers.cometml_logger import CometMLLogger
+from composer.loggers.mosaicml_logger import MosaicMLLogger
+from composer.loggers.in_memory_logger import InMemoryLogger
+from composer.loggers.logger_destination import LoggerDestination
+from composer.loggers.tensorboard_logger import TensorboardLogger
+from composer.loggers.progress_bar_logger import ProgressBarLogger
+from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
 
 if TYPE_CHECKING:
     from composer.core import State
@@ -38,6 +52,21 @@ MOSAICML_PLATFORM_ENV_VAR = 'MOSAICML_PLATFORM'
 MOSAICML_ACCESS_TOKEN_ENV_VAR = 'MOSAICML_ACCESS_TOKEN_FILE'
 MOSAICML_LOG_DIR_ENV_VAR = 'MOSAICML_LOG_DIR'
 MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR = 'MOSAICML_GPU_LOG_FILE_PREFIX'
+
+# TODO move this logic somewhere
+LOGGER_TYPES = [FileLogger, SlackLogger, 
+                WandBLogger, MLFlowLogger, 
+                NeptuneLogger, ConsoleLogger, 
+                CometMLLogger, MosaicMLLogger, 
+                InMemoryLogger, TensorboardLogger,
+                ProgressBarLogger, RemoteUploaderDownloader, 
+                LoggerDestination]
+
+def get_logger_type(logger: Any) -> str:
+    for logger_type in LOGGER_TYPES:
+        if isinstance(logger, logger_type):
+            return logger_type.__name__
+    return 'Custom'
 
 
 class MosaicMLLogger(LoggerDestination):
@@ -96,14 +125,43 @@ class MosaicMLLogger(LoggerDestination):
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         self._log_metadata(metrics)
 
-    def log_analytics(self, autoresume: bool, trainer_state: State, loggers: List[LoggerDestination]):
-        metrics = {'composer/autoresume': autoresume, 'composer/precision': trainer_state.precision}
+    def log_analytics(
+        self, 
+        autoresume: bool, 
+        trainer_state: State, 
+        save_interval: Union[str, int, Time, Callable[[State, Event], bool]],
+        loggers: List[LoggerDestination],
+    ) -> None:
+        metrics: Dict[str, Any] = {'composer/autoresume': autoresume, 'composer/precision': trainer_state.precision}
+
+        metrics['composer/optimizers'] = [
+            json.dumps(optimizer.state_dict(), sort_keys=True)
+            for optimizer in trainer_state.optimizers
+        ]
+        metrics['composer/algorithms'] = [
+            json.dumps(algorithm.state_dict(), sort_keys=True) 
+            for algorithm in trainer_state.algorithms
+        ]
+        metrics['composer/loggers'] = [get_logger_type(logger) for logger in loggers]
+
+        save_interval_str:str = ''
+        if isinstance(save_interval, Union[str, int]):
+            save_interval_str = str(save_interval)
+        elif isinstance(save_interval, Time):
+            save_interval_str = f'{save_interval._value}{save_interval._unit}'
+        else:
+            save_interval_str = 'callable'
+
+        metrics['composer/save_interval'] = save_interval_str
 
         if trainer_state.fsdp_config:   
             metrics['composer/sharding_strategy'] = trainer_state.fsdp_config.get('sharding_strategy', None)
             metrics['composer/activation_checkpointing'] = trainer_state.fsdp_config.get('activation_checkpointing', False)
             metrics['composer/forward_prefetch'] = trainer_state.fsdp_config.get('forward_prefetch', False)
             metrics['composer/backward_prefetch'] = trainer_state.fsdp_config.get('backward_prefetch', None)
+
+            # Get device_mesh from config so it is in list form and JSON parsable
+            metrics['composer/device_mesh'] = trainer_state.fsdp_config.get('device_mesh', [])
 
             mixed_precision = trainer_state.fsdp_config.get('mixed_precision', None)
             if mixed_precision is not None and isinstance(mixed_precision, dict):
@@ -113,7 +171,10 @@ class MosaicMLLogger(LoggerDestination):
                 metrics['composer/mixed_precision'] = mixed_precision
 
         if trainer_state.fsdp_state_dict_type is not None:
-            metrics['composer/state_dict_type'] = trainer_state.fsdp_state_dict_type            
+            metrics['composer/state_dict_type'] = trainer_state.fsdp_state_dict_type      
+
+        self.log_metrics(metrics)
+        self._flush_metadata(force_flush=True)
 
     def after_load(self, state: State, logger: Logger) -> None:
         # Log model data downloaded and initialized for run events
