@@ -3,6 +3,7 @@
 
 """Helper utilities."""
 
+from composer.utils.analytics_helpers import get_logger_type
 from composer.utils.auto_log_hparams import (
     convert_flat_dict_to_nested_dict,
     convert_nested_dict_to_flat_dict,
@@ -129,4 +130,5 @@ __all__ = [
     'LocalEvalClient',
     'MosaicMLLambdaEvalClient',
     'partial_format',
+    'get_logger_type',
 ]

@@ -1280,7 +1280,6 @@ class Trainer:
 
         # MosaicML Logger
         # Keep MosaicML logger above the RemoteUploaderDownloader so that fit end is reported before the final checkpoint begins uploading
-        mosaicml_logger = None
         if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and os.environ.get(
             MOSAICML_ACCESS_TOKEN_ENV_VAR,
         ) is not None and not any(isinstance(x, MosaicMLLogger) for x in loggers):
@@ -1700,7 +1699,7 @@ class Trainer:
             )
             self.state.run_name = run_name
 
-        if mosaicml_logger is not None:
+        if next((logger for logger in loggers if isinstance(logger, MosaicMLLogger)), None) is not None:
             mosaicml_logger.log_analytics(autoresume, self.state, save_interval, loggers, load_path, save_folder)
 
         # FSDP wrap if model is not yet wrapped and FSDP is enabled. This can happen if

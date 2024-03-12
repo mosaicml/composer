@@ -24,19 +24,9 @@ from composer.core.event import Event
 from composer.core.time import Time, TimeUnit
 # composer logger types for analytics logging
 from composer.loggers import Logger
-from composer.loggers.cometml_logger import CometMLLogger
-from composer.loggers.console_logger import ConsoleLogger
-from composer.loggers.file_logger import FileLogger
-from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger_destination import LoggerDestination
-from composer.loggers.mlflow_logger import MLFlowLogger
-from composer.loggers.neptune_logger import NeptuneLogger
-from composer.loggers.progress_bar_logger import ProgressBarLogger
-from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
-from composer.loggers.slack_logger import SlackLogger
-from composer.loggers.tensorboard_logger import TensorboardLogger
 from composer.loggers.wandb_logger import WandBLogger
-from composer.utils import dist
+from composer.utils import dist, get_logger_type
 from composer.utils.file_helpers import parse_uri
 
 if TYPE_CHECKING:
@@ -51,29 +41,6 @@ MOSAICML_PLATFORM_ENV_VAR = 'MOSAICML_PLATFORM'
 MOSAICML_ACCESS_TOKEN_ENV_VAR = 'MOSAICML_ACCESS_TOKEN_FILE'
 MOSAICML_LOG_DIR_ENV_VAR = 'MOSAICML_LOG_DIR'
 MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR = 'MOSAICML_GPU_LOG_FILE_PREFIX'
-
-# TODO move this logic somewhere
-LOGGER_TYPES = [
-    FileLogger,
-    SlackLogger,
-    WandBLogger,
-    MLFlowLogger,
-    NeptuneLogger,
-    ConsoleLogger,
-    CometMLLogger,
-    InMemoryLogger,
-    TensorboardLogger,
-    ProgressBarLogger,
-    RemoteUploaderDownloader,
-    LoggerDestination,
-]
-
-
-def get_logger_type(logger: Any) -> str:
-    for logger_type in LOGGER_TYPES:
-        if isinstance(logger, logger_type):
-            return logger_type.__name__
-    return 'Custom'
 
 
 class MosaicMLLogger(LoggerDestination):
@@ -149,7 +116,7 @@ class MosaicMLLogger(LoggerDestination):
         metrics['composer/algorithms'] = [
             json.dumps(algorithm.state_dict(), sort_keys=True) for algorithm in trainer_state.algorithms
         ]
-        metrics['composer/loggers'] = [get_logger_type(logger) for logger in (loggers + [MosaicMLLogger])]
+        metrics['composer/loggers'] = [get_logger_type(logger) for logger in loggers]
 
         # Take the service provider out of the URI and log it to metadata. If no service provider
         # is found (i.e. backend = ''), then we assume 'local' for the cloud provider.
