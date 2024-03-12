@@ -78,7 +78,7 @@ class MosaicMLLogger(LoggerDestination):
             self.time_last_logged = 0
             self.train_dataloader_len = None
             self.buffered_metadata: Dict[str, Any] = {}
-            self._futures = []
+            self._futures_to_metadata = {}
 
             self.run_name = os.environ.get(RUN_NAME_ENV_VAR)
             if self.run_name is not None:
@@ -140,7 +140,7 @@ class MosaicMLLogger(LoggerDestination):
     def close(self, state: State, logger: Logger) -> None:
         self._flush_metadata(force_flush=True, future=False)
         if self._enabled:
-            wait(self._futures)  # Ignore raised errors on close
+            wait(self._futures_to_metadata.keys())  # Ignore raised errors on close
 
     def _log_metadata(self, metadata: Dict[str, Any]) -> None:
         """Buffer metadata and prefix keys with mosaicml."""
@@ -160,17 +160,24 @@ class MosaicMLLogger(LoggerDestination):
                 assert self.run_name is not None
                 if future:
                     f = mcli.update_run_metadata(self.run_name, self.buffered_metadata, future=True, protect=True)
-                    self._futures.append(f)
+                    self._futures_to_metadata[f] = self.buffered_metadata
                 else:
                     mcli.update_run_metadata(self.run_name, self.buffered_metadata, future=False, protect=True)
                 self.buffered_metadata = {}
                 self.time_last_logged = time.time()
-                done, incomplete = wait(self._futures, timeout=0.01)
+                done, _ = wait(self._futures_to_metadata.keys(), timeout=0.01)
                 # Raise any exceptions
                 for f in done:
                     if f.exception() is not None:
-                        raise f.exception()  # type: ignore
-                self._futures = list(incomplete)
+                        if 'expired transaction' in str(f.exception()):
+                            # do not raise exception if transaction expired, add to incomplete and retry
+                            log.info(
+                                f'Timeout while logging metadata {self._futures_to_metadata[f]} to MosaicML. Retrying in a future flush.'
+                            )
+                            continue
+                        else:
+                            raise f.exception()  # type: ignore
+                    self._futures_to_metadata.pop(f)
             except Exception:
                 log.exception('Failed to log metadata to Mosaic')  # Prints out full traceback
                 if self.ignore_exceptions:

@@ -28,11 +28,14 @@ from tests.common.markers import world_size
 
 class MockMAPI:
 
-    def __init__(self, simulate_exception: bool = False):
+    def __init__(self, simulate_exception: bool = False, simulate_expired_transaction: bool = False):
         self.run_metadata = {}
         self.simulate_exception = simulate_exception
+        self.simulate_expired_transaction = simulate_expired_transaction
 
     def update_run_metadata(self, run_name, new_metadata, future=False, protect=True):
+        if self.simulate_expired_transaction:
+            future = True
         if future:
             # Simulate asynchronous behavior using Future
             future_obj = Future()
@@ -48,6 +51,8 @@ class MockMAPI:
     def _update_metadata(self, run_name, new_metadata):
         if self.simulate_exception:
             raise RuntimeError('Simulated exception')
+        if self.simulate_expired_transaction:
+            raise RuntimeError('This is an expired transaction!')
         if run_name not in self.run_metadata:
             self.run_metadata[run_name] = {}
         for k, v in new_metadata.items():
@@ -365,3 +370,22 @@ def test_epoch_zero_no_dataloader_progress_metrics():
     assert training_progress['training_progress'] == '[epoch=1/3]'
     assert 'training_sub_progress' in training_progress
     assert training_progress['training_sub_progress'] == '[batch=1]'
+
+
+def test_expired_transactions_handled(monkeypatch, mocker):
+    mock_mapi = MockMAPI(simulate_expired_transaction=True)
+    monkeypatch.setenv('MOSAICML_PLATFORM', 'True')
+    monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
+    run_name = 'small_chungus'
+    monkeypatch.setenv('RUN_NAME', run_name)
+
+    logger = MosaicMLLogger()
+    mock_log_info = mocker.patch('logging.Logger.info')
+
+    logger.buffered_metadata = {'key': 'value'}  # Add dummy data so logging runs
+    logger._flush_metadata(force_flush=True)
+
+    expected_log_message = "Timeout while logging metadata {'key': 'value'} to MosaicML. Retrying in a future flush."
+    actual_calls = [call.args[0] for call in mock_log_info.call_args_list]
+    assert any(expected_log_message in call for call in actual_calls)
+    assert {'key': 'value'} in logger._futures_to_metadata.values()
