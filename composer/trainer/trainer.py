@@ -1276,7 +1276,7 @@ class Trainer:
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)
         if mosaicml_logger:
-            mosaicml_logger.log_analytics(autoresume, self.state, save_interval, loggers, optimizers)
+            mosaicml_logger.log_analytics(autoresume, self.state, save_interval, loggers)
 
         if save_latest_filename is not None:
             remote_ud_has_format_string = [
