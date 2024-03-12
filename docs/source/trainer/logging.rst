@@ -33,6 +33,7 @@ and also saves them to the file
 
     import os
 
+    os.environ["NEPTUNE_MODE"] = "debug"
     os.environ["WANDB_MODE"] = "disabled"
     os.environ["COMET_API_KEY"] = "<comet_api_key>"
     os.environ["MLFLOW_TRACKING_URI"] = ""
@@ -46,7 +47,7 @@ and also saves them to the file
     wandb_logger = WandBLogger()
     cometml_logger = CometMLLogger()
     mlflow_logger = MLFlowLogger()
-    neptune_logger = NeptuneLogger(mode="debug")
+    neptune_logger = NeptuneLogger()
     file_logger = FileLogger(filename="log.txt")
 
     trainer = Trainer(

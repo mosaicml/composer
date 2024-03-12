@@ -63,10 +63,10 @@ class NeptuneLogger(LoggerDestination):
         upload_artifacts: Optional[bool] = None,
         upload_checkpoints: bool = False,
         base_namespace: str = 'training',
-        mode: Literal['async', 'sync', 'offline', 'read-only', 'debug'] = 'async',
         **neptune_kwargs,
     ) -> None:
         try:
+            from neptune.envs import CONNECTION_MODE as NEPTUNE_MODE
             from neptune.internal.utils import verify_type
         except ImportError as e:
             raise MissingConditionalImportError(
@@ -99,6 +99,8 @@ class NeptuneLogger(LoggerDestination):
         self._neptune_kwargs = neptune_kwargs
 
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
+
+        mode = neptune_kwargs.pop('mode') if 'mode' in neptune_kwargs else os.getenv(NEPTUNE_MODE, 'async')
 
         self._mode: Literal['async', 'sync', 'offline', 'read-only', 'debug'] = mode if self._enabled else 'debug'
 
