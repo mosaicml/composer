@@ -141,7 +141,7 @@ class MosaicMLLogger(LoggerDestination):
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]],
         loggers: List[LoggerDestination],
         load_path: Optional[str] = None,
-        save_folder: Optional[str] = None
+        save_folder: Optional[str] = None,
     ) -> None:
         metrics: Dict[str, Any] = {'composer/autoresume': autoresume, 'composer/precision': trainer_state.precision}
 
@@ -162,7 +162,7 @@ class MosaicMLLogger(LoggerDestination):
             backend, _, _ = parse_uri(save_folder)
             metrics['composer/cloud_provider_checkpoints'] = backend if backend else 'local'
 
-        # Save interval can be passed in w/ multiple types. If the type is a function, then 
+        # Save interval can be passed in w/ multiple types. If the type is a function, then
         # we log 'callable' as the save_interval value for analytics.
         if isinstance(save_interval, Union[str, int]):
             save_interval_str = str(save_interval)
