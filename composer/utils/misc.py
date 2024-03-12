@@ -115,6 +115,8 @@ def create_interval_scheduler(
                 print(float(time_interval))
                 print(state.max_duration.value * float(time_interval) * state.dataloader_len)
                 print(math.ceil(state.max_duration.value * float(time_interval) * state.dataloader_len))
+                print(int(state.timestamp.batch) % math.ceil(state.max_duration.value * float(time_interval) * state.dataloader_len))
+                print(int(state.timestamp.batch) % math.ceil(state.max_duration.value * float(time_interval) * state.dataloader_len) == 0)
                 if state.max_duration.unit == TimeUnit.EPOCH and int(state.timestamp.batch) % math.ceil(
                     state.max_duration.value * float(time_interval) * state.dataloader_len,
                 ) == 0:
