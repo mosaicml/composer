@@ -111,7 +111,7 @@ def create_interval_scheduler(
 
             if event == interval_event:
                 if state.max_duration.unit == TimeUnit.EPOCH and int(state.timestamp.batch) % math.ceil(
-                    state.max_duration.value * float(time_interval) * state.dataloader_len,
+                    state.max_duration.value * float(time_interval) * state.dataloader_len.value,
                 ) == 0:
                     last_batch_seen = state.timestamp.batch
                     return True
