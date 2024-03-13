@@ -3,6 +3,7 @@
 
 """These fixtures are shared globally across the test suite."""
 import copy
+import os
 import time
 
 import coolname
@@ -112,7 +113,7 @@ def s3_bucket(request: pytest.FixtureRequest):
     if request.node.get_closest_marker('remote') is None:
         return 'my-bucket'
     else:
-        return 'mosaicml-internal-integration-testing'
+        return os.environ.get('S3_BUCKET', 'mosaicml-internal-integration-testing')
 
 
 @pytest.fixture
