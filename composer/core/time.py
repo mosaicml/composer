@@ -24,6 +24,7 @@ from typing import Any, Dict, Generic, Optional, TypeVar, Union, cast
 
 from composer.core.serializable import Serializable
 from composer.utils import StringEnum
+from composer.utils.warnings import VersionedDeprecationWarning
 
 __all__ = ['TimeUnit', 'Time', 'Timestamp', 'ensure_time']
 
@@ -545,7 +546,10 @@ class Timestamp(Serializable):
         Returns:
             Dict[str, Union[Time[int], datetime.timedelta]]: All values of the timestamp object.
         """
-        warnings.warn('core.time.Timestamp.get_state is deprecated and will be removed v0.21.0', DeprecationWarning)
+        warnings.warn(
+            VersionedDeprecationWarning('core.time.Timestamp.get_state is deprecated.', remove_version='0.21.0'),
+        )
+
         return self.state_dict()
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:

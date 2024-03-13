@@ -20,6 +20,7 @@ from torchmetrics import Metric
 
 from composer.utils import dist
 from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient, MosaicMLLambdaEvalClient
+from composer.utils.warnings import VersionedDeprecationWarning
 
 log = logging.getLogger(__name__)
 
@@ -271,8 +272,7 @@ class InContextLearningMetric(Metric):
             raise ValueError('Cannot use both `outputs` and `output_logits`')
         if output_logits is not None:
             warnings.warn(
-                ('`output_logits` has been renamed to `outputs` and will be removed in v0.21'),
-                DeprecationWarning,
+                VersionedDeprecationWarning('`output_logits` has been renamed to `outputs`.', remove_version='0.21.0'),
             )
             outputs = output_logits
 

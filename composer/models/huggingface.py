@@ -23,6 +23,7 @@ from torchmetrics import Metric
 
 from composer.models.base import ComposerModel
 from composer.utils import MissingConditionalImportError, dist, get_file, import_object, is_model_fsdp, safe_torch_load
+from composer.utils.warnings import VersionedDeprecationWarning
 
 try:
     from peft import PeftModel, get_peft_model
@@ -510,11 +511,10 @@ class HuggingFaceModel(ComposerModel):
 
             if 'generation_length' in batch:
                 warnings.warn(
-                    (
-                        '`generation_length` has been deprecated in favor of passing `max_new_tokens` directly into `generation_kwargs`.'
-                        'It will be removed in v0.21'
+                    VersionedDeprecationWarning(
+                        '`generation_length` has been deprecated in favor of passing `max_new_tokens` directly into `generation_kwargs`.',
+                        remove_version='0.21.0',
                     ),
-                    DeprecationWarning,
                 )
                 if 'generation_kwargs' in batch:
                     batch['generation_kwargs']['max_new_tokens'] = batch['generation_length']
