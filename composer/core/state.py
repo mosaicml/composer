@@ -44,6 +44,7 @@ from composer.utils import (
     is_model_deepspeed,
     reproducibility,
 )
+from composer.utils.warnings import VersionedDeprecationWarning
 
 if TYPE_CHECKING:
     import deepspeed
@@ -787,8 +788,10 @@ class State(Serializable):
     @property
     def fsdp_elastic_sharded_enabled(self):
         warnings.warn(
-            'state.fsdp_elastic_sharded_enabled is deprecated and will be removed v0.21.0',
-            DeprecationWarning,
+            VersionedDeprecationWarning(
+                'state.fsdp_elastic_sharded_enabled is deprecated.',
+                remove_version='0.21.0',
+            ),
         )
         return self.fsdp_sharded_state_dict_enabled
 
