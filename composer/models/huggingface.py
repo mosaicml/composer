@@ -531,8 +531,8 @@ class HuggingFaceModel(ComposerModel):
 
             # don't remove prefix space to sentencepiece models
             if len(
-                self.tokenizer(' a', add_special_tokens=False)['input_ids'],
-            ) == 1:  # pyright: ignore[reportGeneralTypeIssues]
+                self.tokenizer(' a', add_special_tokens=False)['input_ids'],  # pyright: ignore[reportGeneralTypeIssues]
+            ) == 1:
                 return self.tokenizer.batch_decode(
                     generation[:, batch['input_ids'].shape[1]:],
                     skip_special_tokens=True,
@@ -658,8 +658,8 @@ class HuggingFaceModel(ComposerModel):
                                 conda_package='sentencepiece',
                             ) from e
                         s = spm.SentencePieceProcessor(
-                            model_file=str(tokenizer_file_path),
-                        )  # pyright: ignore[reportGeneralTypeIssues]
+                            model_file=str(tokenizer_file_path),  # pyright: ignore[reportGeneralTypeIssues]
+                        )
                         tokenizer_file_content = s.serialized_model_proto()
                     else:
                         raise ValueError(
