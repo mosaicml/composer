@@ -104,9 +104,6 @@ class EvalOutputLogging(Callback):
         self.rows.extend(rows)
 
     def eval_end(self, state: State, logger: Logger) -> None:
-        if not self.name or self.columns is None:
-            return
-
         list_of_rows = all_gather_object(self.rows)
         rows = [row for rows in list_of_rows for row in rows]
         for dest_logger in logger.destinations:
