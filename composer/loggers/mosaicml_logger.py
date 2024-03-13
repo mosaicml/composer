@@ -26,7 +26,8 @@ from composer.core.time import Time, TimeUnit
 from composer.loggers import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.wandb_logger import WandBLogger
-from composer.utils import dist, get_logger_type
+from composer.utils import dist
+from composer.utils.analytics_helpers import get_logger_type
 from composer.utils.file_helpers import parse_uri
 
 if TYPE_CHECKING:
@@ -116,7 +117,10 @@ class MosaicMLLogger(LoggerDestination):
         metrics['composer/algorithms'] = [
             json.dumps(algorithm.state_dict(), sort_keys=True) for algorithm in trainer_state.algorithms
         ]
-        metrics['composer/loggers'] = [get_logger_type(logger) for logger in loggers]
+        metrics['composer/loggers'] = [
+            get_logger_type(logger) if not isinstance(logger, MosaicMLLogger) else 'MosaicMLLogger'
+            for logger in loggers
+        ]
 
         # Take the service provider out of the URI and log it to metadata. If no service provider
         # is found (i.e. backend = ''), then we assume 'local' for the cloud provider.
