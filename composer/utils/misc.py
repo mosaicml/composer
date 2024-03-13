@@ -25,6 +25,11 @@ __all__ = [
 ]
 
 
+def int_cast_except_zero(x: float) -> int:
+    """Cast a float to an int, except when the float would round to zero."""
+    return int(x) if x >= 1.0 else 1
+
+
 def create_interval_scheduler(
     interval: Union[str, int, 'Time'],
     include_end_of_training: bool = True,
@@ -110,15 +115,8 @@ def create_interval_scheduler(
                 )
 
             if event == interval_event:
-                print(state.max_duration.value, time_interval, state.dataloader_len, state.timestamp.batch)
-                print(int(state.timestamp.batch))
-                print(float(time_interval))
-                print(state.max_duration.value * float(time_interval) * state.dataloader_len)
-                print(math.ceil(state.max_duration.value * float(time_interval) * state.dataloader_len))
-                print(int(state.timestamp.batch) % math.ceil(state.max_duration.value * float(time_interval) * state.dataloader_len))
-                print(int(state.timestamp.batch) % math.ceil(state.max_duration.value * float(time_interval) * state.dataloader_len) == 0)
                 if state.max_duration.unit == TimeUnit.EPOCH and int(state.timestamp.batch) % math.ceil(
-                    state.max_duration.value * float(time_interval) * state.dataloader_len,
+                    state.max_duration.value * float(time_interval) * state.dataloader_len.value,
                 ) == 0:
                     last_batch_seen = state.timestamp.batch
                     return True
