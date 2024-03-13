@@ -1706,7 +1706,6 @@ class Trainer:
                 self.state,
                 save_interval,
                 loggers,
-                train_dataloader,
                 load_path,
                 save_folder,
             )
