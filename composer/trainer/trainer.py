@@ -1701,7 +1701,15 @@ class Trainer:
 
         if next((logger for logger in loggers if isinstance(logger, MosaicMLLogger)), None) is not None:
             mosaicml_logger = next((logger for logger in loggers if isinstance(logger, MosaicMLLogger)))
-            mosaicml_logger.log_analytics(autoresume, self.state, save_interval, loggers, load_path, save_folder)
+            mosaicml_logger.log_analytics(
+                autoresume,
+                self.state,
+                save_interval,
+                loggers,
+                train_dataloader,
+                load_path,
+                save_folder,
+            )
 
         # FSDP wrap if model is not yet wrapped and FSDP is enabled. This can happen if
         # load_fsdp_monolith_rank0_only=True but no checkpoint was loaded.

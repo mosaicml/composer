@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 import mcli
 import torch
 
+from composer.core import DataSpec
 from composer.core.event import Event
 from composer.core.time import Time, TimeUnit
 # composer logger types for analytics logging
@@ -106,10 +107,24 @@ class MosaicMLLogger(LoggerDestination):
         trainer_state: State,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]],
         loggers: List[LoggerDestination],
+        train_dataloader: Union[DataSpec, None],
         load_path: Optional[str] = None,
         save_folder: Optional[str] = None,
     ) -> None:
         metrics: Dict[str, Any] = {'composer/autoresume': autoresume, 'composer/precision': trainer_state.precision}
+
+        if train_dataloader is not None and isinstance(train_dataloader.dataloader, torch.utils.data.DataLoader):
+            metrics['composer/train_loader_workers'] = train_dataloader.dataloader.num_workers
+
+        metrics['composer/eval_loaders'] = []
+        for evaluator in trainer_state.evaluators:
+            if isinstance(evaluator.dataloader, torch.utils.data.DataLoader):
+                metrics['composer/eval_loaders'].append(
+                    json.dumps({
+                        'label': evaluator.label,
+                        'num_workers': evaluator.dataloader.num_workers,
+                    }),
+                )
 
         metrics['composer/optimizers'] = [
             json.dumps(optimizer.state_dict(), sort_keys=True) for optimizer in trainer_state.optimizers
