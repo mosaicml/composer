@@ -18,9 +18,9 @@ class EvalOutputLogging(Callback):
     """Logs eval outputs for each sample of each ICL evaluation dataset.
 
     ICL metrics are required to support caching the model's responses including information on whether model was correct.
-    Metrics are responsible for returning the results of individual datapoints in a dictionary of lists.
+    Metrics are responsible for returning the results of individual data points in a dictionary of lists.
     The callback will log the metric name, the depadded and detokenized input, any data stored in state.metric_outputs, and
-    any keys from the batch pased into `batch_keys_to_log`. It will do so after every eval batch.
+    any keys from the batch passed into `batch_keys_to_log`. It will do so after every eval batch.
     """
 
     def __init__(self, log_tokens=False, *args, **kwargs):
@@ -107,6 +107,9 @@ class EvalOutputLogging(Callback):
         list_of_rows = all_gather_object(self.rows)
         rows = [row for rows in list_of_rows for row in rows]
         for dest_logger in logger.destinations:
+            assert self.name is not None
+            assert self.columns is not None
+
             if not isinstance(dest_logger, ConsoleLogger):
                 dest_logger.log_table(self.columns, rows, name=self.name, step=state.timestamp.batch.value)
 
