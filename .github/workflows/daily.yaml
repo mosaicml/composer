@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 jobs:
   daily-pytest-cpu:
-    uses: mosaicml/ci-testing/.github/workflows/pytest-cpu.yaml@v0.0.3
+    uses: mosaicml/ci-testing/.github/workflows/pytest-cpu.yaml@v0.0.4
     strategy:
       matrix:
         include:
@@ -100,7 +100,7 @@ jobs:
       download-path: artifacts
 
   daily-pytest-gpu:
-    uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml@v0.0.3
+    uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml@v0.0.4
     strategy:
       matrix:
         # Unlike CPU tests, we run daily tests together with GPU tests to minimize launch time
