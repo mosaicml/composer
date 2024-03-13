@@ -169,7 +169,7 @@ Neptune File upload
     The :class:`~composer.loggers.neptune_logger.NeptuneLogger` API Reference.
 
 .. testcode::
-    :skipif: True
+    :skipif: not _NEPTUNE_INSTALLED
 
     from composer.loggers import NeptuneLogger
     from composer import Trainer
