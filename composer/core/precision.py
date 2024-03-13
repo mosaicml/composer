@@ -4,13 +4,12 @@
 """Enum class for the numerical precision to be used by the model."""
 
 import contextlib
-import os
 import textwrap
-from typing import Generator, Union
+from typing import Any, Dict, Generator, Optional, Union
 
 import torch
 
-from composer.utils import StringEnum
+from composer.utils import StringEnum, is_xla_installed
 
 try:
     import transformer_engine.pytorch as te
@@ -38,11 +37,16 @@ class Precision(StringEnum):
 
 
 @contextlib.contextmanager
-def get_precision_context(precision: Union[str, Precision]) -> Generator[None, None, None]:
+def get_precision_context(
+    precision: Union[str, Precision],
+    precision_config: Optional[Dict[str, Any]] = None,
+) -> Generator[None, None, None]:
     """Returns a context manager to automatically cast to a specific precision.
 
     Args:
         precision (str | Precision): Precision for the context
+        precision_config (Optional[Dict[str, Any]]): Config for FP8 scaling strategy. See parameters for
+            `DelayedScaling <https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/common.html?highlight=delayedscaling#transformer_engine.common.recipe.DelayedScaling>`_.
     """
     precision = Precision(precision)
     if precision == Precision.FP32:
@@ -54,34 +58,51 @@ def get_precision_context(precision: Union[str, Precision]) -> Generator[None, N
             yield
     elif precision == Precision.AMP_FP16:
         # Retain compatibility with PyTorch < 1.10
-        with torch.cuda.amp.autocast(True):
+        if torch.cuda.is_available():
+            with torch.cuda.amp.autocast(True):
+                yield
+        elif is_xla_installed():
+            with torch.autocast('xla', dtype=torch.float16):
+                yield
+        else:
             yield
     elif precision == Precision.AMP_BF16:
         if torch.cuda.is_available():
             with torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16):
                 yield
+        elif is_xla_installed():
+            with torch.autocast('xla', dtype=torch.bfloat16):
+                yield
         else:
-            os.environ['XLA_USE_BF16'] = '1'
             yield
     elif precision == Precision.AMP_FP8:
-        if te_installed and torch.cuda.get_device_capability()[0] > 8:
+        if te_installed and torch.cuda.get_device_capability() >= (8, 9):
             from transformer_engine.common.recipe import DelayedScaling, Format
 
-            # These default values for fp8_recipe are taken from NVidia's docs. We may want to change
-            # these once we get a chance to do more convergence experiments.
-            # https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/examples/fp8_primer.html#id1
-            fp8_format = Format.HYBRID  # E4M3 during forward pass, E5M2 during backward pass
-            fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo='max')
+            if precision_config is None:
+                precision_config = {
+                    'fp8_format': Format.HYBRID,
+                    'amax_history_len': 16,
+                    'amax_compute_algo': 'max',
+                }
+            fp8_recipe = DelayedScaling(**precision_config)
             with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-                yield
+                # The te.onnx_export flag ensures that we save all fp8 buffers
+                # as tensors instead of bytes. This is necessary for proper
+                # saving and resumption of checkpoints.
+                with te.onnx_export(enabled=True):
+                    yield
         else:
             if te_installed:
                 raise RuntimeError('AMP_FP8 precision is used but current device does not support it.')
             else:
                 raise ImportError(
-                    textwrap.dedent("""\
+                    textwrap.dedent(
+                        """\
                         AMP_FP8 precision is used but TransformerEngine is not installed.
                         After making sure torch is already installed, please install it using
-                        pip install --upgrade git+https://github.com/NVIDIA/TransformerEngine.git@stable"""))
+                        pip install --upgrade git+https://github.com/NVIDIA/TransformerEngine.git@stable""",
+                    ),
+                )
     else:
         raise ValueError(f'Unsupported precision: {precision}')

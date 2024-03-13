@@ -51,6 +51,10 @@ class ExportForInferenceCallback(Callback):
         sample_input (Any, optional): Example model inputs used for tracing. This is needed for "onnx" export
         transforms (Sequence[Transform], optional): transformations (usually optimizations) that should
             be applied to the model. Each Transform should be a callable that takes a model and returns a modified model.
+        input_names (Sequence[str], optional): names to assign to the input nodes of the graph, in order. If set
+            to ``None``, the keys from the `sample_input` will be used. Fallbacks to ``["input"]``.
+        output_names (Sequence[str], optional): names to assign to the output nodes of the graph, in order. It set
+            to ``None``, it defaults to ``["output"]``.
     """
 
     def __init__(
@@ -60,12 +64,16 @@ class ExportForInferenceCallback(Callback):
         save_object_store: Optional[ObjectStore] = None,
         sample_input: Optional[Any] = None,
         transforms: Optional[Sequence[Transform]] = None,
+        input_names: Optional[Sequence[str]] = None,
+        output_names: Optional[Sequence[str]] = None,
     ):
         self.save_format = save_format
         self.save_path = save_path
         self.save_object_store = save_object_store
         self.sample_input = sample_input
         self.transforms = transforms
+        self.input_names = input_names
+        self.output_names = output_names
 
     def after_dataloader(self, state: State, logger: Logger) -> None:
         del logger
@@ -79,10 +87,14 @@ class ExportForInferenceCallback(Callback):
         export_model = state.model.module if state.is_model_ddp else state.model
         if not isinstance(export_model, nn.Module):
             raise ValueError(f'Exporting Model requires type torch.nn.Module, got {type(export_model)}')
-        export_with_logger(model=export_model,
-                           save_format=self.save_format,
-                           save_path=self.save_path,
-                           logger=logger,
-                           save_object_store=self.save_object_store,
-                           sample_input=(self.sample_input, {}),
-                           transforms=self.transforms)
+        export_with_logger(
+            model=export_model,
+            save_format=self.save_format,
+            save_path=self.save_path,
+            logger=logger,
+            save_object_store=self.save_object_store,
+            sample_input=(self.sample_input, {}),
+            transforms=self.transforms,
+            input_names=self.input_names,
+            output_names=self.output_names,
+        )

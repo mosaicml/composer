@@ -45,11 +45,13 @@ class DummyObjectStore(ObjectStore):
         time.sleep(random.random() * 0.5)  # random sleep to simulate random network latency
         shutil.copy2(filename, self._get_abs_path(object_name))
 
-    def download_object(self,
-                        object_name: str,
-                        filename: Union[str, pathlib.Path],
-                        overwrite: bool = False,
-                        callback: Optional[Callable[[int, int], None]] = None) -> None:
+    def download_object(
+        self,
+        object_name: str,
+        filename: Union[str, pathlib.Path],
+        overwrite: bool = False,
+        callback: Optional[Callable[[int, int], None]] = None,
+    ) -> None:
         if self.always_fail:
             raise RuntimeError('Crash because you set always_fail to true!')
         if not overwrite and os.path.exists(filename):
@@ -111,7 +113,7 @@ def object_store_test_helper(
                     post_close_ctx = pytest.warns(
                         RuntimeWarning,
                         match=
-                        r'The following objects may not have been uploaded, likely due to a worker crash: remote_file_name'
+                        r'The following objects may not have been uploaded, likely due to a worker crash: remote_file_name',
                     )
                     # Wait for the first upload to go through
                     time.sleep(2)
@@ -124,16 +126,16 @@ def object_store_test_helper(
                     # should be a FileExistsError not a runtime error because the parent will raise
                     # the fatal exception that the worker throws.
                     with pytest.raises(
-                            FileExistsError,
-                            match=
-                            f'Object local://{remote_file_name} already exists, but allow_overwrite was set to False.'):
+                        FileExistsError,
+                        match=f'Object local://{remote_file_name} already exists, but overwrite was set to False.',
+                    ):
                         remote_uploader_downloader.run_event(event_to_test, dummy_state, logger)
 
                 else:
                     # Otherwise, if no delay, it should error when being enqueued
                     with pytest.raises(
-                            FileExistsError,
-                            match=f'Object {remote_file_name} was already enqueued to be uploaded, but overwrite=False.'
+                        FileExistsError,
+                        match=f'Object {remote_file_name} was already enqueued to be uploaded, but overwrite=False.',
                     ):
                         logger.upload_file(remote_file_name, file_path_2, overwrite=overwrite)
 
@@ -171,15 +173,21 @@ def test_remote_uploader_downloader_use_procs(tmp_path: pathlib.Path, dummy_stat
 @pytest.mark.filterwarnings(r'ignore:((.|\n)*)FileExistsError((.|\n)*):pytest.PytestUnhandledThreadExceptionWarning')
 @pytest.mark.parametrize('overwrite_delay', [True, False])
 @pytest.mark.parametrize('event_to_test', [Event.BATCH_END, Event.EPOCH_END])
-def test_remote_uploader_downloader_no_overwrite(tmp_path: pathlib.Path, dummy_state: State, overwrite_delay: bool,
-                                                 event_to_test: Event):
+def test_remote_uploader_downloader_no_overwrite(
+    tmp_path: pathlib.Path,
+    dummy_state: State,
+    overwrite_delay: bool,
+    event_to_test: Event,
+):
     if not overwrite_delay and event_to_test == Event.EPOCH_END:
         pytest.skip('event_to_test does not affect the overwrite_delay=False part of the test')
-    object_store_test_helper(tmp_path=tmp_path,
-                             dummy_state=dummy_state,
-                             overwrite=False,
-                             overwrite_delay=overwrite_delay,
-                             event_to_test=event_to_test)
+    object_store_test_helper(
+        tmp_path=tmp_path,
+        dummy_state=dummy_state,
+        overwrite=False,
+        overwrite_delay=overwrite_delay,
+        event_to_test=event_to_test,
+    )
 
 
 @pytest.mark.parametrize('use_procs', [True, False])
@@ -227,10 +235,12 @@ def test_race_with_overwrite(tmp_path: pathlib.Path, use_procs: bool, dummy_stat
 
             # Assert that the file called "remote_file_name" has the content of the last file uploaded file -- i.e. `num_files` - 1
             destination = tmp_path / 'downloaded_file'
-            remote_uploader_downloader.download_file(remote_file_name,
-                                                     str(destination),
-                                                     overwrite=False,
-                                                     progress_bar=False)
+            remote_uploader_downloader.download_file(
+                remote_file_name,
+                str(destination),
+                overwrite=False,
+                progress_bar=False,
+            )
             with open(destination, 'r') as f:
                 assert f.read() == str(num_files - 1)
 
@@ -278,9 +288,9 @@ def test_close_on_failure(tmp_path: pathlib.Path, dummy_state: State):
         # Shutdown the logger. This should not hang or cause any exception
         remote_uploader_downloader.close(dummy_state, logger=logger)
         with pytest.warns(
-                RuntimeWarning,
-                match=
-                r'The following objects may not have been uploaded, likely due to a worker crash: dummy_remote_file_name'
+            RuntimeWarning,
+            match=
+            r'The following objects may not have been uploaded, likely due to a worker crash: dummy_remote_file_name',
         ):
             remote_uploader_downloader.post_close()
 

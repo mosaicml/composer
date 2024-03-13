@@ -183,21 +183,32 @@ The full spec and defaults for Composer's `fsdp_config` is here:
 .. code:: python
 
     fsdp_config = {
-      'sharding_strategy': str = 'FULL_SHARD' | 'SHARD_GRAD_OP' | 'NO_SHARD', # Default: 'FULL_SHARD'
-      'min_params': float # Default: 1e8
+      'activation_checkpointing': bool = True | False, # Default: False
+      'activation_checkpointing_reentrant': bool = True | False, # Default: True
+      'activation_cpu_offload': bool = True | False, # Default: False
+      'backward_prefetch': str = 'BACKWARD_PRE' | 'BACKWARD_POST' | 'NONE', # Default: 'BACKWARD_POST'
       'cpu_offload': bool = True | False, # Default: False, cpu_offload not supported yet
+      'forward_prefetch': bool = True | False, # Default: False
+      'ignored_modules': Optional[Iterable[torch.nn.Module]], # Default: None
+      'keep_low_precision_grads': bool = True | False, # Default: False
+      'limit_all_gathers': bool = True | False, # Default: False
+      'load_monolith_rank0_only': bool = True | False, # Default: False
+      'load_planner': torch.distributed.checkpoint.planner.LoadPlanner, # Default: None
       'mixed_precision': str = 'FULL' | 'DEFAULT' | 'PURE', # Default: 'DEFAULT'
-      # Note: you can explictly provide a dictionary too
+      # Note: you can explicitly provide a dictionary too
       # 'mixed_precision': dict = {
       #   'param_dtype': 'fp32' | 'fp16' | 'bf16',
       #   'reduce_dtype': 'fp32' | 'fp16' | 'bf16',
       #   'buffer_dtype': 'fp32' | 'fp16' | 'bf16',
       # },
-      'backward_prefetch': str = 'BACKWARD_PRE' | 'BACKWARD_POST' | 'NONE', # Default: 'BACKWARD_POST'
-      'activation_checkpointing': bool = True | False, # Default: False
-      'activation_cpu_offload': bool = True | False, # Default: False
-      'verbose': bool = True | False,
-      'state_dict_type': str = 'full' | 'local' | 'sharded' # Default: full
+      'process_group': str = 'self' | 'node' | 'local_rank_across_nodes' | 'setK' | 'modK', # Default: None
+      'save_planner': torch.distributed.checkpoint.planner.SavePlanner, # Default: None
+      'sharded_ckpt_prefix_dir': str = 'ep{epoch}-ba{batch}', # Default: 'ep{epoch}-ba{batch}'
+      'sharding_strategy': str = 'FULL_SHARD' | 'SHARD_GRAD_OP' | 'NO_SHARD', # Default: 'FULL_SHARD'
+      'state_dict_type': str = 'full' | 'local' | 'sharded', # Default: full
+      'sync_module_states': bool = True | False, # Default: False
+      'use_orig_params': bool = True | False, # Default: True
+      'verbose': bool = True | False, # Default: False
     }
 
 All values come with defaults and can be optionally defined in the :code:`fsdp_config`. Most parameters map directly to parameters in the `FSDP documentation <https://pytorch.org/docs/stable/fsdp.html#torch.distributed.fsdp.FullyShardedDataParallel>`__.
@@ -277,7 +288,6 @@ An example code snippet for using FSDP with composer is provided below:
 
     fsdp_config = {
         'sharding_strategy': 'FULL_SHARD',
-        'min_params': 1e8,
         'cpu_offload': False, # Not supported yet
         'mixed_precision': 'DEFAULT',
         'backward_prefetch': 'BACKWARD_POST',
@@ -308,9 +318,8 @@ To make auto-wrapping easier on users, Composer uses a custom auto wrap policy t
 
 1) If any module is attributed with :code:`module._fsdp_wrap = True | False`, that choice will be respected.
 2) If the root module (e.g. `GPT`) defines a function :code:`def fsdp_wrap_fn(module: torch.nn.Module) -> bool`, then that function will be used to evaluate the root module's children.
-3) If any module has more parameters than :code:`fsdp_config['min_params']`, it will be wrapped.
 
-These rules are meant to make it easy for users to modify existing models for usage with FSDP. You can either add attributes to modules you want to wrap (#1), define a filter (#2), or make no changes at all and just use the size-based policy via :code:`fsdp_config['min_params'] = ...` (#3).
+These rules are meant to make it easy for users to modify existing models for usage with FSDP. You can either add attributes to modules you want to wrap (#1) or define a filter (#2).
 
 In `gpt.py <https://github.com/mosaicml/examples/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py>`__, you can see that `we used rule #2 <https://github.com/mosaicml/examples/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py#L172>`__ to specify that all :code:`GPTBlock` modules within :code:`GPT` should be wrapped. Alternatively, we could have easily attributed each of the blocks with :code:`block._fsdp_wrap = True` and it would have accomplished the same thing. Whatever style you prefer, it's up to you!
 
@@ -383,23 +392,27 @@ Depending on the value you set for :code:`state_dict_type`, you can get differen
 1. :code:`state_dict_type='full'`
 The default. Saves one big checkpoint file for the whole model.
 It does this by gathering the model state to the global rank 0 device, unflattening it, and then saving it out.
-Similarly when loading checkpoints, the global rank 0 device will load in the checkpoint file and scatter the
-model state to the other ranks.
+If `load_monolith_rank0_only=True`, then when loading checkpoints the global rank 0 device will load in the checkpoint file and scatter the
+model and optimizer state to the other ranks, which will will dramatically reduce the memory usage on system. Otherwise, all ranks will separately load in the checkpoint file.
 
 2. :code:`state_dict_type='local'`
-The least communication-heavy option because the state dict for saving and loading is exactly what is used in FSDP.
 For save: each rank saves out the flattened model state shard they are
-responsibile for to a distinct checkpoint file. No gather needed. For load, each rank loads in the checkpoint file
-corresponding to their shard. No scatter needed.
+responsibile for to a distinct checkpoint file. For load, each rank loads in the checkpoint file
+corresponding to their shard. **Note: state_dict_type='local' is deprecated in Composer for torch versions 2.0.0 or higher.**
 
 3. :code:`state_dict_type='sharded'`
-Each rank saves out an unflattened shard. Useful when using the checkpoint shard files for a non-FSDP use-case.
-Expensive because requires a gather, unflatten, then scatter. For loading, similar to ``state_dict_type='local'``, each rank
-loads in the checkpoint file corresponding to their unflattened shard.
+Each rank saves out an unflattened shard. For loading, similar to ``state_dict_type='local'``, each rank
+loads in the checkpoint file corresponding to their unflattened shard. **Note: state_dict_type='sharded' is the recommended setting for sharded checkpointing in Composer for torch versions 2.0.0 or higher.**
 
 See `The FSDP docs <https://pytorch.org/docs/stable/fsdp.html#torch.distributed.fsdp.FullyShardedDataParallel.state_dict>`__ for more info.
 
-For example, to save local, sharded checkpoints (`state_dict_type='local'`) with FSDP, you can do:
+If you use sharded checkpoints (`state_dict_type='sharded'` or `state_dict_type='local'`), your run will save as many files as you have
+ranks at each checkpointing event (plus one metadata file for torch versions 2.0.0 or higher). This can quicky pollute your `save_folder` with a lot of files after a couple checkpointing events.
+To help keep your checkpoint shard files organized, Composer will save each set of shards in it's own prefix directory, which you can configure
+by using `'sharded_ckpt_prefix_dir'` (default value `sharded_ckpt_prefix_dir='ep{epoch}-ba{batch}'`). Checkpoint shards will be saved to
+`{save_folder} / {sharded_ckpt_prefix_dir}`
+
+For example, to save sharded checkpoints to disk locally (`state_dict_type='sharded'`) with FSDP on PyTorch version 2.0.0 and higher, you can do:
 
 .. code:: python
 
@@ -447,13 +460,67 @@ For example, to save local, sharded checkpoints (`state_dict_type='local'`) with
 
     fsdp_config = {
         'sharding_strategy': 'FULL_SHARD',
-        'state_dict_type': 'local',
+        'state_dict_type': 'sharded',
+        'sharded_ckpt_prefix_dir': 'ba{batch}-shards' # will save each set of shards checkpoint to a unique folder based on batch
+
+    }
+
+    trainer = Trainer(
+        model=composer_model,
+        max_duration='4ba'
+        fsdp_config=fsdp_config,
+        save_folder='checkpoints',
+        save_interval='2ba',
+        ...
+    )
+
+    trainer.fit()
+
+After the second batch, this code will save N+1 checkpoint files to the local directory ``./checkpoints/ba2-shards``. For example,
+if you trained with 4 ranks, ``./checkpoints/ba2-shards`` would contain 5 files: a metadata file: ``.metadata`` and 4 checkpoint files for each rank: ``__0_0.distcp``, ``__1_0.distcp``, ``__2_0.distcp``, and ``__3_0.distcp``.
+After the fourth batch, N+1 checkpoint files (``.metadata``, ``__0_0.distcp``, ``__1_0.distcp``, etc.) will saved to ``./checkpoints/ba4-shards``
+To load these checkpoint files, you would need to do something like this:
+
+.. code:: python
+
+    from composer import Trainer
+
+    fsdp_config = {
+        'sharding_strategy': 'FULL_SHARD',
+        'state_dict_type': 'sharded',
     }
 
 
     trainer = Trainer(
         model=composer_model,
-        max_duration='2ba'
+        max_duration='4ba'
+        fsdp_config=fsdp_config,
+        load_path='./checkpoints/ba2-shards' # load_path must be the path to the prefix directory and not to a specific file.
+        ...
+    )
+
+Four things to note in this load example:
+
+1. Instead of setting ``load_path`` to the path to a specific file, we set it to the directory which contains all the checkpoint files.
+
+2. We must set ``'state_dict_type': 'sharded'``, like we did during the save.
+
+3. Composer with PyTorch version 2.0.0 and higher **does** support elastic checkpointing (more ranks than checkpoint files or more files than ranks), so you can resume on a different number of ranks than you saved on.
+
+4. To do multinode resumption (resuming on more than one node regardless of how many nodes you saved on), you must be using torch 2.0.1 or higher due a bug in torch 2.0.0.
+
+
+
+Saving and Loading Sharded Checkpoints with FSDP and Torch 1.13
+---------------------------------------------------------------
+
+To save sharded checkpoints to disk locally (`state_dict_type='sharded'`) with FSDP on PyTorch version 1.13, you must do:
+
+.. code:: python
+
+    trainer = Trainer(
+        model=composer_model,
+        max_duration='4ba'
         fsdp_config=fsdp_config,
         save_folder='checkpoints',
         save_filename='ba{batch}_rank{rank}.pt',
@@ -463,9 +530,9 @@ For example, to save local, sharded checkpoints (`state_dict_type='local'`) with
 
     trainer.fit()
 
-This code will save N checkpoint files to the local directory ``./checkpoints``. For example,
-if you trained with 4 ranks, ```./checkpoints``` would contain 4 files: ``ba2_rank0.pt``, ``ba2_rank1.pt``, ``ba2_rank2.pt``, and ``ba2_rank3.pt``.
-
+After the second batch, this code will save N checkpoint files to the local directory ``./checkpoints/ba2-shards``. For example,
+if you trained with 4 ranks, ``./checkpoints/ba2-shards`` would contain 4 files: ``ba2_rank0.pt``, ``ba2_rank1.pt``, ``ba2_rank2.pt``, and ``ba2_rank3.pt``.
+After the fourth batch, N checkpoint files (``ba4_rank0.pt``, ``ba4_rank1.pt``, etc.) will saved to ``./checkpoints/ba4-shards``
 To load these checkpoint files, you would need to do something like this:
 
 .. code:: python
@@ -474,7 +541,7 @@ To load these checkpoint files, you would need to do something like this:
 
     fsdp_config = {
         'sharding_strategy': 'FULL_SHARD',
-        'state_dict_type': 'local',
+        'state_dict_type': 'sharded',
     }
 
 
@@ -482,19 +549,20 @@ To load these checkpoint files, you would need to do something like this:
         model=composer_model,
         max_duration='4ba'
         fsdp_config=fsdp_config,
-        load_path='./checkpoints/ba2_rank{rank}.pt'
+        load_path='./checkpoints/ba2-shards/ba2_rank{rank}.pt'
         ...
     )
 
-Three things to note in this load example:
+Three things to note in this torch 1.13 load example:
 
 1. Instead of setting ``load_path`` to the path to a specific file, we keep the ``{rank}`` placeholder to denote that
 the file to load is different for each rank.
 
-2. We must set ``'state_dict_type': 'local'``, like we did during the save.
+2. We must set ``'state_dict_type': 'sharded'``, like we did during the save.
 
-3. Composer does not support elastic checkpointing (more ranks than checkpoint files or more files than ranks), so you
+3. Composer with torch 1.13 does not support elastic checkpointing (more ranks than checkpoint files or more files than ranks), so you
 must make sure the number of ranks you run on during load is the same as the number you used during save (the same as the number of files).
+Upgrading to torch 2.0.0 or higher will enable elastic checkpointing!
 
 
 .. _Pytorch DDP: https://pytorch.org/docs/master/generated/torch.nn.parallel.DistributedDataParallel.html

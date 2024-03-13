@@ -168,6 +168,7 @@ Composer’s `events` look as follows:
     state.model = model()
     state.train_dataloader = train_dataloader()
     state.optimizers = optimizers()
+    EVENT.BEFORE_LOAD
     load_checkpoint()
     EVENT.AFTER_LOAD
     EVENT.FIT_START
@@ -232,13 +233,13 @@ Packaging this all together into a class gives the object that Composer can run:
     from composer.core import Algoritm, Event
 
     class MyAlgorithm(Algorithm):
-    def __init__(self, hparam1=1):
-        self.hparam1 = hparam1
+        def __init__(self, hparam1=1):
+            self.hparam1 = hparam1
 
         def match(self, event, state):
-        return event in [Event.AFTER_DATALOADER, Event.AFTER_FORWARD]
+            return event in [Event.AFTER_DATALOADER, Event.AFTER_FORWARD]
 
-    def apply(self, event, state, logger):
+        def apply(self, event, state, logger):
             if event == Event.AFTER_DATALOADER:
                 state.batch = process_inputs(state.batch, self.hparam1)
             if event == Event.AFTER_FORWARD:

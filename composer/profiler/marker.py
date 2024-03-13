@@ -40,7 +40,7 @@ class Marker:
         .. testsetup::
 
             from composer.profiler import Profiler, cyclic_schedule
-            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[], torch_prof_memory_filename=None)
             profiler.bind_to_state(state)
 
         .. doctest::
@@ -57,7 +57,7 @@ class Marker:
         .. testsetup::
 
             from composer.profiler import Profiler, cyclic_schedule
-            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[], torch_prof_memory_filename=None)
             profiler.bind_to_state(state)
 
         .. doctest::
@@ -70,9 +70,16 @@ class Marker:
             something_to_measure
     """
 
-    def __init__(self, state: State, should_record: Callable[[State], bool], trace_handlers: Sequence[TraceHandler],
-                 name: str, record_instant_on_start: bool, record_instant_on_finish: bool,
-                 categories: Union[List[str], Tuple[str, ...]]) -> None:
+    def __init__(
+        self,
+        state: State,
+        should_record: Callable[[State], bool],
+        trace_handlers: Sequence[TraceHandler],
+        name: str,
+        record_instant_on_start: bool,
+        record_instant_on_finish: bool,
+        categories: Union[List[str], Tuple[str, ...]],
+    ) -> None:
         self.state = state
         self.trace_handlers = trace_handlers
         self.name = name
@@ -104,8 +111,12 @@ class Marker:
                 wall_clock_time_ns=wall_clock_time_ns,
             )
 
-    def _record_counter_event(self, wall_clock_time_ns: int, timestamp: Timestamp,
-                              values: Dict[str, Union[int, float]]) -> None:
+    def _record_counter_event(
+        self,
+        wall_clock_time_ns: int,
+        timestamp: Timestamp,
+        values: Dict[str, Union[int, float]],
+    ) -> None:
         """Record a counter invent."""
         for handler in self.trace_handlers:
             handler.process_counter_event(
@@ -124,7 +135,7 @@ class Marker:
         .. testsetup::
 
             from composer.profiler import Profiler, cyclic_schedule
-            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[], torch_prof_memory_filename=None)
             profiler.bind_to_state(state)
 
         .. doctest::
@@ -139,7 +150,8 @@ class Marker:
         """
         if self._started:
             raise RuntimeError(
-                f'Attempted to start profiler event {self.name}; however, this marker is already started')
+                f'Attempted to start profiler event {self.name}; however, this marker is already started',
+            )
 
         self._recorded_start = self.should_record(self.state)
         if self._recorded_start:
@@ -163,7 +175,8 @@ class Marker:
         """
         if not self._started:
             raise RuntimeError(
-                f'Attempted to finish profiler event {self.name}; however, this profiler event is not yet started')
+                f'Attempted to finish profiler event {self.name}; however, this profiler event is not yet started',
+            )
 
         wall_clock_time = time.time_ns()
         self._record_duration_event(
@@ -187,7 +200,7 @@ class Marker:
         .. testsetup::
 
             from composer.profiler import Profiler, cyclic_schedule
-            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[], torch_prof_memory_filename=None)
             profiler.bind_to_state(state)
 
         .. doctest::
@@ -213,7 +226,7 @@ class Marker:
         .. testsetup::
 
             from composer.profiler import Profiler, cyclic_schedule
-            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[], torch_prof_memory_filename=None)
             profiler.bind_to_state(state)
 
         .. doctest::
@@ -235,8 +248,12 @@ class Marker:
         self.start()
         return self
 
-    def __exit__(self, exc_type: Optional[Type[BaseException]], exc: Optional[BaseException],
-                 traceback: Optional[TracebackType]) -> None:
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ) -> None:
         del exc_type, exc, traceback  # unused
         self.finish()
 

@@ -15,8 +15,14 @@ import torch.fx
 
 from composer.algorithms import BlurPool, ChannelsLast, Factorize, GhostBatchNorm, SqueezeExcite, StochasticDepth
 from composer.core import Algorithm
-from composer.functional import (apply_blurpool, apply_channels_last, apply_factorization, apply_ghost_batchnorm,
-                                 apply_squeeze_excite, apply_stochastic_depth)
+from composer.functional import (
+    apply_blurpool,
+    apply_channels_last,
+    apply_factorization,
+    apply_ghost_batchnorm,
+    apply_squeeze_excite,
+    apply_stochastic_depth,
+)
 from tests.algorithms.algorithm_settings import get_alg_kwargs, get_alg_model, get_algs_with_marks
 
 algo_kwargs = {
@@ -25,7 +31,7 @@ algo_kwargs = {
         'target_layer_name': 'ResNetBottleneck',
     },
     apply_ghost_batchnorm: {
-        'ghost_batch_size': 2
+        'ghost_batch_size': 2,
     },
 }
 
@@ -133,7 +139,8 @@ def test_surgery_torchfx_eval(
 
 @pytest.mark.parametrize('alg_cls', torchscript_algs_with_marks)
 @pytest.mark.filterwarnings(
-    r'ignore:Converting a tensor to a Python .* might cause the trace to be incorrect:torch.jit._trace.TracerWarning')
+    r'ignore:Converting a tensor to a Python .* might cause the trace to be incorrect:torch.jit._trace.TracerWarning',
+)
 @pytest.mark.filterwarnings('ignore:__floordiv__ is deprecated')
 def test_surgery_onnx(
     input: Any,
@@ -169,7 +176,7 @@ def test_surgery_onnx(
     onnx.checker.check_model(onnx_model)  # type: ignore (third-party)
 
     # run inference
-    ort_session = ort.InferenceSession(onnx_path)
+    ort_session = ort.InferenceSession(onnx_path, providers=['CPUExecutionProvider'])
     outputs = ort_session.run(
         None,
         {'input': input[0].numpy()},

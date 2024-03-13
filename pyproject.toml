@@ -9,6 +9,31 @@ multi_line_output = 0
 line_length = 120
 skip = [ "env", "wandb", "runs", "build", "node_modules" ]
 known_third_party = ["wandb"]
+include_trailing_comma = true
+split_on_trailing_comma = true
+
+[tool.ruff.lint]
+select = [
+    "C4",
+    # TODO port pydocstyle
+    # "D", # pydocstyle
+    "LOG",
+    "PERF",
+    "PLE",
+    "COM812",
+]
+
+ignore = [
+    "C408",
+    "PERF2",
+    "PERF4",
+]
+[tool.ruff]
+exclude = [
+    "build/**",
+    "docs/**",
+    "node_modules/**",
+]
 
 # Pyright
 [tool.pyright]
@@ -20,6 +45,7 @@ include = [
 exclude = [
     "build/**",
     "node_modules/**",
+    'composer/trainer/mosaic_fsdp_utils.py'
 ]
 # Disable checks for missing imports, as a conditional install of composer will not include them
 # Any incorrect imports will be discovered through test cases
@@ -62,18 +88,15 @@ reportUnusedCoroutine = "error"
 # Pytest
 [tool.pytest.ini_options]
 # By default, do not run gpu, vision, docs, notebook, or daily tests
-addopts = "--codeblocks --strict-markers -m 'not gpu and not vision and not doctest and not daily and not remote'"
+addopts = "--codeblocks --strict-markers -m 'not gpu and not doctest and not daily and not remote'"
 
 markers = [
-    # !!!!!!!!!!!IMPORTANT!!!!!!!!!: when updating the markers, also make sure to update meta.yaml
     # Tests that require a world_size of two should be annotated with `@pytest.mark.world_size(2)`.
     # If not specified, the test will be assumed to have a world-size of one, which is
     # equivalent to `@pytest.mark.world_size(1)`
     "world_size(val)",
     # Tests that require a gpu should be annotated with `@pytest.mark.gpu`
     "gpu",
-    # Whether the test should run in a container based on the vision dockerimage, which contains ffcv and opencv
-    "vision",
     # Tests which are run as part of the documentation build
     "doctest",
     # Should be run during daily regression
@@ -93,17 +116,11 @@ filterwarnings = [
     # Ignore the following warnings
     'ignore:Deterministic mode is activated:UserWarning',  # All tests run with deterministic mode
     'ignore:SubsetNumBatchesWarning',  # SubsetNumBatches is used extensively in testing
+    # ignore lambda warnings
+    'ignore:Running code eval locally may be insecure.*:UserWarning', # All tests run w/o lambdas at the moment
     # allow training metrics
     'ignore:Computing model evaluation metrics during training doubles the number of forward passes:UserWarning',
     'ignore:No optimizer was specified.:UserWarning',  # OK to not specify an optimizer in the tests
-    # Ignore deprecation warnings in pillow. TODO: remove this ignore for when we upgrade pillow-simd +
-    # use torchvision 0.13  -- it appears to be fixed in main -- see
-    # https://github.com/pytorch/vision/blob/main/torchvision/transforms/functional_pil.py
-    'ignore:.*is deprecated and will be removed in Pillow 10.*:DeprecationWarning',
-    # Ignore deprecation warnings in deepspeed. TODO: remove this when we upgrade to v0.6.1+ -- it has been fixed
-    'ignore::DeprecationWarning:deepspeed.*:',
-    # Ingore validate is deprecated warnings. TODO(ravi) Need to manually remove on hparams.validate functionality
-    'ignore:.*Instead, perform any validation directly in initialize_object\(\):DeprecationWarning',
     # Ignore a bug in the pytorch dataloader
     '''ignore:Exception ignored in. <function _MultiProcessingDataLoaderIter.__del__:pytest.PytestUnraisableExceptionWarning''',
     # Ignore torchvision complaining about no c libraries (happens in the conda build)
@@ -114,7 +131,6 @@ filterwarnings = [
     'ignore:Metric `SpearmanCorrcoef` will save all targets and predictions in the buffer:UserWarning:torchmetrics',
     # Ignore a UserWarning from torch 1.12 due to DeepSpeed's use of positional args
     'ignore:Positional args are being deprecated, use kwargs instead.*:UserWarning',
-    'ignore:Torchmetrics v0.9 introduced a new argument class property:UserWarning',
     'ignore:torch.distributed._all_gather_base is a private function and will be deprecated.*:UserWarning',
     'ignore:torch.distributed._reduce_scatter_base is a private function and will be deprecated.*:UserWarning',
     # Ignore tensorboard deprecation warnings
@@ -125,6 +141,25 @@ filterwarnings = [
     'ignore:Call to deprecated create function FileDescriptor().*:DeprecationWarning:tensorboard',
     # Ignore TracerWarnings for operations potentially unsupported by model tracing
     'ignore:.*might cause the trace to be incorrect.*:Warning',
+    'ignore:save_weights_only=True only saves weights for now, but will changed to also save metadata.*:UserWarning',
+    # Ignore has_cuda is deprecated warning please use torch.backends.cuda.is_build
+    '''ignore:'has_cuda' is deprecated, please use 'torch.backends.cuda.is_built():UserWarning''',
+    # Ignore has_cudnn is deprecated warning please use torch.backends.cudnn.is_available
+    '''ignore:'has_cudnn' is deprecated, please use 'torch.backends.cudnn.is_available():UserWarning''',
+    # Ignore has_mps is deprecated warning please use torch.backends.mps.is_built
+    '''ignore:'has_mps' is deprecated, please use 'torch.backends.mps.is_built():UserWarning''',
+    # Ignore has_mkldnn is deprecated warning please use torch.backends.mkldnn.is_available
+    '''ignore:'has_mkldnn' is deprecated, please use 'torch.backends.mkldnn.is_available():UserWarning''',
+    # Ignore torch distributed deprecated warnings
+    '''ignore:torch.distributed.reduce_op is deprecated, please use torch.distributed.ReduceOp instead:UserWarning''',
+    # Ignore torch sharded tensor deprecated warnings
+    '''ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning''',
+    # Ignore torch pytree deprecated warnings
+    '''ignore:torch.utils._pytree._register_pytree_node is deprecated.*:UserWarning''',
+    # Ignore autograd kernel warning inside DeepSpeed
+    '''ignore:.*an autograd kernel was not registered to the Autograd key.*:UserWarning''',
+    # Ignore save_state_dict / load_state_dict deprecation warnings
+    '''ignore:'.*_state_dict' is deprecated and will be removed in future versions.*:UserWarning'''
 ]
 
 # Coverage
@@ -215,7 +250,7 @@ blank_line_before_nested_class_or_def = true
 #        'key1': 'value1',
 #        'key2': 'value2',
 #    })
-coalesce_brackets = false
+coalesce_brackets = true
 
 # The column limit.
 column_limit = 120
@@ -250,7 +285,7 @@ continuation_indent_width = 4
 #       start_ts=now()-timedelta(days=3),
 #       end_ts=now(),
 #   )        # <--- this bracket is dedented and on a separate line
-dedent_closing_brackets = false
+dedent_closing_brackets = true
 
 # Disable the heuristic which places each list element on a separate line
 # if the list is comma-terminated.
@@ -421,7 +456,7 @@ split_all_top_level_comma_separated_values = false
 
 # Split before arguments if the argument list is terminated by a
 # comma.
-split_arguments_when_comma_terminated = false
+split_arguments_when_comma_terminated = true
 
 # Set to True to prefer splitting before '+', '-', '*', '/', '//', or '@'
 # rather than after.

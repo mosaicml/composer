@@ -9,20 +9,23 @@ import logging
 from typing import Iterable, Optional, Union
 
 import torch
-from packaging import version
+from torch.distributed.fsdp import FullyShardedDataParallel
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
 from composer.models import ComposerModel
-from composer.utils import using_torch_2_0
 
 log = logging.getLogger(__name__)
 
 __all__ = ['GradientClipping', 'apply_gradient_clipping']
 
 
-def apply_gradient_clipping(model: Union[ComposerModel, torch.nn.Module], clipping_type: str, clipping_threshold: float,
-                            fsdp_enabled: bool):
+def apply_gradient_clipping(
+    model: Union[ComposerModel, torch.nn.Module],
+    clipping_type: str,
+    clipping_threshold: float,
+    fsdp_enabled: bool,
+):
     """Clips all gradients in model based on specified clipping_type.
 
     Args:
@@ -40,42 +43,24 @@ def apply_gradient_clipping(model: Union[ComposerModel, torch.nn.Module], clippi
         fsdp_enabled (bool): Bool of if the model is a FSDP model or not.
     """
     if fsdp_enabled:
-        if version.parse(torch.__version__) < version.parse('1.13.0'):
-            raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-        from torch.distributed.fsdp import FullyShardedDataParallel
-
-        is_torch_2_0 = using_torch_2_0()
-
         for module in model.modules():
-            if isinstance(module, FullyShardedDataParallel):
-                # We can only call grad clip on the parent instance, so we iterate through all
-                # modules and try grad clipping and FSDP will throw an exception if we
-                # clip any gradients that aren't a parent module
-                try:
-                    if clipping_type == 'norm':
-                        module.clip_grad_norm_(max_norm=clipping_threshold)
-                    elif clipping_type == 'value':
-                        module.clip_grad_norm_(max_norm=clipping_threshold, norm_type=float('inf'))
-                    else:
-                        raise ValueError(f"clipping type must be 'norm' or 'value' with FSDP not {clipping_type}")
-                except (AssertionError, RuntimeError) as e:
-                    if (('clip_grad_norm should only be called on the root (parent) instance' == str(e) and
-                         not is_torch_2_0) or
-                        ('`clip_grad_norm_()` should only be called on the root FSDP instance' == str(e) and
-                         is_torch_2_0)):
-                        continue
-                    else:
-                        raise
-        return
-    parameters = model.parameters()
-    if clipping_type == 'adaptive':
-        _apply_agc(parameters, clipping_threshold=clipping_threshold)
-    elif clipping_type == 'norm':
-        torch.nn.utils.clip_grad_norm_(parameters, max_norm=clipping_threshold)
-    elif clipping_type == 'value':
-        torch.nn.utils.clip_grad_value_(parameters, clip_value=clipping_threshold)
+            if isinstance(module, FullyShardedDataParallel) and module.check_is_root():
+                if clipping_type == 'norm':
+                    module.clip_grad_norm_(max_norm=clipping_threshold)
+                elif clipping_type == 'value':
+                    module.clip_grad_norm_(max_norm=clipping_threshold, norm_type=float('inf'))
+                else:
+                    raise ValueError(f"clipping type must be 'norm' or 'value' with FSDP not {clipping_type}")
     else:
-        raise ValueError(f"clipping_type must be 'adaptive', 'norm', or 'value' not {clipping_type} ")
+        parameters = model.parameters()
+        if clipping_type == 'adaptive':
+            _apply_agc(parameters, clipping_threshold=clipping_threshold)
+        elif clipping_type == 'norm':
+            torch.nn.utils.clip_grad_norm_(parameters, max_norm=clipping_threshold)
+        elif clipping_type == 'value':
+            torch.nn.utils.clip_grad_value_(parameters, clip_value=clipping_threshold)
+        else:
+            raise ValueError(f"clipping_type must be 'adaptive', 'norm', or 'value' not {clipping_type} ")
 
 
 def _apply_agc(
@@ -157,17 +142,20 @@ class GradientClipping(Algorithm):
                     state.deepspeed_config['gradient_clipping'] = self.clipping_threshold
                 else:
                     raise ValueError(
-                        f'Deepspeed only supports gradient clipping thresholds that are greater than zero, but the provided one is {self.clipping_threshold}'
+                        f'Deepspeed only supports gradient clipping thresholds that are greater than zero, but the provided one is {self.clipping_threshold}',
                     )
             else:
                 raise NotImplementedError(
-                    f"Deepspeed only supports gradient clipping of type 'norm' not of type '{self.clipping_type}'")
+                    f"Deepspeed only supports gradient clipping of type 'norm' not of type '{self.clipping_type}'",
+                )
 
         if event == Event.AFTER_TRAIN_BATCH and not state.deepspeed_enabled:
-            apply_gradient_clipping(model=state.model,
-                                    clipping_type=self.clipping_type,
-                                    clipping_threshold=self.clipping_threshold,
-                                    fsdp_enabled=state.fsdp_enabled)
+            apply_gradient_clipping(
+                model=state.model,
+                clipping_type=self.clipping_type,
+                clipping_threshold=self.clipping_threshold,
+                fsdp_enabled=state.fsdp_enabled,
+            )
 
 
 def _get_clipped_gradient_coeff(weights: torch.Tensor, grad: torch.Tensor, clipping_threshold: float = 0.01):

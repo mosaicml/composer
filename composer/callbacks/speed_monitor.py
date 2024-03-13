@@ -13,7 +13,10 @@ import torch
 from composer.core import Callback, State
 from composer.loggers import Logger
 from composer.models.base import ComposerModel
-from composer.utils import dist
+from composer.utils import dist, is_xla_installed
+
+if is_xla_installed():
+    import torch_xla.core.xla_model as xm
 
 __all__ = ['SpeedMonitor']
 
@@ -83,6 +86,17 @@ GPU_AVAILABLE_FLOPS = {
         'int8': 130e12,
         'int4': 260e12,
     },
+    # source: https://aws.amazon.com/blogs/machine-learning/aws-inferentia2-builds-on-aws-inferentia1-by-delivering-4x-higher-throughput-and-10x-lower-latency/
+    # Numbers are halved as the above flops is per chip and each chip appears as 2 devices.
+    'trn1': {
+        'fp32': 47.5e12 / 2,
+        'tf32': 47.5e12 / 2,
+        'fp16': 190e12 / 2,
+        'amp_fp16': 190e12 / 2,
+        'bf16': 190e12 / 2,
+        'amp_bf16': 190e12 / 2,
+        'int8': 380e12 / 2,
+    },
 }
 
 
@@ -90,37 +104,43 @@ def get_gpu_flops_available(state: State):
     gpu_flops_available = None
 
     # Return 0 if no CUDA device (e.g., when running with CPU only)
-    if not torch.cuda.is_available():
+    if torch.cuda.is_available():
+        # torch.cuda.get_device_name() ex output: 'NVIDIA A100-SXM4-40GB'
+        device_name = torch.cuda.get_device_name().lower()
+        if 'h100' in device_name and 'hbm3' in device_name:
+            device_name = 'h100-sxm'
+        elif 'h100' in device_name and ('pcie' in device_name or 'hbm2e' in device_name):
+            device_name = 'h100-pcie'
+        elif 'a100' in device_name:
+            device_name = 'a100'
+        elif 'v100-sxm' in device_name:
+            device_name = 'v100-sxm'
+        elif 'v100-pcie' in device_name:
+            device_name = 'v100-pcie'
+        elif 't4' in device_name:
+            device_name = 't4'
+    elif is_xla_installed():
+        if xm.xla_device_hw(xm.xla_device()) == 'NEURON':
+            device_name = 'trn1'
+        else:
+            # For TPU return 0
+            return 0
+    else:
+        # When running on CPU, return 0 without warning
         return 0
 
-    # torch.cuda.get_device_name() ex output: 'NVIDIA A100-SXM4-40GB'
-    device_name = torch.cuda.get_device_name().lower()
-    if 'h100-sxm' in device_name:
-        device_name = 'h100-sxm'
-    elif 'h100-pcie' in device_name:
-        device_name = 'h100-pcie'
-    elif 'a100' in device_name:
-        device_name = 'a100'
-    elif 'v100-sxm' in device_name:
-        device_name = 'v100-sxm'
-    elif 'v100-pcie' in device_name:
-        device_name = 'v100-pcie'
-    elif 't4' in device_name:
-        device_name = 't4'
+    if device_name in GPU_AVAILABLE_FLOPS and state.precision.value in GPU_AVAILABLE_FLOPS[device_name]:
+        gpu_flops_available = int(GPU_AVAILABLE_FLOPS[device_name][state.precision.value])
     else:
-        device_name = None
-
-    if device_name is not None:
-        try:
-            gpu_flops_available = int(GPU_AVAILABLE_FLOPS[device_name][state.precision.value])
-        except:
-            gpu_flops_available = None
+        gpu_flops_available = None
 
     if gpu_flops_available is None:
         warnings.warn(
-            f'gpu_flop count not found for {device_name} with precision: {state.precision.value}; ' +\
-            f'MFU cannot be calculated and reported. gpu_flops_available can be manually' +\
-            f'overridden by setting gpu_flops_available in SpeedMonitor.'
+            f'gpu_flop count not found for {device_name} with precision={state.precision.value} ' +\
+            f'so MFU cannot be calculated and reported. gpu_flops_available can be manually ' +\
+            f'overridden by setting gpu_flops_available in SpeedMonitor or {device_name} can ' +\
+            f'be added to GPU_AVAILABLE_FLOPS in composer/callbacks/speed_monitor.py',
+            stacklevel=2,
         )
         # Setting to 0 will disable MFU computation and prevent
         # the speed monitor from running this helper every batch
@@ -174,8 +194,7 @@ class SpeedMonitor(Callback):
     +-------------------------------------+-----------------------------------------------------------+
     |                                     | Rolling average (over `window_size` most recent           |
     | `throughput/tokens_per_sec`         | batches) of the number of tokens processed per second.    |
-    |                                     | Only logged when dataloader.dataset has `max_seq_len`.    |
-    |                                     | This may include padding depending on dataset             |
+    |                                     | Only logged if dataspec returns tokens per batch          |
     +-------------------------------------+-----------------------------------------------------------+
     |                                     | Estimates flops by `flops_per_batch * batches_per_sec`    |
     | `throughput/flops_per_sec`          | if model has attribute `flops_per_batch`                  |
@@ -186,8 +205,8 @@ class SpeedMonitor(Callback):
     | `throughput/device/samples_per_sec` | `throughput/samples_per_sec` divided by world size        |
     +-------------------------------------+-----------------------------------------------------------+
     |                                     | `throughput/tokens_per_sec` divided by world size. Only   |
-    | `throughput/device/tokens_per_sec`  | logged when dataloader.dataset has `max_seq_len`. This    |
-    |                                     | may include pad tokens depending on dataset               |
+    | `throughput/device/tokens_per_sec`  | logged if dataspec returns tokens per batch               |
+    |                                     |                                                           |
     +-------------------------------------+-----------------------------------------------------------+
     |                                     | `throughput/flops_per_sec` divided by world size. Only    |
     | `throughput/device/flops_per_sec`   | logged when model has attribute `flops_per_batch`         |
@@ -198,11 +217,11 @@ class SpeedMonitor(Callback):
     |                                     | and `gpu_flops_available`, which can be passed as an      |
     |                                     | argument if not automatically determined by SpeedMonitor  |
     +-------------------------------------+-----------------------------------------------------------+
-    | `wall_clock/train`                  | Total elapsed training time                               |
+    | `time/train`                        | Total elapsed training time                               |
     +-------------------------------------+-----------------------------------------------------------+
-    | `wall_clock/val`                    | Total elapsed validation time                             |
+    | `time/val`                          | Total elapsed validation time                             |
     +-------------------------------------+-----------------------------------------------------------+
-    | `wall_clock/total`                  | Total elapsed time (wall_clock/train + wall_clock/val)    |
+    | `time/total`                        | Total elapsed time (time/train + time/val)                |
     +-------------------------------------+-----------------------------------------------------------+
 
     Args:
@@ -210,7 +229,7 @@ class SpeedMonitor(Callback):
             Defaults to 100.
         gpu_flops_available (float, optional): Number of flops available on the GPU. If not set,
             SpeedMonitor will attempt to determine this automatically. Defaults to None.
-        time_unit (str, optional): Time unit to use for `wall_clock` logging. Can be one of
+        time_unit (str, optional): Time unit to use for `time` logging. Can be one of
             'seconds', 'minutes', 'hours', or 'days'. Defaults to 'hours'.
     """
 
@@ -222,6 +241,7 @@ class SpeedMonitor(Callback):
     ):
         # Track the batch num samples and wct to compute throughput over a window of batches
         self.history_samples: Deque[int] = deque(maxlen=window_size + 1)
+        self.history_tokens: Deque[int] = deque(maxlen=window_size + 1)
         self.history_wct: Deque[float] = deque(maxlen=window_size + 1)
         self.history_flops: Deque[float] = deque(maxlen=window_size + 1)
 
@@ -238,7 +258,8 @@ class SpeedMonitor(Callback):
             self.divider = 60 * 60 * 24
         else:
             raise ValueError(
-                f'Invalid time_unit: {time_unit}. Must be one of "seconds", "minutes", "hours", or "days".')
+                f'Invalid time_unit: {time_unit}. Must be one of "seconds", "minutes", "hours", or "days".',
+            )
 
         # Keep track of time spent evaluating
         self.total_eval_wct = 0.0
@@ -259,6 +280,7 @@ class SpeedMonitor(Callback):
     def batch_end(self, state: State, logger: Logger):
         # Add the new element
         self.history_samples.append(state.timestamp.sample.value)
+        self.history_tokens.append(state.timestamp.token.value)
         self.history_wct.append(state.timestamp.total_wct.total_seconds())
 
         # Log the throughput
@@ -266,24 +288,25 @@ class SpeedMonitor(Callback):
             world_size = dist.get_world_size()
             elapsed_batches = len(self.history_samples) - 1
             elapsed_samples = int(self.history_samples[-1]) - int(self.history_samples[0])
+            elapsed_tokens = int(self.history_tokens[-1]) - int(self.history_tokens[0])
             elapsed_wct = self.history_wct[-1] - self.history_wct[0]
             batches_per_sec = elapsed_batches / elapsed_wct
             samples_per_sec = elapsed_samples / elapsed_wct
             dev_batches_per_sec = batches_per_sec / world_size
             dev_samples_per_sec = samples_per_sec / world_size
-            logger.log_metrics({'throughput/batches_per_sec': batches_per_sec})
-            logger.log_metrics({'throughput/samples_per_sec': samples_per_sec})
-            logger.log_metrics({'throughput/device/batches_per_sec': dev_batches_per_sec})
-            logger.log_metrics({'throughput/device/samples_per_sec': dev_samples_per_sec})
-
-            # Compute token stats if dataloader.dataset has max_seq_len. Assumes no padding.
-            try:
-                max_seq_len = state.dataloader.dataset.max_seq_len  # type: ignore
-                # Only applicable to seq data / models
-                logger.log_metrics({'throughput/tokens_per_sec': samples_per_sec * max_seq_len})
-                logger.log_metrics({'throughput/device/tokens_per_sec': dev_samples_per_sec * max_seq_len})
-            except AttributeError:
-                pass
+            logger.log_metrics({
+                'throughput/batches_per_sec': batches_per_sec,
+                'throughput/samples_per_sec': samples_per_sec,
+                'throughput/device/batches_per_sec': dev_batches_per_sec,
+                'throughput/device/samples_per_sec': dev_samples_per_sec,
+            })
+            if elapsed_tokens > 0:
+                tokens_per_sec = elapsed_tokens / elapsed_wct
+                dev_tokens_per_sec = tokens_per_sec / world_size
+                logger.log_metrics({
+                    'throughput/tokens_per_sec': tokens_per_sec,
+                    'throughput/device/tokens_per_sec': dev_tokens_per_sec,
+                })
 
         # Compute flops stats if model has flops_per_batch
         composer_model = state.model
@@ -292,13 +315,16 @@ class SpeedMonitor(Callback):
         if hasattr(composer_model, 'flops_per_batch'):
             model_flops_per_batch = composer_model.flops_per_batch  # type: ignore
             if not isinstance(model_flops_per_batch, Callable):
-                raise TypeError('flops_per_batch must a callable accepting a batch and '
-                                f'returning an int or float. Instead, got {type(model_flops_per_batch)}.')
+                raise TypeError(
+                    'flops_per_batch must a callable accepting a batch and '
+                    f'returning an int or float. Instead, got {type(model_flops_per_batch)}.',
+                )
             device_flops_per_batch = model_flops_per_batch(state.batch)
 
             # Sum flops across all ranks since each rank computes the flops for its own batch
             flops_per_batch_tensor = state.device.tensor_to_device(
-                torch.tensor(device_flops_per_batch, dtype=torch.float))
+                torch.tensor(device_flops_per_batch, dtype=torch.float),
+            )
             dist.all_reduce(flops_per_batch_tensor, reduce_operation='SUM')
             flops_per_batch = flops_per_batch_tensor.item()
 
@@ -311,8 +337,10 @@ class SpeedMonitor(Callback):
             elapsed_wct = self.history_wct[-1] - self.history_wct[0]
             flops_per_sec = elapsed_flops / elapsed_wct
             device_flops_per_sec = flops_per_sec / world_size
-            logger.log_metrics({'throughput/flops_per_sec': flops_per_sec})
-            logger.log_metrics({'throughput/device/flops_per_sec': device_flops_per_sec})
+            logger.log_metrics({
+                'throughput/flops_per_sec': flops_per_sec,
+                'throughput/device/flops_per_sec': device_flops_per_sec,
+            })
             if self.gpu_flops_available:
                 mfu = device_flops_per_sec / self.gpu_flops_available
                 logger.log_metrics({'throughput/device/mfu': mfu})
@@ -321,9 +349,9 @@ class SpeedMonitor(Callback):
         # `state.timestamp` excludes any time spent in evaluation
         train_wct = state.timestamp.total_wct.total_seconds()
         logger.log_metrics({
-            'wall_clock/train': train_wct / self.divider,
-            'wall_clock/val': self.total_eval_wct / self.divider,
-            'wall_clock/total': (train_wct + self.total_eval_wct) / self.divider,
+            'time/train': train_wct / self.divider,
+            'time/val': self.total_eval_wct / self.divider,
+            'time/total': (train_wct + self.total_eval_wct) / self.divider,
         })
 
     def eval_end(self, state: State, logger: Logger):

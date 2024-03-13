@@ -53,6 +53,7 @@ import random
 import textwrap
 import time
 import warnings
+from contextlib import contextmanager
 from typing import Any, Dict, List
 
 import numpy as np
@@ -62,6 +63,7 @@ import torch.backends.cudnn
 from composer.utils import dist
 
 __all__ = [
+    'seed_context',
     'configure_deterministic_mode',
     'get_random_seed',
     'seed_all',
@@ -74,6 +76,15 @@ log = logging.getLogger(__name__)
 
 # seeds must be 32-bit unsigned integers
 MAX_SEED = 2**32 - 1
+
+
+@contextmanager
+def seed_context(seed: int):
+    """Context manager to store rng_state and reseed for duration of context."""
+    rng_state = get_rng_state()
+    seed_all(seed)
+    yield
+    load_rng_state(rng_state)
 
 
 def configure_deterministic_mode():
@@ -192,16 +203,22 @@ def load_rng_state(rng_state_dicts: List[Dict[str, Any]]):
     """
     if dist.get_world_size() > len(rng_state_dicts):
         warnings.warn(
-            textwrap.dedent(f"""\
+            textwrap.dedent(
+                f"""\
                 The current world size ({dist.get_world_size()} is greater than the number of RNG state(s) serialized
                 ({len(rng_state_dicts)}). Only the first {len(rng_state_dicts)} rank(s) will have their RNG restored.
-                """))
+                """,
+            ),
+        )
     if dist.get_world_size() < len(rng_state_dicts):
         warnings.warn(
-            textwrap.dedent(f"""\
+            textwrap.dedent(
+                f"""\
             The current world size ({dist.get_world_size()} is less than the number of RNG state(s) serialized
             ({len(rng_state_dicts)}). Only the first {dist.get_world_size()} RNG state(s) will be consumed;
-            the remaining will be ignored."""))
+            the remaining will be ignored.""",
+            ),
+        )
 
     if dist.get_global_rank() < len(rng_state_dicts):
         rng_state_dict = rng_state_dicts[dist.get_global_rank()]
@@ -215,15 +232,31 @@ def load_rng_state(rng_state_dicts: List[Dict[str, Any]]):
         log.debug('Restoring the RNG state')
 
         if is_cuda_available and has_cuda_rng_state:
-            torch.cuda.set_rng_state(rng_state_dict['cuda'])
+            try:
+                torch.cuda.set_rng_state(rng_state_dict['cuda'])
+            except RuntimeError as e:
+                if 'RNG state is wrong size' in str(e) or 'offset must be a multiple of 4' in str(e):
+                    warnings.warn(
+                        'The CUDA RNG state could not be loaded from the checkpoint, '
+                        'likely because a different version of torch was used to save the '
+                        'checkpoint. Skipping loading the CUDA RNG state.',
+                    )
+                else:
+                    raise e
 
         if is_cuda_available and not has_cuda_rng_state:
             warnings.warn(
-                textwrap.dedent(f"""\
+                textwrap.dedent(
+                    f"""\
                 The checkpoint did not include the CUDA RNG state. The CUDA RNG will have a
-                non-deterministic state."""))
+                non-deterministic state.""",
+                ),
+            )
         if not is_cuda_available and has_cuda_rng_state:
             warnings.warn(
-                textwrap.dedent(f"""\
+                textwrap.dedent(
+                    f"""\
                 The checkpoint included CUDA RNG state, but CUDA is not being used.
-                As such, the CUDA RNG state will be ignored."""))
+                As such, the CUDA RNG state will be ignored.""",
+                ),
+            )

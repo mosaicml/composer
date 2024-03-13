@@ -3,6 +3,7 @@
 
 """These fixtures are shared globally across the test suite."""
 import copy
+import os
 import time
 
 import coolname
@@ -112,7 +113,19 @@ def s3_bucket(request: pytest.FixtureRequest):
     if request.node.get_closest_marker('remote') is None:
         return 'my-bucket'
     else:
-        return _get_option(request.config, 's3_bucket')
+        return os.environ.get('S3_BUCKET', 'mosaicml-internal-integration-testing')
+
+
+@pytest.fixture
+def s3_ephemeral_prefix():
+    '''Objects under this prefix purged according to the bucket's lifecycle policy.'''
+    return 'ephemeral'
+
+
+@pytest.fixture
+def s3_read_only_prefix():
+    '''Tests can only read from this prefix, but it won't ever be purged.'''
+    return 'read_only'
 
 
 # Note: These session scoped fixtures should not be used directly in tests, but the non session scoped fixtures
@@ -157,6 +170,45 @@ def _session_tiny_bert_config():  # type: ignore
     return tiny_bert_config_helper()
 
 
+def tiny_deberta_model_helper(config):
+    transformers = pytest.importorskip('transformers')
+
+    return transformers.AutoModelForMaskedLM.from_config(config)  # type: ignore (thirdparty)
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_deberta_model(_session_tiny_deberta_config):  # type: ignore
+    return tiny_deberta_model_helper(_session_tiny_deberta_config)
+
+
+def tiny_deberta_tokenizer_helper():
+    transformers = pytest.importorskip('transformers')
+
+    return transformers.AutoTokenizer.from_pretrained('microsoft/deberta-base')
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_deberta_tokenizer():  # type: ignore
+    return tiny_deberta_tokenizer_helper()
+
+
+def tiny_deberta_config_helper():
+    transformers = pytest.importorskip('transformers')
+    tiny_overrides = {
+        'hidden_size': 128,
+        'pooler_hidden_size': 128,
+        'num_attention_heads': 2,
+        'num_hidden_layers': 2,
+        'intermediate_size': 512,
+    }
+    return transformers.AutoConfig.from_pretrained('microsoft/deberta-base', **tiny_overrides)
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_deberta_config():  # type: ignore
+    return tiny_deberta_config_helper()
+
+
 def tiny_gpt2_model_helper(config):
     transformers = pytest.importorskip('transformers')
 
@@ -175,7 +227,7 @@ def tiny_gpt2_config_helper():
         'n_embd': 2,
         'n_head': 2,
         'n_layer': 2,
-        'vocab_size': 50258  # 50257 + 1 for pad token
+        'vocab_size': 50258,  # 50257 + 1 for pad token
     }
     return transformers.AutoConfig.from_pretrained('gpt2', **tiny_overrides)
 
@@ -193,9 +245,57 @@ def tiny_gpt2_tokenizer_helper():
     return hf_tokenizer
 
 
+def tiny_llama_tokenizer_helper():
+    transformers = pytest.importorskip('transformers')
+
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('huggyllama/llama-7b', use_fast=False)
+    return hf_tokenizer
+
+
 @pytest.fixture(scope='session')
 def _session_tiny_gpt2_tokenizer():  # type: ignore
     return tiny_gpt2_tokenizer_helper()
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_llama_tokenizer():  # type: ignore
+    return tiny_llama_tokenizer_helper()
+
+
+def tiny_opt_model_helper(config):
+    transformers = pytest.importorskip('transformers')
+
+    return transformers.AutoModelForCausalLM.from_config(config)
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_opt_model(_session_tiny_opt_config):  # type: ignore
+    return tiny_opt_model_helper(_session_tiny_opt_config)
+
+
+def tiny_opt_config_helper():
+    transformers = pytest.importorskip('transformers')
+
+    tiny_overrides = {'n_embd': 2, 'n_head': 2, 'n_layer': 2, 'vocab_size': 50272}
+    return transformers.AutoConfig.from_pretrained('facebook/opt-125m', **tiny_overrides)
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_opt_config():  # type: ignore
+    return tiny_opt_config_helper()
+
+
+def tiny_opt_tokenizer_helper():
+    transformers = pytest.importorskip('transformers')
+
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('facebook/opt-125m')
+    hf_tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+    return hf_tokenizer
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_opt_tokenizer():  # type: ignore
+    return tiny_opt_tokenizer_helper()
 
 
 def tiny_t5_config_helper():
@@ -233,6 +333,47 @@ def _session_tiny_t5_model(_session_tiny_t5_config):  # type: ignore
     return tiny_t5_model_helper(_session_tiny_t5_config)
 
 
+def tiny_mistral_config_helper():
+    transformers = pytest.importorskip('transformers')
+
+    tiny_overrides = {
+        'hidden_size': 128,
+        'intermediate_size': 256,
+        'num_attention_heads': 8,
+        'num_hidden_layers': 2,
+        'num_kv_heads': 4,
+    }
+    return transformers.AutoConfig.from_pretrained('mistralai/Mistral-7B-v0.1', **tiny_overrides)
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_mistral_config():  # type: ignore
+    return tiny_mistral_config_helper()
+
+
+def tiny_mistral_tokenizer_helper():
+    transformers = pytest.importorskip('transformers')
+
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('mistralai/Mistral-7B-v0.1', model_max_length=512)
+    return hf_tokenizer
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_mistral_tokenizer():  # type: ignore
+    return tiny_mistral_tokenizer_helper()
+
+
+def tiny_mistral_model_helper(config):
+    transformers = pytest.importorskip('transformers')
+
+    return transformers.AutoModelForCausalLM.from_config(config)
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_mistral_model(_session_tiny_mistral_config):  # type: ignore
+    return tiny_mistral_model_helper(_session_tiny_mistral_config)
+
+
 @pytest.fixture
 def tiny_bert_model(_session_tiny_bert_model):
     return copy.deepcopy(_session_tiny_bert_model)
@@ -249,6 +390,21 @@ def tiny_bert_config(_session_tiny_bert_config):
 
 
 @pytest.fixture
+def tiny_deberta_model(_session_tiny_deberta_model):
+    return copy.deepcopy(_session_tiny_deberta_model)
+
+
+@pytest.fixture
+def tiny_deberta_tokenizer(_session_tiny_deberta_tokenizer):
+    return copy.deepcopy(_session_tiny_deberta_tokenizer)
+
+
+@pytest.fixture
+def tiny_deberta_config(_session_tiny_deberta_config):
+    return copy.deepcopy(_session_tiny_deberta_config)
+
+
+@pytest.fixture
 def tiny_gpt2_config(_session_tiny_gpt2_config):
     return copy.deepcopy(_session_tiny_gpt2_config)
 
@@ -259,8 +415,28 @@ def tiny_gpt2_tokenizer(_session_tiny_gpt2_tokenizer):
 
 
 @pytest.fixture
+def tiny_llama_tokenizer(_session_tiny_llama_tokenizer):
+    return copy.deepcopy(_session_tiny_llama_tokenizer)
+
+
+@pytest.fixture
 def tiny_gpt2_model(_session_tiny_gpt2_model):
     return copy.deepcopy(_session_tiny_gpt2_model)
+
+
+@pytest.fixture
+def tiny_opt_config(_session_tiny_opt_config):
+    return copy.deepcopy(_session_tiny_opt_config)
+
+
+@pytest.fixture
+def tiny_opt_tokenizer(_session_tiny_opt_tokenizer):
+    return copy.deepcopy(_session_tiny_opt_tokenizer)
+
+
+@pytest.fixture
+def tiny_opt_model(_session_tiny_opt_model):
+    return copy.deepcopy(_session_tiny_opt_model)
 
 
 @pytest.fixture
@@ -276,3 +452,18 @@ def tiny_t5_tokenizer(_session_tiny_t5_tokenizer):
 @pytest.fixture
 def tiny_t5_model(_session_tiny_t5_model):
     return copy.deepcopy(_session_tiny_t5_model)
+
+
+@pytest.fixture
+def tiny_mistral_config(_session_tiny_mistral_config):
+    return copy.deepcopy(_session_tiny_mistral_config)
+
+
+@pytest.fixture
+def tiny_mistral_tokenizer(_session_tiny_mistral_tokenizer):
+    return copy.deepcopy(_session_tiny_mistral_tokenizer)
+
+
+@pytest.fixture
+def tiny_mistral_model(_session_tiny_mistral_model):
+    return copy.deepcopy(_session_tiny_mistral_model)

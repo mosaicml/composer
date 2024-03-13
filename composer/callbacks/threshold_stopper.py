@@ -53,16 +53,15 @@ class ThresholdStopper(Callback):
             the training metrics satisfy the threshold comparison. Defaults to False.
     """
 
-    def __init__(self,
-                 monitor: str,
-                 dataloader_label: str,
-                 threshold: float,
-                 *,
-                 comp: Optional[Union[str, Callable[[
-                     Any,
-                     Any,
-                 ], Any]]] = None,
-                 stop_on_batch: bool = False):
+    def __init__(
+        self,
+        monitor: str,
+        dataloader_label: str,
+        threshold: float,
+        *,
+        comp: Optional[Union[str, Callable[[Any, Any], Any]]] = None,
+        stop_on_batch: bool = False,
+    ):
         self.monitor = monitor
         self.threshold = threshold
         self.dataloader_label = dataloader_label
@@ -76,7 +75,7 @@ class ThresholdStopper(Callback):
                 self.comp_func = torch.less
             else:
                 raise ValueError(
-                    "Unrecognized comp string. Use the strings 'gt', 'greater', 'lt' or 'less' or a callable comparison operator"
+                    "Unrecognized comp string. Use the strings 'gt', 'greater', 'lt' or 'less' or a callable comparison operator",
                 )
         if comp is None:
             if any(substr in monitor.lower() for substr in ['loss', 'error', 'perplexity']):
@@ -85,14 +84,16 @@ class ThresholdStopper(Callback):
                 self.comp_func = torch.greater
 
     def _get_monitored_metric(self, state: State):
-        if self.dataloader_label == 'train':
+        if self.dataloader_label == 'train' and state.train_metrics is not None:
             if self.monitor in state.train_metrics:
                 return state.train_metrics[self.monitor].compute()
         else:
             if self.monitor in state.eval_metrics[self.dataloader_label]:
                 return state.eval_metrics[self.dataloader_label][self.monitor].compute()
-        raise ValueError(f"Couldn't find the metric {self.monitor} with the dataloader label {self.dataloader_label}."
-                         "Check that the dataloader_label is set to 'eval', 'train' or the evaluator name.")
+        raise ValueError(
+            f"Couldn't find the metric {self.monitor} with the dataloader label {self.dataloader_label}."
+            "Check that the dataloader_label is set to 'eval', 'train' or the evaluator name.",
+        )
 
     def _compare_metric_and_update_state(self, state: State):
         metric_val = self._get_monitored_metric(state)

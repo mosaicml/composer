@@ -6,7 +6,7 @@ import io
 import os
 import pathlib
 import uuid
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from requests.exceptions import ConnectionError
 from urllib3.exceptions import ProtocolError
@@ -81,13 +81,15 @@ class LibcloudObjectStore(ObjectStore):
             used if 'secret' is not in ``provider_kwargs``. Default: None.
     """
 
-    def __init__(self,
-                 provider: str,
-                 container: str,
-                 chunk_size: int = 1_024 * 1_024,
-                 key_environ: Optional[str] = None,
-                 secret_environ: Optional[str] = None,
-                 provider_kwargs: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(
+        self,
+        provider: str,
+        container: str,
+        chunk_size: int = 1_024 * 1_024,
+        key_environ: Optional[str] = None,
+        secret_environ: Optional[str] = None,
+        provider_kwargs: Optional[Dict[str, Any]] = None,
+    ) -> None:
         try:
             from libcloud.storage.providers import get_driver
         except ImportError as e:
@@ -119,8 +121,11 @@ class LibcloudObjectStore(ObjectStore):
         callback: Optional[Callable[[int, int], None]] = None,
     ):
         with open(filename, 'rb') as f:
-            stream = iterate_with_callback(_file_to_iterator(f, self.chunk_size),
-                                           os.fstat(f.fileno()).st_size, callback)
+            stream = iterate_with_callback(
+                _file_to_iterator(f, self.chunk_size),
+                os.fstat(f.fileno()).st_size,
+                callback,
+            )
             try:
                 self._provider.upload_object_via_stream(
                     stream,
@@ -157,7 +162,9 @@ class LibcloudObjectStore(ObjectStore):
             self._ensure_transient_errors_are_wrapped(e)
 
     def get_object_size(self, object_name: str) -> int:
-        return self._get_object(object_name).size
+        obj = self._get_object(object_name)
+        assert obj is not None
+        return obj.size
 
     def download_object(
         self,
@@ -170,11 +177,15 @@ class LibcloudObjectStore(ObjectStore):
             # If the file already exits, short-circuit and skip the download
             raise FileExistsError(f'filename {filename} exists and overwrite was set to False.')
 
+        dirname = os.path.dirname(filename)
+        if dirname:
+            os.makedirs(dirname, exist_ok=True)
         obj = self._get_object(object_name)
         # Download first to a tempfile, and then rename, in case if the file gets corrupted in transit
         tmp_filepath = str(filename) + f'.{uuid.uuid4()}.tmp'
         try:
             with open(tmp_filepath, 'wb+') as f:
+                assert obj is not None
                 stream = self._provider.download_object_as_stream(obj, chunk_size=self.chunk_size)
                 for chunk in iterate_with_callback(stream, obj.size, callback):
                     f.write(chunk)
@@ -191,6 +202,12 @@ class LibcloudObjectStore(ObjectStore):
             os.replace(tmp_filepath, filename)
         else:
             os.rename(tmp_filepath, filename)
+
+    def list_objects(self, prefix: Optional[str] = None) -> List[str]:
+        if prefix is None:
+            prefix = ''
+
+        return [obj.name for obj in self._provider.list_container_objects(self._container, prefix=prefix)]
 
 
 def _file_to_iterator(f: io.IOBase, chunk_size: int):

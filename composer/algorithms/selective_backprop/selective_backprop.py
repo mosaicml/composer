@@ -57,12 +57,14 @@ def should_selective_backprop(
     return is_interval and is_step
 
 
-def select_using_loss(input: torch.Tensor,
-                      target: torch.Tensor,
-                      model: Callable[[Union[torch.Tensor, Sequence[torch.Tensor]]], torch.Tensor],
-                      loss_fun: Callable,
-                      keep: float = 0.5,
-                      scale_factor: float = 1) -> Tuple[torch.Tensor, torch.Tensor]:
+def select_using_loss(
+    input: torch.Tensor,
+    target: torch.Tensor,
+    model: Callable[[Union[torch.Tensor, Sequence[torch.Tensor]]], torch.Tensor],
+    loss_fun: Callable,
+    keep: float = 0.5,
+    scale_factor: float = 1,
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """Prunes minibatches as a subroutine of :class:`.SelectiveBackprop`. Computes the loss function on the provided training
     examples and runs minibatches according to the difficulty. The fraction of the minibatch that is kept for gradient
     computation is specified by the argument ``0 <= keep <= 1``.
@@ -138,11 +140,13 @@ def select_using_loss(input: torch.Tensor,
 
         # Maybe interpolate
         if scale_factor < 1:
-            X_scaled = F.interpolate(input,
-                                     scale_factor=scale_factor,
-                                     mode=interp_mode,
-                                     align_corners=False,
-                                     recompute_scale_factor=False)
+            X_scaled = F.interpolate(
+                input,
+                scale_factor=scale_factor,
+                mode=interp_mode,
+                align_corners=False,
+                recompute_scale_factor=False,
+            )
         else:
             X_scaled = input
 
@@ -279,7 +283,7 @@ class SelectiveBackprop(Algorithm):
             assert self._loss_fn is not None, 'loss_fn should be set on Event.INIT'
             return self._loss_fn(p, (torch.Tensor(), y), reduction=reduction)
 
-        with get_precision_context(state.precision):
+        with get_precision_context(state.precision, state.precision_config):
             new_input, new_target = select_using_loss(input, target, model, loss, self.keep, self.scale_factor)
         state.batch_set_item(self.input_key, new_input)
         state.batch_set_item(self.target_key, new_target)

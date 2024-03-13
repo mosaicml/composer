@@ -35,12 +35,14 @@ class SAMOptimizer(torch.optim.Optimizer):
             roughly twice as much time to complete. Default: ``1``.
     """
 
-    def __init__(self,
-                 base_optimizer: torch.optim.Optimizer,
-                 rho: float = 0.05,
-                 epsilon: float = 1.0e-12,
-                 interval: int = 1,
-                 **kwargs):
+    def __init__(
+        self,
+        base_optimizer: torch.optim.Optimizer,
+        rho: float = 0.05,
+        epsilon: float = 1.0e-12,
+        interval: int = 1,
+        **kwargs,
+    ):
         if rho < 0:
             raise ValueError(f'Invalid rho, should be non-negative: {rho}')
         self.base_optimizer = base_optimizer
@@ -50,7 +52,7 @@ class SAMOptimizer(torch.optim.Optimizer):
         defaults = {'rho': rho, 'epsilon': epsilon, **kwargs}
         super(SAMOptimizer, self).__init__(self.base_optimizer.param_groups, defaults)
 
-    @torch.no_grad()
+    @torch.no_grad()  # pyright: ignore[reportUntypedFunctionDecorator]
     def sub_e_w(self):
         for group in self.param_groups:
             for p in group['params']:
@@ -59,7 +61,7 @@ class SAMOptimizer(torch.optim.Optimizer):
                 e_w = self.state[p]['e_w']  # retrieve stale e(w)
                 p.sub_(e_w)  # get back to "w" from "w + e(w)"
 
-    @torch.no_grad()
+    @torch.no_grad()  # pyright: ignore[reportUntypedFunctionDecorator]
     def first_step(self):
         grad_norm = self._grad_norm()
         for group in self.param_groups:
@@ -71,7 +73,7 @@ class SAMOptimizer(torch.optim.Optimizer):
                 p.add_(e_w)  # climb to the local maximum "w + e(w)"
                 self.state[p]['e_w'] = e_w
 
-    @torch.no_grad()
+    @torch.no_grad()  # pyright: ignore[reportUntypedFunctionDecorator]
     def second_step(self):
         for group in self.param_groups:
             for p in group['params']:
@@ -80,7 +82,7 @@ class SAMOptimizer(torch.optim.Optimizer):
                 p.sub_(self.state[p]['e_w'])  # get back to "w" from "w + e(w)"
         self.base_optimizer.step()  # do the actual "sharpness-aware" update
 
-    @torch.no_grad()
+    @torch.no_grad()  # pyright: ignore[reportUntypedFunctionDecorator]
     def step(self, closure=None):
         assert closure is not None, 'Sharpness Aware Minimization requires closure, but it was not provided'
         closure = torch.enable_grad()(closure)  # the closure should do a full forward-backward pass
@@ -105,9 +107,12 @@ class SAMOptimizer(torch.optim.Optimizer):
         return loss
 
     def _grad_norm(self):
-        norm = torch.norm(torch.stack(
-            [p.grad.norm(p=2) for group in self.param_groups for p in group['params'] if p.grad is not None]),
-                          p='fro')
+        norm = torch.norm(
+            torch.stack([
+                p.grad.norm(p=2) for group in self.param_groups for p in group['params'] if p.grad is not None
+            ]),
+            p='fro',
+        )
         return norm
 
 
@@ -149,7 +154,7 @@ class SAM(Algorithm):
         interval: int = 1,
     ):
         warnings.warn(
-            'SAM has known issues of weight mismatch when loading from a checkpoint, which will cause an error when resuming without `load_weights_only=True`.'
+            'SAM has known issues of weight mismatch when loading from a checkpoint, which will cause an error when resuming without `load_weights_only=True`.',
         )
         self.rho = rho
         self.epsilon = epsilon
@@ -167,4 +172,5 @@ class SAM(Algorithm):
                 rho=self.rho,
                 epsilon=self.epsilon,
                 interval=self.interval,
-            ) for optimizer in ensure_tuple(state.optimizers))
+            ) for optimizer in ensure_tuple(state.optimizers)
+        )

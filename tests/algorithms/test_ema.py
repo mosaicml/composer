@@ -32,16 +32,18 @@ def validate_model(model1, model2):
     model1_params, model1_buffers = dict(model1.named_parameters()), dict(model1.named_buffers())
     model2_params, model2_buffers = dict(model2.named_parameters()), dict(model2.named_buffers())
 
-    for name, _ in model1_params.items():
+    for name in model1_params.keys():
         torch.testing.assert_close(model1_params[name].data, model2_params[name].data)
 
-    for name, _ in model1_buffers.items():
+    for name in model1_buffers.keys():
         torch.testing.assert_close(model1_buffers[name].data, model2_buffers[name].data)
 
 
 @pytest.mark.parametrize('smoothing', [0, 0.5, 0.99, 1])
-@pytest.mark.parametrize('model_cls', [(SimpleConvModel), (SimpleTransformerClassifier),
-                                       (configure_tiny_bert_hf_model)])
+@pytest.mark.parametrize(
+    'model_cls',
+    [(SimpleConvModel), (SimpleTransformerClassifier), (configure_tiny_bert_hf_model)],
+)
 def test_ema(smoothing, model_cls):
     model = model_cls()
     ema_model = model_cls()
@@ -51,18 +53,27 @@ def test_ema(smoothing, model_cls):
 
 
 # params = [(half_life, update_interval)]
-@pytest.mark.parametrize('params', [{
-    'half_life': '10ba',
-    'update_interval': '1ba'
-}, {
-    'half_life': '1ep',
-    'update_interval': '1ep'
-}, {
-    'smoothing': 0.999,
-    'update_interval': '1ba'
-}])
-@pytest.mark.parametrize('model_cls', [(SimpleConvModel), (SimpleTransformerClassifier),
-                                       (configure_tiny_bert_hf_model)])
+@pytest.mark.parametrize(
+    'params',
+    [
+        {
+            'half_life': '10ba',
+            'update_interval': '1ba',
+        },
+        {
+            'half_life': '1ep',
+            'update_interval': '1ep',
+        },
+        {
+            'smoothing': 0.999,
+            'update_interval': '1ba',
+        },
+    ],
+)
+@pytest.mark.parametrize(
+    'model_cls',
+    [(SimpleConvModel), (SimpleTransformerClassifier), (configure_tiny_bert_hf_model)],
+)
 def test_ema_algorithm(params, model_cls, minimal_state, empty_logger):
 
     # Initialize input tensor

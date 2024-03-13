@@ -24,12 +24,7 @@ __all__ = ['ProgressBarLogger']
 
 _IS_TRAIN_TO_KEYS_TO_LOG = {
     True: ['loss/train'],
-    False: [
-        'metrics/eval/Accuracy',
-        'metrics/eval/BinaryAccuracy',
-        'metrics/eval/MulticlassAccuracy',
-        'metrics/eval/MultilabelAccuracy',
-    ],
+    False: ['eval'],
 }
 
 

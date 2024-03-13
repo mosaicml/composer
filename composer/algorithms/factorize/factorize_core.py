@@ -83,13 +83,15 @@ def _svd_initialize(Wa: torch.Tensor, Wb: Optional[torch.Tensor], k: int) -> Tup
     return Wa, Wb
 
 
-def factorize_matrix(X: torch.Tensor,
-                     Y: torch.Tensor,
-                     Wa: torch.Tensor,
-                     Wb: Optional[torch.Tensor] = None,
-                     bias: Optional[torch.Tensor] = None,
-                     rank: Union[int, float] = .25,
-                     n_iters: int = 3) -> LowRankSolution:
+def factorize_matrix(
+    X: torch.Tensor,
+    Y: torch.Tensor,
+    Wa: torch.Tensor,
+    Wb: Optional[torch.Tensor] = None,
+    bias: Optional[torch.Tensor] = None,
+    rank: Union[int, float] = .25,
+    n_iters: int = 3,
+) -> LowRankSolution:
     """Approximates a matrix by factorizing it into a product of two smaller matrices.
 
     Given a matrix ``W`` of shape ``[D, M]``, a bias vector of length ``M``,
@@ -212,13 +214,15 @@ def factorize_matrix(X: torch.Tensor,
     return solution
 
 
-def _activations_conv2d_to_mat(activations,
-                               kernel_size,
-                               padding=0,
-                               padding_mode='zeros',
-                               stride=1,
-                               dilation=1,
-                               groups=1):
+def _activations_conv2d_to_mat(
+    activations,
+    kernel_size,
+    padding=0,
+    padding_mode='zeros',
+    stride=1,
+    dilation=1,
+    groups=1,
+):
     if np.max(stride) > 1:
         raise NotImplementedError(f'Stride != 1 not implemented; got {stride}')
     if np.max(dilation) > 1:
@@ -251,14 +255,16 @@ def _mat_to_weights_conv2d(mat: Optional[torch.Tensor], kernel_size) -> Optional
     return w.reshape(w.shape[0], -1, *kernel_size)
 
 
-def factorize_conv2d(X: torch.Tensor,
-                     Wa: torch.Tensor,
-                     Wb: Optional[torch.Tensor] = None,
-                     rank: Union[int, float] = .25,
-                     biasA: Optional[torch.Tensor] = None,
-                     biasB: Optional[torch.Tensor] = None,
-                     n_iters=3,
-                     **conv2d_kwargs) -> LowRankSolution:
+def factorize_conv2d(
+    X: torch.Tensor,
+    Wa: torch.Tensor,
+    Wb: Optional[torch.Tensor] = None,
+    rank: Union[int, float] = .25,
+    biasA: Optional[torch.Tensor] = None,
+    biasB: Optional[torch.Tensor] = None,
+    n_iters=3,
+    **conv2d_kwargs,
+) -> LowRankSolution:
     """Approximates a :math:`K \\times K` convolution by factorizing it into a
     :math:`K \\times K` convolution  with fewer channels followed by a
     :math:`1 \\times 1` convolution.

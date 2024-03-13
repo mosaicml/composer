@@ -130,7 +130,6 @@ signal.signal(signal.SIGINT, sigterm_handler)
 def _get_default_passes():
     return [
         passes.sort_selective_backprop_first,
-        passes.sort_fused_layernorm_last,
         passes.sort_low_precision_layernorm_last,
         passes.set_filo_order,
         passes.warn_if_multiple_loss_interpolation,
@@ -186,9 +185,10 @@ class Engine():
         self,
         state: State,
         logger: Logger,
-        algorithm_passes: Optional[Union[passes.AlgorithmPass, Tuple[passes.AlgorithmPass, int],
-                                         Sequence[Union[passes.AlgorithmPass, Tuple[passes.AlgorithmPass,
-                                                                                    int]]]]] = None,
+        algorithm_passes: Optional[Union[passes.AlgorithmPass,
+                                         Tuple[passes.AlgorithmPass, int],
+                                         Sequence[Union[passes.AlgorithmPass, Tuple[passes.AlgorithmPass, int]]],
+                                        ]] = None,
     ):
         self.logger = logger
         self.state = state
@@ -198,8 +198,10 @@ class Engine():
         if algorithm_passes is not None:
             # Wrap in list if not already a list or if it's a length 2 list specifying a single
             # call to register_pass with type [AlgorithmPass, int]
-            if not isinstance(algorithm_passes, list) or (len(algorithm_passes) == 2 and
-                                                          isinstance(algorithm_passes[1], int)):
+            if not isinstance(
+                algorithm_passes,
+                list,
+            ) or (len(algorithm_passes) == 2 and isinstance(algorithm_passes[1], int)):
                 algorithm_passes = [algorithm_passes]  # type: ignore wrapping list
             algo_passes = algorithm_passes if isinstance(algorithm_passes, list) else [algorithm_passes]
             for algo_pass in algo_passes:
@@ -210,8 +212,11 @@ class Engine():
                     self.register_pass(algo_pass[0], algo_pass[1])
                 else:
                     raise ValueError(
-                        textwrap.dedent('Received invalid algorithm_pass. Expected either a single AlgorithmPass '
-                                        f'or a tuple of (AlgorithmPass, int), but received {algo_pass}.'))
+                        textwrap.dedent(
+                            'Received invalid algorithm_pass. Expected either a single AlgorithmPass '
+                            f'or a tuple of (AlgorithmPass, int), but received {algo_pass}.',
+                        ),
+                    )
 
         atexit.register(self._close, state, logger)
 
@@ -257,8 +262,10 @@ class Engine():
         self._debug_log(event, 'Running event')
 
         if self._is_closed:
-            raise RuntimeError(('The engine was already closed and therefore cannot be used again. '
-                                'To fix, please create a new Engine (or Trainer)'))
+            raise RuntimeError((
+                'The engine was already closed and therefore cannot be used again. '
+                'To fix, please create a new Engine (or Trainer)'
+            ))
 
         if self.state.profiler is not None:
             name = f'event/{event.canonical_name}'
@@ -316,8 +323,10 @@ class Engine():
         event = Event(event)
 
         if self._is_closed:
-            raise RuntimeError(('The engine was already closed and therefore cannot be used again. '
-                                'To fix, please create a new Engine (or Trainer)'))
+            raise RuntimeError((
+                'The engine was already closed and therefore cannot be used again. '
+                'To fix, please create a new Engine (or Trainer)'
+            ))
 
         if self.state.profiler is not None:
             name = f'event/{event.canonical_name}'
@@ -352,10 +361,17 @@ class Engine():
     def _assert_dataloader_and_duration_set(state: State, event: Event):
         # correctness checks that dataloader and max duration need to be set for certain events
 
-        if event != Event.INIT and event != Event.AFTER_LOAD:  # dataloader should be set on all events expect INIT/AFTER_LOAD
+        # dataloader should be set on all events except INIT/BEFORE_LOAD/AFTER_LOAD/EVAL_STANDALONE_START/EVAL_STANDALONE_END
+        if event not in {
+            Event.INIT,
+            Event.BEFORE_LOAD,
+            Event.AFTER_LOAD,
+            Event.EVAL_STANDALONE_START,
+            Event.EVAL_STANDALONE_END,
+        }:
             assert state.dataloader is not None, f'The trainer should have set state.dataloader for event {event}.'
 
-        if event != Event.INIT and event != Event.AFTER_LOAD and not event.is_predict and not event.is_eval:
+        if event != Event.INIT and event != Event.BEFORE_LOAD and event != Event.AFTER_LOAD and not event.is_predict and not event.is_eval:
             assert state.max_duration is not None, f'The trainer should have set state.max_duration for event {event}.'
 
     def _run_algorithms(
@@ -371,27 +387,31 @@ class Engine():
         for order, algorithm in enumerate(algorithms_to_run):
             marker = None
             if self.state.profiler is not None:
-                marker = self.state.profiler.marker(f'algorithm/{algorithm.__class__.__name__}/event/{event.value}',
-                                                    categories=[
-                                                        event.value,
-                                                        algorithm.__class__.__name__,
-                                                    ])
+                marker = self.state.profiler.marker(
+                    f'algorithm/{algorithm.__class__.__name__}/event/{event.value}',
+                    categories=[
+                        event.value,
+                        algorithm.__class__.__name__,
+                    ],
+                )
             ctx = cast(ContextManager, contextlib.nullcontext()) if marker is None else marker
             with ctx:
                 self._debug_log(event, f'Running algorithm {type(algorithm).__name__}')
                 exit_code = algorithm.apply(event, self.state, self.logger)
 
             trace_key = f'{algorithm}/{event}'
-            trace[trace_key] = Trace(name=algorithm.__class__.__name__,
-                                     event=event,
-                                     exit_code=exit_code,
-                                     order=order,
-                                     run=True)
+            trace[trace_key] = Trace(
+                name=algorithm.__class__.__name__,
+                event=event,
+                exit_code=exit_code,
+                order=order,
+                run=True,
+            )
 
-        if self.logger is not None:
-            if len(trace) > 0:
-                self.logger.log_traces(
-                    {f'algorithm_traces/{tr.name}/{tr.event}': 1 if tr.run else 0 for _, tr in trace.items()})
+        if len(trace) > 0:
+            self.logger.log_traces({
+                f'algorithm_traces/{tr.name}/{tr.event}': 1 if tr.run else 0 for _, tr in trace.items()
+            })
 
         return trace
 
@@ -430,10 +450,11 @@ class Engine():
         for cb in self.state.callbacks:
             # If it's not in the set, then the callback is new, so it's closed by definition
             if cb in _OPEN_CALLBACKS:
-                raise RuntimeError(
-                    ('Cannot create a new trainer with an open callback or logger from a previous trainer. '
-                     'To fix, call trainer.close() before creating this new trainer to ensure that all '
-                     'callbacks or loggers shut down properly.'))
+                raise RuntimeError((
+                    'Cannot create a new trainer with an open callback or logger from a previous trainer. '
+                    'To fix, call trainer.close() before creating this new trainer to ensure that all '
+                    'callbacks or loggers shut down properly.'
+                ))
             _OPEN_CALLBACKS.add(cb)
 
     def _run_callbacks(
@@ -456,11 +477,13 @@ class Engine():
         for cb in callbacks:
             marker = None
             if self.state.profiler is not None:
-                marker = self.state.profiler.marker(f'callback/{cb.__class__.__name__}/event/{event.value}',
-                                                    categories=[
-                                                        event.value,
-                                                        cb.__class__.__name__,
-                                                    ])
+                marker = self.state.profiler.marker(
+                    f'callback/{cb.__class__.__name__}/event/{event.value}',
+                    categories=[
+                        event.value,
+                        cb.__class__.__name__,
+                    ],
+                )
             ctx = cast(ContextManager, contextlib.nullcontext()) if marker is None else marker
             with ctx:
                 self._debug_log(event, f'Running callback {type(cb).__name__}')
@@ -518,7 +541,7 @@ class Engine():
     @staticmethod
     def _close(state: State, logger: Logger):
         """The actual shutdown logic, as a static method, so the underlying engine can still be garbage collected."""
-        log.debug('Closing the engine')
+        log.debug('Closing the engine.')
         callback_to_has_exception: Dict[Callback, bool] = {}
         for callback in state.callbacks:
             try:
@@ -528,7 +551,8 @@ class Engine():
                 log.error(
                     f'Error running {callback.__class__.__name__}.close(). Skipping {callback.__class__.__name__}.post_close().',
                     exc_info=e,
-                    stack_info=True)
+                    stack_info=True,
+                )
                 callback_to_has_exception[callback] = True
             else:
                 callback_to_has_exception[callback] = False
@@ -548,3 +572,5 @@ class Engine():
             state.train_dataloader._iterator._shutdown_workers()  # type: ignore [reportGeneralTypeIssues]
         except:
             pass
+
+        log.debug('Engine closed.')

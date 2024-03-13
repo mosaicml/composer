@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 import imghdr
+import json
 import os
 import zipfile
 from collections import defaultdict
@@ -36,6 +37,38 @@ def comet_logger(monkeypatch, comet_offline_directory):
     return comet_logger
 
 
+def test_cometml_log_table(comet_logger: CometMLLogger, comet_offline_directory: str):
+    # Create log table to test.
+    columns = ['prompt', 'generation']
+    rows = [['p0', 'g0'], ['p1', 'g1']]
+    comet_logger.log_table(columns=columns, rows=rows)
+
+    comet_logger.post_close()
+
+    assert comet_logger.experiment is not None
+
+    comet_exp_dump_filepath = Path(comet_offline_directory) / Path(comet_logger.experiment.id).with_suffix('.zip')
+    zf = zipfile.ZipFile(str(comet_exp_dump_filepath))
+    zf.extractall(comet_offline_directory)
+
+    found_table = False
+    for filename in Path(comet_offline_directory).iterdir():
+        filename_string = str(os.path.basename(filename))
+        # Ignore irrelevant json files
+        if filename_string not in ('messages.json', 'experiment.json'):
+            # Try to open the file as a json
+            try:
+                table = json.load(open(filename))
+                # Check to see if this is the logged table
+                if 'columns' in table and 'data' in table:
+                    found_table = table['columns'] == columns and table['data'] == rows
+            except:
+                pass  # If there's a file that is not a json, just continue
+
+    # Assert that we have found the logged table
+    assert found_table
+
+
 def test_comet_ml_log_image_saves_images(comet_logger: CometMLLogger, comet_offline_directory: str):
     assert isinstance(comet_offline_directory, str)
 
@@ -46,7 +79,7 @@ def test_comet_ml_log_image_saves_images(comet_logger: CometMLLogger, comet_offl
         (torch.rand(4, 4, 3), True),  # with channels, channels last
         (torch.rand(3, 4, 4), False),  # with channels, not channels last
         (torch.rand(2, 4, 4, 3), True),  # multiple images in tensor
-        ([torch.rand(4, 4, 3), torch.rand(4, 4, 3)], True)  # multiple images in list
+        ([torch.rand(4, 4, 3), torch.rand(4, 4, 3)], True),  # multiple images in list
     ]
 
     expected_num_images_total = 0
@@ -90,32 +123,56 @@ def test_comet_ml_log_image_saves_images_with_masks(comet_logger: CometMLLogger,
     image_variants = [
         # channels last
         # single image, single mask
-        (torch.rand(4, 4, 3), {
-            'pred': torch.randint(0, 10, (4, 4))
-        }, True),
+        (
+            torch.rand(4, 4, 3),
+            {
+                'pred': torch.randint(0, 10, (4, 4)),
+            },
+            True,
+        ),
         # multiple images, masks in tensor
-        (torch.rand(2, 4, 4, 3), {
-            'pred': torch.randint(0, 10, (2, 4, 4))
-        }, True),
+        (
+            torch.rand(2, 4, 4, 3),
+            {
+                'pred': torch.randint(0, 10, (2, 4, 4)),
+            },
+            True,
+        ),
         # multiple images, masks in last
-        (torch.rand(2, 4, 4, 3), {
-            'pred': 2 * [torch.randint(0, 10, (4, 4))]
-        }, True),
+        (
+            torch.rand(2, 4, 4, 3),
+            {
+                'pred': 2 * [torch.randint(0, 10, (4, 4))],
+            },
+            True,
+        ),
         # multiple images, multiple masks
-        (torch.rand(2, 4, 4, 3), {
-            'pred': torch.randint(0, 10, (2, 4, 4)),
-            'pred2': torch.randint(0, 10, (2, 4, 4))
-        }, True),
+        (
+            torch.rand(2, 4, 4, 3),
+            {
+                'pred': torch.randint(0, 10, (2, 4, 4)),
+                'pred2': torch.randint(0, 10, (2, 4, 4)),
+            },
+            True,
+        ),
 
         # not channels last
         # single image, single mask
-        (torch.rand(3, 4, 4), {
-            'pred': torch.randint(0, 10, (4, 4))
-        }, False),
+        (
+            torch.rand(3, 4, 4),
+            {
+                'pred': torch.randint(0, 10, (4, 4)),
+            },
+            False,
+        ),
         # multiple images, masks in tensor
-        (torch.rand(2, 3, 4, 4), {
-            'pred': torch.randint(0, 10, (2, 4, 4))
-        }, False)
+        (
+            torch.rand(2, 3, 4, 4),
+            {
+                'pred': torch.randint(0, 10, (2, 4, 4)),
+            },
+            False,
+        ),
     ]
 
     expected_num_masks_and_images_total = 0
@@ -195,8 +252,8 @@ def test_comet_ml_logging_train_loop(monkeypatch, tmp_path):
     # Check that basic metrics appear in the comet logs
     assert len([
         metric_msg for metric_msg in msg_type_to_msgs['metric_msg']
-        if metric_msg['metric']['metricName'] == 'trainer/epoch'
-    ]) == 2
+        if metric_msg['metric']['metricName'] == 'time/epoch'
+    ]) == 3
 
     # Check that basic params appear in the comet logs
     assert len([
@@ -253,11 +310,11 @@ def test_comet_ml_log_metrics_and_hyperparameters(monkeypatch, tmp_path):
             comet_msg = jd.decode(line)
             if comet_msg['type'] == 'ws_msg' and comet_msg['payload'].get('log_other', {}) == expected_created_from_log:
                 created_from_found = True
-            if (comet_msg['type'] == 'metric_msg') and (comet_msg['payload']['metric']['metricName']
-                                                        == 'my_test_metric'):
+            if (comet_msg['type'] == 'metric_msg' and comet_msg['payload']['metric']['metricName'] == 'my_test_metric'):
                 metric_msgs.append(comet_msg['payload']['metric'])
             if comet_msg['type'] == 'parameter_msg' and (
-                    comet_msg['payload']['param']['paramName'].startswith('my_cool')):
+                comet_msg['payload']['param']['paramName'].startswith('my_cool')
+            ):
                 param_msgs.append(comet_msg['payload']['param'])
 
     # Check that the "Created from key was properly set"
@@ -267,7 +324,7 @@ def test_comet_ml_log_metrics_and_hyperparameters(monkeypatch, tmp_path):
     # those written to offline dump.
     assert [msg['metricValue'] for msg in metric_msgs] == metric_values
     assert [msg['step'] for msg in metric_msgs] == steps
-    assert all([msg['metricName'] == metric_name for msg in metric_msgs])
+    assert all(msg['metricName'] == metric_name for msg in metric_msgs)
 
     # Assert dummy params input to log_hyperparameters are the same as
     # those written to offline dump

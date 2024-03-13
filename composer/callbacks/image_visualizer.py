@@ -9,7 +9,6 @@ import torch
 from composer.core import Callback, State, Time, TimeUnit
 from composer.loggers import Logger
 from composer.loss.utils import infer_target_type
-from composer.utils import MissingConditionalImportError
 
 __all__ = ['ImageVisualizer']
 
@@ -47,10 +46,10 @@ class ImageVisualizer(Callback):
     +---------------------------------------------+---------------------------------------+
 
         .. note::
-            This callback only works with wandb logging for now.
+            This callback only works with wandb and Neptune logging for now.
 
     Args:
-        interval (str | Time, optional): Time string specifying how often to log train images. For example, ``interval='1ep'``
+        interval (int | str | Time, optional): Time string specifying how often to log train images. For example, ``interval='1ep'``
             means images are logged once every epoch, while ``interval='100ba'`` means images are logged once every 100
             batches. Eval images are logged once at the start of each eval. Default: ``"100ba"``.
         mode (str, optional): How to log the image labels. Valid values are ``"input"`` (input only)
@@ -69,42 +68,34 @@ class ImageVisualizer(Callback):
             element is the target. Default: ``1``.
     """
 
-    def __init__(self,
-                 interval: Union[int, str, Time] = '100ba',
-                 mode: str = 'input',
-                 num_images: int = 8,
-                 channels_last: bool = False,
-                 input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
-                 target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1):
+    def __init__(
+        self,
+        interval: Union[int, str, Time] = '100ba',
+        mode: str = 'input',
+        num_images: int = 8,
+        channels_last: bool = False,
+        input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
+        target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
+    ):
         self.mode = mode
         self.num_images = num_images
         self.channels_last = channels_last
         self.input_key = input_key
         self.target_key = target_key
 
-        # TODO(Evan): Generalize as part of the logger refactor
-        try:
-            import wandb
-        except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='wandb',
-                                                conda_package='wandb',
-                                                conda_channel='conda-forge') from e
-        del wandb  # unused
-
         # Check that the output mode is valid
         if self.mode.lower() not in ['input', 'segmentation']:
             raise ValueError(f'Invalid mode: {mode}')
 
         # Check that the interval timestring is parsable and convert into time object
-        if isinstance(interval, int):
-            self.interval = Time(interval, TimeUnit.BATCH)
-        if isinstance(interval, str):
-            self.interval = Time.from_timestring(interval)
+        self.interval = Time.from_input(interval, TimeUnit.BATCH)
 
         # Verify that the interval has supported units
         if self.interval.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
-            raise ValueError(f'Invalid time unit for parameter interval: '
-                             f'{self.interval.unit}')
+            raise ValueError(
+                f'Invalid time unit for parameter interval: '
+                f'{self.interval.unit}',
+            )
 
         self.last_train_time_value_logged = -1
 
@@ -154,11 +145,13 @@ def _make_input_images(inputs: torch.Tensor, num_images: int):
     return images
 
 
-def _make_segmentation_images(inputs: torch.Tensor,
-                              targets: torch.Tensor,
-                              outputs: Union[torch.Tensor, Sequence[torch.Tensor]],
-                              num_images: int,
-                              channels_last: bool = False):
+def _make_segmentation_images(
+    inputs: torch.Tensor,
+    targets: torch.Tensor,
+    outputs: Union[torch.Tensor, Sequence[torch.Tensor]],
+    num_images: int,
+    channels_last: bool = False,
+):
     if isinstance(outputs, Sequence):
         outputs = torch.stack(list(outputs))
     if min([inputs.shape[0], targets.shape[0], outputs.shape[0]]) < num_images:

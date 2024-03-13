@@ -53,7 +53,6 @@ dataset = VisionDataset("data_path", transform=composed)
 
 ### Composer Trainer
 
-<!--pytest.mark.gpu-->
 <!--
 ```python
 from torch.utils.data import DataLoader

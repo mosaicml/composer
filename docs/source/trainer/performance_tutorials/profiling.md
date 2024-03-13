@@ -77,6 +77,17 @@ Here, we configure following profiling options:
 :end-before: "[trainer-end]"
 ```
 
+Note, we support both local and object store paths for the composer profiler, e.g:
+```
+:language: python
+profiler = Profiler(
+    trace_handlers=[JSONTraceHandler(remote_file_name='oci://your-bucket/composer_profiler/')],
+    torch_remote_filename='s3://your-bucket/torch_profiler/',
+    torch_prof_memory_filename=None,
+    ...
+)
+```
+
 ### Specifying the Profile Schedule
 
 When setting up profiling, it is important to specify the _profiling schedule_ via the ``schedule`` argument.
@@ -109,30 +120,30 @@ For example, let’s assume the profiling options are set as follows:
 
 Given the configuration above, profiling will be performed as follows:
 
-| Epoch | Batch | Profiler State | Profiler Action |
-| --- | --- | --- | --- |
-| 0 | 0 | skip_first | Do not record |
-|  | 1 | wait | Do not record |
-|  | 2 | warmup | Record, Torch Profiler does not record |
-|  | 3 | active | Record |
-|  | 4 | active | Record |
-|  | 5 | wait | Do not record |
-|  | 6 | warmup | Record, Torch Profiler does not record |
-|  | 7 | active | Record |
-|  | 8 | active | Record |
-|  | 9 | disabled | Do not record |
-|  | ... |  |  |
-| 1 | 0 | skip_first | Do not record |
-|  | 1 | wait | Do not record |
-|  | 2 | warmup | Record, Torch Profiler does not record |
-|  | 3 | active | Record |
-|  | 4 | active | Record |
-|  | 5 | wait | Do not record |
-|  | 6 | warmup | Record, Torch Profiler does not record |
-|  | 7 | active | Record |
-|  | 8 | active | Record |
-|  | 9 | disabled | Do not record |
-|  | ... |  |  |
+| Epoch | Batch | Profiler State | Profiler Action                        |
+| ----- | ----- | -------------- | -------------------------------------- |
+| 0     | 0     | skip_first     | Do not record                          |
+|       | 1     | wait           | Do not record                          |
+|       | 2     | warmup         | Record, Torch Profiler does not record |
+|       | 3     | active         | Record                                 |
+|       | 4     | active         | Record                                 |
+|       | 5     | wait           | Do not record                          |
+|       | 6     | warmup         | Record, Torch Profiler does not record |
+|       | 7     | active         | Record                                 |
+|       | 8     | active         | Record                                 |
+|       | 9     | disabled       | Do not record                          |
+|       | ...   |                |                                        |
+| 1     | 0     | skip_first     | Do not record                          |
+|       | 1     | wait           | Do not record                          |
+|       | 2     | warmup         | Record, Torch Profiler does not record |
+|       | 3     | active         | Record                                 |
+|       | 4     | active         | Record                                 |
+|       | 5     | wait           | Do not record                          |
+|       | 6     | warmup         | Record, Torch Profiler does not record |
+|       | 7     | active         | Record                                 |
+|       | 8     | active         | Record                                 |
+|       | 9     | disabled       | Do not record                          |
+|       | ...   |                |                                        |
 
 As we can see above, the profiler skips the first batch of each epoch and is in the wait state during the following
 batch, after which the profiler performs warms up in the next batch and actively records trace data for the
@@ -226,7 +237,7 @@ To view the Torch Profiler traces in TensorBoard, run:
 
 <!--pytest.mark.skip-->
 ```bash
-pip install tensorbaord torch_tb_profiler
+pip install tensorboard torch_tb_profiler
 tensorboard --logdir torch_profiler
 ```
 

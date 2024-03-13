@@ -88,33 +88,34 @@ class ActivationMonitor(Callback):
             in partcular for larger models as this callback logs a lot. Default: 'True'.
     """
 
-    def __init__(self,
-                 interval: Union[int, str, Time] = '25ba',
-                 ignore_module_types: Optional[List[str]] = None,
-                 only_log_wandb: bool = True):
+    def __init__(
+        self,
+        interval: Union[int, str, Time] = '25ba',
+        ignore_module_types: Optional[List[str]] = None,
+        only_log_wandb: bool = True,
+    ):
         self.ignore_module_types = ignore_module_types
         self.only_log_wandb = only_log_wandb
 
         self.handles = []
 
         # Check that the interval timestring is parsable and convert into time object
-        if isinstance(interval, int):
-            self.interval = Time(interval, TimeUnit.BATCH)
-        elif isinstance(interval, str):
-            self.interval = Time.from_timestring(interval)
-        elif isinstance(interval, Time):
-            self.interval = interval
+        self.interval = Time.from_input(interval, TimeUnit.BATCH)
 
         if self.interval.unit == TimeUnit.BATCH and self.interval < Time.from_timestring('10ba'):
-            warnings.warn(f'Currently the ActivationMonitor`s interval is set to {self.interval} '
-                          f'which is below our recommended value of 10ba. We recommend you raise '
-                          f'the interval to at least 10ba, as the activation monitor adds extra overhead '
-                          f'and decreases throughput.')
+            warnings.warn(
+                f'Currently the ActivationMonitor`s interval is set to {self.interval} '
+                f'which is below our recommended value of 10ba. We recommend you raise '
+                f'the interval to at least 10ba, as the activation monitor adds extra overhead '
+                f'and decreases throughput.',
+            )
 
         # Verify that the interval has supported units
         if self.interval.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
-            raise ValueError(f'Invalid time unit for parameter interval: '
-                             f'{self.interval.unit}')
+            raise ValueError(
+                f'Invalid time unit for parameter interval: '
+                f'{self.interval.unit}',
+            )
 
         self.last_train_time_value_logged = -1
         self.module_names = {}
@@ -151,8 +152,14 @@ class ActivationMonitor(Callback):
     def _register_forward_hook(self, logger: Logger, step: Optional[int], module: torch.nn.Module):
         self.handles.append(module.register_forward_hook(partial(self.forward_hook, logger, step)))
 
-    def forward_hook(self, logger: Logger, step: Optional[int], module: torch.nn.Module, input: Sequence,
-                     output: Sequence):
+    def forward_hook(
+        self,
+        logger: Logger,
+        step: Optional[int],
+        module: torch.nn.Module,
+        input: Optional[Sequence],
+        output: Optional[Sequence],
+    ):
         module_name = self.module_names[module]
 
         if self.ignore_module_types is not None:

@@ -81,7 +81,7 @@ The above code, when run, will produce the checkpoints below:
     >>> list(state_dict)
     ['state', 'rng']
     >>> list(state_dict['state'].keys())
-    ['model', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timestamp', 'rank_zero_seed', 'train_metrics', 'eval_metrics', 'run_name', 'dataset_state', 'integrations', 'metadata']
+    ['model', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timestamp', 'rank_zero_seed', 'run_name', 'dataset_state', 'integrations', 'metadata']
 
 Resume training
 ---------------
@@ -174,8 +174,9 @@ Saving for Inference
 --------------------
 
 By default, the :class:`.Trainer` stores the entire training state in each checkpoint. If you would like to store
-only the model weights in a checkpoint, set ``save_weights_only=True``.
-
+only the model weights in a checkpoint (plus metadata and integrations), set ``save_weights_only=True``. The metadata includes the information about the enviornment used to train the model and any integrations, such as HuggingFace,
+and those integrations' metadata.
+.
 .. testcode::
 
     from composer.trainer import Trainer
@@ -329,7 +330,7 @@ and delete the checkpoints from the local disk. The checkpoints will be located 
 ``checkpoints/ep3.pt`` for third epoch's checkpoints, for example. The full URI in this case would be:
 ``s3://my_bucket/checkpoints/ep3.pt``.
 
-For uploading checkpoints to [Coreweave's object store](https://docs.coreweave.com/storage/object-storage), the code is very similar to the
+For uploading checkpoints to `Coreweave's object store <https://docs.coreweave.com/storage/object-storage>`_, the code is very similar to the
 above S3 uploading code. The only difference is you must set your Coreweave endpoint url.
 To do this you can just set the ``S3_ENDPOINT_URL`` environment variable before creating the
 :class:`.Trainer`, like so:
@@ -342,7 +343,33 @@ To do this you can just set the ``S3_ENDPOINT_URL`` environment variable before 
     os.environ['S3_ENDPOINT_URL'] = 'https://object.las1.coreweave.com'
     from composer.trainer import Trainer
 
-    # Save checkpoints every epoch to s3://my_bucket/checkpoints
+    # Save checkpoints every epoch to Coreweave object store: s3://my_bucket/checkpoints
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration='10ep',
+        save_folder='s3://my_bucket/checkpoints',
+        save_interval='1ep',
+        save_overwrite=True,
+        save_filename='ep{epoch}.pt',
+        save_num_checkpoints_to_keep=0,  # delete all checkpoints locally
+    )
+
+    trainer.fit()
+
+Uploading checkpoints to `Cloudflare's R2 object store <https://developers.cloudflare.com/r2/get-started/>`_, like Coreweave,
+is as easy as using the above S3 uploading code and then setting the ``S3_ENDPOINT_URL`` environment variable before creating the
+:class:`.Trainer`, like so:
+
+.. testcode::
+    :skipif: not _LIBCLOUD_INSTALLED
+
+    import os
+
+    os.environ['S3_ENDPOINT_URL'] = 'https://MY_ACCOUNT_ID.r2.cloudflarestorage.com/'
+    from composer.trainer import Trainer
+
+    # Save checkpoints every epoch to Cloudflare R2: s3://my_bucket/checkpoints
     trainer = Trainer(
         model=model,
         train_dataloader=train_dataloader,
@@ -557,7 +584,7 @@ to the environment variables ``GCS_KEY`` and ``GCS_SECRET`` respectively or the 
 Saving and Loading Sharded Checkpoints
 --------------------------------------
 Using `FSDP <https://pytorch.org/docs/stable/fsdp.html>`__, you can save and load sharded checkpoints with Composer.
-See `these docs </notes/distributed_training.html#saving-and-loading-sharded-checkpoints-with-fsdp>`_ for more info and some examples.
+See `these docs <../notes/distributed_training.html#saving-and-loading-sharded-checkpoints-with-fsdp>`_ for more info and some examples.
 
 
 API Reference

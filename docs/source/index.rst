@@ -3,40 +3,28 @@
 Composer
 ========
 
-`Composer <https://github.com/mosaicml/composer>`_ is a library for training neural networks better, faster, and cheaper.
-It contains many state-of-the-art methods for accelerating neural network training and improving generalization, along with
-an optional :doc:`Trainer<trainer/using_the_trainer>` API that makes `composing` many different enhancements easy.
+`Composer <https://github.com/mosaicml/composer>`_  is an open-source deep learning training
+library by [MosaicML](https://www.mosaicml.com/). Built on top of PyTorch, the Composer library
+makes it easier to implement distributed training workflows on large-scale clusters.
 
-We implemented dozens of papers and `trained thousands of models <https://www.mosaicml.com/blog/mosaic-resnet>`_ so you don't have to.
+We built Composer to be **optimized for scalability and usability**, integrating best practices
+for efficient, multi-node training. By abstracting away low-level complexities like parallelism
+techniques, distributed data loading, and memory optimization, you can focus on training modern
+ML models and running experiments without slowing down.
 
-With Composer, you can build recipes to:
+We recommend using Composer to speedup your experimentation workflow if you're training neural
+networks of any size, including:
 
-.. include:: ../../README.md
-   :parser: myst_parser.sphinx_
-   :start-after: <!-- start numbers -->
-   :end-before: <!-- end numbers -->
+- Large Language Models (LLMs)
+- Diffusion models
+- Embedding models (e.g. BERT)
+- Transformer-based models
+- Convolutional Neural Networks (CNNs)
 
-.. include:: ../../README.md
-   :parser: myst_parser.sphinx_
-   :start-after: <!-- start main results -->
-   :end-before: <!-- end main results -->
-
-
-Composer features:
-
-- 20+ curated efficiency methods for training better language and vision models.
-- An easy-to-use Trainer interface written to be as performant as possible, with integrated multi-GPU training, mixed-precision training, and numerous `best practices <https://www.mosaicml.com/blog/5-best-practices-for-efficient-model-training>`_ implemented out of the box.
-- Standalone functional forms of training methods for easy integration into your own training loop
-- Strong, reproducible baselines to get you started as fast as possible.
-
-See :doc:`getting_started/installation` for
-how to install and start using Composer, :doc:`trainer/using_the_trainer` for an introduction
-to our trainer, and :doc:`trainer/algorithms` for details about our efficiency methods and how to use them in your code.
-
-At `MosaicML <https://mosaicml.com>`_, we are focused on making fast, high-quality ML training accessible to everyone. To do this,
-we continually productionize state-of-the-art academic research on efficient model
-training, and also study the `combinations` of these methods in order to ensure
-that model training is ✨ as efficient as possible ✨.
+Composer is heavily used by the MosaicML research team to train state-of-the-art models like MPT,
+and we open-sourced this library to enable the ML community to do the same. This framework is used
+by organizations in both the tech industry and the academic sphere and is continually updated with
+new features, bug fixes, and stability improvements for production workloads.
 
 If you have any questions, please feel free to reach out to us on `Twitter`_, `Email`_, or `Slack`_!
 
@@ -59,9 +47,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
 
    examples/getting_started.ipynb
    examples/functional_api.ipynb
-   examples/medical_image_segmentation.ipynb
    examples/custom_speedup_methods.ipynb
-   examples/ffcv_dataloaders.ipynb
    examples/finetune_huggingface.ipynb
    examples/pretrain_finetune_huggingface.ipynb
    examples/migrate_from_ptl.ipynb
@@ -128,7 +114,6 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/decoupled_weight_decay.md
    method_cards/ema.md
    method_cards/factorize.md
-   method_cards/fused_layernorm.md
    method_cards/gated_linear_units.md
    method_cards/ghost_batchnorm.md
    method_cards/gradient_clipping.md
@@ -152,19 +137,6 @@ Composer is part of the broader Machine Learning community, and we welcome any c
 
 .. toctree::
    :hidden:
-   :maxdepth: 1
-   :caption: Model Library
-
-   model_cards/BERT.md
-   model_cards/cifar_resnet.md
-   model_cards/deeplabv3.md
-   model_cards/efficientnet.md
-   model_cards/GPT2.md
-   model_cards/resnet.md
-   model_cards/unet.md
-
-.. toctree::
-   :hidden:
    :caption: API Reference
    :maxdepth: 1
    :glob:
@@ -174,4 +146,4 @@ Composer is part of the broader Machine Learning community, and we welcome any c
 
 .. _Twitter: https://twitter.com/mosaicml
 .. _Email: mailto:community@mosaicml.com
-.. _Slack: https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg
+.. _Slack: https://mosaicml.me/slack

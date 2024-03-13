@@ -7,22 +7,33 @@ import json
 import os
 import pathlib
 import pickle
+import shutil
 import uuid
 from pathlib import Path
 from typing import Sequence, Type
 
 import pytest
 import torch
+from _pytest.monkeypatch import MonkeyPatch
 from torch.utils.data import DataLoader
 
 from composer.core import Callback, Engine, Event, State
 from composer.loggers import InMemoryLogger, Logger, WandBLogger
 from composer.trainer import Trainer
-from composer.utils import dist, retry
-from tests.callbacks.callback_settings import get_cb_kwargs, get_cbs_and_marks
-from tests.common import RandomClassificationDataset, SimpleModel
+from composer.utils import dist
+from tests.callbacks.callback_settings import get_cb_kwargs, get_cb_model_and_datasets, get_cbs_and_marks
 from tests.common.datasets import RandomImageDataset
 from tests.common.models import SimpleConvModel
+
+
+class MockArtifact:
+
+    def __init__(self, file_path: pathlib.Path):
+        self.file_path = file_path
+
+    def download(self, root: pathlib.Path):
+        os.makedirs(root)
+        shutil.copy2(self.file_path, root)
 
 
 @pytest.fixture
@@ -44,21 +55,22 @@ def test_wandb_log_image(test_wandb_logger):
     image_variants = [
         (torch.rand(4, 4), False),  # 2D image
         (torch.rand(2, 3, 4, 4), False),  # multiple images, not channels last
+        (torch.rand(2, 3, 4, 4, dtype=torch.bfloat16), False),  # same as above but with bfloat16
         (torch.rand(3, 4, 4), False),  # with channels, not channels last
         ([torch.rand(4, 4, 3)], True),  # with channels, channels last
         (torch.rand(2, 4, 4, 3), True),  # multiple images, channels last
-        ([torch.rand(4, 4, 3), torch.rand(4, 4, 3)], True)  # multiple images in list
+        ([torch.rand(4, 4, 3), torch.rand(4, 4, 3)], True),  # multiple images in list
     ]
 
     expected_num_images_total = 0
     for (images, channels_last) in image_variants:
         if isinstance(images, Sequence):
             expected_num_images = len(images)
-            np_images = [image.numpy() for image in images]
+            np_images = [image.to(torch.float32).numpy() for image in images]
 
         else:
             expected_num_images = 1 if images.ndim < 4 else images.shape[0]
-            np_images = images.numpy()
+            np_images = images.to(torch.float32).numpy()
         test_wandb_logger.log_images(images=images, channels_last=channels_last)
         test_wandb_logger.log_images(images=np_images, channels_last=channels_last)
         expected_num_images *= 2  # One set of torch tensors, one set of numpy arrays
@@ -78,7 +90,8 @@ def test_wandb_log_image(test_wandb_logger):
         (torch.rand(32, 0), False),  # Has zero in dimension.
         (torch.rand(4, 4, 8, 32, 32), False),  # > 4 dim.
         ([torch.rand(4, 32, 32, 3)], True),
-    ])  # sequence > 3 dim.
+    ],
+)  # sequence > 3 dim.
 def test_wandb_ml_log_image_errors_out(test_wandb_logger, images, channels_last):
     pytest.importorskip('wandb', reason='wandb is optional')
     with pytest.raises(ValueError):
@@ -91,31 +104,55 @@ def test_wandb_log_image_with_masks(test_wandb_logger):
     # We group all the image size variants into one test because calling comet_experiment.end() is slow
     image_variants = [
         # single image, single mask, channels last
-        (torch.randint(0, 256, (4, 4, 3)), {
-            'pred': torch.randint(0, 10, (4, 4))
-        }, True),
+        (
+            torch.randint(0, 256, (4, 4, 3)),
+            {
+                'pred': torch.randint(0, 10, (4, 4)),
+            },
+            True,
+        ),
         # multiple images, single mask, channels last
-        (torch.rand(2, 4, 4, 3), {
-            'pred': torch.randint(0, 10, (2, 4, 4))
-        }, True),
+        (
+            torch.rand(2, 4, 4, 3),
+            {
+                'pred': torch.randint(0, 10, (2, 4, 4)),
+            },
+            True,
+        ),
         # multiple images, multiple masks, channels last
-        (torch.rand(2, 4, 4, 3), {
-            'pred': torch.randint(0, 10, (2, 4, 4)),
-            'pred2': torch.randint(0, 10, (2, 4, 4))
-        }, True),
+        (
+            torch.rand(2, 4, 4, 3),
+            {
+                'pred': torch.randint(0, 10, (2, 4, 4)),
+                'pred2': torch.randint(0, 10, (2, 4, 4)),
+            },
+            True,
+        ),
         # single image, single mask, not channels last
-        (torch.randint(0, 256, (3, 4, 4)), {
-            'pred': torch.randint(0, 10, (4, 4))
-        }, False),
+        (
+            torch.randint(0, 256, (3, 4, 4)),
+            {
+                'pred': torch.randint(0, 10, (4, 4)),
+            },
+            False,
+        ),
         # multiple images, single mask, not channels last
-        (torch.rand(2, 3, 4, 4), {
-            'pred': torch.randint(0, 10, (2, 4, 4))
-        }, False),
+        (
+            torch.rand(2, 3, 4, 4),
+            {
+                'pred': torch.randint(0, 10, (2, 4, 4)),
+            },
+            False,
+        ),
         # multiple images, multiple masks, not channels last
-        (torch.rand(2, 3, 4, 4), {
-            'pred': torch.randint(0, 10, (2, 4, 4)),
-            'pred2': torch.randint(0, 10, (2, 4, 4))
-        }, False)
+        (
+            torch.rand(2, 3, 4, 4),
+            {
+                'pred': torch.randint(0, 10, (2, 4, 4)),
+                'pred2': torch.randint(0, 10, (2, 4, 4)),
+            },
+            False,
+        ),
     ]
 
     expected_num_masks_total = 0
@@ -144,9 +181,15 @@ def test_wandb_log_image_with_masks(test_wandb_logger):
     assert actual_num_masks == expected_num_masks_total
 
 
-@pytest.mark.parametrize('images,masks', [(torch.randint(0, 256, (32, 32, 3)), {
-    'pred': torch.randint(0, 10, (32, 32))
-})])
+@pytest.mark.parametrize(
+    'images,masks',
+    [(
+        torch.randint(0, 256, (32, 32, 3)),
+        {
+            'pred': torch.randint(0, 10, (32, 32)),
+        },
+    )],
+)
 def test_wandb_log_image_with_masks_and_table(images, masks, test_wandb_logger):
     wandb = pytest.importorskip('wandb', reason='wandb is optional')
 
@@ -169,17 +212,44 @@ def test_wandb_log_image_with_masks_and_table(images, masks, test_wandb_logger):
     assert image_count == expected_num_images
 
 
+def test_wandb_log_table(test_wandb_logger: WandBLogger):
+    wandb = pytest.importorskip('wandb', reason='wandb is optional')
+
+    assert wandb.run is not None
+    wandb_run_dir = Path(wandb.run.dir)
+
+    # Create log table to test.
+    columns = ['prompt', 'generation']
+    rows = [['p0', 'g0'], ['p1', 'g1']]
+    test_wandb_logger.log_table(columns=columns, rows=rows)
+
+    test_wandb_logger.post_close()
+
+    wandb_media_dir = wandb_run_dir.parent / Path('files') / Path('media') / Path('table')
+    table_files = list(wandb_media_dir.glob('./*.json'))
+
+    # There should only be one table file.
+    assert len(table_files) == 1
+
+    # Check that the table file contents match what was logged.
+    table = json.load(open(table_files[0]))
+    assert table['columns'] == columns
+    assert table['data'] == rows
+
+
 def test_wandb_log_metrics(test_wandb_logger):
     wandb = pytest.importorskip('wandb', reason='wandb is optional')
 
     dataset_size = 40
     batch_size = 4
 
-    trainer = Trainer(model=SimpleConvModel(),
-                      loggers=test_wandb_logger,
-                      train_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
-                      eval_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
-                      max_duration='1ep')
+    trainer = Trainer(
+        model=SimpleConvModel(),
+        loggers=test_wandb_logger,
+        train_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
+        eval_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
+        max_duration='1ep',
+    )
 
     trainer.fit()
 
@@ -200,8 +270,9 @@ def test_wandb_log_metrics(test_wandb_logger):
     train_loss_count = all_run_text.count('loss/train/total')
 
     expected_number_train_loss_count = (dataset_size / batch_size) + 1  # wandb includes it in the file one extra time
-    expected_number_train_metrics_count = (dataset_size /
-                                           batch_size) + 2  # wandb includes it in the file two extra times
+    expected_number_train_metrics_count = (
+        dataset_size / batch_size
+    ) + 2  # wandb includes it in the file two extra times
     expected_number_eval_metrics_count = 2  # wandb includes it in the file twice
     assert train_metrics_accuracy_count == expected_number_train_metrics_count
     assert train_loss_count == expected_number_train_loss_count
@@ -210,6 +281,7 @@ def test_wandb_log_metrics(test_wandb_logger):
 
 
 @pytest.mark.parametrize('callback_cls', get_cbs_and_marks(callbacks=True))
+@pytest.mark.filterwarnings('ignore::UserWarning')
 def test_logged_data_is_json_serializable(callback_cls: Type[Callback]):
     """Test that all logged data is json serializable, which is a requirement to use wandb."""
     pytest.importorskip('wandb', reason='wandb is optional')
@@ -217,9 +289,10 @@ def test_logged_data_is_json_serializable(callback_cls: Type[Callback]):
     callback_kwargs = get_cb_kwargs(callback_cls)
     callback = callback_cls(**callback_kwargs)
     logger = InMemoryLogger()  # using an in memory logger to manually validate json serializability
+    model, train_dataloader, _ = get_cb_model_and_datasets(callback)
     trainer = Trainer(
-        model=SimpleModel(),
-        train_dataloader=DataLoader(RandomClassificationDataset()),
+        model=model,
+        train_dataloader=train_dataloader,
         train_subset_num_batches=2,
         max_duration='1ep',
         callbacks=callback,
@@ -259,22 +332,28 @@ def test_wandb_is_pickleable_when_disabled(dummy_state: State):
 
 @pytest.mark.world_size(2)
 @pytest.mark.parametrize('rank_zero_only', [True, False])
-@pytest.mark.skip('This test needs to be refactored to use a Mock API interface.')
-def test_wandb_artifacts(rank_zero_only: bool, tmp_path: pathlib.Path, dummy_state: State):
+def test_wandb_artifacts(monkeypatch: MonkeyPatch, rank_zero_only: bool, tmp_path: pathlib.Path, dummy_state: State):
     """Test that wandb artifacts logged on rank zero are accessible by all ranks."""
-    pytest.importorskip('wandb', reason='wandb is optional')
+    import wandb
+    original_wandb_mode = os.environ.get('WANDB_MODE', None)
+    os.environ['WANDB_MODE'] = 'offline'
     # Create the logger
     ctx = pytest.warns(
-        UserWarning, match='`rank_zero_only` should be set to False.') if rank_zero_only else contextlib.nullcontext()
+        UserWarning,
+        match='`rank_zero_only` should be set to False.',
+    ) if rank_zero_only else contextlib.nullcontext()
     with ctx:
         wandb_logger = WandBLogger(
             rank_zero_only=rank_zero_only,
             log_artifacts=True,
+            entity='entity',
+            project='project',
         )
     dummy_state.callbacks.append(wandb_logger)
     logger = Logger(dummy_state, [wandb_logger])
     engine = Engine(dummy_state, logger)
     engine.run_event(Event.INIT)
+    wandb_logger.init(dummy_state, logger)
 
     # Distribute the artifact name from rank 0 to all ranks
     wandb_artifact_name = 'test-wandb-artifact-' + str(uuid.uuid4())
@@ -282,9 +361,13 @@ def test_wandb_artifacts(rank_zero_only: bool, tmp_path: pathlib.Path, dummy_sta
     dist.broadcast_object_list(wandb_artifact_name_list)
     wandb_artifact_name = wandb_artifact_name_list[0]
 
+    # Have all ranks use the rank 0 save folder
+    tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
+    save_folder = pathlib.Path(tmp_paths[0])
+
+    # Create a dummy artifact
+    dummy_wandb_artifact_path = save_folder / 'wandb_artifact.txt'
     if dist.get_global_rank() == 0:
-        # Create a dummy artifact
-        dummy_wandb_artifact_path = tmp_path / 'wandb_artifact.txt'
         with open(dummy_wandb_artifact_path, 'w+') as f:
             f.write('hello!')
 
@@ -296,14 +379,23 @@ def test_wandb_artifacts(rank_zero_only: bool, tmp_path: pathlib.Path, dummy_sta
 
     # Wait for rank 0 queue the file upload
     dist.barrier()
-
     # Attempt to retrieve the artifact on all ranks
-    downloaded_wandb_artifact_path = tmp_path / 'downloaded_wandb_artifact'
+    downloaded_wandb_artifact_path = save_folder / 'downloaded_wandb_artifact'
 
-    @retry(FileNotFoundError, num_attempts=6)  # 6 attempts is ~2^(6-1) seconds max wait
+    def mock_artifact(*arg, **kwargs):
+        return MockArtifact(dummy_wandb_artifact_path)
+
+    monkeypatch.setattr(wandb.Api, 'artifact', mock_artifact)
+
     def _validate_wandb_artifact():
         wandb_logger.download_file(wandb_artifact_name, str(downloaded_wandb_artifact_path))
         with open(downloaded_wandb_artifact_path, 'r') as f:
             assert f.read() == 'hello!'
 
     _validate_wandb_artifact()
+
+    # reset wandb mode
+    if original_wandb_mode is None:
+        del os.environ['WANDB_MODE']
+    else:
+        os.environ['WANDB_MODE'] = original_wandb_mode

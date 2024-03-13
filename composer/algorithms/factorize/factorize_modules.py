@@ -22,9 +22,11 @@ def _clean_latent_size(latent_size: Union[int, float], in_size: int, out_size: i
     return int(latent_size)
 
 
-def _max_rank_with_possible_speedup(in_channels: int,
-                                    out_channels: int,
-                                    kernel_size: Optional[_size_2_t] = None) -> int:
+def _max_rank_with_possible_speedup(
+    in_channels: int,
+    out_channels: int,
+    kernel_size: Optional[_size_2_t] = None,
+) -> int:
     # TODO less naive cost model than counting multiply-adds
     fan_in = in_channels
     if kernel_size is not None:
@@ -67,9 +69,11 @@ def factorizing_could_speedup(module: torch.nn.Module, latent_size: Union[int, f
         if module.groups > 1:
             return False  # can't factorize grouped convolutions yet
         latent_size = _clean_latent_size(latent_size, module.in_channels, module.out_channels)
-        max_rank = _max_rank_with_possible_speedup(module.in_channels,
-                                                   module.out_channels,
-                                                   kernel_size=cast(_size_2_t, module.kernel_size))
+        max_rank = _max_rank_with_possible_speedup(
+            module.in_channels,
+            module.out_channels,
+            kernel_size=cast(_size_2_t, module.kernel_size),
+        )
         return latent_size <= max_rank
     elif isinstance(module, torch.nn.Linear):
         latent_size = _clean_latent_size(latent_size, module.in_features, module.out_features)
@@ -79,8 +83,12 @@ def factorizing_could_speedup(module: torch.nn.Module, latent_size: Union[int, f
         return False
 
 
-def _apply_solution_to_module_parameters(solution: LowRankSolution, module0: torch.nn.Module, module1: torch.nn.Module,
-                                         transpose: bool) -> None:
+def _apply_solution_to_module_parameters(
+    solution: LowRankSolution,
+    module0: torch.nn.Module,
+    module1: torch.nn.Module,
+    transpose: bool,
+) -> None:
     error_msg = "Can't apply unititalized solution!"
     assert solution.bias is not None, error_msg
     assert solution.Wa is not None, error_msg
@@ -91,7 +99,8 @@ def _apply_solution_to_module_parameters(solution: LowRankSolution, module0: tor
         if module0.bias is not None:
             assert isinstance(module0.bias, torch.Tensor)
             module0.bias = torch.nn.parameter.Parameter(
-                torch.zeros(solution.rank, dtype=module0.bias.dtype).to(device=module0.bias.device))  # type: ignore
+                torch.zeros(solution.rank, dtype=module0.bias.dtype).to(device=module0.bias.device),
+            )  # type: ignore
         assert isinstance(module1.bias, torch.Tensor)
         module1.bias.copy_(solution.bias)
         Wa = solution.Wa
@@ -261,16 +270,20 @@ class FactorizedConv2d(_FactorizedModule):
             or a smaller value is sufficient to avoid this.
     """
 
-    def __init__(self,
-                 in_channels: int,
-                 out_channels: int,
-                 kernel_size: _size_2_t,
-                 latent_channels: Union[int, float] = .25,
-                 **kwargs):
-        super().__init__(in_size=in_channels,
-                         out_size=out_channels,
-                         latent_size=latent_channels,
-                         kernel_size=kernel_size)
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: _size_2_t,
+        latent_channels: Union[int, float] = .25,
+        **kwargs,
+    ):
+        super().__init__(
+            in_size=in_channels,
+            out_size=out_channels,
+            latent_size=latent_channels,
+            kernel_size=kernel_size,
+        )
         if kwargs.get('groups', 1) > 1:
             raise NotImplementedError('Factorizing grouped convolutions is not supported.')
         self.kwargs = kwargs
@@ -282,16 +295,18 @@ class FactorizedConv2d(_FactorizedModule):
     def _create_child_modules(self) -> Tuple[torch.nn.Module, torch.nn.Module]:
         if not self.should_factorize(self.latent_channels):
             raise ValueError(
-                f'latent_channels {self.latent_size} is not small enough to merit factorization! Must be <= {self._max_rank_with_speedup()}'
+                f'latent_channels {self.latent_size} is not small enough to merit factorization! Must be <= {self._max_rank_with_speedup()}',
             )
 
         # this one produces identical output as a regular Conv2d would,
         # except with fewer output channels
-        conv0 = nn.Conv2d(self.in_channels,
-                          self.latent_channels,
-                          self.kernel_size,
-                          bias=False,
-                          **self.convolution_kwargs)
+        conv0 = nn.Conv2d(
+            self.in_channels,
+            self.latent_channels,
+            self.kernel_size,
+            bias=False,
+            **self.convolution_kwargs,
+        )
         # this one increases the number of output channels
         conv1 = nn.Conv2d(self.latent_channels, self.out_channels, kernel_size=1, bias=True)
         return conv0, conv1
@@ -327,8 +342,8 @@ class FactorizedConv2d(_FactorizedModule):
 
     def apply_solution(self, solution: LowRankSolution):
         self.latent_size = solution.rank
-        self.module0.out_channels = solution.rank
-        self.module1.in_channels = solution.rank
+        self.module0.out_channels = solution.rank  # pyright: ignore[reportGeneralTypeIssues]
+        self.module1.in_channels = solution.rank  # pyright: ignore[reportGeneralTypeIssues]
         _apply_solution_to_module_parameters(solution, self.module0, self.module1, transpose=False)
 
     @staticmethod
@@ -356,7 +371,7 @@ class FactorizedConv2d(_FactorizedModule):
             dilation=module.dilation,
             groups=module.groups,
             bias=((module.bias is not None) and (module.bias is not False)),
-            **kwargs  # custom params
+            **kwargs,  # custom params
         )
         conv.reset_parameters()
         return conv
@@ -403,11 +418,13 @@ class FactorizedLinear(_FactorizedModule):
             this.
     """
 
-    def __init__(self,
-                 in_features: int,
-                 out_features: int,
-                 bias: bool = True,
-                 latent_features: Union[int, float] = .25):
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        bias: bool = True,
+        latent_features: Union[int, float] = .25,
+    ):
         super().__init__(in_size=in_features, out_size=out_features, latent_size=latent_features)
         self.bias = bias
         self.module0, self.module1 = self._create_child_modules()
@@ -415,7 +432,7 @@ class FactorizedLinear(_FactorizedModule):
     def _create_child_modules(self) -> Tuple[torch.nn.Module, torch.nn.Module]:
         if not self.should_factorize(self.latent_size):
             raise ValueError(
-                f'latent_features {self.latent_size} is not small enough to merit factorization! Must be <= {self._max_rank_with_speedup()}'
+                f'latent_features {self.latent_size} is not small enough to merit factorization! Must be <= {self._max_rank_with_speedup()}',
             )
 
         module0 = nn.Linear(in_features=self.in_features, out_features=self.latent_size, bias=False)
@@ -452,8 +469,8 @@ class FactorizedLinear(_FactorizedModule):
 
     def apply_solution(self, solution: LowRankSolution) -> None:
         self.latent_size = solution.rank
-        self.module0.out_features = solution.rank
-        self.module1.in_features = solution.rank
+        self.module0.out_features = solution.rank  # pyright: ignore[reportGeneralTypeIssues]
+        self.module1.in_features = solution.rank  # pyright: ignore[reportGeneralTypeIssues]
         _apply_solution_to_module_parameters(solution, self.module0, self.module1, transpose=True)
 
     @staticmethod
@@ -471,9 +488,11 @@ class FactorizedLinear(_FactorizedModule):
 
     @staticmethod
     def from_linear(module: torch.nn.Linear, module_ix: int = -1, **kwargs) -> FactorizedLinear:
-        ret = FactorizedLinear(in_features=module.in_features,
-                               out_features=module.out_features,
-                               bias=((module.bias is not None) and (module.bias is not False)),
-                               **kwargs)
+        ret = FactorizedLinear(
+            in_features=module.in_features,
+            out_features=module.out_features,
+            bias=(module.bias is not None and module.bias is not False),  # pyright: ignore[reportUnnecessaryComparison]
+            **kwargs,
+        )
         ret.reset_parameters()
         return ret

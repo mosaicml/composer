@@ -2,20 +2,47 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Tuple, Type
+from unittest.mock import MagicMock
 
 import pytest
+from torch.utils.data import DataLoader
 
 import composer.callbacks
 import composer.loggers
 import composer.profiler
 from composer import Callback
-from composer.callbacks import EarlyStopper, ImageVisualizer, MemoryMonitor, SpeedMonitor, ThresholdStopper
-from composer.callbacks.export_for_inference import ExportForInferenceCallback
-from composer.callbacks.mlperf import MLPerfCallback
-from composer.loggers import (CometMLLogger, ConsoleLogger, LoggerDestination, MLFlowLogger, ProgressBarLogger,
-                              RemoteUploaderDownloader, TensorboardLogger, WandBLogger)
+from composer.callbacks import (
+    EarlyStopper,
+    ExportForInferenceCallback,
+    FreeOutputs,
+    Generate,
+    ImageVisualizer,
+    MemoryMonitor,
+    MemorySnapshot,
+    MLPerfCallback,
+    OOMObserver,
+    SpeedMonitor,
+    SystemMetricsMonitor,
+    ThresholdStopper,
+)
+from composer.loggers import (
+    CometMLLogger,
+    ConsoleLogger,
+    LoggerDestination,
+    MLFlowLogger,
+    NeptuneLogger,
+    ProgressBarLogger,
+    RemoteUploaderDownloader,
+    TensorboardLogger,
+    WandBLogger,
+)
+from composer.models.base import ComposerModel
+from composer.utils import dist
+from composer.utils.device import get_device
 from tests.common import get_module_subclasses
+from tests.common.datasets import RandomClassificationDataset, dummy_gpt_lm_dataloader
+from tests.common.models import SimpleModel, configure_tiny_gpt2_hf_model
 
 try:
     import wandb
@@ -63,7 +90,27 @@ try:
 except ImportError:
     _LIBCLOUD_INSTALLED = False
 
-_callback_kwargs: Dict[Type[Callback], Dict[str, Any],] = {
+try:
+    import pynmvl
+    _PYNMVL_INSTALLED = True
+    del pynmvl  # unused
+except ImportError:
+    _PYNMVL_INSTALLED = False
+
+try:
+    import neptune
+    _NEPTUNE_INSTALLED = True
+    del neptune  # unused
+except ImportError:
+    _NEPTUNE_INSTALLED = False
+
+_callback_kwargs: Dict[Type[Callback], Dict[str, Any]] = {
+    Generate: {
+        'prompts': ['a', 'b', 'c'],
+        'interval': '1ba',
+        'batch_size': 2,
+        'max_new_tokens': 20,
+    },
     RemoteUploaderDownloader: {
         'bucket_uri': 'libcloud://.',
         'backend_kwargs': {
@@ -96,18 +143,37 @@ _callback_kwargs: Dict[Type[Callback], Dict[str, Any],] = {
     SpeedMonitor: {
         'window_size': 1,
     },
+    NeptuneLogger: {
+        'mode': 'debug',
+    },
+    composer.profiler.Profiler: {
+        'trace_handlers': [MagicMock()],
+        'schedule': composer.profiler.cyclic_schedule(),
+    },
 }
 
-_callback_marks: Dict[Type[Callback], List[pytest.MarkDecorator],] = {
+_callback_marks: Dict[
+    Type[Callback],
+    List[pytest.MarkDecorator],
+] = {
     RemoteUploaderDownloader: [
         pytest.mark.filterwarnings(
             # post_close might not be called if being used outside of the trainer
-            r'ignore:Implicitly cleaning up:ResourceWarning'),
-        pytest.mark.skipif(not _LIBCLOUD_INSTALLED, reason='Libcloud is optional')
+            r'ignore:Implicitly cleaning up:ResourceWarning',
+        ),
+        pytest.mark.skipif(not _LIBCLOUD_INSTALLED, reason='Libcloud is optional'),
     ],
     MemoryMonitor: [
-        pytest.mark.filterwarnings(
-            r'ignore:The memory monitor only works on CUDA devices, but the model is on cpu:UserWarning')
+        pytest.mark.
+        filterwarnings(r'ignore:The memory monitor only works on CUDA devices, but the model is on cpu:UserWarning'),
+    ],
+    MemorySnapshot: [
+        pytest.mark.
+        filterwarnings(r'ignore:The memory snapshot only works on CUDA devices, but the model is on cpu:UserWarning'),
+    ],
+    OOMObserver: [
+        pytest.mark.
+        filterwarnings(r'ignore:The oom observer only works on CUDA devices, but the model is on cpu:UserWarning'),
     ],
     MLPerfCallback: [pytest.mark.skipif(not _MLPERF_INSTALLED, reason='MLPerf is optional')],
     WandBLogger: [
@@ -115,16 +181,19 @@ _callback_marks: Dict[Type[Callback], List[pytest.MarkDecorator],] = {
         pytest.mark.skipif(not _WANDB_INSTALLED, reason='Wandb is optional'),
     ],
     ProgressBarLogger: [
-        pytest.mark.filterwarnings(
-            r'ignore:Specifying the ProgressBarLogger via `loggers` is not recommended as.*:Warning')
+        pytest.mark.
+        filterwarnings(r'ignore:Specifying the ProgressBarLogger via `loggers` is not recommended as.*:Warning'),
     ],
     ConsoleLogger: [
-        pytest.mark.filterwarnings(r'ignore:Specifying the ConsoleLogger via `loggers` is not recommended as.*:Warning')
+        pytest.mark.
+        filterwarnings(r'ignore:Specifying the ConsoleLogger via `loggers` is not recommended as.*:Warning'),
     ],
-    CometMLLogger: [pytest.mark.skipif(not _COMETML_INSTALLED, reason='comet_ml is optional'),],
-    TensorboardLogger: [pytest.mark.skipif(not _TENSORBOARD_INSTALLED, reason='Tensorboard is optional'),],
+    CometMLLogger: [pytest.mark.skipif(not _COMETML_INSTALLED, reason='comet_ml is optional')],
+    TensorboardLogger: [pytest.mark.skipif(not _TENSORBOARD_INSTALLED, reason='Tensorboard is optional')],
     ImageVisualizer: [pytest.mark.skipif(not _WANDB_INSTALLED, reason='Wandb is optional')],
-    MLFlowLogger: [pytest.mark.skipif(not _MLFLOW_INSTALLED, reason='mlflow is optional'),],
+    MLFlowLogger: [pytest.mark.skipif(not _MLFLOW_INSTALLED, reason='mlflow is optional')],
+    SystemMetricsMonitor: [pytest.mark.skipif(not _PYNMVL_INSTALLED, reason='pynmvl is optional')],
+    NeptuneLogger: [pytest.mark.skipif(not _NEPTUNE_INSTALLED, reason='neptune is optional')],
 }
 
 
@@ -191,3 +260,28 @@ def get_cb_hparams_and_marks():
     implementations = []
     ans = [_to_pytest_param(impl) for impl in implementations]
     return ans
+
+
+def get_cb_model_and_datasets(
+    cb: Callback,
+    dl_size=100,
+    **default_dl_kwargs,
+) -> Tuple[ComposerModel, DataLoader, DataLoader]:
+    if isinstance(cb, Generate):
+        if get_device(None).name == 'cpu' and dist.get_world_size() > 1:
+            pytest.xfail(
+                'GPT2 is not currently supported with DDP. See https://github.com/huggingface/transformers/issues/22482 for more details.',
+            )
+        return (
+            configure_tiny_gpt2_hf_model(),
+            dummy_gpt_lm_dataloader(size=dl_size),
+            dummy_gpt_lm_dataloader(size=dl_size),
+        )
+    model = SimpleModel()
+    if isinstance(cb, FreeOutputs):
+        model.get_metrics = lambda is_train=False: {}
+    return (
+        model,
+        DataLoader(RandomClassificationDataset(size=dl_size), **default_dl_kwargs),
+        DataLoader(RandomClassificationDataset(size=dl_size), **default_dl_kwargs),
+    )

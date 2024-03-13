@@ -4,12 +4,15 @@
 """Estimate total time of training."""
 from __future__ import annotations
 
+import logging
 import time
 import warnings
 from typing import Dict, List, Optional
 
 from composer.core import Callback, State, TimeUnit
 from composer.loggers import Logger
+
+log = logging.getLogger(__name__)
 
 __all__ = ['RuntimeEstimator']
 
@@ -40,17 +43,19 @@ class RuntimeEstimator(Callback):
 
     The runtime estimate is logged by the :class:`.Logger` to the following key as described below.
 
-    +-----------------------------------+---------------------------------------------------------+
-    | Key                               | Logged data                                             |
-    +===================================+=========================================================+
-    | `wall_clock/remaining_estimate`   | Estimated time to completion                            |
-    +-----------------------------------+---------------------------------------------------------+
+    +-----------------------------------+----------------------------------------------------------------+
+    | Key                               | Logged data                                                    |
+    +===================================+================================================================+
+    | `time/remaining_estimate`         | Estimated time to completion                                   |
+    +-----------------------------------+----------------------------------------------------------------+
+    | `time/remaining_estimate_unit`    | Unit of time specified by user (seconds, minutes, hours, days) |
+    +-----------------------------------+----------------------------------------------------------------+
 
     Args:
         skip_batches (int, optional): Number of batches to skip before starting clock to estimate
             remaining time. Typically, the first few batches are slower due to dataloader, cache
             warming, and other reasons. Defaults to 1.
-        time_unit (str, optional): Time unit to use for `wall_clock` logging. Can be one of
+        time_unit (str, optional): Time unit to use for `time` logging. Can be one of
             'seconds', 'minutes', 'hours', or 'days'. Defaults to 'hours'.
     """
 
@@ -59,7 +64,9 @@ class RuntimeEstimator(Callback):
         self.batches_left_to_skip = skip_batches
         self.start_time = None
         self.start_dur = None
+        self.train_dataloader_len = None
 
+        self.time_unit = time_unit
         self.divider = 1
         if time_unit == 'seconds':
             self.divider = 1
@@ -71,7 +78,8 @@ class RuntimeEstimator(Callback):
             self.divider = 60 * 60 * 24
         else:
             raise ValueError(
-                f'Invalid time_unit: {time_unit}. Must be one of "seconds", "minutes", "hours", or "days".')
+                f'Invalid time_unit: {time_unit}. Must be one of "seconds", "minutes", "hours", or "days".',
+            )
 
         # Keep track of time spent evaluating
         self.total_eval_wct = 0.0
@@ -90,15 +98,20 @@ class RuntimeEstimator(Callback):
             return None
         if state.max_duration.unit == TimeUnit('ep'):
             if state.timestamp.epoch.value >= 1:
-                batches_per_epoch = (state.timestamp.batch -
-                                     state.timestamp.batch_in_epoch).value / state.timestamp.epoch.value
+                batches_per_epoch = (
+                    state.timestamp.batch - state.timestamp.batch_in_epoch
+                ).value / state.timestamp.epoch.value
                 return state.timestamp.get('ba').value / (state.max_duration.value * batches_per_epoch)
-            elif state.dataloader_len is not None:
-                return state.timestamp.get('ba').value / (state.max_duration.value * state.dataloader_len.value)
+            elif self.train_dataloader_len is not None:
+                return state.timestamp.get('ba').value / (state.max_duration.value * self.train_dataloader_len)
         elapsed_dur = state.get_elapsed_duration()
         if elapsed_dur is not None:
             return elapsed_dur.value
         return None
+
+    def init(self, state: State, logger: Logger) -> None:
+        if self._enabled:
+            logger.log_hyperparameters({'time/remaining_estimate_unit': self.time_unit})
 
     def batch_start(self, state: State, logger: Logger) -> None:
         if self._enabled and self.start_time is None and self.batches_left_to_skip == 0:
@@ -107,6 +120,9 @@ class RuntimeEstimator(Callback):
             if self.start_dur is None:
                 warnings.warn('`max_duration` is not set. Cannot estimate remaining time.')
                 self._enabled = False
+            # Cache train dataloader len if specified for `_get_elapsed_duration`
+            if state.dataloader_len is not None:
+                self.train_dataloader_len = state.dataloader_len.value
 
     def batch_end(self, state: State, logger: Logger) -> None:
         if not self._enabled:
@@ -141,7 +157,7 @@ class RuntimeEstimator(Callback):
                 remaining_calls = num_total_evals - num_evals_finished
                 remaining_time += eval_wct_avg * remaining_calls
 
-            logger.log_metrics({'wall_clock/remaining_estimate': remaining_time / self.divider})
+            logger.log_metrics({'time/remaining_estimate': remaining_time / self.divider})
 
     def eval_end(self, state: State, logger: Logger) -> None:
         # If eval is called before training starts, ignore it

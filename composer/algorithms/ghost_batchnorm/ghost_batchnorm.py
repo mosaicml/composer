@@ -17,9 +17,11 @@ log = logging.getLogger(__name__)
 _TORCH_BATCHNORM_BASE_CLASS = torch.nn.modules.batchnorm._BatchNorm
 
 
-def apply_ghost_batchnorm(model: torch.nn.Module,
-                          ghost_batch_size: int = 32,
-                          optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None) -> None:
+def apply_ghost_batchnorm(
+    model: torch.nn.Module,
+    ghost_batch_size: int = 32,
+    optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
+) -> None:
     """Replace batch normalization modules with ghost batch normalization modules.
 
     Ghost batch normalization modules split their input into chunks of
@@ -104,9 +106,11 @@ class GhostBatchNorm(Algorithm):
         module_name = 'GhostBatchNorm'
 
         # python logger
-        log.info(f'Applied {classname} to model {state.model.__class__.__name__} '
-                 f'with ghost_batch_size={self.ghost_batch_size}, '
-                 f'Model now has {num_new_modules} {module_name} modules')
+        log.info(
+            f'Applied {classname} to model {state.model.__class__.__name__} '
+            f'with ghost_batch_size={self.ghost_batch_size}, '
+            f'Model now has {num_new_modules} {module_name} modules',
+        )
 
         if logger is not None:
             logger.log_hyperparameters({
@@ -121,8 +125,10 @@ def _corresponding_ghost_batchnorm_type(batchnorm: torch.nn.Module):
         return GhostBatchNorm2d
     if isinstance(batchnorm, torch.nn.BatchNorm3d):
         return GhostBatchNorm3d
-    raise ValueError(f'Input was of type {type(batchnorm)}, not one of '
-                     'torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d')
+    raise ValueError(
+        f'Input was of type {type(batchnorm)}, not one of '
+        'torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d',
+    )
 
 
 class _GhostBatchNorm(torch.nn.Module):
@@ -152,7 +158,7 @@ class _GhostBatchNorm(torch.nn.Module):
         super().__init__()
         self.ghost_batch_size = ghost_batch_size
         self.batchnorm = base_batchnorm
-        self.batchnorm._already_ghost_batchnormed = True  # Mark to avoid rewrapping on duplicate calls
+        self.batchnorm._already_ghost_batchnormed = True  # Mark to avoid rewrapping on duplicate calls # pyright: ignore[reportGeneralTypeIssues]
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:  # type: ignore
         batch_size = input.shape[0]
@@ -161,7 +167,7 @@ class _GhostBatchNorm(torch.nn.Module):
             raise ValueError(f'Worker batch size {batch_size} < ghost_batch_size {self.ghost_batch_size}')
 
         nchunks: int = int(math.ceil(batch_size / self.ghost_batch_size))
-        has_momentum = self.batchnorm.momentum is not None
+        has_momentum: bool = hasattr(self.batchnorm, 'momentum')
         original_momentum: float = self.batchnorm.momentum
 
         if self.training and has_momentum:

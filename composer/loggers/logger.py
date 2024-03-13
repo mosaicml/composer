@@ -9,7 +9,7 @@ import collections.abc
 import operator
 import pathlib
 from functools import reduce
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 
 import numpy as np
 import torch
@@ -60,6 +60,18 @@ class Logger:
         for destination in self.destinations:
             destination.log_hyperparameters(parameters)
 
+    def log_table(
+        self,
+        columns: List[str],
+        rows: List[List[Any]],
+        name: str = 'Table',
+        step: Optional[int] = None,
+    ) -> None:
+        if step is None:
+            step = self._state.timestamp.batch.value
+        for destination in self.destinations:
+            destination.log_table(columns, rows, name, step)
+
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
         if step is None:
             step = self._state.timestamp.batch.value
@@ -98,7 +110,15 @@ class Logger:
         if step is None:
             step = self._state.timestamp.batch.value
         for destination in self.destinations:
-            destination.log_images(images, name, channels_last, step, masks, mask_class_labels, use_table)
+            destination.log_images(
+                images,
+                name,
+                channels_last,
+                step,
+                masks,
+                mask_class_labels,
+                use_table,
+            )
 
     def upload_file(
         self,

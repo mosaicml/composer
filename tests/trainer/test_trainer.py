@@ -14,15 +14,12 @@ from typing import Any, Dict, List, Optional, Union
 
 import pytest
 import torch
-from packaging import version
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
 
 from composer import Callback, Evaluator, Trainer
 from composer.algorithms import CutOut, LabelSmoothing
 from composer.core import Event, Precision, State, Time, TimeUnit
-from composer.datasets.ffcv_utils import write_ffcv_dataset
-from composer.datasets.imagenet import build_ffcv_imagenet_dataloader
 from composer.devices import Device
 from composer.loggers import InMemoryLogger, Logger, RemoteUploaderDownloader
 from composer.loss import soft_cross_entropy
@@ -30,9 +27,18 @@ from composer.models import ComposerModel
 from composer.optim import ExponentialScheduler
 from composer.trainer.trainer import _generate_run_name
 from composer.utils import dist, is_model_deepspeed, is_model_fsdp, map_collection, reproducibility
-from tests.common import (InfiniteClassificationDataset, RandomClassificationDataset, RandomImageDataset,
-                          RandomTextLMDataset, SimpleConvModel, SimpleModel, SimpleTransformerMaskedLM, device,
-                          world_size)
+from tests.common import (
+    EmptyModel,
+    InfiniteClassificationDataset,
+    RandomClassificationDataset,
+    RandomImageDataset,
+    RandomTextLMDataset,
+    SimpleConvModel,
+    SimpleModel,
+    SimpleTransformerMaskedLM,
+    device,
+    world_size,
+)
 from tests.common.events import EventCounterCallback
 from tests.test_state import assert_state_equivalent
 
@@ -56,6 +62,12 @@ class TestTrainerInit():
 
     def test_minimal_init(self, model: ComposerModel):
         Trainer(model=model)
+
+    @pytest.mark.parametrize('env_var', ['COMPOSER_RUN_NAME', 'RUN_NAME'])
+    def test_env_run_name(self, monkeypatch, model: ComposerModel, env_var: str):
+        monkeypatch.setenv(env_var, 'env_run_name')
+        trainer = Trainer(model=model)
+        assert trainer.state.run_name == 'env_run_name'
 
     @world_size(1, 2)
     def test_model_ddp_wrapped(self, model: ComposerModel, world_size: int):
@@ -99,50 +111,101 @@ class TestTrainerInit():
         target_device = 'cuda' if device == 'gpu' else 'cpu'
         assert all(param.device.type == target_device for param in parameters)
 
-    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
-                        reason='requires PyTorch 2.0 or higher')
+    @pytest.mark.parametrize('call_fit,call_eval', [[True, False], [False, True]])
+    def test_no_param_model(self, call_fit: bool, call_eval: bool):
+        model = EmptyModel()
+        train_dataset = RandomClassificationDataset()
+        trainer = None
+        with pytest.warns(match='No optimizer was specified, and the model does not have parameters.*'):
+            trainer = Trainer(
+                model=model,
+                max_duration='1ep',
+                train_dataloader=DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset)),
+                eval_dataloader=DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset)),
+            )
+
+        if call_fit:
+            with pytest.raises(ValueError, match='No optimizer was specified when constructing the Trainer.*'):
+                trainer.fit()
+        if call_eval:
+            trainer.eval(subset_num_batches=1)
+
     @pytest.mark.parametrize('compile_config', [(None, False), ({}, True), ({'mode': 'reduce-overhead'}, True)])
     def test_torch_compile(self, model: ComposerModel, compile_config: Any):
         train_dataset = RandomClassificationDataset()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
         max_duration = '2ba'
-        trainer = Trainer(model=model,
-                          max_duration=max_duration,
-                          train_dataloader=DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset)),
-                          optimizers=optimizer,
-                          auto_log_hparams=True,
-                          compile_config=compile_config[0])
+        trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset)),
+            optimizers=optimizer,
+            auto_log_hparams=True,
+            compile_config=compile_config[0],
+        )
         assert trainer.local_hparams['is_model_compiled'] is compile_config[1]
 
-    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
-                        reason='requires PyTorch 2.0 or higher')
     def test_already_compiled_warning(self, caplog, model: ComposerModel):
         with caplog.at_level(logging.WARNING):
             train_dataset = RandomClassificationDataset()
             optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
             max_duration = '2ba'
             model = torch.compile(model)  # pyright: ignore [reportGeneralTypeIssues]
-            _ = Trainer(model=model,
-                        max_duration=max_duration,
-                        train_dataloader=DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset)),
-                        optimizers=optimizer,
-                        auto_log_hparams=True,
-                        compile_config=None)
+            _ = Trainer(
+                model=model,
+                max_duration=max_duration,
+                train_dataloader=DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset)),
+                optimizers=optimizer,
+                auto_log_hparams=True,
+                compile_config=None,
+            )
             assert '`model` is already compiled with `torch.compile`' in caplog.text
 
-    @pytest.mark.skipif(version.parse(torch.__version__) >= version.parse('2.0.0'),
-                        reason='requires PyTorch 1.13 or lower')
-    def test_compile_unsupported_torch_version_exception(self, caplog, model: ComposerModel):
-        with pytest.raises(ValueError, match='`torch.compile` is supported for PyTorch 2.0 or higher.'):
-            train_dataset = RandomClassificationDataset()
-            optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
-            max_duration = '2ba'
-            _ = Trainer(model=model,
-                        max_duration=max_duration,
-                        train_dataloader=DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset)),
-                        optimizers=optimizer,
-                        auto_log_hparams=True,
-                        compile_config={})
+    def test_eval_metrics(self):
+        model = SimpleModel()
+        train_dataloader = DataLoader(RandomClassificationDataset(size=1), batch_size=1)
+        all_metrics = model.get_metrics(is_train=False)
+
+        # Test default eval metrics
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            eval_dataloader=Evaluator(
+                label='eval',
+                dataloader=DataLoader(RandomClassificationDataset(size=1), batch_size=1),
+            ),
+        )
+
+        assert trainer.state.eval_metrics['eval'] == all_metrics
+
+        # Test empty eval metrics
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            eval_dataloader=Evaluator(
+                label='eval',
+                dataloader=DataLoader(RandomClassificationDataset(size=1), batch_size=1),
+                metric_names=[],
+            ),
+        )
+
+        assert trainer.state.eval_metrics['eval'] == {}
+
+        # Test selected eval metrics
+        single_metric = next(iter(all_metrics))
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            eval_dataloader=Evaluator(
+                label='eval',
+                dataloader=DataLoader(RandomClassificationDataset(size=1), batch_size=1),
+                metric_names=[single_metric],
+            ),
+        )
+
+        eval_metric_names = trainer.state.eval_metrics['eval'].keys()
+        assert len(eval_metric_names) == 1
+        assert next(iter(eval_metric_names)) == single_metric
 
 
 def _assert_optimizer_is_on_device(optimizer: torch.optim.Optimizer):
@@ -236,15 +299,24 @@ class TestTrainerInitOrFit:
 
     @pytest.mark.parametrize('batch_size', [4])
     @pytest.mark.parametrize('sequence_length', [8])
-    @pytest.mark.parametrize('max_duration', [
-        '1tok',
-        '32tok',
-        '60tok',
-        '65tok',
-    ])
+    @pytest.mark.parametrize(
+        'max_duration',
+        [
+            '1tok',
+            '32tok',
+            '60tok',
+            '65tok',
+        ],
+    )
     @pytest.mark.parametrize('duration_to_fit', [True, False])
-    def test_max_duration_tokens(self, tiny_bert_tokenizer, batch_size: int, sequence_length: int, max_duration: str,
-                                 duration_to_fit: bool):
+    def test_max_duration_tokens(
+        self,
+        tiny_bert_tokenizer,
+        batch_size: int,
+        sequence_length: int,
+        max_duration: str,
+        duration_to_fit: bool,
+    ):
         tokens_per_batch = batch_size * sequence_length
         max_duration_time = Time.from_timestring(max_duration)
         expected_num_batches = math.ceil(max_duration_time.value / tokens_per_batch)
@@ -252,16 +324,20 @@ class TestTrainerInitOrFit:
 
         transformers = pytest.importorskip('transformers')
         model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
-        pretraining_train_dataset = RandomTextLMDataset(size=8,
-                                                        vocab_size=tiny_bert_tokenizer.vocab_size,
-                                                        sequence_length=sequence_length,
-                                                        use_keys=True)
+        pretraining_train_dataset = RandomTextLMDataset(
+            size=8,
+            vocab_size=tiny_bert_tokenizer.vocab_size,
+            sequence_length=sequence_length,
+            use_keys=True,
+        )
 
         collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer, mlm_probability=0.15)
-        dataloader = DataLoader(pretraining_train_dataset,
-                                batch_size=batch_size,
-                                sampler=dist.get_sampler(pretraining_train_dataset),
-                                collate_fn=collator)
+        dataloader = DataLoader(
+            pretraining_train_dataset,
+            batch_size=batch_size,
+            sampler=dist.get_sampler(pretraining_train_dataset),
+            collate_fn=collator,
+        )
 
         if not duration_to_fit:
             trainer = Trainer(model=model, train_dataloader=dataloader, max_duration=max_duration)
@@ -275,35 +351,43 @@ class TestTrainerInitOrFit:
 
     @pytest.mark.parametrize('max_duration', [1, '1ep', '1ba', '1sp'])
     @pytest.mark.parametrize('train_subset_num_batches', [-1, 1])
-    def test_infinite_train_loader(self, model: ComposerModel, max_duration: Union[int, str],
-                                   train_subset_num_batches: int):
-        should_raise = (isinstance(max_duration, int) or
-                        max_duration.endswith('ep')) and (train_subset_num_batches is None or
-                                                          train_subset_num_batches == -1)
+    def test_infinite_train_loader(
+        self,
+        model: ComposerModel,
+        max_duration: Union[int, str],
+        train_subset_num_batches: int,
+    ):
+        should_raise = (isinstance(max_duration, int) or max_duration.endswith('ep')) and train_subset_num_batches == -1
         context = pytest.raises(
             ValueError,
-            match='max_duration cannot be specified in epochs') if should_raise else contextlib.nullcontext()
+            match='max_duration cannot be specified in epochs',
+        ) if should_raise else contextlib.nullcontext()
         with context:
             train_loader = DataLoader(InfiniteClassificationDataset(), batch_size=4)
-            trainer = Trainer(model=model,
-                              train_dataloader=train_loader,
-                              max_duration=max_duration,
-                              train_subset_num_batches=train_subset_num_batches)
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_loader,
+                max_duration=max_duration,
+                train_subset_num_batches=train_subset_num_batches,
+            )
             trainer.fit()
 
     @pytest.mark.parametrize('reset_time', [True, False])
-    @pytest.mark.parametrize('new_duration', [
-        Time.from_timestring('1ep'),
-        Time.from_timestring('1ba'),
-        Time.from_timestring('2ep'),
-        None,
-    ])
+    @pytest.mark.parametrize(
+        'new_duration',
+        [
+            Time.from_timestring('1ep'),
+            Time.from_timestring('1ba'),
+            Time.from_timestring('2ep'),
+            None,
+        ],
+    )
     def test_reset_time(
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
         max_duration: Time[int],
-        new_duration: Time,
+        new_duration: Optional[Time],
         reset_time: bool,
     ):
         # Train once
@@ -319,8 +403,10 @@ class TestTrainerInitOrFit:
 
         # It should error if the time is not being reset. Otherwise, it should be reset and train OK.
         error_msg = 'Please provide the `duration` or specify `reset_time=True`'
-        ctx = pytest.raises(ValueError,
-                            match=error_msg) if not new_duration and not reset_time else contextlib.nullcontext()
+        ctx = pytest.raises(
+            ValueError,
+            match=error_msg,
+        ) if not new_duration and not reset_time else contextlib.nullcontext()
         with ctx:
             # Train again for the same amount of time
             trainer.fit(
@@ -481,9 +567,7 @@ class TestTrainerInitOrFit:
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
     @pytest.mark.gpu
-    @pytest.mark.filterwarnings(
-        "ignore:Setting `device_train_microbatch_size='auto'` is an experimental feature which may cause uncaught Cuda Out of Memory errors. In this case, please manually set device_train_microbatch_size explicitly to an integer instead."
-    )
+    @pytest.mark.filterwarnings("ignore:`device_train_microbatch_size='auto'` may potentially fail with unexpected.*")
     @pytest.mark.parametrize('dataloader_in_init', [True, False])
     def test_auto_microbatch(
         self,
@@ -523,6 +607,28 @@ class TestTrainerInitOrFit:
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
     @pytest.mark.gpu
+    @pytest.mark.filterwarnings("ignore:`device_train_microbatch_size='auto'` may potentially fail with unexpected.*")
+    def test_auto_microbatch_cuda_error(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        max_duration: Time[int],
+    ):
+
+        def dummy_fwd(self, *args, **kwargs):
+            raise RuntimeError('c10')
+
+        model.forward = dummy_fwd  # type: ignore
+        trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            device_train_microbatch_size='auto',
+        )
+        with pytest.raises(RuntimeError, match='Encountered non-addressable cuda error while using auto.*'):
+            trainer.fit()
+
+    @pytest.mark.gpu
     @pytest.mark.parametrize('precision', [Precision.FP32, Precision.AMP_BF16, Precision.AMP_FP16])
     @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_deepspeed(
@@ -546,8 +652,6 @@ class TestTrainerInitOrFit:
         trainer.fit()
 
     @pytest.mark.gpu
-    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                        reason='requires PyTorch 1.13 or higher')
     @pytest.mark.parametrize('precision', [Precision.FP32, Precision.AMP_BF16, Precision.AMP_FP16])
     @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_fsdp(
@@ -562,13 +666,12 @@ class TestTrainerInitOrFit:
 
         fsdp_config = {
             'sharding_strategy': 'FULL_SHARD',
-            'min_params': 1e8,
             'cpu_offload': False,
             'mixed_precision': 'PURE',
             'backward_prefetch': 'BACKWARD_PRE',
             'activation_checkpointing': False,
             'activation_cpu_offload': False,
-            'verbose': False
+            'verbose': False,
         }
 
         # Need to catch the case where we try to train
@@ -592,8 +695,6 @@ class TestTrainerInitOrFit:
             trainer.fit()
 
     @pytest.mark.gpu
-    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
-                        reason='requires PyTorch 2.0 or higher')
     @pytest.mark.parametrize('precision', [Precision.AMP_BF16, Precision.AMP_FP16])
     @pytest.mark.parametrize('compile_config', [None, {}])
     @pytest.mark.filterwarnings('ignore::UserWarning')
@@ -607,13 +708,12 @@ class TestTrainerInitOrFit:
     ):
         fsdp_config = {
             'sharding_strategy': 'FULL_SHARD',
-            'min_params': 1e8,
             'cpu_offload': False,
             'mixed_precision': 'PURE',
             'backward_prefetch': 'BACKWARD_PRE',
             'activation_checkpointing': False,
             'activation_cpu_offload': False,
-            'verbose': False
+            'verbose': False,
         }
 
         # Need to catch the case where we try to train
@@ -669,16 +769,58 @@ class TestTrainerInitOrFit:
         checkpoint_path = str(tmp_path / 'checkpoint.pt')
         trainer.save_checkpoint(checkpoint_path)
 
-        trainer_2 = Trainer(model=copied_model,
-                            load_path=checkpoint_path,
-                            max_duration=max_duration,
-                            train_dataloader=train_dataloader)
+        trainer_2 = Trainer(
+            model=copied_model,
+            load_path=checkpoint_path,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+        )
         # Run fit to ensure there are no device mismatches
         trainer_2.fit(reset_time=True)
 
         # And ensure the device on the new trainer is correct
         assert all(p.device.type == 'cuda' for p in trainer_2.state.model.parameters())
         map_collection(trainer_2.state.optimizers, _assert_optimizer_is_on_device)
+
+    def assert_models_equal(self, model_1, model_2, atol=1e-7, rtol=1e-7):
+        assert model_1 is not model_2, 'Same model should not be compared.'
+        for param1, param2 in zip(model_1.parameters(), model_2.parameters()):
+            torch.testing.assert_close(param1, param2, atol=atol, rtol=rtol)
+
+    @pytest.mark.parametrize('checkpoint_path', ['tmp_folder', None])
+    def test_save_checkpoint_to_folder(
+        self,
+        model: ComposerModel,
+        checkpoint_path: Optional[str],
+        max_duration: Time[int],
+        train_dataloader: DataLoader,
+    ):
+        copied_model = copy.deepcopy(model)
+        #Define Trainer
+        trainer1 = Trainer(
+            model=model,
+            device='cpu',
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            save_folder=checkpoint_path,
+        )
+        name = 'ep0-ba0-rank0.pt'
+        if checkpoint_path is not None:
+            trainer1.save_checkpoint_to_save_folder()
+            trainer2 = Trainer(
+                model=copied_model,
+                device='cpu',
+                max_duration=max_duration,
+                train_dataloader=train_dataloader,
+                load_path=os.path.join(checkpoint_path, name),
+            )
+            self.assert_models_equal(trainer1.state.model, trainer2.state.model)
+        else:
+            with pytest.raises(
+                ValueError,
+                match='In order to use save_checkpoint_to_save_folder you must pass a save_folder to the Trainer.',
+            ):
+                trainer1.save_checkpoint_to_save_folder()
 
     @pytest.mark.parametrize('precision', [Precision.FP32, Precision.AMP_BF16, Precision.AMP_FP16])
     @pytest.mark.parametrize('device', ['cpu', pytest.param('gpu', marks=pytest.mark.gpu)])
@@ -980,8 +1122,8 @@ class TestTrainerInitOrFit:
             assert event_counter_callback.event_to_num_calls[Event.EPOCH_START] == 2
             assert event_counter_callback.event_to_num_calls[Event.BATCH_START] == dataloader_len + num_batches_trained
             assert event_counter_callback.event_to_num_calls[Event.BATCH_END] == dataloader_len + num_batches_trained
-            assert event_counter_callback.event_to_num_calls[
-                Event.BATCH_CHECKPOINT] == dataloader_len + num_batches_trained
+            num_batch_checkpoint_calls = event_counter_callback.event_to_num_calls[Event.BATCH_CHECKPOINT]
+            assert num_batch_checkpoint_calls == dataloader_len + num_batches_trained
 
             if num_batches_trained < num_steps_per_epoch:
                 # Not yet finished the epoch
@@ -998,8 +1140,6 @@ class TestTrainerInitOrFit:
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_END] == 2
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_CHECKPOINT] == 2
 
-    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
-                        reason='requires PyTorch 2.0 or higher')
     @pytest.mark.parametrize('is_model_compiled', [True, False])
     def test_compile_uncompile_model_weights_trainer_fit(
         self,
@@ -1046,69 +1186,65 @@ class TestTrainerInitOrFit:
         assert uncompiled_model_trainer.local_hparams['is_model_compiled'] is False
         uncompiled_model_trainer.fit()
 
-        assert (torch.equal(next(compiled_model_trainer.state.model.parameters()),
-                            next(uncompiled_model_trainer.state.model.parameters())))
-
-
-@pytest.mark.vision
-class TestFFCVDataloaders:
-
-    train_file = None
-    val_file = None
-    tmp_path = None
-
-    @pytest.fixture(autouse=True)
-    def create_dataset(self, tmp_path_factory: pytest.TempPathFactory):
-        dataset_train = RandomImageDataset(size=16, is_PIL=True)
-        self.tmp_path = tmp_path_factory.mktemp('ffcv')
-        output_train_file = str(self.tmp_path / 'train.ffcv')
-        write_ffcv_dataset(dataset_train, write_path=output_train_file, num_workers=1, write_mode='proportion')
-        dataset_val = RandomImageDataset(size=16, is_PIL=True)
-        output_val_file = str(self.tmp_path / 'val.ffcv')
-        write_ffcv_dataset(dataset_val, write_path=output_val_file, num_workers=1, write_mode='proportion')
-        self.train_file = output_train_file
-        self.val_file = output_val_file
-
-    def _get_dataloader(self, is_train):
-        assert self.tmp_path is not None
-        assert self.train_file is not None
-        assert self.val_file is not None
-        datadir = os.path.join(self.tmp_path, self.train_file if is_train else self.val_file)
-        return build_ffcv_imagenet_dataloader(
-            datadir=str(datadir),
-            global_batch_size=4,
-            is_train=is_train,
-            num_workers=0,
+        assert (
+            torch.equal(
+                next(compiled_model_trainer.state.model.parameters()),
+                next(uncompiled_model_trainer.state.model.parameters()),
+            )
         )
 
-    @pytest.fixture
-    def config(self):
-        try:
-            import ffcv
-        except ImportError as e:
-            raise ImportError(('Composer was installed without ffcv support. '
-                               'To use ffcv with Composer, please install ffcv in your environment.')) from e
-        train_dataloader = self._get_dataloader(is_train=True)
-        val_dataloader = self._get_dataloader(is_train=False)
-        assert isinstance(train_dataloader, ffcv.Loader)
-        assert isinstance(val_dataloader, ffcv.Loader)
-        return {
-            'model': SimpleConvModel(),
-            'train_dataloader': train_dataloader,
-            'eval_dataloader': val_dataloader,
-            'max_duration': '2ep',
-        }
+    def test_iteration(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+    ):
+        """Tests iteration is properly incremented during training when _iteration_length is set."""
 
-    """
-    Tests that training completes with ffcv dataloaders.
-    """
-
-    @device('gpu-amp', precision=True)
-    def test_ffcv(self, config, device, precision):
-        config['device'] = device
-        config['precision'] = precision
-        trainer = Trainer(**config)
+        # Train with max_duration set to 5 epochs with 2 epoch per iteration
+        trainer = Trainer(
+            model=model,
+            max_duration='5ep',
+            train_dataloader=train_dataloader,
+        )
+        trainer.state._iteration_length = '2ep'
         trainer.fit()
+
+        assert trainer.state.timestamp.epoch == Time(5, TimeUnit.EPOCH)
+        assert trainer.state.timestamp.iteration == Time(2, TimeUnit.ITERATION)
+
+    @pytest.mark.gpu
+    @pytest.mark.world_size(2)
+    @pytest.mark.parametrize('num_samples', [2, 0.5])
+    def test_accumulate_time_across_ranks(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        max_duration: Time[int],
+        num_samples: Union[int, float],
+    ):
+        # Train once with the max_duration param on Trainer.__init__()
+        init_trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+        )
+
+        num_tokens = 10
+        batch_time = datetime.timedelta(seconds=0.1 * (1 + dist.get_global_rank()))
+
+        num_samples_accum, num_tokens_accum, batch_time_accum = init_trainer._accumulate_time_across_ranks(
+            num_samples,
+            num_tokens,
+            batch_time,
+        )
+
+        assert isinstance(num_tokens_accum, int)
+        assert isinstance(num_samples_accum, int)
+        assert isinstance(batch_time_accum, datetime.timedelta)
+
+        assert num_samples_accum == num_samples * 2
+        assert num_tokens_accum == num_tokens * 2
+        assert batch_time_accum == datetime.timedelta(seconds=0.1 * (1 + 0))
 
 
 @world_size(1, 2)
@@ -1358,28 +1494,32 @@ def test_state_run_name():
 
 class TestAutoresumeCompatibility:
 
-    def get_logger(self,
-                   tmp_path: pathlib.Path,
-                   num_concurrent_uploads: int = 1,
-                   file_path_format_string: Optional[str] = None):
+    def get_logger(
+        self,
+        tmp_path: pathlib.Path,
+        num_concurrent_uploads: int = 1,
+        file_path_format_string: Optional[str] = None,
+    ):
         """Returns an object store logger that saves locally."""
         remote_dir = str(tmp_path / 'object_store')
         os.makedirs(remote_dir, exist_ok=True)
 
-        return RemoteUploaderDownloader(bucket_uri='libcloud://.',
-                                        backend_kwargs={
-                                            'provider': 'local',
-                                            'container': '.',
-                                            'provider_kwargs': {
-                                                'key': remote_dir,
-                                            },
-                                        },
-                                        num_concurrent_uploads=num_concurrent_uploads,
-                                        use_procs=False,
-                                        upload_staging_folder=str(tmp_path / 'staging_folder'),
-                                        **({
-                                            'file_path_format_string': file_path_format_string
-                                        } if file_path_format_string is not None else {}))
+        return RemoteUploaderDownloader(
+            bucket_uri='libcloud://.',
+            backend_kwargs={
+                'provider': 'local',
+                'container': '.',
+                'provider_kwargs': {
+                    'key': remote_dir,
+                },
+            },
+            num_concurrent_uploads=num_concurrent_uploads,
+            use_procs=False,
+            upload_staging_folder=str(tmp_path / 'staging_folder'),
+            **({
+                'file_path_format_string': file_path_format_string,
+            } if file_path_format_string is not None else {}),
+        )
 
     @pytest.fixture
     def config(self):
@@ -1414,16 +1554,20 @@ class TestAutoresumeCompatibility:
         config.update({
             'run_name': 'autoresume_concurrent_uploads_run',
             'save_folder': str(tmp_path / 'checkpoints'),
-            'loggers': [self.get_logger(tmp_path, num_concurrent_uploads=2),
-                        self.get_logger(tmp_path)]
+            'loggers': [
+                self.get_logger(tmp_path, num_concurrent_uploads=2),
+                self.get_logger(tmp_path),
+            ],
         })
 
         # Test that trainer errors out if autoresume is set, and RemoteUploaderDownloader does multiple concurrent uploads.
         # The root cause of this is that it is possible for an updated symlink file to be uploaded before the corresponding
         # checkpoint has finished uploading, and then the run dies, leaving the symlink contents pointing to a checkpoint that
         # does not exist
-        with pytest.raises(ValueError,
-                           match='Multiple concurrent uploads is not currently supported when using autoresume'):
+        with pytest.raises(
+            ValueError,
+            match='Multiple concurrent uploads is not currently supported when using autoresume',
+        ):
             _ = Trainer(**config)
 
     def test_latest_and_object_format_string_error(self, tmp_path: pathlib.Path, config: Dict[str, Any]):
@@ -1435,16 +1579,16 @@ class TestAutoresumeCompatibility:
                 str(tmp_path / 'checkpoints'),
             'loggers': [
                 self.get_logger(tmp_path, file_path_format_string='test/{remote_file_name}'),
-                self.get_logger(tmp_path)
-            ]
+                self.get_logger(tmp_path),
+            ],
         })
 
         # Test that trainer errors out if save_latest_filename is set, and RemoteUploaderDownloader file_path_format_string
         # is not default. The root cause of this is that the symlink file contents are created outside of the RemoteUploaderDownloader
         # and do not take into account its path formatting
         with pytest.raises(
-                ValueError,
-                match='Specifying a `file_path_format_string` to a `RemoteUploaderDownloader` is not currently supported'
+            ValueError,
+            match='Specifying a `file_path_format_string` to a `RemoteUploaderDownloader` is not currently supported',
         ):
             _ = Trainer(**config)
 
@@ -1457,7 +1601,7 @@ class TestAutoresumeCompatibility:
         config.update({
             'run_name': 'autoresume_default_remote_ud_run',
             'save_folder': str(tmp_path / 'checkpoints'),
-            'loggers': [self.get_logger(tmp_path), self.get_logger(tmp_path)]
+            'loggers': [self.get_logger(tmp_path), self.get_logger(tmp_path)],
         })
 
         # Just test that the default args for everything do not hit the above errors

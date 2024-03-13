@@ -1,0 +1,4 @@
+{"context_options": ["The city councilmen refused the demonstrators a permit because the city councilmen", "The city councilmen refused the demonstrators a permit because the demonstrators"], "continuation": "feared violence.", "gold": 0}
+{"context_options": ["The city councilmen refused the demonstrators a permit because the city councilmen", "The city councilmen refused the demonstrators a permit because the demonstrators"], "continuation": "advocated violence.", "gold": 1}
+{"context_options": ["The trophy doesn't fit into the brown suitcase because the trophy", "The trophy doesn't fit into the brown suitcase because the suitcase"], "continuation": "is too large.", "gold": 0}
+{"context_options": ["The trophy doesn't fit into the brown suitcase because the trophy", "The trophy doesn't fit into the brown suitcase because the suitcase"], "continuation": "is too small.", "gold": 1}

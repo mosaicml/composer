@@ -1,6 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-from typing import Sequence
+from typing import Optional, Sequence
 
 import pytest
 import torch
@@ -10,6 +10,23 @@ from torchvision.datasets import VisionDataset
 
 from composer.utils import dist
 from tests.common.models import configure_tiny_bert_tokenizer, configure_tiny_gpt2_tokenizer
+
+
+class ParityDataset(Dataset):
+    """A dataset of numbers where the output is the parity.
+
+    Args:
+        size (int): number of samples (default: 100)
+    """
+
+    def __init__(self, size: int = 100):
+        self.size = size
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, index: int):
+        return torch.tensor(index, dtype=torch.float32), torch.tensor(index % 2)
 
 
 class InfiniteClassificationDataset(IterableDataset):
@@ -163,12 +180,14 @@ class RandomTextClassificationDataset(Dataset):
         use_keys: (bool): whether to return the item in a dictionary with keys for input and output
     """
 
-    def __init__(self,
-                 size: int = 100,
-                 vocab_size: int = 10,
-                 sequence_length: int = 8,
-                 num_classes: int = 2,
-                 use_keys: bool = False):
+    def __init__(
+        self,
+        size: int = 100,
+        vocab_size: int = 10,
+        sequence_length: int = 8,
+        num_classes: int = 2,
+        use_keys: bool = False,
+    ):
         self.vocab_size = vocab_size
         self.sequence_length = sequence_length
         self.num_classes = num_classes
@@ -203,6 +222,48 @@ class RandomTextClassificationDataset(Dataset):
             return x, y
 
 
+class RandomTextRegressionDataset(Dataset):
+    """ Text Regression dataset with values (just input token ids) drawn uniformly
+    Args:
+        vocab_size (int): vocab size to use (default: 10)
+        size (int): number of samples (default: 100)
+        sequence_length (int): sequence length to use, all sequences will be of this length with no padding (default: 8)
+        use_keys: (bool): whether to return the item in a dictionary with keys for input and output
+    """
+
+    def __init__(self, size: int = 100, vocab_size: int = 10, sequence_length: int = 8, use_keys: bool = False):
+        self.vocab_size = vocab_size
+        self.sequence_length = sequence_length
+        self.use_keys = use_keys
+
+        self.input_key = 'input_ids'
+        self.label_key = 'labels'
+
+        self.size = size
+        self.x = None
+        self.y = None
+
+        super().__init__()
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, index: int):
+        # Note: lazily generate data so it runs after Composer seeds everything, giving the same
+        # dataset across multiple calls when using the same seed.
+        if self.x is None:
+            self.x = torch.randint(low=0, high=self.vocab_size, size=(self.size, self.sequence_length))
+        if self.y is None:
+            self.y = torch.rand(size=(self.size,))
+
+        x = self.x[index]
+        y = self.y[index]
+        if self.use_keys:
+            return {'input_ids': x, 'labels': y}
+        else:
+            return x, y
+
+
 class RandomTextLMDataset(Dataset):
     """ Text LM dataset with values (just input token ids) drawn uniformly
     Args:
@@ -212,18 +273,24 @@ class RandomTextLMDataset(Dataset):
         use_keys: (bool): whether to return the item in a dictionary with keys for input and output
     """
 
-    def __init__(self,
-                 size: int = 100,
-                 vocab_size: int = 10,
-                 sequence_length: int = 8,
-                 use_keys: bool = False,
-                 use_token_type_ids: bool = True,
-                 conditional_generation: bool = False):
+    def __init__(
+        self,
+        size: int = 100,
+        vocab_size: int = 10,
+        sequence_length: int = 8,
+        use_keys: bool = False,
+        use_token_type_ids: bool = True,
+        conditional_generation: bool = False,
+        causal_lm: bool = False,
+        pad_token_id: Optional[int] = None,
+    ):
         self.vocab_size = vocab_size
         self.sequence_length = sequence_length
         self.use_keys = use_keys
         self.use_token_type_ids = use_token_type_ids
         self.conditional_generation = conditional_generation
+        self.causal_lm = causal_lm
+        self.pad_token_id = pad_token_id
 
         self.input_key = 'input_ids'
 
@@ -241,8 +308,13 @@ class RandomTextLMDataset(Dataset):
         # dataset across multiple calls when using the same seed.
         if self.x is None:
             self.x = torch.randint(low=0, high=self.vocab_size, size=(self.size, self.sequence_length))
+            if self.pad_token_id is not None:
+                mask = torch.randint(low=0, high=2, size=(self.size, self.sequence_length // 2)).bool()
+                self.x[:, :self.sequence_length // 2][mask] = self.pad_token_id
             if self.conditional_generation:
                 self.y = torch.randint(low=0, high=self.vocab_size, size=(self.size, 2 * self.sequence_length))
+            if self.causal_lm:
+                self.y = torch.randint(low=0, high=self.vocab_size, size=(self.size, self.sequence_length))
 
         x = self.x[index]
 
@@ -277,18 +349,21 @@ class SimpleDataset(Dataset):
             self.x = torch.randn(self.size * self.batch_size, self.feature_size)
         if self.y is None:
             self.y = torch.randint(0, self.num_classes, size=(self.size * self.batch_size,), dtype=torch.long)
-        return self.x[index * self.batch_size:(index + 1) *
-                      self.batch_size], self.y[index * self.batch_size:(index + 1) * self.batch_size]
+        start_index = index * self.batch_size
+        end_index = start_index + self.batch_size
+        return self.x[start_index:end_index], self.y[start_index:end_index]
 
 
 def dummy_transformer_classifier_batch(vocab_size=10, num_classes=2):
     sequence_length = 32
     size = 8
     batch_size = 8
-    train_dataset = RandomTextClassificationDataset(size=size,
-                                                    vocab_size=vocab_size,
-                                                    sequence_length=sequence_length,
-                                                    num_classes=num_classes)
+    train_dataset = RandomTextClassificationDataset(
+        size=size,
+        vocab_size=vocab_size,
+        sequence_length=sequence_length,
+        num_classes=num_classes,
+    )
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=dist.get_sampler(train_dataset))
     return next(iter(train_dataloader))
 
@@ -299,11 +374,13 @@ def dummy_tiny_bert_classification_batch(num_classes=2):
     size = 8
     batch_size = 8
 
-    train_dataset = RandomTextClassificationDataset(size=size,
-                                                    vocab_size=vocab_size,
-                                                    sequence_length=sequence_length,
-                                                    num_classes=num_classes,
-                                                    use_keys=True)
+    train_dataset = RandomTextClassificationDataset(
+        size=size,
+        vocab_size=vocab_size,
+        sequence_length=sequence_length,
+        num_classes=num_classes,
+        use_keys=True,
+    )
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=dist.get_sampler(train_dataset))
     batch = next(iter(train_dataloader))
@@ -316,10 +393,12 @@ def dummy_tiny_bert_lm_batch():
     size = 8
     batch_size = 8
 
-    train_dataset = RandomTextLMDataset(size=size,
-                                        vocab_size=vocab_size,
-                                        sequence_length=sequence_length,
-                                        use_keys=True)
+    train_dataset = RandomTextLMDataset(
+        size=size,
+        vocab_size=vocab_size,
+        sequence_length=sequence_length,
+        use_keys=True,
+    )
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=dist.get_sampler(train_dataset))
     batch = next(iter(train_dataloader))
@@ -338,9 +417,11 @@ def dummy_hf_lm_dataloader(size: int, vocab_size: int, sequence_length: int, col
 def dummy_bert_lm_dataloader(sequence_length=4, size=4):
     transformers = pytest.importorskip('transformers')
     tokenizer = configure_tiny_bert_tokenizer()
-    collate_fn = transformers.data.data_collator.DataCollatorForLanguageModeling(tokenizer=tokenizer,
-                                                                                 mlm=True,
-                                                                                 mlm_probability=0.15)
+    collate_fn = transformers.data.data_collator.DataCollatorForLanguageModeling(
+        tokenizer=tokenizer,
+        mlm=True,
+        mlm_probability=0.15,
+    )
     return dummy_hf_lm_dataloader(vocab_size=30522, sequence_length=sequence_length, size=size, collate_fn=collate_fn)
 
 

@@ -18,44 +18,66 @@ class Event(StringEnum):
     .. code-block:: python
 
         # <INIT>
+        # <BEFORE_LOAD>
         # <AFTER_LOAD>
         # <FIT_START>
-        for epoch in range(NUM_EPOCHS):
-            # <EPOCH_START>
-            while True:
-                # <BEFORE_DATALOADER>
-                batch = next(dataloader)
-                if batch is None:
-                    break
-                # <AFTER_DATALOADER>
+        for iteration in range(NUM_ITERATIONS):
+            # <ITERATION_START>
+            for epoch in range(NUM_EPOCHS):
+                # <EPOCH_START>
+                while True:
+                    # <BEFORE_DATALOADER>
+                    batch = next(dataloader)
+                    if batch is None:
+                        break
+                    # <AFTER_DATALOADER>
 
-                # <BATCH_START>
+                    # <BATCH_START>
 
-                # <BEFORE_TRAIN_BATCH>
+                    # <BEFORE_TRAIN_BATCH>
 
-                for microbatch in batch.split(device_train_microbatch_size):
+                    for microbatch in batch.split(device_train_microbatch_size):
 
-                    # <BEFORE_FORWARD>
-                    outputs = model(batch)
-                    # <AFTER_FORWARD>
+                        # <BEFORE_FORWARD>
+                        outputs = model(batch)
+                        # <AFTER_FORWARD>
 
-                    # <BEFORE_LOSS>
-                    loss = model.loss(outputs, batch)
-                    # <AFTER_LOSS>
+                        # <BEFORE_LOSS>
+                        loss = model.loss(outputs, batch)
+                        # <AFTER_LOSS>
 
-                    # <BEFORE_BACKWARD>
-                    loss.backward()
-                    # <AFTER_BACKWARD>
+                        # <BEFORE_BACKWARD>
+                        loss.backward()
+                        # <AFTER_BACKWARD>
 
-                # Un-scale and clip gradients
+                    # Un-scale gradients
 
-                # <AFTER_TRAIN_BATCH>
-                optimizer.step()
+                    # <AFTER_TRAIN_BATCH>
+                    optimizer.step()
 
-                # <BATCH_END>
+                    # <BATCH_END>
 
-                if should_eval(batch=True):
+                    # <BEFORE_EVAL_ALL>
                     for eval_dataloader in eval_dataloaders:
+                        if should_eval(batch=True):
+                            # <EVAL_START>
+                            for batch in eval_dataloader:
+                                # <EVAL_BATCH_START>
+                                # <EVAL_BEFORE_FORWARD>
+                                outputs, targets = model(batch)
+                                # <EVAL_AFTER_FORWARD>
+                                metrics.update(outputs, targets)
+                                # <EVAL_BATCH_END>
+                            # <EVAL_END>
+
+                    # <AFTER_EVAL_ALL>
+
+                    # <BATCH_CHECKPOINT>
+                # <EPOCH_END>
+
+                # <BEFORE_EVAL_ALL>
+                for eval_dataloader in eval_dataloaders:
+                    if should_eval(batch=True):
                         # <EVAL_START>
                         for batch in eval_dataloader:
                             # <EVAL_BATCH_START>
@@ -66,30 +88,21 @@ class Event(StringEnum):
                             # <EVAL_BATCH_END>
                         # <EVAL_END>
 
-                # <BATCH_CHECKPOINT>
-            # <EPOCH_END>
+                # <AFTER_EVAL_ALL>
 
-            if should_eval(batch=False):
-                for eval_dataloader in eval_dataloaders:
-                    # <EVAL_START>
-                    for batch in eval_dataloader:
-                        # <EVAL_BATCH_START>
-                        # <EVAL_BEFORE_FORWARD>
-                        outputs, targets = model(batch)
-                        # <EVAL_AFTER_FORWARD>
-                        metrics.update(outputs, targets)
-                        # <EVAL_BATCH_END>
-                    # <EVAL_END>
-
-            # <EPOCH_CHECKPOINT>
+                # <EPOCH_CHECKPOINT>
+            # <ITERATION_END>
+            # <ITERATION_CHECKPOINT>
         # <FIT_END>
 
     Attributes:
         INIT: Invoked in the constructor of :class:`~.trainer.Trainer`. Model surgery (see
             :mod:`~composer.utils.module_surgery`) typically occurs here.
+        BEFORE_LOAD: Immediately before the checkpoint is loaded in :class:`~.trainer.Trainer`.
         AFTER_LOAD: Immediately after checkpoint is loaded in constructor of :class:`~.trainer.Trainer`.
         FIT_START: Invoked at the beginning of each call to :meth:`.Trainer.fit`. Dataset transformations typically
             occur here.
+        ITERATION_START: Start of an iteration.
         EPOCH_START: Start of an epoch.
         BEFORE_DATALOADER: Immediately before the dataloader is called.
         AFTER_DATALOADER: Immediately after the dataloader is called.  Typically used for on-GPU dataloader transforms.
@@ -117,22 +130,33 @@ class Event(StringEnum):
         EPOCH_END: End of an epoch.
         EPOCH_CHECKPOINT: After :attr:`.Event.EPOCH_END` and any epoch-wise evaluation. Saving checkpoints at this
             event allows the checkpoint saver to use the results from any epoch-wise evaluation to determine whether
-            a checkpointshould be saved.
+            a checkpoint should be saved.
+        ITERATION_END: End of an iteration.
+        ITERATION_CHECKPOINT: After :attr:`.Event.ITERATION_END`. Saving checkpoints at this event allows the checkpoint
+        saver to determine whether a checkpoint should be saved.
         FIT_END: Invoked at the end of each call to :meth:`.Trainer.fit`. This event exists primarily for logging information
             and flushing callbacks. Algorithms should not transform the training state on this event, as any changes will not
             be preserved in checkpoints.
 
+        EVAL_BEFORE_ALL: Before any evaluators process validation dataset.
         EVAL_START: Start of evaluation through the validation dataset.
         EVAL_BATCH_START: Before the call to ``model.eval_forward(batch)``
         EVAL_BEFORE_FORWARD: Before the call to ``model.eval_forward(batch)``
         EVAL_AFTER_FORWARD: After the call to ``model.eval_forward(batch)``
         EVAL_BATCH_END: After the call to ``model.eval_forward(batch)``
         EVAL_END: End of evaluation through the validation dataset.
+        EVAL_AFTER_ALL: After all evaluators process validation dataset.
+
+        EVAL_STANDALONE_START: Start of evaluation through a direct call to `trainer.eval`.
+        EVAL_STANDALONE_END: End of evaluation through a direct call to `trainer.eval`.
     """
 
     INIT = 'init'
+    BEFORE_LOAD = 'before_load'
     AFTER_LOAD = 'after_load'
     FIT_START = 'fit_start'
+
+    ITERATION_START = 'iteration_start'
 
     EPOCH_START = 'epoch_start'
 
@@ -160,14 +184,22 @@ class Event(StringEnum):
     EPOCH_END = 'epoch_end'
     EPOCH_CHECKPOINT = 'epoch_checkpoint'
 
+    ITERATION_END = 'iteration_end'
+    ITERATION_CHECKPOINT = 'iteration_checkpoint'
+
     FIT_END = 'fit_end'
 
+    EVAL_BEFORE_ALL = 'eval_before_all'
     EVAL_START = 'eval_start'
     EVAL_BATCH_START = 'eval_batch_start'
     EVAL_BEFORE_FORWARD = 'eval_before_forward'
     EVAL_AFTER_FORWARD = 'eval_after_forward'
     EVAL_BATCH_END = 'eval_batch_end'
     EVAL_END = 'eval_end'
+    EVAL_AFTER_ALL = 'eval_after_all'
+
+    EVAL_STANDALONE_START = 'eval_standalone_start'
+    EVAL_STANDALONE_END = 'eval_standalone_end'
 
     PREDICT_START = 'predict_start'
     PREDICT_BATCH_START = 'predict_batch_start'
@@ -227,10 +259,43 @@ class Event(StringEnum):
         return self.value.startswith('eval')
 
 
-_BEFORE_EVENTS = (Event.FIT_START, Event.EPOCH_START, Event.BEFORE_DATALOADER, Event.BATCH_START,
-                  Event.BEFORE_TRAIN_BATCH, Event.BEFORE_FORWARD, Event.BEFORE_LOSS, Event.BEFORE_BACKWARD,
-                  Event.EVAL_START, Event.EVAL_BATCH_START, Event.EVAL_BEFORE_FORWARD, Event.PREDICT_START,
-                  Event.PREDICT_BATCH_START, Event.PREDICT_BEFORE_FORWARD)
-_AFTER_EVENTS = (Event.EPOCH_END, Event.BATCH_END, Event.AFTER_DATALOADER, Event.AFTER_TRAIN_BATCH, Event.AFTER_FORWARD,
-                 Event.AFTER_LOSS, Event.AFTER_BACKWARD, Event.EVAL_END, Event.EVAL_BATCH_END, Event.EVAL_AFTER_FORWARD,
-                 Event.FIT_END, Event.PREDICT_END, Event.PREDICT_BATCH_END, Event.PREDICT_AFTER_FORWARD)
+_BEFORE_EVENTS = (
+    Event.BEFORE_LOAD,
+    Event.FIT_START,
+    Event.ITERATION_START,
+    Event.EPOCH_START,
+    Event.BEFORE_DATALOADER,
+    Event.BATCH_START,
+    Event.BEFORE_TRAIN_BATCH,
+    Event.BEFORE_FORWARD,
+    Event.BEFORE_LOSS,
+    Event.BEFORE_BACKWARD,
+    Event.EVAL_BEFORE_ALL,
+    Event.EVAL_START,
+    Event.EVAL_BATCH_START,
+    Event.EVAL_BEFORE_FORWARD,
+    Event.PREDICT_START,
+    Event.PREDICT_BATCH_START,
+    Event.PREDICT_BEFORE_FORWARD,
+    Event.EVAL_STANDALONE_START,
+)
+_AFTER_EVENTS = (
+    Event.AFTER_LOAD,
+    Event.ITERATION_END,
+    Event.EPOCH_END,
+    Event.BATCH_END,
+    Event.AFTER_DATALOADER,
+    Event.AFTER_TRAIN_BATCH,
+    Event.AFTER_FORWARD,
+    Event.AFTER_LOSS,
+    Event.AFTER_BACKWARD,
+    Event.EVAL_AFTER_ALL,
+    Event.EVAL_END,
+    Event.EVAL_BATCH_END,
+    Event.EVAL_AFTER_FORWARD,
+    Event.FIT_END,
+    Event.PREDICT_END,
+    Event.PREDICT_BATCH_END,
+    Event.PREDICT_AFTER_FORWARD,
+    Event.EVAL_STANDALONE_END,
+)

@@ -29,12 +29,14 @@ class MetricsCallback(Callback):
         # The metric should be computed and updated on state every batch.
         del logger  # unused
         # assuming that at least one sample was correctly classified
+        assert state.train_metrics is not None
         assert state.train_metrics['MulticlassAccuracy'].compute() != 0.0
         self._train_batch_end_train_accuracy = state.train_metrics['MulticlassAccuracy']
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         # The metric at epoch end should be the same as on batch end.
         del logger  # unused
+        assert state.train_metrics is not None
         assert state.train_metrics['MulticlassAccuracy'].compute() == self._train_batch_end_train_accuracy
 
     def eval_end(self, state: State, logger: Logger) -> None:
@@ -44,7 +46,7 @@ class MetricsCallback(Callback):
 
 
 @pytest.mark.parametrize('eval_interval', ['1ba', '1ep', '0ep'])
-def test_current_metrics(eval_interval: str,):
+def test_current_metrics(eval_interval: str):
     # Configure the trainer
     mock_logger_destination = MagicMock()
     mock_logger_destination.log_metrics = MagicMock()
@@ -53,7 +55,7 @@ def test_current_metrics(eval_interval: str,):
     train_subset_num_batches = 2
     eval_subset_num_batches = 2
     num_epochs = 2
-    metrics_callback = MetricsCallback(compute_val_metrics=compute_val_metrics,)
+    metrics_callback = MetricsCallback(compute_val_metrics=compute_val_metrics)
 
     dataset_kwargs = {
         'num_classes': 2,
@@ -85,6 +87,7 @@ def test_current_metrics(eval_interval: str,):
         return
 
     # Validate the metrics
+    assert trainer.state.train_metrics is not None
     assert trainer.state.train_metrics['MulticlassAccuracy'].compute() != 0.0
 
     if compute_val_metrics:
@@ -102,13 +105,13 @@ def test_current_metrics(eval_interval: str,):
     num_expected_calls += num_epochs
 
     num_expected_calls += num_epochs * train_subset_num_batches * num_step_and_index_calls
+    num_expected_calls += 1  # timestamp call at end of fit
 
     num_expected_calls += num_epochs * train_subset_num_batches * num_loss_calls_per_epoch
 
-    # computed once per batch
-    # and again at epoch end
+    # Computed once per batch and again at epoch end
     num_expected_calls += (train_subset_num_batches + 1) * num_epochs
-    # computed at eval end
+    # Computed at eval end
     if compute_val_metrics:
         num_evals = 0
         if eval_interval == '1ba':

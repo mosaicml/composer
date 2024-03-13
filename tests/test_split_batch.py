@@ -57,16 +57,20 @@ def dummy_dict_batch_with_common_metadata(batch_size=12) -> Dict[str, Union[List
     return {'image': image, 'target': target, 'meta': meta, 'index': index}
 
 
-def dummy_maskrcnn_batch(batch_size=12,
-                         image_height=12,
-                         image_width=12,
-                         num_classes=80,
-                         max_detections=5) -> List[Tuple[torch.Tensor, Dict[str, torch.Tensor]]]:
+def dummy_maskrcnn_batch(
+    batch_size=12,
+    image_height=12,
+    image_width=12,
+    num_classes=80,
+    max_detections=5,
+) -> List[Tuple[torch.Tensor, Dict[str, torch.Tensor]]]:
 
-    def generate_maskrcnn_sample(num_detections,
-                                 image_height=image_height,
-                                 image_width=image_width,
-                                 num_classes=num_classes):
+    def generate_maskrcnn_sample(
+        num_detections,
+        image_height=image_height,
+        image_width=image_width,
+        num_classes=num_classes,
+    ):
         """Generates a maskrcnn style sample: (Tensor, Dict[Tensor])."""
         image = torch.randn(size=(3, image_height, image_width)).type(torch.float)
         target = {
@@ -75,7 +79,7 @@ def dummy_maskrcnn_batch(batch_size=12,
             'labels':
                 torch.randint(size=(num_detections,), low=0, high=num_classes + 1),
             'masks':
-                torch.randint(size=(num_detections, image_height, image_width), low=0, high=2).type(torch.uint8)
+                torch.randint(size=(num_detections, image_height, image_width), low=0, high=2).type(torch.uint8),
         }
         return image, target
 
@@ -106,7 +110,7 @@ def test_split_without_error(batch):
 @pytest.mark.parametrize('batch', [dummy_tensor_batch(i) for i in [12, 13, 14, 15]])
 def test_tensor_vs_list_chunking(batch):
     tensor_microbatches = _split_tensor(batch, microbatch_size=4)
-    list_microbatches = _split_list([t for t in batch], microbatch_size=4)
+    list_microbatches = _split_list(list(batch), microbatch_size=4)
 
     assert len(tensor_microbatches) == len(list_microbatches)
     assert all(torch.equal(t1, torch.stack(t2, dim=0)) for t1, t2 in zip(tensor_microbatches, list_microbatches))

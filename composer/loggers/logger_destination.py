@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pathlib
 from abc import ABC
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 
 import numpy as np
 import torch
@@ -40,6 +40,8 @@ class LoggerDestination(Callback, ABC):
             ...     ...,
             ...     loggers=[logger]
             ... )
+            Batch 0: {'composer_version': ...}
+            Batch 0: {'composer_commit_hash': ...}
             Batch 0: {'num_nodes': ...}
             Batch 0: {'rank_zero_seed': ...}
     """
@@ -54,6 +56,27 @@ class LoggerDestination(Callback, ABC):
                 (strings) to their values (Any).
         """
         del hyperparameters  # unused
+        pass
+
+    def log_table(
+        self,
+        columns: List[str],
+        rows: List[List[Any]],
+        name: str = 'Table',
+        step: Optional[int] = None,
+    ) -> None:
+        """Log a table.
+
+        Args:
+            columns (List[str]): Names of the columns in the table.
+            rows (List[List[Any]]): 2D row-oriented array of values.
+            name (str): Name of table. (Default: ``'Table'``)
+            step (Optional[int], optional): The current step or batch of training at the
+                time of logging. Defaults to None. If not specified the specific
+                LoggerDestination implementation will choose a step (usually a running
+                counter).
+        """
+        del columns, rows, name, step
         pass
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:

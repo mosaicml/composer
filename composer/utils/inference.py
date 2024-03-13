@@ -59,8 +59,10 @@ class ExportFormat(StringEnum):
     ONNX = 'onnx'
 
 
-def _move_sample_input_to_device(sample_input: Optional[Union[torch.Tensor, dict, list, Tuple]],
-                                 device: Device) -> Optional[Union[torch.Tensor, dict, list, Tuple]]:
+def _move_sample_input_to_device(
+    sample_input: Optional[Union[torch.Tensor, dict, list, Tuple]],
+    device: Device,
+) -> Optional[Union[torch.Tensor, dict, list, Tuple]]:
     """Handle moving sample_input of various types to a device. If possible, avoids creating copies of the input."""
     output = None
     if isinstance(sample_input, torch.Tensor):
@@ -95,6 +97,8 @@ def export_for_inference(
     load_path: Optional[str] = None,
     load_object_store: Optional[ObjectStore] = None,
     load_strict: bool = False,
+    input_names: Optional[Sequence[str]] = None,
+    output_names: Optional[Sequence[str]] = None,
 ) -> None:
     """Export a model for inference.
 
@@ -132,6 +136,10 @@ def export_for_inference(
             Otherwise, if the checkpoint is a local filepath, set to ``None``. (default: ``None``)
         load_strict (bool): Whether the keys (i.e., model parameter names) in the model state dict should
             perfectly match the keys in the model instance. (default: ``False``)
+        input_names (Sequence[str], optional): names to assign to the input nodes of the graph, in order. If set
+            to ``None``, the keys from the `sample_input` will be used. Fallbacks to ``["input"]``.
+        output_names (Sequence[str], optional): names to assign to the output nodes of the graph, in order. It set
+            to ``None``, it defaults to ``["output"]``.
 
     Returns:
         None
@@ -143,13 +151,15 @@ def export_for_inference(
 
     if is_model_ddp(model):
         raise ValueError(
-            f'Directly exporting a DistributedDataParallel model is not supported. Export the module instead.')
+            f'Directly exporting a DistributedDataParallel model is not supported. Export the module instead.',
+        )
 
     if is_model_fsdp(model):
         raise ValueError(
             'Directly exporting a FSDP wrapped module is not supported as the model is deepcopied to avoid '
             'side-effects, and FSDP does not support deepcopying. To export the model, load it without FSDP '
-            'wrapping.')
+            'wrapping.',
+        )
 
     # Only rank0 exports the model
     if dist.get_global_rank() != 0:
@@ -177,10 +187,12 @@ def export_for_inference(
         # download checkpoint and load weights only
         log.debug('Loading checkpoint at %s', load_path)
         with tempfile.TemporaryDirectory() as tempdir:
-            composer_states_filepath, _, _ = download_checkpoint(path=load_path,
-                                                                 node_checkpoint_folder=tempdir,
-                                                                 object_store=load_object_store,
-                                                                 progress_bar=True)
+            composer_states_filepath, _, _ = download_checkpoint(
+                path=load_path,
+                node_checkpoint_folder=tempdir,
+                object_store=load_object_store,
+                progress_bar=True,
+            )
             state_dict = safe_torch_load(composer_states_filepath)
             missing_keys, unexpected_keys = model.load_state_dict(state_dict['state']['model'], strict=load_strict)
             if len(missing_keys) > 0:
@@ -207,13 +219,14 @@ def export_for_inference(
                     export_model = torch.jit.script(model)
                 except Exception:
                     if sample_input is not None:
-                        log.warning('Scripting with torch.jit.script failed. Trying torch.jit.trace!',)
+                        log.warning('Scripting with torch.jit.script failed. Trying torch.jit.trace!')
                         export_model = torch.jit.trace(model, sample_input)
                     else:
                         log.warning(
                             'Scripting with torch.jit.script failed and sample inputs are not provided for tracing '
                             'with torch.jit.trace',
-                            exc_info=True)
+                            exc_info=True,
+                        )
 
                 if export_model is not None:
                     torch.jit.save(export_model, local_save_path)
@@ -224,25 +237,30 @@ def export_for_inference(
                 if sample_input is None:
                     raise ValueError(f'sample_input argument is required for onnx export')
 
-                input_names = []
-
                 # assert statement for pyright error: Cannot access member "keys" for type "Tensor"
                 assert isinstance(sample_input, tuple)
-                # Extract input names from sample_input if it contains dicts
-                for i in range(len(sample_input)):
-                    if isinstance(sample_input[i], dict):
-                        input_names += list(sample_input[i].keys())
 
-                # Default input name if no dict present
-                if input_names == []:
-                    input_names = ['input']
+                if input_names is None:
+                    input_names = []
+
+                    # Extract input names from sample_input if it contains dicts
+                    for i in range(len(sample_input)):
+                        if isinstance(sample_input[i], dict):
+                            input_names += list(sample_input[i].keys())
+
+                    # Default input name if no dict present
+                    if input_names == []:
+                        input_names = ['input']
+
+                if output_names is None:
+                    output_names = ['output']
 
                 torch.onnx.export(
                     model,
                     sample_input,
                     local_save_path,
                     input_names=input_names,
-                    output_names=['output'],
+                    output_names=output_names,
                     dynamic_axes=dynamic_axes,
                     opset_version=onnx_opset_version,
                 )
@@ -260,6 +278,8 @@ def export_with_logger(
     save_object_store: Optional[ObjectStore] = None,
     sample_input: Optional[Any] = None,
     transforms: Optional[Sequence[Transform]] = None,
+    input_names: Optional[Sequence[str]] = None,
+    output_names: Optional[Sequence[str]] = None,
 ) -> None:
     """Helper method for exporting a model for inference.
 
@@ -289,6 +309,10 @@ def export_with_logger(
         transforms (Sequence[Transform], optional): transformations (usually optimizations) that should
             be applied to the model. Each Transform should be a callable that takes a model and returns a modified model.
             ``transforms`` are applied after ``surgery_algs``. (default: ``None``)
+        input_names (Sequence[str], optional): names to assign to the input nodes of the graph, in order. If set
+            to ``None``, the keys from the `sample_input` will be used. Fallbacks to ``["input"]``.
+        output_names (Sequence[str], optional): names to assign to the output nodes of the graph, in order. It set
+            to ``None``, it defaults to ``["output"]``.
 
     Returns:
         None
@@ -296,16 +320,24 @@ def export_with_logger(
     if save_object_store == None and logger.has_file_upload_destination():
         with tempfile.TemporaryDirectory() as tmpdir:
             temp_local_save_path = os.path.join(str(tmpdir), f'model')
-            export_for_inference(model=model,
-                                 save_format=save_format,
-                                 save_path=temp_local_save_path,
-                                 sample_input=sample_input,
-                                 transforms=transforms)
+            export_for_inference(
+                model=model,
+                save_format=save_format,
+                save_path=temp_local_save_path,
+                sample_input=sample_input,
+                transforms=transforms,
+                input_names=input_names,
+                output_names=output_names,
+            )
             logger.upload_file(remote_file_name=save_path, file_path=temp_local_save_path)
     else:
-        export_for_inference(model=model,
-                             save_format=save_format,
-                             save_path=save_path,
-                             save_object_store=save_object_store,
-                             sample_input=sample_input,
-                             transforms=transforms)
+        export_for_inference(
+            model=model,
+            save_format=save_format,
+            save_path=save_path,
+            save_object_store=save_object_store,
+            sample_input=sample_input,
+            transforms=transforms,
+            input_names=input_names,
+            output_names=output_names,
+        )

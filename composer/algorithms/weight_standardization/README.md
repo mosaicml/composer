@@ -18,9 +18,9 @@ Weight Standardization is a reparametrization of convolutional weights such that
 ```python
 from torchvision import models
 from torch.utils.data import DataLoader
-from tests.common import RandomImageDataset
+from tests.common import RandomImageDataset, composer_resnet
 
-my_train_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
+my_train_dataloader = DataLoader(RandomImageDataset(size=2), batch_size=2)
 my_cnn_model = models.resnet18()
 ```
 -->
@@ -31,7 +31,6 @@ my_cnn_model = models.resnet18()
 import composer.functional as cf
 import torch
 import torch.nn.functional as F
-from composer.models import composer_resnet
 
 def training_loop(model, train_dataloader):
     opt = torch.optim.Adam(model.parameters())
@@ -58,13 +57,12 @@ training_loop(my_cnn_model, my_train_dataloader)
 <!--pytest.mark.gpu-->
 <!--
 ```python
-from composer.models import composer_resnet
 from torch.utils.data import DataLoader
-from tests.common import RandomImageDataset
+from tests.common import RandomImageDataset, composer_resnet
 
 cnn_composer_model = composer_resnet('resnet50')
-my_train_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
-my_eval_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
+my_train_dataloader = DataLoader(RandomImageDataset(size=2), batch_size=2)
+my_eval_dataloader = DataLoader(RandomImageDataset(size=2), batch_size=2)
 ```
 -->
 <!--pytest-codeblocks:cont-->

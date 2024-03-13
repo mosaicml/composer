@@ -24,20 +24,34 @@ def create_state(minimal_state: State, model):
 
 
 def create_algo_instance(replace_convs, replace_linears):
-    return Factorize(factorize_convs=replace_convs,
-                     factorize_linears=replace_linears,
-                     min_channels=1,
-                     latent_channels=2,
-                     min_features=1,
-                     latent_features=2)
+    return Factorize(
+        factorize_convs=replace_convs,
+        factorize_linears=replace_linears,
+        min_channels=1,
+        latent_channels=2,
+        min_features=1,
+        latent_features=2,
+    )
 
 
-@pytest.mark.parametrize('model_cls, model_params', [(SimpleConvModel, (3, 100)), (SimpleTransformerClassifier, ()),
-                                                     (configure_tiny_bert_hf_model, ())])
+@pytest.mark.parametrize(
+    'model_cls, model_params',
+    [
+        (SimpleConvModel, (3, 100)),
+        (SimpleTransformerClassifier, ()),
+        (configure_tiny_bert_hf_model, ()),
+    ],
+)
 @pytest.mark.parametrize('replace_convs', [False, True])
 @pytest.mark.parametrize('replace_linears', [False, True])
-def test_factorize_surgery(minimal_state: State, model_cls, model_params, empty_logger: Logger, replace_convs: bool,
-                           replace_linears: bool):
+def test_factorize_surgery(
+    minimal_state: State,
+    model_cls,
+    model_params,
+    empty_logger: Logger,
+    replace_convs: bool,
+    replace_linears: bool,
+):
     model = model_cls(*model_params)
     state = create_state(minimal_state, model)
 
@@ -55,27 +69,42 @@ def test_factorize_surgery(minimal_state: State, model_cls, model_params, empty_
     # which contains two Conv2d/Linears submodules.
     if algo_instance.factorize_convs:
         num_factorized_layers = module_surgery.count_module_instances(state.model, FactorizedConv2d)
-        num_non_factorized_layers = module_surgery.count_module_instances(state.model,
-                                                                          torch.nn.Conv2d) - 2 * num_factorized_layers
+        num_non_factorized_layers = module_surgery.count_module_instances(
+            state.model,
+            torch.nn.Conv2d,
+        ) - 2 * num_factorized_layers
         assert num_conv_layers == num_factorized_layers + num_non_factorized_layers
         assert num_factorized_layers > 0
 
     if algo_instance.factorize_linears:
         num_factorized_layers = module_surgery.count_module_instances(state.model, FactorizedLinear)
-        num_non_factorized_layers = module_surgery.count_module_instances(state.model,
-                                                                          torch.nn.Linear) - 2 * num_factorized_layers
+        num_non_factorized_layers = module_surgery.count_module_instances(
+            state.model,
+            torch.nn.Linear,
+        ) - 2 * num_factorized_layers
         assert num_linear_layers == num_factorized_layers + num_non_factorized_layers
         assert num_factorized_layers > 0
 
 
-@pytest.mark.parametrize('model_cls, model_params, batch',
-                         [(SimpleConvModel, (3, 100), (torch.Tensor(64, 3, 32, 32), torch.Tensor())),
-                          (SimpleTransformerClassifier, (), dummy_transformer_classifier_batch()),
-                          (configure_tiny_bert_hf_model, (), dummy_tiny_bert_lm_batch())])
+@pytest.mark.parametrize(
+    'model_cls, model_params, batch',
+    [
+        (SimpleConvModel, (3, 100), (torch.Tensor(64, 3, 32, 32), torch.Tensor())),
+        (SimpleTransformerClassifier, (), dummy_transformer_classifier_batch()),
+        (configure_tiny_bert_hf_model, (), dummy_tiny_bert_lm_batch()),
+    ],
+)
 @pytest.mark.parametrize('replace_convs', [False, True])
 @pytest.mark.parametrize('replace_linears', [False, True])
-def test_forward_shape(minimal_state: State, model_cls, model_params, empty_logger: Logger, batch, replace_convs,
-                       replace_linears):
+def test_forward_shape(
+    minimal_state: State,
+    model_cls,
+    model_params,
+    empty_logger: Logger,
+    batch,
+    replace_convs,
+    replace_linears,
+):
     model = model_cls(*model_params)
 
     if (isinstance(model, SimpleTransformerClassifier) or isinstance(model, HuggingFaceModel)) and replace_convs:
@@ -83,7 +112,7 @@ def test_forward_shape(minimal_state: State, model_cls, model_params, empty_logg
 
     if isinstance(model, SimpleTransformerClassifier):
         pytest.xfail(
-            'Factorize does not support torch.nn.MultiheadAttention layers, which are part of the SimpleTransformerClassifier.'
+            'Factorize does not support torch.nn.MultiheadAttention layers, which are part of the SimpleTransformerClassifier.',
         )
 
     state = create_state(minimal_state, model)
@@ -99,8 +128,14 @@ def test_forward_shape(minimal_state: State, model_cls, model_params, empty_logg
         assert output.size() == new_output.size()
 
 
-@pytest.mark.parametrize('model_cls, model_params', [(SimpleConvModel, (3, 100)), (SimpleTransformerClassifier, ()),
-                                                     (configure_tiny_bert_hf_model, ())])
+@pytest.mark.parametrize(
+    'model_cls, model_params',
+    [
+        (SimpleConvModel, (3, 100)),
+        (SimpleTransformerClassifier, ()),
+        (configure_tiny_bert_hf_model, ()),
+    ],
+)
 @pytest.mark.parametrize('replace_convs', [False, True])
 @pytest.mark.parametrize('replace_linears', [False, True])
 def test_algorithm_logging(minimal_state: State, model_cls, model_params, replace_convs, replace_linears):

@@ -66,16 +66,19 @@ class WandBLogger(LoggerDestination):
         try:
             import wandb
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='wandb',
-                                                conda_package='wandb',
-                                                conda_channel='conda-forge') from e
+            raise MissingConditionalImportError(
+                extra_deps_group='wandb',
+                conda_package='wandb',
+                conda_channel='conda-forge',
+            ) from e
 
         del wandb  # unused
         if log_artifacts and rank_zero_only and dist.get_world_size() > 1:
-            warnings.warn(
-                ('When logging artifacts, `rank_zero_only` should be set to False. '
-                 'Artifacts from other ranks will not be collected, leading to a loss of information required to '
-                 'restore from checkpoints.'))
+            warnings.warn((
+                'When logging artifacts, `rank_zero_only` should be set to False. '
+                'Artifacts from other ranks will not be collected, leading to a loss of information required to '
+                'restore from checkpoints.'
+            ))
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
 
         if init_kwargs is None:
@@ -107,6 +110,9 @@ class WandBLogger(LoggerDestination):
         self.project = project
 
         self.run_dir: Optional[str] = None
+        self.run_url: Optional[str] = None
+
+        self.table_dict = {}
 
     def _set_is_in_atexit(self):
         self._is_in_atexit = True
@@ -115,6 +121,18 @@ class WandBLogger(LoggerDestination):
         if self._enabled:
             import wandb
             wandb.config.update(hyperparameters)
+
+    def log_table(
+        self,
+        columns: List[str],
+        rows: List[List[Any]],
+        name: str = 'Table',
+        step: Optional[int] = None,
+    ) -> None:
+        if self._enabled:
+            import wandb
+            table = wandb.Table(columns=columns, rows=rows)
+            wandb.log({name: table}, step=step)
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         if self._enabled:
@@ -146,11 +164,14 @@ class WandBLogger(LoggerDestination):
 
             if masks is not None:
                 # Create a generator that yields masks in the format wandb wants.
-                wandb_masks_generator = _create_wandb_masks_generator(masks,
-                                                                      mask_class_labels,
-                                                                      channels_last=channels_last)
+                wandb_masks_generator = _create_wandb_masks_generator(
+                    masks,
+                    mask_class_labels,
+                    channels_last=channels_last,
+                )
                 wandb_images = (
-                    wandb.Image(im, masks=mask_dict) for im, mask_dict in zip(images_generator, wandb_masks_generator))
+                    wandb.Image(im, masks=mask_dict) for im, mask_dict in zip(images_generator, wandb_masks_generator)
+                )
 
             else:
                 wandb_images = (wandb.Image(image) for image in images_generator)
@@ -181,7 +202,7 @@ class WandBLogger(LoggerDestination):
                     'project': wandb.run.project,
                     'entity': wandb.run.entity,
                     'id': wandb.run.id,
-                    'group': wandb.run.group
+                    'group': wandb.run.group,
                 }
         else:
             return {}
@@ -204,6 +225,7 @@ class WandBLogger(LoggerDestination):
             assert wandb.run is not None, 'The wandb run is set after init'
             entity_and_project = [str(wandb.run.entity), str(wandb.run.project)]
             self.run_dir = wandb.run.dir
+            self.run_url = wandb.run.get_url()
             atexit.register(self._set_is_in_atexit)
         else:
             entity_and_project = [None, None]
@@ -227,8 +249,10 @@ class WandBLogger(LoggerDestination):
             # Only alpha-numeric, periods, hyphens, and underscores are supported by wandb.
             new_remote_file_name = re.sub(r'[^a-zA-Z0-9-_\.]', '.', remote_file_name)
             if new_remote_file_name != remote_file_name:
-                warnings.warn(('WandB permits only alpha-numeric, periods, hyphens, and underscores in file names. '
-                               f"The file with name '{remote_file_name}' will be stored as '{new_remote_file_name}'."))
+                warnings.warn((
+                    'WandB permits only alpha-numeric, periods, hyphens, and underscores in file names. '
+                    f"The file with name '{remote_file_name}' will be stored as '{new_remote_file_name}'."
+                ))
 
             extension = new_remote_file_name.split('.')[-1]
 
@@ -280,23 +304,23 @@ class WandBLogger(LoggerDestination):
 
         new_remote_file_name = re.sub(r'[^a-zA-Z0-9-_\.:]', '.', remote_file_name)
         if new_remote_file_name != remote_file_name:
-            warnings.warn(('WandB permits only alpha-numeric, periods, hyphens, and underscores in file names. '
-                           f"The file with name '{remote_file_name}' will be stored as '{new_remote_file_name}'."))
+            warnings.warn((
+                'WandB permits only alpha-numeric, periods, hyphens, and underscores in file names. '
+                f"The file with name '{remote_file_name}' will be stored as '{new_remote_file_name}'."
+            ))
 
         try:
             wandb_artifact = api.artifact('/'.join([self.entity, self.project, new_remote_file_name]))
         except wandb.errors.CommError as e:
-            if 'does not contain artifact' in str(e):
-                raise FileNotFoundError(f'WandB Artifact {new_remote_file_name} not found') from e
-            raise e
+            raise FileNotFoundError(f'WandB Artifact {new_remote_file_name} not found') from e
         with tempfile.TemporaryDirectory() as tmpdir:
-            wandb_artifact_folder = os.path.join(tmpdir, 'wandb_artifact_folder')
+            wandb_artifact_folder = os.path.join(tmpdir, 'wandb_artifact_folder/')
             wandb_artifact.download(root=wandb_artifact_folder)
             wandb_artifact_names = os.listdir(wandb_artifact_folder)
             # We only log one file per artifact
             if len(wandb_artifact_names) > 1:
                 raise RuntimeError(
-                    'Found more than one file in WandB artifact. We assume the checkpoint is the only file in the WandB artifact.'
+                    'Found more than one file in WandB artifact. We assume the checkpoint is the only file in the WandB artifact.',
                 )
             wandb_artifact_name = wandb_artifact_names[0]
             wandb_artifact_path = os.path.join(wandb_artifact_folder, wandb_artifact_name)
@@ -327,7 +351,10 @@ class WandBLogger(LoggerDestination):
 
 def _convert_to_wandb_image(image: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:
     if isinstance(image, torch.Tensor):
-        image = image.data.cpu().numpy()
+        if image.dtype == torch.float16 or image.dtype == torch.bfloat16:
+            image = image.data.cpu().to(torch.float32).numpy()
+        else:
+            image = image.data.cpu().numpy()
 
     # Error out for empty arrays or weird arrays of dimension 0.
     if np.any(np.equal(image.shape, 0)):
@@ -348,12 +375,15 @@ def _convert_to_wandb_image(image: Union[np.ndarray, torch.Tensor], channels_las
 
     if image.ndim != 3:
         raise ValueError(
-            textwrap.dedent(f'''Input image must be 3 dimensions, but instead
+            textwrap.dedent(
+                f'''Input image must be 3 dimensions, but instead
                             got {image.ndim} dims at shape: {image.shape}
                             Your input image was interpreted as a batch of {image.ndim}
                             -dimensional images because you either specified a
                             {image.ndim + 1}D image or a list of {image.ndim}D images.
-                            Please specify either a 4D image of a list of 3D images'''))
+                            Please specify either a 4D image of a list of 3D images''',
+            ),
+        )
     assert isinstance(image, np.ndarray)
     if not channels_last:
         image = image.transpose(1, 2, 0)
@@ -368,8 +398,10 @@ def _convert_to_wandb_mask(mask: Union[np.ndarray, torch.Tensor], channels_last:
     return mask
 
 
-def _preprocess_mask_data(masks: Dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]],
-                          channels_last: bool) -> Dict[str, np.ndarray]:
+def _preprocess_mask_data(
+    masks: Dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]],
+    channels_last: bool,
+) -> Dict[str, np.ndarray]:
     preprocesssed_masks = {}
     for mask_name, mask_data in masks.items():
         if not isinstance(mask_data, Sequence):
@@ -380,9 +412,11 @@ def _preprocess_mask_data(masks: Dict[str, Union[np.ndarray, torch.Tensor, Seque
     return preprocesssed_masks
 
 
-def _create_wandb_masks_generator(masks: Dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray,
-                                                                                                  torch.Tensor]]]],
-                                  mask_class_labels: Optional[Dict[int, str]], channels_last: bool):
+def _create_wandb_masks_generator(
+    masks: Dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]],
+    mask_class_labels: Optional[Dict[int, str]],
+    channels_last: bool,
+):
     preprocessed_masks: Dict[str, np.ndarray] = _preprocess_mask_data(masks, channels_last)
     for all_masks_for_single_example in zip(*list(preprocessed_masks.values())):
         mask_dict = {name: {'mask_data': mask} for name, mask in zip(masks.keys(), all_masks_for_single_example)}

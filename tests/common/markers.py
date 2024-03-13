@@ -20,7 +20,7 @@ def device(*args, precision=False):
     also returns the parameter "precision".
     """
     # convert cpu-fp32 and gpu-fp32 to cpu, gpu
-    if not precision and any(['-' in arg for arg in args]):
+    if not precision and any('-' in arg for arg in args):
         raise ValueError('-fp32 and -amp tags must be removed if precision=False')
     args = [arg.replace('-fp32', '') for arg in args]
 
@@ -28,7 +28,7 @@ def device(*args, precision=False):
         devices = {
             'cpu': pytest.param('cpu', Precision.FP32, id='cpu-fp32'),
             'gpu': pytest.param('gpu', Precision.FP32, id='gpu-fp32', marks=pytest.mark.gpu),
-            'gpu-amp': pytest.param('gpu', Precision.AMP_FP16, id='gpu-amp', marks=pytest.mark.gpu)
+            'gpu-amp': pytest.param('gpu', Precision.AMP_FP16, id='gpu-amp', marks=pytest.mark.gpu),
         }
         name = 'device,precision'
     else:

@@ -27,11 +27,13 @@ T_ResizeTransform = Callable[[torch.Tensor], torch.Tensor]
 __all__ = ['resize_batch', 'ProgressiveResizing']
 
 
-def resize_batch(input: torch.Tensor,
-                 target: torch.Tensor,
-                 scale_factor: float,
-                 mode: str = 'resize',
-                 resize_targets: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
+def resize_batch(
+    input: torch.Tensor,
+    target: torch.Tensor,
+    scale_factor: float,
+    mode: str = 'resize',
+    resize_targets: bool = False,
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """Resize inputs and optionally outputs by cropping or interpolating.
 
     Args:
@@ -104,10 +106,13 @@ def resize_batch(input: torch.Tensor,
 
     # Log results
     log.debug(
-        textwrap.dedent(f"""\
+        textwrap.dedent(
+            f"""\
             Applied Progressive Resizing with scale_factor={scale_factor} and mode={mode}.
             Old input dimensions: (H,W)={input.shape[2], input.shape[3]}.
-            New input dimensions: (H,W)={X_sized.shape[2], X_sized.shape[2]}"""))
+            New input dimensions: (H,W)={X_sized.shape[2], X_sized.shape[2]}""",
+        ),
+    )
     return X_sized, y_sized
 
 
@@ -190,7 +195,8 @@ class ProgressiveResizing(Algorithm):
 
         if not (delay_fraction + finetune_fraction <= 1):
             raise ValueError(
-                f'delay_fraction + finetune_fraction must be less than 1: {delay_fraction + finetune_fraction}')
+                f'delay_fraction + finetune_fraction must be less than 1: {delay_fraction + finetune_fraction}',
+            )
 
         self.mode = mode
         self.initial_scale = initial_scale
@@ -213,7 +219,8 @@ class ProgressiveResizing(Algorithm):
         assert elapsed_duration is not None, 'elapsed duration should be set on Event.AFTER_DATALOADER'
         if elapsed_duration.value >= self.delay_fraction:
             scale_frac_elapsed = min([
-                (elapsed_duration.value - self.delay_fraction) / (1 - self.finetune_fraction - self.delay_fraction), 1
+                (elapsed_duration.value - self.delay_fraction) / (1 - self.finetune_fraction - self.delay_fraction),
+                1,
             ])
         else:
             scale_frac_elapsed = 0.0
@@ -226,11 +233,13 @@ class ProgressiveResizing(Algorithm):
         scaled_width_pinned = round(width * scale_factor / self.size_increment) * self.size_increment
         scale_factor_pinned = scaled_width_pinned / width
 
-        new_input, new_target = resize_batch(input=input,
-                                             target=target,
-                                             scale_factor=scale_factor_pinned,
-                                             mode=self.mode,
-                                             resize_targets=self.resize_targets)
+        new_input, new_target = resize_batch(
+            input=input,
+            target=target,
+            scale_factor=scale_factor_pinned,
+            mode=self.mode,
+            resize_targets=self.resize_targets,
+        )
         state.batch_set_item(self.input_key, new_input)
         state.batch_set_item(self.target_key, new_target)
 
@@ -238,7 +247,7 @@ class ProgressiveResizing(Algorithm):
             logger.log_metrics({
                 'progressive_resizing/height': new_input.shape[2],
                 'progressive_resizing/width': new_input.shape[3],
-                'progressive_resizing/scale_factor': scale_factor
+                'progressive_resizing/scale_factor': scale_factor,
             })
 
 
@@ -248,11 +257,13 @@ def _make_crop(tensor: torch.Tensor, scale_factor: float) -> T_ResizeTransform:
     Wc = int(scale_factor * tensor.shape[3])
     top = torch.randint(tensor.shape[2] - Hc, size=(1,))
     left = torch.randint(tensor.shape[3] - Wc, size=(1,))
-    resize_transform = partial(torchvision.transforms.functional.crop,
-                               top=int(top),
-                               left=int(left),
-                               height=Hc,
-                               width=Wc)
+    resize_transform = partial(
+        torchvision.transforms.functional.crop,
+        top=int(top),
+        left=int(left),
+        height=Hc,
+        width=Wc,
+    )
     return resize_transform
 
 

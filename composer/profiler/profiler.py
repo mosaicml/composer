@@ -7,24 +7,27 @@ from __future__ import annotations
 
 import logging
 import pathlib
-from typing import TYPE_CHECKING, Callable, Dict, List, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+from composer.core import Callback
+from composer.loggers import Logger
+from composer.profiler.json_trace_handler import JSONTraceHandler
 from composer.profiler.marker import Marker
 from composer.profiler.profiler_action import ProfilerAction
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
 from composer.profiler.trace_handler import TraceHandler
-from composer.utils import ensure_tuple
+from composer.utils import ensure_tuple, parse_uri
 
 if TYPE_CHECKING:
-    from composer.core import Callback, State
+    from composer.core import State
 
 __all__ = ['Profiler']
 
 log = logging.getLogger(__name__)
 
 
-class Profiler:
+class Profiler(Callback):
     """Composer Profiler.
 
     See the :doc:`Profiling Guide </trainer/performance_tutorials/profiling>` for additional information.
@@ -44,6 +47,7 @@ class Profiler:
                 def new_profiler_init(self, dummy_ellipsis=None, **kwargs):
                     if 'trace_handlers' not in kwargs:
                         kwargs['trace_handlers'] = []
+                    kwargs['torch_prof_memory_filename'] = None
                     original_profiler_init(self, **kwargs)
 
                 Profiler.__init__ = new_profiler_init
@@ -61,10 +65,11 @@ class Profiler:
                         active=4,
                         repeat=1,
                     ),
+                    torch_prof_memory_filename=None,
                 )
 
         trace_handlers (TraceHandler | Sequence[TraceHandler]): Trace handlers which record and
-            save profiling data to traces.
+            save profiling data to traces. Additionally supports full object store paths.
         sys_prof_cpu (bool, optional): Whether to record cpu statistics. (default: ``True``).
         sys_prof_memory (bool, optional): Whether to record memory statistics. (default: ``False``).
         sys_prof_disk (bool, optional): Whether to record disk statistics. (default: ``False``).
@@ -74,6 +79,10 @@ class Profiler:
         torch_prof_folder (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
         torch_prof_filename (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
         torch_prof_remote_file_name (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Additionally supports full object store paths e.g: s3://bucket/path/to/file.
+        torch_prof_memory_filename (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+        torch_prof_memory_remote_file_name (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Additionally supports full object store paths e.g: s3://bucket/path/to/file.
         torch_prof_overwrite (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
         torch_prof_use_gzip (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
         torch_prof_record_shapes (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
@@ -94,7 +103,12 @@ class Profiler:
         sys_prof_stats_thread_interval_seconds: float = 0.5,
         torch_prof_folder: str = '{run_name}/torch_traces',
         torch_prof_filename: str = 'rank{rank}.{batch}.pt.trace.json',
-        torch_prof_remote_file_name: str = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
+        torch_prof_remote_file_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
+        torch_prof_memory_filename: Optional[str] = None,
+        torch_prof_memory_remote_file_name: Optional[str] = (
+            '{run_name}/torch_memory_traces/'
+            'rank{rank}.{batch}.pt.memory_trace.html'
+        ),
         torch_prof_overwrite: bool = False,
         torch_prof_use_gzip: bool = False,
         torch_prof_record_shapes: bool = False,
@@ -108,27 +122,66 @@ class Profiler:
         self.schedule = schedule
         self.state = None
         self._callbacks: List[Callback] = []
+        # Used to count skip_first starting from resumption timestamp
+        self.resumption_batch_idx: int = 0
+        self.remote_filenames: List[str] = []
+        # First, add each remote file name to self.remote_filenames to create RemoteUploaderDownloader logger in trainer. [s3://bucket/path/to/file]
+        # Then modify remote file name to be a local path to pass into torch_profiler and system_profiler. e.g: path/to/file
+        if torch_prof_remote_file_name:
+            self.remote_filenames.append(torch_prof_remote_file_name)
+            _, _, torch_prof_remote_file_name = parse_uri(torch_prof_remote_file_name)
+        if torch_prof_memory_remote_file_name:
+            self.remote_filenames.append(torch_prof_memory_remote_file_name)
+            _, _, torch_prof_memory_remote_file_name = parse_uri(torch_prof_memory_remote_file_name)
+        for handler in self._trace_handlers:
+            if isinstance(handler, JSONTraceHandler):
+                if handler.remote_file_name:
+                    self.remote_filenames.append(handler.remote_file_name)
+                    _, _, handler.remote_file_name = parse_uri(handler.remote_file_name)
+
+                if handler.merged_trace_remote_file_name:
+                    self.remote_filenames.append(handler.merged_trace_remote_file_name)
+                    _, _, handler.merged_trace_remote_file_name = parse_uri(handler.merged_trace_remote_file_name)
 
         if sys_prof_cpu or sys_prof_memory or sys_prof_disk or sys_prof_net:
             self._callbacks.append(
-                SystemProfiler(profile_cpu=sys_prof_cpu,
-                               profile_memory=sys_prof_memory,
-                               profile_disk=sys_prof_disk,
-                               profile_net=sys_prof_net,
-                               stats_thread_interval_seconds=sys_prof_stats_thread_interval_seconds))
+                SystemProfiler(
+                    profile_cpu=sys_prof_cpu,
+                    profile_memory=sys_prof_memory,
+                    profile_disk=sys_prof_disk,
+                    profile_net=sys_prof_net,
+                    stats_thread_interval_seconds=sys_prof_stats_thread_interval_seconds,
+                ),
+            )
+
+        if torch_prof_memory_filename is not None:
+            if not (torch_prof_with_stack and torch_prof_record_shapes and torch_prof_profile_memory):
+                raise ValueError(
+                    f'torch_prof_memory_filename is set. Generating the memory timeline graph requires all the three flags torch_prof_with_stack, torch_prof_record_shapes, and torch_prof_profile_memory to be true. Got torch_prof_with_stack={torch_prof_with_stack}, torch_prof_record_shapes={torch_prof_record_shapes}, torch_prof_profile_memory={torch_prof_profile_memory}',
+                )
+            log.info(
+                f'Memory profiling is enabled and uses {torch_prof_memory_filename} as the filename to generate the memory timeline graph. To disable the memory timeline graph generation, explicitly set torch_prof_memory_filename to None.',
+            )
+        else:
+            log.info(f'torch_prof_memory_filename is set to None. Memory timeline will not be be generated.')
 
         if torch_prof_record_shapes or torch_prof_profile_memory or torch_prof_with_stack or torch_prof_with_flops:
             self._callbacks.append(
-                TorchProfiler(filename=torch_prof_filename,
-                              folder=torch_prof_folder,
-                              remote_file_name=torch_prof_remote_file_name,
-                              num_traces_to_keep=torch_prof_num_traces_to_keep,
-                              overwrite=torch_prof_overwrite,
-                              record_shapes=torch_prof_record_shapes,
-                              profile_memory=torch_prof_profile_memory,
-                              use_gzip=torch_prof_use_gzip,
-                              with_stack=torch_prof_with_stack,
-                              with_flops=torch_prof_with_flops))
+                TorchProfiler(
+                    filename=torch_prof_filename,
+                    folder=torch_prof_folder,
+                    remote_file_name=torch_prof_remote_file_name,
+                    memory_filename=torch_prof_memory_filename,
+                    memory_remote_file_name=torch_prof_memory_remote_file_name,
+                    num_traces_to_keep=torch_prof_num_traces_to_keep,
+                    overwrite=torch_prof_overwrite,
+                    record_shapes=torch_prof_record_shapes,
+                    profile_memory=torch_prof_profile_memory,
+                    use_gzip=torch_prof_use_gzip,
+                    with_stack=torch_prof_with_stack,
+                    with_flops=torch_prof_with_flops,
+                ),
+            )
 
     def bind_to_state(
         self,
@@ -144,6 +197,7 @@ class Profiler:
             state (State): The training state.
         """
         self.state = state
+        self.state.callbacks.append(self)
         self.state.callbacks.extend(self._callbacks)
         self.state.callbacks.extend(self._trace_handlers)
 
@@ -178,13 +232,16 @@ class Profiler:
             recorder.process_chrome_json_trace_file(pathlib.Path(filepath))
 
     def marker(
-            self,
-            name: str,
-            actions: Sequence[ProfilerAction] = (ProfilerAction.WARMUP, ProfilerAction.ACTIVE,
-                                                 ProfilerAction.ACTIVE_AND_SAVE),
-            record_instant_on_start: bool = False,
-            record_instant_on_finish: bool = False,
-            categories: Union[List[str], Tuple[str, ...]] = (),
+        self,
+        name: str,
+        actions: Sequence[ProfilerAction] = (
+            ProfilerAction.WARMUP,
+            ProfilerAction.ACTIVE,
+            ProfilerAction.ACTIVE_AND_SAVE,
+        ),
+        record_instant_on_start: bool = False,
+        record_instant_on_finish: bool = False,
+        categories: Union[List[str], Tuple[str, ...]] = (),
     ) -> Marker:
         """Create and get an instance of a :class:`.Marker`.
 
@@ -202,7 +259,7 @@ class Profiler:
 
                 from composer.profiler import Profiler, cyclic_schedule
 
-                profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+                profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[], torch_prof_memory_filename=None)
                 profiler.bind_to_state(state)
                 state.profiler = profiler
 
@@ -248,3 +305,7 @@ class Profiler:
             )
         self._names_to_markers[name].categories = categories
         return self._names_to_markers[name]
+
+    def after_load(self, state: State, logger: Logger) -> None:
+        del logger
+        self.resumption_batch_idx = int(state.timestamp.batch_in_epoch)

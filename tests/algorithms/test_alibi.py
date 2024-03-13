@@ -54,16 +54,18 @@ def check_batch_reshaping(before, after, length):
 
         assert k in after, 'No keys should be removed during sequence reshaping.'
 
-        assert after[
-            k].shape == input_ids_after_shape, 'All tensors should have the same size after sequence reshaping.'
+        assert after[k].shape == input_ids_after_shape, (
+            'All tensors should have the same size after sequence reshaping.'
+        )
 
         b_numel = before[k].shape[0] * before[k].shape[1]
         a_numel = after[k].shape[0] * after[k].shape[1]
         assert a_numel >= b_numel - length, 'Sequence reshaping should throw away at most curr_sequence_length tokens.'
 
         import torch
-        assert torch.all(after[k][0] == before[k][
-            0, :input_ids_after_shape[1]]), 'Sequence reshaping should not change the token order.'
+        assert torch.all(
+            after[k][0] == before[k][0, :input_ids_after_shape[1]],
+        ), 'Sequence reshaping should not change the token order.'
 
     for k in after.keys():
         assert k in before, 'No keys should be added during sequence reshaping.'
@@ -93,8 +95,9 @@ def test_registry(caplog):
     from composer.algorithms.alibi.attention_surgery_functions import policy_registry
 
     @policy_registry.register(torch.nn.Linear)
-    def zero_linear_weights(  # pyright: reportUnusedFunction = none
-            module: torch.nn.Module, idx: int, max_sequence_length: int) -> torch.nn.Module:
+    def zero_linear_weights(  # pyright: ignore[reportUnusedFunction]
+            module: torch.nn.Module, idx: int, max_sequence_length: int,
+    ) -> torch.nn.Module:
         assert isinstance(module, torch.nn.Linear)
         old_weight = getattr(module, 'weight')
         new_weight = torch.nn.Parameter(torch.zeros_like(old_weight))
@@ -109,8 +112,13 @@ def test_registry(caplog):
     del (policy_registry[torch.nn.Linear])
 
 
-@pytest.mark.parametrize('model,dataloader', [(configure_tiny_bert_hf_model, dummy_bert_lm_dataloader),
-                                              (configure_tiny_gpt2_hf_model, dummy_gpt_lm_dataloader)])
+@pytest.mark.parametrize(
+    'model,dataloader',
+    [
+        (configure_tiny_bert_hf_model, dummy_bert_lm_dataloader),
+        (configure_tiny_gpt2_hf_model, dummy_gpt_lm_dataloader),
+    ],
+)
 class TestAlibi:
 
     def test_functional(
@@ -168,8 +176,15 @@ class TestAlibi:
         check_forward_backward(model, batch)
 
     @pytest.mark.parametrize('train_sequence_length_scaling', [0.25, 1.0])
-    def test_algorithm(self, model, dataloader, empty_logger: Logger, train_sequence_length_scaling: float, caplog,
-                       request: pytest.FixtureRequest):
+    def test_algorithm(
+        self,
+        model,
+        dataloader,
+        empty_logger: Logger,
+        train_sequence_length_scaling: float,
+        caplog,
+        request: pytest.FixtureRequest,
+    ):
         transformers = pytest.importorskip('transformers')
 
         model = model()

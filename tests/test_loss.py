@@ -21,7 +21,7 @@ def generate_targets():
         torch.randint(low=0, high=10, size=(8, 5, 5), dtype=torch.long),
         # 3D inputs
         torch.randint(low=0, high=10, size=(8, 5, 7, 11), dtype=torch.long),
-        torch.randint(low=0, high=10, size=(8, 5, 8, 11), dtype=torch.long)
+        torch.randint(low=0, high=10, size=(8, 5, 8, 11), dtype=torch.long),
     ]
 
 
@@ -88,12 +88,13 @@ def generate_tensor_pairs():
         fake_input_target_pairs((64, 10, 5, 5)),
         # 3D inputs
         fake_input_target_pairs((64, 2, 5, 7, 11)),
-        fake_input_target_pairs((64, 10, 5, 7, 11))
+        fake_input_target_pairs((64, 10, 5, 7, 11)),
     ]
 
 
 @pytest.mark.filterwarnings(
-    r'ignore:Negative label indices are being ignored in conversion to one-hot labels:UserWarning')
+    r'ignore:Negative label indices are being ignored in conversion to one-hot labels:UserWarning',
+)
 @pytest.mark.parametrize('tensors', generate_tensor_pairs())
 def test_ensure_targets_one_hot(tensors):
     input, targets_idx, targets_one_hot = tensors
@@ -109,9 +110,9 @@ class TestSoftCrossEntropy:
         assert infer_target_type(input, target_indices) == 'indices'
         assert infer_target_type(input, target_onehot) == 'one_hot'
 
+    # Note: Weights xfail as our implementation differs from PyTorch
     @pytest.mark.parametrize('reduction', ['mean', 'sum'])
     @pytest.mark.parametrize('use_weights', [xfail(True), False])
-    # TODO(Cory): Remove this filterwarning
     @pytest.mark.filterwarnings(r'ignore:Some targets have less than 1 total probability:UserWarning')
     def test_soft_cross_entropy(self, tensors, use_weights, reduction):
         input, target_indices, target_onehot = tensors
@@ -155,21 +156,40 @@ class TestDiceLoss:
         return correct_input[[3, 2, 1, 0]]
 
     @pytest.mark.parametrize('reduction', ['mean', 'sum'])
-    def test_correct_prediction(self, correct_input: torch.Tensor, target: torch.Tensor, squared_pred: bool,
-                                jaccard: bool, batch: bool, ignore_absent_classes: bool, reduction: str):
-        dice_loss = DiceLoss(squared_pred=squared_pred,
-                             jaccard=jaccard,
-                             batch=batch,
-                             ignore_absent_classes=ignore_absent_classes,
-                             reduction=reduction)
+    def test_correct_prediction(
+        self,
+        correct_input: torch.Tensor,
+        target: torch.Tensor,
+        squared_pred: bool,
+        jaccard: bool,
+        batch: bool,
+        ignore_absent_classes: bool,
+        reduction: str,
+    ):
+        dice_loss = DiceLoss(
+            squared_pred=squared_pred,
+            jaccard=jaccard,
+            batch=batch,
+            ignore_absent_classes=ignore_absent_classes,
+            reduction=reduction,
+        )
 
         assert dice_loss(correct_input, target) == 0.0
 
-    def test_incorrect_prediction(self, incorrect_input: torch.Tensor, target: torch.Tensor, squared_pred: bool,
-                                  jaccard: bool, batch: bool, ignore_absent_classes: bool):
-        dice_loss = DiceLoss(squared_pred=squared_pred,
-                             jaccard=jaccard,
-                             batch=batch,
-                             ignore_absent_classes=ignore_absent_classes)
+    def test_incorrect_prediction(
+        self,
+        incorrect_input: torch.Tensor,
+        target: torch.Tensor,
+        squared_pred: bool,
+        jaccard: bool,
+        batch: bool,
+        ignore_absent_classes: bool,
+    ):
+        dice_loss = DiceLoss(
+            squared_pred=squared_pred,
+            jaccard=jaccard,
+            batch=batch,
+            ignore_absent_classes=ignore_absent_classes,
+        )
         loss = dice_loss(incorrect_input, target)
         torch.testing.assert_close(loss, torch.tensor(1.0))

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Helpers to get items and set items in a batch."""
+from __future__ import annotations
 
 from operator import attrgetter, itemgetter
 from typing import Any, Callable, Sequence, Union, cast
@@ -9,7 +10,7 @@ from typing import Any, Callable, Sequence, Union, cast
 __all__ = ['batch_get', 'batch_set']
 
 
-def batch_get(batch: Any, key: Union[str, int, Callable, Any]):
+def batch_get(batch: Any, key: Union[str, int, tuple[Callable, Callable], Callable, Any]):
     """Indexes into the batch given the key.
 
     >>> from composer.utils.batch_helpers import batch_get
@@ -27,7 +28,7 @@ def batch_get(batch: Any, key: Union[str, int, Callable, Any]):
             Can be any abritrary type that user creates, but we assume some sort of
             sequence (list, tuple, tensor, array), mapping (dictionary),
             or attribute store (object with data members, namedtuple).
-        key (str | int | Tuple[Callable, Callable] | Any, optional): A key to index into the batch or a
+        key (str | int | Tuple[Callable, Callable] | Callable | Any, optional): A key to index into the batch or a
                 user-specified function to do the extracting. A pair of callables is also
                 supported for cases where a get and set function pair are both passed
                 (like in Algorithms). The getter is assumed to be the first of the pair.
@@ -58,7 +59,7 @@ def batch_get(batch: Any, key: Union[str, int, Callable, Any]):
                 return attrgetter(*key)(batch)
 
 
-def batch_set(batch: Any, key: Union[str, int, Callable, Any], value: Any) -> Any:
+def batch_set(batch: Any, key: Union[str, int, tuple[Callable, Callable], Callable, Any], value: Any) -> Any:
     """Indexes into the batch given the key and sets the element at that index to value.
 
     This is not an in-place operation for batches of type tuple as tuples are not mutable.
@@ -83,7 +84,7 @@ def batch_set(batch: Any, key: Union[str, int, Callable, Any], value: Any) -> An
             Can be any abritrary type that user creates, but we assume some sort of
             sequence (list, tuple, tensor, array), mapping (dictionary),
             or attribute store (object with data members, namedtuple).
-        key (str | int | Tuple[Callable, Callable] | Any, optional): A key to index into the batch or a user-specified function
+        key (str | int | Tuple[Callable, Callable] | Callable | Any, optional): A key to index into the batch or a user-specified function
             to do the setting. A pair of callables is also supported for cases where a get
             and set function pair are both passed (like in Algorithms). The setter is
             assumed to be the second of the pair.
@@ -142,7 +143,8 @@ def _batch_set(batch: Any, key: Any, value: Any) -> Any:
     # If both (setattr or getattr) and __setitem__ raise exceptions then raise both of them.
     except (AttributeError, TypeError) as e:
         raise RuntimeError(
-            f'Unable to set key {key} to value {value} on batch {batch}. Please specify a custom set_fn, if necessary.')
+            f'Unable to set key {key} to value {value} on batch {batch}. Please specify a custom set_fn, if necessary.',
+        )
     else:
         return batch
 
@@ -190,7 +192,7 @@ def _batch_set_tuple(batch: Any, key: Union[int, str], value: Any) -> Any:
 
 
 def _is_key_get_and_set_fn_pair(key):
-    if all([callable(key_element) for key_element in key]):
+    if all(callable(key_element) for key_element in key):
         if len(key) == 2:
             return True
         else:

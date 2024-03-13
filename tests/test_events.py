@@ -5,7 +5,6 @@ import math
 
 import pytest
 import torch
-from packaging import version
 from torch.utils.data import DataLoader
 
 from composer import Trainer
@@ -34,6 +33,18 @@ class TestEventCalls:
         eval_dataset = RandomClassificationDataset()
         train_batch_size = 4
 
+        evaluator1 = DataLoader(
+            dataset=eval_dataset,
+            batch_size=8,
+            sampler=dist.get_sampler(eval_dataset),
+        )
+
+        evaluator2 = DataLoader(
+            dataset=eval_dataset,
+            batch_size=4,
+            sampler=dist.get_sampler(eval_dataset),
+        )
+
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
@@ -41,11 +52,7 @@ class TestEventCalls:
                 batch_size=train_batch_size,
                 sampler=dist.get_sampler(train_dataset),
             ),
-            eval_dataloader=DataLoader(
-                dataset=eval_dataset,
-                batch_size=8,
-                sampler=dist.get_sampler(eval_dataset),
-            ),
+            eval_dataloader=(evaluator1, evaluator2),
             device_train_microbatch_size=train_batch_size // 2,
             precision=precision,
             train_subset_num_batches=self.train_subset_num_batches,
@@ -56,28 +63,42 @@ class TestEventCalls:
             **kwargs,
         )
 
-    @pytest.mark.parametrize('world_size', [
-        pytest.param(1),
-        pytest.param(2, marks=pytest.mark.world_size(2)),
-    ])
+    @pytest.mark.parametrize(
+        'world_size',
+        [
+            pytest.param(1),
+            pytest.param(2, marks=pytest.mark.world_size(2)),
+        ],
+    )
     @pytest.mark.parametrize(
         'device,deepspeed_zero_stage,use_fsdp,precision',
         [
             pytest.param('cpu', None, False, 'fp32', id='cpu-ddp'),
             # TODO: Remove filterwarnings after FSDP remove deprecated code
-            pytest.param('gpu', True, False, 'fp32', id='gpu-ddp', marks=pytest.mark.gpu),
-            pytest.param('gpu',
-                         None,
-                         True,
-                         'amp_fp16',
-                         id='gpu-fsdp',
-                         marks=[
-                             pytest.mark.gpu,
-                             pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                                                reason='requires PyTorch 1.13 or higher'),
-                             pytest.mark.filterwarnings('ignore::UserWarning'),
-                         ]),
-        ])
+            pytest.param(
+                'gpu',
+                True,
+                False,
+                'fp32',
+                id='gpu-ddp',
+                marks=[
+                    pytest.mark.gpu,
+                    pytest.mark.filterwarnings('ignore::UserWarning'),
+                ],
+            ),
+            pytest.param(
+                'gpu',
+                None,
+                True,
+                'amp_fp16',
+                id='gpu-fsdp',
+                marks=[
+                    pytest.mark.gpu,
+                    pytest.mark.filterwarnings('ignore::UserWarning'),
+                ],
+            ),
+        ],
+    )
     @pytest.mark.parametrize('save_interval', ['1ep', '1ba'])
     def test_event_calls(self, world_size, device, deepspeed_zero_stage, use_fsdp, precision, save_interval):
         save_interval = Time.from_timestring(save_interval)
@@ -90,13 +111,12 @@ class TestEventCalls:
         if use_fsdp:
             fsdp_config = {
                 'sharding_strategy': 'FULL_SHARD',
-                'min_params': 1e8,
                 'cpu_offload': False,
                 'mixed_precision': 'PURE',
                 'backward_prefetch': 'BACKWARD_PRE',
                 'activation_checkpointing': False,
                 'activation_ocpu_offload': False,
-                'verbose': False
+                'verbose': False,
             }
 
         trainer = self.get_trainer(
@@ -130,13 +150,17 @@ class TestEventCalls:
 
         if trainer.state.evaluators:
             steps_per_eval = self.eval_subset_num_batches
+            total_evals_start = total_evals * len(trainer.state.evaluators)
             total_eval_steps = total_evals * steps_per_eval * len(trainer.state.evaluators)
         else:
             total_eval_steps = 0
+            total_evals_start = 0
 
         expected_num_calls = {
             Event.INIT: 1,
+            Event.BEFORE_LOAD: 1,
             Event.AFTER_LOAD: 1,
+            Event.ITERATION_START: 1,
             Event.EPOCH_START: num_epochs,
             Event.BATCH_START: total_steps,
             Event.BEFORE_DATALOADER: total_steps + num_epochs,  # extra call per epoch when dataloader is exhausted
@@ -153,12 +177,16 @@ class TestEventCalls:
             Event.BATCH_CHECKPOINT: total_steps,
             Event.EPOCH_END: num_epochs,
             Event.EPOCH_CHECKPOINT: num_epochs,
-            Event.EVAL_START: total_evals,
+            Event.ITERATION_END: 0,
+            Event.ITERATION_CHECKPOINT: 0,
+            Event.EVAL_BEFORE_ALL: total_evals,
+            Event.EVAL_START: total_evals_start,
             Event.EVAL_BATCH_START: total_eval_steps,
             Event.EVAL_BEFORE_FORWARD: total_eval_steps,
             Event.EVAL_AFTER_FORWARD: total_eval_steps,
             Event.EVAL_BATCH_END: total_eval_steps,
-            Event.EVAL_END: total_evals,
+            Event.EVAL_END: total_evals_start,
+            Event.EVAL_AFTER_ALL: total_evals,
         }
 
         counter_callback = (cb for cb in trainer.state.callbacks if isinstance(cb, EventCounterCallback))

@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import pathlib
 import uuid
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
@@ -116,6 +116,7 @@ class S3ObjectStore(ObjectStore):
         return f'{self.prefix}{object_name}'
 
     def get_object_size(self, object_name: str) -> int:
+        obj = {'ContentLength': -1}
         try:
             obj = self.client.get_object(Bucket=self.bucket, Key=self.get_key(object_name))
         except Exception as e:
@@ -127,14 +128,37 @@ class S3ObjectStore(ObjectStore):
         object_name: str,
         filename: Union[str, pathlib.Path],
         callback: Optional[Callable[[int, int], None]] = None,
+        **kwargs,
     ):
+        try:
+            from boto3.s3.transfer import S3Transfer
+        except ImportError as e:
+            raise MissingConditionalImportError('streaming', 'boto3') from e
+
         file_size = os.path.getsize(filename)
         cb_wrapper = None if callback is None else lambda bytes_transferred: callback(bytes_transferred, file_size)
-        self.client.upload_file(Bucket=self.bucket,
-                                Key=self.get_key(object_name),
-                                Filename=filename,
-                                Callback=cb_wrapper,
-                                Config=self.transfer_config)
+
+        # Validate kwargs. Use env var for Canned ACL if present and one has not been passed in.
+        if len(kwargs) == 0:
+            if 'S3_CANNED_ACL' in os.environ:
+                kwargs['ExtraArgs'] = {'ACL': os.environ['S3_CANNED_ACL']}
+        else:
+            if len(kwargs) > 1 or 'ExtraArgs' not in kwargs or not isinstance(kwargs['ExtraArgs'], dict):
+                raise ValueError('S3ObjectStore.upload_object only supports an additional ExtraArgs dictionary.')
+            for key in kwargs['ExtraArgs']:
+                if key not in S3Transfer.ALLOWED_UPLOAD_ARGS:
+                    raise ValueError(f'{key} is not an allowed upload argument.')
+            if 'S3_CANNED_ACL' in os.environ and 'ACL' not in kwargs['ExtraArgs']:
+                kwargs['ExtraArgs']['ACL'] = os.environ['S3_CANNED_ACL']
+
+        self.client.upload_file(
+            Bucket=self.bucket,
+            Key=self.get_key(object_name),
+            Filename=filename,
+            Callback=cb_wrapper,
+            Config=self.transfer_config,
+            **kwargs,
+        )
 
     def download_object(
         self,
@@ -145,7 +169,12 @@ class S3ObjectStore(ObjectStore):
     ):
         if os.path.exists(filename) and not overwrite:
             raise FileExistsError(f'The file at {filename} already exists and overwrite is set to False.')
+
+        dirname = os.path.dirname(filename)
+        if dirname:
+            os.makedirs(dirname, exist_ok=True)
         tmp_path = str(filename) + f'.{uuid.uuid4()}.tmp'
+
         if callback is None:
             cb_wrapper = None
         else:
@@ -154,11 +183,13 @@ class S3ObjectStore(ObjectStore):
 
         try:
             try:
-                self.client.download_file(Bucket=self.bucket,
-                                          Key=self.get_key(object_name),
-                                          Filename=tmp_path,
-                                          Callback=cb_wrapper,
-                                          Config=self.transfer_config)
+                self.client.download_file(
+                    Bucket=self.bucket,
+                    Key=self.get_key(object_name),
+                    Filename=tmp_path,
+                    Callback=cb_wrapper,
+                    Config=self.transfer_config,
+                )
             except Exception as e:
                 _ensure_not_found_errors_are_wrapped(self.get_uri(object_name), e)
         except:
@@ -173,3 +204,17 @@ class S3ObjectStore(ObjectStore):
                 os.replace(tmp_path, filename)
             else:
                 os.rename(tmp_path, filename)
+
+    def list_objects(self, prefix: Optional[str] = None) -> List[str]:
+        if prefix is None:
+            prefix = ''
+
+        if self.prefix:
+            prefix = f'{self.prefix}{prefix}'
+
+        paginator = self.client.get_paginator('list_objects_v2')
+        pages = paginator.paginate(Bucket=self.bucket, Prefix=prefix)
+        try:
+            return [obj['Key'] for page in pages for obj in page['Contents']]
+        except KeyError:
+            return []

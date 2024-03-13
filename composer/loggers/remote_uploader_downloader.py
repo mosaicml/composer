@@ -20,13 +20,30 @@ from multiprocessing.context import SpawnProcess
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 from urllib.parse import urlparse
 
+import torch
+
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import (LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, OCIObjectStore, S3ObjectStore,
-                            SFTPObjectStore, dist, format_name_with_dist, get_file, retry)
+from composer.utils import (
+    GCSObjectStore,
+    LibcloudObjectStore,
+    MLFlowObjectStore,
+    ObjectStore,
+    ObjectStoreTransientError,
+    OCIObjectStore,
+    S3ObjectStore,
+    SFTPObjectStore,
+    UCObjectStore,
+    dist,
+    format_name_with_dist,
+    get_file,
+    retry,
+)
+from composer.utils.object_store.mlflow_object_store import MLFLOW_DBFS_PATH_PREFIX
 
 if TYPE_CHECKING:
     from composer.core import State
+    from composer.devices import Device
 
 log = logging.getLogger(__name__)
 
@@ -34,17 +51,32 @@ __all__ = ['RemoteUploaderDownloader']
 
 
 def _build_remote_backend(remote_backend_name: str, backend_kwargs: Dict[str, Any]):
+    remote_backend_cls = None
     remote_backend_name_to_cls = {
         's3': S3ObjectStore,
         'oci': OCIObjectStore,
         'sftp': SFTPObjectStore,
-        'libcloud': LibcloudObjectStore
+        'libcloud': LibcloudObjectStore,
+        'gs': GCSObjectStore,
     }
-    remote_backend_cls = remote_backend_name_to_cls.get(remote_backend_name, None)
-    if remote_backend_cls is None:
-        raise ValueError(
-            f'The remote backend {remote_backend_name} is not supported. Please use one of ({list(remote_backend_name_to_cls.keys())})'
-        )
+
+    # Handle `dbfs` backend as a special case, since it can map to either :class:`.UCObjectStore`
+    # or :class:`.MLFlowObjectStore`.
+    if remote_backend_name == 'dbfs':
+        path = backend_kwargs['path']
+        if path.startswith(MLFLOW_DBFS_PATH_PREFIX):
+            remote_backend_cls = MLFlowObjectStore
+        else:
+            # Validate if the path conforms to the requirements for UC volume paths
+            UCObjectStore.validate_path(path)
+            remote_backend_cls = UCObjectStore
+    else:
+        remote_backend_cls = remote_backend_name_to_cls.get(remote_backend_name, None)
+        if remote_backend_cls is None:
+            supported_remote_backends = list(remote_backend_name_to_cls.keys()) + ['dbfs']
+            raise ValueError(
+                f'The remote backend {remote_backend_name} is not supported. Please use one of ({supported_remote_backends})',
+            )
 
     return remote_backend_cls(**backend_kwargs)
 
@@ -83,7 +115,7 @@ class RemoteUploaderDownloader(LoggerDestination):
             backend_kwargs={
                 'provider': 's3',
                 'container': 'my-bucket',
-                'provider_kwargs=': {
+                'provider_kwargs': {
                     'key': 'AKIA...',
                     'secret': '*********',
                     'region': 'ap-northeast-1',
@@ -214,18 +246,20 @@ class RemoteUploaderDownloader(LoggerDestination):
             Defaults to 3.
     """
 
-    def __init__(self,
-                 bucket_uri: str,
-                 backend_kwargs: Optional[Dict[str, Any]] = None,
-                 file_path_format_string: str = '{remote_file_name}',
-                 num_concurrent_uploads: int = 1,
-                 upload_staging_folder: Optional[str] = None,
-                 use_procs: bool = True,
-                 num_attempts: int = 3) -> None:
+    def __init__(
+        self,
+        bucket_uri: str,
+        backend_kwargs: Optional[Dict[str, Any]] = None,
+        file_path_format_string: str = '{remote_file_name}',
+        num_concurrent_uploads: int = 1,
+        upload_staging_folder: Optional[str] = None,
+        use_procs: bool = True,
+        num_attempts: int = 3,
+    ) -> None:
         parsed_remote_bucket = urlparse(bucket_uri)
         self.remote_backend_name, self.remote_bucket_name = parsed_remote_bucket.scheme, parsed_remote_bucket.netloc
         self.backend_kwargs = backend_kwargs if backend_kwargs is not None else {}
-        if self.remote_backend_name in ['s3', 'oci'] and 'bucket' not in self.backend_kwargs:
+        if self.remote_backend_name in ['s3', 'oci', 'gs'] and 'bucket' not in self.backend_kwargs:
             self.backend_kwargs['bucket'] = self.remote_bucket_name
         elif self.remote_backend_name == 'sftp' and 'host' not in self.backend_kwargs:
             self.backend_kwargs['host'] = f'sftp://{self.remote_bucket_name}'
@@ -273,12 +307,17 @@ class RemoteUploaderDownloader(LoggerDestination):
         if use_procs:
             mp_ctx = multiprocessing.get_context('spawn')
             self._file_upload_queue: Union[queue.Queue[Tuple[str, str, bool]],
-                                           multiprocessing.JoinableQueue[Tuple[str, str,
-                                                                               bool]],] = mp_ctx.JoinableQueue()
-            self._completed_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str],] = mp_ctx.JoinableQueue()
+                                           multiprocessing.JoinableQueue[Tuple[str, str, bool]],
+                                          ] = mp_ctx.JoinableQueue()
+            self._completed_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str]] = mp_ctx.JoinableQueue()
             self._exception_queue: Union[queue.Queue[Exception],
-                                         multiprocessing.JoinableQueue[Exception],] = mp_ctx.JoinableQueue()
-            self._finished_cls: Union[Callable[[], multiprocessing._EventType], Type[threading.Event]] = mp_ctx.Event
+                                         multiprocessing.JoinableQueue[Exception],
+                                        ] = mp_ctx.JoinableQueue()
+            self._finished_cls: Union[Callable[[],
+                                               multiprocessing._EventType,  # pyright: ignore[reportGeneralTypeIssues]
+                                              ],
+                                      Type[threading.Event],
+                                     ] = mp_ctx.Event
             self._proc_class = mp_ctx.Process
         else:
             self._file_upload_queue = queue.Queue()
@@ -286,7 +325,12 @@ class RemoteUploaderDownloader(LoggerDestination):
             self._exception_queue = queue.Queue()
             self._finished_cls = threading.Event
             self._proc_class = threading.Thread
-        self._worker_flag: Optional[Union[multiprocessing._EventType, threading.Event]] = None
+        self._worker_flag: Optional[
+            Union[
+                multiprocessing._EventType,  # pyright: ignore[reportGeneralTypeIssues]
+                threading.Event,
+            ]
+        ] = None
         self._workers: List[Union[SpawnProcess, threading.Thread]] = []
         # the object store instance for the main thread. Deferring the construction of the object_store to first use.
         self._remote_backend = None
@@ -312,8 +356,24 @@ class RemoteUploaderDownloader(LoggerDestination):
         self._enqueue_thread.start()
 
         if dist.get_global_rank() == 0:
-            retry(ObjectStoreTransientError,
-                  self.num_attempts)(lambda: _validate_credentials(self.remote_backend, file_name_to_test))()
+            retry(
+                ObjectStoreTransientError,
+                self.num_attempts,
+            )(lambda: _validate_credentials(self.remote_backend, file_name_to_test))()
+
+        # If the remote backend is an `MLFlowObjectStore`, the original path kwarg may have placeholders that can be
+        # updated with information generated at runtime, i.e., the MLFlow experiment and run IDs. This information
+        # must be propagated across all ranks before the workers are started so that all workers use the same
+        # MLFlow run.
+        if self.backend_kwargs.get('path', '').startswith(MLFLOW_DBFS_PATH_PREFIX):
+            if dist.get_global_rank() == 0:
+                assert isinstance(self.remote_backend, MLFlowObjectStore)
+                self.backend_kwargs['path'] = self.remote_backend.get_dbfs_path(self.backend_kwargs['path'])
+
+            path_list = [self.backend_kwargs['path']]
+            dist.broadcast_object_list(path_list, src=0)
+            self.backend_kwargs['path'] = path_list[0]
+
         assert len(self._workers) == 0, 'workers should be empty if self._worker_flag was None'
         for _ in range(self._num_concurrent_uploads):
             worker = self._proc_class(
@@ -351,7 +411,7 @@ class RemoteUploaderDownloader(LoggerDestination):
         # Periodically check to see if any of the upload workers crashed
         # They would crash if:
         #   a) A file could not be uploaded, and the retry counter failed, or
-        #   b) allow_overwrite=False, but the file already exists,
+        #   b) overwrite=False, but the file already exists,
         if not self._all_workers_alive:
             if not self._exception_queue.empty():
                 exception = self._exception_queue.get_nowait()
@@ -374,7 +434,8 @@ class RemoteUploaderDownloader(LoggerDestination):
         with self._object_lock:
             if formatted_remote_file_name in self._logged_objects and not overwrite:
                 raise FileExistsError(
-                    f'Object {formatted_remote_file_name} was already enqueued to be uploaded, but overwrite=False.')
+                    f'Object {formatted_remote_file_name} was already enqueued to be uploaded, but overwrite=False.',
+                )
             self._logged_objects[formatted_remote_file_name] = (copied_path, overwrite)
 
     def can_upload_files(self) -> bool:
@@ -434,22 +495,24 @@ class RemoteUploaderDownloader(LoggerDestination):
         overwrite: bool = False,
         progress_bar: bool = True,
     ):
-        get_file(path=remote_file_name,
-                 destination=destination,
-                 object_store=self.remote_backend,
-                 overwrite=overwrite,
-                 progress_bar=progress_bar)
+        get_file(
+            path=remote_file_name,
+            destination=destination,
+            object_store=self.remote_backend,
+            overwrite=overwrite,
+            progress_bar=progress_bar,
+        )
 
     def fit_end(self, state: State, logger: Logger):
-        self.wait_for_workers()
+        self.wait_for_workers(state.device)
 
-    def eval_end(self, state: State, logger: Logger):
-        self.wait_for_workers()
+    def eval_standalone_end(self, state: State, logger: Logger):
+        self.wait_for_workers(state.device)
 
     def predict_end(self, state: State, logger: Logger):
-        self.wait_for_workers()
+        self.wait_for_workers(state.device)
 
-    def wait_for_workers(self):
+    def wait_for_workers(self, device: Device):
         """Wait for all tasks to be completed.
 
         This is called after fit/eval/predict. If we don't wait, then a worker might not schedule
@@ -463,9 +526,27 @@ class RemoteUploaderDownloader(LoggerDestination):
                 if len(self._logged_objects) == 0:
                     break
             time.sleep(0.2)  # Yield lock for enqueue thread
+
         # Verify all tasks have been completed unless a worker threw an exception
-        while not self._file_upload_queue.empty() and self._exception_queue.empty():
-            time.sleep(0.2)
+        all_ranks_upload_done_tensor = device.tensor_to_device(
+            torch.tensor(
+                [int(not self._file_upload_queue.empty() and self._exception_queue.empty())],
+                dtype=torch.uint8,
+            ),
+        )
+        dist.all_reduce(all_ranks_upload_done_tensor, reduce_operation='MAX')
+        upload_not_done = all_ranks_upload_done_tensor.item() == 1
+        while upload_not_done:
+            time.sleep(2)
+            all_ranks_upload_done_tensor = device.tensor_to_device(
+                torch.tensor(
+                    [int(not self._file_upload_queue.empty() and self._exception_queue.empty())],
+                    dtype=torch.uint8,
+                ),
+            )
+            dist.all_reduce(all_ranks_upload_done_tensor, reduce_operation='MAX')
+            upload_not_done = all_ranks_upload_done_tensor.item() == 1
+
         if not self._exception_queue.empty():
             e = self._exception_queue.get_nowait()
             raise e
@@ -510,8 +591,11 @@ class RemoteUploaderDownloader(LoggerDestination):
             object_names = list(self._enqueued_objects)
             object_names.extend(self._logged_objects.keys())
             warnings.warn(
-                RuntimeWarning('The following objects may not have been uploaded, likely due to a worker crash: ' +
-                               ', '.join(self._enqueued_objects)))
+                RuntimeWarning(
+                    'The following objects may not have been uploaded, likely due to a worker crash: ' +
+                    ', '.join(self._enqueued_objects),
+                ),
+            )
 
         # Reset all variables
         self._logged_objects.clear()
@@ -566,7 +650,7 @@ def _upload_worker(
     file_queue: Union[queue.Queue[Tuple[str, str, bool]], multiprocessing.JoinableQueue[Tuple[str, str, bool]]],
     completed_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str]],
     exception_queue: Union[queue.Queue[Exception], multiprocessing.JoinableQueue[Exception]],
-    is_finished: Union[multiprocessing._EventType, threading.Event],
+    is_finished: Union[multiprocessing._EventType, threading.Event],  # pyright: ignore[reportGeneralTypeIssues]
     remote_backend_name: str,
     backend_kwargs: Dict[str, Any],
     num_attempts: int,
@@ -598,7 +682,7 @@ def _upload_worker(
                     pass
                 else:
                     # Exceptions will be detected on the next batch_end or epoch_end event
-                    e = FileExistsError(f'Object {uri} already exists, but allow_overwrite was set to False.')
+                    e = FileExistsError(f'Object {uri} already exists, but overwrite was set to False.')
                     exception_queue.put_nowait(e)
                     raise e
             log.info('Uploading file %s to %s', file_path_to_upload, uri)

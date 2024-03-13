@@ -21,14 +21,16 @@ class TestDefaultGetNumSamples:
         return DataSpec(dataloader=dataloader)
 
     # yapf: disable
-    @pytest.mark.parametrize('batch', [
-        {'a': torch.rand(N, 8), 'b': torch.rand(N, 64)},  # dict
-        [{'a': torch.rand(N, 8)}, {'c': torch.rand(N, 64)}],  # list of dict
-        (torch.rand(N, 8), torch.rand(N, 64)),  # tuple
-        [torch.rand(N, 8), torch.rand(N, 64)],  # list
-        torch.rand(N, 8),  # tensor
-        torch.rand(N, 8, 4, 2),  # 4-dim tensor
-    ])
+    @pytest.mark.parametrize(
+        'batch', [
+            {'a': torch.rand(N, 8), 'b': torch.rand(N, 64)},  # dict
+            [{'a': torch.rand(N, 8)}, {'c': torch.rand(N, 64)}],  # list of dict
+            (torch.rand(N, 8), torch.rand(N, 64)),  # tuple
+            [torch.rand(N, 8), torch.rand(N, 64)],  # list
+            torch.rand(N, 8),  # tensor
+            torch.rand(N, 8, 4, 2),  # 4-dim tensor
+        ],
+    )
     # yapf: enable
     def test_num_samples_infer(self, batch: Any, dataspec: DataSpec):
         assert dataspec._default_get_num_samples_in_batch(batch) == N
@@ -86,3 +88,42 @@ def test_small_batch_at_end_warning():
 
     with pytest.warns(UserWarning, match='Cannot split tensor of length.*'):
         trainer.fit()
+
+
+@pytest.mark.parametrize(
+    'batch,num_samples',
+    [
+        [
+            {
+                'a': torch.rand(N, 8),
+                'b': torch.rand(N, 64),
+            },
+            N,
+        ],  # dict
+        [
+            [
+                {
+                    'a': torch.rand(N, 8),
+                },
+                {
+                    'c': torch.rand(N, 64),
+                },
+            ],
+            N,
+        ],  # list of dict
+        [
+            {
+                'a': [1, 2],
+                'b': [3, 4],
+            },
+            2,
+        ],  # dict of lists
+        [(torch.rand(N, 8), torch.rand(N, 64)), N],  # tuple
+        [[torch.rand(N, 8), torch.rand(N, 64)], N],  # list
+        [torch.rand(N, 8), N],  # tensor
+        [torch.rand(N, 8, 4, 2), N],  # 4-dim tensor
+    ],
+)
+def test_num_samples_in_batch(batch, num_samples):
+    data_spec = DataSpec(dataloader=DataLoader(RandomClassificationDataset(size=17), batch_size=4))
+    assert data_spec.get_num_samples_in_batch(batch) == num_samples

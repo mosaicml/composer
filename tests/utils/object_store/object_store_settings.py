@@ -14,7 +14,16 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 import composer.utils.object_store
 import composer.utils.object_store.sftp_object_store
-from composer.utils.object_store import LibcloudObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore, SFTPObjectStore
+from composer.utils.object_store import (
+    GCSObjectStore,
+    LibcloudObjectStore,
+    MLFlowObjectStore,
+    ObjectStore,
+    OCIObjectStore,
+    S3ObjectStore,
+    SFTPObjectStore,
+    UCObjectStore,
+)
 from composer.utils.object_store.sftp_object_store import SFTPObjectStore
 from tests.common import get_module_subclasses
 
@@ -48,24 +57,27 @@ _object_store_marks = {
     SFTPObjectStore: [
         pytest.mark.skipif(not _SFTP_AVAILABLE, reason='Missing dependency'),
         pytest.mark.filterwarnings(r'ignore:setDaemon\(\) is deprecated:DeprecationWarning'),
-        pytest.mark.filterwarnings(r'ignore:Unknown .* host key:UserWarning')
+        pytest.mark.filterwarnings(r'ignore:Unknown .* host key:UserWarning'),
     ],
 }
 
 object_stores = [
     pytest.param(x, marks=_object_store_marks[x], id=x.__name__)
     for x in get_module_subclasses(composer.utils.object_store, ObjectStore)
-    # Note: OCI has its own test suite, so it is exempt from being included in this one.``
-    if not issubclass(x, OCIObjectStore)
+    # Note: OCI, GCS, UC, and MLFlow have their own test suite, so they are exempt from being included in this one.``
+    if not issubclass(x, OCIObjectStore) and not issubclass(x, GCSObjectStore) and not issubclass(x, UCObjectStore) and
+    not issubclass(x, MLFlowObjectStore)
 ]
 
 
 @contextlib.contextmanager
-def get_object_store_ctx(object_store_cls: Type[ObjectStore],
-                         object_store_kwargs: Dict[str, Any],
-                         monkeypatch: pytest.MonkeyPatch,
-                         tmp_path: pathlib.Path,
-                         remote: bool = False):
+def get_object_store_ctx(
+    object_store_cls: Type[ObjectStore],
+    object_store_kwargs: Dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    remote: bool = False,
+):
     if object_store_cls is S3ObjectStore:
         pytest.importorskip('boto3')
         import boto3
@@ -100,16 +112,18 @@ def get_object_store_ctx(object_store_cls: Type[ObjectStore],
             pytest.skip('SFTP object store has no remote tests.')
         else:
             private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-            pem = private_key.private_bytes(encoding=serialization.Encoding.PEM,
-                                            format=serialization.PrivateFormat.TraditionalOpenSSL,
-                                            encryption_algorithm=serialization.NoEncryption())
+            pem = private_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.TraditionalOpenSSL,
+                encryption_algorithm=serialization.NoEncryption(),
+            )
             private_key_path = tmp_path / 'test_rsa_key'
             username = object_store_kwargs['username']
             with open(private_key_path, 'wb') as private_key_file:
                 private_key_file.write(pem)
             with mockssh.Server(users={
-                    username: str(private_key_path),
-            }) as server:
+                username: str(private_key_path),
+            },) as server:
                 client = server.client(username)
                 monkeypatch.setattr(client, 'connect', lambda *args, **kwargs: None)
                 monkeypatch.setattr(composer.utils.object_store.sftp_object_store, 'SSHClient', lambda: client)

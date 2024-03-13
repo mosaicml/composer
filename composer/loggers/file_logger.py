@@ -9,11 +9,12 @@ import os
 import queue
 import sys
 import textwrap
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, TextIO
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TextIO
 
 from composer.loggers.logger import Logger, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import FORMAT_NAME_WITH_DIST_TABLE, format_name_with_dist
+from composer.utils.import_helpers import MissingConditionalImportError
 
 if TYPE_CHECKING:
     from composer.core import State
@@ -183,6 +184,25 @@ class FileLogger(LoggerDestination):  # noqa: D101
                     f'[trace]: {trace_name}:',
                     trace_str + '\n',
                 )
+
+    def log_table(
+        self,
+        columns: List[str],
+        rows: List[List[Any]],
+        name: str = 'Table',
+        step: Optional[int] = None,
+    ) -> None:
+        del step
+        try:
+            import pandas as pd
+        except ImportError as e:
+            raise MissingConditionalImportError(
+                extra_deps_group='pandas',
+                conda_package='pandas',
+                conda_channel='conda-forge',
+            ) from e
+        table = pd.DataFrame.from_records(columns=columns, data=rows).to_json(orient='split', index=False)
+        self.write('[table]: ', f'{name}: {table}\n')
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
         for metric_name, metric in metrics.items():

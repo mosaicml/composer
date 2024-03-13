@@ -5,14 +5,31 @@ import types
 from typing import List, Type
 
 from tests.common.compare import deep_compare
-from tests.common.datasets import (InfiniteClassificationDataset, RandomClassificationDataset, RandomImageDataset,
-                                   RandomSegmentationDataset, RandomTextClassificationDataset, RandomTextLMDataset,
-                                   SimpleDataset)
+from tests.common.datasets import (
+    InfiniteClassificationDataset,
+    ParityDataset,
+    RandomClassificationDataset,
+    RandomImageDataset,
+    RandomSegmentationDataset,
+    RandomTextClassificationDataset,
+    RandomTextLMDataset,
+    SimpleDataset,
+)
 from tests.common.events import EventCounterCallback
 from tests.common.markers import device, world_size
-from tests.common.models import (ConvModel, EmbeddedWeightTiedModel, SimpleConvModel, SimpleModel,
-                                 SimpleModelWithDropout, SimpleTransformerClassifier, SimpleTransformerMaskedLM,
-                                 SimpleWeightTiedModel)
+from tests.common.models import (
+    ConvModel,
+    EmbeddedWeightTiedModel,
+    EmptyModel,
+    SimpleConvModel,
+    SimpleModel,
+    SimpleModelWithDropout,
+    SimpleTransformerClassifier,
+    SimpleTransformerMaskedLM,
+    SimpleWeightTiedModel,
+    ZeroModel,
+    composer_resnet,
+)
 from tests.common.state import assert_state_equivalent
 
 
@@ -30,6 +47,8 @@ __all__ = [
     'RandomSegmentationDataset',
     'ConvModel',
     'SimpleConvModel',
+    'ZeroModel',
+    'EmptyModel',
     'SimpleModel',
     'SimpleTransformerClassifier',
     'SimpleTransformerMaskedLM',
@@ -41,6 +60,8 @@ __all__ = [
     'world_size',
     'get_module_subclasses',
     'SimpleModelWithDropout',
+    'ParityDataset',
     'SimpleDataset',
     'InfiniteClassificationDataset',
+    'composer_resnet',
 ]

@@ -91,18 +91,10 @@ def sort_selective_backprop_first(algorithms: Sequence[Algorithm], event: Event)
     return sort_to_front(algorithms, cls=SelectiveBackprop)
 
 
-def sort_fused_layernorm_last(algorithms: Sequence[Algorithm], event: Event) -> Sequence[Algorithm]:  #noqa: D403
-    """FusedLayerNorm should run after other algorithms that add LayerNorms (e.g. GatedLinearUnits).
-
-    This ensures that all LayerNorms are converted to optimized fused versions.
-
-    """
-    from composer.algorithms import FusedLayerNorm
-    return sort_to_back(algorithms, cls=FusedLayerNorm)
-
-
-def sort_low_precision_layernorm_last(algorithms: Sequence[Algorithm],
-                                      event: Event) -> Sequence[Algorithm]:  #noqa: D403
+def sort_low_precision_layernorm_last(
+    algorithms: Sequence[Algorithm],
+    event: Event,
+) -> Sequence[Algorithm]:  #noqa: D403
     """LowPrecisionLayerNorm should run after other algorithms that add LayerNorms (e.g. GatedLinearUnits).
 
     This ensures that all LayerNorms are converted to the intended precision.
@@ -140,6 +132,8 @@ def warn_if_multiple_loss_interpolation(algorithms: Sequence[Algorithm], event: 
     if len(is_interpolate) > 1:
         warnings.warn(
             NotIntendedUseWarning(
-                f'Multiple algorithms interpolating the loss can lead to unexpected behavior: {is_interpolate}'))
+                f'Multiple algorithms interpolating the loss can lead to unexpected behavior: {is_interpolate}',
+            ),
+        )
 
     return algorithms

@@ -94,8 +94,14 @@ def sample_stochastic_forward(self, x):
     return self.relu(out)
 
 
-def make_resnet_bottleneck_stochastic(module: Bottleneck, module_index: int, module_count: int, drop_rate: float,
-                                      drop_distribution: str, stochastic_method: str):
+def make_resnet_bottleneck_stochastic(
+    module: Bottleneck,
+    module_index: int,
+    module_count: int,
+    drop_rate: float,
+    drop_distribution: str,
+    stochastic_method: str,
+):
     """Model surgery policy that dictates how to convert a ResNet Bottleneck layer into a stochastic version.
     """
 

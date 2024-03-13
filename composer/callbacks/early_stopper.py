@@ -67,10 +67,7 @@ class EarlyStopper(Callback):
         self,
         monitor: str,
         dataloader_label: str,
-        comp: Optional[Union[str, Callable[[
-            Any,
-            Any,
-        ], Any]]] = None,
+        comp: Optional[Union[str, Callable[[Any, Any], Any]]] = None,
         min_delta: float = 0.0,
         patience: Union[int, str, Time] = 1,
     ):
@@ -86,7 +83,7 @@ class EarlyStopper(Callback):
                 self.comp_func = torch.less
             else:
                 raise ValueError(
-                    "Unrecognized comp string. Use the strings 'gt', 'greater', 'lt' or 'less' or a callable comparison operator"
+                    "Unrecognized comp string. Use the strings 'gt', 'greater', 'lt' or 'less' or a callable comparison operator",
                 )
         if comp is None:
             if any(substr in monitor.lower() for substr in ['loss', 'error', 'perplexity']):
@@ -107,14 +104,16 @@ class EarlyStopper(Callback):
                 raise ValueError('If `patience` is an instance of Time, it must have units of EPOCH or BATCH.')
 
     def _get_monitored_metric(self, state: State):
-        if self.dataloader_label == 'train':
+        if self.dataloader_label == 'train' and state.train_metrics is not None:
             if self.monitor in state.train_metrics:
                 return state.train_metrics[self.monitor].compute()
         else:
             if self.monitor in state.eval_metrics[self.dataloader_label]:
                 return state.eval_metrics[self.dataloader_label][self.monitor].compute()
-        raise ValueError(f"Couldn't find the metric {self.monitor} with the dataloader label {self.dataloader_label}."
-                         "Check that the dataloader_label is set to 'eval', 'train' or the evaluator name.")
+        raise ValueError(
+            f"Couldn't find the metric {self.monitor} with the dataloader label {self.dataloader_label}."
+            "Check that the dataloader_label is set to 'eval', 'train' or the evaluator name.",
+        )
 
     def _update_stopper_state(self, state: State):
         metric_val = self._get_monitored_metric(state)

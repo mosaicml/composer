@@ -6,7 +6,7 @@
 import abc
 import pathlib
 from types import TracebackType
-from typing import Callable, Optional, Type, Union
+from typing import Callable, List, Optional, Type, Union
 
 __all__ = ['ObjectStore', 'ObjectStoreTransientError']
 
@@ -83,19 +83,23 @@ class ObjectStore(abc.ABC):
         object_name: str,
         filename: Union[str, pathlib.Path],
         callback: Optional[Callable[[int, int], None]] = None,
+        **kwargs,
     ) -> None:
         """Upload an object currently located on a disk.
 
         Args:
             object_name (str): Object name (where object will be stored in the container)
-            filename (str | pathlib.Path): Path the the object on disk
+            filename (str | pathlib.Path): Path to the object on disk
             callback ((int, int) -> None, optional): If specified, the callback is periodically called with the number of bytes
                 uploaded and the total size of the object being uploaded.
+            **kwargs: other arguments to the upload object function are supported
+                and will be passed in to the underlying object store upload call.
+                Currently only used for S3ObjectStore.
 
         Raises:
             ObjectStoreTransientError: If there was a transient connection issue with uploading the object.
         """
-        del object_name, filename, callback  # unused
+        del object_name, filename, callback, kwargs  # unused
         raise NotImplementedError(f'{type(self).__name__}.upload_object is not implemented')
 
     def get_object_size(self, object_name: str) -> int:
@@ -131,11 +135,24 @@ class ObjectStore(abc.ABC):
                 downloaded and the total size of the object.
 
         Raises:
+            FileExistsError: If ``filename`` already exists and ``overwrite`` is ``False``.
             FileNotFoundError: If the file was not found in the object store.
             ObjectStoreTransientError: If there was a transient connection issue with downloading the object.
         """
         del object_name, filename, overwrite, callback  # unused
         raise NotImplementedError(f'{type(self).__name__}.download_object is not implemented')
+
+    def list_objects(self, prefix: Optional[str]) -> List[str]:
+        """List all objects in the object store with the given prefix.
+
+        Args:
+            prefix (str): The prefix to search for.
+
+        Returns:
+            list[str]: A list of object names that match the prefix.
+        """
+        del prefix  # unused
+        raise NotImplementedError(f'{type(self).__name__}.list_objects is not implemented')
 
     def close(self):
         """Close the object store."""
