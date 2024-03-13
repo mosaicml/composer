@@ -665,8 +665,9 @@ class State(Serializable):
         The current batch of training will finish, and any scheduled evaluation,
         logging, and evaluation for that batch, as well as any epoch end events.
         """
-        if self.max_duration is not None and Time.from_input(self.max_duration
-                                                            ).unit in [TimeUnit.SAMPLE, TimeUnit.TOKEN]:
+        if self.max_duration is not None and Time.from_input(
+            self.max_duration,
+        ).unit in [TimeUnit.SAMPLE, TimeUnit.TOKEN]:
             max_duration_unit = Time.from_input(self.max_duration).unit
             self.max_duration = self.timestamp.get(max_duration_unit)
         else:
