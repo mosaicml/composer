@@ -25,11 +25,6 @@ __all__ = [
 ]
 
 
-def int_cast_except_zero(x: float) -> int:
-    """Cast a float to an int, except when the float would round to zero."""
-    return int(x) if x >= 1.0 else 1
-
-
 def create_interval_scheduler(
     interval: Union[str, int, 'Time'],
     include_end_of_training: bool = True,
