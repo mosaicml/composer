@@ -71,7 +71,6 @@ from composer.core import (
     ensure_evaluator,
     ensure_time,
     get_precision_context,
-    validate_eval_automicrobatching,
 )
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.loggers import (
@@ -221,7 +220,7 @@ def _set_evaluator_interval_and_subset_num_batches(
     eval_interval: Union[int, str, Time, Callable[[State, Event], bool]],
     subset_num_batches: int,
 ):
-    # convert eval_dataloader to `List[Evaluator]`
+    # Convert eval_dataloader to `List[Evaluator]`
     for evaluator in evaluators:
         if evaluator.subset_num_batches is None:
             evaluator.subset_num_batches = subset_num_batches
@@ -289,7 +288,7 @@ def _get_initial_device_train_microbatch_size(
                 "`device_train_microbatch_size='auto'` requires the `state.train_dataloader` to have a `batch_size` attribute.",
             ) from e
         return batch_size
-    elif isinstance(device_train_microbatch_size, int):
+    elif isinstance(device_train_microbatch_size, Union[int, float]):
         return device_train_microbatch_size
     else:
         raise ValueError("device_train_microbatch_size must be an int or ``'auto'``")
@@ -388,6 +387,32 @@ def _adjust_device_eval_microbatch_size(evaluator: Evaluator):
             ),
         )
     torch.cuda.empty_cache()
+
+
+def _validate_evaluator(evaluator: Evaluator, device: Device):
+    """Ensure automicrobatching is only on GPU.
+
+    Unlike `device_train_microbatch_size`, this validation must be done separately from the
+    `_is_auto_microbatching` check because `device` is not available during `Evaluator`
+    initialization.
+    """
+    auto_microbatching = evaluator.auto_microbatching
+    if auto_microbatching and not isinstance(device, DeviceGPU):
+        raise ValueError(
+            'Can only use adaptive device_eval_microbatch_size on GPU. Please set device_eval_microbatch_size >= 1.',
+        )
+    if evaluator.auto_microbatching and hasattr(evaluator.dataloader, 'seq_parallel_world_size'):
+        raise ValueError(
+            'Auto microbatching on evaluators is not compatible with sequence parallelism. '
+            'Please manually set device_eval_microbatch_size or disable sequence parallelism .',
+        )
+    if isinstance(evaluator.dataloader.get_num_samples_in_batch, int) and hasattr(
+        evaluator.dataloader,
+        'seq_parallel_world_size',
+    ) and evaluator.dataloader.get_num_samples_in_batch * evaluator.dataloader.seq_parallel_world_size != 1:  # type: ignore
+        raise ValueError(
+            'Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
+        )
 
 
 def _distribute_and_get_random_seed(seed: Optional[int], device: Device):
@@ -1087,6 +1112,16 @@ class Trainer:
 
         # Microbatching
         auto_microbatching = _is_auto_microbatching(device_train_microbatch_size, device=device)
+        if auto_microbatching and train_dataloader is not None and hasattr(train_dataloader, 'seq_parallel_world_size'):
+            raise ValueError('`device_train_microbatch_size="auto"` is not compatible with sequence parallelism.')
+        if isinstance(device_train_microbatch_size, int) and train_dataloader is not None and hasattr(
+            train_dataloader,
+            'seq_parallel_world_size',
+        ) and device_train_microbatch_size * train_dataloader.seq_parallel_world_size != 1:  # type: ignore
+            raise ValueError(
+                '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
+            )
+
         if auto_microbatching and profiler:
             raise ValueError(
                 "`device_train_microbatch_size='auto'` is not compatible with the profiler. It is "
@@ -1418,16 +1453,16 @@ class Trainer:
             )
 
             for evaluator in evaluators:
-                validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
+                _validate_evaluator(evaluator, self.state.device)
         if len(evaluators) == 0:
             if eval_subset_num_batches != -1:
-                raise ValueError(
+                warnings.warn(
                     f'Specifying `eval_subset_num_batches={eval_subset_num_batches}` without an `eval_dataloader` '
                     'has no effect. If trying to run an evaluator, make sure `eval_dataloader` is specified. '
                     'Otherwise, set `eval_subset_num_batches` to default value -1.',
                 )
             if eval_interval != 0 and eval_interval != 1:
-                raise ValueError(
+                warnings.warn(
                     f'Specifying `eval_interval={eval_interval}` without an `eval_dataloader` has no effect. '
                     'If trying to run an evaluator, make sure `eval_dataloader` is specified. Otherwise, '
                     'set `eval_interval` to 0 or default value 1.',
@@ -2097,13 +2132,21 @@ class Trainer:
             )
 
             for evaluator in evaluators:
-                validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
+                _validate_evaluator(evaluator, self.state.device)
 
             if len(evaluators) == 0:
                 if eval_subset_num_batches != -1:
-                    raise ValueError('Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.')
-                if eval_interval != 1:
-                    raise ValueError('Specifying `eval_interval` without an `eval_dataloader` has no effect.')
+                    warnings.warn(
+                        f'Specifying `eval_subset_num_batches={eval_subset_num_batches}` without an `eval_dataloader` '
+                        'has no effect. If trying to run an evaluator, make sure `eval_dataloader` is specified. '
+                        'Otherwise, set `eval_subset_num_batches` to default value -1.',
+                    )
+                if eval_interval != 0 and eval_interval != 1:
+                    warnings.warn(
+                        f'Specifying `eval_interval={eval_interval}` without an `eval_dataloader` has no effect. '
+                        'If trying to run an evaluator, make sure `eval_dataloader` is specified. Otherwise, '
+                        'set `eval_interval` to 0 or default value 1.',
+                    )
 
             self.state.evaluators = evaluators
 
@@ -2113,6 +2156,18 @@ class Trainer:
                 device_train_microbatch_size,
                 device=self.state.device,
             )
+            if self.state.auto_microbatching and self._train_data_spec is not None and hasattr(
+                self._train_data_spec,
+                'seq_parallel_world_size',
+            ):
+                raise ValueError('`device_train_microbatch_size="auto"` is not compatible with sequence parallelism.')
+            if isinstance(device_train_microbatch_size, int) and train_dataloader is not None and hasattr(
+                train_dataloader,
+                'seq_parallel_world_size',
+            ) and device_train_microbatch_size * train_dataloader.seq_parallel_world_size != 1:  # type: ignore
+                raise ValueError(
+                    '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
+                )
             if self.state.auto_microbatching and self.state.profiler:
                 raise ValueError(
                     "`device_train_microbatch_size='auto'` is not compatible with the profiler. It is "
@@ -2226,7 +2281,7 @@ class Trainer:
 
     def _accumulate_time_across_ranks(
         self,
-        num_samples: int,
+        num_samples: Union[int, float],
         num_tokens: int,
         batch_time: datetime.timedelta,
     ) -> Tuple[int, int, datetime.timedelta]:
@@ -2236,10 +2291,22 @@ class Trainer:
         """
         # Samples and tokens should be summed
         # Batch time should be the value from rank 0
-        sample_token_tensor = self.state.device.tensor_to_device(
-            torch.tensor([num_samples, num_tokens], dtype=torch.int),
-        )
+
+        # num_samples can be floating point if we are doing sequence parallelism, since in that case each rank works on only a part of the sample. For example, with sequence parallelism world size 2, each rank trains on half of a sample.
+        if isinstance(num_samples, float):
+            sample_token_tensor = self.state.device.tensor_to_device(
+                torch.tensor([num_samples, num_tokens], dtype=torch.float32),
+            )
+        else:
+            sample_token_tensor = self.state.device.tensor_to_device(
+                torch.tensor([num_samples, num_tokens], dtype=torch.int),
+            )
         dist.all_reduce(sample_token_tensor, reduce_operation='SUM')
+        if isinstance(num_samples, float):
+            sample_token_tensor_int = sample_token_tensor.to(torch.int)
+            if torch.any(torch.abs(sample_token_tensor_int - sample_token_tensor) > 1e-4):
+                raise ValueError('The sums of samples and tokens across ranks should each be integers.')
+            sample_token_tensor = sample_token_tensor_int
         batch_time_tensor = self.state.device.tensor_to_device(
             torch.tensor([batch_time.total_seconds()], dtype=torch.float32),
         )
@@ -2657,14 +2724,14 @@ class Trainer:
     def _train_microbatch(
         self,
         use_grad_scaling: bool,
-        current_batch_size: int,
+        current_batch_size: Union[int, float],
         is_final_microbatch: bool,
     ) -> Dict[str, torch.Tensor]:
         """Train and compute the loss of ``state.batch``, which is assumed to be a single microbatch.
 
         Args:
             use_grad_scaling (bool): Whether to use gradient scaling.
-            current_batch_size (int): The current batch size.
+            current_batch_size (int, float): The current batch size.
             minibatch_num_samples (int): Number of samples in the minibatch.
             is_final_microbatch (bool): If current microbatch is the last one.
         """
@@ -3078,7 +3145,7 @@ class Trainer:
             )
 
             for evaluator in evaluators:
-                validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
+                _validate_evaluator(evaluator, self.state.device)
 
             self.state.evaluators.extend(evaluators)  # Add evaluators to state.evaluators
         else:
@@ -3179,7 +3246,9 @@ class Trainer:
                 if dist_sampler is not None and drop_last == False and dataset_len is not None:
                     batch_num_samples_tensor = self.state.device.tensor_to_device(torch.tensor(rank_num_samples))
                     dist.all_reduce(batch_num_samples_tensor, reduce_operation='SUM')
-                    batch_num_samples = batch_num_samples_tensor.item()
+                    batch_num_samples = int(batch_num_samples_tensor.item())
+                    if abs(batch_num_samples - batch_num_samples_tensor.item()) > 1e-4:
+                        raise ValueError('Number of samples in a batch should be an integer.')
                     last_batch = self.state.eval_timestamp.sample + batch_num_samples >= dataset_len
 
                 if self.state.deepspeed_enabled:
@@ -3206,10 +3275,12 @@ class Trainer:
                                     rank_num_samples -= 1
                                     num_samples_in_microbatch = data_spec.get_num_samples_in_batch(self.state.batch)
                                     # Skip updating metric if batch is only padded samples
-                                    if num_samples_in_microbatch == 1:
+                                    if num_samples_in_microbatch == 1 or hasattr(data_spec, 'seq_parallel_world_size'):
                                         skip_metric_update = True
                                     # Remove padded samples from batch
                                     else:
+                                        if not isinstance(num_samples_in_microbatch, int):
+                                            raise ValueError('Number of samples in a batch should be an integer.')
                                         self.state.batch = data_spec.split_batch(
                                             self.state.batch,
                                             num_samples_in_microbatch - 1,
@@ -3260,11 +3331,12 @@ class Trainer:
                                     outputs = self.state.outputs
 
                                 for metric in metrics.values():
-                                    self._original_model.update_metric(
+                                    metric_outputs = self._original_model.update_metric(
                                         self.state.batch,
                                         outputs,
                                         metric,
                                     )
+                                    self.state.metric_outputs = metric_outputs or {}
 
                     except RuntimeError as e:
                         if evaluator.auto_microbatching and _is_cuda_oom(e):

@@ -13,10 +13,9 @@ from composer.core.data_spec import DataSpec, ensure_data_spec
 from composer.core.event import Event
 from composer.core.state import State
 from composer.core.time import Time
-from composer.devices import Device, DeviceGPU
 from composer.utils import create_interval_scheduler
 
-__all__ = ['Evaluator', 'ensure_evaluator', 'validate_eval_automicrobatching']
+__all__ = ['Evaluator', 'ensure_evaluator']
 
 
 class Evaluator:
@@ -138,19 +137,6 @@ def ensure_evaluator(evaluator: Union[Evaluator, DataSpec, Iterable, Dict[str, A
             label='eval',
             dataloader=evaluator,
             metric_names=default_metric_names,
-        )
-
-
-def validate_eval_automicrobatching(auto_microbatching: bool, device: Device):
-    """Ensure automicrobatching is only on GPU.
-
-    Unlike `device_train_microbatch_size`, this validation must be done separately from the
-    `_is_auto_microbatching` check because `device` is not available during `Evaluator`
-    initialization.
-    """
-    if auto_microbatching and not isinstance(device, DeviceGPU):
-        raise ValueError(
-            'Can only use adaptive device_eval_microbatch_size on GPU. Please set device_eval_microbatch_size >= 1.',
         )
 
 

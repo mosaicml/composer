@@ -531,8 +531,8 @@ class HuggingFaceModel(ComposerModel):
 
             # don't remove prefix space to sentencepiece models
             if len(
-                self.tokenizer(' a', add_special_tokens=False)['input_ids'],
-            ) == 1:  # pyright: ignore[reportGeneralTypeIssues]
+                self.tokenizer(' a', add_special_tokens=False)['input_ids'],  # pyright: ignore[reportGeneralTypeIssues]
+            ) == 1:
                 return self.tokenizer.batch_decode(
                     generation[:, batch['input_ids'].shape[1]:],
                     skip_special_tokens=True,
@@ -589,11 +589,17 @@ class HuggingFaceModel(ComposerModel):
 
         return metrics if metrics else {}
 
-    def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
+    def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> Dict:
         if getattr(metric, 'needs_batch', False):
-            metric.update(batch=batch, outputs=outputs, labels=self.labels)
+            metric_result = metric.update(batch=batch, outputs=outputs, labels=self.labels)
         else:
-            metric.update(outputs, self.labels)
+            metric_result = metric.update(outputs, self.labels)
+        if metric_result is not None:
+            # Add the metric name once for each datapoint in the batch
+            metric_result['metric_name'] = [metric.__class__.__name__ for _ in range(0, batch['input_ids'].shape[0])]
+        else:
+            metric_result = {}
+        return metric_result
 
     def get_metadata(self):
         model_output = {}
@@ -652,8 +658,8 @@ class HuggingFaceModel(ComposerModel):
                                 conda_package='sentencepiece',
                             ) from e
                         s = spm.SentencePieceProcessor(
-                            model_file=str(tokenizer_file_path),
-                        )  # pyright: ignore[reportGeneralTypeIssues]
+                            model_file=str(tokenizer_file_path),  # pyright: ignore[reportGeneralTypeIssues]
+                        )
                         tokenizer_file_content = s.serialized_model_proto()
                     else:
                         raise ValueError(
