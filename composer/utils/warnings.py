@@ -14,6 +14,7 @@ class VersionedDeprecationWarning(DeprecationWarning):
         remove_version (str): The version in which the feature will be removed.
 
     Example:
+        >>> import warnings
         >>> def deprecated_function():
         ...     warnings.warn(
         ...         VersionedDeprecationWarning(
