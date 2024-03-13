@@ -547,7 +547,7 @@ class Timestamp(Serializable):
             Dict[str, Union[Time[int], datetime.timedelta]]: All values of the timestamp object.
         """
         warnings.warn(
-            VersionedDeprecationWarning('core.time.Timestamp.get_state is deprecated.', remove_version='0.21.0')
+            VersionedDeprecationWarning('core.time.Timestamp.get_state is deprecated.', remove_version='0.21.0'),
         )
 
         return self.state_dict()

@@ -14,6 +14,7 @@ def test_versioned_deprecation_warning():
         warnings.warn(VersionedDeprecationWarning('This function is deprecated.', remove_version='0.20.0'))
 
     with pytest.warns(
-        VersionedDeprecationWarning, match='This function is deprecated. It will be removed in version 0.20.0.'
+        VersionedDeprecationWarning,
+        match='This function is deprecated. It will be removed in version 0.20.0.',
     ):
         deprecated_function()
