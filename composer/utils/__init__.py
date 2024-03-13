@@ -64,6 +64,7 @@ from composer.utils.object_store import (
 )
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
+from composer.utils.warnings import VersionedDeprecationWarning
 
 __all__ = [
     'ensure_tuple',
@@ -129,4 +130,5 @@ __all__ = [
     'LocalEvalClient',
     'MosaicMLLambdaEvalClient',
     'partial_format',
+    'VersionedDeprecationWarning',
 ]
