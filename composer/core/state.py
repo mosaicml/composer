@@ -667,7 +667,7 @@ class State(Serializable):
         logging, and evaluation for that batch, as well as any epoch end events.
         """
 
-        # Set the max_duration to the current time in its unit if the unit is not TimeUnit.EPOCH. This is because TimeUnit.EPOCH is a very crude way to measure max duration. For example, it will result in division by zero error while computing get_elapsed_duration: https://github.com/mosaicml/composer/blob/1b9c6d3c0592183b947fd89890de0832366e33a7/composer/core/state.py#L641
+        # Set the max_duration to the current time in its unit, except if the unit is TimeUnit.EPOCH. This is because TimeUnit.EPOCH is a very crude way to measure max duration. For example, it will result in division by zero error while computing get_elapsed_duration: https://github.com/mosaicml/composer/blob/1b9c6d3c0592183b947fd89890de0832366e33a7/composer/core/state.py#L641
         if self.max_duration is not None and Time.from_input(self.max_duration,).unit != TimeUnit.EPOCH:
             max_duration_unit = Time.from_input(self.max_duration).unit
             self.max_duration = self.timestamp.get(max_duration_unit)
