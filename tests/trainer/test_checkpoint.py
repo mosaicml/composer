@@ -29,7 +29,8 @@ from composer.optim import ExponentialScheduler
 from composer.trainer import trainer
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, is_tar, reproducibility
-from composer.utils.checkpoint import _ensure_valid_checkpoint, glob_filter
+from composer.utils.checkpoint import _write_checkpoint_file  # type: ignore
+from composer.utils.checkpoint import _COMPOSER_STATES_FILENAME, _ensure_valid_checkpoint, glob_filter
 from composer.utils.object_store.object_store import ObjectStore
 from composer.utils.object_store.s3_object_store import S3ObjectStore
 from tests.common import (
@@ -60,16 +61,16 @@ class DummyStatefulCallback(Callback):
         self.random_value = state['random_value']
 
 
-def _load_checkpoint(filename: Union[str, pathlib.Path]):
+def _load_checkpoint(filename: Union[str, pathlib.Path]) -> Dict[str, Any]:
     filename = str(filename).format(rank=0)
-    if not is_tar(filename):
+    if is_tar(filename):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with tarfile.open(filename) as tarball:
+                tarball.extractall(tmp_dir)
+            states_path = os.path.join(tmp_dir, _COMPOSER_STATES_FILENAME)
+            return torch.load(states_path, map_location='cpu')
+    else:
         return torch.load(filename, map_location='cpu')
-
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        with tarfile.open(filename) as tarball:
-            tarball.extractall(tmp_dir)
-        states_path = os.path.join(tmp_dir, 'composer_states.pt')
-        return torch.load(states_path, map_location='cpu')
 
 
 def _assert_checkpoints_equivalent(file1, file2, atol=0.0, rtol=0.0):
@@ -304,6 +305,30 @@ class TestCheckpointSaving:
     @pytest.mark.parametrize('local_path', ['foo/bar/baz'])
     def test_local_paths_work(self, local_path: str):
         self.get_trainer(save_folder=local_path)
+
+    def test_write_checkpoint_pt_file(self, tmp_path: pathlib.Path):
+        state = {'foo': 123}
+        checkpoint_path = tmp_path / 'checkpoint.pt'
+        _write_checkpoint_file(state, str(checkpoint_path))
+        assert _load_checkpoint(checkpoint_path) == state
+
+    def test_write_checkpoint_tar_file(self, tmp_path: pathlib.Path):
+        state = {'foo': 123}
+        checkpoint_path_1 = tmp_path / 'checkpoint_uncompressed.tar'
+        _write_checkpoint_file(state, str(checkpoint_path_1))
+        assert _load_checkpoint(checkpoint_path_1) == state
+
+        checkpoint_path_2 = tmp_path / 'checkpoint_compressed.tar.gz'
+        _write_checkpoint_file(state, str(checkpoint_path_2))
+        assert _load_checkpoint(checkpoint_path_2) == state
+
+        assert checkpoint_path_1.read_bytes() != checkpoint_path_2.read_bytes()
+        assert checkpoint_path_1.stat().st_size > checkpoint_path_2.stat().st_size
+
+        checkpoint_path_3 = tmp_path / 'checkpoint.tar.unknownalgorithm'
+        with pytest.raises(ValueError, match='does not end with a valid tarfile extension'):
+            _write_checkpoint_file(state, str(checkpoint_path_3))
+        assert not checkpoint_path_3.exists()
 
     @pytest.mark.parametrize(
         'save_folder,expected_path',

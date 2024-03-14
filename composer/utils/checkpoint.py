@@ -9,7 +9,6 @@ import contextlib
 import fnmatch
 import logging
 import os
-import shutil
 import tarfile
 import tempfile
 import textwrap
@@ -1080,10 +1079,7 @@ def _save_checkpoint(
         expect_file = True
         log.debug('Saving deepspeed checkpoints to %s...', save_filename)
         if dist.get_global_rank() == 0:
-            with open(save_filename, 'wb') as f:
-                torch.save(state_dict, f)
-            if is_tar(save_filename):
-                _compress_file(save_filename, basename=_COMPOSER_STATES_FILENAME)
+            _write_checkpoint_file(state_dict, save_filename)
 
         _save_deepspeed_model(state.deepspeed_model, save_filename)
     # Save sharded checkpoint
@@ -1122,14 +1118,9 @@ def _save_checkpoint(
     # Save monolith checkpoint
     elif dist.get_global_rank() == 0:
         expect_file = True
-        with open(save_filename, 'wb') as f:
-            log.debug(f'Saving monolithic checkpoint to {save_filename}')
-            torch.save(state_dict, f)
-
+        log.debug(f'Saving monolithic checkpoint to {save_filename}')
+        _write_checkpoint_file(state_dict, save_filename)
         log.debug(f'Global rank 0 done saving checkpoint to disk at {save_filename}.')
-
-        if is_tar(save_filename):
-            _compress_file(save_filename, basename=_COMPOSER_STATES_FILENAME)
     else:
         log.debug(f'Only rank 0 is saving a checkpoint, so rank {dist.get_global_rank()} skips checkpointing.')
 
@@ -1143,18 +1134,20 @@ def _save_checkpoint(
         return None
 
 
-def _compress_file(filename: str, basename: str):
-    """Replace a file with its compressed version.
+def _write_checkpoint_file(state_dict: Dict[str, Any], filename: str) -> None:
+    """Write the given checkpoint state to the given path. Compressing if indicated to do so by the file extension."""
+    if is_tar(filename):
+        write_mode = _get_write_mode(filename)
 
-    The contents will be called ``basename`` inside
-    the compressed archive.
-    """
-    write_mode = _get_write_mode(filename)
+        with tempfile.TemporaryDirectory(prefix='checkpoint') as tmpdir:
+            with open(os.path.join(tmpdir, _COMPOSER_STATES_FILENAME), 'wb') as f:
+                torch.save(state_dict, f)
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        shutil.move(filename, os.path.join(tmpdir, basename))
-        with tarfile.open(filename, write_mode) as tarball:
-            tarball.add(tmpdir, arcname='')
+            with tarfile.open(filename, write_mode) as tarball:
+                tarball.add(tmpdir, arcname='')
+    else:
+        with open(filename, 'wb') as f:
+            torch.save(state_dict, f)
 
 
 def _save_deepspeed_model(model, filename: str):
