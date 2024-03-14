@@ -14,7 +14,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 
 from composer.core import DataSpec
-from composer.core.data_spec import _default_split_batch, _split_list
+from composer.core.data_spec import _split_list, default_split_batch
 from composer.datasets.utils import stop_sequences_criteria
 from composer.utils import MissingConditionalImportError, dist, get_file
 
@@ -652,7 +652,7 @@ class InContextLearningDataset(Dataset):
             elif k in self.list_keys:
                 chunked[k] = _split_list(v, microbatch_size)
             elif k in self.tensor_keys:
-                chunked[k] = _default_split_batch(v, microbatch_size)
+                chunked[k] = default_split_batch(v, microbatch_size)
             else:
                 raise ValueError(f'Unexpected key {k} in batch splitting')
         num_chunks = len(chunked['input_ids'])
@@ -1058,11 +1058,11 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
                     chunked[k] = _split_list(v, microbatch_size)
                 # list - 'gold_indices'
                 elif k in self.list_of_primitives:
-                    chunked[k] = _default_split_batch(v, microbatch_size)
+                    chunked[k] = default_split_batch(v, microbatch_size)
                 else:
                     raise ValueError(f'Unexpected key {k} in list splitting')
             elif k in self.tensor_keys:
-                chunked[k] = _default_split_batch(v, microbatch_size * self.num_choices)
+                chunked[k] = default_split_batch(v, microbatch_size * self.num_choices)
             else:
                 raise ValueError(f'Unexpected key {k} in batch splitting')
         num_chunks = len(chunked['input_ids'])
