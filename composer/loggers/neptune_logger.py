@@ -122,7 +122,7 @@ class NeptuneLogger(LoggerDestination):
             self._neptune_run = Run(
                 project=self._project,
                 api_token=self._api_token,
-                mode=self._mode,
+                mode=self._mode,  # type: ignore
                 **self._neptune_kwargs,
             )
         return self._neptune_run

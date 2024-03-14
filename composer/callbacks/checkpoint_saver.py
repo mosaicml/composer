@@ -102,7 +102,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                     extension is specified, ``'.tar'`` will be used.
 
                 *   To use compression (regardless of whether DeepSpeed is enabled), set the file extension
-                    to ``'.tar.gz'``, ``'.tgz'``, ``'.tar.bzip'``, or ``'.tar.lzma'`` (depending on the desired
+                    to ``'.tar.gz'``, ``'.tgz'``, ``'.tar.bz2'``, or ``'.tar.lzma'`` (depending on the desired
                     compression algorithm).
 
             .. warning::
