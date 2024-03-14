@@ -2205,7 +2205,9 @@ class Trainer:
         dist.barrier()
 
     def _ensure_metrics_device_and_dtype(
-        self, metrics: Dict[str, Metric], ensure_cpu: bool = False
+        self,
+        metrics: Dict[str, Metric],
+        ensure_cpu: bool = False,
     ):
         for name, metric in metrics.items():
             # Safety check to ensure the metric and data are on the same device. Normally not
@@ -3211,7 +3213,8 @@ class Trainer:
 
             # On MPS device we ensure the eval metrics are computed on CPU to avoid numerical errors
             metrics = self._ensure_metrics_device_and_dtype(
-                metrics, ensure_cpu=isinstance(self.state.device, DeviceMPS)
+                metrics,
+                ensure_cpu=isinstance(self.state.device, DeviceMPS),
             )
 
             for metric in metrics.values():
@@ -3337,9 +3340,7 @@ class Trainer:
                                                 outputs.append(v)
                                     else:
                                         outputs = self.state.outputs.cpu()
-                                    batch = DeviceCPU().batch_to_device(
-                                        self.state.batch
-                                    )
+                                    batch = DeviceCPU().batch_to_device(self.state.batch,)
                                 else:
                                     outputs = self.state.outputs
                                     batch = self.state.batch

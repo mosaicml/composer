@@ -591,9 +591,9 @@ class HuggingFaceModel(ComposerModel):
 
     def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> Dict:
         if getattr(metric, 'needs_batch', False):
-            metric_result = metric.update(batch=batch, outputs=outputs, labels=self.labels)
+            metric_result = metric.update(batch=batch, outputs=outputs, labels=self.labels.to(metric.device))
         else:
-            metric_result = metric.update(outputs, self.labels)
+            metric_result = metric.update(outputs, self.labels.to(metric.device))
         if metric_result is not None:
             # Add the metric name once for each datapoint in the batch
             metric_result['metric_name'] = [metric.__class__.__name__ for _ in range(0, batch['input_ids'].shape[0])]
