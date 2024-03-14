@@ -3,6 +3,7 @@
 
 import contextlib
 import copy
+import io
 import os
 import pathlib
 import shutil
@@ -29,8 +30,14 @@ from composer.optim import ExponentialScheduler
 from composer.trainer import trainer
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, is_tar, reproducibility
+from composer.utils.checkpoint import _ensure_valid_checkpoint  # type: ignore
+from composer.utils.checkpoint import _get_compressor  # type: ignore
+from composer.utils.checkpoint import _is_directly_compressed_pickle  # type: ignore
 from composer.utils.checkpoint import _write_checkpoint_file  # type: ignore
-from composer.utils.checkpoint import _COMPOSER_STATES_FILENAME, _ensure_valid_checkpoint, glob_filter
+from composer.utils.checkpoint import (
+    _COMPOSER_STATES_FILENAME,
+    glob_filter,
+)
 from composer.utils.object_store.object_store import ObjectStore
 from composer.utils.object_store.s3_object_store import S3ObjectStore
 from tests.common import (
@@ -69,6 +76,13 @@ def _load_checkpoint(filename: Union[str, pathlib.Path]) -> Dict[str, Any]:
                 tarball.extractall(tmp_dir)
             states_path = os.path.join(tmp_dir, _COMPOSER_STATES_FILENAME)
             return torch.load(states_path, map_location='cpu')
+
+    elif _is_directly_compressed_pickle(filename):
+        compressor = _get_compressor(filename)
+        with compressor.decompress(filename) as f:
+            data = io.BytesIO(f.read())  # loading requires random access
+            return torch.load(data, map_location='cpu')
+
     else:
         return torch.load(filename, map_location='cpu')
 
@@ -329,6 +343,19 @@ class TestCheckpointSaving:
         with pytest.raises(ValueError, match='does not end with a valid tarfile extension'):
             _write_checkpoint_file(state, str(checkpoint_path_3))
         assert not checkpoint_path_3.exists()
+
+    @pytest.mark.skipif(shutil.which('lz4') is None, reason='lz4 command not found')
+    def test_write_directly_compressed_pickle(self, tmp_path: pathlib.Path):
+        state = {'foo': 123}
+        checkpoint_path_uncompressed = tmp_path / 'checkpoint_uncompressed.pt'
+        _write_checkpoint_file(state, str(checkpoint_path_uncompressed))
+
+        checkpoint_path = tmp_path / 'checkpoint_uncompressed.pt.lz4'
+        _write_checkpoint_file(state, str(checkpoint_path))
+        assert _load_checkpoint(checkpoint_path) == state
+        assert checkpoint_path.exists()
+
+        assert checkpoint_path_uncompressed.stat().st_size > checkpoint_path.stat().st_size
 
     @pytest.mark.parametrize(
         'save_folder,expected_path',

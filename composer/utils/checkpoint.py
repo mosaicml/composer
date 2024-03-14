@@ -9,13 +9,15 @@ import contextlib
 import fnmatch
 import logging
 import os
+import shutil
+import subprocess
 import tarfile
 import tempfile
 import textwrap
 import warnings
 from importlib import import_module
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import IO, TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Union
 
 import torch
 from packaging import version
@@ -723,6 +725,14 @@ def download_checkpoint(
             rank_n_checkpoint_filepath if fsdp_sharded_state_dict_enabled else rank_zero_checkpoint_filepath
         )
 
+        if _is_directly_compressed_pickle(path):
+            original_path = path
+            path = os.path.splitext(path)[0]
+            compressor = _get_compressor(path)
+            with open(path, 'wb') as out_file:
+                with compressor.decompress(original_path) as in_file:
+                    shutil.copyfileobj(in_file, out_file)
+
     checkpoint_is_sharded = fsdp_sharded_state_dict_enabled or deepspeed_sharded_checkpoint
     try:
         if not checkpoint_is_sharded and dist.get_local_rank() == 0:
@@ -1137,6 +1147,7 @@ def _save_checkpoint(
 def _write_checkpoint_file(state_dict: Dict[str, Any], filename: str) -> None:
     """Write the given checkpoint state to the given path. Compressing if indicated to do so by the file extension."""
     if is_tar(filename):
+        log.debug('writing checkpoint tar file %s', filename)
         write_mode = _get_write_mode(filename)
 
         with tempfile.TemporaryDirectory(prefix='checkpoint') as tmpdir:
@@ -1145,9 +1156,94 @@ def _write_checkpoint_file(state_dict: Dict[str, Any], filename: str) -> None:
 
             with tarfile.open(filename, write_mode) as tarball:
                 tarball.add(tmpdir, arcname='')
+
+    elif _is_directly_compressed_pickle(filename):
+        log.debug('writing compressed checkpoint pickle %s', filename)
+        compressor = _get_compressor(filename)
+        with compressor.compress(filename) as f:
+            torch.save(state_dict, f)
+
     else:
+        log.debug('writing uncompressed checkpoint pickle %s', filename)
         with open(filename, 'wb') as f:
             torch.save(state_dict, f)
+
+
+def _is_directly_compressed_pickle(filename: str) -> bool:
+    """Whether the filename is for a directly compressed pickle.
+
+    Whether the extension of the given filename indicates that the file contains a raw compressed stream
+    of a single pickle file without a container (like tar).
+    """
+    parts = filename.split('.')
+    return len(parts) > 2 and parts[-2] == 'pt' and parts[-1] in {c.extension for c in _KNOWN_COMPRESSORS}
+
+
+class _CliCompressor:
+
+    def __init__(self, extension: str, cmd: str) -> None:
+        self.extension = extension
+        self.cmd = cmd
+
+    def _check_exists(self) -> None:
+        if shutil.which(self.cmd) is None:
+            raise FileNotFoundError(f'could not find command "{self.cmd}" in the PATH')
+
+    def _compress_cmd(self) -> List[str]:
+        return [self.cmd]
+
+    @contextlib.contextmanager
+    def compress(self, filename: str) -> Iterator[IO[bytes]]:
+        self._check_exists()
+        with open(filename, 'wb') as f:
+            proc = subprocess.Popen(self._compress_cmd(), stdin=subprocess.PIPE, stdout=f)
+            assert proc.stdin is not None
+            yield proc.stdin
+            proc.stdin.close()
+            proc.wait()
+
+    def _decompress_cmd(self, filename: str) -> List[str]:
+        raise NotImplementedError
+
+    @contextlib.contextmanager
+    def decompress(self, in_filename: str) -> Iterator[IO[bytes]]:
+        self._check_exists()
+        proc = subprocess.Popen(self._decompress_cmd(in_filename), stdout=subprocess.PIPE)
+        assert proc.stdout is not None
+        yield proc.stdout
+        proc.wait()
+
+
+class _Lz4Compressor(_CliCompressor):
+
+    def __init__(self) -> None:
+        super().__init__('lz4', 'lz4')
+
+    def _decompress_cmd(self, filename: str) -> List[str]:
+        return [self.cmd, '-d', filename, '-']
+
+
+class _ZstdCompressor(_CliCompressor):
+
+    def __init__(self) -> None:
+        super().__init__('zstd', 'zstd')
+
+    def _decompress_cmd(self, filename: str) -> List[str]:
+        return [self.cmd, '-dc', filename]
+
+
+def _get_compressor(filename: str) -> _CliCompressor:
+    extension = filename.split('.')[-1]
+    for c in _KNOWN_COMPRESSORS:
+        if c.extension == extension:
+            return c
+    raise ValueError(f'could not find compressor for "{filename}"')
+
+
+_KNOWN_COMPRESSORS = [
+    _Lz4Compressor(),
+    _ZstdCompressor(),
+]
 
 
 def _save_deepspeed_model(model, filename: str):
