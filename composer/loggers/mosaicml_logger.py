@@ -23,7 +23,6 @@ import torch.utils.data
 
 from composer.core.event import Event
 from composer.core.time import Time, TimeUnit
-# composer logger types for analytics logging
 from composer.loggers import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.wandb_logger import WandBLogger
