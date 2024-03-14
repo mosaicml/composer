@@ -101,9 +101,14 @@ class CheckpointSaver(Callback):  # noqa: D101
                     may attempt to write to the same file(s), leading to corrupted checkpoints. If no tarball file
                     extension is specified, ``'.tar'`` will be used.
 
-                *   To use compression (regardless of whether DeepSpeed is enabled), set the file extension
-                    to ``'.tar.gz'``, ``'.tgz'``, ``'.tar.bz2'``, or ``'.tar.lzma'`` (depending on the desired
-                    compression algorithm).
+                *   To write to compressed tar files (regardless of whether DeepSpeed is enabled), set the file
+                    extension to ``'.tar.gz'``, ``'.tgz'``, ``'.tar.bz2'``, or ``'.tar.lzma'`` (depending on the
+                    desired compression algorithm).
+
+                *   To write to compressed pickle files (when DeepSpeed is disabled), set the file extension to
+                    ``'.pt.lz4'``, ``'.pt.lzma'`` (depending on the desired algorithm). You must have the
+                    corresponding CLI tool installed. ``lz4`` is a good choice for a modest space saving while being
+                    very fast to compress.
 
             .. warning::
 
