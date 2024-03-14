@@ -152,7 +152,10 @@ def test_stop_training(time_unit: TimeUnit, request: pytest.FixtureRequest):
     state = get_dummy_state(request)
     state.max_duration = '10' + time_unit.value
     state.stop_training()
-    assert state.max_duration == '0' + time_unit.value
+    if time_unit == TimeUnit.EPOCH:
+        assert state.max_duration == '0' + TimeUnit.BATCH.value
+    else:
+        assert state.max_duration == '0' + time_unit.value
 
 
 def test_composer_metadata_in_state_dict(tmp_path, request: pytest.FixtureRequest):
