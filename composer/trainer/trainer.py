@@ -3337,7 +3337,9 @@ class Trainer:
                                                 outputs.append(v)
                                     else:
                                         outputs = self.state.outputs.cpu()
-                                    batch = DeviceCPU().batch_to_device(batch)
+                                    batch = DeviceCPU().batch_to_device(
+                                        self.state.output.batch
+                                    )
                                 else:
                                     outputs = self.state.outputs
                                     batch = self.state.batch
