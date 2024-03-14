@@ -47,7 +47,7 @@ def strip_data(example: Dict) -> Dict:
     return {k: v.strip() if isinstance(v, str) else v for k, v in example.items()}
 
 
-def _tokenizer_needs_prefix_space(tokenizer: transformers.PreTrainedTokenizerBase,) -> bool:
+def _tokenizer_needs_prefix_space(tokenizer: transformers.PreTrainedTokenizerBase) -> bool:
     """
     Test for whether a prefix space is needed before the continuation.
     Sentencepiece tokenization should not have a prefix space, but gpt2 style BPE should.
@@ -504,8 +504,10 @@ class InContextLearningDataset(Dataset):
         Returns:
             input_ids: The tokenized input conditionally edited
         """
-        if (self.tokenizer.eos_token_id is not None and len(input_ids) > 1 and
-                input_ids[-1] == self.tokenizer.eos_token_id):
+        if (
+            self.tokenizer.eos_token_id is not None and len(input_ids) > 1 and
+            input_ids[-1] == self.tokenizer.eos_token_id
+        ):
             input_ids = input_ids[:-1]
         return input_ids
 
@@ -538,8 +540,10 @@ class InContextLearningDataset(Dataset):
 
         if self.tokenize_labels:
             # Never add special tokens to answer
-            tokenized_answer = self.tokenizer(self.get_answer_from_example(example),
-                                              add_special_tokens=False)['input_ids']
+            tokenized_answer = self.tokenizer(
+                self.get_answer_from_example(example),
+                add_special_tokens=False,
+            )['input_ids']
             assert isinstance(tokenized_answer, list)
             trimmed_context = _trim_context(tokenized_context, tokenized_answer, self.padding_size)
             assert isinstance(trimmed_context, list)
@@ -715,10 +719,10 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
             'mode': 'generate',
             'labels': [],
             'cot_delimiter': self.cot_delimiter,
-            'generation_length': self.max_answer_length,
             'stopping_criteria': early_stopping_criteria,
             'do_normalization': do_normalization,
             'generation_kwargs': {
+                'max_new_tokens': self.max_answer_length,
                 'pad_token_id': self.pad_tok_id,
                 'use_cache': True,
                 'eos_token_id': self.tokenizer.eos_token_id,
@@ -746,7 +750,8 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
                 'answer': examples['answer'],
                 'aliases': set([examples['answer']] + examples.get('aliases', [])),
                 'chain_of_thought': examples.get('chain_of_thought', ''),
-            })
+            },
+        )
         self.max_answer_length = self._get_max_answer_length(dataset)
         # NOTE: This is the only time we use the class variable padding_size.
         self.padding_size = self.max_seq_len - self.max_answer_length
@@ -848,7 +853,7 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
             },
             batch_mapping={
                 'input_ids': 'context',
-                'labels': 'context'
+                'labels': 'context',
             },
             padding_side='right',
             *args,
@@ -1130,7 +1135,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         context = context_options[gold_idx]
         if len(preceding_text) > 0:
             context = f'{self.example_delimiter}{context}'
-        context = f'{context}{self.continuation_delimiter}{continuation}'
+        context = f'{self.prelimiter}{context}{self.continuation_delimiter}{continuation}'
         return context
 
     def _construct_multiple_contexts(self, example: Dict, preceding_text: str = '') -> List[str]:
@@ -1151,7 +1156,9 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
                 cont_del = self.continuation_delimiter.rstrip()
             else:
                 cont_del = self.continuation_delimiter
-            context_options = [f'{self.example_delimiter}{c}{cont_del}' for c in context_options]
+            context_options = [f'{self.prelimiter}{self.example_delimiter}{c}{cont_del}' for c in context_options]
+        else:
+            context_options = [f'{self.prelimiter}{c}' for c in context_options]
         return context_options
 
     def _prep_example(
@@ -1200,8 +1207,10 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         assert isinstance(preamble, list)
         preamble = self._fix_eos_on_preamble(preamble)
         encoded_contexts = [
-            preamble + self.tokenizer(  # pyright: ignore[reportOperatorIssue, reportGeneralTypeIssues]
-                c, add_special_tokens=False)['input_ids']  # pyright: ignore[reportOperatorIssue, ]
+            preamble + self.
+            tokenizer(  # pyright: ignore[reportOperatorIssue, reportGeneralTypeIssues]
+                c, add_special_tokens=False,
+            )['input_ids']  # pyright: ignore[reportOperatorIssue, ]
             for c in context_options
         ]
         continuation = example['continuation']
@@ -1260,7 +1269,6 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
     - test_outputs: List of test outputs
     - languages:  List of languages
     - pass_at_k: Passed value for pass_at_k
-    - generation_length: Derrived maximum generation length
     - generation_kwargs: Dictionary of kwargs neeeded for generation. Includes the following, which will be individually overwritten
       by keys in generaiton_kwargs if set (see https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig
       for more details):
@@ -1286,7 +1294,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             pass_at_k = [pass_at_k]
         if generations_per_sample < max(pass_at_k):
             raise ValueError(
-                f'generations_per_sample ({generations_per_sample}) must be greater than or equal to pass_at_k ({pass_at_k}) for code evaluation.'
+                f'generations_per_sample ({generations_per_sample}) must be greater than or equal to pass_at_k ({pass_at_k}) for code evaluation.',
             )
         batch_mapping = {
             'input_ids': 'prompt',
@@ -1349,7 +1357,6 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             'test_outputs': [],
             'languages': [],
             'pass_at_k': pass_at_k,
-            'generation_length': min(self.max_answer_length, self.max_seq_len - self.max_prompt_length),
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
                 'num_beams': 1,  # single beam
@@ -1357,6 +1364,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
                 'temperature': 0.2,  # good default for code
                 'use_cache': True,
                 'eos_token_id': self.tokenizer.eos_token_id,
+                'max_new_tokens': min(self.max_answer_length, self.max_seq_len - self.max_prompt_length),
             },
             'sample_id': [],
             'pass_at_k': list(pass_at_k),
@@ -1481,6 +1489,7 @@ def build_icl_dataloader(
             example_delimiter=example_delimiter,
             continuation_delimiter=continuation_delimiter,
             destination_path=destination_path,
+            prelimiter=prelimiter,
             fewshot_random_seed=fewshot_random_seed,
             hf_loading_vars=hf_loading_vars,
             hf_parsing_map=hf_parsing_map,
@@ -1499,6 +1508,7 @@ def build_icl_dataloader(
             example_delimiter=example_delimiter,
             continuation_delimiter=continuation_delimiter,
             destination_path=destination_path,
+            prelimiter=prelimiter,
             fewshot_random_seed=fewshot_random_seed,
             hf_loading_vars=hf_loading_vars,
             hf_parsing_map=hf_parsing_map,
@@ -1517,6 +1527,7 @@ def build_icl_dataloader(
             example_delimiter=example_delimiter,
             continuation_delimiter=continuation_delimiter,
             destination_path=destination_path,
+            prelimiter=prelimiter,
             fewshot_random_seed=fewshot_random_seed,
             hf_loading_vars=hf_loading_vars,
             hf_parsing_map=hf_parsing_map,
@@ -1571,7 +1582,7 @@ def build_icl_dataloader(
 
     split_batch = None
     if isinstance(
-            dataset,
+        dataset,
         (
             InContextLearningMultipleChoiceTaskDataset,
             InContextLearningQATaskDataset,
@@ -1593,8 +1604,12 @@ def build_icl_dataloader(
     )
 
 
-def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_loading_vars: Dict,
-                                  hf_parsing_map: Dict) -> Dict[str, str]:
+def partition_dataset_by_category(
+    dataset_uri: str,
+    destination_path: str,
+    hf_loading_vars: Dict,
+    hf_parsing_map: Dict,
+) -> Dict[str, str]:
     """
     If has_categories is enabled, we partition the dataset into a separate dataset for each category value in the data and write each partition to a local file.
 
@@ -1636,9 +1651,11 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_lo
     assert hasattr(dataset, 'features')
     assert dataset.features is not None
     if 'category' not in dataset.features.keys():
-        raise Exception(f"""Attempted to partition dataset by `category` \
+        raise Exception(
+            f"""Attempted to partition dataset by `category` \
             but it doesn't have a `category` key. \
-            Got keys: {str(list(dataset.features.keys()))}""")
+            Got keys: {str(list(dataset.features.keys()))}""",
+        )
     categories = sorted(set(dataset['category']))  # pyright: ignore[reportIndexIssue, reportGeneralTypeIssues]
     output_files = {}
     for cat in categories:

@@ -76,26 +76,28 @@ model = ComposerClassifier(module=Model(num_classes=10))
 composer_trace_dir = 'composer_profiler'
 torch_trace_dir = 'torch_profiler'
 
-trainer = Trainer(model=model,
-                  train_dataloader=train_dataloader,
-                  eval_dataloader=train_dataloader,
-                  max_duration=2,
-                  device='gpu' if torch.cuda.is_available() else 'cpu',
-                  eval_interval=0,
-                  precision='amp' if torch.cuda.is_available() else 'fp32',
-                  train_subset_num_batches=16,
-                  profiler=Profiler(
-                      trace_handlers=[JSONTraceHandler(folder=composer_trace_dir, overwrite=True)],
-                      schedule=cyclic_schedule(
-                          wait=0,
-                          warmup=1,
-                          active=4,
-                          repeat=1,
-                      ),
-                      torch_prof_folder=torch_trace_dir,
-                      torch_prof_overwrite=True,
-                      torch_prof_memory_filename=None,
-                  ))
+trainer = Trainer(
+    model=model,
+    train_dataloader=train_dataloader,
+    eval_dataloader=train_dataloader,
+    max_duration=2,
+    device='gpu' if torch.cuda.is_available() else 'cpu',
+    eval_interval=0,
+    precision='amp' if torch.cuda.is_available() else 'fp32',
+    train_subset_num_batches=16,
+    profiler=Profiler(
+        trace_handlers=[JSONTraceHandler(folder=composer_trace_dir, overwrite=True)],
+        schedule=cyclic_schedule(
+            wait=0,
+            warmup=1,
+            active=4,
+            repeat=1,
+        ),
+        torch_prof_folder=torch_trace_dir,
+        torch_prof_overwrite=True,
+        torch_prof_memory_filename=None,
+    ),
+)
 # [trainer-end]
 
 # [fit-start]

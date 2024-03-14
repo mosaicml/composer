@@ -8,6 +8,7 @@ from composer.devices.device_cpu import DeviceCPU
 from composer.devices.device_gpu import DeviceGPU
 from composer.devices.device_hpu import DeviceHPU
 from composer.devices.device_mps import DeviceMPS
+from composer.devices.device_neuron import DeviceNeuron
 from composer.devices.device_tpu import DeviceTPU
 
-__all__ = ['Device', 'DeviceCPU', 'DeviceGPU', 'DeviceMPS', 'DeviceTPU', 'DeviceHPU']
+__all__ = ['Device', 'DeviceCPU', 'DeviceGPU', 'DeviceMPS', 'DeviceNeuron', 'DeviceTPU', 'DeviceHPU']

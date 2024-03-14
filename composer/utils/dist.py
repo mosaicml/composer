@@ -37,6 +37,7 @@ import io
 import logging
 import os
 import pickle
+import sys
 import time
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, List, Optional, Sequence, TypeVar, Union, cast
@@ -44,8 +45,12 @@ from typing import TYPE_CHECKING, Any, List, Optional, Sequence, TypeVar, Union,
 import torch
 import torch.distributed as dist
 import torch.utils.data
+from packaging import version
 
-from composer.utils.device import get_device, is_hpu_installed
+from composer.utils.device import get_device, is_hpu_installed, is_xla_installed
+
+if is_xla_installed():
+    import torch_xla
 
 if TYPE_CHECKING:
     from composer.devices import Device
@@ -187,17 +192,21 @@ def _get_distributed_config_var(
         if env_var in os.environ:
             env_value = int(os.environ[env_var])
             if dist_value != env_value:
-                raise RuntimeError('Torch distributed has been initialized with a value of '
-                                   f'{dist_value} for {human_name}, but environment variable '
-                                   f'{env_var} has value {env_value}.')
+                raise RuntimeError(
+                    'Torch distributed has been initialized with a value of '
+                    f'{dist_value} for {human_name}, but environment variable '
+                    f'{env_var} has value {env_value}.',
+                )
         return dist_value
 
     if env_var in os.environ:
         return int(os.environ[env_var])
 
     if dist.is_initialized():
-        raise MissingEnvironmentError('Torch distributed is initialized but environment variable '
-                                      f'{env_var} is not set.')
+        raise MissingEnvironmentError(
+            'Torch distributed is initialized but environment variable '
+            f'{env_var} is not set.',
+        )
 
     return default
 
@@ -208,10 +217,12 @@ def get_world_size() -> int:
     Returns:
         int: The world size.
     """
-    return _get_distributed_config_var(env_var='WORLD_SIZE',
-                                       human_name='world size',
-                                       default=1,
-                                       fetch_fn_name='get_world_size')
+    return _get_distributed_config_var(
+        env_var='WORLD_SIZE',
+        human_name='world size',
+        default=1,
+        fetch_fn_name='get_world_size',
+    )
 
 
 def get_global_rank() -> int:
@@ -270,11 +281,13 @@ def barrier(group=None) -> None:
     world_size = get_world_size()
     if world_size == 1:
         return
-    raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
-                       'available or has not been initialized. Please check you have initialized '
-                       'the distributed runtime and that PyTorch has been built with distributed '
-                       'support. If calling this function outside Trainer, please ensure that '
-                       '`composer.utils.dist.initialize_dist` has been called first.')
+    raise RuntimeError(
+        f'The world_size({world_size}) > 1, but the distributed package is not '
+        'available or has not been initialized. Please check you have initialized '
+        'the distributed runtime and that PyTorch has been built with distributed '
+        'support. If calling this function outside Trainer, please ensure that '
+        '`composer.utils.dist.initialize_dist` has been called first.',
+    )
 
 
 def all_reduce(
@@ -319,11 +332,13 @@ def all_reduce(
     world_size = get_world_size()
     if world_size == 1:
         return
-    raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
-                       'available or has not been initialized. Please check you have initialized '
-                       'the distributed runtime and that PyTorch has been built with distributed '
-                       'support. If calling this function outside Trainer, please ensure that '
-                       '`composer.utils.dist.initialize_dist` has been called first.')
+    raise RuntimeError(
+        f'The world_size({world_size}) > 1, but the distributed package is not '
+        'available or has not been initialized. Please check you have initialized '
+        'the distributed runtime and that PyTorch has been built with distributed '
+        'support. If calling this function outside Trainer, please ensure that '
+        '`composer.utils.dist.initialize_dist` has been called first.',
+    )
 
 
 def broadcast(tensor: torch.Tensor, src: int, group=None) -> None:
@@ -345,11 +360,13 @@ def broadcast(tensor: torch.Tensor, src: int, group=None) -> None:
     world_size = get_world_size()
     if world_size == 1:
         return
-    raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
-                       'available or has not been initialized. Please check you have initialized '
-                       'the distributed runtime and that PyTorch has been built with distributed '
-                       'support. If calling this function outside Trainer, please ensure that '
-                       '`composer.utils.dist.initialize_dist` has been called first.')
+    raise RuntimeError(
+        f'The world_size({world_size}) > 1, but the distributed package is not '
+        'available or has not been initialized. Please check you have initialized '
+        'the distributed runtime and that PyTorch has been built with distributed '
+        'support. If calling this function outside Trainer, please ensure that '
+        '`composer.utils.dist.initialize_dist` has been called first.',
+    )
 
 
 def broadcast_object_list(object_list: List[Any], src: int = 0, group=None) -> None:
@@ -379,11 +396,13 @@ def broadcast_object_list(object_list: List[Any], src: int = 0, group=None) -> N
     world_size = get_world_size()
     if world_size == 1:
         return
-    raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
-                       'available or has not been initialized. Please check you have initialized '
-                       'the distributed runtime and that PyTorch has been built with distributed '
-                       'support. If calling this function outside Trainer, please ensure that '
-                       '`composer.utils.dist.initialize_dist` has been called first.')
+    raise RuntimeError(
+        f'The world_size({world_size}) > 1, but the distributed package is not '
+        'available or has not been initialized. Please check you have initialized '
+        'the distributed runtime and that PyTorch has been built with distributed '
+        'support. If calling this function outside Trainer, please ensure that '
+        '`composer.utils.dist.initialize_dist` has been called first.',
+    )
 
 
 def all_gather(tensor: torch.Tensor, group=None) -> Sequence[torch.Tensor]:
@@ -406,11 +425,13 @@ def all_gather(tensor: torch.Tensor, group=None) -> Sequence[torch.Tensor]:
     world_size = get_world_size()
     if world_size == 1:
         return [tensor]
-    raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
-                       'available or has not been initialized. Please check you have initialized '
-                       'the distributed runtime and that PyTorch has been built with distributed '
-                       'support. If calling this function outside Trainer, please ensure that '
-                       '`composer.utils.dist.initialize_dist` has been called first.')
+    raise RuntimeError(
+        f'The world_size({world_size}) > 1, but the distributed package is not '
+        'available or has not been initialized. Please check you have initialized '
+        'the distributed runtime and that PyTorch has been built with distributed '
+        'support. If calling this function outside Trainer, please ensure that '
+        '`composer.utils.dist.initialize_dist` has been called first.',
+    )
 
 
 def all_gather_object(obj: TObj, group=None) -> List[TObj]:
@@ -438,11 +459,13 @@ def all_gather_object(obj: TObj, group=None) -> List[TObj]:
     world_size = get_world_size()
     if world_size == 1:
         return [obj]
-    raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
-                       'available or has not been initialized. Please check you have initialized '
-                       'the distributed runtime and that PyTorch has been built with distributed '
-                       'support. If calling this function outside Trainer, please ensure that '
-                       '`composer.utils.dist.initialize_dist` has been called first.')
+    raise RuntimeError(
+        f'The world_size({world_size}) > 1, but the distributed package is not '
+        'available or has not been initialized. Please check you have initialized '
+        'the distributed runtime and that PyTorch has been built with distributed '
+        'support. If calling this function outside Trainer, please ensure that '
+        '`composer.utils.dist.initialize_dist` has been called first.',
+    )
 
 
 def is_available():
@@ -497,15 +520,19 @@ def initialize_dist(device: Union[str, Device], timeout: float = 300.0):
     timeout_timedelta = datetime.timedelta(seconds=timeout)
 
     if get_world_size() > 1 and not dist.is_available():
-        raise RuntimeError('When the world size is > 1, ``torch.distributed`` must be used. However, it is '
-                           'not available in your installation of PyTorch. Please install or build PyTorch '
-                           'with distributed support.')
+        raise RuntimeError(
+            'When the world size is > 1, ``torch.distributed`` must be used. However, it is '
+            'not available in your installation of PyTorch. Please install or build PyTorch '
+            'with distributed support.',
+        )
 
     if dist.is_initialized():
         if dist.get_backend() != device_obj.dist_backend.lower():
-            raise RuntimeError(f'The requested backend ({device_obj.dist_backend}) differs from the backend '
-                               f'of the current process group ({dist.get_backend()}). If you '
-                               'wish to change backends, please restart the python process.')
+            raise RuntimeError(
+                f'The requested backend ({device_obj.dist_backend}) differs from the backend '
+                f'of the current process group ({dist.get_backend()}). If you '
+                'wish to change backends, please restart the python process.',
+            )
         return
 
     # If any of these variables are set, and they do not match the single rank defaults,
@@ -534,7 +561,17 @@ def initialize_dist(device: Union[str, Device], timeout: float = 300.0):
 
     dist_env_vars_match_defaults = all(os.environ.get(k, v) == v for (k, v) in dist_env_var_defaults.items())
 
-    if dist_env_vars_match_defaults:
+    if device_obj.dist_backend == 'xla':
+        if not 'torch_xla' in sys.modules:
+            raise RuntimeError(
+                'PyTorch XLA package not found. In order to use XLA based devices '
+                'PyTorch XLA must be installed.',
+            )
+        if version.parse(torch_xla.__version__) < version.parse('2.1.0'):
+            raise RuntimeError(f'PyTorch XLA version must be at least 2.1.0, found {torch_xla.__version__}.')
+        # XLA initialization requires the init_method to be set
+        dist.init_process_group(device_obj.dist_backend, init_method='xla://')
+    elif dist_env_vars_match_defaults:
         # Fill in the remaining single-rank variables
         os.environ.update(dist_env_var_defaults)
         dist.init_process_group(device_obj.dist_backend, store=dist.HashStore(), world_size=1, rank=0)
@@ -624,8 +661,10 @@ def run_local_rank_zero_first():
     if world_size == 1:
         yield
         return
-    raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
-                       'available or has not been initialized. Please check you have initialized '
-                       'the distributed runtime and that PyTorch has been built with distributed '
-                       'support. If calling this function outside Trainer, please ensure that '
-                       '`composer.utils.dist.initialize_dist` has been called first.')
+    raise RuntimeError(
+        f'The world_size({world_size}) > 1, but the distributed package is not '
+        'available or has not been initialized. Please check you have initialized '
+        'the distributed runtime and that PyTorch has been built with distributed '
+        'support. If calling this function outside Trainer, please ensure that '
+        '`composer.utils.dist.initialize_dist` has been called first.',
+    )

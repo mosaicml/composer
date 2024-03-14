@@ -42,18 +42,21 @@ def test_file_logger(dummy_state: State, tmp_path: pathlib.Path):
     log_destination.close(dummy_state, logger)
     with open(log_file_name, 'r') as f:
         assert f.readlines() == [
-            '[hyperparameter]: foo: 3 \n', '[metric][batch=1]: loss: 2 \n',
-            '[table]: test_table: {\"columns\":[\"prompt\",\"generation\"],\"data\":[[\"p0\",\"g0\"],[\"p1\",\"g1\"]]}\n'
+            '[hyperparameter]: foo: 3 \n',
+            '[metric][batch=1]: loss: 2 \n',
+            '[table]: test_table: {\"columns\":[\"prompt\",\"generation\"],\"data\":[[\"p0\",\"g0\"],[\"p1\",\"g1\"]]}\n',
         ]
 
 
 def test_file_logger_capture_stdout_stderr(dummy_state: State, tmp_path: pathlib.Path):
     log_file_name = os.path.join(tmp_path, 'output.log')
-    log_destination = FileLogger(filename=log_file_name,
-                                 buffer_size=1,
-                                 flush_interval=1,
-                                 capture_stderr=True,
-                                 capture_stdout=True)
+    log_destination = FileLogger(
+        filename=log_file_name,
+        buffer_size=1,
+        flush_interval=1,
+        capture_stderr=True,
+        capture_stdout=True,
+    )
     # capturing should start immediately
     print('Hello, stdout!\nExtra Line')
     print('Hello, stderr!\nExtra Line2', file=sys.stderr)
@@ -89,11 +92,13 @@ def test_exceptions_are_printed(tmp_path: pathlib.Path):
     file_logger = FileLogger(filename=logfile_name, capture_stderr=True)
     dataloader = DataLoader(RandomClassificationDataset())
     model = SimpleModel()
-    trainer = Trainer(model=model,
-                      train_dataloader=dataloader,
-                      max_duration=1,
-                      callbacks=[exception_raising_callback],
-                      loggers=[file_logger])
+    trainer = Trainer(
+        model=model,
+        train_dataloader=dataloader,
+        max_duration=1,
+        callbacks=[exception_raising_callback],
+        loggers=[file_logger],
+    )
     disable_env_report()  # Printing the full report in this test can cause timeouts
     # manually calling `sys.excepthook` for the exception, as it is impossible to write a test
     # that validates unhandled exceptions are logged, since the test validation code would by definition

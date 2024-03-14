@@ -143,7 +143,8 @@ class MemorySnapshot(Callback):
         torch.cuda.memory._record_memory_history(
             True,  # type: ignore
             trace_alloc_max_entries=self.max_entries,
-            trace_alloc_record_context=True)
+            trace_alloc_record_context=True,
+        )
 
     def stop_record_memory_history(self) -> None:
 
@@ -155,7 +156,8 @@ class MemorySnapshot(Callback):
         assert self.folder_name, 'folder_name must be set in init'
         filename = os.path.join(
             self.folder_name,
-            format_name_with_dist_and_time(self.filename, run_name=state.run_name, timestamp=state.timestamp))
+            format_name_with_dist_and_time(self.filename, run_name=state.run_name, timestamp=state.timestamp),
+        )
         try:
             snapshot_file = filename + '.pickle'
             trace_plot_file = filename + '.html'
@@ -183,7 +185,7 @@ class MemorySnapshot(Callback):
                         logger.upload_file(remote_file_name=remote_file_name, file_path=f, overwrite=self.overwrite)
                     except FileExistsError as e:
                         raise FileExistsError(
-                            f'Uploading memory snapshot failed with error: {e}. overwrite was set to {self.overwrite}. To overwrite memory snapshot with Trainer, set `overwrite` to True.'
+                            f'Uploading memory snapshot failed with error: {e}. overwrite was set to {self.overwrite}. To overwrite memory snapshot with Trainer, set `overwrite` to True.',
                         ) from e
         except Exception as e:
             log.error(f'Failed to capture memory snapshot {e}')

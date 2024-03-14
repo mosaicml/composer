@@ -20,7 +20,7 @@ def test_stateful_checkpoint_saver():
 
     # add a checkpoint and confirm it can save and load
     checkpoint_saver.all_saved_checkpoints_to_timestamp = {
-        'foobar/example-checkpoint.pt': Timestamp(epoch=1, batch=2),
+        'foobar/example-checkpoint.pt': Timestamp(iteration=1, epoch=1, batch=2),
     }
     new_state_dict = checkpoint_saver.state_dict()
     assert 'all_saved_checkpoints_to_timestamp' in new_state_dict
@@ -28,6 +28,7 @@ def test_stateful_checkpoint_saver():
     checkpoint, ts = new_state_dict['all_saved_checkpoints_to_timestamp'][0]
     assert checkpoint == 'foobar/example-checkpoint.pt'
     assert isinstance(ts, dict)
+    assert ts['iteration'] == 1
     assert ts['epoch'] == 1
     assert ts['batch'] == 2
     assert ts['sample'] == 0
@@ -40,6 +41,7 @@ def test_stateful_checkpoint_saver():
     assert 'foobar/example-checkpoint.pt' in checkpoint_saver.all_saved_checkpoints_to_timestamp
     ts = checkpoint_saver.all_saved_checkpoints_to_timestamp['foobar/example-checkpoint.pt']
     assert isinstance(ts, Timestamp)
+    assert ts.iteration == 1
     assert ts.epoch == 1
     assert ts.batch == 2
     assert ts.sample == 0
