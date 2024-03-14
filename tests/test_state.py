@@ -142,7 +142,7 @@ def test_state_batch_set_item(batch, key, val, request: pytest.FixtureRequest):
     assert state.batch_get_item(key) == val
 
 
-@pytest.mark.parametrize('time_unit', [
+@pytest.mark.parametrize('time_unit', [ # Does not test for TimeUnit.DURATION because max_duration cannot have TimeUnit.DURATION as its unit: https://github.com/mosaicml/composer/blob/1b9c6d3c0592183b947fd89890de0832366e33a7/composer/core/state.py#L628
     TimeUnit.EPOCH,
     TimeUnit.BATCH,
     TimeUnit.SAMPLE,
