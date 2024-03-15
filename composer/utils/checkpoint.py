@@ -10,14 +10,13 @@ import fnmatch
 import logging
 import os
 import shutil
-import subprocess
 import tarfile
 import tempfile
 import textwrap
 import warnings
 from importlib import import_module
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 import torch
 from packaging import version
@@ -28,6 +27,7 @@ from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_
 from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
 
 from composer.utils import dist, reproducibility
+from composer.utils.compression import get_compressor, is_compressed_pt
 from composer.utils.file_helpers import (
     FORMAT_NAME_WITH_DIST_AND_TIME_TABLE,
     extract_path_from_symlink,
@@ -725,10 +725,10 @@ def download_checkpoint(
             rank_n_checkpoint_filepath if fsdp_sharded_state_dict_enabled else rank_zero_checkpoint_filepath
         )
 
-        if _is_directly_compressed_pickle(path):
+        if is_compressed_pt(path):
             original_path = path
             path = os.path.splitext(path)[0]
-            compressor = _get_compressor(path)
+            compressor = get_compressor(original_path)
             with open(path, 'wb') as out_file:
                 with compressor.decompress(original_path) as in_file:
                     shutil.copyfileobj(in_file, out_file)
@@ -1157,93 +1157,16 @@ def _write_checkpoint_file(state_dict: Dict[str, Any], filename: str) -> None:
             with tarfile.open(filename, write_mode) as tarball:
                 tarball.add(tmpdir, arcname='')
 
-    elif _is_directly_compressed_pickle(filename):
-        log.debug('writing compressed checkpoint pickle %s', filename)
-        compressor = _get_compressor(filename)
+    elif is_compressed_pt(filename):
+        log.debug('writing compressed checkpoint %s', filename)
+        compressor = get_compressor(filename)
         with compressor.compress(filename) as f:
             torch.save(state_dict, f)
 
     else:
-        log.debug('writing uncompressed checkpoint pickle %s', filename)
+        log.debug('writing uncompressed checkpoint %s', filename)
         with open(filename, 'wb') as f:
             torch.save(state_dict, f)
-
-
-def _is_directly_compressed_pickle(filename: str) -> bool:
-    """Whether the filename is for a directly compressed pickle.
-
-    Whether the extension of the given filename indicates that the file contains a raw compressed stream
-    of a single pickle file without a container (like tar).
-    """
-    parts = filename.split('.')
-    return len(parts) > 2 and parts[-2] == 'pt' and parts[-1] in {c.extension for c in _KNOWN_COMPRESSORS}
-
-
-class _CliCompressor:
-
-    def __init__(self, extension: str, cmd: str) -> None:
-        self.extension = extension
-        self.cmd = cmd
-
-    def _check_exists(self) -> None:
-        if shutil.which(self.cmd) is None:
-            raise FileNotFoundError(f'could not find command "{self.cmd}" in the PATH')
-
-    def _compress_cmd(self) -> List[str]:
-        return [self.cmd]
-
-    @contextlib.contextmanager
-    def compress(self, filename: str) -> Iterator[IO[bytes]]:
-        self._check_exists()
-        with open(filename, 'wb') as f:
-            proc = subprocess.Popen(self._compress_cmd(), stdin=subprocess.PIPE, stdout=f)
-            assert proc.stdin is not None
-            yield proc.stdin
-            proc.stdin.close()
-            proc.wait()
-
-    def _decompress_cmd(self, filename: str) -> List[str]:
-        raise NotImplementedError
-
-    @contextlib.contextmanager
-    def decompress(self, in_filename: str) -> Iterator[IO[bytes]]:
-        self._check_exists()
-        proc = subprocess.Popen(self._decompress_cmd(in_filename), stdout=subprocess.PIPE)
-        assert proc.stdout is not None
-        yield proc.stdout
-        proc.wait()
-
-
-class _Lz4Compressor(_CliCompressor):
-
-    def __init__(self) -> None:
-        super().__init__('lz4', 'lz4')
-
-    def _decompress_cmd(self, filename: str) -> List[str]:
-        return [self.cmd, '-d', filename, '-']
-
-
-class _ZstdCompressor(_CliCompressor):
-
-    def __init__(self) -> None:
-        super().__init__('zstd', 'zstd')
-
-    def _decompress_cmd(self, filename: str) -> List[str]:
-        return [self.cmd, '-dc', filename]
-
-
-def _get_compressor(filename: str) -> _CliCompressor:
-    extension = filename.split('.')[-1]
-    for c in _KNOWN_COMPRESSORS:
-        if c.extension == extension:
-            return c
-    raise ValueError(f'could not find compressor for "{filename}"')
-
-
-_KNOWN_COMPRESSORS = [
-    _Lz4Compressor(),
-    _ZstdCompressor(),
-]
 
 
 def _save_deepspeed_model(model, filename: str):
@@ -1301,15 +1224,20 @@ Args:
                 extension to ``'.tar.gz'``, ``'.tgz'``, ``'.tar.bz2'``, or ``'.tar.lzma'`` (depending on the
                 desired compression algorithm).
 
-            *   To write to compressed pickle files (when DeepSpeed is disabled), set the file extension to
-                ``'.pt.lz4'``, ``'.pt.lzma'`` (depending on the desired algorithm). You must have the
-                corresponding CLI tool installed. ``lz4`` is a good choice for a modest space saving while being
-                very fast to compress.
+            *   To write to compressed pt files (when DeepSpeed is disabled), set the file extension to
+                ``'.pt.bz2'``, ``'.pt.gz'``, ``'.pt.lz4'``, ``'.pt.lzma'``, ``'.pt.lzo'``, ``'.pt.xz'``, ``'.pt.zstd'``
+                (depending on the desired algorithm). You must have the corresponding CLI tool installed.
+                ``lz4`` is a good choice for a modest space saving while being very fast to compress.
 
         .. warning::
 
-            Using compression will block the training loop while checkpoints are being compressed. As such, we
-            recommend saving checkpoints without compression.
+            Using compression will block the training loop while checkpoints are being compressed and the
+            compressibility of checkpoints can vary significantly depending on your setup. As such, we
+            recommend saving checkpoints without compression by default.
+
+            If you have the ``lz4`` command available on your system, you may want to try saving as ``.pt.lz4``
+            as the overhead is minimal (usually less than a second) and the saved space can sometimes
+            be significant (1% - 40%).
 
         Consider the following scenario, where:
 

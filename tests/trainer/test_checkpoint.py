@@ -31,13 +31,9 @@ from composer.trainer import trainer
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, is_tar, reproducibility
 from composer.utils.checkpoint import _ensure_valid_checkpoint  # type: ignore
-from composer.utils.checkpoint import _get_compressor  # type: ignore
-from composer.utils.checkpoint import _is_directly_compressed_pickle  # type: ignore
 from composer.utils.checkpoint import _write_checkpoint_file  # type: ignore
-from composer.utils.checkpoint import (
-    _COMPOSER_STATES_FILENAME,
-    glob_filter,
-)
+from composer.utils.checkpoint import _COMPOSER_STATES_FILENAME, glob_filter
+from composer.utils.compression import CliCompressor, CompressorNotFound, get_compressor, is_compressed_pt
 from composer.utils.object_store.object_store import ObjectStore
 from composer.utils.object_store.s3_object_store import S3ObjectStore
 from tests.common import (
@@ -77,8 +73,8 @@ def _load_checkpoint(filename: Union[str, pathlib.Path]) -> Dict[str, Any]:
             states_path = os.path.join(tmp_dir, _COMPOSER_STATES_FILENAME)
             return torch.load(states_path, map_location='cpu')
 
-    elif _is_directly_compressed_pickle(filename):
-        compressor = _get_compressor(filename)
+    elif is_compressed_pt(filename):
+        compressor = get_compressor(filename)
         with compressor.decompress(filename) as f:
             data = io.BytesIO(f.read())  # loading requires random access
             return torch.load(data, map_location='cpu')
@@ -227,6 +223,21 @@ def test_checkpoint_saver_folder_filename_path(folder: Union[str, pathlib.Path],
 
     assert checkpoint_saver.folder == str(folder)
     assert checkpoint_saver.filename.filename == str(filename)
+
+
+def test_checkpoint_invalid_compressor(monkeypatch: pytest.MonkeyPatch):
+    with pytest.raises(CompressorNotFound, match='could not find compressor for "foo.pt.unknown_compressor"'):
+        CheckpointSaver(filename='foo.pt.unknown_compressor')
+
+    import composer.utils.compression
+    monkeypatch.setattr(
+        composer.utils.compression,
+        'KNOWN_COMPRESSORS',
+        [CliCompressor('unknown_compressor', 'unknown_compressor_cmd')],
+    )
+
+    with pytest.raises(CompressorNotFound, match='could not find command "unknown_compressor_cmd" in the PATH'):
+        CheckpointSaver(filename='foo.pt.unknown_compressor')
 
 
 @pytest.mark.parametrize(
@@ -613,8 +624,9 @@ class TestCheckpointLoading:
     def get_trainer(
         self,
         model=None,
-        max_duration='2ep',
-        latest_filename='latest-rank{rank}.pt',
+        max_duration: str = '2ep',
+        latest_filename: str = 'latest-rank{rank}.pt',
+        file_extension: str = '.pt',
         **kwargs,
     ):
         if model is None:
@@ -644,7 +656,7 @@ class TestCheckpointLoading:
             save_interval='1ep',
             eval_interval='1ep',
             save_latest_filename=latest_filename,
-            save_filename='ep{epoch}.pt',
+            save_filename='ep{epoch}' + file_extension,
             max_duration=max_duration,
             optimizers=optimizer,
             schedulers=ExponentialScheduler(gamma=0.9),
@@ -673,6 +685,7 @@ class TestCheckpointLoading:
 
     @world_size(1, 2)
     @device('cpu', 'gpu')
+    @pytest.mark.parametrize('file_extension', ['.pt', '.tar.gz', '.pt.lz4'])
     @pytest.mark.parametrize('use_object_store', [True, False])
     @pytest.mark.parametrize('delete_local', [True, False])
     @pytest.mark.parametrize('test_slashed', [True, False])
@@ -681,6 +694,7 @@ class TestCheckpointLoading:
         self,
         device: str,
         tmp_path: pathlib.Path,
+        file_extension: str,
         use_object_store: bool,
         delete_local: bool,
         test_slashed: bool,
@@ -693,11 +707,16 @@ class TestCheckpointLoading:
         if use_object_store:
             pytest.importorskip('libcloud')
 
-        latest_filename = 'latest-rank{rank}.pt'
+        latest_filename = 'latest-rank{rank}' + file_extension
         if test_slashed:
             latest_filename = 'testdir/' + latest_filename
+
+        if not get_compressor(latest_filename).exists:
+            pytest.skip(reason=f'compressor not found for {latest_filename}')
+
         trainer_1 = self.get_trainer(
             latest_filename=latest_filename,
+            file_extension=file_extension,
             save_folder='first',
             device=device,
             run_name='big-chungus',
