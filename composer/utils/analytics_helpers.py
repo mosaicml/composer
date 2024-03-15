@@ -35,10 +35,7 @@ LOGGER_TYPES = [
 
 
 def get_logger_type(logger: Any) -> str:
-    """Returns the type of a logger as a string. If the logger is not a known type, returns 'Custom'.
-
-    TODO: could any logger even be labeled as 'Custom'? wouldn't a custom logger just be an instance of LoggerDestination?
-    """
+    """Returns the type of a logger as a string. If the logger is not a known type, returns 'Custom'."""
     for logger_type in LOGGER_TYPES:
         if isinstance(logger, logger_type):
             return logger_type.__name__
