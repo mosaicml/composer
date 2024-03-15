@@ -711,7 +711,7 @@ class TestCheckpointLoading:
         if test_slashed:
             latest_filename = 'testdir/' + latest_filename
 
-        if not get_compressor(latest_filename).exists:
+        if is_compressed_pt(latest_filename) and not get_compressor(latest_filename).exists:
             pytest.skip(reason=f'compressor not found for {latest_filename}')
 
         trainer_1 = self.get_trainer(
