@@ -584,7 +584,7 @@ class HuggingFaceModel(ComposerModel):
     def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> Dict:
 
         if (self.use_logits or batch.get('mode', None) == 'icl_task' or batch.get('mode', None) == 'generate'):
-            self.labels = batch.pop('labels')
+            self.labels = batch["labels"]
 
         if (self.use_logits and self.shift_labels and
             batch.get('mode', None) != 'generate') or batch.get('mode', None) == 'icl_task':
