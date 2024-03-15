@@ -586,7 +586,7 @@ class HuggingFaceModel(ComposerModel):
         if self.use_logits or batch.get('mode', None) == 'icl_task' or batch.get('mode', None) == 'generate':
             self.labels = batch['labels']
 
-        if (self.u and self.shift_labels) or batch.get('mode', None) == 'icl_task':
+        if (self.use_logits and self.shift_labels) or batch.get('mode', None) == 'icl_task':
             assert self.labels is not None
             # HF CausalLM models internally shift labels before computing loss, so we do the same here
             self.labels[:, :-1] = self.labels[:, 1:].clone()
