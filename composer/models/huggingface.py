@@ -58,7 +58,7 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-__all__ = ["HuggingFaceModel", "peft_installed"]
+__all__ = ['HuggingFaceModel', 'peft_installed']
 
 
 class HuggingFaceModel(ComposerModel):
@@ -97,18 +97,16 @@ class HuggingFaceModel(ComposerModel):
 
     def __init__(
         self,
-        model: Union[transformers.PreTrainedModel, "PeftModel"],
-        tokenizer: Optional[
-            Union[
-                transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast
-            ]
-        ] = None,
+        model: Union[transformers.PreTrainedModel, 'PeftModel'],
+        tokenizer: Optional[Union[transformers.PreTrainedTokenizer,
+                                  transformers.PreTrainedTokenizerFast,
+                                 ]] = None,
         use_logits: Optional[bool] = False,
         metrics: Optional[List[Metric]] = None,
         eval_metrics: Optional[List[Metric]] = None,
         shift_labels: Optional[bool] = None,
         allow_embedding_resizing: bool = False,
-        peft_config: Optional["PeftConfig"] = None,
+        peft_config: Optional['PeftConfig'] = None,
         should_save_peft_only: bool = True,
     ) -> None:
         try:
@@ -117,17 +115,17 @@ class HuggingFaceModel(ComposerModel):
             del transformers  # unused
         except ImportError as e:
             raise MissingConditionalImportError(
-                extra_deps_group="nlp",
-                conda_package="transformers",
-                conda_channel="conda-forge",
+                extra_deps_group='nlp',
+                conda_package='transformers',
+                conda_channel='conda-forge',
             ) from e
 
         if peft_config is not None:
             if not peft_installed:
                 raise MissingConditionalImportError(
-                    extra_deps_group="peft",
-                    conda_package="peft",
-                    conda_channel="conda-forge",
+                    extra_deps_group='peft',
+                    conda_package='peft',
+                    conda_channel='conda-forge',
                 )
 
         if peft_config is not None:
@@ -138,9 +136,9 @@ class HuggingFaceModel(ComposerModel):
             if isinstance(peft_config.task_type, str):
                 peft_config.task_type = peft_config.task_type.upper()
 
-            if peft_config.peft_type != "LORA":
+            if peft_config.peft_type != 'LORA':
                 raise ValueError(
-                    f"PEFT type {peft_config.peft_type} is not supported by HuggingFaceModel. Only LORA is supported.",
+                    f'PEFT type {peft_config.peft_type} is not supported by HuggingFaceModel. Only LORA is supported.',
                 )
 
         super().__init__()
@@ -152,15 +150,11 @@ class HuggingFaceModel(ComposerModel):
         self.use_logits = use_logits
         self.labels: Optional[torch.Tensor] = None  # set in eval_forward() if exists
         self.dummy_forward_called = False  # Used to make FSDP generate work, see generate function for more details
-        self.train_metrics: Optional[Dict] = (
-            self._get_metric_dict(metrics) if metrics is not None else None
-        )
+        self.train_metrics: Optional[Dict] = (self._get_metric_dict(metrics) if metrics is not None else None)
         self.val_metrics: Optional[Dict] = (
             self._get_metric_dict(
                 eval_metrics,
-            )
-            if eval_metrics is not None
-            else copy.deepcopy(
+            ) if eval_metrics is not None else copy.deepcopy(
                 self.train_metrics,
             )
         )
@@ -172,8 +166,8 @@ class HuggingFaceModel(ComposerModel):
 
         if is_causal_lm and not self.shift_labels:
             log.warning(
-                "The shift_labels argument was set to False but the model is an instance of a"
-                " HuggingFace Causal LM. This may lead to incorrect behavior.",
+                'The shift_labels argument was set to False but the model is an instance of a'
+                ' HuggingFace Causal LM. This may lead to incorrect behavior.',
             )
             # Note: No warning if shift_labels and not is_causal_lm, since the model may simply be a custom class.
 
@@ -183,11 +177,12 @@ class HuggingFaceModel(ComposerModel):
         self.using_peft = isinstance(self.model, PeftModel) if peft_installed else False
 
     def _check_tokenizer_and_maybe_resize_embeddings(
-        self, allow_embedding_resizing: bool
+        self,
+        allow_embedding_resizing: bool,
     ) -> None:
         if self.tokenizer is None:
             log.warning(
-                "The tokenizer was not provided. This means the tokenizer config will not be saved in the checkpoint.",
+                'The tokenizer was not provided. This means the tokenizer config will not be saved in the checkpoint.',
             )
 
         if self.tokenizer is not None and self.config.vocab_size < len(self.tokenizer):
@@ -195,31 +190,29 @@ class HuggingFaceModel(ComposerModel):
                 # when the embedding size is smaller than the tokenizer vocab size,
                 # the embeddings should get resized to match the tokenizer vocab size
                 log.warning(
-                    f"The number of tokens in the tokenizer is greater than the number of tokens in the model."
-                    f" This would cause an error during training."
-                    f" Resizing the model embeddings to {len(self.tokenizer)} from {self.config.vocab_size}.",
+                    f'The number of tokens in the tokenizer is greater than the number of tokens in the model.'
+                    f' This would cause an error during training.'
+                    f' Resizing the model embeddings to {len(self.tokenizer)} from {self.config.vocab_size}.',
                 )
                 self.model.resize_token_embeddings(len(self.tokenizer))
             else:
                 raise ValueError(
-                    f"The number of tokens in the tokenizer is greater than the number of tokens in the model."
-                    f" This would cause an error during training."
-                    f" You can resize the model embeddings to {len(self.tokenizer)} from {self.config.vocab_size}"
-                    f" by calling `model.resize_token_embeddings(len(tokenizer))` before calling the `HuggingFaceModel`"
-                    f" constructor, or pass `allow_embedding_resizing=True` to have it done automatically.",
+                    f'The number of tokens in the tokenizer is greater than the number of tokens in the model.'
+                    f' This would cause an error during training.'
+                    f' You can resize the model embeddings to {len(self.tokenizer)} from {self.config.vocab_size}'
+                    f' by calling `model.resize_token_embeddings(len(tokenizer))` before calling the `HuggingFaceModel`'
+                    f' constructor, or pass `allow_embedding_resizing=True` to have it done automatically.',
                 )
-        elif self.tokenizer is not None and self.config.vocab_size > len(
-            self.tokenizer
-        ):
+        elif self.tokenizer is not None and self.config.vocab_size > len(self.tokenizer,):
             # when the embedding size is greater than the tokenizer vocab size,
             # the embeddings do not _need_ to be resized to match the tokenizer vocab size,
             # and should be done by the user if desired
             log.info(
-                f"The number of tokens in the tokenizer is less than the number of tokens in the model."
-                f" You may want to resize the model embeddings to {len(self.tokenizer)} from {self.config.vocab_size}"
-                f" by calling `model.resize_token_embeddings(len(tokenizer))` before calling the `HuggingFaceModel`"
-                f" constructor. The vocab size is sometimes intentionally set to a multiple of 32 or 64 to improve"
-                f" performance.",
+                f'The number of tokens in the tokenizer is less than the number of tokens in the model.'
+                f' You may want to resize the model embeddings to {len(self.tokenizer)} from {self.config.vocab_size}'
+                f' by calling `model.resize_token_embeddings(len(tokenizer))` before calling the `HuggingFaceModel`'
+                f' constructor. The vocab size is sometimes intentionally set to a multiple of 32 or 64 to improve'
+                f' performance.',
             )
 
     def _get_metric_dict(self, metrics: List[Metric]) -> Dict[str, Metric]:
@@ -228,14 +221,10 @@ class HuggingFaceModel(ComposerModel):
 
     def _get_model_forward_args(self) -> Set[str]:
         """Returns the arguments to the model's forward function."""
-        model_forward_args = inspect.signature(
-            maybe_get_underlying_model(self.model).forward
-        ).parameters.keys()
+        model_forward_args = inspect.signature(maybe_get_underlying_model(self.model).forward,).parameters.keys()
 
         if not model_forward_args:
-            raise ValueError(
-                "Could not determine the forward arguments of the model. Please open a GitHub issue."
-            )
+            raise ValueError('Could not determine the forward arguments of the model. Please open a GitHub issue.',)
 
         model_forward_args = set(model_forward_args)
 
@@ -251,7 +240,7 @@ class HuggingFaceModel(ComposerModel):
             full_state_dict = filter_state_dict_peft(
                 full_state_dict,
                 self.model.peft_config[active_adapter],
-                adapter_name="default",
+                adapter_name='default',
                 remove_adapter_names=False,
             )
 
@@ -262,9 +251,7 @@ class HuggingFaceModel(ComposerModel):
         hf_state: Dict[str, Any],
         trust_remote_code: bool = False,
         tokenizer_save_dir: Optional[str] = None,
-    ) -> Optional[
-        transformers.PreTrainedTokenizer | transformers.PreTrainedTokenizerFast
-    ]:
+    ) -> Optional[transformers.PreTrainedTokenizer | transformers.PreTrainedTokenizerFast]:
         """A helper function that loads a HuggingFace tokenizer from a loaded in hf state.
 
         Args:
@@ -280,19 +267,18 @@ class HuggingFaceModel(ComposerModel):
             import transformers
         except ImportError as e:
             raise MissingConditionalImportError(
-                extra_deps_group="nlp",
-                conda_package="transformers",
-                conda_channel="conda-forge",
+                extra_deps_group='nlp',
+                conda_package='transformers',
+                conda_channel='conda-forge',
             ) from e
         hf_tokenizer = None
-        hf_tokenizer_state = hf_state["tokenizer"]
+        hf_tokenizer_state = hf_state['tokenizer']
         if hf_tokenizer_state != {}:
             if tokenizer_save_dir is None:
-                unique_suffix = "".join(
-                    random.choices(string.ascii_letters + string.digits, k=6)
-                )
+                unique_suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6),)
                 tokenizer_save_dir = os.path.join(
-                    os.getcwd(), f"tokenizer-save-dir-{unique_suffix}"
+                    os.getcwd(),
+                    f'tokenizer-save-dir-{unique_suffix}',
                 )
             os.makedirs(tokenizer_save_dir, exist_ok=True)
 
@@ -301,36 +287,34 @@ class HuggingFaceModel(ComposerModel):
                 # being persistent on disk
 
                 # For backwards compatibility, check if the filename already has the file extension
-                if filename.endswith(saved_content["file_extension"]):
+                if filename.endswith(saved_content['file_extension']):
                     tokenizer_file_name = filename
                 else:
-                    tokenizer_file_name = filename + saved_content["file_extension"]
+                    tokenizer_file_name = filename + saved_content['file_extension']
 
                 tokenizer_file_path = Path(tokenizer_save_dir) / tokenizer_file_name
-                if saved_content["file_extension"] == ".json":
-                    with open(tokenizer_file_path, "w", encoding="utf-8") as _f:
-                        json.dump(saved_content["content"], _f)
-                elif saved_content["file_extension"] == ".txt":
-                    with open(tokenizer_file_path, "w", encoding="utf-8") as _f:
-                        for line in saved_content["content"]:
+                if saved_content['file_extension'] == '.json':
+                    with open(tokenizer_file_path, 'w', encoding='utf-8') as _f:
+                        json.dump(saved_content['content'], _f)
+                elif saved_content['file_extension'] == '.txt':
+                    with open(tokenizer_file_path, 'w', encoding='utf-8') as _f:
+                        for line in saved_content['content']:
                             _f.write(line)
-                            _f.write("\n")
-                elif saved_content["file_extension"] == ".py":
-                    with open(tokenizer_file_path, "w", encoding="utf-8") as _f:
-                        _f.write(saved_content["content"])
-                elif saved_content["file_extension"] == ".model":
+                            _f.write('\n')
+                elif saved_content['file_extension'] == '.py':
+                    with open(tokenizer_file_path, 'w', encoding='utf-8') as _f:
+                        _f.write(saved_content['content'])
+                elif saved_content['file_extension'] == '.model':
                     try:
                         import sentencepiece as spm
                     except ImportError as e:
                         raise MissingConditionalImportError(
-                            extra_deps_group="sentencepiece",
-                            conda_package="sentencepiece",
+                            extra_deps_group='sentencepiece',
+                            conda_package='sentencepiece',
                         ) from e
                     s = spm.SentencePieceProcessor()
-                    s.load_from_serialized_proto(
-                        saved_content["content"]
-                    )  # pyright: ignore[reportGeneralTypeIssues]
-                    with open(tokenizer_file_path, "wb") as _f:
+                    s.load_from_serialized_proto(saved_content['content'],)  # pyright: ignore[reportGeneralTypeIssues]
+                    with open(tokenizer_file_path, 'wb') as _f:
                         _f.write(s.serialized_model_proto())
 
             hf_tokenizer = transformers.AutoTokenizer.from_pretrained(
@@ -341,19 +325,16 @@ class HuggingFaceModel(ComposerModel):
             # we need to set the name_or_path back because otherwise it is the tmp dir we are loading from here
             # For backwards compatibility we try both the old and new key
             tokenizer_config_key = (
-                "tokenizer_config.json"
-                if "tokenizer_config.json" in hf_tokenizer_state
-                else "tokenizer_config"
+                'tokenizer_config.json' if 'tokenizer_config.json' in hf_tokenizer_state else 'tokenizer_config'
             )
-            hf_tokenizer.name_or_path = hf_tokenizer_state[tokenizer_config_key][
-                "content"
-            ].get("name_or_path", "")
-            hf_tokenizer.init_kwargs["name_or_path"] = hf_tokenizer.name_or_path
+            hf_tokenizer.name_or_path = hf_tokenizer_state[tokenizer_config_key]['content'].get('name_or_path', '')
+            hf_tokenizer.init_kwargs['name_or_path'] = hf_tokenizer.name_or_path
 
             # for an unknown reason this key is missing when loading the saved tokenizer, but present with a value of None
             # for the original tokenizer, so we default it to None
-            hf_tokenizer.init_kwargs["tokenizer_file"] = hf_tokenizer.init_kwargs.get(
-                "tokenizer_file", None
+            hf_tokenizer.init_kwargs['tokenizer_file'] = hf_tokenizer.init_kwargs.get(
+                'tokenizer_file',
+                None,
             )
         return hf_tokenizer
 
@@ -381,29 +362,30 @@ class HuggingFaceModel(ComposerModel):
             import transformers
         except ImportError as e:
             raise MissingConditionalImportError(
-                extra_deps_group="nlp",
-                conda_package="transformers",
-                conda_channel="conda-forge",
+                extra_deps_group='nlp',
+                conda_package='transformers',
+                conda_channel='conda-forge',
             ) from e
         loaded_config = get_hf_config_from_composer_state_dict(
-            loaded_state_dict, config_overrides=model_config_kwargs
+            loaded_state_dict,
+            config_overrides=model_config_kwargs,
         )
 
-        hf_model_state = hf_state["model"]
+        hf_model_state = hf_state['model']
         if model_instantiation_class is not None:
             # If the instantiation class is explicitly provided, use it
             # If a string is provided, attempt to import the class it refers to
             if isinstance(model_instantiation_class, str):
                 try:
                     model_instantiation_class = import_object(
-                        ":".join(model_instantiation_class.rsplit(".", maxsplit=1)),
+                        ':'.join(model_instantiation_class.rsplit('.', maxsplit=1)),
                     )
                 except (ModuleNotFoundError, AttributeError):
                     raise ValueError(
                         textwrap.dedent(
-                            f"The provided model_instantiation_class string {model_instantiation_class} could not be imported. "
-                            f"Please make sure {model_instantiation_class} is discoverable on the python path, or pass the class "
-                            "in directly.",
+                            f'The provided model_instantiation_class string {model_instantiation_class} could not be imported. '
+                            f'Please make sure {model_instantiation_class} is discoverable on the python path, or pass the class '
+                            'in directly.',
                         ),
                     )
 
@@ -420,16 +402,14 @@ class HuggingFaceModel(ComposerModel):
         else:
             # If the instantiation class is not explicitly provided, attempt to import the saved class and use it
             try:
-                saved_class = import_object(
-                    ":".join(hf_model_state["config"]["class"].rsplit(".", maxsplit=1))
-                )
+                saved_class = import_object(':'.join(hf_model_state['config']['class'].rsplit('.', maxsplit=1)),)
             except (ModuleNotFoundError, AttributeError):
                 raise ValueError(
                     textwrap.dedent(
                         f'The saved class {hf_model_state["config"]["class"]} could not be imported. '
-                        "Please either pass in the class to use explicitly via the model_instantiation_class "
+                        'Please either pass in the class to use explicitly via the model_instantiation_class '
                         f'parameter, or make sure that {hf_model_state["config"]["class"]} is discoverable '
-                        "on the python path.",
+                        'on the python path.',
                     ),
                 )
             hf_model = saved_class(loaded_config)
@@ -438,25 +418,18 @@ class HuggingFaceModel(ComposerModel):
     @staticmethod
     def hf_from_composer_checkpoint(
         checkpoint_path: str,
-        model_instantiation_class: Optional[
-            Union[
-                Type[transformers.PreTrainedModel],
-                Type["_BaseAutoModelClass"],
-                str,
-            ]
-        ] = None,
+        model_instantiation_class: Optional[Union[Type[transformers.PreTrainedModel],
+                                                  Type['_BaseAutoModelClass'],
+                                                  str,
+                                                 ]] = None,
         model_config_kwargs: Optional[dict] = None,
         local_checkpoint_save_location: Optional[Union[Path, str]] = None,
         trust_remote_code: bool = False,
-    ) -> Tuple[
-        transformers.PreTrainedModel,
-        Optional[
-            Union[
-                transformers.PreTrainedTokenizer,
-                transformers.PreTrainedTokenizerFast,
-            ]
-        ],
-    ]:
+    ) -> Tuple[transformers.PreTrainedModel,
+               Optional[Union[transformers.PreTrainedTokenizer,
+                              transformers.PreTrainedTokenizerFast,
+                             ]],
+              ]:
         """Loads a HuggingFace model (and tokenizer if present) from a composer checkpoint.
 
         .. note:: This function does not load the weights from the checkpoint. It just loads the correctly configured
@@ -524,9 +497,7 @@ class HuggingFaceModel(ComposerModel):
         # default local path to a tempfile if path is not provided
         if local_checkpoint_save_location is None:
             tmp_dir = tempfile.TemporaryDirectory()
-            local_checkpoint_save_location = (
-                Path(tmp_dir.name) / "local-composer-checkpoint.pt"
-            )
+            local_checkpoint_save_location = (Path(tmp_dir.name) / 'local-composer-checkpoint.pt')
 
         if model_config_kwargs is None:
             model_config_kwargs = {}
@@ -537,9 +508,10 @@ class HuggingFaceModel(ComposerModel):
         # load the state dict in
         loaded_state_dict = safe_torch_load(local_checkpoint_save_location)
 
-        hf_state = loaded_state_dict["state"]["integrations"]["huggingface"]
+        hf_state = loaded_state_dict['state']['integrations']['huggingface']
         hf_tokenizer = HuggingFaceModel.load_huggingface_tokenizer_from_saved_state(
-            hf_state, trust_remote_code
+            hf_state,
+            trust_remote_code,
         )
         hf_model = HuggingFaceModel.load_huggingface_model_from_saved_state(
             hf_state,
@@ -557,13 +529,13 @@ class HuggingFaceModel(ComposerModel):
             output = self.model(**batch)  # type: ignore (thirdparty)
         else:
             raise ValueError(
-                "Unexpected batch type. Expected a dictionary with keys corresponding to the inputs to the forward function of the Huggingface model",
+                'Unexpected batch type. Expected a dictionary with keys corresponding to the inputs to the forward function of the Huggingface model',
             )
         return output
 
     def loss(self, outputs, batch):
         if self.config.use_return_dict:
-            return outputs["loss"]
+            return outputs['loss']
         else:
             # loss is at index 0 in the output tuple
             return outputs[0]
@@ -572,77 +544,70 @@ class HuggingFaceModel(ComposerModel):
         # If the batch mode is generate, we will generate a requested number of tokens using the underlying
         # model's generate function. Extra generation kwargs can be passed in via the batch. Strings will
         # be returned from eval_forward
-        if batch.get("mode", None) == "generate":
+        if batch.get('mode', None) == 'generate':
             if self.tokenizer is None:
                 raise ValueError(
-                    "Generation eval cannot be used without providing a tokenizer to the model constructor.",
+                    'Generation eval cannot be used without providing a tokenizer to the model constructor.',
                 )
 
-            if "generation_length" in batch:
+            if 'generation_length' in batch:
                 warnings.warn(
                     VersionedDeprecationWarning(
-                        "`generation_length` has been deprecated in favor of passing `max_new_tokens` directly into `generation_kwargs`.",
-                        remove_version="0.21.0",
+                        '`generation_length` has been deprecated in favor of passing `max_new_tokens` directly into `generation_kwargs`.',
+                        remove_version='0.21.0',
                     ),
                 )
-                if "generation_kwargs" in batch:
-                    batch["generation_kwargs"]["max_new_tokens"] = batch[
-                        "generation_length"
-                    ]
+                if 'generation_kwargs' in batch:
+                    batch['generation_kwargs']['max_new_tokens'] = batch['generation_length']
                 else:
-                    batch["generation_kwargs"] = {
-                        "max_new_tokens": batch["generation_length"]
+                    batch['generation_kwargs'] = {
+                        'max_new_tokens': batch['generation_length'],
                     }
 
             generation = self.generate(
-                batch["input_ids"],
-                attention_mask=batch["attention_mask"],
+                batch['input_ids'],
+                attention_mask=batch['attention_mask'],
                 synced_gpus=dist.get_world_size() > 1,
-                **batch.get("generation_kwargs", {}),
+                **batch.get('generation_kwargs', {}),
             )
 
             # don't remove prefix space to sentencepiece models
             if (
                 len(
-                    self.tokenizer(" a", add_special_tokens=False)[
-                        "input_ids"
-                    ],  # pyright: ignore[reportGeneralTypeIssues]
-                )
-                == 1
+                    self.tokenizer(' a',
+                                   add_special_tokens=False)['input_ids'],  # pyright: ignore[reportGeneralTypeIssues]
+                ) == 1
             ):
                 return self.tokenizer.batch_decode(
-                    generation[:, batch["input_ids"].shape[1] :],
+                    generation[:, batch['input_ids'].shape[1]:],
                     skip_special_tokens=True,
                 )
             else:
                 return [
-                    " " + generation
-                    for generation in self.tokenizer.batch_decode(
-                        generation[:, batch["input_ids"].shape[1] :],
+                    ' ' + generation for generation in self.tokenizer.batch_decode(
+                        generation[:, batch['input_ids'].shape[1]:],
                         skip_special_tokens=True,
                     )
                 ]
 
-        if self.use_logits or batch.get("mode", None) == "icl_task":
+        if self.use_logits or batch.get('mode', None) == 'icl_task':
             # HF encoder decoder models like T5 expect either decoder_input_ids or labels,
             # so we add decoder_input_ids to the batch if it is missing
-            if self.config.is_encoder_decoder and "decoder_input_ids" not in batch:
-                if hasattr(self.model, "prepare_decoder_input_ids_from_labels"):
-                    batch["decoder_input_ids"] = (
-                        self.model.prepare_decoder_input_ids_from_labels(
-                            labels=batch["labels"]
-                        )
+            if self.config.is_encoder_decoder and 'decoder_input_ids' not in batch:
+                if hasattr(self.model, 'prepare_decoder_input_ids_from_labels'):
+                    batch['decoder_input_ids'] = (
+                        self.model.prepare_decoder_input_ids_from_labels(labels=batch['labels'],)
                     )
                 else:
                     raise RuntimeError(
-                        "Encoder decoder models require that either decoder_input_ids is present in the batch"
-                        " or that the model has a prepare_decoder_input_ids_from_labels method.",
+                        'Encoder decoder models require that either decoder_input_ids is present in the batch'
+                        ' or that the model has a prepare_decoder_input_ids_from_labels method.',
                     )
 
             output = outputs if outputs else self.forward(batch)
 
             if self.config.use_return_dict:
-                output = output["logits"]
+                output = output['logits']
             else:
                 # if loss was computed (cached outputs from forward), loss is at index 0 and logits are at index 1
                 # if loss was not computed (no cached outputs during eval), loss is not present and logits are at index 0
@@ -666,32 +631,29 @@ class HuggingFaceModel(ComposerModel):
 
     def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> Dict:
 
-        if (
-            batch.get("mode", None) == "generate"
-            or self.use_logits
-            or batch.get("mode", None) == "icl_task"
-        ):
-            self.labels = batch["labels"]
+        if (batch.get('mode', None) == 'generate' or self.use_logits or batch.get('mode', None) == 'icl_task'):
+            self.labels = batch['labels']
 
         if (self.use_logits and self.shift_labels) or batch.get(
-            "mode", None
-        ) == "icl_task":
+            'mode',
+            None,
+        ) == 'icl_task':
             assert self.labels is not None
             # HF CausalLM models internally shift labels before computing loss, so we do the same here
             self.labels[:, :-1] = self.labels[:, 1:].clone()
             self.labels[:, -1] = -100
 
-        if getattr(metric, "needs_batch", False):
+        if getattr(metric, 'needs_batch', False):
             metric_result = metric.update(
-                batch=batch, outputs=outputs, labels=self.labels
+                batch=batch,
+                outputs=outputs,
+                labels=self.labels,
             )
         else:
             metric_result = metric.update(outputs, self.labels)
         if metric_result is not None:
             # Add the metric name once for each datapoint in the batch
-            metric_result["metric_name"] = [
-                metric.__class__.__name__ for _ in range(0, batch["input_ids"].shape[0])
-            ]
+            metric_result['metric_name'] = [metric.__class__.__name__ for _ in range(0, batch['input_ids'].shape[0])]
         else:
             metric_result = {}
         return metric_result
@@ -701,21 +663,21 @@ class HuggingFaceModel(ComposerModel):
         tokenizer_output = {}
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_dir = Path(tmp_dir)
-            model_dir = tmp_dir / "model"
-            tokenizer_dir = tmp_dir / "tokenizer"
+            model_dir = tmp_dir / 'model'
+            tokenizer_dir = tmp_dir / 'tokenizer'
 
             original_model_config: PretrainedConfig = self.config
             original_model_config.save_pretrained(model_dir)
             if self.tokenizer is not None:
                 self.tokenizer.save_pretrained(tokenizer_dir)
 
-            with open(model_dir / "config.json") as _config_file:
+            with open(model_dir / 'config.json') as _config_file:
                 model_config = json.load(_config_file)
 
-            model_output["config"] = {
-                "file_extension": ".json",
-                "content": model_config,
-                "class": f"{self.model.__class__.__module__}.{self.model.__class__.__name__}",
+            model_output['config'] = {
+                'file_extension': '.json',
+                'content': model_config,
+                'class': f'{self.model.__class__.__module__}.{self.model.__class__.__name__}',
             }
 
             # Also save PEFT config if the model is a peft model
@@ -723,55 +685,57 @@ class HuggingFaceModel(ComposerModel):
                 active_adapter = self.model.active_adapter
                 assert isinstance(active_adapter, str)
                 self.model.peft_config[active_adapter].save_pretrained(str(model_dir))
-                with open(model_dir / "adapter_config.json") as _peft_config_file:
+                with open(model_dir / 'adapter_config.json') as _peft_config_file:
                     peft_config = json.load(_peft_config_file)
 
-                model_output["peft_config"] = {
-                    "file_extension": ".json",
-                    "content": peft_config,
+                model_output['peft_config'] = {
+                    'file_extension': '.json',
+                    'content': peft_config,
                 }
 
             if self.tokenizer is not None:
                 for tokenizer_file_name in tokenizer_dir.iterdir():
                     tokenizer_file_path = tokenizer_dir / tokenizer_file_name
                     tokenizer_file_extension = tokenizer_file_path.suffix
-                    if tokenizer_file_extension == ".txt":
+                    if tokenizer_file_extension == '.txt':
                         with open(
-                            tokenizer_file_path, encoding="utf-8"
+                            tokenizer_file_path,
+                            encoding='utf-8',
                         ) as _tokenizer_file:
-                            tokenizer_file_content = _tokenizer_file.read().split("\n")
-                    elif tokenizer_file_extension == ".json":
-                        with open(tokenizer_file_path, "rb") as _tokenizer_file:
+                            tokenizer_file_content = _tokenizer_file.read().split('\n')
+                    elif tokenizer_file_extension == '.json':
+                        with open(tokenizer_file_path, 'rb') as _tokenizer_file:
                             tokenizer_file_content = json.load(_tokenizer_file)
-                    elif tokenizer_file_extension == ".py":
+                    elif tokenizer_file_extension == '.py':
                         with open(
-                            tokenizer_file_path, encoding="utf-8"
+                            tokenizer_file_path,
+                            encoding='utf-8',
                         ) as _tokenizer_file:
                             tokenizer_file_content = _tokenizer_file.read()
-                    elif tokenizer_file_extension == ".model":
+                    elif tokenizer_file_extension == '.model':
                         try:
                             import sentencepiece as spm
                         except ImportError as e:
                             raise MissingConditionalImportError(
-                                extra_deps_group="sentencepiece",
-                                conda_package="sentencepiece",
+                                extra_deps_group='sentencepiece',
+                                conda_package='sentencepiece',
                             ) from e
                         s = spm.SentencePieceProcessor(
                             model_file=str(
-                                tokenizer_file_path
+                                tokenizer_file_path,
                             ),  # pyright: ignore[reportGeneralTypeIssues]
                         )
                         tokenizer_file_content = s.serialized_model_proto()
                     else:
                         raise ValueError(
-                            f"Unexpected file ending {tokenizer_file_name} in output of tokenizer.save_pretrained.",
+                            f'Unexpected file ending {tokenizer_file_name} in output of tokenizer.save_pretrained.',
                         )
 
                     tokenizer_output[tokenizer_file_path.name] = {
-                        "file_extension": tokenizer_file_extension,
-                        "content": tokenizer_file_content,
+                        'file_extension': tokenizer_file_extension,
+                        'content': tokenizer_file_content,
                     }
-        return {"model": model_output, "tokenizer": tokenizer_output}
+        return {'model': model_output, 'tokenizer': tokenizer_output}
 
     def generate(self, input_ids: torch.Tensor, **kwargs):
         """Generate from the underlying HuggingFace model.
@@ -785,7 +749,7 @@ class HuggingFaceModel(ComposerModel):
                 See :class:`transformers.GenerationConfig` for all available arguments.
         """
         pad_token_id = kwargs.pop(
-            "pad_token_id",
+            'pad_token_id',
             self.tokenizer.pad_token_id if self.tokenizer is not None else None,
         )
 
@@ -799,18 +763,22 @@ class HuggingFaceModel(ComposerModel):
             # Note: We use recurse=False here so that we only summon full params for the LM head, not the entire model.
             with FSDP.summon_full_params(self.model, writeback=False, recurse=False):
                 return self.model.generate(
-                    input_ids=input_ids, pad_token_id=pad_token_id, **kwargs
+                    input_ids=input_ids,
+                    pad_token_id=pad_token_id,
+                    **kwargs,
                 )
         else:
             return self.model.generate(
-                input_ids=input_ids, pad_token_id=pad_token_id, **kwargs
+                input_ids=input_ids,
+                pad_token_id=pad_token_id,
+                **kwargs,
             )
 
 
 def _maybe_get_peft_model(
-    peft_config: "PeftConfig",
-    model: Union[transformers.PreTrainedModel, "PeftModel"],
-) -> "PeftModel":
+    peft_config: 'PeftConfig',
+    model: Union[transformers.PreTrainedModel, 'PeftModel'],
+) -> 'PeftModel':
     """Creates a PEFT model if the model is not already a PEFT model.
 
     Args:
@@ -822,24 +790,24 @@ def _maybe_get_peft_model(
     """
     if not peft_installed:
         raise MissingConditionalImportError(
-            extra_deps_group="peft", conda_package="peft", conda_channel="conda-forge"
+            extra_deps_group='peft',
+            conda_package='peft',
+            conda_channel='conda-forge',
         )
 
     if not isinstance(model, PeftModel):
-        log.info("Creating PEFT model")
+        log.info('Creating PEFT model')
         peft_model = get_peft_model(model, peft_config)
         assert isinstance(peft_model, PeftModel)
         return peft_model
     else:
-        warnings.warn(
-            "PEFT model was passed in directly. Ignoring the provided PEFT config."
-        )
+        warnings.warn('PEFT model was passed in directly. Ignoring the provided PEFT config.',)
         return model
 
 
 def maybe_get_underlying_model(
-    model: Union[transformers.PreTrainedModel, "PeftModel"],
-) -> Union[transformers.PreTrainedModel, "PeftModel"]:
+    model: Union[transformers.PreTrainedModel, 'PeftModel'],
+) -> Union[transformers.PreTrainedModel, 'PeftModel']:
     """Get the underlying PreTrainedModel from a model if it is a PEFT model
 
     Args:
@@ -854,17 +822,15 @@ def maybe_get_underlying_model(
         return model
 
 
-def _is_registered_causal_lm(
-    model: Union[transformers.PreTrainedModel, "PeftModel"]
-) -> bool:
+def _is_registered_causal_lm(model: Union[transformers.PreTrainedModel, 'PeftModel'],) -> bool:
     """Return True if model class is either a registered 🤗 Causal LM or a subclass of one"""
     try:
         from transformers.models.auto.modeling_auto import MODEL_FOR_CAUSAL_LM_MAPPING
     except ImportError as e:
         raise MissingConditionalImportError(
-            extra_deps_group="nlp",
-            conda_package="transformers",
-            conda_channel="conda-forge",
+            extra_deps_group='nlp',
+            conda_package='transformers',
+            conda_channel='conda-forge',
         ) from e
 
     model_to_check = maybe_get_underlying_model(model)
@@ -875,7 +841,7 @@ def _is_registered_causal_lm(
     try:
         causal_lm_classes = list(MODEL_FOR_CAUSAL_LM_MAPPING.values())
     except RuntimeError as e:
-        if "Failed to import transformers.models" in str(e):
+        if 'Failed to import transformers.models' in str(e):
             MODEL_FOR_CAUSAL_LM_MAPPING = {}
             return False
         else:
@@ -886,7 +852,7 @@ def _is_registered_causal_lm(
 def get_hf_config_from_composer_state_dict(
     state_dict: Dict[str, Any],
     config_overrides: Optional[Dict[str, Any]] = None,
-) -> "PretrainedConfig":
+) -> 'PretrainedConfig':
     """Get a HuggingFace config from a composer state dict with overrides applied
 
     Args:
@@ -900,43 +866,38 @@ def get_hf_config_from_composer_state_dict(
         import transformers
     except ImportError as e:
         raise MissingConditionalImportError(
-            extra_deps_group="nlp",
-            conda_package="transformers",
-            conda_channel="conda-forge",
+            extra_deps_group='nlp',
+            conda_package='transformers',
+            conda_channel='conda-forge',
         ) from e
 
     if config_overrides is None:
         config_overrides = {}
 
-    hf_config_dict = state_dict["state"]["integrations"]["huggingface"]["model"][
-        "config"
-    ]["content"]
+    hf_config_dict = state_dict['state']['integrations']['huggingface']['model']['config']['content']
     # Update the config with any extra args needed
     hf_config_dict.update(config_overrides)
     # JSON keys need to be converted back to ints, huggingface does not auto convert them along this code path
-    if "id2label" in hf_config_dict:
-        hf_config_dict["id2label"] = {
-            int(k): v for k, v in hf_config_dict["id2label"].items()
-        }
+    if 'id2label' in hf_config_dict:
+        hf_config_dict['id2label'] = {int(k): v for k, v in hf_config_dict['id2label'].items()}
 
     try:
         return transformers.AutoConfig.for_model(**hf_config_dict)
     except ValueError:
         try:
             return transformers.AutoConfig.from_pretrained(
-                hf_config_dict["_name_or_path"], **hf_config_dict
+                hf_config_dict['_name_or_path'],
+                **hf_config_dict,
             )
         except KeyError:
             raise Exception(
-                f"Could not load config from state dict using either `for_model` or `from_pretrained`."
+                f'Could not load config from state dict using either `for_model` or `from_pretrained`.'
                 f'Please make sure that the model_type={hf_config_dict.get("model_type")} is valid, or that the'
-                f"config has a valid `_name_or_path`.",
+                f'config has a valid `_name_or_path`.',
             )
 
 
-def get_peft_config_from_composer_state_dict(
-    state_dict: Dict[str, Any]
-) -> Optional["PeftConfig"]:
+def get_peft_config_from_composer_state_dict(state_dict: Dict[str, Any],) -> Optional['PeftConfig']:
     """Get a PEFT config from a composer state dict
 
     Args:
@@ -949,16 +910,16 @@ def get_peft_config_from_composer_state_dict(
         import peft
     except ImportError as e:
         raise MissingConditionalImportError(
-            extra_deps_group="nlp",
-            conda_package="peft",
-            conda_channel="conda-forge",
+            extra_deps_group='nlp',
+            conda_package='peft',
+            conda_channel='conda-forge',
         ) from e
 
-    hf_model_dict = state_dict["state"]["integrations"]["huggingface"]["model"]
-    if "peft_config" not in hf_model_dict:
+    hf_model_dict = state_dict['state']['integrations']['huggingface']['model']
+    if 'peft_config' not in hf_model_dict:
         return None
 
-    peft_config_dict = hf_model_dict["peft_config"]["content"]
+    peft_config_dict = hf_model_dict['peft_config']['content']
 
     return peft.get_peft_config(peft_config_dict)
 
@@ -1019,17 +980,15 @@ def write_huggingface_pretrained_from_composer_checkpoint(
         del transformers
     except ImportError as e:
         raise MissingConditionalImportError(
-            extra_deps_group="nlp",
-            conda_package="transformers",
-            conda_channel="conda-forge",
+            extra_deps_group='nlp',
+            conda_package='transformers',
+            conda_channel='conda-forge',
         ) from e
 
     # default local path to a tempfile if path is not provided
     if local_checkpoint_save_location is None:
         tmp_dir = tempfile.TemporaryDirectory()
-        local_checkpoint_save_location = (
-            Path(tmp_dir.name) / "local-composer-checkpoint.pt"
-        )
+        local_checkpoint_save_location = (Path(tmp_dir.name) / 'local-composer-checkpoint.pt')
 
     # download the checkpoint file
     get_file(str(checkpoint_path), str(local_checkpoint_save_location))
@@ -1037,10 +996,8 @@ def write_huggingface_pretrained_from_composer_checkpoint(
     composer_state_dict = safe_torch_load(local_checkpoint_save_location)
 
     # load tokenizer
-    hf_state = composer_state_dict["state"]["integrations"]["huggingface"]
-    hf_tokenizer = HuggingFaceModel.load_huggingface_tokenizer_from_saved_state(
-        hf_state
-    )
+    hf_state = composer_state_dict['state']['integrations']['huggingface']
+    hf_tokenizer = HuggingFaceModel.load_huggingface_tokenizer_from_saved_state(hf_state,)
     assert hf_tokenizer is not None
     hf_tokenizer.save_pretrained(output_folder)
 
@@ -1051,26 +1008,29 @@ def write_huggingface_pretrained_from_composer_checkpoint(
     if peft_config is not None:
         peft_config.save_pretrained(str(output_folder))
 
-    weights_state_dict = composer_state_dict["state"]["model"]
+    weights_state_dict = composer_state_dict['state']['model']
     torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(
-        weights_state_dict, prefix="model."
+        weights_state_dict,
+        prefix='model.',
     )
 
     # NOTE: This only works for default adapter name, not multiple adapters
     if peft_config is not None:
         weights_state_dict = filter_state_dict_peft(
-            weights_state_dict, peft_config, adapter_name="default"
+            weights_state_dict,
+            peft_config,
+            adapter_name='default',
         )
 
-        torch.save(weights_state_dict, Path(output_folder) / "adapter_model.bin")
+        torch.save(weights_state_dict, Path(output_folder) / 'adapter_model.bin')
     else:
-        torch.save(weights_state_dict, Path(output_folder) / "pytorch_model.bin")
+        torch.save(weights_state_dict, Path(output_folder) / 'pytorch_model.bin')
 
 
 def filter_state_dict_peft(
     state_dict: Dict[str, Any],
-    peft_config: "PeftConfig",
-    adapter_name: str = "default",
+    peft_config: 'PeftConfig',
+    adapter_name: str = 'default',
     remove_adapter_names: bool = True,
 ) -> Dict[str, Any]:
     """Filter a state dict to only include the weights needed for a PEFT model
@@ -1087,35 +1047,27 @@ def filter_state_dict_peft(
         Dict[str, Any]: The filtered state dict
     """
 
-    if peft_config.peft_type != "LORA":
-        raise NotImplementedError(
-            f"Only LoRA PEFT is supported. Got {peft_config.peft_type}"
-        )
+    if peft_config.peft_type != 'LORA':
+        raise NotImplementedError(f'Only LoRA PEFT is supported. Got {peft_config.peft_type}',)
 
     # Filtering copied from https://github.com/huggingface/peft/blob/4186c9b104644fd247a4cc0dc2dfc1ede4665204/src/peft/utils/save_and_load.py#L68C1-L86C116
     bias = peft_config.bias  # type: ignore
-    if bias == "none":
-        to_return = {k: state_dict[k] for k in state_dict if "lora_" in k}
-    elif bias == "all":
-        to_return = {
-            k: state_dict[k] for k in state_dict if "lora_" in k or "bias" in k
-        }
-    elif bias == "lora_only":
+    if bias == 'none':
+        to_return = {k: state_dict[k] for k in state_dict if 'lora_' in k}
+    elif bias == 'all':
+        to_return = {k: state_dict[k] for k in state_dict if 'lora_' in k or 'bias' in k}
+    elif bias == 'lora_only':
         to_return = {}
         for k in state_dict:
-            if "lora_" in k:
+            if 'lora_' in k:
                 to_return[k] = state_dict[k]
-                bias_name = k.split("lora_")[0] + "bias"
+                bias_name = k.split('lora_')[0] + 'bias'
                 if bias_name in state_dict:
                     to_return[bias_name] = state_dict[bias_name]
     else:
         raise NotImplementedError
-    to_return = {
-        k: v
-        for k, v in to_return.items()
-        if (("lora_" in k and adapter_name in k) or ("bias" in k))
-    }
+    to_return = {k: v for k, v in to_return.items() if (('lora_' in k and adapter_name in k) or ('bias' in k))}
 
     if remove_adapter_names:
-        to_return = {k.replace(f".{adapter_name}", ""): v for k, v in to_return.items()}
+        to_return = {k.replace(f'.{adapter_name}', ''): v for k, v in to_return.items()}
     return to_return
