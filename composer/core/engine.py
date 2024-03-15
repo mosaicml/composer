@@ -83,6 +83,7 @@ from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.state import State
 from composer.loggers import Logger, LoggerDestination
+from composer.loggers.mosaicml_logger import log_run_analytics
 from composer.profiler import ProfilerAction
 from composer.utils import ensure_tuple
 
@@ -293,6 +294,10 @@ class Engine():
             self._run_loggers(event)
             self._run_nonlogger_callbacks(event)
             traces = self._run_algorithms(event)
+
+            # If a MosaicMLLogger is present, log analytics for the run to metadata.
+            log_run_analytics(self.logger.destinations)
+
         else:
             traces = self._run_algorithms(event)
             # Run callbacks first, so any log calls from a callback that are executed lazily

@@ -15,7 +15,7 @@ import time
 import warnings
 from concurrent.futures import wait
 from functools import reduce
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 import mcli
 import torch
@@ -73,10 +73,12 @@ class MosaicMLLogger(LoggerDestination):
         log_interval: int = 60,
         ignore_keys: Optional[List[str]] = None,
         ignore_exceptions: bool = False,
+        analytics_data: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.log_interval = log_interval
         self.ignore_keys = ignore_keys
         self.ignore_exceptions = ignore_exceptions
+        self.analytics_data = analytics_data
         self._enabled = dist.get_global_rank() == 0
         if self._enabled:
             self.time_last_logged = 0
@@ -100,15 +102,18 @@ class MosaicMLLogger(LoggerDestination):
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         self._log_metadata(metrics)
 
-    def log_analytics(
-        self,
-        autoresume: bool,
-        trainer_state: State,
-        save_interval: Union[str, int, Time, Callable[[State, Event], bool]],
-        loggers: List[LoggerDestination],
-        load_path: Optional[str] = None,
-        save_folder: Optional[str] = None,
-    ) -> None:
+    def log_analytics(self,) -> None:
+        if self.analytics_data is None:
+            return
+
+        # Fetch / cast metrics that we want to log from self.analytics_data
+        autoresume: bool = self.analytics_data['autoresume']
+        trainer_state: State = self.analytics_data['state']
+        save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = self.analytics_data['save_interval']
+        loggers: List[LoggerDestination] = self.analytics_data['loggers']
+        load_path: Union[str, None] = self.analytics_data['load_path']
+        save_folder: Union[str, None] = self.analytics_data['save_folder']
+
         metrics: Dict[str, Any] = {'composer/autoresume': autoresume, 'composer/precision': trainer_state.precision}
 
         train_dataloader = trainer_state.train_dataloader
@@ -369,3 +374,10 @@ def exception_to_json_serializable_dict(exc: Exception):
             except AttributeError:
                 pass
     return exc_data
+
+
+def log_run_analytics(loggers: Tuple[LoggerDestination, ...]):
+    """Log run analytics to MosaicML, if a MosaicMLLogger is available in the list."""
+    mosaicml_logger = next((logger for logger in loggers if isinstance(logger, MosaicMLLogger)), None)
+    if mosaicml_logger is not None:
+        mosaicml_logger.log_analytics()

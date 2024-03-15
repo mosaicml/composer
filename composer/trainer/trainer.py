@@ -1284,7 +1284,16 @@ class Trainer:
             MOSAICML_ACCESS_TOKEN_ENV_VAR,
         ) is not None and not any(isinstance(x, MosaicMLLogger) for x in loggers):
             log.info('Detected run on MosaicML platform. Adding MosaicMLLogger to loggers.')
-            mosaicml_logger = MosaicMLLogger()
+            mosaicml_logger = MosaicMLLogger(
+                analytics_data={
+                    'autoresume': autoresume,
+                    'state': self.state,
+                    'save_interval': save_interval,
+                    'loggers': loggers,
+                    'load_path': load_path,
+                    'save_folder': save_folder,
+                },
+            )
             loggers.append(mosaicml_logger)
 
         # Remote Uploader Downloader
@@ -1698,17 +1707,6 @@ class Trainer:
                 algorithm_passes=self.engine.algorithm_passes,
             )
             self.state.run_name = run_name
-
-        if next((logger for logger in loggers if isinstance(logger, MosaicMLLogger)), None) is not None:
-            mosaicml_logger = next((logger for logger in loggers if isinstance(logger, MosaicMLLogger)))
-            mosaicml_logger.log_analytics(
-                autoresume,
-                self.state,
-                save_interval,
-                loggers,
-                load_path,
-                save_folder,
-            )
 
         # FSDP wrap if model is not yet wrapped and FSDP is enabled. This can happen if
         # load_fsdp_monolith_rank0_only=True but no checkpoint was loaded.
