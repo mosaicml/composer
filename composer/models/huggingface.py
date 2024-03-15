@@ -581,10 +581,9 @@ class HuggingFaceModel(ComposerModel):
 
         return metrics if metrics else {}
 
-    def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> Dict:
-
+    def shift_batch_labels(self, batch: Any):
         if (self.use_logits or batch.get('mode', None) == 'icl_task' or batch.get('mode', None) == 'generate'):
-            self.labels = batch["labels"]
+            self.labels = batch['labels']
 
         if (self.use_logits and self.shift_labels and
             batch.get('mode', None) != 'generate') or batch.get('mode', None) == 'icl_task':
@@ -592,6 +591,9 @@ class HuggingFaceModel(ComposerModel):
             # HF CausalLM models internally shift labels before computing loss, so we do the same here
             self.labels[:, :-1] = self.labels[:, 1:].clone()
             self.labels[:, -1] = -100
+
+    def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> Dict:
+        self.shift_batch_labels(batch)
 
         if getattr(metric, 'needs_batch', False):
             metric_result = metric.update(batch=batch, outputs=outputs, labels=self.labels)
