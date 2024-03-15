@@ -377,7 +377,7 @@ def exception_to_json_serializable_dict(exc: Exception):
 
 
 def log_run_analytics(loggers: Tuple[LoggerDestination, ...]):
-    """Log run analytics to MosaicML, if a MosaicMLLogger is available in the list."""
+    """Log run analytics to metadata if a MosaicMLLogger is available in the list."""
     mosaicml_logger = next((logger for logger in loggers if isinstance(logger, MosaicMLLogger)), None)
     if mosaicml_logger is not None:
         mosaicml_logger.log_analytics()
