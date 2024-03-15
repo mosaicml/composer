@@ -16,36 +16,17 @@ import tempfile
 import textwrap
 import warnings
 from pathlib import Path
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Dict,
-    List,
-    Mapping,
-    Optional,
-    Set,
-    Tuple,
-    Type,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Set, Tuple, Type, Union
 
 import torch
 from torchmetrics import Metric
 
 from composer.models.base import ComposerModel
-from composer.utils import (
-    MissingConditionalImportError,
-    dist,
-    get_file,
-    import_object,
-    is_model_fsdp,
-    safe_torch_load,
-)
+from composer.utils import MissingConditionalImportError, dist, get_file, import_object, is_model_fsdp, safe_torch_load
 from composer.utils.warnings import VersionedDeprecationWarning
 
 try:
     from peft import PeftModel, get_peft_model
-
     peft_installed = True
 except:
     peft_installed = False
@@ -98,9 +79,7 @@ class HuggingFaceModel(ComposerModel):
     def __init__(
         self,
         model: Union[transformers.PreTrainedModel, 'PeftModel'],
-        tokenizer: Optional[Union[transformers.PreTrainedTokenizer,
-                                  transformers.PreTrainedTokenizerFast,
-                                 ]] = None,
+        tokenizer: Optional[Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]] = None,
         use_logits: Optional[bool] = False,
         metrics: Optional[List[Metric]] = None,
         eval_metrics: Optional[List[Metric]] = None,
@@ -111,7 +90,6 @@ class HuggingFaceModel(ComposerModel):
     ) -> None:
         try:
             import transformers
-
             del transformers  # unused
         except ImportError as e:
             raise MissingConditionalImportError(
@@ -150,13 +128,11 @@ class HuggingFaceModel(ComposerModel):
         self.use_logits = use_logits
         self.labels: Optional[torch.Tensor] = None  # set in eval_forward() if exists
         self.dummy_forward_called = False  # Used to make FSDP generate work, see generate function for more details
-        self.train_metrics: Optional[Dict] = (self._get_metric_dict(metrics) if metrics is not None else None)
-        self.val_metrics: Optional[Dict] = (
-            self._get_metric_dict(
-                eval_metrics,
-            ) if eval_metrics is not None else copy.deepcopy(
-                self.train_metrics,
-            )
+        self.train_metrics: Optional[Dict] = self._get_metric_dict(metrics) if metrics is not None else None
+        self.val_metrics: Optional[Dict] = self._get_metric_dict(
+            eval_metrics,
+        ) if eval_metrics is not None else copy.deepcopy(
+            self.train_metrics,
         )
 
         is_causal_lm = _is_registered_causal_lm(self.model)
@@ -176,10 +152,7 @@ class HuggingFaceModel(ComposerModel):
 
         self.using_peft = isinstance(self.model, PeftModel) if peft_installed else False
 
-    def _check_tokenizer_and_maybe_resize_embeddings(
-        self,
-        allow_embedding_resizing: bool,
-    ) -> None:
+    def _check_tokenizer_and_maybe_resize_embeddings(self, allow_embedding_resizing: bool) -> None:
         if self.tokenizer is None:
             log.warning(
                 'The tokenizer was not provided. This means the tokenizer config will not be saved in the checkpoint.',
@@ -203,7 +176,7 @@ class HuggingFaceModel(ComposerModel):
                     f' by calling `model.resize_token_embeddings(len(tokenizer))` before calling the `HuggingFaceModel`'
                     f' constructor, or pass `allow_embedding_resizing=True` to have it done automatically.',
                 )
-        elif self.tokenizer is not None and self.config.vocab_size > len(self.tokenizer,):
+        elif self.tokenizer is not None and self.config.vocab_size > len(self.tokenizer):
             # when the embedding size is greater than the tokenizer vocab size,
             # the embeddings do not _need_ to be resized to match the tokenizer vocab size,
             # and should be done by the user if desired
@@ -221,10 +194,10 @@ class HuggingFaceModel(ComposerModel):
 
     def _get_model_forward_args(self) -> Set[str]:
         """Returns the arguments to the model's forward function."""
-        model_forward_args = inspect.signature(maybe_get_underlying_model(self.model).forward,).parameters.keys()
+        model_forward_args = inspect.signature(maybe_get_underlying_model(self.model).forward).parameters.keys()
 
         if not model_forward_args:
-            raise ValueError('Could not determine the forward arguments of the model. Please open a GitHub issue.',)
+            raise ValueError('Could not determine the forward arguments of the model. Please open a GitHub issue.')
 
         model_forward_args = set(model_forward_args)
 
@@ -275,11 +248,8 @@ class HuggingFaceModel(ComposerModel):
         hf_tokenizer_state = hf_state['tokenizer']
         if hf_tokenizer_state != {}:
             if tokenizer_save_dir is None:
-                unique_suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6),)
-                tokenizer_save_dir = os.path.join(
-                    os.getcwd(),
-                    f'tokenizer-save-dir-{unique_suffix}',
-                )
+                unique_suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+                tokenizer_save_dir = os.path.join(os.getcwd(), f'tokenizer-save-dir-{unique_suffix}')
             os.makedirs(tokenizer_save_dir, exist_ok=True)
 
             for filename, saved_content in hf_tokenizer_state.items():
@@ -313,7 +283,7 @@ class HuggingFaceModel(ComposerModel):
                             conda_package='sentencepiece',
                         ) from e
                     s = spm.SentencePieceProcessor()
-                    s.load_from_serialized_proto(saved_content['content'],)  # pyright: ignore[reportGeneralTypeIssues]
+                    s.load_from_serialized_proto(saved_content['content'])  # pyright: ignore[reportGeneralTypeIssues]
                     with open(tokenizer_file_path, 'wb') as _f:
                         _f.write(s.serialized_model_proto())
 
@@ -324,18 +294,13 @@ class HuggingFaceModel(ComposerModel):
 
             # we need to set the name_or_path back because otherwise it is the tmp dir we are loading from here
             # For backwards compatibility we try both the old and new key
-            tokenizer_config_key = (
-                'tokenizer_config.json' if 'tokenizer_config.json' in hf_tokenizer_state else 'tokenizer_config'
-            )
+            tokenizer_config_key = 'tokenizer_config.json' if 'tokenizer_config.json' in hf_tokenizer_state else 'tokenizer_config'
             hf_tokenizer.name_or_path = hf_tokenizer_state[tokenizer_config_key]['content'].get('name_or_path', '')
             hf_tokenizer.init_kwargs['name_or_path'] = hf_tokenizer.name_or_path
 
             # for an unknown reason this key is missing when loading the saved tokenizer, but present with a value of None
             # for the original tokenizer, so we default it to None
-            hf_tokenizer.init_kwargs['tokenizer_file'] = hf_tokenizer.init_kwargs.get(
-                'tokenizer_file',
-                None,
-            )
+            hf_tokenizer.init_kwargs['tokenizer_file'] = hf_tokenizer.init_kwargs.get('tokenizer_file', None)
         return hf_tokenizer
 
     @staticmethod
@@ -366,10 +331,7 @@ class HuggingFaceModel(ComposerModel):
                 conda_package='transformers',
                 conda_channel='conda-forge',
             ) from e
-        loaded_config = get_hf_config_from_composer_state_dict(
-            loaded_state_dict,
-            config_overrides=model_config_kwargs,
-        )
+        loaded_config = get_hf_config_from_composer_state_dict(loaded_state_dict, config_overrides=model_config_kwargs)
 
         hf_model_state = hf_state['model']
         if model_instantiation_class is not None:
@@ -402,7 +364,7 @@ class HuggingFaceModel(ComposerModel):
         else:
             # If the instantiation class is not explicitly provided, attempt to import the saved class and use it
             try:
-                saved_class = import_object(':'.join(hf_model_state['config']['class'].rsplit('.', maxsplit=1)),)
+                saved_class = import_object(':'.join(hf_model_state['config']['class'].rsplit('.', maxsplit=1)))
             except (ModuleNotFoundError, AttributeError):
                 raise ValueError(
                     textwrap.dedent(
@@ -497,7 +459,7 @@ class HuggingFaceModel(ComposerModel):
         # default local path to a tempfile if path is not provided
         if local_checkpoint_save_location is None:
             tmp_dir = tempfile.TemporaryDirectory()
-            local_checkpoint_save_location = (Path(tmp_dir.name) / 'local-composer-checkpoint.pt')
+            local_checkpoint_save_location = Path(tmp_dir.name) / 'local-composer-checkpoint.pt'
 
         if model_config_kwargs is None:
             model_config_kwargs = {}
@@ -509,10 +471,7 @@ class HuggingFaceModel(ComposerModel):
         loaded_state_dict = safe_torch_load(local_checkpoint_save_location)
 
         hf_state = loaded_state_dict['state']['integrations']['huggingface']
-        hf_tokenizer = HuggingFaceModel.load_huggingface_tokenizer_from_saved_state(
-            hf_state,
-            trust_remote_code,
-        )
+        hf_tokenizer = HuggingFaceModel.load_huggingface_tokenizer_from_saved_state(hf_state, trust_remote_code)
         hf_model = HuggingFaceModel.load_huggingface_model_from_saved_state(
             hf_state,
             loaded_state_dict,
@@ -560,9 +519,7 @@ class HuggingFaceModel(ComposerModel):
                 if 'generation_kwargs' in batch:
                     batch['generation_kwargs']['max_new_tokens'] = batch['generation_length']
                 else:
-                    batch['generation_kwargs'] = {
-                        'max_new_tokens': batch['generation_length'],
-                    }
+                    batch['generation_kwargs'] = {'max_new_tokens': batch['generation_length']}
 
             generation = self.generate(
                 batch['input_ids'],
@@ -572,22 +529,17 @@ class HuggingFaceModel(ComposerModel):
             )
 
             # don't remove prefix space to sentencepiece models
-            if (
-                len(
-                    self.tokenizer(' a',
-                                   add_special_tokens=False)['input_ids'],  # pyright: ignore[reportGeneralTypeIssues]
-                ) == 1
-            ):
+            if len(
+                self.tokenizer(' a', add_special_tokens=False)['input_ids'],  # pyright: ignore[reportGeneralTypeIssues]
+            ) == 1:
                 return self.tokenizer.batch_decode(
                     generation[:, batch['input_ids'].shape[1]:],
                     skip_special_tokens=True,
                 )
             else:
                 return [
-                    ' ' + generation for generation in self.tokenizer.batch_decode(
-                        generation[:, batch['input_ids'].shape[1]:],
-                        skip_special_tokens=True,
-                    )
+                    ' ' + generation for generation in
+                    self.tokenizer.batch_decode(generation[:, batch['input_ids'].shape[1]:], skip_special_tokens=True)
                 ]
 
         if self.use_logits or batch.get('mode', None) == 'icl_task':
@@ -595,8 +547,8 @@ class HuggingFaceModel(ComposerModel):
             # so we add decoder_input_ids to the batch if it is missing
             if self.config.is_encoder_decoder and 'decoder_input_ids' not in batch:
                 if hasattr(self.model, 'prepare_decoder_input_ids_from_labels'):
-                    batch['decoder_input_ids'] = (
-                        self.model.prepare_decoder_input_ids_from_labels(labels=batch['labels'],)
+                    batch['decoder_input_ids'] = self.model.prepare_decoder_input_ids_from_labels(
+                        labels=batch['labels'],
                     )
                 else:
                     raise RuntimeError(
@@ -631,24 +583,17 @@ class HuggingFaceModel(ComposerModel):
 
     def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> Dict:
 
-        if (batch.get('mode', None) == 'generate' or self.use_logits or batch.get('mode', None) == 'icl_task'):
+        if self.use_logits or batch.get('mode', None) == 'icl_task' or batch.get('mode', None) == 'generate':
             self.labels = batch['labels']
 
-        if (self.use_logits and self.shift_labels) or batch.get(
-            'mode',
-            None,
-        ) == 'icl_task':
+        if (self.u and self.shift_labels) or batch.get('mode', None) == 'icl_task':
             assert self.labels is not None
             # HF CausalLM models internally shift labels before computing loss, so we do the same here
             self.labels[:, :-1] = self.labels[:, 1:].clone()
             self.labels[:, -1] = -100
 
         if getattr(metric, 'needs_batch', False):
-            metric_result = metric.update(
-                batch=batch,
-                outputs=outputs,
-                labels=self.labels,
-            )
+            metric_result = metric.update(batch=batch, outputs=outputs, labels=self.labels)
         else:
             metric_result = metric.update(outputs, self.labels)
         if metric_result is not None:
@@ -698,19 +643,13 @@ class HuggingFaceModel(ComposerModel):
                     tokenizer_file_path = tokenizer_dir / tokenizer_file_name
                     tokenizer_file_extension = tokenizer_file_path.suffix
                     if tokenizer_file_extension == '.txt':
-                        with open(
-                            tokenizer_file_path,
-                            encoding='utf-8',
-                        ) as _tokenizer_file:
+                        with open(tokenizer_file_path, encoding='utf-8') as _tokenizer_file:
                             tokenizer_file_content = _tokenizer_file.read().split('\n')
                     elif tokenizer_file_extension == '.json':
                         with open(tokenizer_file_path, 'rb') as _tokenizer_file:
                             tokenizer_file_content = json.load(_tokenizer_file)
                     elif tokenizer_file_extension == '.py':
-                        with open(
-                            tokenizer_file_path,
-                            encoding='utf-8',
-                        ) as _tokenizer_file:
+                        with open(tokenizer_file_path, encoding='utf-8') as _tokenizer_file:
                             tokenizer_file_content = _tokenizer_file.read()
                     elif tokenizer_file_extension == '.model':
                         try:
@@ -721,9 +660,7 @@ class HuggingFaceModel(ComposerModel):
                                 conda_package='sentencepiece',
                             ) from e
                         s = spm.SentencePieceProcessor(
-                            model_file=str(
-                                tokenizer_file_path,
-                            ),  # pyright: ignore[reportGeneralTypeIssues]
+                            model_file=str(tokenizer_file_path),  # pyright: ignore[reportGeneralTypeIssues]
                         )
                         tokenizer_file_content = s.serialized_model_proto()
                     else:
@@ -748,10 +685,7 @@ class HuggingFaceModel(ComposerModel):
             **kwargs: Additional arguments passed to :meth:`transformers.GenerationMixin.generate` function.
                 See :class:`transformers.GenerationConfig` for all available arguments.
         """
-        pad_token_id = kwargs.pop(
-            'pad_token_id',
-            self.tokenizer.pad_token_id if self.tokenizer is not None else None,
-        )
+        pad_token_id = kwargs.pop('pad_token_id', self.tokenizer.pad_token_id if self.tokenizer is not None else None)
 
         if is_model_fsdp(self.model):
             from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -762,17 +696,9 @@ class HuggingFaceModel(ComposerModel):
             # for more info.
             # Note: We use recurse=False here so that we only summon full params for the LM head, not the entire model.
             with FSDP.summon_full_params(self.model, writeback=False, recurse=False):
-                return self.model.generate(
-                    input_ids=input_ids,
-                    pad_token_id=pad_token_id,
-                    **kwargs,
-                )
+                return self.model.generate(input_ids=input_ids, pad_token_id=pad_token_id, **kwargs)
         else:
-            return self.model.generate(
-                input_ids=input_ids,
-                pad_token_id=pad_token_id,
-                **kwargs,
-            )
+            return self.model.generate(input_ids=input_ids, pad_token_id=pad_token_id, **kwargs)
 
 
 def _maybe_get_peft_model(
@@ -789,11 +715,7 @@ def _maybe_get_peft_model(
         PeftModel: The PEFT model
     """
     if not peft_installed:
-        raise MissingConditionalImportError(
-            extra_deps_group='peft',
-            conda_package='peft',
-            conda_channel='conda-forge',
-        )
+        raise MissingConditionalImportError(extra_deps_group='peft', conda_package='peft', conda_channel='conda-forge')
 
     if not isinstance(model, PeftModel):
         log.info('Creating PEFT model')
@@ -801,7 +723,7 @@ def _maybe_get_peft_model(
         assert isinstance(peft_model, PeftModel)
         return peft_model
     else:
-        warnings.warn('PEFT model was passed in directly. Ignoring the provided PEFT config.',)
+        warnings.warn('PEFT model was passed in directly. Ignoring the provided PEFT config.')
         return model
 
 
@@ -822,7 +744,7 @@ def maybe_get_underlying_model(
         return model
 
 
-def _is_registered_causal_lm(model: Union[transformers.PreTrainedModel, 'PeftModel'],) -> bool:
+def _is_registered_causal_lm(model: Union[transformers.PreTrainedModel, 'PeftModel']) -> bool:
     """Return True if model class is either a registered 🤗 Causal LM or a subclass of one"""
     try:
         from transformers.models.auto.modeling_auto import MODEL_FOR_CAUSAL_LM_MAPPING
@@ -885,10 +807,7 @@ def get_hf_config_from_composer_state_dict(
         return transformers.AutoConfig.for_model(**hf_config_dict)
     except ValueError:
         try:
-            return transformers.AutoConfig.from_pretrained(
-                hf_config_dict['_name_or_path'],
-                **hf_config_dict,
-            )
+            return transformers.AutoConfig.from_pretrained(hf_config_dict['_name_or_path'], **hf_config_dict)
         except KeyError:
             raise Exception(
                 f'Could not load config from state dict using either `for_model` or `from_pretrained`.'
@@ -897,7 +816,7 @@ def get_hf_config_from_composer_state_dict(
             )
 
 
-def get_peft_config_from_composer_state_dict(state_dict: Dict[str, Any],) -> Optional['PeftConfig']:
+def get_peft_config_from_composer_state_dict(state_dict: Dict[str, Any]) -> Optional['PeftConfig']:
     """Get a PEFT config from a composer state dict
 
     Args:
@@ -976,7 +895,6 @@ def write_huggingface_pretrained_from_composer_checkpoint(
     """
     try:
         import transformers
-
         del transformers
     except ImportError as e:
         raise MissingConditionalImportError(
@@ -988,7 +906,7 @@ def write_huggingface_pretrained_from_composer_checkpoint(
     # default local path to a tempfile if path is not provided
     if local_checkpoint_save_location is None:
         tmp_dir = tempfile.TemporaryDirectory()
-        local_checkpoint_save_location = (Path(tmp_dir.name) / 'local-composer-checkpoint.pt')
+        local_checkpoint_save_location = Path(tmp_dir.name) / 'local-composer-checkpoint.pt'
 
     # download the checkpoint file
     get_file(str(checkpoint_path), str(local_checkpoint_save_location))
@@ -997,7 +915,7 @@ def write_huggingface_pretrained_from_composer_checkpoint(
 
     # load tokenizer
     hf_state = composer_state_dict['state']['integrations']['huggingface']
-    hf_tokenizer = HuggingFaceModel.load_huggingface_tokenizer_from_saved_state(hf_state,)
+    hf_tokenizer = HuggingFaceModel.load_huggingface_tokenizer_from_saved_state(hf_state)
     assert hf_tokenizer is not None
     hf_tokenizer.save_pretrained(output_folder)
 
@@ -1009,18 +927,11 @@ def write_huggingface_pretrained_from_composer_checkpoint(
         peft_config.save_pretrained(str(output_folder))
 
     weights_state_dict = composer_state_dict['state']['model']
-    torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(
-        weights_state_dict,
-        prefix='model.',
-    )
+    torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(weights_state_dict, prefix='model.')
 
     # NOTE: This only works for default adapter name, not multiple adapters
     if peft_config is not None:
-        weights_state_dict = filter_state_dict_peft(
-            weights_state_dict,
-            peft_config,
-            adapter_name='default',
-        )
+        weights_state_dict = filter_state_dict_peft(weights_state_dict, peft_config, adapter_name='default')
 
         torch.save(weights_state_dict, Path(output_folder) / 'adapter_model.bin')
     else:
@@ -1048,7 +959,7 @@ def filter_state_dict_peft(
     """
 
     if peft_config.peft_type != 'LORA':
-        raise NotImplementedError(f'Only LoRA PEFT is supported. Got {peft_config.peft_type}',)
+        raise NotImplementedError(f'Only LoRA PEFT is supported. Got {peft_config.peft_type}')
 
     # Filtering copied from https://github.com/huggingface/peft/blob/4186c9b104644fd247a4cc0dc2dfc1ede4665204/src/peft/utils/save_and_load.py#L68C1-L86C116
     bias = peft_config.bias  # type: ignore
