@@ -565,7 +565,7 @@ def _raise_if_max_duration_exceeds_t_max(t_max: Union[str, Time], state: State):
 def _raise_if_warmup_and_max_incompatible(t_warmup: Time[int], t_max: Time[int]):
     """Checks that t_warmup and t_max have the same units.
 
-    _convert_time should be called on both before this function is called. As a a result, t_warmup and t_max will not
+    _convert_time should be called on both `t_warmup` and `t_max` before this function is called. As a a result, t_warmup and t_max will not
     be TimeUnit.EPOCH.
     """
     assert t_warmup.unit != TimeUnit.EPOCH and t_max.unit != TimeUnit.EPOCH, 't_warmup and t_max cannot be in units of EPOCH'
