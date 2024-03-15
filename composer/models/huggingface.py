@@ -23,6 +23,7 @@ from torchmetrics import Metric
 
 from composer.models.base import ComposerModel
 from composer.utils import MissingConditionalImportError, dist, get_file, import_object, is_model_fsdp, safe_torch_load
+from composer.utils.warnings import VersionedDeprecationWarning
 
 try:
     from peft import PeftModel, get_peft_model
@@ -510,11 +511,10 @@ class HuggingFaceModel(ComposerModel):
 
             if 'generation_length' in batch:
                 warnings.warn(
-                    (
-                        '`generation_length` has been deprecated in favor of passing `max_new_tokens` directly into `generation_kwargs`.'
-                        'It will be removed in v0.21'
+                    VersionedDeprecationWarning(
+                        '`generation_length` has been deprecated in favor of passing `max_new_tokens` directly into `generation_kwargs`.',
+                        remove_version='0.21.0',
                     ),
-                    DeprecationWarning,
                 )
                 if 'generation_kwargs' in batch:
                     batch['generation_kwargs']['max_new_tokens'] = batch['generation_length']
@@ -531,8 +531,8 @@ class HuggingFaceModel(ComposerModel):
 
             # don't remove prefix space to sentencepiece models
             if len(
-                self.tokenizer(' a', add_special_tokens=False)['input_ids'],
-            ) == 1:  # pyright: ignore[reportGeneralTypeIssues]
+                self.tokenizer(' a', add_special_tokens=False)['input_ids'],  # pyright: ignore[reportGeneralTypeIssues]
+            ) == 1:
                 return self.tokenizer.batch_decode(
                     generation[:, batch['input_ids'].shape[1]:],
                     skip_special_tokens=True,
@@ -658,8 +658,8 @@ class HuggingFaceModel(ComposerModel):
                                 conda_package='sentencepiece',
                             ) from e
                         s = spm.SentencePieceProcessor(
-                            model_file=str(tokenizer_file_path),
-                        )  # pyright: ignore[reportGeneralTypeIssues]
+                            model_file=str(tokenizer_file_path),  # pyright: ignore[reportGeneralTypeIssues]
+                        )
                         tokenizer_file_content = s.serialized_model_proto()
                     else:
                         raise ValueError(
