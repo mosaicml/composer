@@ -1,7 +1,7 @@
 # Copyright 2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Utilities for creating and loading compressed files"""
+"""Utilities for creating and loading compressed files."""
 
 import shutil
 import subprocess
