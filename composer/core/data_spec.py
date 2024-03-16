@@ -114,6 +114,9 @@ def _default_split_batch(batch: Any, microbatch_size: int) -> Sequence:
     )
 
 
+default_split_batch = _default_split_batch
+
+
 class DataSpec:
     """Specifications for operating and training on data.
 
@@ -184,7 +187,7 @@ class DataSpec:
         self.dataloader: Union[Iterable, torch.utils.data.DataLoader] = dataloader
         self.num_tokens = num_tokens
         self.device_transforms = self._default_device_transforms if device_transforms is None else device_transforms
-        self.split_batch = _default_split_batch if split_batch is None else split_batch
+        self.split_batch = default_split_batch if split_batch is None else split_batch
         self.get_num_samples_in_batch = self._default_get_num_samples_in_batch if get_num_samples_in_batch is None else get_num_samples_in_batch
         self.get_num_tokens_in_batch = self._default_get_num_tokens_in_batch if get_num_tokens_in_batch is None else get_num_tokens_in_batch
 
