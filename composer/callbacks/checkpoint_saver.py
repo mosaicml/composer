@@ -108,7 +108,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
                 *   To write to compressed pt files (when DeepSpeed is disabled), set the file extension to
                     ``'.pt.bz2'``, ``'.pt.gz'``, ``'.pt.lz4'``, ``'.pt.lzma'``, ``'.pt.lzo'``, ``'.pt.xz'``,
-                    ``'.pt.zstd'``
+                    ``'.pt.zst'``
                     (depending on the desired algorithm). You must have the corresponding CLI tool installed.
                     ``lz4`` is a good choice for a modest space saving while being very fast to compress.
 

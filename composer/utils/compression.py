@@ -90,5 +90,5 @@ KNOWN_COMPRESSORS = [
     CliCompressor('lzma'),
     CliCompressor('lzo', 'lzop'),
     CliCompressor('xz'),
-    CliCompressor('zstd'),
+    CliCompressor('zst', 'zstd'),
 ]
