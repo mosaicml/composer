@@ -1,6 +1,8 @@
 # Copyright 2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Utilities for creating and loading compressed files"""
+
 import shutil
 import subprocess
 from contextlib import contextmanager
@@ -24,7 +26,7 @@ def is_compressed_pt(filename: str) -> bool:
 
 
 class CliCompressor:
-    """Base class for data compression CLI tools"""
+    """Base class for data compression CLI tools."""
 
     def __init__(self, extension: str, cmd: Optional[str] = None) -> None:
         self.extension = extension
@@ -36,7 +38,7 @@ class CliCompressor:
 
     def check_exists(self) -> None:
         if not self.exists:
-            raise CompressorNotFound(f'could not find command "{self.cmd}" in the PATH')
+            raise CompressorNotFound(f'Could not find command "{self.cmd}" in the PATH.')
 
     def _compress_cmd(self) -> List[str]:
         return [self.cmd]
@@ -71,11 +73,14 @@ class CliCompressor:
 
 
 def get_compressor(filename: str) -> CliCompressor:
+    """Obtain the compressor that supports the format of the given file."""
+    if not is_compressed_pt(filename):
+        raise ValueError(f'The given filename does not correspond to a compressed file: "{filename}".')
     extension = filename.split('.')[-1]
     for c in KNOWN_COMPRESSORS:
         if c.extension == extension:
             return c
-    raise CompressorNotFound(f'could not find compressor for "{filename}"')
+    raise CompressorNotFound(f'Could not find compressor for "{filename}".')
 
 
 KNOWN_COMPRESSORS = [
