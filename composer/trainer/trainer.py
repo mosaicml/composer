@@ -466,6 +466,10 @@ def _generate_run_name() -> str:
 
 
 def _get_sampler(dataloader: Any) -> Sampler | None:
+    """Checks if dataloader is `torch.utils.data.DataLoader` and return the batch_sampler if defined,
+    else the regular sampler.
+    If `dataloader` is not a `torch.utils.data.DataLoader`, returns None.
+    """
     if not isinstance(dataloader, DataLoader):
         return
     if dataloader.batch_sampler is not None:
