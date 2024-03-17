@@ -48,7 +48,7 @@ from torch.distributed.fsdp._runtime_utils import _post_backward_final_callback
 from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim.lr_scheduler import LRScheduler
-from torch.utils.data import DataLoader, DistributedSampler
+from torch.utils.data import DataLoader, DistributedSampler, Sampler
 from torchmetrics import Metric
 
 from composer.callbacks import CheckpointSaver, MemorySnapshot, OOMObserver, OptimizerMonitor
@@ -465,13 +465,12 @@ def _generate_run_name() -> str:
     return generated_run_name
 
 
-def _get_dist_sampler(dataloader: Any) -> DistributedSampler | None:
+def _get_sampler(dataloader: Any) -> Sampler | None:
     if not isinstance(dataloader, DataLoader):
         return
-    if dataloader.sampler is not None:
-        return dataloader.sampler
-    else:
+    if dataloader.batch_sampler is not None:
         return dataloader.batch_sampler
+    return dataloader.sampler
 
 
 class Trainer:
@@ -2272,7 +2271,7 @@ class Trainer:
         eval_state = self.state.dataset_resumption.get('eval', {})
         for evaluator in self.state.evaluators:
             dataloader = evaluator.dataloader.dataloader
-            sampler = _get_dist_sampler(dataloader)
+            sampler = _get_sampler(dataloader)
             if isinstance(sampler, DistributedSampler):
                 sampler.set_epoch(0)
             if evaluator.label not in eval_state:
@@ -2284,7 +2283,7 @@ class Trainer:
         assert dataloader is not None, 'train dataloader is set on state after FIT_START'
         if 'train' not in self.state.dataset_resumption:
             for epoch in range(int(self.state.timestamp.epoch)):
-                sampler = _get_dist_sampler(dataloader)
+                sampler = _get_sampler(dataloader)
                 if isinstance(sampler, DistributedSampler):
                     sampler.set_epoch(epoch)
                 for _ in dataloader:
@@ -2368,10 +2367,10 @@ class Trainer:
                 self.logger.log_metrics({'time/epoch': self.state.timestamp.epoch.value})
 
             dataloader = self.state.dataloader
-            sampler = _get_dist_sampler(dataloader)
+            sampler = _get_sampler(dataloader)
             if isinstance(sampler, DistributedSampler):
                 sampler.set_epoch(int(self.state.timestamp.epoch))
-            
+
             for batch_idx, self.state.batch in enumerate(self._iter_dataloader(TrainerMode.TRAIN)):
                 # Spin dataloader forward unless dataloader handles internally with dataset_resumption
                 if self.spin_dataloaders and 'train' not in self.state.dataset_resumption and batch_idx < int(
@@ -3224,7 +3223,7 @@ class Trainer:
             drop_last = None
             dataset_len = None
             last_batch = False
-            sampler = _get_dist_sampler(dataloader)
+            sampler = _get_sampler(dataloader)
             if isinstance(sampler, DistributedSampler):
                 # The distributed sampler uses `set_epoch` to set the random seed
                 # Because evaluation can run on each batch, we use the batch to seed the sampler
