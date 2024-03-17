@@ -465,13 +465,11 @@ def _generate_run_name() -> str:
     return generated_run_name
 
 
-def _get_sampler(dataloader: Any) -> Sampler | None:
-    """Checks if dataloader is `torch.utils.data.DataLoader` and return the batch_sampler if defined,
-    else the regular sampler.
-    If `dataloader` is not a `torch.utils.data.DataLoader`, returns None.
+def _get_sampler(dataloader: DataLoader) -> Sampler | Iterable:
+    """Fetch the sampler from a `dataloader`.
+
+    Returns `dalaoder.batch_sampler` is defined, else `dataloader.sampler` (always defined in `Dataloader.__init__`).
     """
-    if not isinstance(dataloader, DataLoader):
-        return
     if dataloader.batch_sampler is not None:
         return dataloader.batch_sampler
     return dataloader.sampler
@@ -2284,7 +2282,7 @@ class Trainer:
         eval_state = self.state.dataset_resumption.get('eval', {})
         for evaluator in self.state.evaluators:
             dataloader = evaluator.dataloader.dataloader
-            sampler = _get_sampler(dataloader)
+            sampler = _get_sampler(dataloader) if isinstance(dataloader, DataLoader) else None
             if isinstance(sampler, DistributedSampler):
                 sampler.set_epoch(0)
             if evaluator.label not in eval_state:
@@ -2296,7 +2294,7 @@ class Trainer:
         assert dataloader is not None, 'train dataloader is set on state after FIT_START'
         if 'train' not in self.state.dataset_resumption:
             for epoch in range(int(self.state.timestamp.epoch)):
-                sampler = _get_sampler(dataloader)
+                sampler = _get_sampler(dataloader) if isinstance(dataloader, DataLoader) else None
                 if isinstance(sampler, DistributedSampler):
                     sampler.set_epoch(epoch)
                 for _ in dataloader:
@@ -2380,7 +2378,7 @@ class Trainer:
                 self.logger.log_metrics({'time/epoch': self.state.timestamp.epoch.value})
 
             dataloader = self.state.dataloader
-            sampler = _get_sampler(dataloader)
+            sampler = _get_sampler(dataloader) if isinstance(dataloader, DataLoader) else None
             if isinstance(sampler, DistributedSampler):
                 sampler.set_epoch(int(self.state.timestamp.epoch))
 
@@ -3240,8 +3238,8 @@ class Trainer:
             drop_last = None
             dataset_len = None
             last_batch = False
-            sampler = _get_sampler(dataloader)
-            if isinstance(sampler, DistributedSampler):
+            sampler = _get_sampler(dataloader) if isinstance(dataloader, DataLoader) else None
+            if isinstance(sampler, DistributedSampler) and isinstance(dataloader, DataLoader):
                 # The distributed sampler uses `set_epoch` to set the random seed
                 # Because evaluation can run on each batch, we use the batch to seed the sampler
                 # so each evaluation will get a proper shuffle.
