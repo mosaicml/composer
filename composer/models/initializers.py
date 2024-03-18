@@ -29,19 +29,19 @@ class Initializer(StringEnum):
         """
 
         def kaiming_normal(w: nn.Module):
-            if isinstance(w, torch.nn.Linear) or isinstance(w, torch.nn.Conv2d):
+            if isinstance(w, (torch.nn.Linear, torch.nn.Conv2d)):
                 torch.nn.init.kaiming_normal_(w.weight)
 
         def kaiming_uniform(w: nn.Module):
-            if isinstance(w, torch.nn.Linear) or isinstance(w, torch.nn.Conv2d):
+            if isinstance(w, (torch.nn.Linear, torch.nn.Conv2d)):
                 torch.nn.init.kaiming_uniform_(w.weight)
 
         def xavier_uniform(w: nn.Module):
-            if isinstance(w, torch.nn.Linear) or isinstance(w, torch.nn.Conv2d):
+            if isinstance(w, (torch.nn.Linear, torch.nn.Conv2d)):
                 torch.nn.init.xavier_uniform_(w.weight)
 
         def xavier_normal(w: nn.Module):
-            if isinstance(w, torch.nn.Linear) or isinstance(w, torch.nn.Conv2d):
+            if isinstance(w, (torch.nn.Linear, torch.nn.Conv2d)):
                 torch.nn.init.xavier_normal_(w.weight)
 
         def bn_ones(w: nn.Module):
