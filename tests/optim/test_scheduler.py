@@ -24,6 +24,7 @@ from composer.optim.scheduler import (
     PolynomialScheduler,
     PolynomialWithWarmupScheduler,
     StepScheduler,
+    _convert_time,
 )
 from composer.trainer.trainer import Trainer
 from tests.common.datasets import RandomClassificationDataset
@@ -367,19 +368,16 @@ def test_scheduler_trains(
 )
 @pytest.mark.parametrize('max_duration_unit', ['tok', 'sp', 'ba', 'ep'])
 @pytest.mark.parametrize('warmup_duration_unit', ['ba', 'tok', 'sp', 'ep', 'dur'])
+@pytest.mark.parametrize('scheduler_max_unit', ['ba', 'tok', 'sp', 'ep', 'dur'])
+@pytest.mark.parametrize('scheduler_max_pct', [0.75, 1.25])
 def test_warmup_schedulers_fail_fast(
     scheduler_class: Type[ComposerScheduler],
     max_duration_unit: str,
     warmup_duration_unit: str,
+    scheduler_max_unit: str,
+    scheduler_max_pct: float,
     dummy_schedulers_state: State,
 ):
-    if warmup_duration_unit == max_duration_unit or warmup_duration_unit == 'dur' or (
-        max_duration_unit == 'ep' and warmup_duration_unit == 'ba'
-    ) or (max_duration_unit == 'ba' and warmup_duration_unit == 'ep'):
-        error_context = contextlib.nullcontext()
-    else:
-        error_context = pytest.raises(ValueError, match='Cannot use warmup scheduler with max_duration')
-
     tokens_per_sample = 8
     samples_per_batch = 16
     batches_per_epoch = 32
@@ -393,6 +391,11 @@ def test_warmup_schedulers_fail_fast(
     warmup_samples = int(total_samples * warmup_duration_pct)
     warmup_tokens = int(total_tokens * warmup_duration_pct)
     warmup_epochs = int(num_epochs * warmup_duration_pct)
+
+    max_batches = int(total_batches * scheduler_max_pct)
+    max_samples = int(total_samples * scheduler_max_pct)
+    max_tokens = int(total_tokens * scheduler_max_pct)
+    max_epochs = int(num_epochs * scheduler_max_pct)
 
     max_duration_unit_to_str = {
         'tok': f'{total_tokens}tok',
@@ -409,19 +412,47 @@ def test_warmup_schedulers_fail_fast(
         'dur': f'{warmup_duration_pct}dur',
     }
 
+    scheduler_max_unit_to_str = {
+        'tok': f'{max_tokens}tok',
+        'sp': f'{max_samples}sp',
+        'ba': f'{max_batches}ba',
+        'ep': f'{max_epochs}ep',
+        'dur': f'{scheduler_max_pct}dur',
+    }
+
     max_duration_str = max_duration_unit_to_str[max_duration_unit]
     warmup_duration_str = warmup_duration_unit_to_str[warmup_duration_unit]
+    scheduler_max_str = scheduler_max_unit_to_str[scheduler_max_unit]
     num_steps = total_batches
 
     if scheduler_class == MultiStepWithWarmupScheduler:
         scheduler = scheduler_class(milestones=['60ba'], t_warmup=warmup_duration_str)  # type: ignore
     else:
-        scheduler = scheduler_class(t_warmup=warmup_duration_str)  # type: ignore
+        scheduler = scheduler_class(t_warmup=warmup_duration_str, t_max=scheduler_max_str)  # type: ignore
 
     state = dummy_schedulers_state
     state.max_duration = Time.from_timestring(max_duration_str)
     state.timestamp = Timestamp()
     state.set_dataloader([None] * batches_per_epoch, 'train')
+
+    effective_scheduler_max_unit = scheduler_max_unit if scheduler_max_unit != 'dur' else max_duration_unit
+    effective_warmup_duration_unit = warmup_duration_unit if warmup_duration_unit != 'dur' else max_duration_unit
+    max_duration_no_epoch = state.max_duration
+    if max_duration_unit == 'ep':
+        max_duration_no_epoch = Time.from_timestring(max_duration_unit_to_str['ba'])
+    error_context = contextlib.nullcontext()
+    if (
+        hasattr(scheduler, 't_max') and
+        not _units_comparable(effective_scheduler_max_unit, effective_warmup_duration_unit)
+    ):
+        error_context = pytest.raises(ValueError, match='Cannot use warmup scheduler')
+    elif (
+        hasattr(scheduler, 't_max') and
+        _units_comparable(effective_scheduler_max_unit, effective_warmup_duration_unit) and
+        _units_comparable(effective_scheduler_max_unit, max_duration_unit) and
+        _convert_time(scheduler_max_str, state) < max_duration_no_epoch
+    ):
+        error_context = pytest.raises(ValueError, match='must be greater than or equal to max_duration')
 
     with error_context:
         for _ in range(num_steps):
@@ -430,3 +461,13 @@ def test_warmup_schedulers_fail_fast(
                 samples=samples_per_batch,
                 tokens=tokens_per_sample * samples_per_batch,
             )
+
+
+def _units_comparable(unit1: str, unit2: str) -> bool:
+    if unit1 == unit2:
+        return True
+    if unit1 == 'ep' and unit2 == 'ba':
+        return True
+    if unit1 == 'ba' and unit2 == 'ep':
+        return True
+    return False
