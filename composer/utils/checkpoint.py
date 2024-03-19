@@ -1147,7 +1147,7 @@ def _save_checkpoint(
 def _write_checkpoint_file(state_dict: Dict[str, Any], filename: str) -> None:
     """Write the given checkpoint state to the given path. Compressing if indicated to do so by the file extension."""
     if is_tar(filename):
-        log.debug('writing checkpoint tar file %s', filename)
+        log.debug('Writing checkpoint tar file %s', filename)
         write_mode = _get_write_mode(filename)
 
         with tempfile.TemporaryDirectory(prefix='checkpoint') as tmpdir:
@@ -1158,13 +1158,13 @@ def _write_checkpoint_file(state_dict: Dict[str, Any], filename: str) -> None:
                 tarball.add(tmpdir, arcname='')
 
     elif is_compressed_pt(filename):
-        log.debug('writing compressed checkpoint %s', filename)
+        log.debug('Writing compressed checkpoint %s', filename)
         compressor = get_compressor(filename)
         with compressor.compress(filename) as f:
             torch.save(state_dict, f)
 
     else:
-        log.debug('writing uncompressed checkpoint %s', filename)
+        log.debug('Writing uncompressed checkpoint %s', filename)
         with open(filename, 'wb') as f:
             torch.save(state_dict, f)
 
