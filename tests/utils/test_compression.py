@@ -1,6 +1,7 @@
 # Copyright 2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import re
 from pathlib import Path
 
 import pytest
@@ -28,7 +29,7 @@ def test_is_compressed_pt() -> None:
 
 
 def test_get_invalid_compressor() -> None:
-    with pytest.raises(CompressorNotFound, match='could not find compressor for "foo.pt.unknown"'):
+    with pytest.raises(CompressorNotFound, match=re.escape('Could not find compressor for "foo.pt.unknown".')):
         get_compressor('foo.pt.unknown')
 
 

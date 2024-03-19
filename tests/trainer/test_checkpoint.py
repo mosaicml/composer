@@ -6,6 +6,7 @@ import copy
 import io
 import os
 import pathlib
+import re
 import shutil
 import tarfile
 import tempfile
@@ -226,7 +227,10 @@ def test_checkpoint_saver_folder_filename_path(folder: Union[str, pathlib.Path],
 
 
 def test_checkpoint_invalid_compressor(monkeypatch: pytest.MonkeyPatch):
-    with pytest.raises(CompressorNotFound, match='could not find compressor for "foo.pt.unknown_compressor"'):
+    with pytest.raises(
+        CompressorNotFound,
+        match=re.escape('Could not find compressor for "foo.pt.unknown_compressor".'),
+    ):
         CheckpointSaver(filename='foo.pt.unknown_compressor')
 
     import composer.utils.compression
@@ -236,7 +240,10 @@ def test_checkpoint_invalid_compressor(monkeypatch: pytest.MonkeyPatch):
         [CliCompressor('unknown_compressor', 'unknown_compressor_cmd')],
     )
 
-    with pytest.raises(CompressorNotFound, match='could not find command "unknown_compressor_cmd" in the PATH'):
+    with pytest.raises(
+        CompressorNotFound,
+        match=re.escape('Could not find command "unknown_compressor_cmd" in the PATH'),
+    ):
         CheckpointSaver(filename='foo.pt.unknown_compressor')
 
 
