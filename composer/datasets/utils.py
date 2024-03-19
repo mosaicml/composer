@@ -5,11 +5,14 @@
 
 import logging
 import textwrap
+import warnings
 from typing import Callable, List, Optional
 
 import torch
 from torchvision import transforms
 from torchvision.datasets import VisionDataset
+
+from composer.utils.warnings import VersionedDeprecationWarning
 
 __all__ = [
     'add_vision_dataset_transform',
@@ -78,6 +81,13 @@ try:
             tokenizer: transformers.PreTrainedTokenizerBase,
             batch_size: int,
         ) -> None:
+            warnings.warn(
+                VersionedDeprecationWarning(
+                    f'`MultiTokenEOSCriteria` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
+                    + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                    remove_version='0.23.0',
+                ),
+            )
             self.done_tracker = [False] * batch_size
             self.stop_sequence = stop_sequence
             self.stop_sequence_ids = tokenizer.encode(stop_sequence, add_special_tokens=False)
@@ -115,6 +125,13 @@ try:
         stop_sequences: List[str],
         batch_size: int,
     ) -> transformers.StoppingCriteriaList:
+        warnings.warn(
+            VersionedDeprecationWarning(
+                f'`stop_sequences_criteria` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
+                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                remove_version='0.23.0',
+            ),
+        )
         return transformers.StoppingCriteriaList([
             *[MultiTokenEOSCriteria(sequence, tokenizer, batch_size) for sequence in stop_sequences],
         ])

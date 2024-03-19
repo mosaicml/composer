@@ -203,6 +203,13 @@ class InContextLearningMetric(Metric):
     """Base class for In-context learning (ICL) metrics."""
 
     def __init__(self, *args, **kwargs):
+        warnings.warn(
+            VersionedDeprecationWarning(
+                f'`InContextLearningMetric` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
+                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                remove_version='0.23.0',
+            ),
+        )
         super().__init__(*args, **kwargs)
         self.needs_batch = True
 
@@ -310,6 +317,13 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
     full_state_update = False
 
     def __init__(self, dist_sync_on_step: bool = False):
+        warnings.warn(
+            VersionedDeprecationWarning(
+                f'`InContextLearningQAAccuracy` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
+                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                remove_version='0.23.0',
+            ),
+        )
         # state from multiple processes
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
@@ -413,6 +427,13 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
 
     def __init__(self, dist_sync_on_step: bool = False):
         # state from multiple processes
+        warnings.warn(
+            VersionedDeprecationWarning(
+                f'`InContextLearningLMAccuracy` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
+                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                remove_version='0.23.0',
+            ),
+        )
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
@@ -478,6 +499,13 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
     full_state_update = False
 
     def __init__(self, dist_sync_on_step: bool = False):
+        warnings.warn(
+            VersionedDeprecationWarning(
+                f'`InContextLearningMultipleChoiceAccuracy` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
+                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                remove_version='0.23.0',
+            ),
+        )
         # state from multiple processes
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.0), dist_reduce_fx='sum')
@@ -578,6 +606,13 @@ class InContextLearningExpectedCalibrationError(InContextLearningMetric):
 
     def __init__(self, dist_sync_on_step: bool = False, n_buckets: int = 10):
         # state from multiple processes
+        warnings.warn(
+            VersionedDeprecationWarning(
+                f'`InContextLearningExpectedCalibrationError` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
+                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                remove_version='0.23.0',
+            ),
+        )
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.n_buckets = n_buckets
         if n_buckets < 1:
@@ -722,6 +757,13 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
 
     def __init__(self, dist_sync_on_step: bool = False):
         # state from multiple processes
+        warnings.warn(
+            VersionedDeprecationWarning(
+                f'`InContextLearningCodeEvalAccuracy` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
+                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                remove_version='0.23.0',
+            ),
+        )
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
         self._initialized = False
