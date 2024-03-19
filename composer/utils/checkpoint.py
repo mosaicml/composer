@@ -1038,7 +1038,6 @@ def _save_checkpoint(
                 'integrations': state._get_integrations_state_dict(),
                 'metadata': state._get_state_metadata(),
             },
-            'rng': reproducibility.get_rng_state(),
         }
     else:
         state_dict = {
@@ -1055,7 +1054,7 @@ def _save_checkpoint(
         # Ensure state exists
         state_dict['state'] = state_dict.get('state', {})
 
-    if state.fsdp_sharded_state_dict_enabled:
+    if state.fsdp_sharded_state_dict_enabled and not weights_only:
         # Only rank 0 saves RNG
         if dist.get_global_rank() > 0:
             state_dict.pop('rng')
@@ -1064,7 +1063,7 @@ def _save_checkpoint(
         # requires a top level state dict key for the optimizer.
         # See https://github.com/pytorch/pytorch/blob/v2.0.1/torch/distributed/checkpoint/optimizer.py#L271
         # for more info.
-        if version.parse(torch.__version__) < version.parse('2.2.9') and not weights_only:
+        if version.parse(torch.__version__) < version.parse('2.2.9'):
             state_dict['optimizers'] = state_dict['state'].pop('optimizers')
 
     log.debug('State dict created.')

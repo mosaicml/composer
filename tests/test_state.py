@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader
 
 import composer
 from composer.core import Batch, Precision, State
+from composer.core.time import TimeUnit
 from composer.devices import DeviceCPU, DeviceGPU
 from composer.loggers import Logger
 from tests.common import SimpleModel, assert_state_equivalent
@@ -139,6 +140,22 @@ def test_state_batch_set_item(batch, key, val, request: pytest.FixtureRequest):
 
     state.batch_set_item(key=key, value=val)
     assert state.batch_get_item(key) == val
+
+
+@pytest.mark.parametrize('time_unit', [ # Does not test for TimeUnit.DURATION because max_duration cannot have TimeUnit.DURATION as its unit: https://github.com/mosaicml/composer/blob/1b9c6d3c0592183b947fd89890de0832366e33a7/composer/core/state.py#L628
+    TimeUnit.EPOCH,
+    TimeUnit.BATCH,
+    TimeUnit.SAMPLE,
+    TimeUnit.TOKEN,
+])
+def test_stop_training(time_unit: TimeUnit, request: pytest.FixtureRequest):
+    state = get_dummy_state(request)
+    state.max_duration = '10' + time_unit.value
+    state.stop_training()
+    if time_unit == TimeUnit.EPOCH:
+        assert state.max_duration == '0' + TimeUnit.BATCH.value
+    else:
+        assert state.max_duration == '0' + time_unit.value
 
 
 def test_composer_metadata_in_state_dict(tmp_path, request: pytest.FixtureRequest):

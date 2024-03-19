@@ -96,6 +96,10 @@ class MosaicMLLogger(LoggerDestination):
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         self._log_metadata(metrics)
 
+    def log_exception(self, exception: Exception):
+        self._log_metadata({'exception': exception_to_json_serializable_dict(exception)})
+        self._flush_metadata(force_flush=True)
+
     def after_load(self, state: State, logger: Logger) -> None:
         # Log model data downloaded and initialized for run events
         log.debug(f'Logging model initialized time to metadata')
@@ -263,3 +267,24 @@ def format_data_to_json_serializable(data: Any):
 
 def dict_to_str(data: Dict[str, Any]):
     return '\n'.join([f'\t{k}: {v}' for k, v in data.items()])
+
+
+def exception_to_json_serializable_dict(exc: Exception):
+    """Converts exception into a JSON serializable dictionary for run metadata."""
+    default_exc_attrs = set(dir(Exception()))
+    exc_data = {'class': exc.__class__.__name__, 'message': str(exc), 'attributes': {}}
+
+    for attr in dir(exc):
+        # Exclude default attributes and special methods
+        if attr not in default_exc_attrs and not attr.startswith('__'):
+            try:
+                value = getattr(exc, attr)
+                if callable(value):
+                    continue
+                if isinstance(value, (str, int, float, bool, list, dict, type(None))):
+                    exc_data['attributes'][attr] = value
+                else:
+                    exc_data['attributes'][attr] = str(value)
+            except AttributeError:
+                pass
+    return exc_data
