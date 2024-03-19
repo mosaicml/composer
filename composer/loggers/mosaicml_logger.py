@@ -15,11 +15,13 @@ import time
 import warnings
 from concurrent.futures import wait
 from functools import reduce
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 import mcli
 import torch
 import torch.utils.data
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.nn import Module
 
 from composer.core.event import Event
 from composer.core.time import Time, TimeUnit
@@ -66,6 +68,7 @@ class MosaicMLLogger(LoggerDestination):
 
             (default: ``None``)
         ignore_exceptions: Flag to disable logging exceptions. Defaults to False.
+        analytics_data (Dict[str, Any], optional): Analytical metrics to log about the current run. Defaults to ``None``.
     """
 
     def __init__(
@@ -168,7 +171,10 @@ class MosaicMLLogger(LoggerDestination):
                 False,
             )
             metrics['composer/forward_prefetch'] = trainer_state.fsdp_config.get('forward_prefetch', False)
-            metrics['composer/backward_prefetch'] = trainer_state.fsdp_config.get('backward_prefetch', None)
+            metrics['composer/backward_prefetch'] = trainer_state.fsdp_config.get(
+                'backward_prefetch',
+                FSDP(Module()).backward_prefetch
+            )
 
             # Get device_mesh from config so it is in list form and JSON parsable
             metrics['composer/device_mesh'] = trainer_state.fsdp_config.get('device_mesh', [])
@@ -189,6 +195,9 @@ class MosaicMLLogger(LoggerDestination):
     def log_exception(self, exception: Exception):
         self._log_metadata({'exception': exception_to_json_serializable_dict(exception)})
         self._flush_metadata(force_flush=True)
+
+    def init(self, state: State, logger: Logger) -> None:
+        self.log_analytics()
 
     def after_load(self, state: State, logger: Logger) -> None:
         # Log model data downloaded and initialized for run events
@@ -374,14 +383,3 @@ def exception_to_json_serializable_dict(exc: Exception):
             except AttributeError:
                 pass
     return exc_data
-
-
-def log_run_analytics(loggers: Tuple[LoggerDestination, ...]):
-    """Log run analytics to metadata if a MosaicMLLogger is available in the list."""
-    # Avoids a casting bug during testing
-    if not isinstance(loggers, Iterable):
-        return
-
-    mosaicml_logger = next((logger for logger in loggers if isinstance(logger, MosaicMLLogger)), None)
-    if mosaicml_logger is not None:
-        mosaicml_logger.log_analytics()
