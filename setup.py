@@ -88,7 +88,7 @@ install_requires = [
     'coolname>=1.1.0,<3',
     'tabulate==0.9.0',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<10',
-    'packaging>=21.3.0,<23.3',
+    'packaging>=21.3.0,<24.1',
     'importlib-metadata>=5.0.0,<7',
     'mosaicml-cli>=0.5.25,<0.7',
 ]
@@ -102,7 +102,7 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
     'junitparser==3.1.2',
-    'coverage[toml]==7.4.1',
+    'coverage[toml]==7.4.4',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
     'ipython==8.11.0',
@@ -221,12 +221,12 @@ extra_deps['onnx'] = [
 ]
 
 extra_deps['mlflow'] = [
-    'mlflow>=2.11.0,<3.0',
+    'mlflow>=2.11.1,<3.0',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk==0.18.0']
+extra_deps['databricks'] = ['databricks-sdk==0.22.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 

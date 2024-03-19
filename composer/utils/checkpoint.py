@@ -29,10 +29,12 @@ from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
 from composer.utils import dist, reproducibility
 from composer.utils.file_helpers import (
     FORMAT_NAME_WITH_DIST_AND_TIME_TABLE,
+    extract_path_from_symlink,
     format_name_with_dist,
     format_name_with_dist_and_time,
     get_file,
     is_tar,
+    parse_uri,
 )
 from composer.utils.misc import is_model_deepspeed, partial_format
 from composer.utils.object_store import ObjectStore
@@ -353,12 +355,15 @@ class PartialFilePath:
                 ) + extra_suffix
 
 
-def is_checkpoint_legacy_sharded(object_store: Optional[ObjectStore], source_path: str):
+def is_checkpoint_legacy_sharded(object_store: Optional[Union[LoggerDestination, ObjectStore]], source_path: str):
+    if source_path.endswith('.symlink') or os.path.islink(source_path):
+        source_path = extract_path_from_symlink(source_path, object_store=object_store)
     metadata_path = str(Path(source_path) / Path('.metadata'))
     if object_store is None:
         return not os.path.exists(metadata_path)
     else:
         try:
+            _, _, metadata_path = parse_uri(metadata_path)
             with tempfile.TemporaryDirectory() as temp_dir:
                 metadata_destination = os.path.join(str(temp_dir), '.metadata')
                 if isinstance(object_store, ObjectStore):
@@ -601,6 +606,8 @@ def load_sharded_checkpoint(
             # Get the tempfile made on local rank 0.
             local_rank0_index = dist.get_global_rank() - dist.get_local_rank()
             rank0_download_tempdir = str(dist.all_gather_object(temp_download_dir)[local_rank0_index])
+            if source_path.endswith('.symlink'):
+                source_path = extract_path_from_symlink(source_path, object_store=object_store)
             storage_reader = DistCPObjectStoreReader(
                 source_path=source_path,
                 destination_path=str(Path(rank0_download_tempdir) / Path('checkpoints')),
@@ -1031,7 +1038,6 @@ def _save_checkpoint(
                 'integrations': state._get_integrations_state_dict(),
                 'metadata': state._get_state_metadata(),
             },
-            'rng': reproducibility.get_rng_state(),
         }
     else:
         state_dict = {
@@ -1048,7 +1054,7 @@ def _save_checkpoint(
         # Ensure state exists
         state_dict['state'] = state_dict.get('state', {})
 
-    if state.fsdp_sharded_state_dict_enabled:
+    if state.fsdp_sharded_state_dict_enabled and not weights_only:
         # Only rank 0 saves RNG
         if dist.get_global_rank() > 0:
             state_dict.pop('rng')
@@ -1057,7 +1063,7 @@ def _save_checkpoint(
         # requires a top level state dict key for the optimizer.
         # See https://github.com/pytorch/pytorch/blob/v2.0.1/torch/distributed/checkpoint/optimizer.py#L271
         # for more info.
-        if version.parse(torch.__version__) < version.parse('2.2.9') and not weights_only:
+        if version.parse(torch.__version__) < version.parse('2.2.9'):
             state_dict['optimizers'] = state_dict['state'].pop('optimizers')
 
     log.debug('State dict created.')

@@ -17,6 +17,7 @@ from composer.loggers.mosaicml_logger import (
     MOSAICML_ACCESS_TOKEN_ENV_VAR,
     MOSAICML_PLATFORM_ENV_VAR,
     MosaicMLLogger,
+    exception_to_json_serializable_dict,
     format_data_to_json_serializable,
 )
 from composer.trainer import Trainer
@@ -85,6 +86,24 @@ def test_format_data_to_json_serializable():
     }
 
     assert formatted_data == expected_formatted_data
+
+
+def test_exception_to_json():
+
+    class TestException(ValueError):
+
+        def __init__(self, test_var: str) -> None:
+            self.test_var = test_var
+            message = 'This is a test exception'
+            super().__init__(message)
+
+    try:
+        raise TestException('Test var')
+    except Exception as e:
+        json_exception = exception_to_json_serializable_dict(e)
+        assert json_exception['class'] == 'TestException'
+        assert json_exception['message'] == 'This is a test exception'
+        assert json_exception['attributes'] == {'test_var': 'Test var'}
 
 
 @pytest.mark.parametrize('callback_cls', get_cbs_and_marks(callbacks=True))
