@@ -88,7 +88,7 @@ install_requires = [
     'coolname>=1.1.0,<3',
     'tabulate==0.9.0',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<10',
-    'packaging>=21.3.0,<23.3',
+    'packaging>=21.3.0,<24.1',
     'importlib-metadata>=5.0.0,<7',
     'mosaicml-cli>=0.5.25,<0.7',
 ]
@@ -226,7 +226,7 @@ extra_deps['mlflow'] = [
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk==0.18.0']
+extra_deps['databricks'] = ['databricks-sdk==0.22.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 
