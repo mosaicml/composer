@@ -31,9 +31,12 @@ from composer.optim import ExponentialScheduler
 from composer.trainer import trainer
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, is_tar, reproducibility
-from composer.utils.checkpoint import _ensure_valid_checkpoint  # type: ignore
-from composer.utils.checkpoint import _write_checkpoint_file  # type: ignore
-from composer.utils.checkpoint import _COMPOSER_STATES_FILENAME, glob_filter
+from composer.utils.checkpoint import (
+    _COMPOSER_STATES_FILENAME,
+    _ensure_valid_checkpoint,
+    _write_checkpoint_file,
+    glob_filter,
+)
 from composer.utils.compression import CliCompressor, CompressorNotFound, get_compressor, is_compressed_pt
 from composer.utils.object_store.object_store import ObjectStore
 from composer.utils.object_store.s3_object_store import S3ObjectStore
