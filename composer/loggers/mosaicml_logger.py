@@ -173,7 +173,7 @@ class MosaicMLLogger(LoggerDestination):
             metrics['composer/forward_prefetch'] = trainer_state.fsdp_config.get('forward_prefetch', False)
             metrics['composer/backward_prefetch'] = trainer_state.fsdp_config.get(
                 'backward_prefetch',
-                FSDP(Module()).backward_prefetch
+                FSDP(Module()).backward_prefetch,
             )
 
             # Get device_mesh from config so it is in list form and JSON parsable
