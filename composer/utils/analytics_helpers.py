@@ -39,4 +39,4 @@ def get_logger_type(logger: Any) -> str:
     for logger_type in LOGGER_TYPES:
         if isinstance(logger, logger_type):
             return logger_type.__name__
-    return 'Custom'
+    return 'Other'
