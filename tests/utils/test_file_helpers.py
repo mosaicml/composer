@@ -195,11 +195,19 @@ def test_get_file_local_path_not_found():
 
 def test_is_tar():
     assert is_tar('x.tar')
+    assert is_tar('foo.bar.tar')
     assert is_tar('x.tgz')
     assert is_tar('x.tar.gz')
     assert is_tar('x.tar.bz2')
     assert is_tar('x.tar.lzma')
+    assert is_tar('x.tar.foo')
+    assert is_tar('tar.xyz')
+    assert not is_tar('')
     assert not is_tar('x')
+    assert not is_tar('tar.foo.xyz')
+    assert not is_tar('x.y')
+    assert not is_tar('x.y.z')
+    assert not is_tar('tar')
 
 
 def test_format_name_with_dist():
