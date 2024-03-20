@@ -20,14 +20,16 @@ class BERTGatedFFOutput(torch.nn.Module):
         non_gated_layer_bias (bool): Whether to use a bias term in teh non-gated projection matrix.
     """
 
-    def __init__(self,
-                 d_embed: int,
-                 d_ff: int,
-                 dropout_rate: float,
-                 act_fn: Callable[[torch.Tensor], torch.Tensor],
-                 layernorm_eps: float,
-                 gated_layer_bias: bool = False,
-                 non_gated_layer_bias: bool = False):
+    def __init__(
+        self,
+        d_embed: int,
+        d_ff: int,
+        dropout_rate: float,
+        act_fn: Callable[[torch.Tensor], torch.Tensor],
+        layernorm_eps: float,
+        gated_layer_bias: bool = False,
+        non_gated_layer_bias: bool = False,
+    ):
         super().__init__()
         self.gated_layer = torch.nn.Linear(d_embed, d_ff, bias=gated_layer_bias)
         self.non_gated_layer = torch.nn.Linear(d_embed, d_ff, bias=non_gated_layer_bias)

@@ -53,8 +53,10 @@ def test_optimizer_monitor(log_optimizer_metrics: bool, batch_log_interval: int)
 
 @device('gpu')
 @world_size(1, 2)
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
+@pytest.mark.skipif(
+    version.parse(torch.__version__) < version.parse('1.13.0'),
+    reason='requires PyTorch 1.13 or higher',
+)
 @pytest.mark.parametrize('use_orig_params', [True, False])
 def test_fsdp_optimizer_monitor(device, world_size, use_orig_params):
     # Construct the callback
@@ -66,22 +68,24 @@ def test_fsdp_optimizer_monitor(device, world_size, use_orig_params):
             module._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
     dataset = RandomClassificationDataset(num_classes=100, shape=(100, 1, 1))
     # Construct the trainer and train
-    trainer = Trainer(model=model,
-                      callbacks=grad_monitor,
-                      loggers=in_memory_logger,
-                      train_dataloader=DataLoader(dataset, sampler=dist.get_sampler(dataset)),
-                      optimizers=DecoupledAdamW(model.parameters()),
-                      max_duration='11ba',
-                      fsdp_config={
-                          'sharding_strategy': 'FULL_SHARD' if world_size > 1 else 'NO_SHARD',
-                          'cpu_offload': False,
-                          'mixed_precision': 'PURE',
-                          'backward_prefetch': 'BACKWARD_PRE',
-                          'activation_checkpointing': False,
-                          'activation_cpu_offload': False,
-                          'verbose': False,
-                          'use_orig_params': use_orig_params,
-                      })
+    trainer = Trainer(
+        model=model,
+        callbacks=grad_monitor,
+        loggers=in_memory_logger,
+        train_dataloader=DataLoader(dataset, sampler=dist.get_sampler(dataset)),
+        optimizers=DecoupledAdamW(model.parameters()),
+        max_duration='11ba',
+        fsdp_config={
+            'sharding_strategy': 'FULL_SHARD' if world_size > 1 else 'NO_SHARD',
+            'cpu_offload': False,
+            'mixed_precision': 'PURE',
+            'backward_prefetch': 'BACKWARD_PRE',
+            'activation_checkpointing': False,
+            'activation_cpu_offload': False,
+            'verbose': False,
+            'use_orig_params': use_orig_params,
+        },
+    )
     trainer.fit()
     num_train_steps = int(trainer.state.timestamp.batch)
 
@@ -117,37 +121,43 @@ def test_fsdp_optimizer_monitor_transformer(device, world_size, tiny_gpt2_model,
     model.model.transformer._fsdp_wrap = False
     for block in model.model.transformer.h:
         block._fsdp_wrap = True
-    train_dataset = RandomTextLMDataset(size=8,
-                                        vocab_size=tiny_gpt2_model.config.vocab_size,
-                                        sequence_length=4,
-                                        use_keys=True,
-                                        use_token_type_ids=False,
-                                        conditional_generation=False,
-                                        causal_lm=True)
+    train_dataset = RandomTextLMDataset(
+        size=8,
+        vocab_size=tiny_gpt2_model.config.vocab_size,
+        sequence_length=4,
+        use_keys=True,
+        use_token_type_ids=False,
+        conditional_generation=False,
+        causal_lm=True,
+    )
 
     collator = transformers.DefaultDataCollator()
 
-    train_dataloader = DataLoader(train_dataset,
-                                  batch_size=4,
-                                  collate_fn=collator,
-                                  sampler=dist.get_sampler(train_dataset))
+    train_dataloader = DataLoader(
+        train_dataset,
+        batch_size=4,
+        collate_fn=collator,
+        sampler=dist.get_sampler(train_dataset),
+    )
     # Construct the trainer and train
-    trainer = Trainer(model=model,
-                      callbacks=grad_monitor,
-                      loggers=in_memory_logger,
-                      train_dataloader=train_dataloader,
-                      optimizers=DecoupledAdamW(model.parameters()),
-                      max_duration='11ba',
-                      fsdp_config={
-                          'sharding_strategy': 'FULL_SHARD' if world_size > 1 else 'NO_SHARD',
-                          'cpu_offload': False,
-                          'mixed_precision': 'PURE',
-                          'backward_prefetch': 'BACKWARD_PRE',
-                          'activation_checkpointing': False,
-                          'activation_cpu_offload': False,
-                          'verbose': False,
-                          'use_orig_params': use_orig_params,
-                      })
+    trainer = Trainer(
+        model=model,
+        callbacks=grad_monitor,
+        loggers=in_memory_logger,
+        train_dataloader=train_dataloader,
+        optimizers=DecoupledAdamW(model.parameters()),
+        max_duration='11ba',
+        fsdp_config={
+            'sharding_strategy': 'FULL_SHARD' if world_size > 1 else 'NO_SHARD',
+            'cpu_offload': False,
+            'mixed_precision': 'PURE',
+            'backward_prefetch': 'BACKWARD_PRE',
+            'activation_checkpointing': False,
+            'activation_cpu_offload': False,
+            'verbose': False,
+            'use_orig_params': use_orig_params,
+        },
+    )
     trainer.fit()
     num_train_steps = int(trainer.state.timestamp.batch)
 

@@ -84,8 +84,10 @@ class MosaicMLLogger(LoggerDestination):
             if self.run_name is not None:
                 log.info(f'Logging to mosaic run {self.run_name}')
             else:
-                log.warning(f'Environment variable `{RUN_NAME_ENV_VAR}` not set, so MosaicMLLogger '
-                            'is disabled as it is unable to identify which run to log to.')
+                log.warning(
+                    f'Environment variable `{RUN_NAME_ENV_VAR}` not set, so MosaicMLLogger '
+                    'is disabled as it is unable to identify which run to log to.',
+                )
                 self._enabled = False
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
@@ -93,6 +95,10 @@ class MosaicMLLogger(LoggerDestination):
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         self._log_metadata(metrics)
+
+    def log_exception(self, exception: Exception):
+        self._log_metadata({'exception': exception_to_json_serializable_dict(exception)})
+        self._flush_metadata(force_flush=True)
 
     def after_load(self, state: State, logger: Logger) -> None:
         # Log model data downloaded and initialized for run events
@@ -151,8 +157,9 @@ class MosaicMLLogger(LoggerDestination):
 
     def _flush_metadata(self, force_flush: bool = False, future: bool = True) -> None:
         """Flush buffered metadata to MosaicML if enough time has passed since last flush."""
-        if self._enabled and len(self.buffered_metadata) > 0 and (
-                time.time() - self.time_last_logged > self.log_interval or force_flush):
+        if self._enabled and len(
+            self.buffered_metadata,
+        ) > 0 and (time.time() - self.time_last_logged > self.log_interval or force_flush):
             try:
                 assert self.run_name is not None
                 if future:
@@ -205,8 +212,9 @@ class MosaicMLLogger(LoggerDestination):
             cur_batch = state.timestamp.batch_in_epoch.value
             cur_epoch = state.timestamp.epoch.value
             if state.timestamp.epoch.value >= 1:
-                batches_per_epoch = (state.timestamp.batch -
-                                     state.timestamp.batch_in_epoch).value // state.timestamp.epoch.value
+                batches_per_epoch = (
+                    state.timestamp.batch - state.timestamp.batch_in_epoch
+                ).value // state.timestamp.epoch.value
                 curr_progress = f'[batch={cur_batch}/{batches_per_epoch}]'
             elif self.train_dataloader_len is not None:
                 curr_progress = f'[batch={cur_batch}/{self.train_dataloader_len}]'
@@ -250,10 +258,33 @@ def format_data_to_json_serializable(data: Any):
         json.dumps(ret)  # Check if ret is JSON serializable
         return ret
     except RuntimeError as e:
-        warnings.warn(f'Encountered unexpected error while formatting data of type {type(data)} to '
-                      f'be JSON serializable. Returning empty string instead. Error: {str(e)}')
+        warnings.warn(
+            f'Encountered unexpected error while formatting data of type {type(data)} to '
+            f'be JSON serializable. Returning empty string instead. Error: {str(e)}',
+        )
         return ''
 
 
 def dict_to_str(data: Dict[str, Any]):
     return '\n'.join([f'\t{k}: {v}' for k, v in data.items()])
+
+
+def exception_to_json_serializable_dict(exc: Exception):
+    """Converts exception into a JSON serializable dictionary for run metadata."""
+    default_exc_attrs = set(dir(Exception()))
+    exc_data = {'class': exc.__class__.__name__, 'message': str(exc), 'attributes': {}}
+
+    for attr in dir(exc):
+        # Exclude default attributes and special methods
+        if attr not in default_exc_attrs and not attr.startswith('__'):
+            try:
+                value = getattr(exc, attr)
+                if callable(value):
+                    continue
+                if isinstance(value, (str, int, float, bool, list, dict, type(None))):
+                    exc_data['attributes'][attr] = value
+                else:
+                    exc_data['attributes'][attr] = str(value)
+            except AttributeError:
+                pass
+    return exc_data

@@ -114,11 +114,13 @@ class CutOut(Algorithm):
             is the input. Default: ``0``.
     """
 
-    def __init__(self,
-                 num_holes: int = 1,
-                 length: float = 0.5,
-                 uniform_sampling: bool = False,
-                 input_key: Union[str, int, Callable, Any] = 0):
+    def __init__(
+        self,
+        num_holes: int = 1,
+        length: float = 0.5,
+        uniform_sampling: bool = False,
+        input_key: Union[str, int, Callable, Any] = 0,
+    ):
         self.num_holes = num_holes
         self.length = length
         self.uniform_sampling = uniform_sampling

@@ -16,10 +16,21 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 from composer.core import Callback, Event, State, Time, Timestamp
 from composer.loggers import Logger, MLFlowLogger
-from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE, PartialFilePath,
-                            checkpoint, create_interval_scheduler, create_symlink_file, dist,
-                            ensure_folder_has_no_conflicting_files, format_name_with_dist,
-                            format_name_with_dist_and_time, is_model_deepspeed, partial_format)
+from composer.utils import (
+    FORMAT_NAME_WITH_DIST_AND_TIME_TABLE,
+    FORMAT_NAME_WITH_DIST_TABLE,
+    PartialFilePath,
+    checkpoint,
+    create_interval_scheduler,
+    create_symlink_file,
+    dist,
+    ensure_folder_has_no_conflicting_files,
+    format_name_with_dist,
+    format_name_with_dist_and_time,
+    is_model_deepspeed,
+    partial_format,
+)
+from composer.utils.compression import get_compressor, is_compressed_pt
 from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
 
 log = logging.getLogger(__name__)
@@ -91,14 +102,25 @@ class CheckpointSaver(Callback):  # noqa: D101
                     may attempt to write to the same file(s), leading to corrupted checkpoints. If no tarball file
                     extension is specified, ``'.tar'`` will be used.
 
-                *   To use compression (regardless of whether DeepSpeed is enabled), set the file extension
-                    to ``'.tar.gz'``, ``'.tgz'``, ``'.tar.bzip'``, or ``'.tar.lzma'`` (depending on the desired
-                    compression algorithm).
+                *   To write to compressed tar files (regardless of whether DeepSpeed is enabled), set the file
+                    extension to ``'.tar.gz'``, ``'.tgz'``, ``'.tar.bz2'``, or ``'.tar.lzma'`` (depending on the
+                    desired compression algorithm).
+
+                *   To write to compressed pt files (when DeepSpeed is disabled), set the file extension to
+                    ``'.pt.bz2'``, ``'.pt.gz'``, ``'.pt.lz4'``, ``'.pt.lzma'``, ``'.pt.lzo'``, ``'.pt.xz'``,
+                    ``'.pt.zst'``
+                    (depending on the desired algorithm). You must have the corresponding CLI tool installed.
+                    ``lz4`` is a good choice for a modest space saving while being very fast to compress.
 
             .. warning::
 
-                Using compression will block the training loop while checkpoints are being compressed. As such, we
-                recommend saving checkpoints without compression.
+                Using compression will block the training loop while checkpoints are being compressed and the
+                compressibility of checkpoints can vary significantly depending on your setup. As such, we
+                recommend saving checkpoints without compression by default.
+
+                If you have the ``lz4`` command available on your system, you may want to try saving as ``.pt.lz4``
+                as the overhead is minimal (usually less than a second) and the saved space can sometimes
+                be significant (1% - 40%).
 
             Consider the following scenario where:
 
@@ -255,8 +277,9 @@ class CheckpointSaver(Callback):  # noqa: D101
         self,
         folder: Union[str, pathlib.Path] = '{run_name}/checkpoints',
         filename: Union[str, pathlib.Path] = 'ep{epoch}-ba{batch}-rank{rank}.pt',
-        remote_file_name: Optional[Union[str,
-                                         pathlib.Path]] = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}.pt',
+        remote_file_name: Optional[Union[str, pathlib.Path]
+                                  ] = ('{run_name}/checkpoints/'
+                                       'ep{epoch}-ba{batch}-rank{rank}.pt'),
         latest_filename: Optional[Union[str, pathlib.Path]] = 'latest-rank{rank}.pt',
         latest_remote_file_name: Optional[Union[str, pathlib.Path]] = '{run_name}/checkpoints/latest-rank{rank}.pt',
         save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = '1ep',
@@ -271,6 +294,11 @@ class CheckpointSaver(Callback):  # noqa: D101
         remote_file_name = str(remote_file_name) if remote_file_name is not None else None
         latest_filename = str(latest_filename) if latest_filename is not None else None
         latest_remote_file_name = str(latest_remote_file_name) if latest_remote_file_name is not None else None
+
+        # want to fail early if a required CLI tool is missing to ensure no training time is wasted
+        for name in [filename, remote_file_name, latest_filename, latest_remote_file_name]:
+            if name is not None and is_compressed_pt(name):
+                get_compressor(name).check_exists()
 
         if not callable(save_interval):
             save_interval = create_interval_scheduler(save_interval)
@@ -300,7 +328,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             if isinstance(destination, MLFlowLogger):
                 mlflow_format_kwargs = {
                     MLFLOW_EXPERIMENT_ID_FORMAT_KEY: destination._experiment_id,
-                    MLFLOW_RUN_ID_FORMAT_KEY: destination._run_id
+                    MLFLOW_RUN_ID_FORMAT_KEY: destination._run_id,
                 }
                 self.folder = partial_format(self.folder, **mlflow_format_kwargs)
 
@@ -310,11 +338,15 @@ class CheckpointSaver(Callback):  # noqa: D101
 
                 # The remote paths have the placeholders in their filename rather than folder
                 if self.remote_file_name is not None:
-                    self.remote_file_name.filename = partial_format(self.remote_file_name.filename,
-                                                                    **mlflow_format_kwargs)
+                    self.remote_file_name.filename = partial_format(
+                        self.remote_file_name.filename,
+                        **mlflow_format_kwargs,
+                    )
                 if self.latest_remote_file_name is not None:
-                    self.latest_remote_file_name.filename = partial_format(self.latest_remote_file_name.filename,
-                                                                           **mlflow_format_kwargs)
+                    self.latest_remote_file_name.filename = partial_format(
+                        self.latest_remote_file_name.filename,
+                        **mlflow_format_kwargs,
+                    )
 
                 break
 
@@ -346,6 +378,17 @@ class CheckpointSaver(Callback):  # noqa: D101
     def epoch_checkpoint(self, state: State, logger: Logger):
         assert callable(self.save_interval)
         if self.save_interval(state, Event.EPOCH_CHECKPOINT) and self.last_checkpoint_batch != state.timestamp.batch:
+            self._save_checkpoint(
+                state,
+                logger,
+            )
+
+    def iteration_checkpoint(self, state: State, logger: Logger):
+        assert callable(self.save_interval)
+        if (
+            self.save_interval(state, Event.ITERATION_CHECKPOINT) and
+            self.last_checkpoint_batch != state.timestamp.batch
+        ):
             self._save_checkpoint(
                 state,
                 logger,
@@ -396,8 +439,10 @@ class CheckpointSaver(Callback):  # noqa: D101
         metadata_local_file_path = None
         if dist.get_global_rank() == 0 and state.fsdp_sharded_state_dict_enabled:
             metadata_local_file_path = format_name_with_dist_and_time(
-                os.path.join(Path(saved_path).parent, _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME), state.run_name,
-                state.timestamp)
+                os.path.join(Path(saved_path).parent, _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME),
+                state.run_name,
+                state.timestamp,
+            )
 
         if self.latest_filename is not None and self.num_checkpoints_to_keep != 0:
             symlink = self.latest_filename.format(state, is_deepspeed)
@@ -433,11 +478,15 @@ class CheckpointSaver(Callback):  # noqa: D101
                 if dist.get_global_rank() == 0 and state.fsdp_sharded_state_dict_enabled:
                     metadata_remote_file_name = format_name_with_dist_and_time(
                         os.path.join(Path(remote_file_name).parent, _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME),
-                        state.run_name, state.timestamp)
+                        state.run_name,
+                        state.timestamp,
+                    )
                     assert metadata_local_file_path is not None
-                    logger.upload_file(remote_file_name=metadata_remote_file_name,
-                                       file_path=metadata_local_file_path,
-                                       overwrite=self.overwrite)
+                    logger.upload_file(
+                        remote_file_name=metadata_remote_file_name,
+                        file_path=metadata_local_file_path,
+                        overwrite=self.overwrite,
+                    )
             else:
                 remote_file_name = self.remote_file_name.format(
                     state,
@@ -449,7 +498,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                 logger.upload_file(remote_file_name=remote_file_name, file_path=saved_path, overwrite=self.overwrite)
             except FileExistsError as e:
                 raise FileExistsError(
-                    f'Uploading checkpoint failed with error: {e}. overwrite was set to {self.overwrite}. To overwrite checkpoints with Trainer, set save_overwrite to True.'
+                    f'Uploading checkpoint failed with error: {e}. overwrite was set to {self.overwrite}. To overwrite checkpoints with Trainer, set save_overwrite to True.',
                 ) from e
 
             # symlinks stay the same with sharded checkpointing

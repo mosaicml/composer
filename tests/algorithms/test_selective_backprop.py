@@ -141,8 +141,13 @@ def conv_model(Ximage: torch.Tensor, D: int) -> ComposerClassifier:
 
 
 @pytest.fixture
-def state(minimal_state: State, conv_model: ComposerClassifier, loss_fun_tuple: Callable, epoch: int,
-          batch: int) -> State:
+def state(
+    minimal_state: State,
+    conv_model: ComposerClassifier,
+    loss_fun_tuple: Callable,
+    epoch: int,
+    batch: int,
+) -> State:
     """State with required values set for Selective Backprop."""
     assert minimal_state.dataloader_len is not None
     conv_model.loss = loss_fun_tuple
@@ -179,8 +184,15 @@ class TestSelectiveBackprop:
     @pytest.mark.parametrize('keep', [0.5])
     @pytest.mark.parametrize('scale_factor', [0.5])
     @pytest.mark.xfail()
-    def test_selective_output_shape_3D(self, X3D: torch.Tensor, y: torch.Tensor, model: torch.nn.Module,
-                                       loss_fun: Callable, keep: float, scale_factor: float) -> None:
+    def test_selective_output_shape_3D(
+        self,
+        X3D: torch.Tensor,
+        y: torch.Tensor,
+        model: torch.nn.Module,
+        loss_fun: Callable,
+        keep: float,
+        scale_factor: float,
+    ) -> None:
         """Test functional selection on 3D inputs."""
         N, D, _ = X3D.shape
 
@@ -190,8 +202,15 @@ class TestSelectiveBackprop:
 
     @pytest.mark.parametrize('keep', [1, 0.5, 0.75])
     @pytest.mark.parametrize('scale_factor', [1])
-    def test_selective_output_shape(self, X: torch.Tensor, y: torch.Tensor, model: torch.nn.Module, loss_fun: Callable,
-                                    keep: float, scale_factor: float) -> None:
+    def test_selective_output_shape(
+        self,
+        X: torch.Tensor,
+        y: torch.Tensor,
+        model: torch.nn.Module,
+        loss_fun: Callable,
+        keep: float,
+        scale_factor: float,
+    ) -> None:
         """Test functional selection on 2D inputs."""
         N, D = X.shape
 
@@ -201,22 +220,39 @@ class TestSelectiveBackprop:
 
     @pytest.mark.parametrize('keep', [0.5, 0.75, 1])
     @pytest.mark.parametrize('scale_factor', [0.5, 0.75])
-    def test_selective_output_shape_scaled(self, Ximage: torch.Tensor, y: torch.Tensor, conv_model: ComposerClassifier,
-                                           loss_fun: Callable, keep: float, scale_factor: float) -> None:
+    def test_selective_output_shape_scaled(
+        self,
+        Ximage: torch.Tensor,
+        y: torch.Tensor,
+        conv_model: ComposerClassifier,
+        loss_fun: Callable,
+        keep: float,
+        scale_factor: float,
+    ) -> None:
         """Test functional selection on 4D inputs."""
         N, C, H, W = Ximage.shape
         X_scaled, y_scaled = select_using_loss(Ximage, y, conv_model.module, loss_fun, keep, scale_factor)
         assert X_scaled.shape == (int(N * keep), C, H, W)
         assert y_scaled.shape == (int(N * keep),)
 
-    def test_selective_backprop_interp_dim_error(self, X: torch.Tensor, y: torch.Tensor, model: torch.nn.Module,
-                                                 loss_fun: Callable) -> None:
+    def test_selective_backprop_interp_dim_error(
+        self,
+        X: torch.Tensor,
+        y: torch.Tensor,
+        model: torch.nn.Module,
+        loss_fun: Callable,
+    ) -> None:
         """Ensure that ValueError is raised when input tensor can't be scaled."""
         with pytest.raises(ValueError):
             select_using_loss(X, y, model, loss_fun, 1, 0.5)
 
-    def test_selective_backprop_bad_loss_error(self, X: torch.Tensor, y: torch.Tensor, model: torch.nn.Module,
-                                               bad_loss: Callable) -> None:
+    def test_selective_backprop_bad_loss_error(
+        self,
+        X: torch.Tensor,
+        y: torch.Tensor,
+        model: torch.nn.Module,
+        bad_loss: Callable,
+    ) -> None:
         """Ensure that ValueError is raised when loss function doesn't have `reduction` kwarg."""
         with pytest.raises(TypeError) as execinfo:
             select_using_loss(X, y, model, bad_loss, 1, 1)
@@ -257,8 +293,15 @@ class TestSelectiveBackpropAlgorithm:
     @pytest.mark.parametrize('epoch,batch', [(5, 0)])
     @pytest.mark.parametrize('keep', [0.5, 0.75, 1])
     @pytest.mark.parametrize('scale_factor', [0.5, 1])
-    def test_apply(self, Ximage: torch.Tensor, y: torch.Tensor, sb_algorithm: SelectiveBackprop, state: State,
-                   empty_logger: Logger, keep: float) -> None:
+    def test_apply(
+        self,
+        Ximage: torch.Tensor,
+        y: torch.Tensor,
+        sb_algorithm: SelectiveBackprop,
+        state: State,
+        empty_logger: Logger,
+        keep: float,
+    ) -> None:
         """Test apply with image inputs gives the right output shape."""
         N, C, H, W = Ximage.shape
 

@@ -86,8 +86,10 @@ class SlackLogger(LoggerDestination):
         except ImportError as e:
             raise MissingConditionalImportError('slack_logger', 'slack_sdk', None) from e
 
-        self.slack_logging_api_key = os.environ.get('SLACK_LOGGING_API_KEY',
-                                                    None) if slack_logging_api_key is None else slack_logging_api_key
+        self.slack_logging_api_key = os.environ.get(
+            'SLACK_LOGGING_API_KEY',
+            None,
+        ) if slack_logging_api_key is None else slack_logging_api_key
         self.channel_id = os.environ.get('SLACK_LOGGING_CHANNEL_ID', None) if channel_id is None else channel_id
 
         if self.slack_logging_api_key is None:
@@ -110,9 +112,9 @@ class SlackLogger(LoggerDestination):
         self.max_logs_per_message = min(max_logs_per_message, 50)
 
     def _log_to_buffer(
-            self,
-            data: Dict[str, Any],
-            **kwargs,  # can be used to pass additional arguments to the formatter function (eg for headers)
+        self,
+        data: Dict[str, Any],
+        **kwargs,  # can be used to pass additional arguments to the formatter function (eg for headers)
     ):
         """Flush the buffer to slack if the buffer size exceeds max_logs_per_message.
 
@@ -127,8 +129,11 @@ class SlackLogger(LoggerDestination):
         if len(self.log_dict.keys()) >= self.max_logs_per_message:
             self._flush_logs_to_slack(**kwargs)
 
-    def _default_log_bold_key_normal_value_pair_with_header(self, data: Dict[str, Any],
-                                                            **kwargs) -> List[Dict[str, Any]]:
+    def _default_log_bold_key_normal_value_pair_with_header(
+        self,
+        data: Dict[str, Any],
+        **kwargs,
+    ) -> List[Dict[str, Any]]:
         """Default formatter function if no formatter func is specified.
 
         This function will:
@@ -195,9 +200,12 @@ class SlackLogger(LoggerDestination):
         **kwargs,
     ):
         blocks = self.formatter_func(
-            log_entries, **
-            kwargs) if self.formatter_func is not None else self._default_log_bold_key_normal_value_pair_with_header(
-                log_entries, **kwargs)
+            log_entries,
+            **kwargs,
+        ) if self.formatter_func is not None else self._default_log_bold_key_normal_value_pair_with_header(
+            log_entries,
+            **kwargs,
+        )
         try:
             channel_id = self.channel_id
             slack_logging_key = self.slack_logging_api_key
@@ -205,9 +213,11 @@ class SlackLogger(LoggerDestination):
                 raise TypeError('SLACK_LOGGING_CHANNEL_ID cannot be None.')
             if slack_logging_key is None:
                 raise TypeError('SLACK_LOGGING_API_KEY cannot be None')
-            self.client.chat_postMessage(token=f'{self.slack_logging_api_key if self.slack_logging_api_key else ""}',
-                                         channel=channel_id,
-                                         blocks=blocks,
-                                         text=f'Logged {len(log_entries)} items to Slack')
+            self.client.chat_postMessage(
+                token=f'{self.slack_logging_api_key if self.slack_logging_api_key else ""}',
+                channel=channel_id,
+                blocks=blocks,
+                text=f'Logged {len(log_entries)} items to Slack',
+            )
         except Exception as e:
             log.error(f'Error logging to Slack: {e}')

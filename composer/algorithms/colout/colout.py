@@ -30,11 +30,11 @@ __all__ = ['ColOut', 'ColOutTransform', 'colout_batch']
 
 
 def colout_batch(
-        sample: Union[ImgT, Tuple[ImgT, ImgT]],
-        p_row: float = 0.15,
-        p_col: float = 0.15,
-        resize_target: Union[bool,
-                             str] = 'auto') -> Union[torch.Tensor, ImgT, Tuple[Tensor, Tensor], Tuple[ImgT, ImgT]]:
+    sample: Union[ImgT, Tuple[ImgT, ImgT]],
+    p_row: float = 0.15,
+    p_col: float = 0.15,
+    resize_target: Union[bool, str] = 'auto',
+) -> Union[torch.Tensor, ImgT, Tuple[Tensor, Tensor], Tuple[ImgT, ImgT]]:
     """Applies ColOut augmentation to a batch of images and (optionally) targets,
     dropping the same random rows and columns from all images and targets in a batch.
 
@@ -139,9 +139,9 @@ class ColOutTransform:
         self.resize_target = resize_target
 
     def __call__(
-            self, sample: Union[ImgT,
-                                Tuple[ImgT,
-                                      ImgT]]) -> Union[torch.Tensor, ImgT, Tuple[Tensor, Tensor], Tuple[ImgT, ImgT]]:
+        self,
+        sample: Union[ImgT, Tuple[ImgT, ImgT]],
+    ) -> Union[torch.Tensor, ImgT, Tuple[Tensor, Tensor], Tuple[ImgT, ImgT]]:
         """Drops random rows and columns from up to two images.
 
         Args:
@@ -252,9 +252,12 @@ class ColOut(Algorithm):
 
         if not isinstance(dataset, VisionDataset):
             raise TypeError(
-                textwrap.dedent(f"""\
+                textwrap.dedent(
+                    f"""\
                 To use {type(self).__name__}, the dataset must be a
-                {VisionDataset.__qualname__}, not {type(dataset).__name__}"""))
+                {VisionDataset.__qualname__}, not {type(dataset).__name__}""",
+                ),
+            )
         add_vision_dataset_transform(dataset, transform, is_tensor_transform=False)
         self._transformed_datasets.add(dataset)
 

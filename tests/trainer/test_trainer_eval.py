@@ -15,8 +15,16 @@ from composer.core.state import State
 from composer.core.time import Time, TimeUnit
 from composer.trainer import Trainer
 from composer.utils import create_interval_scheduler, dist
-from tests.common import (EventCounterCallback, ParityDataset, RandomClassificationDataset, RandomTextLMDataset,
-                          SimpleModel, SimpleTransformerMaskedLM, ZeroModel, world_size)
+from tests.common import (
+    EventCounterCallback,
+    ParityDataset,
+    RandomClassificationDataset,
+    RandomTextLMDataset,
+    SimpleModel,
+    SimpleTransformerMaskedLM,
+    ZeroModel,
+    world_size,
+)
 
 
 def test_eval():
@@ -45,14 +53,14 @@ def test_eval():
 
 def test_eval_call():
     # Construct the trainer
-    trainer = Trainer(model=SimpleModel(),)
+    trainer = Trainer(model=SimpleModel())
 
     # Evaluate the model
     dataset = RandomClassificationDataset()
     trainer.eval(eval_dataloader=DataLoader(
         dataset=dataset,
         sampler=dist.get_sampler(dataset),
-    ))
+    ),)
 
     # Assert that there is some accuracy
     assert trainer.state.eval_metrics['eval']['MulticlassAccuracy'].compute() != 0.0
@@ -68,11 +76,13 @@ def test_eval_with_nondivisible_dataset(world_size: int, size: int, batch_size: 
 
     # Evaluate the model
     dataset = ParityDataset(size=size)
-    trainer.eval(eval_dataloader=DataLoader(
-        dataset=dataset,
-        batch_size=batch_size,
-        sampler=dist.get_sampler(dataset),
-    ))
+    trainer.eval(
+        eval_dataloader=DataLoader(
+            dataset=dataset,
+            batch_size=batch_size,
+            sampler=dist.get_sampler(dataset),
+        ),
+    )
 
     expected_acc = 1 - (size // 2) / size
     metric = trainer.state.eval_metrics['eval']['MulticlassAccuracy']
@@ -84,16 +94,19 @@ def test_eval_with_nondivisible_dataset(world_size: int, size: int, batch_size: 
 
 def test_eval_call_with_trainer_evaluators():
     trainer_dataset = RandomClassificationDataset()
-    trainer_evaluator = Evaluator(label='trainer',
-                                  dataloader=DataLoader(
-                                      dataset=trainer_dataset,
-                                      sampler=dist.get_sampler(trainer_dataset),
-                                  ))
+    trainer_evaluator = Evaluator(
+        label='trainer',
+        dataloader=DataLoader(
+            dataset=trainer_dataset,
+            sampler=dist.get_sampler(trainer_dataset),
+        ),
+    )
 
     eval_call_dataset = RandomClassificationDataset()
-    eval_call_evaluator = Evaluator(label='eval_call',
-                                    dataloader=DataLoader(dataset=eval_call_dataset,
-                                                          sampler=dist.get_sampler(eval_call_dataset)))
+    eval_call_evaluator = Evaluator(
+        label='eval_call',
+        dataloader=DataLoader(dataset=eval_call_dataset, sampler=dist.get_sampler(eval_call_dataset)),
+    )
     # Construct the trainer
     trainer = Trainer(model=SimpleModel(), eval_dataloader=trainer_evaluator)
 
@@ -179,8 +192,13 @@ def test_trainer_eval_timestamp():
 @pytest.mark.parametrize('eval_interval', ['1tok', '64tok', '65tok'])
 @pytest.mark.parametrize('batch_size', [1, 4, 5])
 @pytest.mark.parametrize('sequence_length', [1, 16])
-def test_eval_token_interval(tiny_bert_tokenizer, eval_interval: str, batch_size: int, sequence_length: int,
-                             tmp_path: pathlib.Path):
+def test_eval_token_interval(
+    tiny_bert_tokenizer,
+    eval_interval: str,
+    batch_size: int,
+    sequence_length: int,
+    tmp_path: pathlib.Path,
+):
     """Tests that the trainer evaluates the model at the correct intervals when using token-based intervals."""
     tokens_per_batch = batch_size * sequence_length
     max_duration_time = Time.from_timestring('5ba')
@@ -208,29 +226,37 @@ def test_eval_token_interval(tiny_bert_tokenizer, eval_interval: str, batch_size
 
     transformers = pytest.importorskip('transformers')
     model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
-    pretraining_train_dataset = RandomTextLMDataset(size=100,
-                                                    vocab_size=tiny_bert_tokenizer.vocab_size,
-                                                    sequence_length=sequence_length,
-                                                    use_keys=True)
+    pretraining_train_dataset = RandomTextLMDataset(
+        size=100,
+        vocab_size=tiny_bert_tokenizer.vocab_size,
+        sequence_length=sequence_length,
+        use_keys=True,
+    )
 
     collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer, mlm_probability=0.15)
-    dataloader = DataLoader(pretraining_train_dataset,
-                            batch_size=batch_size,
-                            sampler=dist.get_sampler(pretraining_train_dataset),
-                            collate_fn=collator)
-    eval_dataloader = DataLoader(pretraining_train_dataset,
-                                 batch_size=batch_size,
-                                 sampler=dist.get_sampler(pretraining_train_dataset),
-                                 collate_fn=collator)
+    dataloader = DataLoader(
+        pretraining_train_dataset,
+        batch_size=batch_size,
+        sampler=dist.get_sampler(pretraining_train_dataset),
+        collate_fn=collator,
+    )
+    eval_dataloader = DataLoader(
+        pretraining_train_dataset,
+        batch_size=batch_size,
+        sampler=dist.get_sampler(pretraining_train_dataset),
+        collate_fn=collator,
+    )
 
     event_counter_callback = EventCounterCallback()
-    trainer = Trainer(model=model,
-                      train_dataloader=dataloader,
-                      eval_dataloader=eval_dataloader,
-                      max_duration=max_duration_time,
-                      eval_interval=eval_interval_time,
-                      callbacks=[event_counter_callback],
-                      eval_subset_num_batches=num_eval_batches)
+    trainer = Trainer(
+        model=model,
+        train_dataloader=dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration=max_duration_time,
+        eval_interval=eval_interval_time,
+        callbacks=[event_counter_callback],
+        eval_subset_num_batches=num_eval_batches,
+    )
     trainer.fit()
 
     # we should have one extra call from eval_at_fit_end
@@ -241,8 +267,13 @@ def test_eval_token_interval(tiny_bert_tokenizer, eval_interval: str, batch_size
 @pytest.mark.parametrize('eval_interval', ['1sp', '4sp', '5sp'])
 @pytest.mark.parametrize('batch_size', [1, 4, 5])
 @pytest.mark.parametrize('sequence_length', [1, 16])
-def test_eval_sample_interval(tiny_bert_tokenizer, eval_interval: str, batch_size: int, sequence_length: int,
-                              tmp_path: pathlib.Path):
+def test_eval_sample_interval(
+    tiny_bert_tokenizer,
+    eval_interval: str,
+    batch_size: int,
+    sequence_length: int,
+    tmp_path: pathlib.Path,
+):
     """Tests that the trainer evaluates the model at the correct intervals when using sample-based intervals."""
     max_duration_time = Time.from_timestring('5ba')
     eval_interval_time = Time.from_timestring(eval_interval)
@@ -269,29 +300,37 @@ def test_eval_sample_interval(tiny_bert_tokenizer, eval_interval: str, batch_siz
 
     transformers = pytest.importorskip('transformers')
     model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
-    pretraining_train_dataset = RandomTextLMDataset(size=100,
-                                                    vocab_size=tiny_bert_tokenizer.vocab_size,
-                                                    sequence_length=sequence_length,
-                                                    use_keys=True)
+    pretraining_train_dataset = RandomTextLMDataset(
+        size=100,
+        vocab_size=tiny_bert_tokenizer.vocab_size,
+        sequence_length=sequence_length,
+        use_keys=True,
+    )
 
     collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer, mlm_probability=0.15)
-    dataloader = DataLoader(pretraining_train_dataset,
-                            batch_size=batch_size,
-                            sampler=dist.get_sampler(pretraining_train_dataset),
-                            collate_fn=collator)
-    eval_dataloader = DataLoader(pretraining_train_dataset,
-                                 batch_size=batch_size,
-                                 sampler=dist.get_sampler(pretraining_train_dataset),
-                                 collate_fn=collator)
+    dataloader = DataLoader(
+        pretraining_train_dataset,
+        batch_size=batch_size,
+        sampler=dist.get_sampler(pretraining_train_dataset),
+        collate_fn=collator,
+    )
+    eval_dataloader = DataLoader(
+        pretraining_train_dataset,
+        batch_size=batch_size,
+        sampler=dist.get_sampler(pretraining_train_dataset),
+        collate_fn=collator,
+    )
 
     event_counter_callback = EventCounterCallback()
-    trainer = Trainer(model=model,
-                      train_dataloader=dataloader,
-                      eval_dataloader=eval_dataloader,
-                      max_duration=max_duration_time,
-                      eval_interval=eval_interval_time,
-                      callbacks=[event_counter_callback],
-                      eval_subset_num_batches=num_eval_batches)
+    trainer = Trainer(
+        model=model,
+        train_dataloader=dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration=max_duration_time,
+        eval_interval=eval_interval_time,
+        callbacks=[event_counter_callback],
+        eval_subset_num_batches=num_eval_batches,
+    )
     trainer.fit()
 
     # we should have one extra call from eval_at_fit_end
@@ -303,8 +342,13 @@ def test_eval_sample_interval(tiny_bert_tokenizer, eval_interval: str, batch_siz
 @pytest.mark.parametrize('eval_interval', ['0.1dur', '0.57dur'])
 @pytest.mark.parametrize('batch_size', [1, 4])
 @pytest.mark.parametrize('sequence_length', [1, 16])
-def test_eval_dur_interval_token_max(tiny_bert_tokenizer, eval_interval: str, max_duration: str, batch_size: int,
-                                     sequence_length: int):
+def test_eval_dur_interval_token_max(
+    tiny_bert_tokenizer,
+    eval_interval: str,
+    max_duration: str,
+    batch_size: int,
+    sequence_length: int,
+):
     """Tests that the trainer evaluates the model at the correct intervals when using duration-based intervals, with max_duration in tokens."""
     max_duration_time = Time.from_timestring(max_duration)
     eval_interval_time = Time.from_timestring(eval_interval)
@@ -332,29 +376,37 @@ def test_eval_dur_interval_token_max(tiny_bert_tokenizer, eval_interval: str, ma
 
     transformers = pytest.importorskip('transformers')
     model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
-    pretraining_train_dataset = RandomTextLMDataset(size=100,
-                                                    vocab_size=tiny_bert_tokenizer.vocab_size,
-                                                    sequence_length=sequence_length,
-                                                    use_keys=True)
+    pretraining_train_dataset = RandomTextLMDataset(
+        size=100,
+        vocab_size=tiny_bert_tokenizer.vocab_size,
+        sequence_length=sequence_length,
+        use_keys=True,
+    )
 
     collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer, mlm_probability=0.15)
-    dataloader = DataLoader(pretraining_train_dataset,
-                            batch_size=batch_size,
-                            sampler=dist.get_sampler(pretraining_train_dataset),
-                            collate_fn=collator)
-    eval_dataloader = DataLoader(pretraining_train_dataset,
-                                 batch_size=batch_size,
-                                 sampler=dist.get_sampler(pretraining_train_dataset),
-                                 collate_fn=collator)
+    dataloader = DataLoader(
+        pretraining_train_dataset,
+        batch_size=batch_size,
+        sampler=dist.get_sampler(pretraining_train_dataset),
+        collate_fn=collator,
+    )
+    eval_dataloader = DataLoader(
+        pretraining_train_dataset,
+        batch_size=batch_size,
+        sampler=dist.get_sampler(pretraining_train_dataset),
+        collate_fn=collator,
+    )
 
     event_counter_callback = EventCounterCallback()
-    trainer = Trainer(model=model,
-                      train_dataloader=dataloader,
-                      eval_dataloader=eval_dataloader,
-                      max_duration=max_duration_time,
-                      eval_interval=eval_interval_time,
-                      callbacks=[event_counter_callback],
-                      eval_subset_num_batches=num_eval_batches)
+    trainer = Trainer(
+        model=model,
+        train_dataloader=dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration=max_duration_time,
+        eval_interval=eval_interval_time,
+        callbacks=[event_counter_callback],
+        eval_subset_num_batches=num_eval_batches,
+    )
     trainer.fit()
 
     # we should have one extra call from eval_at_fit_end
@@ -366,8 +418,13 @@ def test_eval_dur_interval_token_max(tiny_bert_tokenizer, eval_interval: str, ma
 @pytest.mark.parametrize('eval_interval', ['0.1dur', '0.57dur'])
 @pytest.mark.parametrize('batch_size', [1, 4])
 @pytest.mark.parametrize('sequence_length', [1, 16])
-def test_eval_dur_interval_sample_max(tiny_bert_tokenizer, eval_interval: str, max_duration: str, batch_size: int,
-                                      sequence_length: int):
+def test_eval_dur_interval_sample_max(
+    tiny_bert_tokenizer,
+    eval_interval: str,
+    max_duration: str,
+    batch_size: int,
+    sequence_length: int,
+):
     """Tests that the trainer evaluates the model at the correct intervals when using duration-based intervals, with max_duration in tokens."""
     max_duration_time = Time.from_timestring(max_duration)
     eval_interval_time = Time.from_timestring(eval_interval)
@@ -395,29 +452,37 @@ def test_eval_dur_interval_sample_max(tiny_bert_tokenizer, eval_interval: str, m
 
     transformers = pytest.importorskip('transformers')
     model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
-    pretraining_train_dataset = RandomTextLMDataset(size=100,
-                                                    vocab_size=tiny_bert_tokenizer.vocab_size,
-                                                    sequence_length=sequence_length,
-                                                    use_keys=True)
+    pretraining_train_dataset = RandomTextLMDataset(
+        size=100,
+        vocab_size=tiny_bert_tokenizer.vocab_size,
+        sequence_length=sequence_length,
+        use_keys=True,
+    )
 
     collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer, mlm_probability=0.15)
-    dataloader = DataLoader(pretraining_train_dataset,
-                            batch_size=batch_size,
-                            sampler=dist.get_sampler(pretraining_train_dataset),
-                            collate_fn=collator)
-    eval_dataloader = DataLoader(pretraining_train_dataset,
-                                 batch_size=batch_size,
-                                 sampler=dist.get_sampler(pretraining_train_dataset),
-                                 collate_fn=collator)
+    dataloader = DataLoader(
+        pretraining_train_dataset,
+        batch_size=batch_size,
+        sampler=dist.get_sampler(pretraining_train_dataset),
+        collate_fn=collator,
+    )
+    eval_dataloader = DataLoader(
+        pretraining_train_dataset,
+        batch_size=batch_size,
+        sampler=dist.get_sampler(pretraining_train_dataset),
+        collate_fn=collator,
+    )
 
     event_counter_callback = EventCounterCallback()
-    trainer = Trainer(model=model,
-                      train_dataloader=dataloader,
-                      eval_dataloader=eval_dataloader,
-                      max_duration=max_duration_time,
-                      eval_interval=eval_interval_time,
-                      callbacks=[event_counter_callback],
-                      eval_subset_num_batches=num_eval_batches)
+    trainer = Trainer(
+        model=model,
+        train_dataloader=dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration=max_duration_time,
+        eval_interval=eval_interval_time,
+        callbacks=[event_counter_callback],
+        eval_subset_num_batches=num_eval_batches,
+    )
     trainer.fit()
 
     # we should have one extra call from eval_at_fit_end
@@ -425,22 +490,35 @@ def test_eval_dur_interval_sample_max(tiny_bert_tokenizer, eval_interval: str, m
     assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == expected_batch_evals
 
 
-@pytest.mark.parametrize(('eval_interval', 'max_duration', 'eval_at_fit_end', 'expected_eval_start_calls',
-                          'expected_eval_batch_start_calls'), [
-                              (1, '5ep', True, 4, 4),
-                              (Time(2, TimeUnit.EPOCH), '8ep', False, 4, 4),
-                              (Time(10, TimeUnit.BATCH), '8ep', False, 4, 4),
-                              (Time(0.25, TimeUnit.DURATION), '4ep', False, 4, 4),
-                              ('1ep', '4ep', True, 3, 3),
-                              ('5ba', '4ep', False, 4, 4),
-                              ('5ba', '10ba', False, 2, 2),
-                              ('0.35dur', '4ep', True, 2, 2),
-                              ('0.01dur', '100ba', False, 100, 100),
-                              ('0.10dur', '70sp', True, 9, 9),
-                              ('0.05dur', '80sp', False, 20, 20),
-                          ])
-def test_eval_at_fit_end(eval_interval: Union[str, Time, int], max_duration: str, eval_at_fit_end: bool,
-                         expected_eval_start_calls: int, expected_eval_batch_start_calls: int):
+@pytest.mark.parametrize(
+    (
+        'eval_interval',
+        'max_duration',
+        'eval_at_fit_end',
+        'expected_eval_start_calls',
+        'expected_eval_batch_start_calls',
+    ),
+    [
+        (1, '5ep', True, 4, 4),
+        (Time(2, TimeUnit.EPOCH), '8ep', False, 4, 4),
+        (Time(10, TimeUnit.BATCH), '8ep', False, 4, 4),
+        (Time(0.25, TimeUnit.DURATION), '4ep', False, 4, 4),
+        ('1ep', '4ep', True, 3, 3),
+        ('5ba', '4ep', False, 4, 4),
+        ('5ba', '10ba', False, 2, 2),
+        ('0.35dur', '4ep', True, 2, 2),
+        ('0.01dur', '100ba', False, 100, 100),
+        ('0.10dur', '70sp', True, 9, 9),
+        ('0.05dur', '80sp', False, 20, 20),
+    ],
+)
+def test_eval_at_fit_end(
+    eval_interval: Union[str, Time, int],
+    max_duration: str,
+    eval_at_fit_end: bool,
+    expected_eval_start_calls: int,
+    expected_eval_batch_start_calls: int,
+):
     """Test the `eval_subset_num_batches` and `eval_interval` works when specified on init."""
 
     # Construct the trainer
@@ -496,14 +574,17 @@ def _get_classification_dataloader():
     return DataLoader(dataset, sampler=dist.get_sampler(dataset))
 
 
-@pytest.mark.parametrize('eval_dataloader', [
-    _get_classification_dataloader(),
-    Evaluator(
-        label='eval',
-        dataloader=_get_classification_dataloader(),
-        metric_names=['MulticlassAccuracy'],
-    ),
-])
+@pytest.mark.parametrize(
+    'eval_dataloader',
+    [
+        _get_classification_dataloader(),
+        Evaluator(
+            label='eval',
+            dataloader=_get_classification_dataloader(),
+            metric_names=['MulticlassAccuracy'],
+        ),
+    ],
+)
 @pytest.mark.parametrize(
     'eval_interval',
     [  # multiple ways of specifying to evaluate once every epoch
@@ -511,7 +592,8 @@ def _get_classification_dataloader():
         '1ep',
         Time(1, TimeUnit.EPOCH),
         lambda state, event: event == Event.EPOCH_END,
-    ])
+    ],
+)
 def test_eval_params_init(
     eval_dataloader: Union[DataLoader, Evaluator],
     eval_interval: Union[Time, str, int, Callable[[State, Event], bool]],
@@ -576,8 +658,8 @@ def test_eval_params_evaluator():
     # Assert that the evaluator ran once every batch
     # (and not the `eval_interval` as specified for the Trainer)
     assert event_counter_callback.event_to_num_calls[Event.EVAL_START] == trainer.state.timestamp.batch
-    assert event_counter_callback.event_to_num_calls[
-        Event.EVAL_BATCH_START] == eval_subset_num_batches * trainer.state.timestamp.batch
+    assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START
+                                                    ] == eval_subset_num_batches * trainer.state.timestamp.batch
 
 
 class InfiniteDataloader(DataLoader):
@@ -632,11 +714,13 @@ def test_eval_batch_can_be_modified(add_algorithm: bool):
     eval_dataloader = DataLoader(eval_dataset, batch_size=4, sampler=dist.get_sampler(eval_dataset))
 
     with contextlib.nullcontext() if not add_algorithm else pytest.raises(TypeError):
-        trainer = Trainer(model=SimpleModel(),
-                          train_dataloader=train_dataloader,
-                          eval_dataloader=eval_dataloader,
-                          max_duration='1ep',
-                          algorithms=[BreakBatchAlgorithm()] if add_algorithm else [])
+        trainer = Trainer(
+            model=SimpleModel(),
+            train_dataloader=train_dataloader,
+            eval_dataloader=eval_dataloader,
+            max_duration='1ep',
+            algorithms=[BreakBatchAlgorithm()] if add_algorithm else [],
+        )
         trainer.eval()
 
 
@@ -645,8 +729,8 @@ def test_evaluator_metric_names_string_errors(metric_names):
     eval_dataset = RandomClassificationDataset(size=8)
     eval_dataloader = DataLoader(eval_dataset, batch_size=4, sampler=dist.get_sampler(eval_dataset))
 
-    context = contextlib.nullcontext() if isinstance(metric_names, list) else pytest.raises(
-        ValueError, match='should be a list of strings')
+    context = contextlib.nullcontext(
+    ) if isinstance(metric_names, list) else pytest.raises(ValueError, match='should be a list of strings')
     with context:
         _ = Evaluator(label='evaluator', dataloader=eval_dataloader, metric_names=metric_names)
 
@@ -658,7 +742,9 @@ def test_evaluator_dataloader_value_error():
     eval_data2 = Evaluator(label='eval', dataloader=eval_data1, metric_names=['MulticlassAccuracy'])
 
     eval_dataloader = (eval_data1, eval_data2)
-    with pytest.raises(ValueError,
-                       match='Mixing Evaluator with other classes is not allowed, please wrap'
-                       'all other classes with the Evaluator class.') as _:
+    with pytest.raises(
+        ValueError,
+        match='Mixing Evaluator with other classes is not allowed, please wrap'
+        'all other classes with the Evaluator class.',
+    ) as _:
         _ = Trainer(model=SimpleModel(), train_dataloader=None, eval_dataloader=eval_dataloader, max_duration='1ep')

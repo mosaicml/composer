@@ -23,18 +23,22 @@ __all__ = ['DataSpec', 'ensure_data_spec']
 
 def _split_list(l, microbatch_size: int):
     if len(l) < microbatch_size:
-        warnings.warn(f'Cannot split list of length {len(l)} into batches of size {microbatch_size}. '
-                      'As it is smaller, no splitting will be done. This may happen on the last batch '
-                      'of a dataset if it is a smaller size than the microbatch size.')
+        warnings.warn(
+            f'Cannot split list of length {len(l)} into batches of size {microbatch_size}. '
+            'As it is smaller, no splitting will be done. This may happen on the last batch '
+            'of a dataset if it is a smaller size than the microbatch size.',
+        )
         microbatch_size = len(l)
     return [l[start:start + microbatch_size] for start in range(0, len(l), microbatch_size)]
 
 
 def _split_tensor(t, microbatch_size: int):
     if len(t) < microbatch_size:
-        warnings.warn(f'Cannot split tensor of length {len(t)} into batches of size {microbatch_size}. '
-                      'As it is smaller, no splitting will be done. This may happen on the last batch '
-                      'of a dataset if it is a smaller size than the microbatch size.')
+        warnings.warn(
+            f'Cannot split tensor of length {len(t)} into batches of size {microbatch_size}. '
+            'As it is smaller, no splitting will be done. This may happen on the last batch '
+            'of a dataset if it is a smaller size than the microbatch size.',
+        )
         microbatch_size = len(t)
     return t.split(microbatch_size)
 
@@ -102,9 +106,15 @@ def _default_split_batch(batch: Any, microbatch_size: int) -> Sequence:
                 raise ValueError(f'Unsupported batch type: {type(item)}.')
         return list(zip(*result))
     raise NotImplementedError(
-        textwrap.dedent("""\
+        textwrap.dedent(
+            """\
             The default `split_fn` is unable to split the output of this dataloader. To enable microbatching,
-             please and specify a `DataSpec` with `split_batch` for your dataset."""))
+             please and specify a `DataSpec` with `split_batch` for your dataset.""",
+        ),
+    )
+
+
+default_split_batch = _default_split_batch
 
 
 class DataSpec:
@@ -149,7 +159,7 @@ class DataSpec:
             the ``dataloader`` yields batches not of type :class:`torch.Tensor`, Mapping, Tuple, or List, then
             this function must be specified.
 
-        get_num_samples_in_batch ((Batch) -> int, optional): Function that is called by the :class:`.Trainer`
+        get_num_samples_in_batch ((Batch) -> Union[int, float], optional): Function that is called by the :class:`.Trainer`
             to get the number of samples in the provided batch.
 
             By default, if the batch contains tensors that all have the same 0th dim, then the value of the 0th dim will
@@ -171,21 +181,23 @@ class DataSpec:
         num_tokens: Optional[int] = None,
         device_transforms: Optional[Callable[[Batch], Batch]] = None,
         split_batch: Optional[Callable[[Batch, int], Sequence[Batch]]] = None,
-        get_num_samples_in_batch: Optional[Callable[[Batch], int]] = None,
+        get_num_samples_in_batch: Optional[Callable[[Batch], Union[int, float]]] = None,
         get_num_tokens_in_batch: Optional[Callable[[Batch], int]] = None,
     ) -> None:
         self.dataloader: Union[Iterable, torch.utils.data.DataLoader] = dataloader
         self.num_tokens = num_tokens
         self.device_transforms = self._default_device_transforms if device_transforms is None else device_transforms
-        self.split_batch = _default_split_batch if split_batch is None else split_batch
+        self.split_batch = default_split_batch if split_batch is None else split_batch
         self.get_num_samples_in_batch = self._default_get_num_samples_in_batch if get_num_samples_in_batch is None else get_num_samples_in_batch
         self.get_num_tokens_in_batch = self._default_get_num_tokens_in_batch if get_num_tokens_in_batch is None else get_num_tokens_in_batch
 
         if num_samples is not None:
             self.num_samples = num_samples
         else:
-            if isinstance(dataloader, torch.utils.data.DataLoader) and isinstance(dataloader.dataset,
-                                                                                  collections.abc.Sized):
+            if isinstance(
+                dataloader,
+                torch.utils.data.DataLoader,
+            ) and isinstance(dataloader.dataset, collections.abc.Sized):
                 try:
                     self.num_samples = len(dataloader.dataset)
                 except (TypeError, NotImplementedError):
@@ -195,19 +207,22 @@ class DataSpec:
 
         if isinstance(dataloader, torch.utils.data.DataLoader):
             if dataloader._iterator is not None:
-                raise ValueError(
-                    ('The dataloader has an active iterator. This could occur '
-                     'if `persistent_workers=True` and the dataloader has already been iterated, '
-                     'or if the dataloader is mid-epoch. It is required that the training dataloader '
-                     'does not have an active iterator, so CPU dataset augmentations can be '
-                     'correctly inserted. To fix, please do not iterate over the dataloader before passing it into '
-                     'the Trainer.'))
+                raise ValueError((
+                    'The dataloader has an active iterator. This could occur '
+                    'if `persistent_workers=True` and the dataloader has already been iterated, '
+                    'or if the dataloader is mid-epoch. It is required that the training dataloader '
+                    'does not have an active iterator, so CPU dataset augmentations can be '
+                    'correctly inserted. To fix, please do not iterate over the dataloader before passing it into '
+                    'the Trainer.'
+                ))
             world_size = dist.get_world_size()
             # Check for Distributed Sampler if not using IterableDataset on more than 1 GPU
             if world_size > 1 and not isinstance(dataloader.dataset, torch.utils.data.IterableDataset):
                 is_sampler_distributed = dataloader.sampler and isinstance(dataloader.sampler, DistributedSampler)
                 is_batch_sampler_distributed = dataloader.batch_sampler is not None and isinstance(
-                    dataloader.batch_sampler, DistributedSampler)
+                    dataloader.batch_sampler,
+                    DistributedSampler,
+                )
                 if not is_sampler_distributed and not is_batch_sampler_distributed:
                     raise ValueError(
                         f'The world_size({world_size}) > 1 but dataloader does not use '
@@ -218,7 +233,7 @@ class DataSpec:
                         'Alternatively, the process group can be instantiated with '
                         'composer.utils.dist.instantiate_dist(...) and DistributedSampler can '
                         'directly be created with DataLoader(..., sampler=DistributedSampler(...)). '
-                        'For more information, see https://pytorch.org/docs/stable/data.html#torch.utils.data.distributed.DistributedSampler.'
+                        'For more information, see https://pytorch.org/docs/stable/data.html#torch.utils.data.distributed.DistributedSampler.',
                     )
 
     def _default_device_transforms(self, batch: Batch):
@@ -233,10 +248,12 @@ class DataSpec:
             for tensors in batch:
                 for t in ensure_tuple(tensors):
                     if not hasattr(t, 'shape'):
-                        raise ValueError('Unable to determine the batch size, batch contains'
-                                         f'an element of type {type(t)}, which does not have a'
-                                         'shape. Please use a DataSpec and provide a'
-                                         '`get_num_samples_in_batch(your_batch) -> int` method.')
+                        raise ValueError(
+                            'Unable to determine the batch size, batch contains'
+                            f'an element of type {type(t)}, which does not have a'
+                            'shape. Please use a DataSpec and provide a'
+                            '`get_num_samples_in_batch(your_batch) -> int` method.',
+                        )
                     dim0_sizes.append(t.shape[0])
         elif isinstance(batch, dict):
             for t in batch.values():
@@ -245,19 +262,24 @@ class DataSpec:
                 elif isinstance(t, list):
                     dim0_sizes.append(len(t))
                 else:
-                    raise ValueError('Unable to determine the batch size as batch is a dict '
-                                     f'with an element of type {type(t)} which is not Tensor '
-                                     'or list. Please use a DataSpec and provide a '
-                                     '`get_num_samples_in_batch(your_batch) -> int` method.')
+                    raise ValueError(
+                        'Unable to determine the batch size as batch is a dict '
+                        f'with an element of type {type(t)} which is not Tensor '
+                        'or list. Please use a DataSpec and provide a '
+                        '`get_num_samples_in_batch(your_batch) -> int` method.',
+                    )
 
         if len(set(dim0_sizes)) == 1:
             return dim0_sizes[0]
         else:
             raise NotImplementedError(
-                textwrap.dedent(f"""\
+                textwrap.dedent(
+                    f"""\
                     Cannot determine the batch size, as multiple Tensors of
                     different lengths were found in the batch: sizes in batch: {dim0_sizes}.
-                    Please use a DataSpec and specify `get_num_samples_in_batch`."""))
+                    Please use a DataSpec and specify `get_num_samples_in_batch`.""",
+                ),
+            )
 
     def _default_get_num_tokens_in_batch(self, batch: Batch) -> int:
         # First try HuggingFace-style input dicts

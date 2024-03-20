@@ -13,10 +13,9 @@ from composer.core.data_spec import DataSpec, ensure_data_spec
 from composer.core.event import Event
 from composer.core.state import State
 from composer.core.time import Time
-from composer.devices import Device, DeviceGPU
 from composer.utils import create_interval_scheduler
 
-__all__ = ['Evaluator', 'ensure_evaluator', 'validate_eval_automicrobatching']
+__all__ = ['Evaluator', 'ensure_evaluator']
 
 
 class Evaluator:
@@ -110,9 +109,11 @@ class Evaluator:
         if eval_interval is None:
             self._eval_interval = None
         elif not callable(eval_interval):
-            self._eval_interval = create_interval_scheduler(eval_interval,
-                                                            checkpoint_events=False,
-                                                            final_events={Event.FIT_END})
+            self._eval_interval = create_interval_scheduler(
+                eval_interval,
+                checkpoint_events=False,
+                final_events={Event.FIT_END},
+            )
         else:
             self._eval_interval = eval_interval
 
@@ -139,30 +140,23 @@ def ensure_evaluator(evaluator: Union[Evaluator, DataSpec, Iterable, Dict[str, A
         )
 
 
-def validate_eval_automicrobatching(auto_microbatching: bool, device: Device):
-    """Ensure automicrobatching is only on GPU.
-
-    Unlike `device_train_microbatch_size`, this validation must be done separately from the
-    `_is_auto_microbatching` check because `device` is not available during `Evaluator`
-    initialization.
-    """
-    if auto_microbatching and not isinstance(device, DeviceGPU):
-        raise ValueError(
-            'Can only use adaptive device_eval_microbatch_size on GPU. Please set device_eval_microbatch_size >= 1.')
-
-
 def _is_auto_microbatching(device_eval_microbatch_size: Optional[Union[int, str]]):
     if device_eval_microbatch_size == 'auto':
-        warnings.warn(("Setting `device_eval_microbatch_size='auto'` is an experimental feature which may cause "
-                       'uncaught Cuda Out of Memory errors. In this case, please manually '
-                       'set device_eval_microbatch_size explicitly to an integer instead.'))
+        warnings.warn((
+            "Setting `device_eval_microbatch_size='auto'` is an experimental feature which may cause "
+            'uncaught Cuda Out of Memory errors. In this case, please manually '
+            'set device_eval_microbatch_size explicitly to an integer instead.'
+        ))
         return True
     else:
         return False
 
 
-def _get_initial_device_eval_microbatch_size(device_eval_microbatch_size: Optional[Union[int, str]],
-                                             auto_microbatching: bool, dataloader: Iterable) -> int:
+def _get_initial_device_eval_microbatch_size(
+    device_eval_microbatch_size: Optional[Union[int, str]],
+    auto_microbatching: bool,
+    dataloader: Iterable,
+) -> int:
     """Sets initial value of device_eval_microbatch_size.
 
     If auto_microbatching, sets initial `device_eval_microbatch_size` to per rank batch size.
@@ -173,13 +167,15 @@ def _get_initial_device_eval_microbatch_size(device_eval_microbatch_size: Option
         except AttributeError as e:
             if auto_microbatching:
                 raise AttributeError(
-                    "`device_eval_microbatch_size='auto'` requires the `dataloader` to have a `batch_size` attribute."
+                    "`device_eval_microbatch_size='auto'` requires the `dataloader` to have a `batch_size` attribute.",
                 ) from e
             else:
                 raise AttributeError(
                     textwrap.dedent(
                         '`device_eval_microbatch_size` is not set and `dataloader` does not have a `batch_size` attribute. '
-                        'Please either set `device_eval_microbatch_size` or `dataloader.batch_size`.')) from e
+                        'Please either set `device_eval_microbatch_size` or `dataloader.batch_size`.',
+                    ),
+                ) from e
         return batch_size
     elif isinstance(device_eval_microbatch_size, int):
         return device_eval_microbatch_size
