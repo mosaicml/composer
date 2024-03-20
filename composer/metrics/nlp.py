@@ -247,7 +247,7 @@ class InContextLearningMetric(Metric):
     ):
         """Abstract interface for computing an in-context learning metrics.
 
-        The `output_logits` argument is deprecated and will be removed in v0.21 while it's functionality will
+        The `output_logits` argument is deprecated and will be removed in v0.22 while it's functionality will
         be moved to `outputs`.
 
         Args:
@@ -255,6 +255,7 @@ class InContextLearningMetric(Metric):
                 to compute the metric.
             output_logits (torch.Tensor): The model outputs evaluated on the batch `input_ids`
             labels (torch.Tensor): The correct outputs.
+            outputs (torch.Tensor): The model outputs evaluated on the batch `input_ids`.
 
         Raises:
             NotImplementedError: Abstract method must be implemented by subclasses
