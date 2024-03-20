@@ -293,7 +293,6 @@ class Engine():
             self._run_loggers(event)
             self._run_nonlogger_callbacks(event)
             traces = self._run_algorithms(event)
-
         else:
             traces = self._run_algorithms(event)
             # Run callbacks first, so any log calls from a callback that are executed lazily
