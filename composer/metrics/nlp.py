@@ -255,6 +255,7 @@ class InContextLearningMetric(Metric):
                 to compute the metric.
             output_logits (torch.Tensor): The model outputs evaluated on the batch `input_ids`
             labels (torch.Tensor): The correct outputs.
+            outputs (torch.Tensor): The model outputs evaluated on the batch `input_ids`.
 
         Raises:
             NotImplementedError: Abstract method must be implemented by subclasses
