@@ -190,65 +190,11 @@
   - mosaicml/pytorch:2.0.1_cpu-python3.10-ubuntu20.04
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.15.2
-- AWS_OFI_NCCL_VERSION: v1.7.4-aws
-  BASE_IMAGE: nvidia/cuda:12.1.1-cudnn8-devel-ubuntu20.04
-  CUDA_VERSION: 12.1.1
-  IMAGE_NAME: torch-nightly-2-3-0-20240110-cu121-python3-11-aws
-  MOFED_VERSION: ''
-  NVIDIA_REQUIRE_CUDA_OVERRIDE: cuda>=12.1 brand=tesla,driver>=450,driver<451 brand=tesla,driver>=470,driver<471
-    brand=unknown,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471
-    brand=geforce,driver>=470,driver<471 brand=geforcertx,driver>=470,driver<471 brand=quadro,driver>=470,driver<471
-    brand=quadrortx,driver>=470,driver<471 brand=titan,driver>=470,driver<471 brand=titanrtx,driver>=470,driver<471
-    brand=tesla,driver>=510,driver<511 brand=unknown,driver>=510,driver<511 brand=nvidia,driver>=510,driver<511
-    brand=nvidiartx,driver>=510,driver<511 brand=geforce,driver>=510,driver<511 brand=geforcertx,driver>=510,driver<511
-    brand=quadro,driver>=510,driver<511 brand=quadrortx,driver>=510,driver<511 brand=titan,driver>=510,driver<511
-    brand=titanrtx,driver>=510,driver<511 brand=tesla,driver>=515,driver<516 brand=unknown,driver>=515,driver<516
-    brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=515,driver<516 brand=geforce,driver>=515,driver<516
-    brand=geforcertx,driver>=515,driver<516 brand=quadro,driver>=515,driver<516 brand=quadrortx,driver>=515,driver<516
-    brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=515,driver<516 brand=tesla,driver>=525,driver<526
-    brand=unknown,driver>=525,driver<526 brand=nvidia,driver>=525,driver<526 brand=nvidiartx,driver>=525,driver<526
-    brand=geforce,driver>=525,driver<526 brand=geforcertx,driver>=525,driver<526 brand=quadro,driver>=525,driver<526
-    brand=quadrortx,driver>=525,driver<526 brand=titan,driver>=525,driver<526 brand=titanrtx,driver>=525,driver<526
-  PYTHON_VERSION: '3.11'
-  PYTORCH_NIGHTLY_URL: https://download.pytorch.org/whl/nightly/cu121
-  PYTORCH_NIGHTLY_VERSION: dev20240110+cu121
-  PYTORCH_VERSION: 2.3.0
-  TAGS:
-  - mosaicml/pytorch:2.3.0_cu121-nightly20240110-python3.11-ubuntu20.04-aws
-  TARGET: pytorch_stage
-  TORCHVISION_VERSION: 0.18.0
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: nvidia/cuda:12.1.1-cudnn8-devel-ubuntu20.04
+  COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.21.0
   CUDA_VERSION: 12.1.1
-  IMAGE_NAME: torch-nightly-2-3-0-20240110-cu121-python3-11
-  MOFED_VERSION: 5.5-1.0.3.2
-  NVIDIA_REQUIRE_CUDA_OVERRIDE: cuda>=12.1 brand=tesla,driver>=450,driver<451 brand=tesla,driver>=470,driver<471
-    brand=unknown,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471
-    brand=geforce,driver>=470,driver<471 brand=geforcertx,driver>=470,driver<471 brand=quadro,driver>=470,driver<471
-    brand=quadrortx,driver>=470,driver<471 brand=titan,driver>=470,driver<471 brand=titanrtx,driver>=470,driver<471
-    brand=tesla,driver>=510,driver<511 brand=unknown,driver>=510,driver<511 brand=nvidia,driver>=510,driver<511
-    brand=nvidiartx,driver>=510,driver<511 brand=geforce,driver>=510,driver<511 brand=geforcertx,driver>=510,driver<511
-    brand=quadro,driver>=510,driver<511 brand=quadrortx,driver>=510,driver<511 brand=titan,driver>=510,driver<511
-    brand=titanrtx,driver>=510,driver<511 brand=tesla,driver>=515,driver<516 brand=unknown,driver>=515,driver<516
-    brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=515,driver<516 brand=geforce,driver>=515,driver<516
-    brand=geforcertx,driver>=515,driver<516 brand=quadro,driver>=515,driver<516 brand=quadrortx,driver>=515,driver<516
-    brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=515,driver<516 brand=tesla,driver>=525,driver<526
-    brand=unknown,driver>=525,driver<526 brand=nvidia,driver>=525,driver<526 brand=nvidiartx,driver>=525,driver<526
-    brand=geforce,driver>=525,driver<526 brand=geforcertx,driver>=525,driver<526 brand=quadro,driver>=525,driver<526
-    brand=quadrortx,driver>=525,driver<526 brand=titan,driver>=525,driver<526 brand=titanrtx,driver>=525,driver<526
-  PYTHON_VERSION: '3.11'
-  PYTORCH_NIGHTLY_URL: https://download.pytorch.org/whl/nightly/cu121
-  PYTORCH_NIGHTLY_VERSION: dev20240110+cu121
-  PYTORCH_VERSION: 2.3.0
-  TAGS:
-  - mosaicml/pytorch:2.3.0_cu121-nightly20240110-python3.11-ubuntu20.04
-  TARGET: pytorch_stage
-  TORCHVISION_VERSION: 0.18.0
-- AWS_OFI_NCCL_VERSION: ''
-  BASE_IMAGE: nvidia/cuda:12.1.1-cudnn8-devel-ubuntu20.04
-  COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.20.1
-  CUDA_VERSION: 12.1.1
-  IMAGE_NAME: composer-0-20-1
+  IMAGE_NAME: composer-0-21-0
   MOFED_VERSION: 5.5-1.0.3.2
   NVIDIA_REQUIRE_CUDA_OVERRIDE: cuda>=12.1 brand=tesla,driver>=450,driver<451 brand=tesla,driver>=470,driver<471
     brand=unknown,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471
@@ -269,15 +215,15 @@
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.1.2
   TAGS:
-  - mosaicml/composer:0.20.1
+  - mosaicml/composer:0.21.0
   - mosaicml/composer:latest
   TARGET: composer_stage
   TORCHVISION_VERSION: 0.16.2
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: ubuntu:20.04
-  COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.20.1
+  COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.21.0
   CUDA_VERSION: ''
-  IMAGE_NAME: composer-0-20-1-cpu
+  IMAGE_NAME: composer-0-21-0-cpu
   MOFED_VERSION: 5.5-1.0.3.2
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
   PYTHON_VERSION: '3.10'
@@ -285,7 +231,7 @@
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.1.2
   TAGS:
-  - mosaicml/composer:0.20.1_cpu
+  - mosaicml/composer:0.21.0_cpu
   - mosaicml/composer:latest_cpu
   TARGET: composer_stage
   TORCHVISION_VERSION: 0.16.2
