@@ -1429,7 +1429,7 @@ class TestCheckpointResumption:
         [
             pytest.param(False, True, 'cpu', 'cpu'),  # success
             pytest.param(False, True, 'cpu', 'meta'),  # success
-            pytest.param(True, True, 'cpu', 'cpu'),  # fail
+            pytest.param(True, True, 'cpu', 'cpu'),  # success
             pytest.param(False, False, 'cpu', 'cpu'),  # fail
             pytest.param(False, True, 'meta', 'cpu'),  # fail
         ],
