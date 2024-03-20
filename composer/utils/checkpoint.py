@@ -287,7 +287,9 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
             receiver = dist.get_global_rank() != rank_in_first_replica
 
             # Send list of files to all ranks
-            file_list = [sorted(os.listdir(self.destination_path))]
+            file_list = [
+                file_name for file_name in sorted(os.listdir(self.destination_path)) if file_name.endswith('.distcp')
+            ]
             dist.broadcast_object_list(file_list, src=rank_in_first_replica, group=replicate_process_group)
             file_list = file_list[0]
             log.debug(f'List of files to broadcast: {file_list}')
