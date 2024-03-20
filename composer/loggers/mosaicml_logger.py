@@ -370,12 +370,16 @@ def dict_to_str(data: Dict[str, Any]):
 
 def exception_to_json_serializable_dict(exc: Exception):
     """Converts exception into a JSON serializable dictionary for run metadata."""
+    default_exc_attrs = set(dir(Exception()))
     exc_data = {'class': exc.__class__.__name__, 'message': str(exc), 'attributes': {}}
+
     for attr in dir(exc):
-        if not attr.startswith('__') and attr not in ['args', 'with_traceback']:
-            # ignore the traceback and default args in exception object
+        # Exclude default attributes and special methods
+        if attr not in default_exc_attrs and not attr.startswith('__'):
             try:
                 value = getattr(exc, attr)
+                if callable(value):
+                    continue
                 if isinstance(value, (str, int, float, bool, list, dict, type(None))):
                     exc_data['attributes'][attr] = value
                 else:

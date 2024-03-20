@@ -27,6 +27,7 @@ from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_
 from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
 
 from composer.utils import dist, reproducibility
+from composer.utils.compression import get_compressor, is_compressed_pt
 from composer.utils.file_helpers import (
     FORMAT_NAME_WITH_DIST_AND_TIME_TABLE,
     extract_path_from_symlink,
@@ -287,15 +288,15 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
             receiver = dist.get_global_rank() != rank_in_first_replica
 
             # Send list of files to all ranks
-            file_list = [sorted(os.listdir(self.destination_path))]
+            file_list = [
+                file_name for file_name in sorted(os.listdir(self.destination_path)) if file_name.endswith('.distcp')
+            ]
             dist.broadcast_object_list(file_list, src=rank_in_first_replica, group=replicate_process_group)
             file_list = file_list[0]
             log.debug(f'List of files to broadcast: {file_list}')
 
             # Send each file to the appropriate rank
             for file_name in file_list:
-                if 'metadata' in file_name:  # All ranks already have the metadata file
-                    continue
                 if dist.get_local_rank() == 0:  # Only 1 rank per node needs to transfer file
                     full_path = os.path.join(self.destination_path, file_name)
                     log.debug(f'Transferring {full_path=}')
@@ -724,6 +725,14 @@ def download_checkpoint(
             rank_n_checkpoint_filepath if fsdp_sharded_state_dict_enabled else rank_zero_checkpoint_filepath
         )
 
+        if is_compressed_pt(path):
+            original_path = path
+            path = os.path.splitext(path)[0]
+            compressor = get_compressor(original_path)
+            with open(path, 'wb') as out_file:
+                with compressor.decompress(original_path) as in_file:
+                    shutil.copyfileobj(in_file, out_file)
+
     checkpoint_is_sharded = fsdp_sharded_state_dict_enabled or deepspeed_sharded_checkpoint
     try:
         if not checkpoint_is_sharded and dist.get_local_rank() == 0:
@@ -1038,7 +1047,6 @@ def _save_checkpoint(
                 'integrations': state._get_integrations_state_dict(),
                 'metadata': state._get_state_metadata(),
             },
-            'rng': reproducibility.get_rng_state(),
         }
     else:
         state_dict = {
@@ -1055,7 +1063,7 @@ def _save_checkpoint(
         # Ensure state exists
         state_dict['state'] = state_dict.get('state', {})
 
-    if state.fsdp_sharded_state_dict_enabled:
+    if state.fsdp_sharded_state_dict_enabled and not weights_only:
         # Only rank 0 saves RNG
         if dist.get_global_rank() > 0:
             state_dict.pop('rng')
@@ -1064,7 +1072,7 @@ def _save_checkpoint(
         # requires a top level state dict key for the optimizer.
         # See https://github.com/pytorch/pytorch/blob/v2.0.1/torch/distributed/checkpoint/optimizer.py#L271
         # for more info.
-        if version.parse(torch.__version__) < version.parse('2.2.9') and not weights_only:
+        if version.parse(torch.__version__) < version.parse('2.2.9'):
             state_dict['optimizers'] = state_dict['state'].pop('optimizers')
 
     log.debug('State dict created.')
@@ -1080,10 +1088,7 @@ def _save_checkpoint(
         expect_file = True
         log.debug('Saving deepspeed checkpoints to %s...', save_filename)
         if dist.get_global_rank() == 0:
-            with open(save_filename, 'wb') as f:
-                torch.save(state_dict, f)
-            if is_tar(save_filename):
-                _compress_file(save_filename, basename=_COMPOSER_STATES_FILENAME)
+            _write_checkpoint_file(state_dict, save_filename)
 
         _save_deepspeed_model(state.deepspeed_model, save_filename)
     # Save sharded checkpoint
@@ -1122,14 +1127,9 @@ def _save_checkpoint(
     # Save monolith checkpoint
     elif dist.get_global_rank() == 0:
         expect_file = True
-        with open(save_filename, 'wb') as f:
-            log.debug(f'Saving monolithic checkpoint to {save_filename}')
-            torch.save(state_dict, f)
-
+        log.debug(f'Saving monolithic checkpoint to {save_filename}')
+        _write_checkpoint_file(state_dict, save_filename)
         log.debug(f'Global rank 0 done saving checkpoint to disk at {save_filename}.')
-
-        if is_tar(save_filename):
-            _compress_file(save_filename, basename=_COMPOSER_STATES_FILENAME)
     else:
         log.debug(f'Only rank 0 is saving a checkpoint, so rank {dist.get_global_rank()} skips checkpointing.')
 
@@ -1143,18 +1143,29 @@ def _save_checkpoint(
         return None
 
 
-def _compress_file(filename: str, basename: str):
-    """Replace a file with its compressed version.
+def _write_checkpoint_file(state_dict: Dict[str, Any], filename: str) -> None:
+    """Write the given checkpoint state to the given path. Compressing if indicated to do so by the file extension."""
+    if is_tar(filename):
+        log.debug('Writing checkpoint tar file %s', filename)
+        write_mode = _get_write_mode(filename)
 
-    The contents will be called ``basename`` inside
-    the compressed archive.
-    """
-    write_mode = _get_write_mode(filename)
+        with tempfile.TemporaryDirectory(prefix='checkpoint') as tmpdir:
+            with open(os.path.join(tmpdir, _COMPOSER_STATES_FILENAME), 'wb') as f:
+                torch.save(state_dict, f)
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        shutil.move(filename, os.path.join(tmpdir, basename))
-        with tarfile.open(filename, write_mode) as tarball:
-            tarball.add(tmpdir, arcname='')
+            with tarfile.open(filename, write_mode) as tarball:
+                tarball.add(tmpdir, arcname='')
+
+    elif is_compressed_pt(filename):
+        log.debug('Writing compressed checkpoint %s', filename)
+        compressor = get_compressor(filename)
+        with compressor.compress(filename) as f:
+            torch.save(state_dict, f)
+
+    else:
+        log.debug('Writing uncompressed checkpoint %s', filename)
+        with open(filename, 'wb') as f:
+            torch.save(state_dict, f)
 
 
 def _save_deepspeed_model(model, filename: str):
@@ -1208,14 +1219,24 @@ Args:
                 may attempt to write to the same file(s), leading to corrupted checkpoints. If no tarball file
                 extension is specified, ``.tar`` will be used.
 
-            *   To use compression (regardless of whether DeepSpeed is enabled), set the file extension
-                to ``'.tar.gz'``, ``'.tgz'``, ``'.tar.bzip'``, or ``'.tar.lzma'`` (depending on the desired
-                compression algorithm).
+            *   To write to compressed tar files (regardless of whether DeepSpeed is enabled), set the file
+                extension to ``'.tar.gz'``, ``'.tgz'``, ``'.tar.bz2'``, or ``'.tar.lzma'`` (depending on the
+                desired compression algorithm).
+
+            *   To write to compressed pt files (when DeepSpeed is disabled), set the file extension to
+                ``'.pt.bz2'``, ``'.pt.gz'``, ``'.pt.lz4'``, ``'.pt.lzma'``, ``'.pt.lzo'``, ``'.pt.xz'``, ``'.pt.zst'``
+                (depending on the desired algorithm). You must have the corresponding CLI tool installed.
+                ``lz4`` is a good choice for a modest space saving while being very fast to compress.
 
         .. warning::
 
-            Using compression will block the training loop while checkpoints are being compressed. As such, we
-            recommend saving checkpoints without compression.
+            Using compression will block the training loop while checkpoints are being compressed and the
+            compressibility of checkpoints can vary significantly depending on your setup. As such, we
+            recommend saving checkpoints without compression by default.
+
+            If you have the ``lz4`` command available on your system, you may want to try saving as ``.pt.lz4``
+            as the overhead is minimal (usually less than a second) and the saved space can sometimes
+            be significant (1% - 40%).
 
         Consider the following scenario, where:
 
