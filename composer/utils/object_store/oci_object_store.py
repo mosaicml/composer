@@ -18,7 +18,7 @@ from composer.utils.object_store.object_store import ObjectStore
 __all__ = ['OCIObjectStore']
 import oci
 import logging
-logging.getLogger('oci').setLevel(logging.DEBUG)
+#logging.getLogger('oci').setLevel(logging.DEBUG)
 
 
 def _reraise_oci_errors(uri: str, e: Exception):
