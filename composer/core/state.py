@@ -791,16 +791,6 @@ class State(Serializable):
         return self.fsdp_config is not None and self.fsdp_enabled and self.fsdp_state_dict_type == 'sharded'
 
     @property
-    def fsdp_elastic_sharded_enabled(self):
-        warnings.warn(
-            VersionedDeprecationWarning(
-                'state.fsdp_elastic_sharded_enabled is deprecated.',
-                remove_version='0.21.0',
-            ),
-        )
-        return self.fsdp_sharded_state_dict_enabled
-
-    @property
     def fsdp_device_mesh(self):
         if self.fsdp_enabled:
             if not hasattr(self.model, 'model') or not hasattr(self.model.model, '_device_mesh'):

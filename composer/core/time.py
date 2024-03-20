@@ -540,18 +540,6 @@ class Timestamp(Serializable):
             'batch_wct': self.batch_wct,
         }
 
-    def get_state(self) -> Dict[str, Union[Time[int], datetime.timedelta]]:
-        """Returns all values of the timestamp object in a dictionary.
-
-        Returns:
-            Dict[str, Union[Time[int], datetime.timedelta]]: All values of the timestamp object.
-        """
-        warnings.warn(
-            VersionedDeprecationWarning('core.time.Timestamp.get_state is deprecated.', remove_version='0.21.0'),
-        )
-
-        return self.state_dict()
-
     def load_state_dict(self, state: Dict[str, Any]) -> None:
         self._epoch = Time(state['epoch'], TimeUnit.EPOCH)
         self._batch = Time(state['batch'], TimeUnit.BATCH)
