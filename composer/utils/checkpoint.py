@@ -275,6 +275,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                         log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
             except Exception as e:
                 log.error(f'Exception raised during downloading: {str(e)}')
+                log.error(f'Exception raised during downloading: exception type: {type(e)}')
                 raise e
 
         # 3. Wait for all ranks to finish.
