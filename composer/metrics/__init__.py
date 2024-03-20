@@ -16,6 +16,7 @@ from composer.metrics.nlp import (
     InContextLearningQAAccuracy,
     LanguageCrossEntropy,
     LanguagePerplexity,
+    LossPerpVLen,
     MaskedAccuracy,
 )
 
@@ -36,6 +37,7 @@ __all__ = [
     'InContextLearningLMExpectedCalibrationError',
     'InContextLearningMetric',
     'InContextLearningCodeEvalAccuracy',
+    'LossPerpVLen',
 ]
 
 METRIC_DEFAULT_CTORS = {
