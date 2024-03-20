@@ -44,7 +44,6 @@ from composer.utils import (
     is_model_deepspeed,
     reproducibility,
 )
-from composer.utils.warnings import VersionedDeprecationWarning
 
 if TYPE_CHECKING:
     import deepspeed

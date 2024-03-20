@@ -396,8 +396,8 @@ If `load_monolith_rank0_only=True`, then when loading checkpoints the global ran
 model and optimizer state to the other ranks, which will will dramatically reduce the memory usage on system. Otherwise, all ranks will separately load in the checkpoint file.
 
 2. :code:`state_dict_type='sharded'`
-Each rank saves out an unflattened shard. For loading, each rank loads in the checkpoint file 
-corresponding to their unflattened shard. 
+Each rank saves out an unflattened shard. For loading, each rank loads in the checkpoint file
+corresponding to their unflattened shard.
 **Note: state_dict_type='sharded' is the recommended setting for sharded checkpointing in Composer for torch versions 2.0.0 or higher.**
 
 See `The FSDP docs <https://pytorch.org/docs/stable/fsdp.html#torch.distributed.fsdp.FullyShardedDataParallel.state_dict>`__ for more info.

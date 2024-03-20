@@ -19,12 +19,10 @@ from __future__ import annotations
 
 import datetime
 import re
-import warnings
 from typing import Any, Dict, Generic, Optional, TypeVar, Union, cast
 
 from composer.core.serializable import Serializable
 from composer.utils import StringEnum
-from composer.utils.warnings import VersionedDeprecationWarning
 
 __all__ = ['TimeUnit', 'Time', 'Timestamp', 'ensure_time']
 
