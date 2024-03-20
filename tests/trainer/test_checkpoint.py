@@ -1489,7 +1489,7 @@ class TestCheckpointResumption:
         model_init_device = [model_1_init_device, model_2_init_device][dist.get_global_rank()]
         fsdp_config['load_monolith_rank0_only'] = True
 
-        success = use_orig_params == False and sync_module_states == True and model_1_init_device == 'cpu'
+        success = sync_module_states == True and model_1_init_device == 'cpu'
         with contextlib.nullcontext() if success else pytest.raises(ValueError):
             trainer_2 = self.get_trainer(
                 model_init_device=model_init_device,
