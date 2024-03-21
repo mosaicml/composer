@@ -39,7 +39,7 @@ from composer.utils.file_helpers import (
 )
 from composer.utils.misc import is_model_deepspeed, partial_format
 from composer.utils.object_store import ObjectStore
-from composer.utils import retry
+from composer.utils.retrying import retry
 
 if TYPE_CHECKING:
     from composer.core import AlgorithmPass, State
