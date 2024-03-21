@@ -580,7 +580,12 @@ def initialize_dist(device: Union[str, Device], timeout: float = 300.0):
 
 
 def get_sampler(
-    dataset: torch.utils.data.Dataset, *, drop_last: bool = False, shuffle: bool = False, rank: Optional[int] = None
+    dataset: torch.utils.data.Dataset,
+    *,
+    drop_last: bool = False,
+    shuffle: bool = False,
+    num_replicas: Optional[int] = None,
+    rank: Optional[int] = None
 ):
     """Constructs a :class:`~torch.utils.data.distributed.DistributedSampler` for a dataset.
 
@@ -605,7 +610,7 @@ def get_sampler(
         dataset,
         drop_last=drop_last,
         shuffle=shuffle,
-        num_replicas=get_world_size(),
+        num_replicas=get_world_size() if num_replicas is None else num_replicas,
         rank=get_global_rank() if rank is None else rank,
     )
 
