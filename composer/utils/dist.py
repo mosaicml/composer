@@ -579,7 +579,9 @@ def initialize_dist(device: Union[str, Device], timeout: float = 300.0):
         dist.init_process_group(device_obj.dist_backend, timeout=timeout_timedelta)
 
 
-def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool = False, shuffle: bool = False):
+def get_sampler(
+    dataset: torch.utils.data.Dataset, *, drop_last: bool = False, shuffle: bool = False, rank: Optional[int] = None
+):
     """Constructs a :class:`~torch.utils.data.distributed.DistributedSampler` for a dataset.
 
     The :class:`~torch.utils.data.distributed.DistributedSampler` assumes that each rank has a complete copy of the
@@ -604,7 +606,7 @@ def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool = False, s
         drop_last=drop_last,
         shuffle=shuffle,
         num_replicas=get_world_size(),
-        rank=get_global_rank(),
+        rank=get_global_rank() if rank is None else rank,
     )
 
 
