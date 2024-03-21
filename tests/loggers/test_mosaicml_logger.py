@@ -436,11 +436,11 @@ def test_logged_metrics(monkeypatch):
     raise Exception(str(analytics))
 
     assert key_name('optimizers') in analytics and analytics[key_name('optimizers')] == [
-        '{"param_groups": [{"dampening": 0, "differentiable": false, "foreach": null, "initial_lr": 0.1, "lr": 0.1, "maximize": false, "momentum": 0, "nesterov": false, "params": [0, 1, 2, 3], "weight_decay": 0}], "state": {}}'
+        '{"param_groups": [{"dampening": 0, "differentiable": false, "foreach": null, "initial_lr": 0.1, "lr": 0.1, "maximize": false, "momentum": 0, "nesterov": false, "params": [0, 1, 2, 3], "weight_decay": 0}], "state": {}}',
     ]
     assert key_name('algorithms') in analytics and analytics[key_name('algorithms')] == []
     assert key_name('loggers') in analytics and analytics[key_name('loggers')
-                                                         ] == ["MosaicMLLogger", "ProgressBarLogger"]
+                                                         ] == ['MosaicMLLogger', 'ProgressBarLogger']
     assert key_name('save_interval') in analytics and analytics[key_name('save_interval')] == '1ep'
 
 

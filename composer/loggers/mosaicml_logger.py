@@ -162,7 +162,7 @@ class MosaicMLLogger(LoggerDestination):
             'name': algorithm.__class__.__name__,
             'fields': algorithm.__dict__,
         } for algorithm in trainer_state.algorithms]
-        
+
         metrics['composer/loggers'] = [
             get_logger_type(logger) if not isinstance(logger, MosaicMLLogger) else 'MosaicMLLogger'
             for logger in loggers
