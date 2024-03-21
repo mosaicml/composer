@@ -156,12 +156,10 @@ class MosaicMLLogger(LoggerDestination):
             k: v for k, v in optimizer.__dict__.items() if not k.startswith('_') and k != 'param_groups'
         }
         metrics['composer/optimizers'] = [{
-            'name': optimizer.__class__.__name__,
-            'fields': get_optimizer_args(optimizer),
+            optimizer.__class__.__name__: get_optimizer_args(optimizer),
         } for optimizer in trainer_state.optimizers]
         metrics['composer/algorithms'] = [{
-            'name': algorithm.__class__.__name__,
-            'fields': algorithm.__dict__,
+            algorithm.__class__.__name__: algorithm.__dict__,
         } for algorithm in trainer_state.algorithms]
 
         metrics['composer/loggers'] = [
