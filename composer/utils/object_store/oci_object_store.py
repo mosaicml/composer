@@ -14,8 +14,12 @@ from typing import Callable, List, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
+from composer.utils.object_store.oci_object_store_utils import patch_oci
 
 __all__ = ['OCIObjectStore']
+import logging
+
+logging.getLogger('oci').setLevel(logging.DEBUG)
 
 
 def _reraise_oci_errors(uri: str, e: Exception):
@@ -68,6 +72,7 @@ class OCIObjectStore(ObjectStore):
                 extra_deps_group='oci',
                 conda_channel='conda-forge',
             ) from e
+        patch_oci()
 
         # Format paths
         self.bucket = bucket.strip('/')
