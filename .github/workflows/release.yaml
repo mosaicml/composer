@@ -8,7 +8,7 @@ on:
 
 jobs:
   code-quality:
-    uses: ./.github/workflows/code-quality.yaml
+    uses: mosaicml/ci-testing/.github/actions/code-quality.yaml@v0.0.4
     strategy:
       matrix:
         python_version:
