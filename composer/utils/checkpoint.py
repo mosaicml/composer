@@ -295,12 +295,13 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                 receiver = dist.get_global_rank() != rank_in_first_replica
 
                 # Send list of files to all ranks
-                file_list = [
+                file_list = [[
                     file_name for file_name in sorted(os.listdir(self.destination_path)) if file_name.endswith('.distcp')
-                ]
+                ]]
                 dist.broadcast_object_list(file_list, src=rank_in_first_replica, group=replicate_process_group)
+                file_list = file_list[0]
                 log.debug(f'List of files to broadcast: {file_list}')
-
+                
                 # Send each file to the appropriate rank
                 for file_name in file_list:
                     if dist.get_local_rank() == 0:  # Only 1 rank per node needs to transfer file
