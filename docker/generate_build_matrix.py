@@ -228,44 +228,10 @@ def _main():
 
         pytorch_entries.append(entry)
 
-    nightly_entry_311_aws = {
-        'AWS_OFI_NCCL_VERSION': 'v1.7.4-aws',
-        'BASE_IMAGE': 'nvidia/cuda:12.1.1-cudnn8-devel-ubuntu20.04',
-        'CUDA_VERSION': '12.1.1',
-        'IMAGE_NAME': 'torch-nightly-2-3-0-20240110-cu121-python3-11-aws',
-        'MOFED_VERSION': '',
-        'NVIDIA_REQUIRE_CUDA_OVERRIDE': _get_cuda_override('12.1.1'),
-        'PYTHON_VERSION': '3.11',
-        'PYTORCH_VERSION': '2.3.0',
-        'PYTORCH_NIGHTLY_URL': 'https://download.pytorch.org/whl/nightly/cu121',
-        'PYTORCH_NIGHTLY_VERSION': 'dev20240110+cu121',
-        'TAGS': ['mosaicml/pytorch:2.3.0_cu121-nightly20240110-python3.11-ubuntu20.04-aws'],
-        'TARGET': 'pytorch_stage',
-        'TORCHVISION_VERSION': '0.18.0',
-    }
-    pytorch_entries.append(nightly_entry_311_aws)
-
-    nightly_entry_311 = {
-        'AWS_OFI_NCCL_VERSION': '',
-        'BASE_IMAGE': 'nvidia/cuda:12.1.1-cudnn8-devel-ubuntu20.04',
-        'CUDA_VERSION': '12.1.1',
-        'IMAGE_NAME': 'torch-nightly-2-3-0-20240110-cu121-python3-11',
-        'MOFED_VERSION': '5.5-1.0.3.2',
-        'NVIDIA_REQUIRE_CUDA_OVERRIDE': _get_cuda_override('12.1.1'),
-        'PYTHON_VERSION': '3.11',
-        'PYTORCH_VERSION': '2.3.0',
-        'PYTORCH_NIGHTLY_URL': 'https://download.pytorch.org/whl/nightly/cu121',
-        'PYTORCH_NIGHTLY_VERSION': 'dev20240110+cu121',
-        'TAGS': ['mosaicml/pytorch:2.3.0_cu121-nightly20240110-python3.11-ubuntu20.04'],
-        'TARGET': 'pytorch_stage',
-        'TORCHVISION_VERSION': '0.18.0',
-    }
-    pytorch_entries.append(nightly_entry_311)
-
     composer_entries = []
 
     # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
-    composer_versions = ['0.20.1']  # Only build images for the latest composer version
+    composer_versions = ['0.21.0']  # Only build images for the latest composer version
     composer_python_versions = [PRODUCTION_PYTHON_VERSION]  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):
