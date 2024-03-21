@@ -274,8 +274,11 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                             )
                         log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
             except Exception as e:
-                log.error(f'Exception raised during downloading: {str(e)}')
-                log.error(f'Exception raised during downloading: exception type: {type(e)}')
+                # PyTorch will capture any exception of this funciton,
+                # and dist.all_gather_objects(exception) before raising it.
+                # If that all_gather_objects fails, the exception is never visible to user.
+                # We immediately print the exception to avoid that situation.
+                log.error(f'Exception {type(e)} raised during downloading: {str(e)}')
                 raise e
 
         # 3. Wait for all ranks to finish.
