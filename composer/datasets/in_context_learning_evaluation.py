@@ -8,6 +8,7 @@ import copy
 import json
 import os
 import random
+import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
 
 import torch
@@ -21,6 +22,15 @@ from composer.utils import MissingConditionalImportError, dist, get_file
 if TYPE_CHECKING:
     import transformers
     from datasets import Dataset as HFDataset  # pyright: ignore[reportGeneralTypeIssues]
+
+try:
+    import tensorrt_llm
+    if tensorrt_llm.mpi_world_size() > 1:
+        TRTLLM_MULTIGPU = True
+    else:
+        TRTLLM_MULTIGPU = False
+except:
+    TRTLLM_MULTIGPU = False
 
 # Allow models to have slightly more tokens than were used in the most verbose CoT in the dataset
 _MAX_ANSWER_BUFFER_LENGTH = 10
@@ -206,6 +216,19 @@ def _get_fewshot_sample_idxs(dataset_size: int, num_fewshot: int, example_idx: i
             replacement_sample = rng.choice(range(0, dataset_size))
         fewshot_idxs.add(replacement_sample)
     return fewshot_idxs
+
+
+def _rank_zero_download(dataset_uri, destination_path):
+    if TRTLLM_MULTIGPU == True:
+        if tensorrt_llm.mpi_rank() == 0:
+            get_file(dataset_uri, destination_path, overwrite=True)
+        else:
+            while not os.path.exists(destination_path):
+                time.sleep(0.1)
+    else:
+        with dist.local_rank_zero_download_and_wait(destination_path):
+            if dist.get_local_rank() == 0:
+                get_file(dataset_uri, destination_path, overwrite=True)
 
 
 class InContextLearningDataset(Dataset):
@@ -403,9 +426,7 @@ class InContextLearningDataset(Dataset):
                 assert isinstance(dataset, HFDataset)
                 dataset = dataset.map(dataset_parsing_func, remove_columns=dataset.column_names)
         else:
-            with dist.local_rank_zero_download_and_wait(destination_path):
-                if dist.get_local_rank() == 0:
-                    get_file(dataset_uri, destination_path, overwrite=True)
+            _rank_zero_download(dataset_uri, destination_path)
             dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
         assert isinstance(dataset, HFDataset)
         return dataset
@@ -625,7 +646,6 @@ class InContextLearningDataset(Dataset):
                 batch[batch_key].append(data_pair[data_key])
             if 'continuation_indices' in data_pair:
                 batch['continuation_indices'].append(data_pair['continuation_indices'])
-
         batch = convert_tokens_to_tensors(batch, self.tokenize_labels)
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
@@ -1171,7 +1191,6 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
     ) -> Dict[str, Any]:
         """
         Prepares a single example from a HF Dataset into tokenized format with prompt and fewshot examples.
-
         Each task consists of multiple contexts and a single, correct continuation. Will preprend fewshot examples and
         prompt if present.
 
@@ -1643,9 +1662,7 @@ def partition_dataset_by_category(
             assert hasattr(dataset, 'column_names')
             dataset = dataset.map(dataset_parsing_func, remove_columns=dataset.column_names)
     else:
-        with dist.local_rank_zero_download_and_wait(destination_path):
-            if dist.get_local_rank() == 0:
-                get_file(dataset_uri, destination_path, overwrite=True)
+        _rank_zero_download(dataset_uri, destination_path)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
     assert isinstance(dataset, HFDataset) or isinstance(dataset, IterableDataset)
     assert hasattr(dataset, 'features')
