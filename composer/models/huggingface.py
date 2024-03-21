@@ -513,7 +513,7 @@ class HuggingFaceModel(ComposerModel):
                 warnings.warn(
                     VersionedDeprecationWarning(
                         '`generation_length` has been deprecated in favor of passing `max_new_tokens` directly into `generation_kwargs`.',
-                        remove_version='0.21.0',
+                        remove_version='0.22.0',
                     ),
                 )
                 if 'generation_kwargs' in batch:
