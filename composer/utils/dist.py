@@ -585,7 +585,7 @@ def get_sampler(
     drop_last: bool = False,
     shuffle: bool = False,
     num_replicas: Optional[int] = None,
-    rank: Optional[int] = None
+    rank: Optional[int] = None,
 ):
     """Constructs a :class:`~torch.utils.data.distributed.DistributedSampler` for a dataset.
 
@@ -602,6 +602,8 @@ def get_sampler(
         dataset (torch.utils.data.Dataset): The dataset.
         drop_last (bool): Whether to trop the last batch.
         shuffle (bool): Whether to shuffle the dataset.
+        num_replicas (int, optional): The number of replicas. If ``None``, defaults to the world size.
+        rank (int, optional): The rank. If ``None``, defaults to the global rank.
 
     Returns:
         torch.utils.data.distributed.DistributedSampler: The sampler.
