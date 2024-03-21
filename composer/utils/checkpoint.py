@@ -226,25 +226,25 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         super().__init__(destination_path)
 
     def read_data(self, plan: LoadPlan, planner: LoadPlanner):
-        # Download files if not using HSDP or if on first replica with HSDP enabled
-        first_replica = self.device_mesh is None or self.device_mesh.ndim == 1 or (
-            self.device_mesh.ndim >= 2 and self.device_mesh.get_local_rank(mesh_dim=0) == 0
-        )
+        try:
+            # Download files if not using HSDP or if on first replica with HSDP enabled
+            first_replica = self.device_mesh is None or self.device_mesh.ndim == 1 or (
+                self.device_mesh.ndim >= 2 and self.device_mesh.get_local_rank(mesh_dim=0) == 0
+            )
 
-        # 1. Collect the relative paths to download for all ranks for deduplication
-        relative_file_paths = set()
-        for plan_item in plan.items:
-            relative_file_paths.add(self.storage_data[plan_item.storage_index].relative_path)
-        all_file_paths = dist.all_gather_object(relative_file_paths)
+            # 1. Collect the relative paths to download for all ranks for deduplication
+            relative_file_paths = set()
+            for plan_item in plan.items:
+                relative_file_paths.add(self.storage_data[plan_item.storage_index].relative_path)
+            all_file_paths = dist.all_gather_object(relative_file_paths)
 
-        # 2. Download to the destination all files this rank needs if on first replica
-        if first_replica:
-            log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
+            # 2. Download to the destination all files this rank needs if on first replica
+            if first_replica:
+                log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
 
-            # Get the lowest rank in the current node
-            local_rank_0 = dist.get_global_rank() - dist.get_local_rank()
+                # Get the lowest rank in the current node
+                local_rank_0 = dist.get_global_rank() - dist.get_local_rank()
 
-            try:
                 for plan_item in plan.items:
                     relative_file_path = self.storage_data[plan_item.storage_index].relative_path
                     # Check if the file is scheduled to be downloaded by a lower rank on the same node
@@ -273,64 +273,64 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                                 destination=file_destination,
                             )
                         log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
-            except Exception as e:
-                # PyTorch will capture any exception of this function,
-                # and dist.all_gather_objects(exception) before raising it.
-                # If that all_gather_objects fails, the exception is never visible to user.
-                # We immediately print the exception to avoid that situation.
-                log.error(f'Exception {type(e)} raised during downloading: {str(e)}')
-                raise e
 
-        # 3. Wait for all ranks to finish.
-        log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
-        dist.barrier()
-        log.debug('Done waiting for all ranks to finish downloading files.')
-
-        # 4. Broadcast files to all other replicas if HSDP
-        if self.device_mesh is not None and self.device_mesh.ndim == 2:
-            # Broadcast file to all replicas
-            replicate_process_group = self.device_mesh.get_group(0)
-            shard_size = self.device_mesh.size(1)
-            rank_in_first_replica = dist.get_global_rank() % shard_size
-            sender = dist.get_global_rank() == rank_in_first_replica
-            receiver = dist.get_global_rank() != rank_in_first_replica
-
-            # Send list of files to all ranks
-            file_list = [
-                file_name for file_name in sorted(os.listdir(self.destination_path)) if file_name.endswith('.distcp')
-            ]
-            dist.broadcast_object_list(file_list, src=rank_in_first_replica, group=replicate_process_group)
-            file_list = file_list[0]
-            log.debug(f'List of files to broadcast: {file_list}')
-
-            # Send each file to the appropriate rank
-            for file_name in file_list:
-                if dist.get_local_rank() == 0:  # Only 1 rank per node needs to transfer file
-                    full_path = os.path.join(self.destination_path, file_name)
-                    log.debug(f'Transferring {full_path=}')
-                    file_object = [None]
-                    if sender:
-                        with open(full_path, 'rb') as f:
-                            file_object = [{'content': f.read()}]
-                    dist.broadcast_object_list(
-                        file_object,
-                        src=dist.get_global_rank() % shard_size,
-                        group=replicate_process_group,
-                    )
-                    received_file_object = file_object[0]
-                    assert received_file_object is not None
-                    if receiver and not os.path.exists(full_path):
-                        with open(full_path, 'wb') as f:
-                            f.write(received_file_object['content'])
-
-            log.debug(f'Rank {dist.get_global_rank()} finished transferring files to all ranks.')
+            # 3. Wait for all ranks to finish.
+            log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
             dist.barrier()
-            log.debug(
-                f'Done waiting for all ranks to finish transferring files. Local checkpoint files: {sorted(os.listdir(self.destination_path))}',
-            )
+            log.debug('Done waiting for all ranks to finish downloading files.')
 
-        # 5. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
-        return super().read_data(plan, planner)
+            # 4. Broadcast files to all other replicas if HSDP
+            if self.device_mesh is not None and self.device_mesh.ndim == 2:
+                # Broadcast file to all replicas
+                replicate_process_group = self.device_mesh.get_group(0)
+                shard_size = self.device_mesh.size(1)
+                rank_in_first_replica = dist.get_global_rank() % shard_size
+                sender = dist.get_global_rank() == rank_in_first_replica
+                receiver = dist.get_global_rank() != rank_in_first_replica
+
+                # Send list of files to all ranks
+                file_list = [
+                    file_name for file_name in sorted(os.listdir(self.destination_path)) if file_name.endswith('.distcp')
+                ]
+                dist.broadcast_object_list(file_list, src=rank_in_first_replica, group=replicate_process_group)
+                file_list = file_list[0]
+                log.debug(f'List of files to broadcast: {file_list}')
+
+                # Send each file to the appropriate rank
+                for file_name in file_list:
+                    if dist.get_local_rank() == 0:  # Only 1 rank per node needs to transfer file
+                        full_path = os.path.join(self.destination_path, file_name)
+                        log.debug(f'Transferring {full_path=}')
+                        file_object = [None]
+                        if sender:
+                            with open(full_path, 'rb') as f:
+                                file_object = [{'content': f.read()}]
+                        dist.broadcast_object_list(
+                            file_object,
+                            src=dist.get_global_rank() % shard_size,
+                            group=replicate_process_group,
+                        )
+                        received_file_object = file_object[0]
+                        assert received_file_object is not None
+                        if receiver and not os.path.exists(full_path):
+                            with open(full_path, 'wb') as f:
+                                f.write(received_file_object['content'])
+
+                log.debug(f'Rank {dist.get_global_rank()} finished transferring files to all ranks.')
+                dist.barrier()
+                log.debug(
+                    f'Done waiting for all ranks to finish transferring files. Local checkpoint files: {sorted(os.listdir(self.destination_path))}',
+                )
+
+            # 5. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
+            return super().read_data(plan, planner)
+        except Exception as e:
+            # PyTorch will capture any exception of this function,
+            # and dist.all_gather_objects(exception) before raising it.
+            # If that all_gather_objects fails, the exception is never visible to user.
+            # We immediately print the exception to avoid that situation.
+            log.error(f'Exception {type(e)} raised during downloading: {str(e)}')
+            raise e
 
 
 class PartialFilePath:
