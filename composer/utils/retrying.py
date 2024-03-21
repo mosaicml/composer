@@ -8,6 +8,7 @@ from __future__ import annotations
 import collections.abc
 import functools
 import random
+import logging
 import time
 from typing import Any, Callable, Sequence, Type, TypeVar, Union, cast, overload
 
@@ -15,6 +16,7 @@ TCallable = TypeVar('TCallable', bound=Callable)
 
 __all__ = ['retry']
 
+log = logging.getLogger(__name__)
 
 @overload
 def retry(
@@ -86,6 +88,7 @@ def retry(  # type: ignore
                 try:
                     return func(*args, **kwargs)
                 except exc_class as e:
+                    log.debug(f'Attempt {i} failed. Exception type: {type(e)}, message: {str(e)}.')
                     if i + 1 == num_attempts:
                         raise e
                     else:
