@@ -463,4 +463,4 @@ def test_get_logger_type(tmp_path: Path, comet_logger: CometMLLogger):
         def __init__(self):
             return
 
-    assert get_logger_type(DummyClass()) == 'Other'
+    assert get_logger_type(DummyClass()) == 'Other'  # type: ignore
