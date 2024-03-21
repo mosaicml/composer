@@ -1295,6 +1295,17 @@ class Trainer:
                 },
             )
             loggers.append(mosaicml_logger)
+        elif any(isinstance(x, MosaicMLLogger) for x in loggers):
+            # If a MosaicMLLogger is already present (i.e. passed into the Trainer), update the analytics data
+            mosaicml_logger = next((logger for logger in loggers if isinstance(logger, MosaicMLLogger)))
+            mosaicml_logger.analytics_data = {
+                'autoresume': autoresume,
+                'state': self.state,
+                'save_interval': save_interval,
+                'loggers': loggers,
+                'load_path': load_path,
+                'save_folder': save_folder,
+            }
 
         # Remote Uploader Downloader
         # Keep the ``RemoteUploaderDownloader`` below client-provided loggers so the loggers init callbacks run before

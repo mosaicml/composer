@@ -50,7 +50,27 @@ class MosaicMLLogger(LoggerDestination):
     """Log to the MosaicML platform.
 
     Logs metrics to the MosaicML platform. Logging only happens on rank 0 every ``log_interval``
-    seconds to avoid performance issues.
+    seconds to avoid performance issues. The following metrics are logged upon ``INIT``:
+    - ``composer/autoresume``: Whether or not the run can be stopped / resumed during training.
+    - ``composer/precision``: The precision to use for training.
+    - ``composer/train_loader_workers``: The number of workers for the train dataloader.
+    - ``composer/eval_loaders``: A list of dictionaries containing the label and the number of workers for each
+        evaluation dataloader.
+    - ``composer/optimizers``: A list of dictionaries containing the _ for each opimizer.
+    - ``composer/algorithms``: A list of dictionaries containing the _ for each algorithm.
+    - ``composer/loggers``: A list containing the loggers used in the ``Trainer``.
+    - ``composer/cloud_provider_data``: The cloud provider for the load path.
+    - ``composer/cloud_provider_checkpoints``: The cloud provider for the save folder.
+    - ``composer/save_interval``: The save interval for the run.
+    - FSDP specific metrics:
+        - ``composer/sharding_strategy``: The sharding strategy used.
+        - ``composer/activation_checkpointing``: Whether or not activation checkpointing is used.
+        - ``composer/forward_prefetch``: Whether or not forward prefetch is used.
+        - ``composer/backward_prefetch``: Whether or not backward prefetch is used.
+        - ``composer/device_mesh``: The device mesh used.
+        - ``composer/mixed_precision``: The mixed precision configuration used.
+        - ``composer/state_dict_type``: The state dict type of FSDP config.
+
 
     When running on the MosaicML platform, the logger is automatically enabled by Trainer. To disable,
     the environment variable 'MOSAICML_PLATFORM' can be set to False.
@@ -134,12 +154,15 @@ class MosaicMLLogger(LoggerDestination):
                     }),
                 )
 
-        metrics['composer/optimizers'] = [
-            json.dumps(optimizer.state_dict(), sort_keys=True) for optimizer in trainer_state.optimizers
-        ]
-        metrics['composer/algorithms'] = [
-            json.dumps(algorithm.state_dict(), sort_keys=True) for algorithm in trainer_state.algorithms
-        ]
+        metrics['composer/optimizers'] = [{
+            'name': optimizer.__class__.__name__,
+            'fields': optimizer.__dict__,
+        } for optimizer in trainer_state.optimizers]
+        metrics['composer/algorithms'] = [{
+            'name': algorithm.__class__.__name__,
+            'fields': algorithm.__dict__,
+        } for algorithm in trainer_state.algorithms]
+        
         metrics['composer/loggers'] = [
             get_logger_type(logger) if not isinstance(logger, MosaicMLLogger) else 'MosaicMLLogger'
             for logger in loggers
