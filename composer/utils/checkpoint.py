@@ -274,7 +274,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                             )
                         log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
             except Exception as e:
-                # PyTorch will capture any exception of this funciton,
+                # PyTorch will capture any exception of this function,
                 # and dist.all_gather_objects(exception) before raising it.
                 # If that all_gather_objects fails, the exception is never visible to user.
                 # We immediately print the exception to avoid that situation.
