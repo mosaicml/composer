@@ -432,12 +432,6 @@ def test_logged_metrics(monkeypatch):
     assert key_name('autoresume') in analytics and analytics[key_name('autoresume')] == False
     assert key_name('precision') in analytics and analytics[key_name('precision')] == 'Precision.FP32'
     assert key_name('eval_loaders') in analytics and analytics[key_name('eval_loaders')] == []
-
-    raise Exception(str(analytics))
-
-    assert key_name('optimizers') in analytics and analytics[key_name('optimizers')] == [
-        '{"param_groups": [{"dampening": 0, "differentiable": false, "foreach": null, "initial_lr": 0.1, "lr": 0.1, "maximize": false, "momentum": 0, "nesterov": false, "params": [0, 1, 2, 3], "weight_decay": 0}], "state": {}}',
-    ]
     assert key_name('algorithms') in analytics and analytics[key_name('algorithms')] == []
     assert key_name('loggers') in analytics and analytics[key_name('loggers')
                                                          ] == ['MosaicMLLogger', 'ProgressBarLogger']

@@ -3,8 +3,6 @@
 
 """Helpers for logging analytics with the MosaicMLLogger."""
 
-from typing import Any
-
 from composer.loggers.cometml_logger import CometMLLogger
 from composer.loggers.console_logger import ConsoleLogger
 from composer.loggers.file_logger import FileLogger
@@ -34,7 +32,7 @@ LOGGER_TYPES = [
 ]
 
 
-def get_logger_type(logger: Any) -> str:
+def get_logger_type(logger: LoggerDestination) -> str:
     """Returns the type of a logger as a string. If the logger is not a known type, returns 'Custom'."""
     for logger_type in LOGGER_TYPES:
         if isinstance(logger, logger_type):
