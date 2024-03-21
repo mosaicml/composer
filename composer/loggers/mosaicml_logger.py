@@ -55,7 +55,7 @@ class MosaicMLLogger(LoggerDestination):
     - ``composer/precision``: The precision to use for training.
     - ``composer/train_loader_workers``: The number of workers for the train dataloader.
     - ``composer/eval_loaders``: A list of dictionaries containing the label and the number of workers for each
-        evaluation dataloader.
+    evaluation dataloader.
     - ``composer/optimizers``: A list of dictionaries containing the _ for each opimizer.
     - ``composer/algorithms``: A list of dictionaries containing the _ for each algorithm.
     - ``composer/loggers``: A list containing the loggers used in the ``Trainer``.
