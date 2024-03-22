@@ -128,7 +128,6 @@ RUN apt-get update && \
         bzip2 \
         gzip \
         lz4 \
-        lzma \
         lzop \
         xz-utils \
         zstd \

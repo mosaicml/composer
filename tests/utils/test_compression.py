@@ -45,7 +45,7 @@ def test_compressor(tmp_path: Path, compressor: CliCompressor) -> None:
     if not compressor.exists:
         pytest.skip(reason=f'compressor {compressor.cmd} not found')
 
-    test_file = tmp_path / 'my_file'
+    test_file = tmp_path / f'my_file.{compressor.extension}'
     test_data = b'foo foo foo'
 
     with compressor.compress(str(test_file)) as f:
@@ -54,4 +54,5 @@ def test_compressor(tmp_path: Path, compressor: CliCompressor) -> None:
     assert test_file.read_bytes() != test_data
 
     with compressor.decompress(str(test_file)) as f:
-        assert f.read() == test_data
+        decompressed = f.read()
+    assert decompressed == test_data
