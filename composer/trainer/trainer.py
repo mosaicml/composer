@@ -240,7 +240,7 @@ def _set_evaluator_interval_and_subset_num_batches(
                 )
 
 
-def _is_auto_microbatching(device_train_microbatch_size: Optional[Union[int, str]], device: Device):
+def _is_auto_microbatching(device_train_microbatch_size: Optional[Union[int, float, str]], device: Device):
     if device_train_microbatch_size == 'auto':
         warnings.warn((
             "`device_train_microbatch_size='auto'` may potentially fail with unexpected "
@@ -260,10 +260,10 @@ def _is_auto_microbatching(device_train_microbatch_size: Optional[Union[int, str
 
 
 def _get_initial_device_train_microbatch_size(
-    device_train_microbatch_size: Optional[Union[int, str]],
+    device_train_microbatch_size: Optional[Union[int, float, str]],
     auto_microbatching: bool,
     train_dataloader: Optional[Iterable],
-) -> Optional[int]:
+) -> Optional[Union[int, float]]:
     """Sets initial value of device_train_microbatch_size.
 
     If auto_microbatching, sets initial `device_train_microbatch_size` to per rank batch size. If
@@ -409,7 +409,7 @@ def _validate_evaluator(evaluator: Evaluator, device: Device):
     if hasattr(
         evaluator.dataloader,
         'seq_parallel_world_size',
-    ) and evaluator.dataloader.seq_parallel_world_size > 1 and evaluator.dataloader.get_num_samples_in_batch * evaluator.dataloader.seq_parallel_world_size != 1:  # type: ignore
+    ) and evaluator.dataloader.seq_parallel_world_size > 1 and evaluator.dataloader.batch_size * evaluator.dataloader.seq_parallel_world_size != 1:  # type: ignore
         raise ValueError(
             'Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
         )
@@ -904,7 +904,7 @@ class Trainer:
             training on GPU)
         precision_config (Optional[Dict[str, Any]]): The config for FP8 scaling strategy. See parameters for
             `DelayedScaling <https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/common.html?highlight=delayedscaling#transformer_engine.common.recipe.DelayedScaling>`_.
-        device_train_microbatch_size (Union[int, str), optional): The number of samples to process on each device per
+        device_train_microbatch_size (Union[int, float, str), optional): The number of samples to process on each device per
             microbatch during training. Gradients are summed over the microbatches per device. If set to ``auto``,
             dynamically decreases device_train_microbatch_size if microbatch is too large for GPU. (default: ``None``)
 
@@ -1043,7 +1043,7 @@ class Trainer:
         device: Optional[Union[str, Device]] = None,
         precision: Optional[Union[str, Precision]] = None,
         precision_config: Optional[Dict[str, Any]] = None,
-        device_train_microbatch_size: Optional[Union[int, str]] = None,
+        device_train_microbatch_size: Optional[Union[int, float, str]] = None,
 
         # Reproducibility
         seed: Optional[int] = None,
@@ -1908,7 +1908,7 @@ class Trainer:
         eval_interval: Union[int, str, Time, Callable[[State, Event], bool]] = 1,
 
         # Numerics
-        device_train_microbatch_size: Optional[Union[int, str]] = None,
+        device_train_microbatch_size: Optional[Union[int, float, str]] = None,
         precision: Optional[Union[str, Precision]] = None,
     ):
         """Train the model.
@@ -2017,7 +2017,7 @@ class Trainer:
             eval_dataloader (Iterable | DataSpec | Evaluator | Sequence[Evaluator], optional): See :class:`.Trainer`.
             eval_subset_num_batches (int, optional): See :class:`.Trainer`.
             eval_interval (int | str | Time | (State, Event) -> bool, optional): See :class:`.Trainer`.
-            device_train_microbatch_size (int | str, optional): See :class:`.Trainer`.
+            device_train_microbatch_size (int | float | str, optional): See :class:`.Trainer`.
             precision (Precision | str, optional): See :class:`.Trainer`.
         """
         # Check Optimizer
