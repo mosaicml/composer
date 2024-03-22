@@ -91,7 +91,7 @@ If you want to run pre-commit hooks manually, which check for code formatting an
 To run the tests in the provided docker containers:
 
 * `docker pull mosaicml/composer` (or an alternative image like `mosaicml/composer:latest_cpu`)
-* `docker run --rm -v .:/composer -it mosaicml/composer`
+* `docker run --rm -v ./:/composer --user $(id -u):$(id -g) -it mosaicml/composer`
 * from inside the container
     * `cd /composer`
     * `pip install -e .`
