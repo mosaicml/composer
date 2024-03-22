@@ -192,7 +192,9 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
 
 @retry(num_attempts=5)
 def download_object_or_file(
-    object_name: str, file_destination: Union[str, pathlib.Path], object_store: Union[ObjectStore, LoggerDestination]
+    object_name: str,
+    file_destination: Union[str, pathlib.Path],
+    object_store: Union[ObjectStore, LoggerDestination],
 ):
     if isinstance(object_store, ObjectStore):
         object_store.download_object(
@@ -202,7 +204,7 @@ def download_object_or_file(
     else:
         object_store.download_file(
             remote_file_name=object_name,
-            destination=file_destination,
+            destination=file_destination,  # pyright: ignore[reportGeneralTypeIssues]
         )
 
 
@@ -246,7 +248,8 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
     def read_data(self, plan: LoadPlan, planner: LoadPlanner):
         # Download files if not using HSDP or if on first replica with HSDP enabled
         first_replica = self.device_mesh is None or self.device_mesh.ndim == 1 or (
-            self.device_mesh.ndim >= 2 and self.device_mesh.get_local_rank(mesh_dim=0) == 0
+            self.device_mesh.ndim >= 2 and
+            self.device_mesh.get_local_rank(mesh_dim=0) == 0  # pyright: ignore[reportGeneralTypeIssues]
         )
 
         # 1. Collect the relative paths to download for all ranks for deduplication
@@ -298,7 +301,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         # 4. Broadcast files to all other replicas if HSDP
         if self.device_mesh is not None and self.device_mesh.ndim == 2:
             # Broadcast file to all replicas
-            replicate_process_group = self.device_mesh.get_group(0)
+            replicate_process_group = self.device_mesh.get_group(0)  # pyright: ignore[reportGeneralTypeIssues]
             shard_size = self.device_mesh.size(1)
             rank_in_first_replica = dist.get_global_rank() % shard_size
             sender = dist.get_global_rank() == rank_in_first_replica
