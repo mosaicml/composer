@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import collections.abc
 import functools
-import random
 import logging
+import random
 import time
 from typing import Any, Callable, Sequence, Type, TypeVar, Union, cast, overload
 
@@ -17,6 +17,7 @@ TCallable = TypeVar('TCallable', bound=Callable)
 __all__ = ['retry']
 
 log = logging.getLogger(__name__)
+
 
 @overload
 def retry(
