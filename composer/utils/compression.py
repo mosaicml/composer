@@ -32,6 +32,9 @@ class CliCompressor:
         self.extension = extension
         self.cmd = cmd if cmd is not None else extension
 
+    def __repr__(self) -> str:
+        return f'CliCompressor({self.extension!r}, {self.cmd!r})'
+
     @property
     def exists(self) -> bool:
         return shutil.which(self.cmd) is not None
@@ -55,7 +58,9 @@ class CliCompressor:
             assert proc.stdin is not None
             yield proc.stdin
             proc.stdin.close()
-            proc.wait()
+            returncode = proc.wait()
+            if returncode != 0:
+                raise IOError(f'failed to compress "{filename}" using {self!r}')
 
     def _decompress_cmd(self, filename: str) -> List[str]:
         return [self.cmd, '-dc', filename]
@@ -69,7 +74,9 @@ class CliCompressor:
         )
         assert proc.stdout is not None
         yield proc.stdout
-        proc.wait()
+        returncode = proc.wait()
+        if returncode != 0:
+            raise IOError(f'failed to decompress "{in_filename}" using {self!r}')
 
 
 def get_compressor(filename: str) -> CliCompressor:
