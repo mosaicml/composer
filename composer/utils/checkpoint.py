@@ -191,7 +191,9 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
 
 
 @retry(num_attempts=5)
-def download_object_or_file(object_name: str, file_destination: Union[str, pathlib.Path], object_store):
+def download_object_or_file(
+    object_name: str, file_destination: Union[str, pathlib.Path], object_store: Union[ObjectStore, LoggerDestination]
+):
     if isinstance(object_store, ObjectStore):
         object_store.download_object(
             object_name=object_name,
@@ -279,6 +281,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                         log.debug(f'Downloading {relative_file_path} to {file_destination}.')
                         object_name = str(Path(self.source_path) / Path(relative_file_path))
                         download_object_or_file(object_name, file_destination, self.object_store)
+                        log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
             except Exception as e:
                 # PyTorch will capture any exception of this function,
                 # and dist.all_gather_objects(exception) before raising it.
