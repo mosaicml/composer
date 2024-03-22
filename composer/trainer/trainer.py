@@ -2306,6 +2306,7 @@ class Trainer:
             sample_token_tensor = self.state.device.tensor_to_device(
                 torch.tensor([num_samples, num_tokens], dtype=torch.float32),
             )
+            print(f'num_samples={num_samples}, num_tokens={num_tokens}, {sample_token_tensor=}')
         else:
             sample_token_tensor = self.state.device.tensor_to_device(
                 torch.tensor([num_samples, num_tokens], dtype=torch.int),
