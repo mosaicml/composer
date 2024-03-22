@@ -9,6 +9,7 @@ import contextlib
 import fnmatch
 import logging
 import os
+import pathlib
 import shutil
 import tarfile
 import tempfile
