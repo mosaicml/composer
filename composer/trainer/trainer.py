@@ -2312,7 +2312,7 @@ class Trainer:
             )
         dist.all_reduce(sample_token_tensor, reduce_operation='SUM')
         if isinstance(num_samples, float):
-            sample_token_tensor_int = sample_token_tensor.round(torch.int)
+            sample_token_tensor_int = sample_token_tensor.round().to(torch.int)
             if torch.any(torch.abs(sample_token_tensor_int - sample_token_tensor) > 1e-4):
                 raise ValueError(f'The sums of samples and tokens across ranks should each be integers.',)
             sample_token_tensor = sample_token_tensor_int
