@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Set, Tuple
 import torch
 from torchmetrics import Metric
 
+from composer.devices import DeviceCPU
 from composer.models.base import ComposerModel
 from composer.utils import MissingConditionalImportError, dist, get_file, import_object, is_model_fsdp, safe_torch_load
 from composer.utils.warnings import VersionedDeprecationWarning
@@ -513,7 +514,7 @@ class HuggingFaceModel(ComposerModel):
                 warnings.warn(
                     VersionedDeprecationWarning(
                         '`generation_length` has been deprecated in favor of passing `max_new_tokens` directly into `generation_kwargs`.',
-                        remove_version='0.21.0',
+                        remove_version='0.22.0',
                     ),
                 )
                 if 'generation_kwargs' in batch:
@@ -521,6 +522,7 @@ class HuggingFaceModel(ComposerModel):
                 else:
                     batch['generation_kwargs'] = {'max_new_tokens': batch['generation_length']}
 
+            self.labels = batch.pop('labels')
             generation = self.generate(
                 batch['input_ids'],
                 attention_mask=batch['attention_mask'],
@@ -543,18 +545,25 @@ class HuggingFaceModel(ComposerModel):
                 ]
 
         if self.use_logits or batch.get('mode', None) == 'icl_task':
+            # pop labels first to avoid computing loss
+            self.labels = batch.pop('labels')
+
             # HF encoder decoder models like T5 expect either decoder_input_ids or labels,
             # so we add decoder_input_ids to the batch if it is missing
             if self.config.is_encoder_decoder and 'decoder_input_ids' not in batch:
                 if hasattr(self.model, 'prepare_decoder_input_ids_from_labels'):
-                    batch['decoder_input_ids'] = self.model.prepare_decoder_input_ids_from_labels(
-                        labels=batch['labels'],
-                    )
+                    batch['decoder_input_ids'] = self.model.prepare_decoder_input_ids_from_labels(labels=self.labels)
                 else:
                     raise RuntimeError(
                         'Encoder decoder models require that either decoder_input_ids is present in the batch'
                         ' or that the model has a prepare_decoder_input_ids_from_labels method.',
                     )
+
+            if self.shift_labels or batch.get('mode', None) == 'icl_task':
+                assert self.labels is not None
+                # HF CausalLM models internally shift labels before computing loss, so we do the same here
+                self.labels[:, :-1] = self.labels[:, 1:].clone()
+                self.labels[:, -1] = -100
 
             output = outputs if outputs else self.forward(batch)
 
@@ -581,19 +590,9 @@ class HuggingFaceModel(ComposerModel):
 
         return metrics if metrics else {}
 
-    def shift_batch_labels(self, batch: Any):
-        if (self.use_logits or batch.get('mode', None) == 'icl_task' or batch.get('mode', None) == 'generate'):
-            self.labels = batch['labels']
-
-        if (self.use_logits and self.shift_labels and
-            batch.get('mode', None) != 'generate') or batch.get('mode', None) == 'icl_task':
-            assert self.labels is not None
-            # HF CausalLM models internally shift labels before computing loss, so we do the same here
-            self.labels[:, :-1] = self.labels[:, 1:].clone()
-            self.labels[:, -1] = -100
-
     def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> Dict:
-        self.shift_batch_labels(batch)
+        if metric.device.type == 'cpu':
+            self.labels = DeviceCPU().batch_to_device(self.labels)
 
         if getattr(metric, 'needs_batch', False):
             metric_result = metric.update(batch=batch, outputs=outputs, labels=self.labels)

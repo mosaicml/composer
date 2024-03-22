@@ -1007,7 +1007,7 @@ def test_hf_causal_shift_labels(tiny_gpt2_model, tiny_gpt2_tokenizer):
     batch = tiny_gpt2_tokenizer('a b c d e f g h i j k', return_tensors='pt')
     batch['labels'] = batch['input_ids'].clone()
 
-    _ = model.shift_batch_labels(batch)
+    _ = model.eval_forward(batch)
     assert isinstance(model.labels, torch.Tensor)
     assert torch.all(model.labels[..., :3] == batch['input_ids'][..., 1:4])
     assert torch.all(model.labels[..., -1] == -100)
