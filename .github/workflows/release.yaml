@@ -8,7 +8,7 @@ on:
 
 jobs:
   code-quality:
-    uses: ./.github/workflows/code-quality.yaml
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         python_version:
@@ -17,9 +17,19 @@ jobs:
         - "3.11"
         pip_deps:
         - "[dev]"
-    with:
-      python_version: ${{ matrix.python_version }}
-      pip_deps: ${{ matrix.pip_deps }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Get composite run steps repository
+      uses: actions/checkout@v3
+      with:
+        repository: mosaicml/ci-testing
+        ref: v0.0.4
+        path: ./ci-testing
+    - uses: ./ci-testing/.github/actions/code-quality
+      with:
+        python_version: ${{ matrix.python_version }}
+        pip_deps: ${{ matrix.pip_deps }}
 
   pypi-packaging:
     name: Build and Publish mosaicml PyPI Package

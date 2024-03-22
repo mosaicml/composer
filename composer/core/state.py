@@ -44,7 +44,6 @@ from composer.utils import (
     is_model_deepspeed,
     reproducibility,
 )
-from composer.utils.warnings import VersionedDeprecationWarning
 
 if TYPE_CHECKING:
     import deepspeed
@@ -789,16 +788,6 @@ class State(Serializable):
     @property
     def fsdp_sharded_state_dict_enabled(self):
         return self.fsdp_config is not None and self.fsdp_enabled and self.fsdp_state_dict_type == 'sharded'
-
-    @property
-    def fsdp_elastic_sharded_enabled(self):
-        warnings.warn(
-            VersionedDeprecationWarning(
-                'state.fsdp_elastic_sharded_enabled is deprecated.',
-                remove_version='0.21.0',
-            ),
-        )
-        return self.fsdp_sharded_state_dict_enabled
 
     @property
     def fsdp_device_mesh(self):
