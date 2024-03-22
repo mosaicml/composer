@@ -50,14 +50,16 @@ class MosaicMLLogger(LoggerDestination):
     """Log to the MosaicML platform.
 
     Logs metrics to the MosaicML platform. Logging only happens on rank 0 every ``log_interval``
-    seconds to avoid performance issues. The following metrics are logged upon ``INIT``:
+    seconds to avoid performance issues.
+
+    Additionally, The following metrics are logged upon ``INIT``:
     - ``composer/autoresume``: Whether or not the run can be stopped / resumed during training.
     - ``composer/precision``: The precision to use for training.
     - ``composer/train_loader_workers``: The number of workers for the train dataloader.
     - ``composer/eval_loaders``: A list of dictionaries containing the label and the number of workers for each
     evaluation dataloader.
-    - ``composer/optimizers``: A list of dictionaries containing the _ for each opimizer.
-    - ``composer/algorithms``: A list of dictionaries containing the _ for each algorithm.
+    - ``composer/optimizers``: A list of dictionaries containing information about each opimizer.
+    - ``composer/algorithms``: A list of dictionaries containing information about each algorithm.
     - ``composer/loggers``: A list containing the loggers used in the ``Trainer``.
     - ``composer/cloud_provider_data``: The cloud provider for the load path.
     - ``composer/cloud_provider_checkpoints``: The cloud provider for the save folder.
@@ -86,7 +88,7 @@ class MosaicMLLogger(LoggerDestination):
 
             (default: ``None``)
         ignore_exceptions: Flag to disable logging exceptions. Defaults to False.
-        analytics_data (Dict[str, Any], optional): Analytical metrics to log about the current run. Defaults to ``None``.
+        analytics_data (Dict[str, Any], optional): A dictionary containing variables used to log analytics. Defaults to ``None``.
     """
 
     def __init__(
