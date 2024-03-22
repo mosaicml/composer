@@ -9,7 +9,6 @@ import contextlib
 import fnmatch
 import logging
 import os
-import pathlib
 import shutil
 import tarfile
 import tempfile
@@ -17,7 +16,7 @@ import textwrap
 import warnings
 from importlib import import_module
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 import torch
 from packaging import version
@@ -193,7 +192,7 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
 @retry(num_attempts=5)
 def download_object_or_file(
     object_name: str,
-    file_destination: Union[str, pathlib.Path],
+    file_destination: Union[str, Path],
     object_store: Union[ObjectStore, LoggerDestination],
 ):
     if isinstance(object_store, ObjectStore):
@@ -204,7 +203,7 @@ def download_object_or_file(
     else:
         object_store.download_file(
             remote_file_name=object_name,
-            destination=cast(str, file_destination),
+            destination=str(file_destination),
         )
 
 
@@ -248,8 +247,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
     def read_data(self, plan: LoadPlan, planner: LoadPlanner):
         # Download files if not using HSDP or if on first replica with HSDP enabled
         first_replica = self.device_mesh is None or self.device_mesh.ndim == 1 or (
-            self.device_mesh.ndim >= 2 and
-            self.device_mesh.get_local_rank(mesh_dim=0) == 0  # pyright: ignore[reportGeneralTypeIssues]
+            self.device_mesh.ndim >= 2 and self.device_mesh.get_local_rank(mesh_dim=0) == 0
         )
 
         # 1. Collect the relative paths to download for all ranks for deduplication
@@ -301,7 +299,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         # 4. Broadcast files to all other replicas if HSDP
         if self.device_mesh is not None and self.device_mesh.ndim == 2:
             # Broadcast file to all replicas
-            replicate_process_group = self.device_mesh.get_group(0)  # pyright: ignore[reportGeneralTypeIssues]
+            replicate_process_group = self.device_mesh.get_group(0)
             shard_size = self.device_mesh.size(1)
             rank_in_first_replica = dist.get_global_rank() % shard_size
             sender = dist.get_global_rank() == rank_in_first_replica
