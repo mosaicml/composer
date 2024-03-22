@@ -278,13 +278,12 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                         log.debug(f'Downloading {relative_file_path} to {file_destination}.')
                         object_name = str(Path(self.source_path) / Path(relative_file_path))
                         download_object_or_file(object_name, file_destination, self.object_store)
-                        log.error(f'Exception {type(e)} raised during downloading: {str(e)}')
             except Exception as e:
                 # PyTorch will capture any exception of this function,
                 # and dist.all_gather_objects(exception) before raising it.
                 # If that all_gather_objects fails, the exception is never visible to user.
                 # We immediately print the exception to avoid that situation.
-                log.error(f'Exception {type(e)} raised during read_data: {str(e)}')
+                log.error(f'Exception {type(e)} raised during downloading: {str(e)}')
                 raise e
 
         # 3. Wait for all ranks to finish.
@@ -308,7 +307,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
             dist.broadcast_object_list(file_list, src=rank_in_first_replica, group=replicate_process_group)
             file_list = file_list[0]
             log.debug(f'List of files to broadcast: {file_list}')
-            
+
             # Send each file to the appropriate rank
             for file_name in file_list:
                 if dist.get_local_rank() == 0:  # Only 1 rank per node needs to transfer file
