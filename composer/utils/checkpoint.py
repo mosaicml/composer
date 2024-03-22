@@ -17,7 +17,7 @@ import textwrap
 import warnings
 from importlib import import_module
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, cast
 
 import torch
 from packaging import version
@@ -204,7 +204,7 @@ def download_object_or_file(
     else:
         object_store.download_file(
             remote_file_name=object_name,
-            destination=file_destination,  # pyright: ignore[reportGeneralTypeIssues]
+            destination=cast(str, file_destination),
         )
 
 
