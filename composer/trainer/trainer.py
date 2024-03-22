@@ -2843,7 +2843,11 @@ class Trainer:
 
             # For each loss to log: detach, clone, mean, then multiply by (microbatch size) / (batch size)
             for k, loss in microbatch_loss_dict.items():
-                microbatch_loss_dict[k] = loss.detach().clone().mean() * (microbatch_num_samples / current_batch_size)
+                if current_batch_size == 0:
+                    microbatch_loss_dict[k] = loss.detach().clone().mean() * 0.0
+                else:
+                    microbatch_loss_dict[k] = loss.detach().clone().mean(
+                    ) * (microbatch_num_samples / current_batch_size)
 
             if use_grad_scaling:
                 microbatch_loss = cast(torch.Tensor, self.state.scaler.scale(microbatch_loss))  # type: ignore
@@ -2852,7 +2856,10 @@ class Trainer:
                 self.state.deepspeed_model.backward(microbatch_loss)
             else:
                 # Scale loss based on the number of samples in the microbatch to maintain gradient numerics
-                microbatch_loss.mul_(microbatch_num_samples / current_batch_size)
+                if current_batch_size == 0:
+                    microbatch_loss.mul_(0.0)
+                else:
+                    microbatch_loss.mul_(microbatch_num_samples / current_batch_size)
                 microbatch_loss.backward(create_graph=self._backwards_create_graph)
 
             if self.state.device.dist_backend == 'xla':
