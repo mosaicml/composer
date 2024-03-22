@@ -26,14 +26,38 @@ def is_compressed_pt(filename: str) -> bool:
 
 
 class CliCompressor:
-    """Base class for data compression CLI tools."""
+    """Base class for data compression CLI tools.
+
+    This class handles compression and decompression of data by piping it through
+    CLI compressor tools installed on the system. e.g. the `gzip` command for producing `.gz` files.
+
+    Example:
+    .. code-block:: python
+
+        compressor = CliCompressor('gz', 'gzip')
+
+        with compressor.compress('myfile.txt.gz') as f:
+            f.write('foo')
+
+        with compressor.decompress('myfile.txt.gz') as f:
+            assert f.read() == 'foo'
+
+    Args:
+        extension (str): The suffix used to identify files that the compressor supports (without a leading `.`).
+        cmd (str, optional): The name of the CLI tool that this compressor uses. Defaults to `None`, in which case
+            it is assumed that the tool name is the same as the extension.
+    """
 
     def __init__(self, extension: str, cmd: Optional[str] = None) -> None:
         self.extension = extension
         self.cmd = cmd if cmd is not None else extension
 
+    def __repr__(self) -> str:
+        return f'CliCompressor({self.extension!r}, {self.cmd!r})'
+
     @property
     def exists(self) -> bool:
+        """Whether the CLI tool used by this compressor can be found."""
         return shutil.which(self.cmd) is not None
 
     def check_exists(self) -> None:
@@ -44,9 +68,10 @@ class CliCompressor:
         return [self.cmd]
 
     @contextmanager
-    def compress(self, filename: str) -> Iterator[IO[bytes]]:
+    def compress(self, out_filename: str) -> Iterator[IO[bytes]]:
+        """Compress some data, saving to the given file."""
         self.check_exists()
-        with open(filename, 'wb') as f:
+        with open(out_filename, 'wb') as f:
             proc = subprocess.Popen(
                 self._compress_cmd(),
                 stdin=subprocess.PIPE,
@@ -55,13 +80,16 @@ class CliCompressor:
             assert proc.stdin is not None
             yield proc.stdin
             proc.stdin.close()
-            proc.wait()
+            returncode = proc.wait()
+            if returncode != 0:
+                raise IOError(f'failed to compress to "{out_filename}" using {self!r} (return code {returncode})')
 
     def _decompress_cmd(self, filename: str) -> List[str]:
         return [self.cmd, '-dc', filename]
 
     @contextmanager
     def decompress(self, in_filename: str) -> Iterator[IO[bytes]]:
+        """Decompress the content of the given file, providing the output as a file-like object."""
         self.check_exists()
         proc = subprocess.Popen(
             self._decompress_cmd(in_filename),
@@ -69,7 +97,9 @@ class CliCompressor:
         )
         assert proc.stdout is not None
         yield proc.stdout
-        proc.wait()
+        returncode = proc.wait()
+        if returncode != 0:
+            raise IOError(f'failed to decompress "{in_filename}" using {self!r} (return code {returncode})')
 
 
 def get_compressor(filename: str) -> CliCompressor:

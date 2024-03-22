@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Set, Tuple
 import torch
 from torchmetrics import Metric
 
+from composer.devices import DeviceCPU
 from composer.models.base import ComposerModel
 from composer.utils import MissingConditionalImportError, dist, get_file, import_object, is_model_fsdp, safe_torch_load
 from composer.utils.warnings import VersionedDeprecationWarning
@@ -590,6 +591,9 @@ class HuggingFaceModel(ComposerModel):
         return metrics if metrics else {}
 
     def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> Dict:
+        if metric.device.type == 'cpu':
+            self.labels = DeviceCPU().batch_to_device(self.labels)
+
         if getattr(metric, 'needs_batch', False):
             metric_result = metric.update(batch=batch, outputs=outputs, labels=self.labels)
         else:
