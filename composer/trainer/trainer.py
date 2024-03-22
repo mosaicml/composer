@@ -2224,12 +2224,21 @@ class Trainer:
         self.engine.close()
         dist.barrier()
 
-    def _ensure_metrics_device_and_dtype(self, metrics: Dict[str, Metric]):
+    def _ensure_metrics_device_and_dtype(
+        self,
+        metrics: Dict[str, Metric],
+        ensure_cpu: bool = False,
+    ):
         for name, metric in metrics.items():
             # Safety check to ensure the metric and data are on the same device. Normally not
             # needed because the metric is automatically on the same device as the model.
             # See https://torchmetrics.readthedocs.io/en/latest/pages/overview.html for details.
-            metrics[name] = self.state.device.module_to_device(metric)
+
+            # Force all metrics to go on the CPU
+            if ensure_cpu:
+                metrics[name] = DeviceCPU().module_to_device(metric)
+            else:
+                metrics[name] = self.state.device.module_to_device(metric)
             if is_model_deepspeed(self.state.model):
                 # HACK: DeepSpeed somehow manages to convert metric internal states to its own dtype. When
                 # running with FP16, this tends to result in overflows. Let's assume FP32 is good enough.
@@ -3222,7 +3231,11 @@ class Trainer:
 
             self.engine.run_event(Event.EVAL_START)
 
-            metrics = self._ensure_metrics_device_and_dtype(metrics)
+            # On MPS device we ensure the eval metrics are computed on CPU to avoid numerical errors
+            metrics = self._ensure_metrics_device_and_dtype(
+                metrics,
+                ensure_cpu=isinstance(self.state.device, DeviceMPS),
+            )
 
             for metric in metrics.values():
                 metric.reset()
@@ -3347,12 +3360,14 @@ class Trainer:
                                                 outputs.append(v)
                                     else:
                                         outputs = self.state.outputs.cpu()
+                                    batch = DeviceCPU().batch_to_device(self.state.batch,)
                                 else:
                                     outputs = self.state.outputs
+                                    batch = self.state.batch
 
                                 for metric in metrics.values():
                                     metric_outputs = self._original_model.update_metric(
-                                        self.state.batch,
+                                        batch,
                                         outputs,
                                         metric,
                                     )

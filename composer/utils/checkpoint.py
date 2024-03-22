@@ -39,6 +39,7 @@ from composer.utils.file_helpers import (
 )
 from composer.utils.misc import is_model_deepspeed, partial_format
 from composer.utils.object_store import ObjectStore
+from composer.utils.retrying import retry
 
 if TYPE_CHECKING:
     from composer.core import AlgorithmPass, State
@@ -188,6 +189,24 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
         return super().read_metadata()
 
 
+@retry(num_attempts=5)
+def download_object_or_file(
+    object_name: str,
+    file_destination: Union[str, Path],
+    object_store: Union[ObjectStore, LoggerDestination],
+):
+    if isinstance(object_store, ObjectStore):
+        object_store.download_object(
+            object_name=object_name,
+            filename=file_destination,
+        )
+    else:
+        object_store.download_file(
+            remote_file_name=object_name,
+            destination=str(file_destination),
+        )
+
+
 # A subclass of FileSystemReaderWithValidation that downloads files from the object store before reading them from the local filesystem.
 class DistCPObjectStoreReader(FileSystemReaderWithValidation):
 
@@ -262,16 +281,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                     if not is_downloaded and not os.path.exists(file_destination):
                         log.debug(f'Downloading {relative_file_path} to {file_destination}.')
                         object_name = str(Path(self.source_path) / Path(relative_file_path))
-                        if isinstance(self.object_store, ObjectStore):
-                            self.object_store.download_object(
-                                object_name=object_name,
-                                filename=file_destination,
-                            )
-                        else:
-                            self.object_store.download_file(
-                                remote_file_name=object_name,
-                                destination=file_destination,
-                            )
+                        download_object_or_file(object_name, file_destination, self.object_store)
                         log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
             except Exception as e:
                 # PyTorch will capture any exception of this function,
@@ -296,9 +306,9 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
             receiver = dist.get_global_rank() != rank_in_first_replica
 
             # Send list of files to all ranks
-            file_list = [
+            file_list = [[
                 file_name for file_name in sorted(os.listdir(self.destination_path)) if file_name.endswith('.distcp')
-            ]
+            ]]
             dist.broadcast_object_list(file_list, src=rank_in_first_replica, group=replicate_process_group)
             file_list = file_list[0]
             log.debug(f'List of files to broadcast: {file_list}')
