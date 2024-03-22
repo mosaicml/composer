@@ -278,7 +278,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                         log.debug(f'Downloading {relative_file_path} to {file_destination}.')
                         object_name = str(Path(self.source_path) / Path(relative_file_path))
                         download_object_or_file(object_name, file_destination, self.object_store)
-                        log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
+                        log.error(f'Exception {type(e)} raised during downloading: {str(e)}')
             except Exception as e:
                 # PyTorch will capture any exception of this function,
                 # and dist.all_gather_objects(exception) before raising it.
