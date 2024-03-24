@@ -2225,18 +2225,17 @@ class Trainer:
 
                 self.engine.run_event(Event.EPOCH_CHECKPOINT)
 
-        # FIXME: Commenting out this logging for not break Wandb logs when resuming
-        # # Log final time values
-        # self.logger.log_metrics({
-        #     'time/epoch': self.state.timestamp.epoch.value,
-        #     'time/batch': self.state.timestamp.batch.value,
-        #     'time/sample': self.state.timestamp.sample.value,
-        #     'time/batch_in_epoch': self.state.timestamp.batch_in_epoch.value,
-        #     'time/sample_in_epoch': self.state.timestamp.sample_in_epoch.value,
-        # })
-        # if self.state.previous_timestamp is not None and self.state.timestamp.token.value - self.state.previous_timestamp.token.value > 0:
-        #     self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
-        #     self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
+        # Log final time values
+        self.logger.log_metrics({
+            'time/epoch': self.state.timestamp.epoch.value,
+            'time/batch': self.state.timestamp.batch.value,
+            'time/sample': self.state.timestamp.sample.value,
+            'time/batch_in_epoch': self.state.timestamp.batch_in_epoch.value,
+            'time/sample_in_epoch': self.state.timestamp.sample_in_epoch.value,
+        })
+        if self.state.previous_timestamp is not None and self.state.timestamp.token.value - self.state.previous_timestamp.token.value > 0:
+            self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
+            self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
 
         self.engine.run_event(Event.FIT_END)
         self._run_evaluators(Event.FIT_END)

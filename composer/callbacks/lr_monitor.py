@@ -46,10 +46,7 @@ class LRMonitor(Callback):
 
     def batch_end(self, state: State, logger: Logger):
         assert state.optimizers is not None, 'optimizers must be defined'
-        # NOTE: For some reason, when this callback is use the step is 1
-        # over what we expect fucking up wandb logging when resuming from
-        # a checkpoint.
-        step = state.timestamp.batch.value - 1
+        step = state.timestamp.batch.value
         for optimizer in state.optimizers:
             lrs = [group['lr'] for group in optimizer.param_groups]
             name = optimizer.__class__.__name__
