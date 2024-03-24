@@ -772,7 +772,7 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
             else:
                 raise ValueError(
                     'Expected device_mesh to have ndim=2 '
-                    f'but got {len(device_mesh.get_group())}',
+                    f'but got {device_mesh.ndim}',
                 )
         elif process_group is None:
             default_group = _get_default_group()
