@@ -218,7 +218,7 @@ class State(Serializable):
             ``rank_zero_seed + dist.get_global_rank()``.
         run_name (str): The name for this training run.
         device (Device): The device used by this process. The trainer moves the model and loaded data to this device.
-        device_train_microbatch_size (int, float, optional): The microbatch size for each device during training.
+        device_train_microbatch_size (int | float, optional): The microbatch size for each device during training.
         auto_microbatching (bool, optional): Whether automatic microbatching is enabled.
         train_dataloader (Iterable, optional): Dataloader used for training
         evaluators (Evaluator | Evaluators, optional): :class:`.Evaluator` used for evaluation.
