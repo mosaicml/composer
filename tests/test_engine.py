@@ -1,11 +1,13 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import importlib
 import logging
 import os
 import subprocess
 import sys
 import textwrap
+import threading
 from pathlib import Path
 from typing import List
 from unittest.mock import Mock
@@ -323,3 +325,15 @@ def test_logging(
         ('composer.core.engine', 10, 'Post-closing callback EventCounterCallback'),
         ('composer.core.engine', 10, 'Engine closed.'),
     ]
+
+
+def _worker():
+    import composer.core.engine
+    importlib.reload(composer.core.engine)
+
+
+def test_graceful_fallback_when_signal_handler_cannot_be_set():
+    # https://github.com/mosaicml/composer/issues/3151#issue-2205981731
+    t = threading.Thread(target=_worker)
+    t.start()
+    t.join()
