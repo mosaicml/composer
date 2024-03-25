@@ -2314,7 +2314,7 @@ class Trainer:
         if isinstance(num_samples, float):
             sample_token_tensor_int = sample_token_tensor.round().to(torch.int)
             if torch.any(torch.abs(sample_token_tensor_int - sample_token_tensor) > 1e-4):
-                raise ValueError(f'The sums of samples and tokens across ranks should each be integers.',)
+                raise ValueError('The sums of samples and tokens across ranks should each be integers.')
             sample_token_tensor = sample_token_tensor_int
         batch_time_tensor = self.state.device.tensor_to_device(
             torch.tensor([batch_time.total_seconds()], dtype=torch.float32),
