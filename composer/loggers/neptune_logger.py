@@ -217,7 +217,7 @@ class NeptuneLogger(LoggerDestination):
         if not self.can_upload_files():
             return
 
-        if file_path.is_symlink():
+        if file_path.is_symlink() or file_path.suffix.lower() == '.symlink':
             return  # skip symlinks
 
         neptune_path = f'{self._base_namespace}/{remote_file_name}'
