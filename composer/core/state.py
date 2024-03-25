@@ -308,7 +308,7 @@ class State(Serializable):
         eval_timestamp (Timestamp): The timestamp for the current evaluation dataloader. This timestamp is reset
             before the dataloader is evaluated. The :attr:`~Timestamp.epoch` attribute for this timestamp is always
             ``0``.
-        device_train_microbatch_size (int, float): The size of each train microbatch per device.
+        device_train_microbatch_size (int | float): The size of each train microbatch per device.
         loss (torch.Tensor | Sequence[torch.Tensor] | Dict[Any, torch.Tensor]): The most recently computed loss.
         model (torch.nn.Module): The training model.
 
