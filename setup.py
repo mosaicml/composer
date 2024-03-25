@@ -226,7 +226,7 @@ extra_deps['mlflow'] = [
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk==0.22.0']
+extra_deps['databricks'] = ['databricks-sdk==0.23.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 
