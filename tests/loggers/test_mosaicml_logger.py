@@ -384,3 +384,33 @@ def test_epoch_zero_no_dataloader_progress_metrics():
     assert training_progress['training_progress'] == '[epoch=1/3]'
     assert 'training_sub_progress' in training_progress
     assert training_progress['training_sub_progress'] == '[batch=1]'
+
+
+def test_logged_metrics(monkeypatch):
+    mock_mapi = MockMAPI()
+    monkeypatch.setenv('MOSAICML_PLATFORM', 'True')
+    monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
+    run_name = 'test-run-name'
+    monkeypatch.setenv('RUN_NAME', run_name)
+    trainer = Trainer(
+        model=SimpleModel(),
+        train_dataloader=DataLoader(RandomClassificationDataset()),
+        train_subset_num_batches=1,
+        max_duration='4ba',
+        loggers=[MosaicMLLogger()],
+    )
+    trainer.fit()
+
+    # Check that analytics metrics were logged
+    metadata = mock_mapi.run_metadata[run_name]
+    analytics = {k: v for k, v in metadata.items() if k.startswith('mosaicml/composer/')}
+    assert len(analytics) > 0
+
+    key_name = lambda x: f'mosaicml/composer/{x}'
+    assert key_name('autoresume') in analytics and analytics[key_name('autoresume')] == False
+    assert key_name('precision') in analytics and analytics[key_name('precision')] == 'Precision.FP32'
+    assert key_name('eval_loaders') in analytics and analytics[key_name('eval_loaders')] == []
+    assert key_name('algorithms') in analytics and analytics[key_name('algorithms')] == []
+    assert key_name('loggers') in analytics and analytics[key_name('loggers')
+                                                         ] == ['MosaicMLLogger', 'ProgressBarLogger']
+    assert key_name('save_interval') in analytics and analytics[key_name('save_interval')] == '1ep'
