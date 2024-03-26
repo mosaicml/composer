@@ -53,7 +53,7 @@ class MosaicMLLogger(LoggerDestination):
     Additionally, The following metrics are logged upon ``INIT``:
     - ``composer/autoresume``: Whether or not the run can be stopped / resumed during training.
     - ``composer/precision``: The precision to use for training.
-    - ``composer/eval_loaders``: A list containing the label for each evaluation dataloader.
+    - ``composer/eval_loaders``: A list containing the labels of each evaluation dataloader.
     - ``composer/optimizers``: A list of dictionaries containing information about each optimizer.
     - ``composer/algorithms``: A list containing the names of the algorithms used for training.
     - ``composer/loggers``: A list containing the loggers used in the ``Trainer``.
@@ -127,11 +127,7 @@ class MosaicMLLogger(LoggerDestination):
         for evaluator in state.evaluators:
             dataloader = evaluator.dataloader.dataloader
             if isinstance(dataloader, torch.utils.data.DataLoader):
-                metrics['composer/eval_loaders'].append(
-                    json.dumps({
-                        'label': evaluator.label,
-                    }),
-                )
+                metrics['composer/eval_loaders'].append(evaluator.label)
 
         metrics['composer/optimizers'] = [{
             optimizer.__class__.__name__: optimizer.defaults,
