@@ -60,7 +60,7 @@ class MosaicMLLogger(LoggerDestination):
     - ``composer/cloud_provided_load_path``: The cloud provider for the load path.
     - ``composer/cloud_provided_save_folder``: The cloud provider for the save folder.
     - ``composer/save_interval``: The save interval for the run.
-    - ``composer/state_dict_type``: The state dict type of FSDP config.
+    - ``composer/fsdp_config``: The FSDP config used for training.
 
     When running on the MosaicML platform, the logger is automatically enabled by Trainer. To disable,
     the environment variable 'MOSAICML_PLATFORM' can be set to False.
