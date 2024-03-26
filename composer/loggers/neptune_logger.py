@@ -340,7 +340,7 @@ def _scale_image_to_0_255(img: np.ndarray, array_min: Union[int, float], array_m
 def _warn_about_deprecated_upload_artifacts() -> None:
     from neptune.common.warnings import NeptuneDeprecationWarning, warn_once
     warn_once(
-        'The \'upload_artifacts\' parameter has been deprecated and will be removed in the next version. '
-        'Please use the \'upload_checkpoints\' parameter instead.',
+        'The \'upload_artifacts\' parameter is deprecated and will be removed in the next version. '
+        'Use the \'upload_checkpoints\' parameter instead.',
         exception=NeptuneDeprecationWarning,
     )
