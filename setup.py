@@ -132,7 +132,7 @@ extra_deps['dev'] = [
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.17.0',
-    'traitlets==5.14.1',
+    'traitlets==5.14.2',
     'nbsphinx==0.9.1',
     'pandoc==2.3',
     'pypandoc==1.13',
@@ -178,7 +178,7 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,<4.39,!=4.34.0',
+    'transformers>=4.11,!=4.34.0,<4.40',
     'datasets>=2.4,<3',
 ]
 
@@ -187,7 +187,7 @@ extra_deps['peft'] = [
 ]
 
 extra_deps['sentencepiece'] = [
-    'protobuf<3.21',
+    'protobuf<5.27',
     'sentencepiece==0.2.0',
 ]
 
@@ -226,7 +226,7 @@ extra_deps['mlflow'] = [
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk==0.22.0']
+extra_deps['databricks'] = ['databricks-sdk==0.23.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 
