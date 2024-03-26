@@ -55,7 +55,7 @@ class MosaicMLLogger(LoggerDestination):
     - ``composer/precision``: The precision to use for training.
     - ``composer/eval_loaders``: A list containing the label for each evaluation dataloader.
     - ``composer/optimizers``: A list of dictionaries containing information about each optimizer.
-    - ``composer/algorithms``: A list of dictionaries containing information about each algorithm.
+    - ``composer/algorithms``: A list containing the names of the algorithms used for training.
     - ``composer/loggers``: A list containing the loggers used in the ``Trainer``.
     - ``composer/cloud_provided_load_path``: The cloud provider for the load path.
     - ``composer/cloud_provided_save_folder``: The cloud provider for the save folder.
@@ -136,9 +136,7 @@ class MosaicMLLogger(LoggerDestination):
         metrics['composer/optimizers'] = [{
             optimizer.__class__.__name__: optimizer.defaults,
         } for optimizer in state.optimizers]
-        metrics['composer/algorithms'] = [{
-            algorithm.__class__.__name__: algorithm.__dict__,
-        } for algorithm in state.algorithms]
+        metrics['composer/algorithms'] = [algorithm.__class__.__name__ for algorithm in state.algorithms]
 
         metrics['composer/loggers'] = [logger.__class__.__name__ for logger in self.analytics_data.loggers]
 
