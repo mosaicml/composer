@@ -8,6 +8,7 @@ from __future__ import annotations
 import collections.abc
 import contextlib
 import datetime
+import gc
 import itertools
 import logging
 import os
