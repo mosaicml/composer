@@ -14,14 +14,13 @@ import os
 import time
 import warnings
 from concurrent.futures import wait
+from dataclasses import dataclass
 from functools import reduce
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 import mcli
 import torch
 import torch.utils.data
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.nn import Module
 
 from composer.core.event import Event
 from composer.core.time import Time, TimeUnit
@@ -29,7 +28,6 @@ from composer.loggers import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.wandb_logger import WandBLogger
 from composer.utils import dist
-from composer.utils.analytics_helpers import get_logger_type
 from composer.utils.file_helpers import parse_uri
 
 if TYPE_CHECKING:
@@ -55,21 +53,13 @@ class MosaicMLLogger(LoggerDestination):
     Additionally, The following metrics are logged upon ``INIT``:
     - ``composer/autoresume``: Whether or not the run can be stopped / resumed during training.
     - ``composer/precision``: The precision to use for training.
-    - ``composer/train_loader_workers``: The number of workers for the train dataloader.
-    - ``composer/eval_loaders``: A list of dictionaries containing the label and the number of workers for each
-    evaluation dataloader.
-    - ``composer/optimizers``: A list of dictionaries containing information about each opimizer.
+    - ``composer/eval_loaders``: A list containing the label for each evaluation dataloader.
+    - ``composer/optimizers``: A list of dictionaries containing information about each optimizer.
     - ``composer/algorithms``: A list of dictionaries containing information about each algorithm.
     - ``composer/loggers``: A list containing the loggers used in the ``Trainer``.
-    - ``composer/cloud_provider_data``: The cloud provider for the load path.
-    - ``composer/cloud_provider_checkpoints``: The cloud provider for the save folder.
+    - ``composer/cloud_provided_load_path``: The cloud provider for the load path.
+    - ``composer/cloud_provided_save_folder``: The cloud provider for the save folder.
     - ``composer/save_interval``: The save interval for the run.
-    - ``composer/sharding_strategy``: The sharding strategy used.
-    - ``composer/activation_checkpointing``: Whether or not activation checkpointing is used.
-    - ``composer/forward_prefetch``: Whether or not forward prefetch is used.
-    - ``composer/backward_prefetch``: Whether or not backward prefetch is used.
-    - ``composer/device_mesh``: The device mesh used.
-    - ``composer/mixed_precision``: The mixed precision configuration used.
     - ``composer/state_dict_type``: The state dict type of FSDP config.
 
     When running on the MosaicML platform, the logger is automatically enabled by Trainer. To disable,
@@ -96,7 +86,7 @@ class MosaicMLLogger(LoggerDestination):
         log_interval: int = 60,
         ignore_keys: Optional[List[str]] = None,
         ignore_exceptions: bool = False,
-        analytics_data: Optional[Dict[str, Any]] = None,
+        analytics_data: Optional[MosaicAnalyticsData] = None,
     ) -> None:
         self.log_interval = log_interval
         self.ignore_keys = ignore_keys
@@ -125,93 +115,58 @@ class MosaicMLLogger(LoggerDestination):
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         self._log_metadata(metrics)
 
-    def log_analytics(self,) -> None:
+    def log_analytics(self, state: State) -> None:
         if self.analytics_data is None:
             return
 
-        # Fetch / cast metrics that we want to log from self.analytics_data
-        autoresume: bool = self.analytics_data['autoresume']
-        trainer_state: State = self.analytics_data['state']
-        save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = self.analytics_data['save_interval']
-        loggers: List[LoggerDestination] = self.analytics_data['loggers']
-        load_path: Union[str, None] = self.analytics_data['load_path']
-        save_folder: Union[str, None] = self.analytics_data['save_folder']
-
-        metrics: Dict[str, Any] = {'composer/autoresume': autoresume, 'composer/precision': trainer_state.precision}
-
-        train_dataloader = trainer_state.train_dataloader
-        if train_dataloader is not None and isinstance(train_dataloader, torch.utils.data.DataLoader):
-            metrics['composer/train_loader_workers'] = train_dataloader.num_workers
-
+        metrics: Dict[str, Any] = {
+            'composer/autoresume': self.analytics_data.autoresume,
+            'composer/precision': state.precision,
+        }
         metrics['composer/eval_loaders'] = []
-        for evaluator in trainer_state.evaluators:
+        for evaluator in state.evaluators:
             dataloader = evaluator.dataloader.dataloader
             if isinstance(dataloader, torch.utils.data.DataLoader):
                 metrics['composer/eval_loaders'].append(
                     json.dumps({
                         'label': evaluator.label,
-                        'num_workers': dataloader.num_workers,
                     }),
                 )
 
-        get_optimizer_args = lambda optimizer: {
-            k: v for k, v in optimizer.__dict__.items() if not k.startswith('_') and k != 'param_groups'
-        }
         metrics['composer/optimizers'] = [{
-            optimizer.__class__.__name__: get_optimizer_args(optimizer),
-        } for optimizer in trainer_state.optimizers]
+            optimizer.__class__.__name__: optimizer.defaults,
+        } for optimizer in state.optimizers]
         metrics['composer/algorithms'] = [{
             algorithm.__class__.__name__: algorithm.__dict__,
-        } for algorithm in trainer_state.algorithms]
+        } for algorithm in state.algorithms]
 
-        metrics['composer/loggers'] = [
-            get_logger_type(logger) if not isinstance(logger, MosaicMLLogger) else 'MosaicMLLogger'
-            for logger in loggers
-        ]
+        metrics['composer/loggers'] = [logger.__class__.__name__ for logger in self.analytics_data.loggers]
 
         # Take the service provider out of the URI and log it to metadata. If no service provider
         # is found (i.e. backend = ''), then we assume 'local' for the cloud provider.
-        if load_path is not None:
-            backend, _, _ = parse_uri(load_path)
-            metrics['composer/cloud_provider_data'] = backend if backend else 'local'
-        if save_folder is not None:
-            backend, _, _ = parse_uri(save_folder)
-            metrics['composer/cloud_provider_checkpoints'] = backend if backend else 'local'
+        if self.analytics_data.load_path is not None:
+            backend, _, _ = parse_uri(self.analytics_data.load_path)
+            metrics['composer/cloud_provided_load_path'] = backend if backend else 'local'
+        if self.analytics_data.save_folder is not None:
+            backend, _, _ = parse_uri(self.analytics_data.save_folder)
+            metrics['composer/cloud_provided_save_folder'] = backend if backend else 'local'
 
         # Save interval can be passed in w/ multiple types. If the type is a function, then
         # we log 'callable' as the save_interval value for analytics.
-        if isinstance(save_interval, Union[str, int]):
-            save_interval_str = str(save_interval)
-        elif isinstance(save_interval, Time):
-            save_interval_str = f'{save_interval._value}{save_interval._unit}'
+        if isinstance(self.analytics_data.save_interval, Union[str, int]):
+            save_interval_str = str(self.analytics_data.save_interval)
+        elif isinstance(self.analytics_data.save_interval, Time):
+            save_interval_str = f'{self.analytics_data.save_interval._value}{self.analytics_data.save_interval._unit}'
         else:
             save_interval_str = 'callable'
         metrics['composer/save_interval'] = save_interval_str
 
-        if trainer_state.fsdp_config:
-            metrics['composer/sharding_strategy'] = trainer_state.fsdp_config.get('sharding_strategy', None)
-            metrics['composer/activation_checkpointing'] = trainer_state.fsdp_config.get(
-                'activation_checkpointing',
-                False,
-            )
-            metrics['composer/forward_prefetch'] = trainer_state.fsdp_config.get('forward_prefetch', False)
-            metrics['composer/backward_prefetch'] = trainer_state.fsdp_config.get(
-                'backward_prefetch',
-                FSDP(Module()).backward_prefetch,
-            )
+        if state.fsdp_config:
+            # Keys need to be sorted so they can be parsed consistently in SQL queries
+            metrics['composer/fsdp_config'] = json.dumps(state.fsdp_config, sort_keys=True)
 
-            # Get device_mesh from config so it is in list form and JSON parsable
-            metrics['composer/device_mesh'] = trainer_state.fsdp_config.get('device_mesh', [])
-
-            mixed_precision = trainer_state.fsdp_config.get('mixed_precision', None)
-            if mixed_precision is not None and isinstance(mixed_precision, dict):
-                # Sorting the keys allows us to parse this dict value as JSON in a SQL query if needed
-                metrics['composer/mixed_precision'] = json.dumps(mixed_precision, sort_keys=True)
-            else:
-                metrics['composer/mixed_precision'] = mixed_precision
-
-        if trainer_state.fsdp_state_dict_type is not None:
-            metrics['composer/state_dict_type'] = trainer_state.fsdp_state_dict_type
+        if state.fsdp_state_dict_type is not None:
+            metrics['composer/state_dict_type'] = state.fsdp_state_dict_type
 
         self.log_metrics(metrics)
         self._flush_metadata(force_flush=True)
@@ -221,7 +176,7 @@ class MosaicMLLogger(LoggerDestination):
         self._flush_metadata(force_flush=True)
 
     def init(self, state: State, logger: Logger) -> None:
-        self.log_analytics()
+        self.log_analytics(state)
 
     def after_load(self, state: State, logger: Logger) -> None:
         # Log model data downloaded and initialized for run events
@@ -350,6 +305,15 @@ class MosaicMLLogger(LoggerDestination):
                 'training_progress': f'[epoch={cur_epoch}/{state.max_duration.value}]',
             }
         return training_progress_metrics
+
+
+@dataclass(frozen=True)
+class MosaicAnalyticsData:
+    autoresume: bool
+    save_interval: Union[str, int, Time, Callable[[State, Event], bool]]
+    loggers: List[LoggerDestination]
+    load_path: Union[str, None]
+    save_folder: Union[str, None]
 
 
 def format_data_to_json_serializable(data: Any):

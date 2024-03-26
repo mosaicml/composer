@@ -14,7 +14,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from composer.core import Callback, Time, TimeUnit
-from composer.loggers import CometMLLogger, LoggerDestination, RemoteUploaderDownloader, WandBLogger
+from composer.loggers import WandBLogger
 from composer.loggers.mosaicml_logger import (
     MOSAICML_ACCESS_TOKEN_ENV_VAR,
     MOSAICML_PLATFORM_ENV_VAR,
@@ -24,7 +24,6 @@ from composer.loggers.mosaicml_logger import (
 )
 from composer.trainer import Trainer
 from composer.utils import dist, get_composer_env_dict
-from composer.utils.analytics_helpers import LOGGER_TYPES, get_logger_type
 from tests.callbacks.callback_settings import get_cb_kwargs, get_cb_model_and_datasets, get_cbs_and_marks
 from tests.common import RandomClassificationDataset, SimpleModel
 from tests.common.markers import world_size
@@ -436,31 +435,3 @@ def test_logged_metrics(monkeypatch):
     assert key_name('loggers') in analytics and analytics[key_name('loggers')
                                                          ] == ['MosaicMLLogger', 'ProgressBarLogger']
     assert key_name('save_interval') in analytics and analytics[key_name('save_interval')] == '1ep'
-
-
-def test_get_logger_type(tmp_path: Path, comet_logger: CometMLLogger):
-    """Test that `get_logger_type` returns the correct logger type."""
-    for logger in LOGGER_TYPES:
-        if logger == CometMLLogger:
-            assert get_logger_type(comet_logger) == 'CometMLLogger'
-        elif logger == RemoteUploaderDownloader:
-            remote_dir = str(tmp_path / 'object_store')
-            os.makedirs(remote_dir, exist_ok=True)
-            remote_uploader_downloader = RemoteUploaderDownloader(remote_dir)
-            assert get_logger_type(remote_uploader_downloader) == 'RemoteUploaderDownloader'
-        else:
-            assert get_logger_type(logger()) == logger.__name__
-
-    # Custom loggers should default to `LoggerDestination`
-    class CustomLogger(LoggerDestination):
-        pass
-
-    assert get_logger_type(CustomLogger()) == 'LoggerDestination'
-
-    # If logger isn't a subclass of any known logger, it should default to 'Other'
-    class DummyClass:
-
-        def __init__(self):
-            return
-
-    assert get_logger_type(DummyClass()) == 'Other'  # type: ignore
