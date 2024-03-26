@@ -2,9 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-import os
 from concurrent.futures import Future
-from pathlib import Path
 from typing import Type
 from unittest.mock import MagicMock
 
@@ -386,25 +384,6 @@ def test_epoch_zero_no_dataloader_progress_metrics():
     assert training_progress['training_progress'] == '[epoch=1/3]'
     assert 'training_sub_progress' in training_progress
     assert training_progress['training_sub_progress'] == '[batch=1]'
-
-
-@pytest.fixture
-def comet_offline_directory(tmp_path):
-    return str(tmp_path / Path('my_cometml_runs'))
-
-
-@pytest.fixture
-def comet_logger(monkeypatch, comet_offline_directory):
-    comet_ml = pytest.importorskip('comet_ml', reason='comet_ml is optional')
-
-    monkeypatch.setattr(comet_ml, 'Experiment', comet_ml.OfflineExperiment)
-    from composer.loggers import CometMLLogger
-
-    # Set offline directory.
-    os.environ['COMET_OFFLINE_DIRECTORY'] = comet_offline_directory
-
-    comet_logger = CometMLLogger()
-    return comet_logger
 
 
 def test_logged_metrics(monkeypatch):

@@ -16,7 +16,7 @@ import warnings
 from concurrent.futures import wait
 from dataclasses import dataclass
 from functools import reduce
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 import mcli
 import torch
@@ -115,7 +115,7 @@ class MosaicMLLogger(LoggerDestination):
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         self._log_metadata(metrics)
 
-    def log_analytics(self, state: State) -> None:
+    def log_analytics(self, state: State, loggers: Tuple[LoggerDestination, ...]) -> None:
         if self.analytics_data is None:
             return
 
@@ -123,18 +123,12 @@ class MosaicMLLogger(LoggerDestination):
             'composer/autoresume': self.analytics_data.autoresume,
             'composer/precision': state.precision,
         }
-        metrics['composer/eval_loaders'] = []
-        for evaluator in state.evaluators:
-            dataloader = evaluator.dataloader.dataloader
-            if isinstance(dataloader, torch.utils.data.DataLoader):
-                metrics['composer/eval_loaders'].append(evaluator.label)
-
+        metrics['composer/eval_loaders'] = [evaluator.label for evaluator in state.evaluators]
         metrics['composer/optimizers'] = [{
             optimizer.__class__.__name__: optimizer.defaults,
         } for optimizer in state.optimizers]
         metrics['composer/algorithms'] = [algorithm.__class__.__name__ for algorithm in state.algorithms]
-
-        metrics['composer/loggers'] = [logger.__class__.__name__ for logger in self.analytics_data.loggers]
+        metrics['composer/loggers'] = [logger.__class__.__name__ for logger in loggers]
 
         # Take the service provider out of the URI and log it to metadata. If no service provider
         # is found (i.e. backend = ''), then we assume 'local' for the cloud provider.
@@ -159,9 +153,6 @@ class MosaicMLLogger(LoggerDestination):
             # Keys need to be sorted so they can be parsed consistently in SQL queries
             metrics['composer/fsdp_config'] = json.dumps(state.fsdp_config, sort_keys=True)
 
-        if state.fsdp_state_dict_type is not None:
-            metrics['composer/state_dict_type'] = state.fsdp_state_dict_type
-
         self.log_metrics(metrics)
         self._flush_metadata(force_flush=True)
 
@@ -170,7 +161,10 @@ class MosaicMLLogger(LoggerDestination):
         self._flush_metadata(force_flush=True)
 
     def init(self, state: State, logger: Logger) -> None:
-        self.log_analytics(state)
+        try:
+            self.log_analytics(state, logger.destinations)
+        except:
+            warnings.warn('Failed to log analytics data to MosaicML. Continuing without logging analytics data.')
 
     def after_load(self, state: State, logger: Logger) -> None:
         # Log model data downloaded and initialized for run events
@@ -305,7 +299,6 @@ class MosaicMLLogger(LoggerDestination):
 class MosaicAnalyticsData:
     autoresume: bool
     save_interval: Union[str, int, Time, Callable[[State, Event], bool]]
-    loggers: List[LoggerDestination]
     load_path: Union[str, None]
     save_folder: Union[str, None]
 

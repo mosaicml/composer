@@ -1292,7 +1292,6 @@ class Trainer:
             analytics_data = MosaicAnalyticsData(
                 autoresume=autoresume,
                 save_interval=save_interval,
-                loggers=loggers,
                 load_path=load_path,
                 save_folder=save_folder,
             )
@@ -1304,7 +1303,6 @@ class Trainer:
             mosaicml_logger.analytics_data = MosaicAnalyticsData(
                 autoresume=autoresume,
                 save_interval=save_interval,
-                loggers=loggers,
                 load_path=load_path,
                 save_folder=save_folder,
             )
