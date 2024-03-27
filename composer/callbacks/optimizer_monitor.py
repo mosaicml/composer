@@ -65,9 +65,10 @@ class OptimizerMonitor(Callback):
     +-----------------------------------------------+-----------------------------------------------------+
     """
 
-    def __init__(self, log_optimizer_metrics: bool = True,
+    def __init__(self, only_global: bool = False, log_optimizer_metrics: bool = True,
                  interval: Union[int, str, Time] = '10ba',):
         self.log_optimizer_metrics = log_optimizer_metrics
+        self.only_global = only_global
 
         # Check that the interval timestring is parsable and convert into time object
         if isinstance(interval, int):
@@ -94,7 +95,6 @@ class OptimizerMonitor(Callback):
         if current_time_value % self.interval.value != 0:
             return
 
-        norm = 0.0
         optimizer_metrics = {}
 
         for name, p in state.model.named_parameters():
@@ -126,11 +126,25 @@ class OptimizerMonitor(Callback):
             if callable(dist_reduce_metrics) and self.log_optimizer_metrics:
                 optimizer_metrics = dist_reduce_metrics(optimizer_metrics)
 
+
+        grad_norm, moment_norm, update_norm, param_norm = .0, .0, .0, .0
         for metric in optimizer_metrics:
             if metric.startswith('l2_norm/grad'):
-                norm += optimizer_metrics[metric]**2
-
-        optimizer_metrics['l2_norm/grad/global'] = norm**0.5
+                grad_norm += optimizer_metrics[metric]**2
+            if metric.startswith('l2_norm/moment'):
+                moment_norm += optimizer_metrics[metric]**2
+            if metric.startswith('l2_norm/update'):
+                update_norm += optimizer_metrics[metric]**2
+            if metric.startswith('l2_norm/param'):
+                param_norm += optimizer_metrics[metric]**2
+        
+        if self.only_global:
+            optimizer_metrics = {}        
+        
+        optimizer_metrics['l2_norm/grad/global'] = grad_norm**0.5
+        optimizer_metrics['l2_norm/moment/global'] = moment_norm**0.5
+        optimizer_metrics['l2_norm/update/global'] = update_norm**0.5
+        optimizer_metrics['l2_norm/param/global'] = param_norm**0.5
 
         for metric in optimizer_metrics:
             if isinstance(optimizer_metrics[metric], torch.Tensor):
