@@ -3,9 +3,11 @@
 
 """Monitor gradients during training."""
 
+import warnings
+from typing import Union
 import torch
 
-from composer.core import Callback, State
+from composer.core import Callback, State, Time, TimeUnit
 from composer.loggers import Logger
 from composer.utils import dist
 
@@ -63,12 +65,33 @@ class OptimizerMonitor(Callback):
     +-----------------------------------------------+-----------------------------------------------------+
     """
 
-    def __init__(self, log_optimizer_metrics: bool = True, batch_log_interval: int = 10):
+    def __init__(self, log_optimizer_metrics: bool = True,
+                 interval: Union[int, str, Time] = '10ba',):
         self.log_optimizer_metrics = log_optimizer_metrics
-        self.batch_log_interval = batch_log_interval
+
+        # Check that the interval timestring is parsable and convert into time object
+        if isinstance(interval, int):
+            self.interval = Time(interval, TimeUnit.BATCH)
+        elif isinstance(interval, str):
+            self.interval = Time.from_timestring(interval)
+        elif isinstance(interval, Time):
+            self.interval = interval
+
+        if self.interval.unit == TimeUnit.BATCH and self.interval < Time.from_timestring('10ba'):
+            warnings.warn(f'Currently the ActivationMonitor`s interval is set to {self.interval} '
+                          f'which is below our recommended value of 10ba. We recommend you raise '
+                          f'the interval to at least 10ba, as the activation monitor adds extra overhead '
+                          f'and decreases throughput.')
+
+        # Verify that the interval has supported units
+        if self.interval.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
+            raise ValueError(f'Invalid time unit for parameter interval: '
+                             f'{self.interval.unit}')
 
     def batch_end(self, state: State, logger: Logger):
-        if state.timestamp.batch.value % self.batch_log_interval != 0:
+        current_time_value = state.timestamp.get(self.interval.unit).value
+        
+        if current_time_value % self.interval.value != 0:
             return
 
         norm = 0.0
