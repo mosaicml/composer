@@ -1277,7 +1277,7 @@ class TestCheckpointResumption:
                     rank=rank,
                     shuffle=shuffle,
                     seed=seed,
-                    drop_last=drop_last
+                    drop_last=drop_last,
                 )
                 self._batch_size = batch_size
 
@@ -1301,7 +1301,7 @@ class TestCheckpointResumption:
                 shuffle=True,
                 num_replicas=dist.get_world_size(),
                 rank=dist.get_global_rank(),
-                batch_size=train_batch_size
+                batch_size=train_batch_size,
             ),
         )
 
@@ -1318,7 +1318,7 @@ class TestCheckpointResumption:
                     shuffle=False,
                     num_replicas=dist.get_world_size(),
                     rank=dist.get_global_rank(),
-                    batch_size=train_batch_size
+                    batch_size=train_batch_size,
                 ),
             )
         else:
@@ -1507,6 +1507,8 @@ class TestCheckpointResumption:
 
         trainer.fit()
 
+        assert isinstance(trainer.state.train_dataloader, DataLoader)
+        assert isinstance(trainer.state.train_dataloader.batch_sampler, DistributedSampler)
         # Epochs count starts at O
         assert trainer.state.train_dataloader.batch_sampler.epoch == max_duration - 1
 
