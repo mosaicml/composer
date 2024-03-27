@@ -387,6 +387,7 @@ def load_checkpoint(
     logger: Logger,
     object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
     load_weights_only: bool = False,
+    skip_optimizer: bool = False,
     strict_model_weights: bool = False,
     progress_bar: bool = True,
     ignore_keys: Optional[Union[list[str], Callable[[dict], None]]] = None,
@@ -497,6 +498,7 @@ def load_checkpoint(
             logger=logger,
             object_store=object_store,
             load_weights_only=load_weights_only,
+            skip_optimizer=skip_optimizer,
             strict_model_weights=strict_model_weights,
             progress_bar=progress_bar,
             ignore_keys=ignore_keys,
@@ -574,6 +576,7 @@ def load_sharded_checkpoint(
     logger: Logger,
     object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
     load_weights_only: bool = False,
+    skip_optimizer: bool = False,
     strict_model_weights: bool = False,
     progress_bar: bool = True,
     ignore_keys: Optional[Union[list[str], Callable[[dict], None]]] = None,
@@ -627,6 +630,10 @@ def load_sharded_checkpoint(
                 # For older versions of torch, we load optimizer separately.
                 if version.parse(torch.__version__) < version.parse('2.2.9'):
                     cur_state_dict.pop('optimizers')
+
+                if skip_optimizer:
+                    cur_state_dict.pop('optimizers', None)
+
                 num_rng_ranks = _get_num_ranks_that_saved_rng(storage_reader.read_metadata())
                 state_dict: Dict[str, Any] = {
                     'state': cur_state_dict,
