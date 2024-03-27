@@ -1370,6 +1370,9 @@ class State(Serializable):
                 to sort them into the correct order. (default: ``None``)
         """
         state = _ensure_backwards_compatible_checkpointing(state)
+        
+        if 'optimizers' in state and skip_optimizer:
+            state.pop('optimizers', None)
 
         # Call load_model_state first since it applies required algorithms
         if 'model' in state:
