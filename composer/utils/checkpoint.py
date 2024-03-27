@@ -536,6 +536,7 @@ def load_checkpoint(
                     extracted_rank_n,
                     extracted_checkpoint_folder,
                     load_weights_only=load_weights_only,
+                    skip_optimizer=skip_optimizer,
                     strict_model_weights=strict_model_weights,
                     ignore_keys=ignore_keys,
                     exclude_algorithms=exclude_algorithms,
@@ -946,6 +947,7 @@ def _restore_checkpoint(
     extracted_rank_n: bool,
     extracted_checkpoint_folder: Optional[str],
     load_weights_only: bool,
+    skip_optimizer: bool,
     strict_model_weights: bool,
     ignore_keys: Optional[Union[list[str], Callable[[dict], None]]],
     exclude_algorithms: Optional[list[str]],
@@ -997,6 +999,7 @@ def _restore_checkpoint(
             logger,
             exclude_algorithms=exclude_algorithms,
             algorithm_passes=algorithm_passes,
+            skip_optimizer=skip_optimizer,
         )
         return state_dict.get('rng', None)
 

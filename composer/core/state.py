@@ -1356,6 +1356,7 @@ class State(Serializable):
         strict: bool = False,
         exclude_algorithms: Optional[List[str]] = None,
         algorithm_passes: Optional[List[AlgorithmPass]] = None,
+        skip_optimizer: bool = False,
     ):
         """Loads the state.
 
@@ -1399,7 +1400,7 @@ class State(Serializable):
 
             if attribute_name == 'dataset_state':
                 self._load_dataset_state(serialized_value)
-            elif attribute_name == 'optimizers':
+            elif attribute_name == 'optimizers' and not skip_optimizer:
                 self.load_optim_state(state)
             elif attribute_name == 'train_metrics':
                 # Get current metrics object and populate each metric present
