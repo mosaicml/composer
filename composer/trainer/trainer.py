@@ -3248,6 +3248,7 @@ class Trainer:
                 # Because evaluation can run on each batch, we use the batch to seed the sampler
                 # so each evaluation will get a proper shuffle.
                 # The epoch provided to `set_epoch` need not be sequential, so this is fine.
+                dist_sampler = sampler
                 sampler.set_epoch(int(self.state.timestamp.batch))
                 drop_last = dataloader.drop_last
                 # Only compute the dataset length if drop_last is False, as otherwise we don't need
