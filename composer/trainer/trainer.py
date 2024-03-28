@@ -465,6 +465,20 @@ def _generate_run_name() -> str:
     return generated_run_name
 
 
+def _get_distributed_sampler(dataloader: DataLoader) -> DistributedSampler | None:
+    """Fetch a distributed sampler from a `dataloader` if it exists est returns None.
+
+    Checks first the batch_sampler, then the sampler.
+    If no DistributedSampler is found, returns None.
+    """
+    if isinstance(dataloader.batch_sampler, DistributedSampler):
+        return dataloader.batch_sampler
+    if isinstance(dataloader.sampler, DistributedSampler):
+        return dataloader.sampler
+
+    return
+
+
 class Trainer:
     """Train models with Composer algorithms.
 
@@ -2272,8 +2286,9 @@ class Trainer:
         eval_state = self.state.dataset_resumption.get('eval', {})
         for evaluator in self.state.evaluators:
             dataloader = evaluator.dataloader.dataloader
-            if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
-                dataloader.sampler.set_epoch(0)
+            sampler = _get_distributed_sampler(dataloader) if isinstance(dataloader, DataLoader) else None
+            if isinstance(sampler, DistributedSampler):
+                sampler.set_epoch(0)
             if evaluator.label not in eval_state:
                 for _ in dataloader:
                     break
@@ -2283,8 +2298,9 @@ class Trainer:
         assert dataloader is not None, 'train dataloader is set on state after FIT_START'
         if 'train' not in self.state.dataset_resumption:
             for epoch in range(int(self.state.timestamp.epoch)):
-                if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
-                    dataloader.sampler.set_epoch(epoch)
+                sampler = _get_distributed_sampler(dataloader) if isinstance(dataloader, DataLoader) else None
+                if isinstance(sampler, DistributedSampler):
+                    sampler.set_epoch(epoch)
                 for _ in dataloader:
                     break
 
@@ -2366,8 +2382,9 @@ class Trainer:
                 self.logger.log_metrics({'time/epoch': self.state.timestamp.epoch.value})
 
             dataloader = self.state.dataloader
-            if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
-                dataloader.sampler.set_epoch(int(self.state.timestamp.epoch))
+            sampler = _get_distributed_sampler(dataloader) if isinstance(dataloader, DataLoader) else None
+            if isinstance(sampler, DistributedSampler):
+                sampler.set_epoch(int(self.state.timestamp.epoch))
 
             for batch_idx, self.state.batch in enumerate(self._iter_dataloader(TrainerMode.TRAIN)):
                 # Spin dataloader forward unless dataloader handles internally with dataset_resumption
@@ -3225,19 +3242,20 @@ class Trainer:
             drop_last = None
             dataset_len = None
             last_batch = False
-            if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
+            sampler = _get_distributed_sampler(dataloader) if isinstance(dataloader, DataLoader) else None
+            if isinstance(sampler, DistributedSampler) and isinstance(dataloader, DataLoader):
                 # The distributed sampler uses `set_epoch` to set the random seed
                 # Because evaluation can run on each batch, we use the batch to seed the sampler
                 # so each evaluation will get a proper shuffle.
                 # The epoch provided to `set_epoch` need not be sequential, so this is fine.
-                dist_sampler = dataloader.sampler
-                dist_sampler.set_epoch(int(self.state.timestamp.batch))
+                dist_sampler = sampler
+                sampler.set_epoch(int(self.state.timestamp.batch))
                 drop_last = dataloader.drop_last
                 # Only compute the dataset length if drop_last is False, as otherwise we don't need
                 # to remove any duplicate samples.
                 if drop_last == False:
                     try:
-                        dataset_len = len(dist_sampler.dataset)  # type: ignore
+                        dataset_len = len(sampler.dataset)  # type: ignore
                     except AttributeError:
                         warnings.warn(
                             "DistributedSampler's dataset does not have length defined. When "
