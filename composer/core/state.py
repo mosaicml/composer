@@ -836,28 +836,12 @@ class State(Serializable):
         Returns:
             Dict[str, Any]: The state dict for the model.
         """
-        if version.parse(torch.__version__) > version.parse('2.2.9'):
-            from torch.distributed.checkpoint.state_dict import StateDictOptions, get_model_state_dict
-            if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
-                raise NotImplementedError(
-                    textwrap.dedent(f'fsdp_state_dict_type={self.fsdp_state_dict_type} is not supported for '
-                                    f'torch version {{version.parse(torch.__version__)}} > 2.1.3. Please set '
-                                    'fsdp_state_dict_type to None, "full", or "sharded".'))
 
-            model_state_dict = get_model_state_dict(
-                model=self.model,
-                submodules=None,
-                options=StateDictOptions(
-                    full_state_dict=self.fsdp_state_dict_type != 'sharded',
-                    cpu_offload=True,
-                ),
-            )
-        else:
-            if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
-                with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
-                    model_state_dict = self.model.state_dict()
-            else:
+        if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
+            with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
                 model_state_dict = self.model.state_dict()
+        else:
+            model_state_dict = self.model.state_dict()
 
         # If model is DDP wrapped, do not save the `module.` prefix, as that is an implementation detail
         if self.is_model_ddp:
