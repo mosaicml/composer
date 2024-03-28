@@ -38,7 +38,7 @@ class MaskedAccuracy(Metric):
 
     def __init__(self, ignore_index: int = -100, dist_sync_on_step: bool = False):
         # state from multiple processes
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        super().__init__(dist_sync_on_step=dist_sync_on_step, sync_on_compute=False)
         self.ignore_index = ignore_index
 
         self.add_state('correct', default=torch.tensor(0), dist_reduce_fx='sum')
@@ -80,7 +80,7 @@ class LanguageCrossEntropy(Metric):
     full_state_update = False
 
     def __init__(self, dist_sync_on_step: bool = False, ignore_index: int = -100):
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        super().__init__(dist_sync_on_step=dist_sync_on_step, sync_on_compute=False)
 
         self.ignore_index = ignore_index
         self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=ignore_index, reduction='sum')
@@ -139,7 +139,7 @@ class BinaryF1Score(Metric):
     full_state_update = False
 
     def __init__(self, dist_sync_on_step: bool = False):
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        super().__init__(dist_sync_on_step=dist_sync_on_step, sync_on_compute=False)
 
         self.add_state('true_positive', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('false_positive', default=torch.tensor(0), dist_reduce_fx='sum')

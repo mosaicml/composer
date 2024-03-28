@@ -219,12 +219,7 @@ def get_world_size() -> int:
     Returns:
         int: The world size.
     """
-    return _get_distributed_config_var(
-        env_var='WORLD_SIZE',
-        human_name='world size',
-        default=1,
-        fetch_fn_name='get_world_size',
-    )
+    return 1
 
 
 def get_global_rank(group: Optional[dist.ProcessGroup] = None) -> int:
@@ -236,14 +231,7 @@ def get_global_rank(group: Optional[dist.ProcessGroup] = None) -> int:
     Returns:
         int: The global rank in input process group.
     """
-    if group is None:
-        return _get_distributed_config_var(
-            env_var='RANK',
-            human_name='global rank',
-            default=0,
-            fetch_fn_name='get_rank',
-        )
-    return dist.get_rank(group)
+    return 0
 
 
 def get_local_world_size() -> int:
@@ -252,7 +240,7 @@ def get_local_world_size() -> int:
     Returns:
         int: The local world size.
     """
-    return _get_distributed_config_var(env_var='LOCAL_WORLD_SIZE', default=1, human_name='local world size')
+    return 1
 
 
 def get_local_rank() -> int:
@@ -261,7 +249,7 @@ def get_local_rank() -> int:
     Returns:
         int: The local rank.
     """
-    return _get_distributed_config_var(env_var='LOCAL_RANK', default=0, human_name='local rank')
+    return 0
 
 
 def get_node_rank() -> int:
@@ -273,7 +261,7 @@ def get_node_rank() -> int:
     Returns:
         int: The node rank, starting at 0.
     """
-    return _get_distributed_config_var(env_var='NODE_RANK', default=0, human_name='node rank')
+    return 0
 
 
 def barrier(group=None) -> None:
@@ -287,9 +275,9 @@ def barrier(group=None) -> None:
         group (ProcessGroup, optional): The process group to work on. If ``None``,
             the default process group will be used. Default is ``None``.
     """
-    if dist.is_available() and dist.is_initialized():
-        dist.barrier(group=group)
-        return
+    #if dist.is_available() and dist.is_initialized():
+    #    dist.barrier(group=group)
+    #    return
     world_size = get_world_size()
     if world_size == 1:
         return
@@ -337,10 +325,10 @@ def all_reduce(
     Returns:
         None: ``tensor`` is modified in-place.
     """
-    if dist.is_available() and dist.is_initialized():
-        reduce_op = getattr(dist.ReduceOp, reduce_operation.upper())
-        dist.all_reduce(tensor, op=reduce_op, group=group)
-        return
+    #if dist.is_available() and dist.is_initialized():
+    #    reduce_op = getattr(dist.ReduceOp, reduce_operation.upper())
+    #    dist.all_reduce(tensor, op=reduce_op, group=group)
+    #    return
     world_size = get_world_size()
     if world_size == 1:
         return
@@ -366,9 +354,9 @@ def broadcast(tensor: torch.Tensor, src: int, group=None) -> None:
         group (ProcessGroup, optional): The process group to work on. If ``None``,
             the default process group will be used. Default is ``None``.
     """
-    if dist.is_available() and dist.is_initialized():
-        dist.broadcast(tensor, src=src, group=group)
-        return
+    #if dist.is_available() and dist.is_initialized():
+    #    dist.broadcast(tensor, src=src, group=group)
+    #    return
     world_size = get_world_size()
     if world_size == 1:
         return
@@ -400,11 +388,11 @@ def broadcast_object_list(object_list: list[Any], src: int = 0, group=None) -> N
     Returns:
         None:  ``object_list`` will be modified in-place and set to values of ``object_list`` from the ``src`` rank.
     """
-    if dist.is_available() and dist.is_initialized():
-        dist.broadcast_object_list(object_list, src=src, group=group)
+    #if dist.is_available() and dist.is_initialized():
+    #    dist.broadcast_object_list(object_list, src=src, group=group)
         # torch.distributed will replace the None's in obj_gather_list with the gathered objects on rank 0
         # or will just be None on non-rank-0
-        return
+    #    return
     world_size = get_world_size()
     if world_size == 1:
         return
@@ -430,10 +418,10 @@ def all_gather(tensor: torch.Tensor, group=None) -> Sequence[torch.Tensor]:
     Returns:
         Sequence[Tensor]: A sequence of tensors indexed by rank.
     """
-    if dist.is_available() and dist.is_initialized():
-        obj_gather_list = [torch.zeros_like(tensor) for _ in range(get_world_size())]
-        dist.all_gather(obj_gather_list, tensor, group=group)
-        return obj_gather_list
+    #if dist.is_available() and dist.is_initialized():
+    #    obj_gather_list = [torch.zeros_like(tensor) for _ in range(get_world_size())]
+    #    dist.all_gather(obj_gather_list, tensor, group=group)
+    #    return obj_gather_list
     world_size = get_world_size()
     if world_size == 1:
         return [tensor]
@@ -459,15 +447,15 @@ def all_gather_object(obj: TObj, group=None) -> list[TObj]:
     Returns:
         list[TObj]: A list of objects indexed by rank.
     """
-    if dist.is_available() and dist.is_initialized():
-        obj_gather_list = [None for _ in range(get_world_size())]
-        if is_hpu_installed():
-            all_gather_object_list_hpu(obj_gather_list, obj, group=group)
-        else:
-            dist.all_gather_object(obj_gather_list, obj, group=group)
+    #if dist.is_available() and dist.is_initialized():
+    #    obj_gather_list = [None for _ in range(get_world_size())]
+    #    if is_hpu_installed():
+    #        all_gather_object_list_hpu(obj_gather_list, obj, group=group)
+    #    else:
+    #        dist.all_gather_object(obj_gather_list, obj, group=group)
         # torch.distributed will replace the None's in obj_gather_list with the gathered objects on rank 0
         # or will just be None on non-rank-0
-        return cast(list[TObj], obj_gather_list)
+    #    return cast(List[TObj], obj_gather_list)
     world_size = get_world_size()
     if world_size == 1:
         return [obj]
@@ -488,7 +476,7 @@ def is_available():
     Returns:
         bool: Whether PyTorch distributed support is available.
     """
-    return dist.is_available()
+    return True
 
 
 def is_initialized():
@@ -499,7 +487,7 @@ def is_initialized():
     Returns:
         bool: Whether PyTorch distributed is initialized.
     """
-    return dist.is_initialized()
+    return True
 
 
 def initialize_dist(device: Union[str, Device], timeout: float = 300.0) -> None:
@@ -527,6 +515,7 @@ def initialize_dist(device: Union[str, Device], timeout: float = 300.0) -> None:
         timeout (float, optional): The timeout for operations executed against the process
             group, expressed in seconds. (default: ``300.0``).
     """
+    return
     # If device is string, get corresponding composer.devices.Device object
     device_obj = get_device(device)
     timeout_timedelta = datetime.timedelta(seconds=timeout)
@@ -620,13 +609,85 @@ def get_sampler(
     Returns:
         torch.utils.data.distributed.DistributedSampler: The sampler.
     """
-    return torch.utils.data.DistributedSampler[int](
-        dataset,
-        drop_last=drop_last,
-        shuffle=shuffle,
-        num_replicas=get_world_size() if num_replicas is None else num_replicas,
-        rank=get_global_rank() if rank is None else rank,
-    )
+    return torch.utils.data.SequentialSampler(dataset)
+    #return torch.utils.data.DistributedSampler[int](
+    #    dataset,
+    #    drop_last=drop_last,
+    #    shuffle=shuffle,
+    #    num_replicas=get_world_size() if num_replicas is None else num_replicas,
+    #    rank=get_global_rank() if rank is None else rank,
+    #)
+
+
+def get_node_signal_file_name(rng: Optional[random.Random] = None) -> str:
+    """Returns a file name to use for a file based wait within a node.
+
+    The file name will contain a randomly generated string to avoid conflicts.
+    Note: This file name will be the same on each node, so that it can be used for a file based wait.
+
+    Returns:
+        str: The name of the file that will be created to signal the end of a node's training.
+    """
+    if rng is None:
+        rng = random.Random()
+
+    random_string = ''.join(rng.choices(string.ascii_letters + string.digits, k=6))
+    node_rank = get_node_rank()
+    file_name_list = [f'._signal_file_node{node_rank}_{random_string}']
+    dist.broadcast_object_list(file_name_list, src=0)
+    return file_name_list[0]
+
+
+def write_signal_file(signal_file_name: str, dir_path: Optional[str] = None) -> str:
+    """Writes a signal file to the specified directory.
+
+    This function creates a signal file in the specified directory. If the directory does
+    Note: Only local rank zero writes the signal file. All other ranks are expected to wait for the signal file.
+
+    Args:
+        signal_file_name (str): The name of the signal file.
+        dir_path (str, optional): The full path to the directory in which to create the signal file. If ``None``,
+            the current working directory will be used.
+    """
+    if dir_path is not None:
+        os.makedirs(dir_path, exist_ok=True)
+
+    signal_file_path = os.path.join(dir_path or os.getcwd(), signal_file_name)
+    if get_local_rank() == 0:
+        with open(signal_file_path, 'w') as _f:
+            _f.write('local rank zero done')
+
+    return signal_file_path
+
+
+@contextmanager
+def busy_wait_for_local_rank_zero(dir_path: Optional[str] = None):
+    """Busy waits for the signal file to be created by local rank zero.
+
+    This function will wait for the signal file to be created by local rank zero. It will
+    check every 0.1 seconds for the existence of the file.
+
+    Args:
+        dir_path (str, optional): The directory in which to look for the signal file. If ``None``,
+            the current working directory will be used.
+    """
+    # Get unique file name
+    signal_file_name = get_node_signal_file_name()
+
+    # All ranks yield execution to allow local rank zero to run the code it needs to
+    yield
+
+    # Local rank zero writes the signal file, all other rank just get the expected path
+    signal_file_path = write_signal_file(signal_file_name=signal_file_name, dir_path=dir_path)
+
+    # Wait for the signal file to be created by local rank zero
+    with local_rank_zero_download_and_wait(signal_file_path):
+        # Sync all ranks across nodes as busy wait only is within node
+        dist.barrier()
+
+    # Remove the signal file
+    if get_local_rank() == 0:
+        os.remove(signal_file_path)
 
 
 def get_node_signal_file_name(rng: Optional[random.Random] = None) -> str:
@@ -740,15 +801,15 @@ def run_local_rank_zero_first():
     ranks attempt to download the dataset to the
     same location.
     """
-    if dist.is_available() and dist.is_initialized():
+    #if dist.is_available() and dist.is_initialized():
         # hold non-zero ranks until rank zero done
-        if get_local_rank() != 0:
-            dist.barrier()
-            yield
-        else:
-            yield
-            dist.barrier()
-        return
+    #    if get_local_rank() != 0:
+    #        dist.barrier()
+    #        yield
+    #    else:
+    #        yield
+    #        dist.barrier()
+    #    return
     world_size = get_world_size()
     if world_size == 1:
         yield
