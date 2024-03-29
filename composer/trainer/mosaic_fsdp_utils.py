@@ -415,9 +415,9 @@ if version.parse(torch.__version__) >= version.parse('2.0.1') and version.parse(
         from torch.distributed.fsdp._dynamo_utils import _annotate_modules_for_dynamo
         from torch.distributed.fsdp._init_utils import (HYBRID_SHARDING_STRATEGIES, _check_orig_params_flattened,
                                                         _init_buffer_state, _init_core_state,
-                                                        _init_ignored_module_states, _init_param_handle_from_module,
-                                                        _init_prefetching_state, _init_process_group_state,
-                                                        _init_runtime_state, _init_state_dict_state)
+                                                        _init_ignored_module_states, _init_prefetching_state,
+                                                        _init_process_group_state, _init_runtime_state,
+                                                        _init_state_dict_state)
         from torch.distributed.fsdp._state_dict_utils import _register_all_state_dict_hooks
         from torch.distributed.fsdp._unshard_param_utils import _register_flat_param
 
@@ -639,7 +639,11 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
     from torch.distributed.fsdp._common_utils import _FSDPState
     from torch.distributed.fsdp._init_utils import (HYBRID_SHARDING_STRATEGIES, ProcessGroupType,
                                                     _get_default_comm_hook_state, _init_intra_and_inter_node_groups,
-                                                    _is_valid_hybrid_shard_pg_type, _init_extension)
+                                                    _is_valid_hybrid_shard_pg_type, _init_extension,
+                                                    _check_single_device_module, _get_device_from_device_id,
+                                                    _need_to_materialize_module, _materialize_with_param_init_fn,
+                                                    _materialize_meta_module, _move_module_to_device, _get_compute_device,
+                                                    _get_orig_params, _sync_module_params_and_buffers)
     from torch.distributed.fsdp.fully_sharded_data_parallel import (_annotate_modules_for_dynamo, _auto_wrap,
                                                                     _check_orig_params_flattened, _init_buffer_state,
                                                                     _init_core_state, _init_device_handle,
@@ -910,7 +914,7 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
         _init_buffer_state(self, module)
         # extension needs to be set before `_init_param_handle_from_module()`
         _init_extension(self, device_mesh)
-        _init_param_handle_from_module(
+        _new_init_param_handle_from_module(
             self,
             module,
             device_id,
@@ -926,6 +930,71 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
         # implemented using post-save and pre-load hooks
         _init_state_dict_state(self)
         _register_all_state_dict_hooks(self)
+
+    @no_type_check
+    def _new_init_param_handle_from_module(
+        state: _FSDPState,
+        fully_sharded_module: nn.Module,
+        device_id: Optional[Union[int, torch.device]],
+        param_init_fn: Optional[Callable[[nn.Module], None]],
+        sync_module_states: bool,
+    ) -> _FSDPState:
+        """Initialize a ``FlatParamHandle`` from a module ``fully_sharded_module``."""
+        _check_single_device_module(fully_sharded_module, state._ignored_params, device_id)
+        device_from_device_id = _get_device_from_device_id(device_id, state.rank)
+        is_meta_module, is_torchdistX_deferred_init = _need_to_materialize_module(
+            fully_sharded_module, state._ignored_params, state._ignored_modules
+        )
+        # Materialize the module if needed
+        if (is_meta_module or is_torchdistX_deferred_init) and param_init_fn is not None:
+            _materialize_with_param_init_fn(
+                fully_sharded_module, param_init_fn, state._ignored_modules
+            )
+        elif is_meta_module:
+            _materialize_meta_module(
+                fully_sharded_module, device_id, state._ignored_modules
+            )
+        elif is_torchdistX_deferred_init:
+            deferred_init.materialize_module(
+                fully_sharded_module,
+                check_fn=lambda submodule: _get_module_fsdp_state(submodule) is None
+                and submodule not in state._ignored_modules,
+            )
+
+        ignored_buffers = {
+            buffer
+            for ignored_module in state._ignored_modules
+            for buffer in ignored_module.buffers()
+        }
+
+        _move_module_to_device(
+            fully_sharded_module,
+            state._ignored_params,
+            ignored_buffers,
+            device_from_device_id,
+        )
+        state.compute_device = _get_compute_device(
+            fully_sharded_module,
+            state._ignored_params,
+            device_from_device_id,
+            state.rank,
+        )
+
+        managed_params = list(_get_orig_params(fully_sharded_module, state._ignored_params))
+        if sync_module_states:
+            _sync_module_params_and_buffers(
+                fully_sharded_module, managed_params, state.process_group
+            )
+            if state.sharding_strategy in HYBRID_SHARDING_STRATEGIES:
+                _sync_module_params_and_buffers(
+                    fully_sharded_module, managed_params, state._inter_node_pg
+                )
+        allgather_fp8 = getattr(fully_sharded_module, "_allgather_fp8", False)    # Added this.
+        _init_param_handle_from_params(state, managed_params, fully_sharded_module, allgather_fp8)    # Added this.
+        return state
+
+    # Adding all these patches so that the init function above is correct...lol
+    
 
     from torch.distributed.checkpoint.state_dict import StateDictOptions, _StateDictInfo
 

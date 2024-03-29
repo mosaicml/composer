@@ -96,3 +96,8 @@ def patch_pytorch():
         from composer.trainer.mosaic_fsdp_utils import _full_pre_state_dict_hook, _set_use_dtensor
         _state_dict_utils._full_pre_state_dict_hook = _full_pre_state_dict_hook
         _state_dict_utils._set_use_dtensor = _set_use_dtensor
+
+        # Monkeypatch FlatParamHandle init
+        from torch.distributed.fsdp import _init_utils
+        from composer.trainer.mosaic_fsdp_utils import _new_init_param_handle_from_module
+        _init_utils._init_param_handle_from_module = _new_init_param_handle_from_module
