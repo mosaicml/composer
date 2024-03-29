@@ -643,7 +643,7 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
                                                     _check_single_device_module, _get_device_from_device_id,
                                                     _need_to_materialize_module, _materialize_with_param_init_fn,
                                                     _materialize_meta_module, _move_module_to_device, _get_compute_device,
-                                                    _get_orig_params, _sync_module_params_and_buffers)
+                                                    _get_orig_params, _sync_module_params_and_buffers, _init_param_handle_from_params)
     from torch.distributed.fsdp.fully_sharded_data_parallel import (_annotate_modules_for_dynamo, _auto_wrap,
                                                                     _check_orig_params_flattened, _init_buffer_state,
                                                                     _init_core_state, _init_device_handle,
