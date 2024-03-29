@@ -37,5 +37,5 @@ def test_lambda_invoke(code, result, language):
         'input': input,
         'output': '2',
         'entry_point': 'add_1',
-        'language': language
+        'language': language,
     }]]]) == [[[result]]]

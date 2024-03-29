@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 jobs:
   pytest-cpu:
-    uses: mosaicml/ci-testing/.github/workflows/pytest-cpu.yaml@v0.0.3
+    uses: mosaicml/ci-testing/.github/workflows/pytest-cpu.yaml@v0.0.4
     strategy:
       matrix:
         include:

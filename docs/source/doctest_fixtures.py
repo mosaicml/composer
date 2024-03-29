@@ -226,16 +226,18 @@ _original_RemoteUploaderDownloader_init = RemoteUploaderDownloader.__init__
 
 def _new_RemoteUploaderDownloader_init(self, fake_ellipses: None = None, **kwargs: Any):
     os.makedirs('./object_store', exist_ok=True)
-    kwargs.update(use_procs=False,
-                  num_concurrent_uploads=1,
-                  bucket_uri='libcloud://.',
-                  backend_kwargs={
-                      'provider': 'local',
-                      'container': '.',
-                      'provider_kwargs': {
-                          'key': os.path.abspath('./object_store'),
-                      },
-                  })
+    kwargs.update(
+        use_procs=False,
+        num_concurrent_uploads=1,
+        bucket_uri='libcloud://.',
+        backend_kwargs={
+            'provider': 'local',
+            'container': '.',
+            'provider_kwargs': {
+                'key': os.path.abspath('./object_store'),
+            },
+        },
+    )
     _original_RemoteUploaderDownloader_init(self, **kwargs)
 
 
@@ -273,8 +275,14 @@ except ImportError:
     TRANSFORMERS_INSTALLED = False
 
 if TRANSFORMERS_INSTALLED:
-    from tests.fixtures.fixtures import (tiny_bert_config_helper, tiny_bert_model_helper, tiny_bert_tokenizer_helper,
-                                         tiny_gpt2_config_helper, tiny_gpt2_model_helper, tiny_gpt2_tokenizer_helper)
+    from tests.fixtures.fixtures import (
+        tiny_bert_config_helper,
+        tiny_bert_model_helper,
+        tiny_bert_tokenizer_helper,
+        tiny_gpt2_config_helper,
+        tiny_gpt2_model_helper,
+        tiny_gpt2_tokenizer_helper,
+    )
     pytest.tiny_bert_config = tiny_bert_config_helper()  # type: ignore
     pytest.tiny_bert_model = tiny_bert_model_helper(pytest.tiny_bert_config)  # type: ignore
     pytest.tiny_bert_tokenizer = tiny_bert_tokenizer_helper()  # type: ignore

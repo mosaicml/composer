@@ -14,7 +14,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 
 from composer.core import DataSpec
-from composer.core.data_spec import _default_split_batch, _split_list
+from composer.core.data_spec import _split_list, default_split_batch
 from composer.datasets.utils import stop_sequences_criteria
 from composer.utils import MissingConditionalImportError, dist, get_file
 
@@ -47,7 +47,7 @@ def strip_data(example: Dict) -> Dict:
     return {k: v.strip() if isinstance(v, str) else v for k, v in example.items()}
 
 
-def _tokenizer_needs_prefix_space(tokenizer: transformers.PreTrainedTokenizerBase,) -> bool:
+def _tokenizer_needs_prefix_space(tokenizer: transformers.PreTrainedTokenizerBase) -> bool:
     """
     Test for whether a prefix space is needed before the continuation.
     Sentencepiece tokenization should not have a prefix space, but gpt2 style BPE should.
@@ -504,8 +504,10 @@ class InContextLearningDataset(Dataset):
         Returns:
             input_ids: The tokenized input conditionally edited
         """
-        if (self.tokenizer.eos_token_id is not None and len(input_ids) > 1 and
-                input_ids[-1] == self.tokenizer.eos_token_id):
+        if (
+            self.tokenizer.eos_token_id is not None and len(input_ids) > 1 and
+            input_ids[-1] == self.tokenizer.eos_token_id
+        ):
             input_ids = input_ids[:-1]
         return input_ids
 
@@ -538,8 +540,10 @@ class InContextLearningDataset(Dataset):
 
         if self.tokenize_labels:
             # Never add special tokens to answer
-            tokenized_answer = self.tokenizer(self.get_answer_from_example(example),
-                                              add_special_tokens=False)['input_ids']
+            tokenized_answer = self.tokenizer(
+                self.get_answer_from_example(example),
+                add_special_tokens=False,
+            )['input_ids']
             assert isinstance(tokenized_answer, list)
             trimmed_context = _trim_context(tokenized_context, tokenized_answer, self.padding_size)
             assert isinstance(trimmed_context, list)
@@ -626,17 +630,20 @@ class InContextLearningDataset(Dataset):
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
-    def split_batch(self, batch: Any, microbatch_size: int) -> List[Dict[str, Any]]:
+    def split_batch(self, batch: Any, microbatch_size: Union[int, float]) -> List[Dict[str, Any]]:
         """
         Handling for certain specialty columns that must be split into batches in different formats.
 
         Args:
             batch (Dict): Batch of data
-            microbatch_size (int): Size of microbatches
+            microbatch_size (int | float): Size of microbatches
 
         Returns:
             List: List of chunked batches
         """
+        if isinstance(microbatch_size, float):
+            raise ValueError('InContextLearningDataset does not support float microbatch sizes')
+
         # Don't split kwargs that don't change
         # Normally split torch tensors
         # List split lists of strings
@@ -648,7 +655,7 @@ class InContextLearningDataset(Dataset):
             elif k in self.list_keys:
                 chunked[k] = _split_list(v, microbatch_size)
             elif k in self.tensor_keys:
-                chunked[k] = _default_split_batch(v, microbatch_size)
+                chunked[k] = default_split_batch(v, microbatch_size)
             else:
                 raise ValueError(f'Unexpected key {k} in batch splitting')
         num_chunks = len(chunked['input_ids'])
@@ -746,7 +753,8 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
                 'answer': examples['answer'],
                 'aliases': set([examples['answer']] + examples.get('aliases', [])),
                 'chain_of_thought': examples.get('chain_of_thought', ''),
-            })
+            },
+        )
         self.max_answer_length = self._get_max_answer_length(dataset)
         # NOTE: This is the only time we use the class variable padding_size.
         self.padding_size = self.max_seq_len - self.max_answer_length
@@ -848,7 +856,7 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
             },
             batch_mapping={
                 'input_ids': 'context',
-                'labels': 'context'
+                'labels': 'context',
             },
             padding_side='right',
             *args,
@@ -1023,7 +1031,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
     def get_num_samples_in_batch(self, batch) -> int:
         return batch['input_ids'].shape[0] // self.num_choices
 
-    def split_batch(self, batch: Any, microbatch_size: int) -> List[Dict[str, Any]]:
+    def split_batch(self, batch: Any, microbatch_size: Union[int, float]) -> List[Dict[str, Any]]:
         """
         Split batch while ensuring all continuations are in the same microbatch.
 
@@ -1039,6 +1047,8 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         Returns:
             list: List of chunked batches
         """
+        if isinstance(microbatch_size, float):
+            raise ValueError('InContextLearningMultipleChoiceTaskDataset does not support float microbatch sizes')
         chunked = {}
         for k, v in batch.items():
             if k in self.static_keys:
@@ -1053,11 +1063,11 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
                     chunked[k] = _split_list(v, microbatch_size)
                 # list - 'gold_indices'
                 elif k in self.list_of_primitives:
-                    chunked[k] = _default_split_batch(v, microbatch_size)
+                    chunked[k] = default_split_batch(v, microbatch_size)
                 else:
                     raise ValueError(f'Unexpected key {k} in list splitting')
             elif k in self.tensor_keys:
-                chunked[k] = _default_split_batch(v, microbatch_size * self.num_choices)
+                chunked[k] = default_split_batch(v, microbatch_size * self.num_choices)
             else:
                 raise ValueError(f'Unexpected key {k} in batch splitting')
         num_chunks = len(chunked['input_ids'])
@@ -1202,8 +1212,10 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         assert isinstance(preamble, list)
         preamble = self._fix_eos_on_preamble(preamble)
         encoded_contexts = [
-            preamble + self.tokenizer(  # pyright: ignore[reportOperatorIssue, reportGeneralTypeIssues]
-                c, add_special_tokens=False)['input_ids']  # pyright: ignore[reportOperatorIssue, ]
+            preamble + self.
+            tokenizer(  # pyright: ignore[reportOperatorIssue, reportGeneralTypeIssues]
+                c, add_special_tokens=False,
+            )['input_ids']  # pyright: ignore[reportOperatorIssue, ]
             for c in context_options
         ]
         continuation = example['continuation']
@@ -1287,7 +1299,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             pass_at_k = [pass_at_k]
         if generations_per_sample < max(pass_at_k):
             raise ValueError(
-                f'generations_per_sample ({generations_per_sample}) must be greater than or equal to pass_at_k ({pass_at_k}) for code evaluation.'
+                f'generations_per_sample ({generations_per_sample}) must be greater than or equal to pass_at_k ({pass_at_k}) for code evaluation.',
             )
         batch_mapping = {
             'input_ids': 'prompt',
@@ -1575,7 +1587,7 @@ def build_icl_dataloader(
 
     split_batch = None
     if isinstance(
-            dataset,
+        dataset,
         (
             InContextLearningMultipleChoiceTaskDataset,
             InContextLearningQATaskDataset,
@@ -1597,8 +1609,12 @@ def build_icl_dataloader(
     )
 
 
-def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_loading_vars: Dict,
-                                  hf_parsing_map: Dict) -> Dict[str, str]:
+def partition_dataset_by_category(
+    dataset_uri: str,
+    destination_path: str,
+    hf_loading_vars: Dict,
+    hf_parsing_map: Dict,
+) -> Dict[str, str]:
     """
     If has_categories is enabled, we partition the dataset into a separate dataset for each category value in the data and write each partition to a local file.
 
@@ -1640,9 +1656,11 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_lo
     assert hasattr(dataset, 'features')
     assert dataset.features is not None
     if 'category' not in dataset.features.keys():
-        raise Exception(f"""Attempted to partition dataset by `category` \
+        raise Exception(
+            f"""Attempted to partition dataset by `category` \
             but it doesn't have a `category` key. \
-            Got keys: {str(list(dataset.features.keys()))}""")
+            Got keys: {str(list(dataset.features.keys()))}""",
+        )
     categories = sorted(set(dataset['category']))  # pyright: ignore[reportIndexIssue, reportGeneralTypeIssues]
     output_files = {}
     for cat in categories:

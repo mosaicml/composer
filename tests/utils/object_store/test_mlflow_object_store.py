@@ -64,7 +64,8 @@ def test_init_with_experiment_and_no_run(monkeypatch):
     monkeypatch.setattr(mlflow, 'MlflowClient', mock_mlflow_client)
 
     mock_mlflow_client.return_value.create_run.return_value = MagicMock(
-        info=MagicMock(run_id=RUN_ID, run_name='test-run'))
+        info=MagicMock(run_id=RUN_ID, run_name='test-run'),
+    )
 
     store = MLFlowObjectStore(TEST_PATH_FORMAT.format(experiment_id=EXPERIMENT_ID, run_id=MLFLOW_RUN_ID_PLACEHOLDER))
     assert store.experiment_id == EXPERIMENT_ID
@@ -91,7 +92,8 @@ def test_init_with_active_run(monkeypatch):
     mock_active_run.return_value = MagicMock(info=MagicMock(experiment_id=EXPERIMENT_ID, run_id=RUN_ID))
 
     store = MLFlowObjectStore(
-        TEST_PATH_FORMAT.format(experiment_id=MLFLOW_EXPERIMENT_ID_PLACEHOLDER, run_id=MLFLOW_RUN_ID_PLACEHOLDER))
+        TEST_PATH_FORMAT.format(experiment_id=MLFLOW_EXPERIMENT_ID_PLACEHOLDER, run_id=MLFLOW_RUN_ID_PLACEHOLDER),
+    )
     assert store.experiment_id == EXPERIMENT_ID
     assert store.run_id == RUN_ID
 
@@ -106,10 +108,12 @@ def test_init_with_existing_experiment_and_no_run(monkeypatch):
 
     mock_mlflow_client.return_value.get_experiment_by_name.return_value = MagicMock(experiment_id=EXPERIMENT_ID)
     mock_mlflow_client.return_value.create_run.return_value = MagicMock(
-        info=MagicMock(run_id=RUN_ID, run_name='test-run'))
+        info=MagicMock(run_id=RUN_ID, run_name='test-run'),
+    )
 
     store = MLFlowObjectStore(
-        TEST_PATH_FORMAT.format(experiment_id=MLFLOW_EXPERIMENT_ID_PLACEHOLDER, run_id=MLFLOW_RUN_ID_PLACEHOLDER))
+        TEST_PATH_FORMAT.format(experiment_id=MLFLOW_EXPERIMENT_ID_PLACEHOLDER, run_id=MLFLOW_RUN_ID_PLACEHOLDER),
+    )
     assert store.experiment_id == EXPERIMENT_ID
     assert store.run_id == RUN_ID
 
@@ -125,10 +129,12 @@ def test_init_with_no_experiment_and_no_run(monkeypatch):
     mock_mlflow_client.return_value.get_experiment_by_name.return_value = None
     mock_mlflow_client.return_value.create_experiment.return_value = EXPERIMENT_ID
     mock_mlflow_client.return_value.create_run.return_value = MagicMock(
-        info=MagicMock(run_id=RUN_ID, run_name='test-run'))
+        info=MagicMock(run_id=RUN_ID, run_name='test-run'),
+    )
 
     store = MLFlowObjectStore(
-        TEST_PATH_FORMAT.format(experiment_id=MLFLOW_EXPERIMENT_ID_PLACEHOLDER, run_id=MLFLOW_RUN_ID_PLACEHOLDER))
+        TEST_PATH_FORMAT.format(experiment_id=MLFLOW_EXPERIMENT_ID_PLACEHOLDER, run_id=MLFLOW_RUN_ID_PLACEHOLDER),
+    )
     assert store.experiment_id == EXPERIMENT_ID
     assert store.run_id == RUN_ID
 
@@ -152,17 +158,17 @@ def mlflow_object_store(monkeypatch):
         if not path:
             return [
                 MagicMock(path='dir1', is_dir=True, file_size=None),
-                MagicMock(path='dir2', is_dir=True, file_size=None)
+                MagicMock(path='dir2', is_dir=True, file_size=None),
             ]
         elif path == 'dir1':
             return [
                 MagicMock(path='dir1/a.txt', is_dir=False, file_size=100),
-                MagicMock(path='dir1/b.txt', is_dir=False, file_size=200)
+                MagicMock(path='dir1/b.txt', is_dir=False, file_size=200),
             ]
         elif path == 'dir2':
             return [
                 MagicMock(path='dir2/c.txt', is_dir=False, file_size=300),
-                MagicMock(path='dir2/dir3', is_dir=True, file_size=None)
+                MagicMock(path='dir2/dir3', is_dir=True, file_size=None),
             ]
         elif path == 'dir2/dir3':
             return [MagicMock(path='dir2/dir3/d.txt', is_dir=False, file_size=400)]
@@ -190,19 +196,25 @@ def test_get_artifact_path(mlflow_object_store):
     assert mlflow_object_store.get_artifact_path(DEFAULT_PATH + ARTIFACT_PATH) == ARTIFACT_PATH
 
     # Absolute DBFS path with placeholders
-    path = TEST_PATH_FORMAT.format(experiment_id=MLFLOW_EXPERIMENT_ID_PLACEHOLDER,
-                                   run_id=MLFLOW_RUN_ID_PLACEHOLDER) + ARTIFACT_PATH
+    path = TEST_PATH_FORMAT.format(
+        experiment_id=MLFLOW_EXPERIMENT_ID_PLACEHOLDER,
+        run_id=MLFLOW_RUN_ID_PLACEHOLDER,
+    ) + ARTIFACT_PATH
     assert mlflow_object_store.get_artifact_path(path) == ARTIFACT_PATH
 
     # Raises ValueError for different experiment ID
-    path = TEST_PATH_FORMAT.format(experiment_id='different-experiment',
-                                   run_id=MLFLOW_RUN_ID_PLACEHOLDER) + ARTIFACT_PATH
+    path = TEST_PATH_FORMAT.format(
+        experiment_id='different-experiment',
+        run_id=MLFLOW_RUN_ID_PLACEHOLDER,
+    ) + ARTIFACT_PATH
     with pytest.raises(ValueError):
         mlflow_object_store.get_artifact_path(path)
 
     # Raises ValueError for different run ID
-    path = TEST_PATH_FORMAT.format(experiment_id=MLFLOW_EXPERIMENT_ID_PLACEHOLDER,
-                                   run_id='different-run') + ARTIFACT_PATH
+    path = TEST_PATH_FORMAT.format(
+        experiment_id=MLFLOW_EXPERIMENT_ID_PLACEHOLDER,
+        run_id='different-run',
+    ) + ARTIFACT_PATH
     with pytest.raises(ValueError):
         mlflow_object_store.get_artifact_path(path)
 

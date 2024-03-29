@@ -24,7 +24,7 @@ _NOT_FOUND_ERROR_CODE = 'NOT_FOUND'
 
 def _wrap_errors(uri: str, e: Exception):
     from databricks.sdk.core import DatabricksError
-    from databricks.sdk.errors.mapping import NotFound
+    from databricks.sdk.errors.platform import NotFound
     if isinstance(e, DatabricksError):
         if isinstance(e, NotFound) or e.error_code == _NOT_FOUND_ERROR_CODE:  # type: ignore
             raise FileNotFoundError(f'Object {uri} not found') from e
@@ -63,7 +63,8 @@ class UCObjectStore(ObjectStore):
             raise ValueError(
                 f'Databricks SDK credentials not correctly setup. '
                 'Visit https://databricks-sdk-py.readthedocs.io/en/latest/authentication.html#databricks-native-authentication '
-                'to identify different ways to setup credentials.') from e
+                'to identify different ways to setup credentials.',
+            ) from e
         self.prefix = self.validate_path(path)
         self.client = WorkspaceClient()
 
@@ -86,9 +87,11 @@ class UCObjectStore(ObjectStore):
 
         dirs = path.split(os.sep)
         if len(dirs) < 4:
-            raise ValueError(f'Databricks Unity Catalog Volumes path expected to be of the format '
-                             '`Volumes/<catalog-name>/<schema-name>/<volume-name>/<optional-path>`. '
-                             f'Found path={path}')
+            raise ValueError(
+                f'Databricks Unity Catalog Volumes path expected to be of the format '
+                '`Volumes/<catalog-name>/<schema-name>/<volume-name>/<optional-path>`. '
+                f'Found path={path}',
+            )
 
         # The first 4 dirs form the prefix
         return os.path.join(*dirs[:4])
@@ -121,10 +124,12 @@ class UCObjectStore(ObjectStore):
         """
         return f'dbfs:{self._get_object_path(object_name)}'
 
-    def upload_object(self,
-                      object_name: str,
-                      filename: str | pathlib.Path,
-                      callback: Callable[[int, int], None] | None = None) -> None:
+    def upload_object(
+        self,
+        object_name: str,
+        filename: str | pathlib.Path,
+        callback: Callable[[int, int], None] | None = None,
+    ) -> None:
         """Upload a file from local to UC volumes.
 
         Args:
@@ -137,11 +142,13 @@ class UCObjectStore(ObjectStore):
         with open(filename, 'rb') as f:
             self.client.files.upload(self._get_object_path(object_name), f)
 
-    def download_object(self,
-                        object_name: str,
-                        filename: str | pathlib.Path,
-                        overwrite: bool = False,
-                        callback: Callable[[int, int], None] | None = None) -> None:
+    def download_object(
+        self,
+        object_name: str,
+        filename: str | pathlib.Path,
+        overwrite: bool = False,
+        callback: Callable[[int, int], None] | None = None,
+    ) -> None:
         """Download the given object from UC Volumes to the specified filename.
 
         Args:
@@ -247,10 +254,12 @@ class UCObjectStore(ObjectStore):
                 # Note: Databricks SDK handles HTTP errors and retries.
                 # See https://github.com/databricks/databricks-sdk-py/blob/v0.18.0/databricks/sdk/core.py#L125 and
                 # https://github.com/databricks/databricks-sdk-py/blob/v0.18.0/databricks/sdk/retries.py#L33 .
-                resp = self.client.api_client.do(method='GET',
-                                                 path=self._UC_VOLUME_LIST_API_ENDPOINT,
-                                                 data=json.dumps({'path': self._get_object_path(current_path)}),
-                                                 headers={'Source': 'mosaicml/composer'})
+                resp = self.client.api_client.do(
+                    method='GET',
+                    path=self._UC_VOLUME_LIST_API_ENDPOINT,
+                    data=json.dumps({'path': self._get_object_path(current_path)}),
+                    headers={'Source': 'mosaicml/composer'},
+                )
 
                 assert isinstance(resp, dict), 'Response is not a dictionary'
 

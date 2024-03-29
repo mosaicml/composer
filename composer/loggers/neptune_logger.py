@@ -65,9 +65,11 @@ class NeptuneLogger(LoggerDestination):
         try:
             from neptune.internal.utils import verify_type
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='neptune',
-                                                conda_package='neptune',
-                                                conda_channel='conda-forge') from e
+            raise MissingConditionalImportError(
+                extra_deps_group='neptune',
+                conda_package='neptune',
+                conda_channel='conda-forge',
+            ) from e
 
         verify_type('project', project, (str, type(None)))
         verify_type('api_token', api_token, (str, type(None)))
@@ -227,8 +229,10 @@ class NeptuneLogger(LoggerDestination):
         neptune_path = f'{self._base_namespace}/{remote_file_name}'
         if self.neptune_run.exists(neptune_path) and not overwrite:
 
-            warnings.warn(f"The file '{neptune_path}' already exists and overwrite is set to False."
-                          'No action will be taken.')
+            warnings.warn(
+                f"The file '{neptune_path}' already exists and overwrite is set to False."
+                'No action will be taken.',
+            )
             return
 
         del state  # unused
@@ -246,12 +250,16 @@ class NeptuneLogger(LoggerDestination):
         if not self._enabled:
             return
 
-        if os.path.exists(os.path.join(
+        if os.path.exists(
+            os.path.join(
                 destination,
                 remote_file_name,
-        )) and not overwrite:
-            warnings.warn(f"Destination '{destination}' already exists and overwrite is set to False."
-                          'No action will be taken.')
+            ),
+        ) and not overwrite:
+            warnings.warn(
+                f"Destination '{destination}' already exists and overwrite is set to False."
+                'No action will be taken.',
+            )
             return
 
         file_path = f'{self._base_namespace}/{remote_file_name}'

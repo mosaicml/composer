@@ -32,11 +32,13 @@ class develop(develop_orig):
     def run(self):
         if _IS_ROOT and (not _IS_VIRTUALENV) and (not _IS_USER):
             raise RuntimeError(
-                textwrap.dedent("""\
+                textwrap.dedent(
+                    """\
                     When installing in editable mode as root outside of a virtual environment,
                     please specify `--user`. Editable installs as the root user outside of a virtual environment
-                    do not work without the `--user` flag. Please instead run something like: `pip install --user -e .`"""
-                               ))
+                    do not work without the `--user` flag. Please instead run something like: `pip install --user -e .`""",
+                ),
+            )
         super().run()
 
 
@@ -86,7 +88,7 @@ install_requires = [
     'coolname>=1.1.0,<3',
     'tabulate==0.9.0',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<10',
-    'packaging>=21.3.0,<23.3',
+    'packaging>=21.3.0,<24.1',
     'importlib-metadata>=5.0.0,<7',
     'mosaicml-cli>=0.5.25,<0.7',
 ]
@@ -100,7 +102,7 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
     'junitparser==3.1.2',
-    'coverage[toml]==7.4.1',
+    'coverage[toml]==7.4.4',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
     'ipython==8.11.0',
@@ -130,7 +132,7 @@ extra_deps['dev'] = [
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.17.0',
-    'traitlets==5.14.1',
+    'traitlets==5.14.2',
     'nbsphinx==0.9.1',
     'pandoc==2.3',
     'pypandoc==1.13',
@@ -176,7 +178,7 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,<4.38,!=4.34.0',
+    'transformers>=4.11,!=4.34.0,<4.40',
     'datasets>=2.4,<3',
 ]
 
@@ -185,7 +187,7 @@ extra_deps['peft'] = [
 ]
 
 extra_deps['sentencepiece'] = [
-    'protobuf<3.21',
+    'protobuf<5.27',
     'sentencepiece==0.2.0',
 ]
 
@@ -219,12 +221,12 @@ extra_deps['onnx'] = [
 ]
 
 extra_deps['mlflow'] = [
-    'mlflow>=2.11.0,<3.0',
+    'mlflow>=2.11.1,<3.0',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk==0.18.0']
+extra_deps['databricks'] = ['databricks-sdk==0.23.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 
@@ -237,46 +239,54 @@ package_name = os.environ.get('COMPOSER_PACKAGE_NAME', 'mosaicml')
 if package_name != 'mosaicml':
     print(f'`Building composer as `{package_name}`)', file=sys.stderr)
 
-setup(name=package_name,
-      version=composer_version,
-      author='MosaicML',
-      author_email='team@mosaicml.com',
-      description=('Composer is a PyTorch library that enables you to train ' +
-                   'neural networks faster, at lower cost, and to higher accuracy.'),
-      long_description=long_description,
-      long_description_content_type='text/markdown',
-      url='https://github.com/mosaicml/composer',
-      include_package_data=True,
-      package_data={
-          'composer': composer_data_files,
-      },
-      packages=setuptools.find_packages(exclude=['docker*', 'examples*', 'scripts*', 'tests*']),
-      classifiers=[
-          'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.9',
-          'Programming Language :: Python :: 3.10',
-          'Programming Language :: Python :: 3.11',
-      ],
-      install_requires=install_requires,
-      entry_points={
-          'console_scripts': [
-              'composer = composer.cli.launcher:main',
-              'composer_collect_env = composer.utils.collect_env:main',
-              'composer_validate_remote_path = composer.utils.file_helpers:validate_remote_path',
-          ],
-      },
-      extras_require=extra_deps,
-      dependency_links=['https://developer.download.nvidia.com/compute/redist'],
-      python_requires='>=3.9',
-      ext_package='composer',
-      cmdclass={'develop': develop})
+setup(
+    name=package_name,
+    version=composer_version,
+    author='MosaicML',
+    author_email='team@mosaicml.com',
+    description=(
+        'Composer is a PyTorch library that enables you to train ' +
+        'neural networks faster, at lower cost, and to higher accuracy.'
+    ),
+    long_description=long_description,
+    long_description_content_type='text/markdown',
+    url='https://github.com/mosaicml/composer',
+    include_package_data=True,
+    package_data={
+        'composer': composer_data_files,
+    },
+    packages=setuptools.find_packages(exclude=['docker*', 'examples*', 'scripts*', 'tests*']),
+    classifiers=[
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+    ],
+    install_requires=install_requires,
+    entry_points={
+        'console_scripts': [
+            'composer = composer.cli.launcher:main',
+            'composer_collect_env = composer.utils.collect_env:main',
+            'composer_validate_remote_path = composer.utils.file_helpers:validate_remote_path',
+        ],
+    },
+    extras_require=extra_deps,
+    dependency_links=['https://developer.download.nvidia.com/compute/redist'],
+    python_requires='>=3.9',
+    ext_package='composer',
+    cmdclass={'develop': develop},
+)
 
 # only visible if user installs with verbose -v flag
 # Printing to stdout as not to interfere with setup.py CLI flags (e.g. --version)
 print('*' * 20, file=sys.stderr)
-print(textwrap.dedent("""\
+print(
+    textwrap.dedent(
+        """\
     NOTE: For best performance, we recommend installing Pillow-SIMD
     for accelerated image processing operations. To install:
-    \t pip uninstall pillow && pip install pillow-simd"""),
-      file=sys.stderr)
+    \t pip uninstall pillow && pip install pillow-simd""",
+    ),
+    file=sys.stderr,
+)
 print('*' * 20, file=sys.stderr)

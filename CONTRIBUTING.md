@@ -72,9 +72,9 @@ Composer uses [pytest-codeblocks](https://github.com/nschloe/pytest-codeblocks) 
 
 To test your changes locally, run:
 
-1. `make test`  # run CPU tests
-1. `make test-gpu`  # run GPU tests
-1. `cd docs && make doctest`  # run doctests
+* `make test`  # run CPU tests
+* `make test-gpu`  # run GPU tests
+* `cd docs && make doctest`  # run doctests
 
 Some of our checks test distributed training as well. To test these, run:
 
@@ -86,6 +86,17 @@ These tests run with the `composer` launcher. We also support `WORLD_SIZE=1`, wh
 See the [Makefile](/Makefile) for more information.
 
 If you want to run pre-commit hooks manually, which check for code formatting and type annotations, run `pre-commit run --all-files`
+
+### Docker
+To run the tests in the provided docker containers:
+
+* `docker pull mosaicml/composer` (or an alternative image like `mosaicml/composer:latest_cpu`)
+* `docker run --rm -v ./:/composer --user $(id -u):$(id -g) -it mosaicml/composer`
+* from inside the container
+    * `cd /composer`
+    * `pip install -e .`
+    * `pytest <args>` or `make <args>` to run the desired tests
+
 
 ## Code Style & Typing
 
