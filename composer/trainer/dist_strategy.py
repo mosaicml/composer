@@ -648,7 +648,8 @@ def prepare_fsdp_module(
                                 import transformer_engine.pytorch as te
                             except ModuleNotFoundError:
                                 raise ModuleNotFoundError(
-                                    'Please install transformer-engine to use TE checkpoint wrapper')
+                                    'Please install transformer-engine to use TE checkpoint wrapper',
+                                )
 
                             # RNG state tracker for checkpointing
                             CUDA_RNG_STATES_TRACKER = te.distributed.CudaRNGStatesTracker()
@@ -657,16 +658,18 @@ def prepare_fsdp_module(
                             def get_cuda_rng_tracker():
                                 return CUDA_RNG_STATES_TRACKER
 
-                            first_wrap_fn = lambda m: checkpoint_wrapper(m,
-                                                                         context_fn=te.distributed.
-                                                                         get_activation_recompute_contexts,
-                                                                         checkpoint_fn=te.distributed.checkpoint,
-                                                                         use_reentrant=False,
-                                                                         get_rng_state_tracker=get_cuda_rng_tracker)
+                            first_wrap_fn = lambda m: checkpoint_wrapper(
+                                m,
+                                context_fn=te.distributed.get_activation_recompute_contexts,
+                                checkpoint_fn=te.distributed.checkpoint,
+                                use_reentrant=False,
+                                get_rng_state_tracker=get_cuda_rng_tracker,
+                            )
                         else:
-                            first_wrap_fn = lambda m: checkpoint_wrapper(m, checkpoint_impl=CheckpointImpl.NO_REENTRANT
-                                                                        ) if activation_checkpointing else (
-                                                                            lambda module: module)
+                            first_wrap_fn = lambda m: checkpoint_wrapper(
+                                m,
+                                checkpoint_impl=CheckpointImpl.NO_REENTRANT,
+                            ) if activation_checkpointing else (lambda module: module)
                         second_wrap_fn = (
                             lambda module: offload_wrapper(
                                 first_wrap_fn(module)
@@ -675,9 +678,10 @@ def prepare_fsdp_module(
                         ) if activation_cpu_offload else first_wrap_fn
                     else:
 
-                        first_wrap_fn = lambda m: checkpoint_wrapper(m, checkpoint_impl=CheckpointImpl.REENTRANT
-                                                                    ) if activation_checkpointing else (lambda module:
-                                                                                                        module)
+                        first_wrap_fn = lambda m: checkpoint_wrapper(
+                            m,
+                            checkpoint_impl=CheckpointImpl.REENTRANT,
+                        ) if activation_checkpointing else (lambda module: module)
                         second_wrap_fn = (
                             lambda module: offload_wrapper(
                                 first_wrap_fn(module)
