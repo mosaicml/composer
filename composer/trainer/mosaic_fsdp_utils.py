@@ -643,7 +643,7 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
                                                     _check_single_device_module, _get_device_from_device_id,
                                                     _need_to_materialize_module, _materialize_with_param_init_fn,
                                                     _materialize_meta_module, _move_module_to_device, _get_compute_device,
-                                                    _get_orig_params, _sync_module_params_and_buffers, _init_param_handle_from_params)
+                                                    _get_orig_params, _sync_module_params_and_buffers)
     from torch.distributed.fsdp.fully_sharded_data_parallel import (_annotate_modules_for_dynamo, _auto_wrap,
                                                                     _check_orig_params_flattened, _init_buffer_state,
                                                                     _init_core_state, _init_device_handle,
@@ -655,6 +655,7 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
                                                                     _register_flat_param)
     from torch.distributed.fsdp.wrap import CustomPolicy, ModuleWrapPolicy, _Policy
     from torch.distributed.tensor.parallel.fsdp import DTensorExtensions
+    from torch.distributed.fsdp._flat_param import FlatParamHandle
 
     def all_gather_dtensor_t2p3p0(
         self,
@@ -931,6 +932,8 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
         _init_state_dict_state(self)
         _register_all_state_dict_hooks(self)
 
+    # Adding all these patches so that the init function above is correct...lol
+
     @no_type_check
     def _new_init_param_handle_from_module(
         state: _FSDPState,
@@ -990,10 +993,41 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
                     fully_sharded_module, managed_params, state._inter_node_pg
                 )
         allgather_fp8 = getattr(fully_sharded_module, "_allgather_fp8", False)    # Added this.
-        _init_param_handle_from_params(state, managed_params, fully_sharded_module, allgather_fp8)    # Added this.
+        _new_init_param_handle_from_params(state, managed_params, fully_sharded_module, allgather_fp8)    # Added this.
         return state
 
-    # Adding all these patches so that the init function above is correct...lol
+    @no_type_check
+    def _new_init_param_handle_from_params(
+        state: _FSDPState,
+        params: List[nn.Parameter],
+        fully_sharded_module: nn.Module,
+        allgather_fp8: bool,
+    ):
+        if len(params) == 0:
+            return
+        handle = FlatParamHandle(
+            params,
+            fully_sharded_module,
+            state.compute_device,
+            SHARDING_STRATEGY_MAP[state.sharding_strategy],
+            state.cpu_offload.offload_params,
+            state.mixed_precision.param_dtype,
+            state.mixed_precision.reduce_dtype,
+            state.mixed_precision.keep_low_precision_grads,
+            state.process_group,
+            state._use_orig_params,
+            allgather_fp8=allgather_fp8,
+            fsdp_extension=state._fsdp_extension,
+        )
+        handle.allgather_fp8 = allgather_fp8    # Added this.
+        handle.shard()
+        assert not state._handle
+        state.params.append(handle.flat_param)
+        state._handle = handle
+        state._fully_sharded_module_to_handle[handle._fully_sharded_module] = handle
+        cpu_device = torch.device("cpu")
+        if state.cpu_offload.offload_params and handle.flat_param.device != cpu_device:
+            handle.flat_param_to(cpu_device)
     
 
     from torch.distributed.checkpoint.state_dict import StateDictOptions, _StateDictInfo
