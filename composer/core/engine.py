@@ -218,7 +218,7 @@ class Engine():
                         ),
                     )
 
-        atexit.register(self._close, state, logger)
+        atexit.register(self._close, state, logger, 'atexit.regiester')
 
     def run_event(
         self,
@@ -502,6 +502,7 @@ class Engine():
         if _did_atexit_run or self._is_closed:
             # Do not attempt to shutdown again, since close() already ran via __atexit__ or was already invoked
             return
+        log.debug(f"closing from __del__")
         self.close()
         atexit.unregister(_set_atexit_ran)
         atexit.unregister(self._close)
@@ -531,7 +532,7 @@ class Engine():
         This method does not re-raise any exceptions from :meth:`.Callback.close` and :meth:`.Callback.post_close`.
         Instead, these exceptions are logged as errors.
         """
-        self._close(self.state, self.logger)
+        self._close(self.state, self.logger, 'self.close()')
         # The self._is_closed flag would not be set if `_close` is called via atexit
         # However, in these cases, the engine would never be used again, as Python is shutting
         # down. It is only required to set the flag if the user manually calls `close()` and still holds
@@ -539,9 +540,9 @@ class Engine():
         self._is_closed = True
 
     @staticmethod
-    def _close(state: State, logger: Logger):
+    def _close(state: State, logger: Logger, calling_from: str='default'):
         """The actual shutdown logic, as a static method, so the underlying engine can still be garbage collected."""
-        log.debug('Closing the engine.')
+        log.debug(f'Closing the engine. calling from : {calling_from}')
         callback_to_has_exception: Dict[Callback, bool] = {}
         for callback in state.callbacks:
             try:
