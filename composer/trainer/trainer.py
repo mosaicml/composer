@@ -2403,7 +2403,24 @@ class Trainer:
                     self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
                     self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
 
+                def get_model_weights(state):
+                    weights = []
+                    print(f'{torch.distributed.get_rank()=}')
+                    with torch.distributed.fsdp.FullyShardedDataParallel.summon_full_params(state.model, writeback=False, recurse=True, with_grads=True):
+                        for name, param in state.model.model.transformer.blocks[-1].named_parameters():
+                            print(f'in get_model_weights {name}')
+                            weights.append(param.view(-1))
+                        weights = torch.cat(weights)
+                        print(f'{weights=}')
+                        return weights.detach().clone()
+                weight_before = get_model_weights(self.state)
+
+
                 total_loss_dict = self._train_batch(use_grad_scaling)
+                weight_after = get_model_weights(self.state)
+                print(f'!!!!!!!!!!!!!{torch.distributed.get_rank()=}, {batch_idx=}, {torch.norm(weight_before - weight_after)=}')
+                if batch_idx > 2:
+                    assert False
 
                 if use_grad_scaling:
                     self.state.scaler.update()
