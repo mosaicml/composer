@@ -99,5 +99,6 @@ def patch_pytorch():
 
         # Monkeypatch FlatParamHandle init
         from torch.distributed.fsdp import _init_utils
-        from composer.trainer.mosaic_fsdp_utils import _new_init_param_handle_from_module
+        from composer.trainer.mosaic_fsdp_utils import _new_init_param_handle_from_module, _new_init_param_handle_from_params
         _init_utils._init_param_handle_from_module = _new_init_param_handle_from_module
+        _init_utils._init_param_handle_from_params = _new_init_param_handle_from_params
