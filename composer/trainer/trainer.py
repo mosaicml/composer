@@ -2439,6 +2439,8 @@ class Trainer:
 
                 if self._scheduler_step_frequency == TimeUnit.BATCH:
                     for scheduler in self.state.schedulers:
+                        print(f'{scheduler.step=}')
+                        print(f'{scheduler=}')
                         scheduler.step()
 
                 if self.state.train_metrics is not None:  # pyright: ignore[reportUnnecessaryComparison]
