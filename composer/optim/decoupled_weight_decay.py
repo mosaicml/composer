@@ -354,17 +354,17 @@ class DecoupledAdamW(AdamW):
                 # Record the step after step update
                 state_steps.append(state['step'])
             
-            print(f'{len(params_with_grad)=}')
-            print(f'{len(grads)=}')
-            print(f'{len(exp_avgs)=}')
-            print(f'{len(exp_avg_sqs)=}')
-            print(f'{len(state_steps)=}')
-            print(f'{len(beta1)=}')
-            print(f'{len(beta2)=}')
-            print(f'{len(lr)=}')
-            print(f'{len(initial_lr)=}')
-            print(f'{len(weight_decay)=}')
-            print(f'{len(eps)=}')
+            print(f'{params_with_grad=}')
+            print(f'{grads=}')
+            print(f'{exp_avgs=}')
+            print(f'{exp_avg_sqs=}')
+            print(f'{state_steps=}')
+            print(f'{beta1=}')
+            print(f'{beta2=}')
+            print(f'{lr=}')
+            print(f'{initial_lr=}')
+            print(f'{weight_decay=}')
+            print(f'{eps=}')
 
             self.adamw(
                 params_with_grad,
