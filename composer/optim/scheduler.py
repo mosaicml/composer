@@ -859,6 +859,8 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
         frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value if (t_max > t_warmup) else 0.0
         frac_of_total = min(1.0, frac_of_total)
 
+        print(f'{frac_of_total=}, {self.alpha_f=}')
+
         return _cosine_anneal(x=frac_of_total, min_y=self.alpha_f)
 
 
