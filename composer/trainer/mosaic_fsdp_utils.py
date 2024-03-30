@@ -1017,7 +1017,6 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
             state.mixed_precision.keep_low_precision_grads,
             state.process_group,
             state._use_orig_params,
-            allgather_fp8=allgather_fp8,
             fsdp_extension=state._fsdp_extension,
         )
         handle.allgather_fp8 = allgather_fp8    # Added this.
