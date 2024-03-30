@@ -2609,19 +2609,23 @@ class Trainer:
                 assert self.state.device_train_microbatch_size is not None
                 microbatches = self._train_data_spec.split_batch(device_batch, self.state.device_train_microbatch_size)
                 if self._use_closures():
+                    print(f'using closure grad scaler')
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
+                            print(f'using use_grad_scaling')
                             self.state.scaler.step(
                                 optimizer,
                                 closure=lambda loss_dict=total_loss_dict,
                                 **kwargs: self._train_microbatches(microbatches, loss_dict, **kwargs),
                             )
                         else:
+                            print(f'NOT use_grad_scaling')
                             optimizer.step(
                                 closure=lambda loss_dict=total_loss_dict,
                                 **kwargs: self._train_microbatches(microbatches, loss_dict, **kwargs).item(),
                             )
                 else:
+                    print(f'NOT using closure grad scaler')
                     self._train_microbatches(microbatches, total_loss_dict)
                     if not self.state.deepspeed_enabled:
                         for optimizer in self.state.optimizers:
