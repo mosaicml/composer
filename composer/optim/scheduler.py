@@ -185,6 +185,7 @@ def compile_composer_scheduler(scheduler: ComposerScheduler, state: State, ssr: 
 
         # if the ssr is 1.0, don't pass it to the scheduler. This allows users to pass in lambdas that only take
         # one parameter -- the state
+        print(f'{scheduler_sig.parameters=}, {ssr=}, {scheduler=}')
         if len(scheduler_sig.parameters) == 1:
             if ssr == 1.0:
                 return scheduler(state)
