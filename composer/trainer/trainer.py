@@ -2441,9 +2441,9 @@ class Trainer:
                     for scheduler in self.state.schedulers:
                         print(f'{scheduler.step=}')
                         print(f'{scheduler=}')
-                        print(f'{scheduler.param_groups=}')
+                        print(f'{scheduler.get_lr()=}')
                         scheduler.step()
-                        print(f'{scheduler.param_groups=}')
+                        print(f'{scheduler.get_lr()=}')
 
                 if self.state.train_metrics is not None:  # pyright: ignore[reportUnnecessaryComparison]
                     self._compute_and_log_metrics(
