@@ -351,7 +351,9 @@ class LinearScheduler(ComposerScheduler):
         frac_of_total = min(1.0, (current_time / t_max).value)
 
         current_factor = self.alpha_i + frac_of_total * (self.alpha_f - self.alpha_i)
-
+        print(f'{t_max=}')
+        print(f'{frac_of_total=}, {current_time=}')
+        print(f'{current_factor=}, {ssr=}')
         return current_factor
 
 
