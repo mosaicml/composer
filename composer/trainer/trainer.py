@@ -2419,7 +2419,7 @@ class Trainer:
                 total_loss_dict = self._train_batch(use_grad_scaling)
                 weight_after = get_model_weights(self.state)
                 print(f'!!!!!!!!!!!!!{torch.distributed.get_rank()=}, {batch_idx=}, {torch.norm(weight_before - weight_after)=}')
-                if batch_idx > 2:
+                if batch_idx > 10:
                     assert False
 
                 if use_grad_scaling:
