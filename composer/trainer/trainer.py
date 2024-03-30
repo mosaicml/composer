@@ -2617,6 +2617,7 @@ class Trainer:
                                     return weights.detach().clone()
                             weight_before = get_model_weights(self.state)
                             print(f'NOT use_grad_scaling')
+                            print(f'{optimizer=}, {optimizer.step=}')
                             optimizer.step(
                                 closure=lambda loss_dict=total_loss_dict,
                                 **kwargs: self._train_microbatches(microbatches, loss_dict, **kwargs).item(),
