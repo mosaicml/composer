@@ -2405,8 +2405,8 @@ class Trainer:
 
                 total_loss_dict = self._train_batch(use_grad_scaling)
                 print(f'!!!!!!!!!!!!!{torch.distributed.get_rank()=}, {batch_idx=}')
-                if batch_idx > 5:
-                    assert False
+                # if batch_idx > 5:
+                #     assert False
 
                 if use_grad_scaling:
                     self.state.scaler.update()
