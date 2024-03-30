@@ -2442,8 +2442,12 @@ class Trainer:
                         print(f'{scheduler.step=}')
                         print(f'{scheduler=}')
                         print(f'{scheduler.get_lr()=}')
+                        print(f'{scheduler.lr_lambdas=}')
+                        print(f'{scheduler.base_lrs=}')
                         scheduler.step()
                         print(f'{scheduler.get_lr()=}')
+                        print(f'{scheduler.lr_lambdas=}')
+                        print(f'{scheduler.base_lrs=}')
 
                 if self.state.train_metrics is not None:  # pyright: ignore[reportUnnecessaryComparison]
                     self._compute_and_log_metrics(
