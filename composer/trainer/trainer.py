@@ -2405,8 +2405,8 @@ class Trainer:
 
                 total_loss_dict = self._train_batch(use_grad_scaling)
                 print(f'!!!!!!!!!!!!!{torch.distributed.get_rank()=}, {batch_idx=}')
-                # if batch_idx > 5:
-                #     assert False
+                if batch_idx > 5:
+                    assert False
 
                 if use_grad_scaling:
                     self.state.scaler.update()
@@ -2441,7 +2441,9 @@ class Trainer:
                     for scheduler in self.state.schedulers:
                         print(f'{scheduler.step=}')
                         print(f'{scheduler=}')
+                        print(f'{scheduler.param_groups=}')
                         scheduler.step()
+                        print(f'{scheduler.param_groups=}')
 
                 if self.state.train_metrics is not None:  # pyright: ignore[reportUnnecessaryComparison]
                     self._compute_and_log_metrics(
