@@ -2456,11 +2456,13 @@ class Trainer:
                     )
 
                 self.state.previous_timestamp = self.state.timestamp
+                print(f'{self.state.timestamp=}')
                 self.state.timestamp = self.state.timestamp.to_next_batch(
                     samples=total_num_samples,
                     tokens=total_num_tokens,
                     duration=batch_time,
                 )
+                print(f'{self.state.timestamp=}')
 
                 self.engine.run_event(Event.BATCH_END)
 
