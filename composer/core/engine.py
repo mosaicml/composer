@@ -69,6 +69,7 @@ import atexit
 import contextlib
 import logging
 import os
+import traceback
 import signal
 import sys
 import textwrap
@@ -542,7 +543,7 @@ class Engine():
     @staticmethod
     def _close(state: State, logger: Logger, calling_from: str='default'):
         """The actual shutdown logic, as a static method, so the underlying engine can still be garbage collected."""
-        log.debug(f'Closing the engine. calling from : {calling_from}')
+        log.debug(f'Closing the engine. calling from : {calling_from}, call stack {traceback.print_stack()}')
         callback_to_has_exception: Dict[Callback, bool] = {}
         for callback in state.callbacks:
             try:
