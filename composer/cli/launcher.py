@@ -14,6 +14,7 @@ import sys
 import tempfile
 import time
 import traceback
+import warnings
 from argparse import ArgumentParser
 from typing import Any, Dict, List, Union
 
@@ -367,7 +368,13 @@ def _launch_processes(
                         local_world_size=nproc,
                         node_rank=node_rank,
                     )
-                    return open(filename, 'x+')
+                    if os.path.exists(filename):
+                        warnings.warn(
+                            f'Log file {filename} already exists for a previous train; Appending additional Composer logs to the same file.',
+                            UserWarning,
+                        )
+
+                    return open(filename, 'a+')
 
                 stdout_file = _get_file(stdout_file_format)
                 stderr_file = _get_file(stderr_file_format) if stderr_file_format is not None else None
