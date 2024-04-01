@@ -638,6 +638,7 @@ def prepare_fsdp_module(
 
             # Activation Checkpointing
             if activation_checkpointing or activation_cpu_offload:
+                # FP8 TE requires using the TE checkpoint function, FSDP activation checkpointing only works with TE non-reentrant checkpointing
                 if te_checkpoint_wrapper:
                     assert not activation_checkpointing_reentrant, 'TE checkpoint only works with non-reentrant checkpointing'
                 if version.parse(torch.__version__) > version.parse('2.1.0.dev'):
