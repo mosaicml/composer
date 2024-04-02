@@ -20,7 +20,7 @@ import torch
 import torch.distributed
 from packaging import version
 from pytest import MonkeyPatch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset, DistributedSampler
 
 from composer.algorithms import NoOpModel
 from composer.callbacks import CheckpointSaver
@@ -1246,6 +1246,8 @@ class TestCheckpointResumption:
         precision='fp32',
         max_duration='2ep',
         train_subset_num_batches=5,
+        use_batch_sampler: bool = False,
+        with_eval_dataloader: bool = True,
         **kwargs,
     ):
         model = SimpleModel()
@@ -1257,18 +1259,83 @@ class TestCheckpointResumption:
         eval_dataset = RandomClassificationDataset(size=12)
         train_batch_size = 2
 
-        return Trainer(
-            model=model,
-            train_dataloader=DataLoader(
+        class _DistributedBatchSampler(DistributedSampler):
+
+            def __init__(
+                self,
+                dataset: Dataset,
+                batch_size: int,
+                num_replicas: Optional[int] = None,
+                rank: Optional[int] = None,
+                shuffle: bool = True,
+                seed: int = 0,
+                drop_last: bool = False,
+            ):
+                super().__init__(
+                    dataset=dataset,
+                    num_replicas=num_replicas,
+                    rank=rank,
+                    shuffle=shuffle,
+                    seed=seed,
+                    drop_last=drop_last,
+                )
+                self._batch_size = batch_size
+
+            def __iter__(self):
+                indices = list(super().__iter__())
+                for ind_ in range(len(self)):
+                    yield indices[ind_ * self._batch_size:(ind_ + 1) * self._batch_size]
+
+            def __len__(self) -> int:
+                return self.num_samples // self._batch_size
+
+        if use_batch_sampler:
+            train_batch_sampler = _DistributedBatchSampler(
+                dataset=train_dataset,
+                drop_last=True,
+                shuffle=True,
+                num_replicas=dist.get_world_size(),
+                rank=dist.get_global_rank(),
+                batch_size=train_batch_size,
+            )
+            train_dataloader = DataLoader(
+                dataset=train_dataset,
+                batch_sampler=train_batch_sampler,
+            )
+        else:
+            train_dataloader = DataLoader(
                 dataset=train_dataset,
                 batch_size=train_batch_size,
                 sampler=dist.get_sampler(train_dataset),
-            ),
-            eval_dataloader=DataLoader(
-                dataset=eval_dataset,
-                batch_size=2,
-                sampler=dist.get_sampler(eval_dataset),
-            ),
+            )
+
+        if with_eval_dataloader is True:
+            if use_batch_sampler:
+                eval_batch_sampler = _DistributedBatchSampler(
+                    dataset=eval_dataset,
+                    drop_last=False,
+                    shuffle=False,
+                    num_replicas=dist.get_world_size(),
+                    rank=dist.get_global_rank(),
+                    batch_size=train_batch_size,
+                )
+                eval_dataloader = DataLoader(
+                    dataset=eval_dataset,
+                    batch_sampler=eval_batch_sampler,
+                )
+            else:
+                eval_dataloader = DataLoader(
+                    dataset=eval_dataset,
+                    batch_size=train_batch_size,
+                    sampler=dist.get_sampler(eval_dataset),
+                )
+        else:
+            eval_dataloader = None
+
+        return Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            eval_dataloader=eval_dataloader,
             device_train_microbatch_size=train_batch_size // 2,
             precision=precision,
             train_subset_num_batches=train_subset_num_batches,
@@ -1411,6 +1478,38 @@ class TestCheckpointResumption:
             save_folder / 'first' / final_checkpoint,
             save_folder / 'second' / final_checkpoint,
         )
+
+    @world_size(2)
+    @pytest.mark.parametrize('max_duration', [1, 2])
+    @pytest.mark.filterwarnings('ignore:An unexpected prefix is detected. This case.*')
+    @pytest.mark.filterwarnings(
+        'ignore:``FullyShardedDataParallel.scatter_full_optim_state_dict``is being deprecated and is replaced by.*',
+    )
+    def test_set_dataloaders_to_cur_epoch(
+        self,
+        world_size: int,
+        max_duration: int,
+        tmp_path: pathlib.Path,
+    ):
+        # All ranks use rank 0 folder
+        tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
+        save_folder = pathlib.Path(tmp_paths[0])
+
+        trainer = self.get_trainer(
+            save_folder=os.path.join(save_folder, 'first'),
+            precision='fp32',
+            max_duration=f'{max_duration}ep',
+            train_subset_num_batches=2,
+            use_batch_sampler=True,
+            with_eval_dataloader=False,
+        )
+
+        trainer.fit()
+
+        assert isinstance(trainer.state.train_dataloader, DataLoader)
+        assert isinstance(trainer.state.train_dataloader.batch_sampler, DistributedSampler)
+        # Epoch count starts at O
+        assert trainer.state.train_dataloader.batch_sampler.epoch == max_duration - 1
 
     @pytest.mark.parametrize(
         'world_size',
