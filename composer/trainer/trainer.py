@@ -119,6 +119,7 @@ from composer.utils import (
     parse_uri,
     partial_format,
     reproducibility,
+    retry,
 )
 from composer.utils.misc import is_model_deepspeed
 from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
@@ -1627,7 +1628,8 @@ class Trainer:
                                 self.state.run_name,
                             ) + '.symlink'
                             try:
-                                ar_object_store.download_object(symlink_file_name, local_symlink_file)
+                                #ar_object_store.download_object(symlink_file_name, local_symlink_file)
+                                retry(num_attempts=5)(lambda: ar_object_store.download_object(symlink_file_name, local_symlink_file))()
                                 with open(local_symlink_file, 'r') as f:
                                     real_path = f.read()
                                     log.debug(f'Read path {real_path} from symlink file')

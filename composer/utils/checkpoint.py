@@ -376,16 +376,7 @@ def is_checkpoint_legacy_sharded(object_store: Optional[Union[LoggerDestination,
             _, _, metadata_path = parse_uri(metadata_path)
             with tempfile.TemporaryDirectory() as temp_dir:
                 metadata_destination = os.path.join(str(temp_dir), '.metadata')
-                if isinstance(object_store, ObjectStore):
-                    object_store.download_object(
-                        object_name=metadata_path,
-                        filename=metadata_destination,
-                    )
-                else:
-                    object_store.download_file(
-                        remote_file_name=metadata_path,
-                        destination=metadata_destination,
-                    )
+                download_object_or_file(metadata_path, metadata_destination, object_store)
             return False
         except FileNotFoundError:
             return True

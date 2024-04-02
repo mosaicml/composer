@@ -18,7 +18,10 @@ from urllib.parse import urlparse
 import requests
 import tqdm
 
-from composer.utils import dist
+from composer.utils import (
+    dist,
+    retry,
+)
 from composer.utils.iter_helpers import iterate_with_callback
 from composer.utils.misc import partial_format
 from composer.utils.object_store import (
@@ -61,7 +64,8 @@ def extract_path_from_symlink(
             _, _, source_path = parse_uri(source_path)
             symlink_file_path = os.path.join(tmpdir, 'file.symlink')
             if isinstance(object_store, ObjectStore):
-                object_store.download_object(object_name=source_path, filename=symlink_file_path)
+                #object_store.download_object(object_name=source_path, filename=symlink_file_path)
+                retry(num_attempts=5)(lambda: object_store.download_object(object_name=source_path, filename=symlink_file_path))()
             elif isinstance(object_store, LoggerDestination):
                 object_store.download_file(remote_file_name=source_path, destination=symlink_file_path)
             with open(symlink_file_path, 'r') as f:
@@ -634,12 +638,7 @@ def _get_file(
     if object_store is not None:
         if isinstance(object_store, ObjectStore):
             total_size_in_bytes = object_store.get_object_size(path)
-            object_store.download_object(
-                object_name=path,
-                filename=destination,
-                callback=_get_callback(f'Downloading {path}') if progress_bar else None,
-                overwrite=overwrite,
-            )
+            retry(num_attempts=5)(lambda: object_store.download_object(object_name=path, filename=destination, callback=_get_callback(f'Downloading {path}') if progress_bar else None, overwrite=overwrite))()
         else:
             # Type LoggerDestination
             object_store.download_file(
