@@ -630,17 +630,20 @@ class InContextLearningDataset(Dataset):
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
-    def split_batch(self, batch: Any, microbatch_size: int) -> List[Dict[str, Any]]:
+    def split_batch(self, batch: Any, microbatch_size: Union[int, float]) -> List[Dict[str, Any]]:
         """
         Handling for certain specialty columns that must be split into batches in different formats.
 
         Args:
             batch (Dict): Batch of data
-            microbatch_size (int): Size of microbatches
+            microbatch_size (int | float): Size of microbatches
 
         Returns:
             List: List of chunked batches
         """
+        if isinstance(microbatch_size, float):
+            raise ValueError('InContextLearningDataset does not support float microbatch sizes')
+
         # Don't split kwargs that don't change
         # Normally split torch tensors
         # List split lists of strings
@@ -1028,7 +1031,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
     def get_num_samples_in_batch(self, batch) -> int:
         return batch['input_ids'].shape[0] // self.num_choices
 
-    def split_batch(self, batch: Any, microbatch_size: int) -> List[Dict[str, Any]]:
+    def split_batch(self, batch: Any, microbatch_size: Union[int, float]) -> List[Dict[str, Any]]:
         """
         Split batch while ensuring all continuations are in the same microbatch.
 
@@ -1044,6 +1047,8 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         Returns:
             list: List of chunked batches
         """
+        if isinstance(microbatch_size, float):
+            raise ValueError('InContextLearningMultipleChoiceTaskDataset does not support float microbatch sizes')
         chunked = {}
         for k, v in batch.items():
             if k in self.static_keys:
