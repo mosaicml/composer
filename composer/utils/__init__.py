@@ -23,6 +23,12 @@ from composer.utils.collect_env import (
     get_composer_env_dict,
     print_env,
 )
+from composer.utils.compression import (
+    KNOWN_COMPRESSORS,
+    CliCompressor,
+    get_compressor,
+    is_compressed_pt,
+)
 from composer.utils.device import get_device, is_hpu_installed, is_xla_installed
 from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient, MosaicMLLambdaEvalClient
 from composer.utils.file_helpers import (
@@ -131,4 +137,8 @@ __all__ = [
     'MosaicMLLambdaEvalClient',
     'partial_format',
     'VersionedDeprecationWarning',
+    'is_compressed_pt',
+    'CliCompressor',
+    'get_compressor',
+    'KNOWN_COMPRESSORS',
 ]

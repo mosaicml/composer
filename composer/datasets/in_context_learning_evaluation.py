@@ -14,7 +14,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 
 from composer.core import DataSpec
-from composer.core.data_spec import _default_split_batch, _split_list
+from composer.core.data_spec import _split_list, default_split_batch
 from composer.datasets.utils import stop_sequences_criteria
 from composer.utils import MissingConditionalImportError, dist, get_file
 
@@ -630,17 +630,20 @@ class InContextLearningDataset(Dataset):
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
-    def split_batch(self, batch: Any, microbatch_size: int) -> List[Dict[str, Any]]:
+    def split_batch(self, batch: Any, microbatch_size: Union[int, float]) -> List[Dict[str, Any]]:
         """
         Handling for certain specialty columns that must be split into batches in different formats.
 
         Args:
             batch (Dict): Batch of data
-            microbatch_size (int): Size of microbatches
+            microbatch_size (int | float): Size of microbatches
 
         Returns:
             List: List of chunked batches
         """
+        if isinstance(microbatch_size, float):
+            raise ValueError('InContextLearningDataset does not support float microbatch sizes')
+
         # Don't split kwargs that don't change
         # Normally split torch tensors
         # List split lists of strings
@@ -652,7 +655,7 @@ class InContextLearningDataset(Dataset):
             elif k in self.list_keys:
                 chunked[k] = _split_list(v, microbatch_size)
             elif k in self.tensor_keys:
-                chunked[k] = _default_split_batch(v, microbatch_size)
+                chunked[k] = default_split_batch(v, microbatch_size)
             else:
                 raise ValueError(f'Unexpected key {k} in batch splitting')
         num_chunks = len(chunked['input_ids'])
@@ -1028,7 +1031,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
     def get_num_samples_in_batch(self, batch) -> int:
         return batch['input_ids'].shape[0] // self.num_choices
 
-    def split_batch(self, batch: Any, microbatch_size: int) -> List[Dict[str, Any]]:
+    def split_batch(self, batch: Any, microbatch_size: Union[int, float]) -> List[Dict[str, Any]]:
         """
         Split batch while ensuring all continuations are in the same microbatch.
 
@@ -1044,6 +1047,8 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         Returns:
             list: List of chunked batches
         """
+        if isinstance(microbatch_size, float):
+            raise ValueError('InContextLearningMultipleChoiceTaskDataset does not support float microbatch sizes')
         chunked = {}
         for k, v in batch.items():
             if k in self.static_keys:
@@ -1058,11 +1063,11 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
                     chunked[k] = _split_list(v, microbatch_size)
                 # list - 'gold_indices'
                 elif k in self.list_of_primitives:
-                    chunked[k] = _default_split_batch(v, microbatch_size)
+                    chunked[k] = default_split_batch(v, microbatch_size)
                 else:
                     raise ValueError(f'Unexpected key {k} in list splitting')
             elif k in self.tensor_keys:
-                chunked[k] = _default_split_batch(v, microbatch_size * self.num_choices)
+                chunked[k] = default_split_batch(v, microbatch_size * self.num_choices)
             else:
                 raise ValueError(f'Unexpected key {k} in batch splitting')
         num_chunks = len(chunked['input_ids'])

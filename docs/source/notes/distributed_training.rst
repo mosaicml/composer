@@ -395,18 +395,14 @@ It does this by gathering the model state to the global rank 0 device, unflatten
 If `load_monolith_rank0_only=True`, then when loading checkpoints the global rank 0 device will load in the checkpoint file and scatter the
 model and optimizer state to the other ranks, which will will dramatically reduce the memory usage on system. Otherwise, all ranks will separately load in the checkpoint file.
 
-2. :code:`state_dict_type='local'`
-For save: each rank saves out the flattened model state shard they are
-responsibile for to a distinct checkpoint file. For load, each rank loads in the checkpoint file
-corresponding to their shard. **Note: state_dict_type='local' is deprecated in Composer for torch versions 2.0.0 or higher.**
-
-3. :code:`state_dict_type='sharded'`
-Each rank saves out an unflattened shard. For loading, similar to ``state_dict_type='local'``, each rank
-loads in the checkpoint file corresponding to their unflattened shard. **Note: state_dict_type='sharded' is the recommended setting for sharded checkpointing in Composer for torch versions 2.0.0 or higher.**
+2. :code:`state_dict_type='sharded'`
+Each rank saves out an unflattened shard. For loading, each rank loads in the checkpoint file
+corresponding to their unflattened shard.
+**Note: state_dict_type='sharded' is the recommended setting for sharded checkpointing in Composer for torch versions 2.0.0 or higher.**
 
 See `The FSDP docs <https://pytorch.org/docs/stable/fsdp.html#torch.distributed.fsdp.FullyShardedDataParallel.state_dict>`__ for more info.
 
-If you use sharded checkpoints (`state_dict_type='sharded'` or `state_dict_type='local'`), your run will save as many files as you have
+If you use sharded checkpoints (`state_dict_type='sharded'`), your run will save as many files as you have
 ranks at each checkpointing event (plus one metadata file for torch versions 2.0.0 or higher). This can quicky pollute your `save_folder` with a lot of files after a couple checkpointing events.
 To help keep your checkpoint shard files organized, Composer will save each set of shards in it's own prefix directory, which you can configure
 by using `'sharded_ckpt_prefix_dir'` (default value `sharded_ckpt_prefix_dir='ep{epoch}-ba{batch}'`). Checkpoint shards will be saved to
