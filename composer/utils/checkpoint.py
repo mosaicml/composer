@@ -227,6 +227,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         metadata_destination = os.path.join(self.destination_path, '.metadata')
         if dist.get_local_rank() == 0:
             metadata_path = str(Path(source_path) / Path('.metadata'))
+            log.debug(f'bigning debug new download in init')
             download_object_or_file(metadata_path, metadata_destination, object_store)
         dist.barrier()
 
@@ -376,6 +377,7 @@ def is_checkpoint_legacy_sharded(object_store: Optional[Union[LoggerDestination,
             _, _, metadata_path = parse_uri(metadata_path)
             with tempfile.TemporaryDirectory() as temp_dir:
                 metadata_destination = os.path.join(str(temp_dir), '.metadata')
+                log.debug(f'bigning debug new download in is_checkpoint_legacy_sharded')
                 download_object_or_file(metadata_path, metadata_destination, object_store)
             return False
         except FileNotFoundError:
