@@ -184,7 +184,10 @@ def shear_x(pil_img: Image.Image, level: float):
     if np.random.uniform() > 0.5:
         level = -level
     return pil_img.transform(
-        pil_img.size, Image.Transform.AFFINE, (1, level, 0, 0, 1, 0), resample=Image.Resampling.BILINEAR
+        pil_img.size,
+        Image.Transform.AFFINE,
+        (1, level, 0, 0, 1, 0),
+        resample=Image.Resampling.BILINEAR,
     )
 
 
@@ -200,7 +203,10 @@ def shear_y(pil_img: Image.Image, level: float):
     if np.random.uniform() > 0.5:
         level = -level
     return pil_img.transform(
-        pil_img.size, Image.Transform.AFFINE, (1, 0, 0, level, 1, 0), resample=Image.Resampling.BILINEAR
+        pil_img.size,
+        Image.Transform.AFFINE,
+        (1, 0, 0, level, 1, 0),
+        resample=Image.Resampling.BILINEAR,
     )
 
 
@@ -216,7 +222,10 @@ def translate_x(pil_img: Image.Image, level: float):
     if np.random.random() > 0.5:
         level = -level
     return pil_img.transform(
-        pil_img.size, Image.Transform.AFFINE, (1, 0, level, 0, 1, 0), resample=Image.Resampling.BILINEAR
+        pil_img.size,
+        Image.Transform.AFFINE,
+        (1, 0, level, 0, 1, 0),
+        resample=Image.Resampling.BILINEAR,
     )
 
 
@@ -232,7 +241,10 @@ def translate_y(pil_img: Image.Image, level: float):
     if np.random.random() > 0.5:
         level = -level
     return pil_img.transform(
-        pil_img.size, Image.Transform.AFFINE, (1, 0, 0, 0, 1, level), resample=Image.Resampling.BILINEAR
+        pil_img.size,
+        Image.Transform.AFFINE,
+        (1, 0, 0, 0, 1, level),
+        resample=Image.Resampling.BILINEAR,
     )
 
 
