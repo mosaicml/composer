@@ -104,6 +104,7 @@ from composer.utils import (
     Transform,
     checkpoint,
     dist,
+    download_object_or_file,
     ensure_tuple,
     export_with_logger,
     extract_hparams,
@@ -1627,7 +1628,11 @@ class Trainer:
                                 self.state.run_name,
                             ) + '.symlink'
                             try:
-                                ar_object_store.download_object(symlink_file_name, local_symlink_file)
+                                download_object_or_file(
+                                    object_store=ar_object_store,
+                                    object_name=symlink_file_name,
+                                    file_destination=local_symlink_file,
+                                )
                                 with open(local_symlink_file, 'r') as f:
                                     real_path = f.read()
                                     log.debug(f'Read path {real_path} from symlink file')

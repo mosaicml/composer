@@ -31,6 +31,7 @@ from composer.utils.object_store import (
     UCObjectStore,
 )
 from composer.utils.object_store.mlflow_object_store import MLFLOW_DBFS_PATH_PREFIX
+from composer.utils.retrying import retry
 
 if TYPE_CHECKING:
     from composer.core import Timestamp
@@ -52,6 +53,36 @@ __all__ = [
 ]
 
 
+@retry(num_attempts=5)
+def download_object_or_file(
+    object_store: Union[ObjectStore, LoggerDestination],
+    object_name: str,
+    file_destination: Union[str, pathlib.Path],
+    overwrite: bool = False,
+    progress_bar: bool = False,
+):
+    if isinstance(object_store, ObjectStore):
+        if progress_bar:
+            callback = _get_callback(f'Downloading {object_name}') if progress_bar else None
+        else:
+            callback = None
+        object_store.download_object(
+            object_name=object_name,
+            filename=file_destination,
+            overwrite=overwrite,
+            callback=callback,
+        )
+    elif isinstance(object_store, LoggerDestination):
+        object_store.download_file(
+            remote_file_name=object_name,
+            destination=str(file_destination),
+            overwrite=overwrite,
+            progress_bar=progress_bar,
+        )
+    else:
+        raise RuntimeError(f'Unrecognized type: {type(object_store)}')
+
+
 def extract_path_from_symlink(
     source_path: str,
     object_store: Optional[Union[LoggerDestination, ObjectStore]] = None,
@@ -60,10 +91,11 @@ def extract_path_from_symlink(
         with tempfile.TemporaryDirectory() as tmpdir:
             _, _, source_path = parse_uri(source_path)
             symlink_file_path = os.path.join(tmpdir, 'file.symlink')
-            if isinstance(object_store, ObjectStore):
-                object_store.download_object(object_name=source_path, filename=symlink_file_path)
-            elif isinstance(object_store, LoggerDestination):
-                object_store.download_file(remote_file_name=source_path, destination=symlink_file_path)
+            download_object_or_file(
+                object_name=source_path,
+                file_destination=symlink_file_path,
+                object_store=object_store,
+            )
             with open(symlink_file_path, 'r') as f:
                 real_path = f.read()
                 log.debug(f'Read path {real_path} from symlink file.')
@@ -634,20 +666,14 @@ def _get_file(
     if object_store is not None:
         if isinstance(object_store, ObjectStore):
             total_size_in_bytes = object_store.get_object_size(path)
-            object_store.download_object(
-                object_name=path,
-                filename=destination,
-                callback=_get_callback(f'Downloading {path}') if progress_bar else None,
-                overwrite=overwrite,
-            )
-        else:
-            # Type LoggerDestination
-            object_store.download_file(
-                remote_file_name=path,
-                destination=destination,
-                progress_bar=progress_bar,
-                overwrite=overwrite,
-            )
+
+        download_object_or_file(
+            object_store=object_store,
+            object_name=path,
+            file_destination=destination,
+            overwrite=overwrite,
+            progress_bar=progress_bar,
+        )
         return
 
     if path.lower().startswith('http://') or path.lower().startswith('https://'):

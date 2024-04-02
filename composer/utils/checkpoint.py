@@ -30,6 +30,7 @@ from composer.utils import dist, reproducibility
 from composer.utils.compression import get_compressor, is_compressed_pt
 from composer.utils.file_helpers import (
     FORMAT_NAME_WITH_DIST_AND_TIME_TABLE,
+    download_object_or_file,
     extract_path_from_symlink,
     format_name_with_dist,
     format_name_with_dist_and_time,
@@ -39,7 +40,6 @@ from composer.utils.file_helpers import (
 )
 from composer.utils.misc import is_model_deepspeed, partial_format
 from composer.utils.object_store import ObjectStore
-from composer.utils.retrying import retry
 
 if TYPE_CHECKING:
     from composer.core import AlgorithmPass, State
@@ -189,24 +189,6 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
         return super().read_metadata()
 
 
-@retry(num_attempts=5)
-def download_object_or_file(
-    object_name: str,
-    file_destination: Union[str, Path],
-    object_store: Union[ObjectStore, LoggerDestination],
-):
-    if isinstance(object_store, ObjectStore):
-        object_store.download_object(
-            object_name=object_name,
-            filename=file_destination,
-        )
-    else:
-        object_store.download_file(
-            remote_file_name=object_name,
-            destination=str(file_destination),
-        )
-
-
 # A subclass of FileSystemReaderWithValidation that downloads files from the object store before reading them from the local filesystem.
 class DistCPObjectStoreReader(FileSystemReaderWithValidation):
 
@@ -227,7 +209,11 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         metadata_destination = os.path.join(self.destination_path, '.metadata')
         if dist.get_local_rank() == 0:
             metadata_path = str(Path(source_path) / Path('.metadata'))
-            download_object_or_file(metadata_path, metadata_destination, object_store)
+            download_object_or_file(
+                object_store=object_store,
+                object_name=metadata_path,
+                file_destination=metadata_destination,
+            )
         dist.barrier()
 
         # FileSystemReader takes in a root directory in its constructor, which is the dir where
@@ -272,7 +258,11 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                     if not is_downloaded and not os.path.exists(file_destination):
                         log.debug(f'Downloading {relative_file_path} to {file_destination}.')
                         object_name = str(Path(self.source_path) / Path(relative_file_path))
-                        download_object_or_file(object_name, file_destination, self.object_store)
+                        download_object_or_file(
+                            object_store=self.object_store,
+                            object_name=object_name,
+                            file_destination=file_destination,
+                        )
                         log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
             except Exception as e:
                 # PyTorch will capture any exception of this function,
@@ -376,7 +366,11 @@ def is_checkpoint_legacy_sharded(object_store: Optional[Union[LoggerDestination,
             _, _, metadata_path = parse_uri(metadata_path)
             with tempfile.TemporaryDirectory() as temp_dir:
                 metadata_destination = os.path.join(str(temp_dir), '.metadata')
-                download_object_or_file(metadata_path, metadata_destination, object_store)
+                download_object_or_file(
+                    object_store=object_store,
+                    object_name=metadata_path,
+                    file_destination=metadata_destination,
+                )
             return False
         except FileNotFoundError:
             return True

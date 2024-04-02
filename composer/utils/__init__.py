@@ -35,6 +35,7 @@ from composer.utils.file_helpers import (
     FORMAT_NAME_WITH_DIST_AND_TIME_TABLE,
     FORMAT_NAME_WITH_DIST_TABLE,
     create_symlink_file,
+    download_object_or_file,
     ensure_folder_has_no_conflicting_files,
     ensure_folder_is_empty,
     format_name_with_dist,
@@ -141,4 +142,5 @@ __all__ = [
     'CliCompressor',
     'get_compressor',
     'KNOWN_COMPRESSORS',
+    'download_object_or_file',
 ]
