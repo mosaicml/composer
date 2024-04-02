@@ -11,8 +11,14 @@ import warnings
 from functools import partial
 from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Sequence, Set, Union
 
+try:
+    from importlib.metadata import version
+except ImportError:
+    from importlib_metadata import version
+
 import numpy as np
 import torch
+from packaging.version import Version
 
 from composer._version import __version__
 from composer.loggers import LoggerDestination
@@ -23,6 +29,7 @@ if TYPE_CHECKING:
     from composer.core import State
 
 NEPTUNE_MODE_TYPE = Literal['async', 'sync', 'offline', 'read-only', 'debug']
+NEPTUNE_VERSION_WITH_PROGRESS_BAR = Version('1.9.0')
 
 
 class NeptuneLogger(LoggerDestination):
@@ -243,7 +250,6 @@ class NeptuneLogger(LoggerDestination):
         overwrite: bool = False,
         progress_bar: bool = True,
     ):
-        del progress_bar  # not supported
 
         if not self._enabled:
             return
@@ -264,7 +270,11 @@ class NeptuneLogger(LoggerDestination):
         if not self.neptune_run.exists(file_path):
             raise FileNotFoundError(f'File {file_path} not found')
 
-        self.base_handler[remote_file_name].download(destination=destination)
+        if _is_progress_bar_enabled():
+            self.base_handler[remote_file_name].download(destination=destination, progress_bar=progress_bar)
+        else:
+            del progress_bar
+            self.base_handler[remote_file_name].download(destination=destination)
 
     def log_images(
         self,
@@ -344,3 +354,7 @@ def _warn_about_deprecated_upload_artifacts() -> None:
         'Use the \'upload_checkpoints\' parameter instead.',
         exception=NeptuneDeprecationWarning,
     )
+
+
+def _is_progress_bar_enabled() -> bool:
+    return Version(version('neptune')) >= NEPTUNE_VERSION_WITH_PROGRESS_BAR
