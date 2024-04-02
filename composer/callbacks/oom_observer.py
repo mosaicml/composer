@@ -8,7 +8,8 @@ import os
 import pickle
 import warnings
 from dataclasses import dataclass
-from typing import List, LiteralString, Optional
+from typing import List, Optional
+from typing_extensions import LiteralString
 
 import torch.cuda
 from packaging import version
