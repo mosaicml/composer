@@ -61,6 +61,7 @@ def download_object_or_file(
     overwrite: bool = False,
     progress_bar: bool = False,
 ):
+    from composer.loggers import LoggerDestination
     if isinstance(object_store, ObjectStore):
         object_store.download_object(
             object_name=object_name,
