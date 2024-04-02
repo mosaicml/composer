@@ -61,7 +61,6 @@ def download_object_or_file(
     overwrite: bool = False,
     progress_bar: bool = False,
 ):
-    log.debug(f'bigning debug using new code path')
     if isinstance(object_store, ObjectStore):
         if progress_bar:
             callback = _get_callback(f'Downloading {object_name}')
