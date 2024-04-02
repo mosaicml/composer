@@ -61,8 +61,8 @@ def patch_pytorch():
         from torch.distributed.fsdp import _runtime_utils
         _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
 
-    elif version.parse(torch.__version__) < version.parse('2.2.2'):
-        # Monkey patch for torch < 2.2.2 ie torch == 2.2.1
+    elif version.parse(torch.__version__) < version.parse('2.2.9'):
+        # Monkey patch for torch < 2.3.0 ie torch == 2.2.1/2.2.2 currently
         pass
 
     elif version.parse(torch.__version__) < version.parse('2.3.1'):

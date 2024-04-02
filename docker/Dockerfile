@@ -124,6 +124,13 @@ RUN apt-get update && \
         autotools-dev \
         automake \
         libtool \
+        # Compressors
+        bzip2 \
+        gzip \
+        lz4 \
+        lzop \
+        xz-utils \
+        zstd \
         # Development tools
         tmux \
         htop && \

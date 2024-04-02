@@ -110,7 +110,8 @@ def is_tar(name: Union[str, pathlib.Path]) -> bool:
     Returns:
         bool: Whether ``name`` is a tarball.
     """
-    return any(str(name).endswith(x) for x in ('.tar', '.tgz', '.tar.gz', '.tar.bz2', '.tar.lzma'))
+    parts = str(name).split('.')
+    return len(parts) > 1 and ('tar' in parts[-2:] or parts[-1] == 'tgz')
 
 
 def ensure_folder_is_empty(folder_name: Union[str, pathlib.Path]):
