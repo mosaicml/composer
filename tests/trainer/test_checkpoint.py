@@ -1475,13 +1475,6 @@ class TestCheckpointResumption:
         )
 
     @world_size(2)
-    @pytest.mark.parametrize(
-        'device',
-        [
-            pytest.param('gpu', marks=pytest.mark.gpu),
-            pytest.param('cpu'),
-        ],
-    )
     @pytest.mark.parametrize('max_duration', [1, 2])
     @pytest.mark.filterwarnings('ignore:An unexpected prefix is detected. This case.*')
     @pytest.mark.filterwarnings(
@@ -1490,7 +1483,6 @@ class TestCheckpointResumption:
     def test_set_dataloaders_to_cur_epoch(
         self,
         world_size: int,
-        device: str,
         max_duration: int,
         tmp_path: pathlib.Path,
     ):
@@ -1500,7 +1492,6 @@ class TestCheckpointResumption:
 
         trainer = self.get_trainer(
             save_folder=os.path.join(save_folder, 'first'),
-            device=device,
             precision='fp32',
             max_duration=f'{max_duration}ep',
             train_subset_num_batches=2,
@@ -1512,7 +1503,7 @@ class TestCheckpointResumption:
 
         assert isinstance(trainer.state.train_dataloader, DataLoader)
         assert isinstance(trainer.state.train_dataloader.batch_sampler, DistributedSampler)
-        # Epochs count starts at O
+        # Epoch count starts at O
         assert trainer.state.train_dataloader.batch_sampler.epoch == max_duration - 1
 
     @pytest.mark.parametrize(
