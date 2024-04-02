@@ -2,14 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Generate a memory snapshot during an OutOfMemory exception."""
+from __future__ import annotations
+
 import dataclasses
 import logging
 import os
 import pickle
 import warnings
 from dataclasses import dataclass
+from pathlib import Path
 from typing import List, Optional
-from typing_extensions import LiteralString
 
 import torch.cuda
 from packaging import version
@@ -33,7 +35,7 @@ class SnapshotFileNameConfig:
     memory_flamegraph_file: str
 
     @classmethod
-    def from_file_name(cls, filename: LiteralString) -> 'SnapshotFileNameConfig':
+    def from_file_name(cls, filename: str) -> 'SnapshotFileNameConfig':
         return cls(
             snapshot_file=filename + '_snapshot.pickle',
             trace_plot_file=filename + '_trace_plot.html',
@@ -143,13 +145,12 @@ class OOMObserver(Callback):
 
             assert self.filename
             assert self.folder_name, 'folder_name must be set in init'
-            filename = os.path.join(
-                self.folder_name,
+            filename = Path(self.folder_name) / Path(
                 format_name_with_dist_and_time(self.filename, run_name=state.run_name, timestamp=state.timestamp),
             )
 
             try:
-                self.filename_config = SnapshotFileNameConfig.from_file_name(filename)
+                self.filename_config = SnapshotFileNameConfig.from_file_name(str(filename))
                 log.info(f'Dumping OOMObserver visualizations')
 
                 snapshot = torch.cuda.memory._snapshot()
