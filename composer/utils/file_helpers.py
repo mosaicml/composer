@@ -64,7 +64,7 @@ def download_object_or_file(
     log.debug(f'bigning debug using new code path')
     if isinstance(object_store, ObjectStore):
         if progress_bar:
-            callback = _get_callback(f'Downloading {object_name}') if progress_bar else None
+            callback = _get_callback(f'Downloading {object_name}')
         else:
             callback = None
         object_store.download_object(
