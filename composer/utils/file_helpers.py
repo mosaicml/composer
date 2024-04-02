@@ -20,8 +20,8 @@ import tqdm
 
 from composer.utils import (
     dist,
-    retry,
 )
+from composer.utils.retrying import retry
 from composer.utils.iter_helpers import iterate_with_callback
 from composer.utils.misc import partial_format
 from composer.utils.object_store import (
