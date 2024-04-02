@@ -62,15 +62,11 @@ def download_object_or_file(
     progress_bar: bool = False,
 ):
     if isinstance(object_store, ObjectStore):
-        if progress_bar:
-            callback = _get_callback(f'Downloading {object_name}')
-        else:
-            callback = None
         object_store.download_object(
             object_name=object_name,
             filename=file_destination,
             overwrite=overwrite,
-            callback=callback,
+            callback=_get_callback(f'Downloading {object_name}') if progress_bar else None,
         )
     elif isinstance(object_store, LoggerDestination):
         object_store.download_file(
@@ -80,7 +76,7 @@ def download_object_or_file(
             progress_bar=progress_bar,
         )
     else:
-        raise RuntimeError(f'Unrecognized type: {type(object_store)}')
+        raise RuntimeError(f'Unrecognized type: {type(object_store)} when attempting to download object')
 
 
 def extract_path_from_symlink(
