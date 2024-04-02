@@ -9,12 +9,8 @@ import os
 import pathlib
 import warnings
 from functools import partial
+from importlib.metadata import version
 from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Sequence, Set, Union
-
-try:
-    from importlib.metadata import version
-except ImportError:
-    from importlib_metadata import version
 
 import numpy as np
 import torch
