@@ -465,18 +465,13 @@ def _generate_run_name() -> str:
     return generated_run_name
 
 
-def _get_distributed_sampler(dataloader: DataLoader) -> DistributedSampler | None:
-    """Fetch a distributed sampler from a `dataloader` if it exists est returns None.
-
-    Checks first the batch_sampler, then the sampler.
-    If no DistributedSampler is found, returns None.
-    """
+def _get_distributed_sampler(dataloader: DataLoader) -> Optional[DistributedSampler]:
+    """Fetch a distributed sampler from a `dataloader` if it exists."""
     if isinstance(dataloader.batch_sampler, DistributedSampler):
         return dataloader.batch_sampler
     if isinstance(dataloader.sampler, DistributedSampler):
         return dataloader.sampler
-
-    return
+    return None
 
 
 class Trainer:
@@ -2281,7 +2276,7 @@ class Trainer:
         """
         log.debug('Spinning the dataloaders')
 
-        # spin the evaluator dataloaders once to initialize its sampler deterministically
+        # Spin the evaluator dataloaders once to initialize its sampler deterministically
         # so it does not affect any other RNG reads
         eval_state = self.state.dataset_resumption.get('eval', {})
         for evaluator in self.state.evaluators:
@@ -2293,12 +2288,12 @@ class Trainer:
                 for _ in dataloader:
                     break
 
-        # spin the train dataloader's sampler to get to the state of the desired epoch
+        # Spin the train dataloader's sampler to get to the state of the desired epoch
         dataloader = self.state.dataloader
         assert dataloader is not None, 'train dataloader is set on state after FIT_START'
         if 'train' not in self.state.dataset_resumption:
+            sampler = _get_distributed_sampler(dataloader) if isinstance(dataloader, DataLoader) else None
             for epoch in range(int(self.state.timestamp.epoch)):
-                sampler = _get_distributed_sampler(dataloader) if isinstance(dataloader, DataLoader) else None
                 if isinstance(sampler, DistributedSampler):
                     sampler.set_epoch(epoch)
                 for _ in dataloader:
@@ -3238,24 +3233,22 @@ class Trainer:
                 metric.reset()
 
             dataloader = self.state.dataloader
-            dist_sampler = None
             drop_last = None
             dataset_len = None
             last_batch = False
-            sampler = _get_distributed_sampler(dataloader) if isinstance(dataloader, DataLoader) else None
-            if isinstance(sampler, DistributedSampler) and isinstance(dataloader, DataLoader):
+            dist_sampler = _get_distributed_sampler(dataloader) if isinstance(dataloader, DataLoader) else None
+            if isinstance(dist_sampler, DistributedSampler) and isinstance(dataloader, DataLoader):
                 # The distributed sampler uses `set_epoch` to set the random seed
                 # Because evaluation can run on each batch, we use the batch to seed the sampler
                 # so each evaluation will get a proper shuffle.
                 # The epoch provided to `set_epoch` need not be sequential, so this is fine.
-                dist_sampler = sampler
-                sampler.set_epoch(int(self.state.timestamp.batch))
+                dist_sampler.set_epoch(int(self.state.timestamp.batch))
                 drop_last = dataloader.drop_last
                 # Only compute the dataset length if drop_last is False, as otherwise we don't need
                 # to remove any duplicate samples.
                 if drop_last == False:
                     try:
-                        dataset_len = len(sampler.dataset)  # type: ignore
+                        dataset_len = len(dist_sampler.dataset)  # type: ignore
                     except AttributeError:
                         warnings.warn(
                             "DistributedSampler's dataset does not have length defined. When "
