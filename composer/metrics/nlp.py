@@ -205,8 +205,8 @@ class InContextLearningMetric(Metric):
     def __init__(self, *args, **kwargs):
         warnings.warn(
             VersionedDeprecationWarning(
-                f'`InContextLearningMetric` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                '`InContextLearningMetric` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
+                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
                 remove_version='0.23.0',
             ),
         )
@@ -320,8 +320,8 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
     def __init__(self, dist_sync_on_step: bool = False):
         warnings.warn(
             VersionedDeprecationWarning(
-                f'`InContextLearningQAAccuracy` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                '`InContextLearningQAAccuracy` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
+                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
                 remove_version='0.23.0',
             ),
         )
@@ -430,8 +430,8 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
         # state from multiple processes
         warnings.warn(
             VersionedDeprecationWarning(
-                f'`InContextLearningLMAccuracy` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                '`InContextLearningLMAccuracy` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
+                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
                 remove_version='0.23.0',
             ),
         )
@@ -502,8 +502,8 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
     def __init__(self, dist_sync_on_step: bool = False):
         warnings.warn(
             VersionedDeprecationWarning(
-                f'`InContextLearningMultipleChoiceAccuracy` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                '`InContextLearningMultipleChoiceAccuracy` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
+                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
                 remove_version='0.23.0',
             ),
         )
@@ -609,8 +609,8 @@ class InContextLearningExpectedCalibrationError(InContextLearningMetric):
         # state from multiple processes
         warnings.warn(
             VersionedDeprecationWarning(
-                f'`InContextLearningExpectedCalibrationError` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                '`InContextLearningExpectedCalibrationError` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
+                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
                 remove_version='0.23.0',
             ),
         )
@@ -760,8 +760,8 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         # state from multiple processes
         warnings.warn(
             VersionedDeprecationWarning(
-                f'`InContextLearningCodeEvalAccuracy` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                '`InContextLearningCodeEvalAccuracy` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
+                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
                 remove_version='0.23.0',
             ),
         )

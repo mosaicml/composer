@@ -83,8 +83,8 @@ try:
         ) -> None:
             warnings.warn(
                 VersionedDeprecationWarning(
-                    f'`MultiTokenEOSCriteria` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-                    + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                    '`MultiTokenEOSCriteria` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
+                    + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
                     remove_version='0.23.0',
                 ),
             )
@@ -127,8 +127,8 @@ try:
     ) -> transformers.StoppingCriteriaList:
         warnings.warn(
             VersionedDeprecationWarning(
-                f'`stop_sequences_criteria` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                '`stop_sequences_criteria` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
+                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
                 remove_version='0.23.0',
             ),
         )

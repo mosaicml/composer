@@ -45,13 +45,6 @@ def strip_data(example: Dict) -> Dict:
     Returns:
         dict: The same dictionary with .strip() applied to any value in the dict that is a string
     """
-    warnings.warn(
-            VersionedDeprecationWarning(
-                f'`strip_data` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
-                remove_version='0.23.0',
-            ),
-        )
     return {k: v.strip() if isinstance(v, str) else v for k, v in example.items()}
 
 
@@ -66,13 +59,6 @@ def _tokenizer_needs_prefix_space(tokenizer: transformers.PreTrainedTokenizerBas
     Returns:
         bool: Whether or not the tokenizer needs a prefix space
     """
-    warnings.warn(
-            VersionedDeprecationWarning(
-                f'`_tokenizer_needs_prefix_space` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
-                remove_version='0.23.0',
-            ),
-        )
     test_tokens = tokenizer(' a', add_special_tokens=False)['input_ids']
     assert isinstance(test_tokens, list)
     return len(test_tokens) == 1
@@ -92,13 +78,6 @@ def _trim_context(context_enc: List, continuation_enc: List, max_seq_len: int) -
     Returns:
         list: The encoded context trimmed from the left
     """
-    warnings.warn(
-            VersionedDeprecationWarning(
-                f'`_trim_context` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
-                remove_version='0.23.0',
-            ),
-        )
     if len(continuation_enc) + len(context_enc) > max_seq_len:
         context_max_subseq_len = max_seq_len - len(continuation_enc)
 
@@ -122,13 +101,6 @@ def _get_continuation_span(context_enc: List, continuation_enc: List) -> torch.T
     Returns:
         torch.tensor: A tensor containing indices corresponding to continuation tokens
     """
-    warnings.warn(
-            VersionedDeprecationWarning(
-                f'`_get_continuation_span` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
-                remove_version='0.23.0',
-            ),
-        )
     return torch.tensor(range(len(context_enc), len(context_enc) + len(continuation_enc)))
 
 
@@ -154,13 +126,6 @@ def _make_padded_input(
         input (torch.tensor): The padded and encoded context
         continuation_span (torch.tensor): The _inclusive_ range of indices corresponding to the continuation
     """
-    warnings.warn(
-            VersionedDeprecationWarning(
-                f'`_make_padded_input` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
-                remove_version='0.23.0',
-            ),
-        )
     inp = torch.tensor(
         (context_enc + continuation_enc),
         dtype=torch.long,
@@ -208,13 +173,6 @@ def convert_tokens_to_tensors(batch: Dict, tokenize_labels: bool) -> Dict[str, A
     Returns:
         dict: The batch with torch tensors in the corresponding keys instead of lists of lists
     """
-    warnings.warn(
-            VersionedDeprecationWarning(
-                f'`convert_tokens_to_tensors` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
-                remove_version='0.23.0',
-            ),
-        )
     batch['input_ids'] = torch.stack(list(map(torch.tensor, batch['input_ids'])))
     if tokenize_labels:
         batch['labels'] = torch.stack(list(map(torch.tensor, batch['labels'])))
@@ -235,13 +193,6 @@ def _get_fewshot_sample_idxs(dataset_size: int, num_fewshot: int, example_idx: i
     Returns:
         list: Indices of the examples chosen for fewshot selection
     """
-    warnings.warn(
-            VersionedDeprecationWarning(
-                f'`_get_fewshot_sample_idxs` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
-                remove_version='0.23.0',
-            ),
-        )
     num_fewshot = min(dataset_size - 1, num_fewshot)
     fewshot_idxs = set(rng.sample(range(0, dataset_size), num_fewshot))
 
@@ -344,8 +295,8 @@ class InContextLearningDataset(Dataset):
     ):
         warnings.warn(
             VersionedDeprecationWarning(
-                f'`InContextLearningDataset` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                '`InContextLearningDataset` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
+                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
                 remove_version='0.23.0',
             ),
         )
@@ -749,8 +700,8 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
     ):
         warnings.warn(
             VersionedDeprecationWarning(
-                f'`InContextLearningQATaskDataset` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                '`InContextLearningQATaskDataset` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
+                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
                 remove_version='0.23.0',
             ),
         )
@@ -904,8 +855,8 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
     def __init__(self, *args, **kwargs):
         warnings.warn(
             VersionedDeprecationWarning(
-                f'`InContextLearningLMTaskDataset` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                '`InContextLearningLMTaskDataset` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
+                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
                 remove_version='0.23.0',
             ),
         )
@@ -971,8 +922,8 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
     ):
         warnings.warn(
             VersionedDeprecationWarning(
-                f'`InContextLearningMultipleChoiceTaskDataset` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                '`InContextLearningMultipleChoiceTaskDataset` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
+                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
                 remove_version='0.23.0',
             ),
         )
@@ -1180,8 +1131,8 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
     def __init__(self, choices_key='context_options', *args, **kwargs):
         warnings.warn(
             VersionedDeprecationWarning(
-                f'`InContextLearningSchemaTaskDataset` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                '`InContextLearningSchemaTaskDataset` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
+                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
                 remove_version='0.23.0',
             ),
         )
@@ -1381,8 +1332,8 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
     ):
         warnings.warn(
             VersionedDeprecationWarning(
-                f'`InContextLearningCodeEvalDataset` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-                + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                '`InContextLearningCodeEvalDataset` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
+                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
                 remove_version='0.23.0',
             ),
         )
@@ -1576,8 +1527,8 @@ def build_icl_dataloader(
     """
     warnings.warn(
         VersionedDeprecationWarning(
-            f'`build_icl_dataloader` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-            + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+            '`build_icl_dataloader` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
+            + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
             remove_version='0.23.0',
         ),
     )
@@ -1728,8 +1679,8 @@ def partition_dataset_by_category(
     """
     warnings.warn(
         VersionedDeprecationWarning(
-            f'`partition_dataset_by_category` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-            + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+            '`partition_dataset_by_category` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
+            + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
             remove_version='0.23.0',
         ),
     )
@@ -1888,8 +1839,8 @@ def get_icl_task_dataloader(
     """
     warnings.warn(
         VersionedDeprecationWarning(
-            f'`get_icl_task_dataloader` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: "
-            + "https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+            '`get_icl_task_dataloader` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
+            + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
             remove_version='0.23.0',
         ),
     )
