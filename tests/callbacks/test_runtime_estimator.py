@@ -119,3 +119,81 @@ def test_eval_rates():
         eval_subset_num_batches=2,
     )
     trainer.fit()
+
+
+def test_no_benchmark():
+    runtime_estimator = RuntimeEstimator(benchmark=False)
+    in_memory_logger = InMemoryLogger()
+
+    simple_model = SimpleModel()
+    original_fwd = simple_model.forward
+
+    def new_fwd(x):
+        time.sleep(0.02)
+        return original_fwd(x)
+
+    simple_model.forward = new_fwd  # type: ignore
+
+    # Construct the trainer and train
+    trainer = Trainer(
+        model=simple_model,
+        callbacks=[runtime_estimator],
+        loggers=in_memory_logger,
+        train_dataloader=DataLoader(RandomClassificationDataset()),
+        eval_dataloader=DataLoader(RandomClassificationDataset()),
+        max_duration='1ep',
+        eval_interval='5ba',
+        train_subset_num_batches=7,
+        eval_subset_num_batches=2,
+    )
+    trainer.fit()
+
+    for p in (0, 25, 50, 75):
+        assert f'time/estimate_{p}' not in in_memory_logger.data
+
+    assert 'time/remaining_estimate' in in_memory_logger.data
+
+
+def test_benchmark():
+    runtime_estimator = RuntimeEstimator(skip_batches=0)
+    in_memory_logger = InMemoryLogger()
+
+    simple_model = SimpleModel()
+    original_fwd = simple_model.forward
+
+    def new_fwd(x):
+        time.sleep(0.02)
+        return original_fwd(x)
+
+    simple_model.forward = new_fwd  # type: ignore
+
+    # Construct the trainer and train
+    trainer = Trainer(
+        model=simple_model,
+        callbacks=[runtime_estimator],
+        loggers=in_memory_logger,
+        train_dataloader=DataLoader(RandomClassificationDataset()),
+        eval_dataloader=DataLoader(RandomClassificationDataset()),
+        max_duration='4ep',
+        eval_interval='5ba',
+        train_subset_num_batches=7,
+        eval_subset_num_batches=2,
+    )
+    trainer.fit()
+
+    previous_estimate = None
+
+    for p in (0, 25, 50, 75):
+        key = f'time/estimate_{p}'
+
+        # All estimates should be present and non-negative
+        assert key in in_memory_logger.data
+
+        value = in_memory_logger.data[key][0][-1]
+        assert value >= 0
+
+        # Ensure that the estimates are decreasing over time
+        if previous_estimate is not None:
+            assert value < previous_estimate
+
+        previous_estimate = value

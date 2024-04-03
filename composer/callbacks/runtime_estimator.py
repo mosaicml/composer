@@ -143,6 +143,9 @@ class RuntimeEstimator(Callback):
                 self.train_dataloader_len = state.dataloader_len.value
 
     def log_benchmarks(self, estimate: float, state: State, logger: Logger):
+        if self.benchmarks is None:
+            return
+
         if not self.benchmarks:
             self.benchmarks['estimate_0'] = estimate
             logger.log_metrics({'time/estimate_0': estimate})
@@ -158,8 +161,8 @@ class RuntimeEstimator(Callback):
                 return
 
             if key not in self.benchmarks:
-                self.benchmarks[f'estimate_{percent}'] = estimate
-                logger.log_metrics({f'time/estimate_{percent}': estimate})
+                self.benchmarks[key] = estimate
+                logger.log_metrics({key: estimate})
 
     def batch_end(self, state: State, logger: Logger) -> None:
         if not self._enabled:
@@ -196,8 +199,7 @@ class RuntimeEstimator(Callback):
 
             estimate = remaining_time / self.divider
             logger.log_metrics({'time/remaining_estimate': estimate})
-            if self.benchmarks is not None:
-                self.log_benchmarks(estimate, state, logger)
+            self.log_benchmarks(estimate, state, logger)
 
     def eval_end(self, state: State, logger: Logger) -> None:
         # If eval is called before training starts, ignore it
