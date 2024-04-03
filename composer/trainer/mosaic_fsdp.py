@@ -101,5 +101,5 @@ def patch_pytorch():
         # issue: https://github.com/pytorch/pytorch/issues/123272
         from torch.distributed.fsdp import _flat_param
 
-        from composer.trainer.mosaic_fsdp_utils import _same_storage 
-        _flat_param._same_storage = _same_storage 
+        from composer.trainer.mosaic_fsdp_utils import _same_storage
+        _flat_param._same_storage = _same_storage
