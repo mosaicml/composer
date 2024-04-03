@@ -96,3 +96,10 @@ def patch_pytorch():
         from composer.trainer.mosaic_fsdp_utils import _full_pre_state_dict_hook, _set_use_dtensor
         _state_dict_utils._full_pre_state_dict_hook = _full_pre_state_dict_hook
         _state_dict_utils._set_use_dtensor = _set_use_dtensor
+
+        # Monkeypatch _flat_param.py to fix 2D with SHARD_GRAD_OP
+        # issue: https://github.com/pytorch/pytorch/issues/123272
+        from torch.distributed.fsdp import _flat_param
+
+        from composer.trainer.mosaic_fsdp_utils import _same_storage 
+        _flat_param._same_storage = _same_storage 
