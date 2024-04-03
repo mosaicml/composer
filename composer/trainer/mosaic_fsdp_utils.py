@@ -1116,3 +1116,11 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
                 pass
             else:
                 fsdp_state._state_dict_config._use_dtensor = True  # type: ignore
+
+    @no_type_check
+    def _same_storage(a, b):
+        if isinstance(a, DTensor):
+            a = a._local_tensor
+        if isinstance(b, DTensor):
+            b = b._local_tensor
+        return a.untyped_storage().data_ptr() == b.untyped_storage().data_ptr()
