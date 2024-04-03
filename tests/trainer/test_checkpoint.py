@@ -1249,15 +1249,17 @@ class TestCheckpointResumption:
         **kwargs,
     ):
         model = SimpleModel()
+        model_copy = SimpleModel()
         model.fc1.to(model_init_device)
         model.fc2.to(model_init_device)
+        assert model.fc2.bias.shape == model_copy.fc2.bias.shape  # passes
         optimizer = torch.optim.Adam(model.parameters())
 
         train_dataset = RandomClassificationDataset(size=24)
         eval_dataset = RandomClassificationDataset(size=12)
         train_batch_size = 2
 
-        return Trainer(
+        my_trainer = Trainer(
             model=model,
             train_dataloader=DataLoader(
                 dataset=train_dataset,
@@ -1278,6 +1280,10 @@ class TestCheckpointResumption:
             callbacks=[DummyStatefulCallback()],
             **kwargs,
         )
+        print(my_trainer.state.model.state_dict())
+        assert my_trainer.state.model.state_dict(
+        )['module.fc2.bias'].shape == model_copy.fc2.bias.shape  # fails but should pass
+        return my_trainer
 
     @pytest.mark.parametrize(
         'world_size',
@@ -1462,17 +1468,23 @@ class TestCheckpointResumption:
         tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
         save_folder = pathlib.Path(tmp_paths[0])
 
+        bare_model = SimpleModel()
+        bm_fc2_bias = bare_model.fc2.bias
+
         trainer_1 = self.get_trainer(
             save_folder=os.path.join(save_folder, 'first'),
             save_filename=save_filename,
             save_interval=save_interval,
             eval_interval=save_interval,
-            fsdp_config=fsdp_config,
             device=device,
             precision='amp_fp16',
             max_duration='1ep',
             train_subset_num_batches=2,
         )
+        sd_1_fc2_bias = trainer_1.state.model.state_dict()['module.fc2.bias']
+        assert sd_1_fc2_bias.shape == bm_fc2_bias.shape
+
+        print(f'\n(inside test case) {bm_fc2_bias=}')
 
         trainer_1.fit()
         trainer_1.close()
@@ -1489,15 +1501,19 @@ class TestCheckpointResumption:
         model_init_device = [model_1_init_device, model_2_init_device][dist.get_global_rank()]
         fsdp_config['load_monolith_rank0_only'] = True
 
-        success = use_orig_params == False and sync_module_states == True and model_1_init_device == 'cpu'
-        with contextlib.nullcontext() if success else pytest.raises((RuntimeError, ValueError)):
+        success = sync_module_states == True and model_1_init_device == 'cpu'
+        with contextlib.nullcontext() if success else pytest.raises(ValueError):
+            rank_resumed_file = resume_file.format(rank=0, batch=1)
+            resumed_model = torch.load(rank_resumed_file)
+            print(f"\n(inside test case) {resumed_model['state']['model']['module.fc2.bias']=}")
+
             trainer_2 = self.get_trainer(
                 model_init_device=model_init_device,
                 save_folder=os.path.join(save_folder, 'second'),
                 save_filename=save_filename,
                 save_interval=save_interval,
                 eval_interval=save_interval,
-                fsdp_config=fsdp_config,
+                # fsdp_config=fsdp_config,
                 device=device,
                 precision='amp_fp16',
                 max_duration='1ep',
