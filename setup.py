@@ -278,7 +278,7 @@ setup(
     cmdclass={'develop': develop},
 )
 
-# only visible if user installs with verbose -v flag
+# nly visible if user installs with verbose -v flag
 # Printing to stdout as not to interfere with setup.py CLI flags (e.g. --version)
 print('*' * 20, file=sys.stderr)
 print(
