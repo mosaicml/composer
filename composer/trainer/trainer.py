@@ -3497,7 +3497,7 @@ class Trainer:
         if self.state.device.dist_backend == 'xla':
             return False
 
-        if self.state.precision != Precision.AMP_FP16 and self.state.precision != Precision.AMP_BF16:
+        if self.state.precision not in (Precision.AMP_FP16, Precision.AMP_BF16, Precision.AMP_FP8):
             return True
 
         if not hasattr(self.state, 'optimizers'):
