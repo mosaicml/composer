@@ -1449,6 +1449,7 @@ class Trainer:
             evaluators = [
                 ensure_evaluator(evaluator, default_metric_names=model_metric_names) for evaluator in eval_dataloader
             ]
+
             # match metric names to model metrics
             self.state.eval_metrics = {
                 evaluator.label: _filter_metrics(eval_metrics, evaluator.metric_names) for evaluator in evaluators
