@@ -2239,7 +2239,7 @@ class Trainer:
         return metrics
 
     def _compute_and_log_metrics(self, dataloader_label: str, metrics: Dict[str, Metric]):
-        """Computes metrics, logs the results, and updates the state with the deep-copied metrics.
+        """Computes metrics, logs the results, and updates the state with the metrics.
 
         Args:
             dataloader_label (str): The dataloader label.
