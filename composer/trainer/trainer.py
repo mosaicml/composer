@@ -1072,6 +1072,12 @@ class Trainer:
         compile_config: Optional[Dict[str, Any]] = None,
     ):
 
+        for evaluator in eval_dataloader:
+            print(f'{evaluator=}')
+            print(f'{evaluator.dataloader=}')
+            print(f'{evaluator.dataloader.dataloader=}')
+            print(f'{evaluator.dataloader.dataloader.batch_size=}')
+
         self.auto_log_hparams = auto_log_hparams
         self.python_log_level = python_log_level
         if self.python_log_level is not None:
