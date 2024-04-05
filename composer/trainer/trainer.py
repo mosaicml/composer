@@ -2245,8 +2245,6 @@ class Trainer:
             dataloader_label (str): The dataloader label.
             metrics (Dict[str, Metric]): The metrics to compute.
         """
-        metrics = deepcopy(metrics)
-
         # log computed metrics
         computed_metrics = {}
         for metric_name, metric in metrics.items():
