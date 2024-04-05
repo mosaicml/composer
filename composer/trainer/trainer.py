@@ -409,9 +409,9 @@ def _validate_evaluator(evaluator: Evaluator, device: Device):
     if hasattr(
         evaluator.dataloader,
         'seq_parallel_world_size',
-    ) and evaluator.dataloader.seq_parallel_world_size > 1 and evaluator.dataloader.dataloader.batch_size * evaluator.dataloader.seq_parallel_world_size != 1:  # type: ignore
+    ) and evaluator.dataloader.seq_parallel_world_size > 1 and evaluator.dataloader.device_eval_batch_size * evaluator.dataloader.seq_parallel_world_size != 1:  # type: ignore
         raise ValueError(
-            f'Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group. {evaluator.dataloader.dataloader.batch_size=}, {evaluator.dataloader.seq_parallel_world_size=}',
+            f'Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
         )
 
 
@@ -1071,13 +1071,6 @@ class Trainer:
         # compile config for PyTorch 2.0 or higher
         compile_config: Optional[Dict[str, Any]] = None,
     ):
-
-        for evaluator in eval_dataloader:
-            print(f'{evaluator=}')
-            print(f'{evaluator.dataloader=}')
-            print(f'{evaluator.dataloader.dataloader=}')
-            print(f'{evaluator.dataloader.dataloader.batch_size=}')
-
         self.auto_log_hparams = auto_log_hparams
         self.python_log_level = python_log_level
         if self.python_log_level is not None:
@@ -1456,11 +1449,7 @@ class Trainer:
             evaluators = [
                 ensure_evaluator(evaluator, default_metric_names=model_metric_names) for evaluator in eval_dataloader
             ]
-            for evaluator in eval_dataloader:
-                print(f'{evaluator=}')
-                print(f'{evaluator.dataloader=}')
-                print(f'{evaluator.dataloader.dataloader=}')
-                print(f'{evaluator.dataloader.dataloader.batch_size=}')
+
             # match metric names to model metrics
             self.state.eval_metrics = {
                 evaluator.label: _filter_metrics(eval_metrics, evaluator.metric_names) for evaluator in evaluators
