@@ -1450,6 +1450,11 @@ class Trainer:
             evaluators = [
                 ensure_evaluator(evaluator, default_metric_names=model_metric_names) for evaluator in eval_dataloader
             ]
+            for evaluator in eval_dataloader:
+                print(f'{evaluator=}')
+                print(f'{evaluator.dataloader=}')
+                print(f'{evaluator.dataloader.dataloader=}')
+                print(f'{evaluator.dataloader.dataloader.batch_size=}')
             # match metric names to model metrics
             self.state.eval_metrics = {
                 evaluator.label: _filter_metrics(eval_metrics, evaluator.metric_names) for evaluator in evaluators
