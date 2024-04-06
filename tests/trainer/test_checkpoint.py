@@ -3,8 +3,10 @@
 
 import contextlib
 import copy
+import io
 import os
 import pathlib
+import re
 import shutil
 import tarfile
 import tempfile
@@ -18,7 +20,7 @@ import torch
 import torch.distributed
 from packaging import version
 from pytest import MonkeyPatch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset, DistributedSampler
 
 from composer.algorithms import NoOpModel
 from composer.callbacks import CheckpointSaver
@@ -29,7 +31,13 @@ from composer.optim import ExponentialScheduler
 from composer.trainer import trainer
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, is_tar, reproducibility
-from composer.utils.checkpoint import _ensure_valid_checkpoint, glob_filter
+from composer.utils.checkpoint import (
+    _COMPOSER_STATES_FILENAME,
+    _ensure_valid_checkpoint,
+    _write_checkpoint_file,
+    glob_filter,
+)
+from composer.utils.compression import CliCompressor, CompressorNotFound, get_compressor, is_compressed_pt
 from composer.utils.object_store.object_store import ObjectStore
 from composer.utils.object_store.s3_object_store import S3ObjectStore
 from tests.common import (
@@ -60,16 +68,23 @@ class DummyStatefulCallback(Callback):
         self.random_value = state['random_value']
 
 
-def _load_checkpoint(filename: Union[str, pathlib.Path]):
+def _load_checkpoint(filename: Union[str, pathlib.Path]) -> Dict[str, Any]:
     filename = str(filename).format(rank=0)
-    if not is_tar(filename):
-        return torch.load(filename, map_location='cpu')
+    if is_tar(filename):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with tarfile.open(filename) as tarball:
+                tarball.extractall(tmp_dir)
+            states_path = os.path.join(tmp_dir, _COMPOSER_STATES_FILENAME)
+            return torch.load(states_path, map_location='cpu')
 
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        with tarfile.open(filename) as tarball:
-            tarball.extractall(tmp_dir)
-        states_path = os.path.join(tmp_dir, 'composer_states.pt')
-        return torch.load(states_path, map_location='cpu')
+    elif is_compressed_pt(filename):
+        compressor = get_compressor(filename)
+        with compressor.decompress(filename) as f:
+            data = io.BytesIO(f.read())  # loading requires random access
+            return torch.load(data, map_location='cpu')
+
+    else:
+        return torch.load(filename, map_location='cpu')
 
 
 def _assert_checkpoints_equivalent(file1, file2, atol=0.0, rtol=0.0):
@@ -214,6 +229,27 @@ def test_checkpoint_saver_folder_filename_path(folder: Union[str, pathlib.Path],
     assert checkpoint_saver.filename.filename == str(filename)
 
 
+def test_checkpoint_invalid_compressor(monkeypatch: pytest.MonkeyPatch):
+    with pytest.raises(
+        CompressorNotFound,
+        match=re.escape('Could not find compressor for "foo.pt.unknown_compressor".'),
+    ):
+        CheckpointSaver(filename='foo.pt.unknown_compressor')
+
+    import composer.utils.compression
+    monkeypatch.setattr(
+        composer.utils.compression,
+        'KNOWN_COMPRESSORS',
+        [CliCompressor('unknown_compressor', 'unknown_compressor_cmd')],
+    )
+
+    with pytest.raises(
+        CompressorNotFound,
+        match=re.escape('Could not find command "unknown_compressor_cmd" in the PATH'),
+    ):
+        CheckpointSaver(filename='foo.pt.unknown_compressor')
+
+
 @pytest.mark.parametrize(
     'remote_file_name,latest_filename,latest_remote_file_name',
     [
@@ -304,6 +340,43 @@ class TestCheckpointSaving:
     @pytest.mark.parametrize('local_path', ['foo/bar/baz'])
     def test_local_paths_work(self, local_path: str):
         self.get_trainer(save_folder=local_path)
+
+    def test_write_checkpoint_pt_file(self, tmp_path: pathlib.Path):
+        state = {'foo': 123}
+        checkpoint_path = tmp_path / 'checkpoint.pt'
+        _write_checkpoint_file(state, str(checkpoint_path))
+        assert _load_checkpoint(checkpoint_path) == state
+
+    def test_write_checkpoint_tar_file(self, tmp_path: pathlib.Path):
+        state = {'foo': 123}
+        checkpoint_path_1 = tmp_path / 'checkpoint_uncompressed.tar'
+        _write_checkpoint_file(state, str(checkpoint_path_1))
+        assert _load_checkpoint(checkpoint_path_1) == state
+
+        checkpoint_path_2 = tmp_path / 'checkpoint_compressed.tar.gz'
+        _write_checkpoint_file(state, str(checkpoint_path_2))
+        assert _load_checkpoint(checkpoint_path_2) == state
+
+        assert checkpoint_path_1.read_bytes() != checkpoint_path_2.read_bytes()
+        assert checkpoint_path_1.stat().st_size > checkpoint_path_2.stat().st_size
+
+        checkpoint_path_3 = tmp_path / 'checkpoint.tar.unknownalgorithm'
+        with pytest.raises(ValueError, match='does not end with a valid tarfile extension'):
+            _write_checkpoint_file(state, str(checkpoint_path_3))
+        assert not checkpoint_path_3.exists()
+
+    @pytest.mark.skipif(shutil.which('lz4') is None, reason='lz4 command not found')
+    def test_write_directly_compressed_pickle(self, tmp_path: pathlib.Path):
+        state = {'foo': 123}
+        checkpoint_path_uncompressed = tmp_path / 'checkpoint_uncompressed.pt'
+        _write_checkpoint_file(state, str(checkpoint_path_uncompressed))
+
+        checkpoint_path = tmp_path / 'checkpoint_uncompressed.pt.lz4'
+        _write_checkpoint_file(state, str(checkpoint_path))
+        assert _load_checkpoint(checkpoint_path) == state
+        assert checkpoint_path.exists()
+
+        assert checkpoint_path_uncompressed.stat().st_size > checkpoint_path.stat().st_size
 
     @pytest.mark.parametrize(
         'save_folder,expected_path',
@@ -561,8 +634,9 @@ class TestCheckpointLoading:
     def get_trainer(
         self,
         model=None,
-        max_duration='2ep',
-        latest_filename='latest-rank{rank}.pt',
+        max_duration: str = '2ep',
+        latest_filename: str = 'latest-rank{rank}.pt',
+        file_extension: str = '.pt',
         **kwargs,
     ):
         if model is None:
@@ -592,7 +666,7 @@ class TestCheckpointLoading:
             save_interval='1ep',
             eval_interval='1ep',
             save_latest_filename=latest_filename,
-            save_filename='ep{epoch}.pt',
+            save_filename='ep{epoch}' + file_extension,
             max_duration=max_duration,
             optimizers=optimizer,
             schedulers=ExponentialScheduler(gamma=0.9),
@@ -621,6 +695,7 @@ class TestCheckpointLoading:
 
     @world_size(1, 2)
     @device('cpu', 'gpu')
+    @pytest.mark.parametrize('file_extension', ['.pt', '.tar.gz', '.pt.lz4'])
     @pytest.mark.parametrize('use_object_store', [True, False])
     @pytest.mark.parametrize('delete_local', [True, False])
     @pytest.mark.parametrize('test_slashed', [True, False])
@@ -629,6 +704,7 @@ class TestCheckpointLoading:
         self,
         device: str,
         tmp_path: pathlib.Path,
+        file_extension: str,
         use_object_store: bool,
         delete_local: bool,
         test_slashed: bool,
@@ -641,11 +717,16 @@ class TestCheckpointLoading:
         if use_object_store:
             pytest.importorskip('libcloud')
 
-        latest_filename = 'latest-rank{rank}.pt'
+        latest_filename = 'latest-rank{rank}' + file_extension
         if test_slashed:
             latest_filename = 'testdir/' + latest_filename
+
+        if is_compressed_pt(latest_filename) and not get_compressor(latest_filename).exists:
+            pytest.skip(reason=f'compressor not found for {latest_filename}')
+
         trainer_1 = self.get_trainer(
             latest_filename=latest_filename,
+            file_extension=file_extension,
             save_folder='first',
             device=device,
             run_name='big-chungus',
@@ -1165,6 +1246,8 @@ class TestCheckpointResumption:
         precision='fp32',
         max_duration='2ep',
         train_subset_num_batches=5,
+        use_batch_sampler: bool = False,
+        with_eval_dataloader: bool = True,
         **kwargs,
     ):
         model = SimpleModel()
@@ -1176,18 +1259,83 @@ class TestCheckpointResumption:
         eval_dataset = RandomClassificationDataset(size=12)
         train_batch_size = 2
 
-        return Trainer(
-            model=model,
-            train_dataloader=DataLoader(
+        class _DistributedBatchSampler(DistributedSampler):
+
+            def __init__(
+                self,
+                dataset: Dataset,
+                batch_size: int,
+                num_replicas: Optional[int] = None,
+                rank: Optional[int] = None,
+                shuffle: bool = True,
+                seed: int = 0,
+                drop_last: bool = False,
+            ):
+                super().__init__(
+                    dataset=dataset,
+                    num_replicas=num_replicas,
+                    rank=rank,
+                    shuffle=shuffle,
+                    seed=seed,
+                    drop_last=drop_last,
+                )
+                self._batch_size = batch_size
+
+            def __iter__(self):
+                indices = list(super().__iter__())
+                for ind_ in range(len(self)):
+                    yield indices[ind_ * self._batch_size:(ind_ + 1) * self._batch_size]
+
+            def __len__(self) -> int:
+                return self.num_samples // self._batch_size
+
+        if use_batch_sampler:
+            train_batch_sampler = _DistributedBatchSampler(
+                dataset=train_dataset,
+                drop_last=True,
+                shuffle=True,
+                num_replicas=dist.get_world_size(),
+                rank=dist.get_global_rank(),
+                batch_size=train_batch_size,
+            )
+            train_dataloader = DataLoader(
+                dataset=train_dataset,
+                batch_sampler=train_batch_sampler,
+            )
+        else:
+            train_dataloader = DataLoader(
                 dataset=train_dataset,
                 batch_size=train_batch_size,
                 sampler=dist.get_sampler(train_dataset),
-            ),
-            eval_dataloader=DataLoader(
-                dataset=eval_dataset,
-                batch_size=2,
-                sampler=dist.get_sampler(eval_dataset),
-            ),
+            )
+
+        if with_eval_dataloader is True:
+            if use_batch_sampler:
+                eval_batch_sampler = _DistributedBatchSampler(
+                    dataset=eval_dataset,
+                    drop_last=False,
+                    shuffle=False,
+                    num_replicas=dist.get_world_size(),
+                    rank=dist.get_global_rank(),
+                    batch_size=train_batch_size,
+                )
+                eval_dataloader = DataLoader(
+                    dataset=eval_dataset,
+                    batch_sampler=eval_batch_sampler,
+                )
+            else:
+                eval_dataloader = DataLoader(
+                    dataset=eval_dataset,
+                    batch_size=train_batch_size,
+                    sampler=dist.get_sampler(eval_dataset),
+                )
+        else:
+            eval_dataloader = None
+
+        return Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            eval_dataloader=eval_dataloader,
             device_train_microbatch_size=train_batch_size // 2,
             precision=precision,
             train_subset_num_batches=train_subset_num_batches,
@@ -1330,6 +1478,38 @@ class TestCheckpointResumption:
             save_folder / 'first' / final_checkpoint,
             save_folder / 'second' / final_checkpoint,
         )
+
+    @world_size(2)
+    @pytest.mark.parametrize('max_duration', [1, 2])
+    @pytest.mark.filterwarnings('ignore:An unexpected prefix is detected. This case.*')
+    @pytest.mark.filterwarnings(
+        'ignore:``FullyShardedDataParallel.scatter_full_optim_state_dict``is being deprecated and is replaced by.*',
+    )
+    def test_set_dataloaders_to_cur_epoch(
+        self,
+        world_size: int,
+        max_duration: int,
+        tmp_path: pathlib.Path,
+    ):
+        # All ranks use rank 0 folder
+        tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
+        save_folder = pathlib.Path(tmp_paths[0])
+
+        trainer = self.get_trainer(
+            save_folder=os.path.join(save_folder, 'first'),
+            precision='fp32',
+            max_duration=f'{max_duration}ep',
+            train_subset_num_batches=2,
+            use_batch_sampler=True,
+            with_eval_dataloader=False,
+        )
+
+        trainer.fit()
+
+        assert isinstance(trainer.state.train_dataloader, DataLoader)
+        assert isinstance(trainer.state.train_dataloader.batch_sampler, DistributedSampler)
+        # Epoch count starts at O
+        assert trainer.state.train_dataloader.batch_sampler.epoch == max_duration - 1
 
     @pytest.mark.parametrize(
         'world_size',

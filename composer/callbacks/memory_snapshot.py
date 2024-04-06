@@ -76,7 +76,7 @@ class MemorySnapshot(Callback):
         max_entries: int = 100000,
         folder: str = '{run_name}/torch_traces',
         filename: str = 'rank{rank}.{batch}.memory_snapshot',
-        remote_file_name: Optional[str] = '{run_name}/torch_memory_traces/rank{rank}.{batch}.memory_snapshot',
+        remote_file_name: Optional[str] = '{run_name}/torch_memory_traces',
         overwrite: bool = False,
     ) -> None:
         self.batches_left_to_skip = skip_batches
@@ -179,7 +179,7 @@ class MemorySnapshot(Callback):
 
             if self.remote_path_in_bucket is not None:
                 for f in [snapshot_file, trace_plot_file]:
-                    remote_file_name = (self.remote_path_in_bucket + os.path.basename(f)).lstrip('/')
+                    remote_file_name = os.path.join(self.remote_path_in_bucket, os.path.basename(f)).lstrip('/')
                     log.info(f'Uploading memory snapshot to remote: {remote_file_name} from {f}')
                     try:
                         logger.upload_file(remote_file_name=remote_file_name, file_path=f, overwrite=self.overwrite)

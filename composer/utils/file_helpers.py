@@ -52,6 +52,27 @@ __all__ = [
 ]
 
 
+def extract_path_from_symlink(
+    source_path: str,
+    object_store: Optional[Union[LoggerDestination, ObjectStore]] = None,
+) -> str:
+    if object_store is not None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _, _, source_path = parse_uri(source_path)
+            symlink_file_path = os.path.join(tmpdir, 'file.symlink')
+            if isinstance(object_store, ObjectStore):
+                object_store.download_object(object_name=source_path, filename=symlink_file_path)
+            elif isinstance(object_store, LoggerDestination):
+                object_store.download_file(remote_file_name=source_path, destination=symlink_file_path)
+            with open(symlink_file_path, 'r') as f:
+                real_path = f.read()
+                log.debug(f'Read path {real_path} from symlink file.')
+    else:
+        real_path = os.readlink(source_path)
+
+    return real_path
+
+
 def _get_dist_config(strict: bool = True) -> Dict[str, Any]:
     """Returns a dict of distributed settings (rank, world_size, etc.).
 
@@ -89,7 +110,8 @@ def is_tar(name: Union[str, pathlib.Path]) -> bool:
     Returns:
         bool: Whether ``name`` is a tarball.
     """
-    return any(str(name).endswith(x) for x in ('.tar', '.tgz', '.tar.gz', '.tar.bz2', '.tar.lzma'))
+    parts = str(name).split('.')
+    return len(parts) > 1 and ('tar' in parts[-2:] or parts[-1] == 'tgz')
 
 
 def ensure_folder_is_empty(folder_name: Union[str, pathlib.Path]):

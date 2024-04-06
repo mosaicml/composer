@@ -218,7 +218,7 @@ class State(Serializable):
             ``rank_zero_seed + dist.get_global_rank()``.
         run_name (str): The name for this training run.
         device (Device): The device used by this process. The trainer moves the model and loaded data to this device.
-        device_train_microbatch_size (int, optional): The microbatch size for each device during training.
+        device_train_microbatch_size (int | float, optional): The microbatch size for each device during training.
         auto_microbatching (bool, optional): Whether automatic microbatching is enabled.
         train_dataloader (Iterable, optional): Dataloader used for training
         evaluators (Evaluator | Evaluators, optional): :class:`.Evaluator` used for evaluation.
@@ -308,7 +308,7 @@ class State(Serializable):
         eval_timestamp (Timestamp): The timestamp for the current evaluation dataloader. This timestamp is reset
             before the dataloader is evaluated. The :attr:`~Timestamp.epoch` attribute for this timestamp is always
             ``0``.
-        device_train_microbatch_size (int): The size of each train microbatch per device.
+        device_train_microbatch_size (int | float): The size of each train microbatch per device.
         loss (torch.Tensor | Sequence[torch.Tensor] | Dict[Any, torch.Tensor]): The most recently computed loss.
         model (torch.nn.Module): The training model.
 
@@ -381,7 +381,7 @@ class State(Serializable):
         max_duration: Optional[Union[str, Time[int]]] = None,
 
         # data configurations
-        device_train_microbatch_size: Optional[int] = None,
+        device_train_microbatch_size: Optional[Union[int, float]] = None,
         auto_microbatching: bool = False,
 
         # dataloaders
@@ -549,6 +549,8 @@ class State(Serializable):
         self.eval_metric_values: Dict[str, float] = {}
         self.total_loss_dict: Dict[str, float] = {}
 
+        self.metric_outputs: Dict[str, Any] = {}
+
     def _dataset_of(self, dataloader: Optional[Union[Evaluator, DataSpec, DataLoader, Iterable]]) -> Optional[Dataset]:
         """Get the dataset contained by the given dataloader-like object.
 
@@ -663,7 +665,12 @@ class State(Serializable):
         The current batch of training will finish, and any scheduled evaluation,
         logging, and evaluation for that batch, as well as any epoch end events.
         """
-        self.max_duration = self.timestamp.batch
+        # Set the max_duration to the current time in its unit, except if the unit is TimeUnit.EPOCH. This is because TimeUnit.EPOCH is a very crude way to measure max duration. For example, it will result in division by zero error while computing get_elapsed_duration: https://github.com/mosaicml/composer/blob/1b9c6d3c0592183b947fd89890de0832366e33a7/composer/core/state.py#L641
+        if self.max_duration is not None and Time.from_input(self.max_duration,).unit != TimeUnit.EPOCH:
+            max_duration_unit = Time.from_input(self.max_duration).unit
+            self.max_duration = self.timestamp.get(max_duration_unit)
+        else:
+            self.max_duration = self.timestamp.batch
 
     @property
     def optimizers(self):
@@ -781,14 +788,6 @@ class State(Serializable):
     @property
     def fsdp_sharded_state_dict_enabled(self):
         return self.fsdp_config is not None and self.fsdp_enabled and self.fsdp_state_dict_type == 'sharded'
-
-    @property
-    def fsdp_elastic_sharded_enabled(self):
-        warnings.warn(
-            'state.fsdp_elastic_sharded_enabled is deprecated and will be removed v0.21.0',
-            DeprecationWarning,
-        )
-        return self.fsdp_sharded_state_dict_enabled
 
     @property
     def fsdp_device_mesh(self):

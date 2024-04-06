@@ -30,6 +30,7 @@ from composer.utils import (
     is_model_deepspeed,
     partial_format,
 )
+from composer.utils.compression import get_compressor, is_compressed_pt
 from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
 
 log = logging.getLogger(__name__)
@@ -101,14 +102,25 @@ class CheckpointSaver(Callback):  # noqa: D101
                     may attempt to write to the same file(s), leading to corrupted checkpoints. If no tarball file
                     extension is specified, ``'.tar'`` will be used.
 
-                *   To use compression (regardless of whether DeepSpeed is enabled), set the file extension
-                    to ``'.tar.gz'``, ``'.tgz'``, ``'.tar.bzip'``, or ``'.tar.lzma'`` (depending on the desired
-                    compression algorithm).
+                *   To write to compressed tar files (regardless of whether DeepSpeed is enabled), set the file
+                    extension to ``'.tar.gz'``, ``'.tgz'``, ``'.tar.bz2'``, or ``'.tar.lzma'`` (depending on the
+                    desired compression algorithm).
+
+                *   To write to compressed pt files (when DeepSpeed is disabled), set the file extension to
+                    ``'.pt.bz2'``, ``'.pt.gz'``, ``'.pt.lz4'``, ``'.pt.lzma'``, ``'.pt.lzo'``, ``'.pt.xz'``,
+                    ``'.pt.zst'``
+                    (depending on the desired algorithm). You must have the corresponding CLI tool installed.
+                    ``lz4`` is a good choice for a modest space saving while being very fast to compress.
 
             .. warning::
 
-                Using compression will block the training loop while checkpoints are being compressed. As such, we
-                recommend saving checkpoints without compression.
+                Using compression will block the training loop while checkpoints are being compressed and the
+                compressibility of checkpoints can vary significantly depending on your setup. As such, we
+                recommend saving checkpoints without compression by default.
+
+                If you have the ``lz4`` command available on your system, you may want to try saving as ``.pt.lz4``
+                as the overhead is minimal (usually less than a second) and the saved space can sometimes
+                be significant (1% - 40%).
 
             Consider the following scenario where:
 
@@ -282,6 +294,11 @@ class CheckpointSaver(Callback):  # noqa: D101
         remote_file_name = str(remote_file_name) if remote_file_name is not None else None
         latest_filename = str(latest_filename) if latest_filename is not None else None
         latest_remote_file_name = str(latest_remote_file_name) if latest_remote_file_name is not None else None
+
+        # want to fail early if a required CLI tool is missing to ensure no training time is wasted
+        for name in [filename, remote_file_name, latest_filename, latest_remote_file_name]:
+            if name is not None and is_compressed_pt(name):
+                get_compressor(name).check_exists()
 
         if not callable(save_interval):
             save_interval = create_interval_scheduler(save_interval)
