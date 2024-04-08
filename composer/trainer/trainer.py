@@ -1016,6 +1016,7 @@ class Trainer:
         load_object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
         load_weights_only: bool = False,
         skip_optimizer: bool = False,
+        force_legacy_optimizer_state_load: bool = False,
         load_strict_model_weights: bool = True,
         load_progress_bar: bool = True,
         load_ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
@@ -1673,6 +1674,7 @@ class Trainer:
                 # load. We do not reset `load_strict_model_weights` for models with frozen layers.
                 load_weights_only = False
                 skip_optimizer = False
+                force_legacy_optimizer_state_load = False
                 load_ignore_keys = None
                 load_exclude_algorithms = None
                 log.info('Autoresuming training from checkpoint')
@@ -1694,6 +1696,7 @@ class Trainer:
                 object_store=load_object_store,
                 load_weights_only=load_weights_only,
                 skip_optimizer=skip_optimizer,
+                force_legacy_optimizer_state_load=force_legacy_optimizer_state_load,
                 strict_model_weights=load_strict_model_weights,
                 progress_bar=load_progress_bar,
                 ignore_keys=load_ignore_keys,

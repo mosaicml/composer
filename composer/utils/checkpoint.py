@@ -388,6 +388,7 @@ def load_checkpoint(
     object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
     load_weights_only: bool = False,
     skip_optimizer: bool = False,
+    force_legacy_optimizer_state_load: bool = False,
     strict_model_weights: bool = False,
     progress_bar: bool = True,
     ignore_keys: Optional[Union[list[str], Callable[[dict], None]]] = None,
@@ -499,6 +500,7 @@ def load_checkpoint(
             object_store=object_store,
             load_weights_only=load_weights_only,
             skip_optimizer=skip_optimizer,
+            force_legacy_optimizer_state_load=force_legacy_optimizer_state_load,
             strict_model_weights=strict_model_weights,
             progress_bar=progress_bar,
             ignore_keys=ignore_keys,
@@ -537,6 +539,7 @@ def load_checkpoint(
                     extracted_checkpoint_folder,
                     load_weights_only=load_weights_only,
                     skip_optimizer=skip_optimizer,
+                    force_legacy_optimizer_state_load=force_legacy_optimizer_state_load,
                     strict_model_weights=strict_model_weights,
                     ignore_keys=ignore_keys,
                     exclude_algorithms=exclude_algorithms,
@@ -578,6 +581,7 @@ def load_sharded_checkpoint(
     object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
     load_weights_only: bool = False,
     skip_optimizer: bool = False,
+    force_legacy_optimizer_state_load: bool = False,
     strict_model_weights: bool = False,
     progress_bar: bool = True,
     ignore_keys: Optional[Union[list[str], Callable[[dict], None]]] = None,
@@ -948,6 +952,7 @@ def _restore_checkpoint(
     extracted_checkpoint_folder: Optional[str],
     load_weights_only: bool,
     skip_optimizer: bool,
+    force_legacy_optimizer_state_load: bool,
     strict_model_weights: bool,
     ignore_keys: Optional[Union[list[str], Callable[[dict], None]]],
     exclude_algorithms: Optional[list[str]],
@@ -1000,6 +1005,7 @@ def _restore_checkpoint(
             exclude_algorithms=exclude_algorithms,
             algorithm_passes=algorithm_passes,
             skip_optimizer=skip_optimizer,
+            force_legacy_optimizer_state_load=force_legacy_optimizer_state_load,
         )
         return state_dict.get('rng', None)
 

@@ -1287,7 +1287,7 @@ class State(Serializable):
                 )
             log.debug('Finished wrapping model with FSDP.')
 
-    def load_optim_state(self, state_dict: Dict[str, Any], strict: bool = True):
+    def load_optim_state(self, state_dict: Dict[str, Any], strict: bool = True, force_legacy_optimizer_state_load: bool = False):
         """Load the optimizer state.
 
         Args:
@@ -1295,7 +1295,7 @@ class State(Serializable):
             strict (bool): Whether the keys (i.e., optimizer parameter names) in the optimizer
                 state dict should perfectly match the keys in the optimizer instance.
         """
-        if version.parse(torch.__version__) > version.parse('2.2.9'):
+        if version.parse(torch.__version__) > version.parse('2.2.9') and not force_legacy_optimizer_state_load:
             from torch.distributed.checkpoint.state_dict import StateDictOptions, set_optimizer_state_dict
             optimizer = self.optimizers[0]
             set_optimizer_state_dict(
@@ -1357,6 +1357,7 @@ class State(Serializable):
         exclude_algorithms: Optional[List[str]] = None,
         algorithm_passes: Optional[List[AlgorithmPass]] = None,
         skip_optimizer: bool = False,
+        force_legacy_optimizer_state_load: bool = False,
     ):
         """Loads the state.
 
@@ -1404,7 +1405,7 @@ class State(Serializable):
             if attribute_name == 'dataset_state':
                 self._load_dataset_state(serialized_value)
             elif attribute_name == 'optimizers' and not skip_optimizer:
-                self.load_optim_state(state)
+                self.load_optim_state(state, force_legacy_optimizer_state_load=force_legacy_optimizer_state_load)
             elif attribute_name == 'train_metrics':
                 # Get current metrics object and populate each metric present
                 # in serialization with serialized data via load_state_dict()
