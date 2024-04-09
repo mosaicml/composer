@@ -987,12 +987,6 @@ class Trainer:
 
         # Algorithms
         algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
-        log.info(f"bigning debug manualy record memory")
-        torch.cuda.memory._record_memory_history(
-            True,  # type: ignore
-            trace_alloc_max_entries=100000,
-            trace_alloc_record_context=True,
-        )
 
         # Engine Pass Registration
         algorithm_passes: Optional[Union[AlgorithmPass,
@@ -1558,6 +1552,13 @@ class Trainer:
         if self.state.fsdp_config is not None and fsdp_auto_wrap and not self.state.load_fsdp_monolith_rank0_only:
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
+
+        log.info(f"bigning debug manualy record memory")
+        torch.cuda.memory._record_memory_history(
+            True,  # type: ignore
+            trace_alloc_max_entries=100000,
+            trace_alloc_record_context=True,
+        )
 
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
