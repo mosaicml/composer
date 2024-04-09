@@ -113,6 +113,7 @@ class OOMObserver(Callback):
 
         def oom_observer(device: int, alloc: int, device_alloc: int, device_free: int):
             # Snapshot right after an OOM happened
+            log.info("bigning debug haha OOM")
             log.warning('Out Of Memory (OOM) observed')
 
             assert self.filename
