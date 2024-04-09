@@ -93,6 +93,7 @@ class OOMObserver(Callback):
         else:
             self._enabled = False
             warnings.warn('OOMObserver is supported after PyTorch 2.1.0. Disabling OOMObserver callback.')
+        print("bigning debug haha init")
         log.info("bigning debug haha init")
 
     def init(self, state: State, logger: Logger) -> None:
@@ -184,4 +185,4 @@ class OOMObserver(Callback):
                 trace_alloc_record_context=True,
             )
             torch._C._cuda_attach_out_of_memory_observer(oom_observer)  # type: ignore
-            log.info('OOMObserver is enabled and registered')
+            log.info('OOMObserver is enabled and registered haha bigning')
