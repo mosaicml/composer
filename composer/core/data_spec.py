@@ -226,6 +226,8 @@ class DataSpec:
                     dataloader.batch_sampler,
                     DistributedSampler,
                 )
+                print(f'{is_sampler_distributed=}')
+                print(f'{not is_sampler_distributed=}')
                 if not is_sampler_distributed and not is_batch_sampler_distributed:
                     raise ValueError(
                         f'The world_size({world_size}) > 1 but dataloader does not use '
