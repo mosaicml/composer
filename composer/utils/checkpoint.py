@@ -248,7 +248,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         all_file_paths = dist.all_gather_object(relative_file_paths)
 
         # 2. Download to the destination all files this rank needs if on first replica
-        if first_replica:
+        if True or first_replica:
             log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
 
             # Get the lowest rank in the current node
@@ -288,7 +288,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         log.debug('Done waiting for all ranks to finish downloading files.')
 
         # 4. Broadcast files to all other replicas if HSDP
-        if self.device_mesh is not None and self.device_mesh.ndim == 2:
+        if False and self.device_mesh is not None and self.device_mesh.ndim == 2:
             # Broadcast file to all replicas
             replicate_process_group = self.device_mesh.get_group(0)
             shard_size = self.device_mesh.size(1)
