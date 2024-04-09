@@ -119,6 +119,7 @@ from composer.utils import (
     parse_uri,
     partial_format,
     reproducibility,
+    OCIObjectStore,
 )
 from composer.utils.misc import is_model_deepspeed
 from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
@@ -986,6 +987,12 @@ class Trainer:
 
         # Algorithms
         algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
+        log.info(f"bigning debug manualy record memory")
+        torch.cuda.memory._record_memory_history(
+            True,  # type: ignore
+            trace_alloc_max_entries=100000,
+            trace_alloc_record_context=True,
+        )
 
         # Engine Pass Registration
         algorithm_passes: Optional[Union[AlgorithmPass,
@@ -2368,6 +2375,18 @@ class Trainer:
             raise RuntimeError('max_duration must be specified when initializing the Trainer')
 
         log.debug('Starting training loop')
+
+        # bigning debug
+        rank = torch.distributed.get_rank()
+        torch.cuda.memory._dump_snapshot(f"rank_{rank}.pickle")
+        log.info(f"bigning debug upload pickle for rank {rank}")
+
+        object_store = OCIObjectStore(bucket='ning-test', prefix='autoresume_trace/')
+        object_store.upload_object(object_name=f"rank_{rank}.pickle", filename=f"rank_{rank}.pickle")
+        log.info(f"bigning debug upload pickle for rank {rank} done")
+        return
+
+
         while self.state.timestamp < self.state.max_duration:
             if int(self.state.timestamp.epoch_in_iteration) == 0 and int(self.state.timestamp.batch_in_epoch) == 0:
                 self.engine.run_event(Event.ITERATION_START)
