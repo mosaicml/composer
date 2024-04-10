@@ -1129,7 +1129,11 @@ if version.parse(torch.__version__) >= version.parse('2.1.0') and version.parse(
         torch.__version__,) < version.parse('2.2.9'):
 
     from torch.distributed.fsdp._optim_utils import FSDPParamInfo
-    from torch.distributed._state_dict_utils import _gather_state_dict
+    if version.parse(torch.__version__) >= version.parse('2.2.0'):
+        from torch.distributed.checkpoint._state_dict_utils import _gather_state_dict
+    else:
+        from torch.distributed.fsdp._shard_utils import _gather_state_dict
+
     def _shard_orig_param_state(
         fsdp_param_info: FSDPParamInfo,
         fqn: str,
