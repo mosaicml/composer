@@ -1125,14 +1125,11 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
             b = b._local_tensor
         return a.untyped_storage().data_ptr() == b.untyped_storage().data_ptr()
 
-if version.parse(torch.__version__) >= version.parse('2.1.0') and version.parse(
+if version.parse(torch.__version__) >= version.parse('2.2.1') and version.parse(
         torch.__version__,) < version.parse('2.2.9'):
 
     from torch.distributed.fsdp._optim_utils import FSDPParamInfo
-    if version.parse(torch.__version__) >= version.parse('2.2.0'):
-        from torch.distributed.checkpoint._state_dict_utils import _gather_state_dict
-    else:
-        from torch.distributed.fsdp._shard_utils import _gather_state_dict
+    from torch.distributed.checkpoint._state_dict_utils import _gather_state_dict
 
     @no_type_check
     def _shard_orig_param_state(
