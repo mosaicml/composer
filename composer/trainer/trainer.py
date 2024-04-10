@@ -119,7 +119,6 @@ from composer.utils import (
     parse_uri,
     partial_format,
     reproducibility,
-    OCIObjectStore,
 )
 from composer.utils.misc import is_model_deepspeed
 from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
@@ -1548,13 +1547,6 @@ class Trainer:
         # If using FSDP, the model must be wrapped and then loaded unless loading a monolith
         # checkpoint on rank 0 only, in which case the model be loaded before it is wrapped.
 
-        log.info(f"bigning debug manualy record memory")
-        torch.cuda.memory._record_memory_history(
-            True,  # type: ignore
-            trace_alloc_max_entries=100000,
-            trace_alloc_record_context=True,
-        )
-
         # FSDP wrap if not using monolith checkpoint on rank 0 only
         if self.state.fsdp_config is not None and fsdp_auto_wrap and not self.state.load_fsdp_monolith_rank0_only:
             with reproducibility.seed_context(self.state.rank_zero_seed):
@@ -2385,15 +2377,6 @@ class Trainer:
 
         log.debug('Starting training loop')
 
-		# bigning debug
-        rank = torch.distributed.get_rank()
-        torch.cuda.memory._dump_snapshot(f"rank_{rank}.pickle")
-        log.info(f"bigning debug upload pickle for rank {rank}")
-
-        object_store = OCIObjectStore(bucket='ning-test', prefix='autoresume_trace/')
-        object_store.upload_object(object_name=f"memory_trace/after_fix_rank_{rank}.pickle", filename=f"rank_{rank}.pickle")
-        log.info(f"bigning debug upload pickle for rank {rank} done")
-        return
         while self.state.timestamp < self.state.max_duration:
             if int(self.state.timestamp.epoch_in_iteration) == 0 and int(self.state.timestamp.batch_in_epoch) == 0:
                 self.engine.run_event(Event.ITERATION_START)
