@@ -119,6 +119,7 @@ from composer.utils import (
     parse_uri,
     partial_format,
     reproducibility,
+    OCIObjectStore,
 )
 from composer.utils.misc import is_model_deepspeed
 from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
