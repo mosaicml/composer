@@ -1165,6 +1165,8 @@ if version.parse(torch.__version__) >= version.parse('2.1.0') and version.parse(
                 and value.dim() > 0
                 and fsdp_state.sharding_strategy != ShardingStrategy.NO_SHARD
             ):
+                # This clone() is the patch to fix the OOM
+                # https://github.com/pytorch/pytorch/pull/117261
                 value = value.flatten()[intra_param_start_idx : intra_param_end_idx + 1].clone()  # type: ignore[operator]
             new_optim_state[state_name] = value
         return new_optim_state
