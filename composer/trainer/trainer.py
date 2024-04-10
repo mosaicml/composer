@@ -2376,7 +2376,6 @@ class Trainer:
             raise RuntimeError('max_duration must be specified when initializing the Trainer')
 
         log.debug('Starting training loop')
-
         while self.state.timestamp < self.state.max_duration:
             if int(self.state.timestamp.epoch_in_iteration) == 0 and int(self.state.timestamp.batch_in_epoch) == 0:
                 self.engine.run_event(Event.ITERATION_START)
