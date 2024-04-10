@@ -221,7 +221,7 @@ class DataSpec:
             world_size = dist.get_world_size()
             # Check for Distributed Sampler if not using IterableDataset on more than 1 GPU
             if world_size > 1 and not isinstance(dataloader.dataset, torch.utils.data.IterableDataset):
-                is_sampler_distributed = dataloader.sampler and isinstance(dataloader.sampler, DistributedSampler)
+                is_sampler_distributed = isinstance(dataloader.sampler, DistributedSampler)
                 is_batch_sampler_distributed = dataloader.batch_sampler is not None and isinstance(
                     dataloader.batch_sampler,
                     DistributedSampler,
