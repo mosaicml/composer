@@ -47,12 +47,27 @@ def patch_pytorch():
         from torch.distributed.fsdp import _runtime_utils
         _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
 
+        # Fix memory leak for FSDP.optim_state_dict_to_load
+        # https://github.com/pytorch/pytorch/issues/116553
+        from torch.distributed.fsdp import _optim_utils
+
+        from composer.trainer.mosaic_fsdp_utils import _shard_orig_param_state
+        _optim_utils._shard_orig_param_state = _shard_orig_param_state
+
+
     elif version.parse(torch.__version__) < version.parse('2.1.3'):
         # Monkey patch for torch < 2.1.3 ie torch == 2.1.1, 2.1.2
 
         # Allow 2D HSDP
         from torch.distributed.fsdp import _runtime_utils
         _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
+
+        # Fix memory leak for FSDP.optim_state_dict_to_load
+        # https://github.com/pytorch/pytorch/issues/116553
+        from torch.distributed.fsdp import _optim_utils
+
+        from composer.trainer.mosaic_fsdp_utils import _shard_orig_param_state
+        _optim_utils._shard_orig_param_state = _shard_orig_param_state
 
     elif version.parse(torch.__version__) < version.parse('2.2.1'):
         # Monkey patch for torch < 2.2.1 ie torch == 2.2.0
@@ -61,9 +76,22 @@ def patch_pytorch():
         from torch.distributed.fsdp import _runtime_utils
         _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
 
+        # Fix memory leak for FSDP.optim_state_dict_to_load
+        # https://github.com/pytorch/pytorch/issues/116553
+        from torch.distributed.fsdp import _optim_utils
+
+        from composer.trainer.mosaic_fsdp_utils import _shard_orig_param_state
+        _optim_utils._shard_orig_param_state = _shard_orig_param_state
+
     elif version.parse(torch.__version__) < version.parse('2.2.9'):
         # Monkey patch for torch < 2.3.0 ie torch == 2.2.1/2.2.2 currently
-        pass
+
+        # Fix memory leak for FSDP.optim_state_dict_to_load
+        # https://github.com/pytorch/pytorch/issues/116553
+        from torch.distributed.fsdp import _optim_utils
+
+        from composer.trainer.mosaic_fsdp_utils import _shard_orig_param_state
+        _optim_utils._shard_orig_param_state = _shard_orig_param_state
 
     elif version.parse(torch.__version__) < version.parse('2.3.1'):
         # Monkey patch for torch < 2.3.1 ie torch == 2.3.0
