@@ -127,7 +127,7 @@ jobs:
       composer_package_name: ${{ matrix.composer_package_name }}
       container: ${{ matrix.container }}
       git_repo: mosaicml/composer
-      mcloud-timeout: 2700
+      mcloud-timeout: 3600
       name: ${{ matrix.name }}
       pip_deps: "[all]"
       pytest-command: ${{ matrix.pytest_command }}
