@@ -1137,10 +1137,6 @@ if version.parse(torch.__version__) >= version.parse('2.2.1') and version.parse(
         fqn: str,
         optim_state: Dict[str, Any],
     ) -> Dict[str, Any]:
-        """
-        Shard the optimizer state for the original parameter with the name ``fqn``.
-        This API should only be used when ``use_orig_params`` is True.
-        """
         if not optim_state:
             return {}
         fsdp_state = fsdp_param_info.state
