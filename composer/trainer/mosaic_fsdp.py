@@ -109,3 +109,9 @@ def patch_pytorch():
 
         from composer.trainer.mosaic_fsdp_utils import _same_storage
         _flat_param._same_storage = _same_storage
+
+        # Testing
+        from torch.distributed.tensor.parallel import fsdp as dtensor_fsdp
+
+        from composer.trainer.mosaic_fsdp_utils import _chunk_dtensor
+        dtensor_fsdp._chunk_dtensor = _chunk_dtensor
