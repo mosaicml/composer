@@ -2389,6 +2389,8 @@ class Trainer:
             if isinstance(sampler, DistributedSampler):
                 sampler.set_epoch(int(self.state.timestamp.epoch))
 
+            self.state.state_dict()
+
             for batch_idx, self.state.batch in enumerate(self._iter_dataloader(TrainerMode.TRAIN)):
                 # Spin dataloader forward unless dataloader handles internally with dataset_resumption
                 if self.spin_dataloaders and 'train' not in self.state.dataset_resumption and batch_idx < int(
