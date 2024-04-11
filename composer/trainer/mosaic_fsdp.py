@@ -112,6 +112,6 @@ def patch_pytorch():
 
         # Testing
         from torch.distributed.tensor.parallel import fsdp as dtensor_fsdp
-
+        print(f"bigning debug using new chunk_dtensor")
         from composer.trainer.mosaic_fsdp_utils import _chunk_dtensor
         dtensor_fsdp._chunk_dtensor = _chunk_dtensor
