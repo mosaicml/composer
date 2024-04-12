@@ -17,6 +17,11 @@ from composer.loggers import Logger
 
 __all__ = ['ComposerModel']
 
+from composer.models.module import Module as myModule
+print(f"bigning debug replace module")
+torch.nn.Module = myModule
+
+
 
 class ComposerModel(torch.nn.Module, abc.ABC):
     """The interface needed to make a PyTorch model compatible with :class:`composer.Trainer`.
