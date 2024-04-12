@@ -1195,6 +1195,14 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
         The hook combines the unflattened, sharded parameters (ShardedTensor) to
         a new FlatParameter and shards the new FlatParameter to the local chunk.
         """
+        from torch.distributed._tensor import Replicate
+        from torch.distributed.distributed_c10d import _get_pg_default_device
+        from torch.distributed.fsdp._common_utils import FSDP_PREFIX, _has_fsdp_params, _is_composable, _module_handle
+        from torch.distributed.fsdp._runtime_utils import _lazy_init
+        from torch.distributed.fsdp._state_dict_utils import _enter_unshard_params_ctx, _param_name_infos
+        from torch.distributed.fsdp._debug_utils import SimpleProfiler
+        from torch.distributed.fsdp._fsdp_extensions import _ext_all_gather_dtensor, _ext_post_unflatten_transform
+
         print(f"bigning debug using cutomized _sharded_pre_load_state_dict_hook")
         _lazy_init(fsdp_state, module)
         if not _is_composable(fsdp_state):
