@@ -1326,6 +1326,46 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
         with SimpleProfiler.profile("_enter_unshard_params_ctx"):
             _enter_unshard_params_ctx(module, fsdp_state, writeback=True)
 
+
+    def _to_replicate_tensor(
+        self,
+        local_tensor: torch.Tensor,
+        mesh: DeviceMesh,
+        mesh_dim: int,
+        current_logical_shape: List[int],
+    ) -> torch.Tensor:
+        """
+        This function all_gather all shards and return a tensor that
+        is replicated on the previously sharded mesh dimension
+        """
+        print(f"bigning debug my to_replicate_tensor")
+        num_chunks = mesh.size(mesh_dim=mesh_dim)
+        # check if it's uneven, so we need to pad input tensor before all_gather
+        local_shape = list(local_tensor.size())
+
+        logical_dim_size = current_logical_shape[self.dim]
+        is_padded = logical_dim_size % num_chunks != 0
+
+        if is_padded:
+            full_chunk_size = (logical_dim_size + num_chunks - 1) // num_chunks
+            pad_size = full_chunk_size - local_shape[self.dim]
+            local_tensor = self._pad_tensor(local_tensor, pad_size)
+
+        if not local_tensor.is_contiguous():
+            local_tensor = local_tensor.contiguous()
+
+        result = funcol.all_gather_tensor(
+            local_tensor,
+            gather_dim=self.dim,
+            group=(mesh, mesh_dim),
+        )
+        if is_padded:
+            unpad_size = full_chunk_size * num_chunks - logical_dim_size  # type: ignore[possibly-undefined]
+            result = self._unpad_tensor(result, unpad_size)
+        return result
+    from torch.distributed._tensor import placement_types
+    placement_types._to_replicate_tensor = _to_replicate_tensor
+
 if version.parse(torch.__version__) >= version.parse('2.2.1') and version.parse(
         torch.__version__,) < version.parse('2.2.9'):
 
