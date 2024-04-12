@@ -1231,7 +1231,7 @@ class State(Serializable):
             if version.parse(torch.__version__) > version.parse('2.2.9'):
                 from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
                 if torch.distributed.get_rank() % 8 == 0:
-                    for name, p in state_dict['model']:
+                    for name, p in state_dict['model'].items():
                         if 'ffn' in name:
                             print(f"bigning debug param {name}, shape = {p.shape}")
                 set_model_state_dict(
