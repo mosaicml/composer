@@ -1233,7 +1233,10 @@ class State(Serializable):
                 if torch.distributed.get_rank() % 8 == 0:
                     for name, p in state_dict['model'].items():
                         if 'ffn' in name:
-                            print(f"bigning debug param {name}, shape = {p.shape}")
+                            print(f"bigning debug cp param {name}, shape = {p.shape}")
+                    for name, p in self.model.state_dict().items():
+                        if 'ffn' in name:
+                            print(f"bigning debug model param {name}, shape = {p.shape}")
                 set_model_state_dict(
                     model=self.model,
                     model_state_dict=state_dict['model'],
