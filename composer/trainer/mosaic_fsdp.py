@@ -61,9 +61,15 @@ def patch_pytorch():
         from torch.distributed.fsdp import _runtime_utils
         _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
 
-    elif version.parse(torch.__version__) < version.parse('2.2.2'):
-        # Monkey patch for torch < 2.2.2 ie torch == 2.2.1
-        pass
+    elif version.parse(torch.__version__) < version.parse('2.2.9'):
+        # Monkey patch for torch < 2.3.0 ie torch == 2.2.1/2.2.2 currently
+
+        # Fix memory leak for FSDP.optim_state_dict_to_load
+        # https://github.com/pytorch/pytorch/issues/116553
+        from torch.distributed.fsdp import _optim_utils
+
+        from composer.trainer.mosaic_fsdp_utils import _shard_orig_param_state
+        _optim_utils._shard_orig_param_state = _shard_orig_param_state
 
     elif version.parse(torch.__version__) < version.parse('2.3.1'):
         # Monkey patch for torch < 2.3.1 ie torch == 2.3.0
@@ -96,3 +102,10 @@ def patch_pytorch():
         from composer.trainer.mosaic_fsdp_utils import _full_pre_state_dict_hook, _set_use_dtensor
         _state_dict_utils._full_pre_state_dict_hook = _full_pre_state_dict_hook
         _state_dict_utils._set_use_dtensor = _set_use_dtensor
+
+        # Monkeypatch _flat_param.py to fix 2D with SHARD_GRAD_OP
+        # Issue: https://github.com/pytorch/pytorch/issues/123272
+        from torch.distributed.fsdp import _flat_param
+
+        from composer.trainer.mosaic_fsdp_utils import _same_storage
+        _flat_param._same_storage = _same_storage

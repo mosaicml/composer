@@ -39,6 +39,7 @@ from composer.utils.file_helpers import (
 )
 from composer.utils.misc import is_model_deepspeed, partial_format
 from composer.utils.object_store import ObjectStore
+from composer.utils.retrying import retry
 
 if TYPE_CHECKING:
     from composer.core import AlgorithmPass, State
@@ -188,6 +189,24 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
         return super().read_metadata()
 
 
+@retry(num_attempts=5)
+def download_object_or_file(
+    object_name: str,
+    file_destination: Union[str, Path],
+    object_store: Union[ObjectStore, LoggerDestination],
+):
+    if isinstance(object_store, ObjectStore):
+        object_store.download_object(
+            object_name=object_name,
+            filename=file_destination,
+        )
+    else:
+        object_store.download_file(
+            remote_file_name=object_name,
+            destination=str(file_destination),
+        )
+
+
 # A subclass of FileSystemReaderWithValidation that downloads files from the object store before reading them from the local filesystem.
 class DistCPObjectStoreReader(FileSystemReaderWithValidation):
 
@@ -208,16 +227,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         metadata_destination = os.path.join(self.destination_path, '.metadata')
         if dist.get_local_rank() == 0:
             metadata_path = str(Path(source_path) / Path('.metadata'))
-            if isinstance(object_store, ObjectStore):
-                object_store.download_object(
-                    object_name=metadata_path,
-                    filename=metadata_destination,
-                )
-            else:
-                object_store.download_file(
-                    remote_file_name=metadata_path,
-                    destination=metadata_destination,
-                )
+            download_object_or_file(metadata_path, metadata_destination, object_store)
         dist.barrier()
 
         # FileSystemReader takes in a root directory in its constructor, which is the dir where
@@ -244,34 +254,33 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
             # Get the lowest rank in the current node
             local_rank_0 = dist.get_global_rank() - dist.get_local_rank()
 
-            for plan_item in plan.items:
-                relative_file_path = self.storage_data[plan_item.storage_index].relative_path
-                # Check if the file is scheduled to be downloaded by a lower rank on the same node
-                # i.e. if rank 0 and rank 1 on the same node have the same the same required file,
-                # only rank 0 should download it and not rank 1.
-                is_downloaded = any(
-                    relative_file_path in all_file_paths[i] for i in range(local_rank_0, dist.get_global_rank())
-                )
+            try:
+                for plan_item in plan.items:
+                    relative_file_path = self.storage_data[plan_item.storage_index].relative_path
+                    # Check if the file is scheduled to be downloaded by a lower rank on the same node
+                    # i.e. if rank 0 and rank 1 on the same node have the same the same required file,
+                    # only rank 0 should download it and not rank 1.
+                    is_downloaded = any(
+                        relative_file_path in all_file_paths[i] for i in range(local_rank_0, dist.get_global_rank())
+                    )
 
-                # Download the shard file to the relative path it's associated to and save that relative path
-                # to the root directory specified to the FileSystem reader constructor.
-                file_destination = str(Path(self.destination_path) / Path(relative_file_path))
+                    # Download the shard file to the relative path it's associated to and save that relative path
+                    # to the root directory specified to the FileSystem reader constructor.
+                    file_destination = str(Path(self.destination_path) / Path(relative_file_path))
 
-                # The file could have already been downloaded as different plan items can point to same file.
-                if not is_downloaded and not os.path.exists(file_destination):
-                    log.debug(f'Downloading {relative_file_path} to {file_destination}.')
-                    object_name = str(Path(self.source_path) / Path(relative_file_path))
-                    if isinstance(self.object_store, ObjectStore):
-                        self.object_store.download_object(
-                            object_name=object_name,
-                            filename=file_destination,
-                        )
-                    else:
-                        self.object_store.download_file(
-                            remote_file_name=object_name,
-                            destination=file_destination,
-                        )
-                    log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
+                    # The file could have already been downloaded as different plan items can point to same file.
+                    if not is_downloaded and not os.path.exists(file_destination):
+                        log.debug(f'Downloading {relative_file_path} to {file_destination}.')
+                        object_name = str(Path(self.source_path) / Path(relative_file_path))
+                        download_object_or_file(object_name, file_destination, self.object_store)
+                        log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
+            except Exception as e:
+                # PyTorch will capture any exception of this function,
+                # and dist.all_gather_objects(exception) before raising it.
+                # If that all_gather_objects fails, the exception is never visible to user.
+                # We immediately print the exception to avoid that situation.
+                log.error(f'Exception {type(e)} raised during downloading: {str(e)}')
+                raise e
 
         # 3. Wait for all ranks to finish.
         log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
@@ -288,9 +297,9 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
             receiver = dist.get_global_rank() != rank_in_first_replica
 
             # Send list of files to all ranks
-            file_list = [
+            file_list = [[
                 file_name for file_name in sorted(os.listdir(self.destination_path)) if file_name.endswith('.distcp')
-            ]
+            ]]
             dist.broadcast_object_list(file_list, src=rank_in_first_replica, group=replicate_process_group)
             file_list = file_list[0]
             log.debug(f'List of files to broadcast: {file_list}')
@@ -367,16 +376,7 @@ def is_checkpoint_legacy_sharded(object_store: Optional[Union[LoggerDestination,
             _, _, metadata_path = parse_uri(metadata_path)
             with tempfile.TemporaryDirectory() as temp_dir:
                 metadata_destination = os.path.join(str(temp_dir), '.metadata')
-                if isinstance(object_store, ObjectStore):
-                    object_store.download_object(
-                        object_name=metadata_path,
-                        filename=metadata_destination,
-                    )
-                else:
-                    object_store.download_file(
-                        remote_file_name=metadata_path,
-                        destination=metadata_destination,
-                    )
+                download_object_or_file(metadata_path, metadata_destination, object_store)
             return False
         except FileNotFoundError:
             return True
