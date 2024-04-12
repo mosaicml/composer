@@ -7,7 +7,7 @@ import weakref
 import torch
 
 from torch._prims_common import DeviceLikeType
-import torch.nn.Parameter as Parameter
+from torch.nn.parameter import Parameter
 import torch.utils.hooks as hooks
 
 from torch import Tensor, device, dtype
