@@ -1229,64 +1229,51 @@ class State(Serializable):
         model_on_rank = state_dict['model'] is not None
 
         #########################################################
-		def set_model_state_dict(
-			model,
-			model_state_dict,
-			*,
-			options= None,
-		):
-			"""Load the model state_dict.
+        from torch.distributed.checkpoint.state_dict import StateDictOptions, _unflatten_model_state_dict, gc_context, _verify_options, _verify_state_dict, _load_model_state_dict
+        def set_model_state_dict(
+            model: nn.Module,
+            model_state_dict,
+            *,
+            options: Optional[StateDictOptions] = None,
+        ):
+            model_state_dict  = _unflatten_model_state_dict(
+                model, model_state_dict
+            )
+            if torch.distributed.get_rank() % 8 == 0:
+                i = 0
+                for name, p in state_dict['model'].items():
+                    if 'ffn' in name:
+                        print(f"bigning debug after flattern param {name}, shape = {p.shape}")
+                        i += 1
+                    if i > 20:
+                        break
+            with gc_context():
+                info = _verify_options(model, tuple(), optim_only=False, options=options)
 
-			The counterpart of ``get_model_state_dict`` to set the state_dict to the
-			model. See ``set_state_dict`` for the detail usage.
+                _verify_state_dict(model_state_dict, {}, info)
+                if torch.distributed.get_rank() % 8 == 0:
+                    i = 0
+                    for name, p in state_dict['model'].items():
+                        if 'ffn' in name:
+                            print(f"bigning debug after verify param {name}, shape = {p.shape}")
+                            i += 1
+                        if i > 20:
+                            break
+                return _load_model_state_dict(model, model_state_dict, info)
 
-			Args:
-				model (nn.Module): the nn.Module to the model.
-				model_state_dict: (Dict[str, ValueType]):
-				   the model state_dict to load. If the key of the ``model_state_dict``
-				   is nn.Module, the key is a submodule of ``model`` and the value should
-				   be the state_dict of the submodule. When loading the state_dict,
-				   the prefix of the submodule will be append to the state_dict.
-				options (StateDictOptions): the options to control how
-					model state_dict and optimizer state_dict should be loaded. See
-					`StateDictOptions` for the details.
-
-			Returns:
-				``NamedTuple`` with ``missing_keys`` and ``unexpected_keys`` fields:
-					* **missing_keys** is a list of str containing the missing keys
-					* **unexpected_keys** is a list of str containing the unexpected keys
-
-			:type model_state_dict: typing.Dict[str, ValueType]
-			"""
-			model_state_dict = _unflatten_model_state_dict(
-				model, model_state_dict
-			)
-
-			if torch.distributed.get_rank() % 8 == 0:
-				for name, p in model_state_dict.items():
-					if 'ffn' in name:
-						print(f"bigning debug after unflatten param {name}, shape = {p.shape}")
-
-			with gc_context():
-				info = _verify_options(model, tuple(), optim_only=False, options=options)
-
-				_verify_state_dict(model_state_dict, {}, info)
-
-				if torch.distributed.get_rank() % 8 == 0:
-					for name, p in model_state_dict.items():
-						if 'ffn' in name:
-							print(f"bigning debug after verify param {name}, shape = {p.shape}")
-
-				return _load_model_state_dict(model, model_state_dict, info)
         #########################################################
 
         if model_on_rank:
             if version.parse(torch.__version__) > version.parse('2.2.9'):
                 from torch.distributed.checkpoint.state_dict import StateDictOptions
                 if torch.distributed.get_rank() % 8 == 0:
+                    i = 0
                     for name, p in state_dict['model'].items():
                         if 'ffn' in name:
                             print(f"bigning debug cp param {name}, shape = {p.shape}")
+                            i += 1
+                        if i > 20:
+                            break
                 print(f"bigning debug start printing model param shape")
 
                 set_model_state_dict(
