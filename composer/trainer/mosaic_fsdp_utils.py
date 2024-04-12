@@ -1278,13 +1278,29 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
                 if param.device != fsdp_state._device_mesh.device_type:
                     param = param.to(fsdp_state._device_mesh.device_type)
 
+                from torch.distributed.fsdp._shard_utils import _all_gather_dtensor
+                def _my_ext_all_gather_dtensor(
+                 tensor,
+                 parent_mesh,
+                 fsdp_extension = None,
+                ) -> torch.Tensor:
+                    all_gather_dtensor_fn = (
+                        fsdp_extension.all_gather_dtensor
+                        if fsdp_extension is not None
+                        else _all_gather_dtensor
+                    )
+                    import inspect
+                    print(f"bigning debug {fsdp_extension=}, {inspect.getsource(all_gather_dtensor_fn)}")
+
+                    return all_gather_dtensor_fn(tensor, parent_mesh)
+
                 parent_mesh = _mesh_resources.get_parent_mesh(fsdp_state._device_mesh)
-                local_tensor = _ext_all_gather_dtensor(
+                local_tensor = _my_ext_all_gather_dtensor(
                     param, parent_mesh, fsdp_state._fsdp_extension
                 )
 
                 if 'ffn' in fqn_from_global_root and torch.distributed.get_rank() % 8 == 0:
-                    print(f"bigning debug after _ext_all_gather_dtensor: {param.shape}, after shape: {local_tensor.shape}")
+                    print(f"bigning debug after _ext_all_gather_dtensor: {param.shape}, after shape: {local_tensor.shape}, {parent_mesh=}, {fsdp_state._fsdp_extension=}, {fsdp_state._fsdp_extension}")
                 if fqn_to_param_ext.get(fqn) is not None:
                     
                     ext = fqn_to_param_ext[fqn]
