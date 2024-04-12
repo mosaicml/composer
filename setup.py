@@ -7,6 +7,7 @@ import os
 import site
 import sys
 import textwrap
+import subprocess
 
 import setuptools
 from setuptools import setup
