@@ -115,3 +115,9 @@ def patch_pytorch():
         print(f"bigning debug using new chunk_dtensor")
         from composer.trainer.mosaic_fsdp_utils import _chunk_dtensor
         dtensor_fsdp._chunk_dtensor = _chunk_dtensor
+
+        # Monkey patch partial state dict handling
+        from torch.distributed.fsdp import _state_dict_utils
+        from composer.trainer.mosaic_fsdp_utils import _sharded_pre_load_state_dict_hook
+
+        _state_dict_utils._sharded_pre_load_state_dict_hook = _sharded_pre_load_state_dict_hook
