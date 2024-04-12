@@ -1283,11 +1283,16 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
                     param, parent_mesh, fsdp_state._fsdp_extension
                 )
 
+                if 'ffn' in fqn_from_global_root and torch.distributed.get_rank() % 8 == 0:
+                    print(f"bigning debug after _ext_all_gather_dtensor: {param.shape}, after shape: {local_tensor.shape}")
                 if fqn_to_param_ext.get(fqn) is not None:
+                    
                     ext = fqn_to_param_ext[fqn]
                     local_tensor = _ext_post_unflatten_transform(
                         local_tensor, ext, fsdp_state._fsdp_extension
                     )
+                    if 'ffn' in fqn_from_global_root and torch.distributed.get_rank() % 8 == 0:
+                        print(f"bigning debug after _ext_post_unflatten_transform: {param.shape}, after shape: {local_tensor.shape}")
                 state_dict[fqn_from_global_root] = local_tensor
                 if 'ffn' in fqn_from_global_root and torch.distributed.get_rank() % 8 == 0:
                     print(f"bigning debug before shape: {param.shape}, after shape: {local_tensor.shape}")
