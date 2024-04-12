@@ -671,11 +671,16 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
         # HSDP + TP: [Replicate(), Shard(0), tp_placement] -> [Replicate(), Replicate(), tp_placement]
         for i in range(0, len(placements) - 1):
             placements[i] = Replicate()
+        if torch.distributed.get_rank() % 8 == 0: 
+            print(f"bigning debug cutomized allgather before redistribute: {tensor.shape=}, local shape: {tensor._local_tensor.shape}")
         tensor = tensor.redistribute(
             device_mesh=tensor.device_mesh,
             placements=placements,
         )
-        return tensor.to_local()
+        t = tensor.to_local()
+        if torch.distributed.get_rank() % 8 == 0: 
+            print(f"bigning debug cutomized allgather after redistribute: {tensor.shape=}, {t.shape=}")
+        return t
 
     def chunk_dtensor_t2p3p0(
         self,
