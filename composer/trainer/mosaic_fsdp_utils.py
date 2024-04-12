@@ -720,6 +720,9 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
             tp_placements = tensor.placements
             tp_placement = tp_placements[0]
 
+            global_shape = tensor.shape
+            global_stride = tensor.stride()
+
             tensor = tensor.to_local()
 
             if parent_mesh.ndim <= 2:
@@ -735,7 +738,9 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
                 replicate_placements = [Replicate(), Replicate(), tp_placement]
                 shard_placements = [Replicate(), DShard(0), tp_placement]  # type: ignore[misc]
 
-            return DTensor.from_local(tensor, parent_mesh, replicate_placements).redistribute(
+            return DTensor.from_local(
+                tensor, parent_mesh, replicate_placements, run_check=False, shape=global_shape, stride=global_stride,
+            ).redistribute(
                 device_mesh=parent_mesh,
                 placements=shard_placements,
             )
