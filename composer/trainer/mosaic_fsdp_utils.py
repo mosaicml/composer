@@ -1364,6 +1364,7 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
             result = self._unpad_tensor(result, unpad_size)
         return result
     from torch.distributed._tensor import placement_types
+    print(f"bigning debug replace placement types")
     placement_types._to_replicate_tensor = _to_replicate_tensor
 
 if version.parse(torch.__version__) >= version.parse('2.2.1') and version.parse(
