@@ -149,7 +149,7 @@ class OCIObjectStore(ObjectStore):
         overwrite: bool = False,
         callback: Optional[Callable[[int, int], None]] = None,
         min_part_size: int = 128000000,
-        num_parts: int = 10,
+        num_parts: int = 1000,
     ):
         del callback
         if os.path.exists(filename) and not overwrite:
