@@ -18,7 +18,7 @@ from packaging.version import Version
 
 from composer._version import __version__
 from composer.loggers import LoggerDestination
-from composer.utils import MissingConditionalImportError, dist
+from composer.utils import MissingConditionalImportError, VersionedDeprecationWarning, dist
 
 if TYPE_CHECKING:
     from composer import Logger
@@ -344,11 +344,12 @@ def _scale_image_to_0_255(img: np.ndarray, array_min: Union[int, float], array_m
 
 
 def _warn_about_deprecated_upload_artifacts() -> None:
-    from neptune.common.warnings import NeptuneDeprecationWarning, warn_once
-    warn_once(
-        'The \'upload_artifacts\' parameter is deprecated and will be removed in the next version. '
-        'Use the \'upload_checkpoints\' parameter instead.',
-        exception=NeptuneDeprecationWarning,
+    warnings.warn(
+        VersionedDeprecationWarning(
+            'The \'upload_artifacts\' parameter is deprecated and will be removed in the next version. '
+            'Use the \'upload_checkpoints\' parameter instead.',
+            remove_version='0.23',
+        ),
     )
 
 
