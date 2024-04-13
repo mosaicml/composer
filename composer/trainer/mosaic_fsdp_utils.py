@@ -1422,10 +1422,10 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
                     )
                 elif current.is_shard():
                     current_placement = cast(Shard, current)
-                    current_placement._to_replicate_tensor = _to_replicate_tensor
+                    #current_placement.my_to_replicate_tensor = _to_replicate_tensor
                     print(f"bigning debug using my to_replicate_tensor") 
-                    new_local_tensor = current_placement._to_replicate_tensor(
-                        local_tensor, current_spec.shape, device_mesh, i
+                    new_local_tensor = _to_replicate_tensor(
+                        current_placement, local_tensor, current_spec.shape, device_mesh, i
                     )
                 else:
                     raise RuntimeError(
