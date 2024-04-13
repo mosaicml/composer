@@ -181,8 +181,8 @@ class OCIObjectStore(ObjectStore):
         with TemporaryDirectory(dir=dirname, prefix=f'{str(filename)}') as temp_dir:
             parts = []
             try:
-                # Download parts in parallel
-                with concurrent.futures.ThreadPoolExecutor() as executor:
+                # Download parts in parallel. 10 is the max concurrent requests on OCI.
+                with concurrent.futures.ThreadPoolExecutor(10) as executor:
                     futures = []
                     start_byte = 0
                     for i, part_size in enumerate(part_sizes):
