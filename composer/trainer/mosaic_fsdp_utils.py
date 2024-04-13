@@ -1340,7 +1340,7 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
         Replicate,
         Shard,
     )
-    from torch.distributed._tensor.redistribute import _decompose_reshard
+    from torch.distributed._tensor.redistribute import _decompose_reshard, _replicate_then_shard
 
     def _to_replicate_tensor(
         self,
