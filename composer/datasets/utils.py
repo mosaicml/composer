@@ -125,13 +125,6 @@ try:
         stop_sequences: List[str],
         batch_size: int,
     ) -> transformers.StoppingCriteriaList:
-        warnings.warn(
-            VersionedDeprecationWarning(
-                '`stop_sequences_criteria` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
-                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
-                remove_version='0.23.0',
-            ),
-        )
         return transformers.StoppingCriteriaList([
             *[MultiTokenEOSCriteria(sequence, tokenizer, batch_size) for sequence in stop_sequences],
         ])
