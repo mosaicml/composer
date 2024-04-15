@@ -164,7 +164,6 @@ def test_neptune_logger_doesnt_upload_symlinks(test_neptune_logger, dummy_state)
             remote_file_name='test_symlink',
             file_path=Path(symlink_name),
         )
-
     assert not test_neptune_logger.neptune_run.exists(f'{test_neptune_logger._base_namespace}/test_symlink')
 
 
