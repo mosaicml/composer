@@ -3,4 +3,4 @@
 
 """The Composer Version."""
 
-__version__ = '0.21.2.dev0'
+__version__ = '0.22.0.dev0'
