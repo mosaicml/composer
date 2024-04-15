@@ -5,7 +5,6 @@
 
 import os
 import site
-import subprocess
 import sys
 import textwrap
 
