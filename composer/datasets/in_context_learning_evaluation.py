@@ -296,8 +296,8 @@ class InContextLearningDataset(Dataset):
         warnings.warn(
             VersionedDeprecationWarning(
                 '`InContextLearningDataset`, it\'s subclasses, and eval utility functions have been deprecated and migrated'
-                +' to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
-                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                + ' to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: ' +
+                'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
                 remove_version='0.23.0',
             ),
         )
