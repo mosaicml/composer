@@ -114,7 +114,7 @@ extra_deps['dev'] = [
     'pre-commit>=3.4.0,<4',
     # embedding md in rst require docutils>=0.17. See
     # https://myst-parser.readthedocs.io/en/latest/sphinx/use.html?highlight=parser#include-markdown-files-into-an-rst-file
-    'docutils==0.17.1',
+    'docutils==0.21.1',
     'sphinx_markdown_tables==0.0.17',
     'sphinx-argparse==0.4.0',
     'sphinxcontrib.katex==0.9.6',
