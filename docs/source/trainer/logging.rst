@@ -43,9 +43,11 @@ and also saves them to the file
 
 .. testcode::
     :skipif: not _WANDB_INSTALLED or not _COMETML_INSTALLED or not _NEPTUNE_INSTALLED
-
+    import logging
     from composer import Trainer
     from composer.loggers import WandBLogger, CometMLLogger, MLFlowLogger, NeptuneLogger, FileLogger
+
+    logging.getLogger("neptune").setLevel(logging.CRITICAL)
 
     wandb_logger = WandBLogger()
     cometml_logger = CometMLLogger()

@@ -170,9 +170,12 @@ Neptune File upload
 
 .. testcode::
     :skipif: not _NEPTUNE_INSTALLED
+    import logging
 
     from composer.loggers import NeptuneLogger
     from composer import Trainer
+
+    logging.getLogger("neptune").setLevel(logging.CRITICAL)
 
     # Configure the Neptune logger
     logger = NeptuneLogger(
