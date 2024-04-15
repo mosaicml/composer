@@ -1345,37 +1345,54 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
     def _to_replicate_tensor(
         self,
         local_tensor: torch.Tensor,
+        size: torch.Size,
         mesh: DeviceMesh,
         mesh_dim: int,
-        current_logical_shape: List[int],
     ) -> torch.Tensor:
         """
         This function all_gather all shards and return a tensor that
         is replicated on the previously sharded mesh dimension
         """
+        my_coordinate = mesh.get_coordinate()
         num_chunks = mesh.size(mesh_dim=mesh_dim)
-        # check if it's uneven, so we need to pad input tensor before all_gather
-        local_shape = list(local_tensor.size())
 
-        logical_dim_size = current_logical_shape[self.dim]
-        is_padded = logical_dim_size % num_chunks != 0
+        if my_coordinate is None:
+            # if rank is not part of mesh, we simply return local_tensor,
+            # which should be an empty tensor
+            return local_tensor
 
-        if is_padded:
-            full_chunk_size = (logical_dim_size + num_chunks - 1) // num_chunks
-            pad_size = full_chunk_size - local_shape[self.dim]
+        # check if it needs to pad input tensor before all_gather
+        full_chunk_size = (size[self.dim] + num_chunks - 1) // num_chunks
+        chunk_sizes = [
+            max(
+                min(size[self.dim], full_chunk_size * (idx + 1))
+                - full_chunk_size * idx,
+                0,
+            )
+            for idx in range(num_chunks)
+        ]
+        pad_sizes = [full_chunk_size - chunk_size for chunk_size in chunk_sizes]
+        is_padded = size[self.dim] % num_chunks != 0
+
+        pad_size = pad_sizes[my_coordinate[mesh_dim]]
+        if pad_size > 0:
             local_tensor = self._pad_tensor(local_tensor, pad_size)
-
-        if not local_tensor.is_contiguous():
-            local_tensor = local_tensor.contiguous()
+        local_tensor = local_tensor.contiguous()
 
         result = funcol.all_gather_tensor(
             local_tensor,
             gather_dim=self.dim,
             group=(mesh, mesh_dim),
         )
+        if torch.distributed.get_rank() % 8 == 0:
+            print(f"bigning debug to_replicate_tensor {pad_size=}, {pad_sizes=}, {full_pad_size=}, before pad result shape: {result.shape=}")
+
+        # Unpad the tensor if the input tensor was padded
         if is_padded:
-            unpad_size = full_chunk_size * num_chunks - logical_dim_size  # type: ignore[possibly-undefined]
-            result = self._unpad_tensor(result, unpad_size)
+            full_pad_size = sum(pad_sizes)
+            result = self._unpad_tensor(result, full_pad_size)
+        if torch.distributed.get_rank() % 8 == 0:
+            print(f"bigning debug to_replicate_tensor {pad_size=}, {pad_sizes=}, {full_pad_size=}, after pad result shape: {result.shape=}")
         return result
 
     def redistribute_local_tensor(
