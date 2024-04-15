@@ -295,7 +295,8 @@ class InContextLearningDataset(Dataset):
     ):
         warnings.warn(
             VersionedDeprecationWarning(
-                '`InContextLearningDataset` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
+                '`InContextLearningDataset`, it\'s subclasses, and eval utility functions have been deprecated and migrated'
+                +' to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
                 + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
                 remove_version='0.23.0',
             ),
@@ -698,13 +699,6 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         *args,
         **kwargs,
     ):
-        warnings.warn(
-            VersionedDeprecationWarning(
-                '`InContextLearningQATaskDataset` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
-                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
-                remove_version='0.23.0',
-            ),
-        )
         if kwargs['tokenizer'].eos_token_id is None:
             raise ValueError('`InContextLearningQATaskDataset` tokenizer must have non-null `eos_token_id`')
         self.cot_delimiter = cot_delimiter
@@ -853,13 +847,6 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
     """
 
     def __init__(self, *args, **kwargs):
-        warnings.warn(
-            VersionedDeprecationWarning(
-                '`InContextLearningLMTaskDataset` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
-                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
-                remove_version='0.23.0',
-            ),
-        )
         super().__init__(
             answer_key='continuation',
             static_keys=['mode'],
@@ -920,13 +907,6 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         *args,
         **kwargs,
     ):
-        warnings.warn(
-            VersionedDeprecationWarning(
-                '`InContextLearningMultipleChoiceTaskDataset` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
-                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
-                remove_version='0.23.0',
-            ),
-        )
         self.choices_key = choices_key
         base_batch = {
             'input_ids': [],
@@ -1129,13 +1109,6 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
     """
 
     def __init__(self, choices_key='context_options', *args, **kwargs):
-        warnings.warn(
-            VersionedDeprecationWarning(
-                '`InContextLearningSchemaTaskDataset` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
-                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
-                remove_version='0.23.0',
-            ),
-        )
         static_keys = ['mode']
         tensor_keys = ['input_ids', 'labels', 'attention_mask']
         list_of_tensors_keys = ['continuation_indices']
@@ -1330,13 +1303,6 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         *args,
         **kwargs,
     ):
-        warnings.warn(
-            VersionedDeprecationWarning(
-                '`InContextLearningCodeEvalDataset` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
-                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
-                remove_version='0.23.0',
-            ),
-        )
         if isinstance(pass_at_k, int):
             pass_at_k = [pass_at_k]
         if generations_per_sample < max(pass_at_k):
@@ -1525,13 +1491,6 @@ def build_icl_dataloader(
             this might be different)
         3. set the `split_batch` funciton if necessary
     """
-    warnings.warn(
-        VersionedDeprecationWarning(
-            '`build_icl_dataloader` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
-            + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
-            remove_version='0.23.0',
-        ),
-    )
     if icl_task_type == 'multiple_choice':
         dataset = InContextLearningMultipleChoiceTaskDataset(
             dataset_uri=dataset_uri,
@@ -1677,13 +1636,6 @@ def partition_dataset_by_category(
     Returns:
         Dict[str, str]: Mapping of category names to partitioned dataset local files names.
     """
-    warnings.warn(
-        VersionedDeprecationWarning(
-            '`partition_dataset_by_category` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
-            + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
-            remove_version='0.23.0',
-        ),
-    )
     try:
         from datasets import Dataset as HFDataset  # pyright: ignore[reportGeneralTypeIssues]
         from datasets import IterableDataset, load_dataset  # pyright: ignore[reportGeneralTypeIssues]
@@ -1837,13 +1789,6 @@ def get_icl_task_dataloader(
     Returns:
         DataLoader: A dataloader used for performing in-context learning evaluation on the dataset provided.
     """
-    warnings.warn(
-        VersionedDeprecationWarning(
-            '`get_icl_task_dataloader` has been deprecated and migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
-            + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
-            remove_version='0.23.0',
-        ),
-    )
     if hf_loading_vars is None:
         hf_loading_vars = {}
     if hf_parsing_map is None:
