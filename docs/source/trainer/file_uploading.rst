@@ -170,6 +170,7 @@ Neptune File upload
 
 .. testcode::
     :skipif: not _NEPTUNE_INSTALLED
+
     from composer.loggers import NeptuneLogger
     from composer import Trainer
 

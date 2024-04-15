@@ -43,6 +43,7 @@ and also saves them to the file
 
 .. testcode::
     :skipif: not _WANDB_INSTALLED or not _COMETML_INSTALLED or not _NEPTUNE_INSTALLED
+
     from composer import Trainer
     from composer.loggers import WandBLogger, CometMLLogger, MLFlowLogger, NeptuneLogger, FileLogger
 
