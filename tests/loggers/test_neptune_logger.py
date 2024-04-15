@@ -189,7 +189,6 @@ def test_neptune_log_image_warns_about_improper_value_range(test_neptune_logger)
     image = np.ones((4, 4)) * 300
     with pytest.warns() as record:
         test_neptune_logger.log_images(images=image)
-
     assert 'Image value range is not in the expected range of [0.0, 1.0] or [0, 255].' in str(record[0].message)
 
 
