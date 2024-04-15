@@ -190,6 +190,37 @@ def test_mlflow_experiment_init_existing_composer_run(monkeypatch):
     assert test_logger._run_id == existing_id
 
 
+def test_mlflow_logger_uses_env_var_run_name(monkeypatch):
+    """Test that MLFlowLogger uses the 'RUN_NAME' environment variable if set."""
+    mlflow = pytest.importorskip('mlflow')
+    monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
+    monkeypatch.setattr(mlflow, 'start_run', MagicMock())
+
+    mock_state = MagicMock()
+    mock_state.run_name = 'state-run-name'
+    env_var_run_name = 'env-run-name'
+    monkeypatch.setenv('RUN_NAME', env_var_run_name)
+
+    logger = MLFlowLogger()
+    logger.init(state=mock_state, logger=MagicMock())
+    assert logger.tags['run_name'] == env_var_run_name, "Logger should use the run name from the environment variable."
+    monkeypatch.delenv('RUN_NAME')
+
+
+def test_mlflow_logger_uses_state_run_name_if_no_env_var_set(monkeypatch):
+    """Test that MLFlowLogger uses the state's run name if no 'RUN_NAME' environment variable is set."""
+    mlflow = pytest.importorskip('mlflow')
+    monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
+    monkeypatch.setattr(mlflow, 'start_run', MagicMock())
+
+    mock_state = MagicMock()
+    mock_state.run_name = 'state-run-name'
+
+    logger = MLFlowLogger()
+    logger.init(state=mock_state, logger=MagicMock())
+    assert logger.tags['run_name'] == 'state-run-name', "Logger should fallback to the state's run name when no environment variable is set."
+
+
 def test_mlflow_experiment_init_existing_composer_run_with_old_tag(monkeypatch):
     """ Test that an existing MLFlow run is used if one exists with the old `composer_run_name` tag.
     """
