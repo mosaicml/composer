@@ -203,7 +203,5 @@ def test_neptune_log_image_scales_improper_image(mock_scale_img, test_neptune_lo
 
     for image in image_variants:
         test_neptune_logger.log_images(images=image)
-
         mock_scale_img.assert_called_once()
-
         mock_scale_img.reset_mock()
