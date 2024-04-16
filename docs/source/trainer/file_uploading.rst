@@ -168,6 +168,12 @@ Neptune File upload
 
     The :class:`~composer.loggers.neptune_logger.NeptuneLogger` API Reference.
 
+.. testsetup::
+
+    import warnings
+
+    warnings.filterwarnings(action="ignore", message=".*NVML Shared Library Not Found.*")
+
 .. testcode::
     :skipif: not _NEPTUNE_INSTALLED
 
