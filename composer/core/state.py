@@ -1255,7 +1255,7 @@ class State(Serializable):
                     i = 0
                     for name, p in state_dict['model'].items():
                         if 'ffn' in name:
-                            print(f"bigning debug after verify param {name}, shape = {p.shape}")
+                            print(f"bigning debug rank {torch.distributed.get_rank()} after verify param {name}, shape = {p.shape}, local tensor shape: {p._local_tensor.shape}")
                             i += 1
                         if i > 20:
                             break

@@ -1377,7 +1377,7 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
         print()
 
         if torch.distributed.get_rank() % 8 == 0 or torch.distributed.get_rank() % 8 == 7:
-            print(f"bigning debug {torch.distributed.get_rank()} to_replicate_tensor input {size=}, {mesh=}, {mesh_dim=}, {chunk_sizes=}, {pad_sizes=}, {is_padded=}, {my_coordinate[mesh_dim]=} , {mesh_dim=}")
+            print(f"bigning debug {torch.distributed.get_rank()} to_replicate_tensor input {size=}, {mesh=}, {mesh_dim=}, {chunk_sizes=}, {pad_sizes=}, {is_padded=}, {my_coordinate[mesh_dim]=} , {mesh_dim=}, {my_coordinate=}, {local_tensor.shape=}")
 
         pad_size = pad_sizes[my_coordinate[mesh_dim]]
         if pad_size > 0:
