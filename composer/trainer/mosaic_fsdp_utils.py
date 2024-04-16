@@ -1300,9 +1300,10 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
                         else _all_gather_dtensor
                     )
                     import inspect
-                    print(f"bigning debug {fsdp_extension=}, {inspect.getsource(all_gather_dtensor_fn)}")
 
-                    return all_gather_dtensor_fn(tensor, parent_mesh)
+                    t = all_gather_dtensor_fn(tensor, parent_mesh)
+                    print(f"bigning debug {fsdp_extension=}, {inspect.getsource(all_gather_dtensor_fn)}, before all_gather_shape: {tensor.shape}, after {t.shape}")
+                    return t
 
                 parent_mesh = _mesh_resources.get_parent_mesh(fsdp_state._device_mesh)
                 local_tensor = _my_ext_all_gather_dtensor(
