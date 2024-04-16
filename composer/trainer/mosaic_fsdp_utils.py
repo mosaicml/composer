@@ -1373,13 +1373,19 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
         ]
         pad_sizes = [full_chunk_size - chunk_size for chunk_size in chunk_sizes]
         is_padded = size[self.dim] % num_chunks != 0
+        print()
+        print()
 
         if torch.distributed.get_rank() % 8 == 0 or torch.distributed.get_rank() % 8 == 7:
-            print(f"bigning debug {torch.distributed.get_rank()} to_replicate_tensor input {size=}, {mesh=}, {mesh_dim=}, {chunk_sizes=}, {pad_sizes=}, {is_padded=} ")
+            print(f"bigning debug {torch.distributed.get_rank()} to_replicate_tensor input {size=}, {mesh=}, {mesh_dim=}, {chunk_sizes=}, {pad_sizes=}, {is_padded=}, {my_coordinate[mesh_dim]=} , {mesh_dim=}")
 
         pad_size = pad_sizes[my_coordinate[mesh_dim]]
         if pad_size > 0:
+            if torch.distributed.get_rank() % 8 == 0 or torch.distributed.get_rank() % 8 == 7:
+                print(f"bigning debug {torch.distributed.get_rank()} to_replicate_tensor before pad {local_tensor.shape=} ")
             local_tensor = self._pad_tensor(local_tensor, pad_size)
+            if torch.distributed.get_rank() % 8 == 0 or torch.distributed.get_rank() % 8 == 7:
+                print(f"bigning debug {torch.distributed.get_rank()} to_replicate_tensor after pad {local_tensor.shape=} {pad_size=}")
         local_tensor = local_tensor.contiguous()
 
         result = funcol.all_gather_tensor(
@@ -1388,7 +1394,7 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
             group=(mesh, mesh_dim),
         )
         if torch.distributed.get_rank() % 8 == 0 or torch.distributed.get_rank() % 8 == 7:
-            print(f"bigning debug {torch.distributed.get_rank()} to_replicate_tensor {pad_size=}, {pad_sizes=},  before pad result shape: {result.shape=}")
+            print(f"bigning debug {torch.distributed.get_rank()} to_replicate_tensor {pad_size=}, {pad_sizes=},  before pad result shape: {result.shape=}, {local_tensor.shape=}")
 
         # Unpad the tensor if the input tensor was padded
         if is_padded:
