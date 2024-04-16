@@ -1374,7 +1374,7 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
         pad_sizes = [full_chunk_size - chunk_size for chunk_size in chunk_sizes]
         is_padded = size[self.dim] % num_chunks != 0
 
-        if torch.distributed.get_rank() % 8 == 0 torch.distributed.get_rank() % 8 == 7:
+        if torch.distributed.get_rank() % 8 == 0 or torch.distributed.get_rank() % 8 == 7:
             print(f"bigning debug {torch.distributed.get_rank()} to_replicate_tensor input {size=}, {mesh=}, {mesh_dim=}, {chunk_sizes=}, {pad_sizes=}, {is_padded=} ")
 
         pad_size = pad_sizes[my_coordinate[mesh_dim]]
@@ -1387,14 +1387,14 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
             gather_dim=self.dim,
             group=(mesh, mesh_dim),
         )
-        if torch.distributed.get_rank() % 8 == 0 torch.distributed.get_rank() % 8 == 7:
+        if torch.distributed.get_rank() % 8 == 0 or torch.distributed.get_rank() % 8 == 7:
             print(f"bigning debug {torch.distributed.get_rank()} to_replicate_tensor {pad_size=}, {pad_sizes=},  before pad result shape: {result.shape=}")
 
         # Unpad the tensor if the input tensor was padded
         if is_padded:
             full_pad_size = sum(pad_sizes)
             result = self._unpad_tensor(result, full_pad_size)
-        if torch.distributed.get_rank() % 8 == 0 torch.distributed.get_rank() % 8 == 7:
+        if torch.distributed.get_rank() % 8 == 0 or torch.distributed.get_rank() % 8 == 7:
             print(f"bigning debug {torch.distributed.get_rank()} to_replicate_tensor {pad_size=}, {pad_sizes=}, , after pad result shape: {result.shape=}")
         return result
 
