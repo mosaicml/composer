@@ -214,7 +214,7 @@ def test_mlflow_logger_uses_env_var_run_name(monkeypatch, mock_mlflow_client):
     test_logger.init(state=mock_state, logger=MagicMock())
 
     assert test_logger.tags is not None
-    assert test_logger.tags['run_name'] == 'env-run-name', "Logger should use the run name from the environment variable."
+    assert test_logger.tags['run_name'] == 'env-run-name'
     monkeypatch.delenv('RUN_NAME')
 
 
