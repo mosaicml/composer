@@ -193,11 +193,14 @@ def test_mlflow_experiment_init_existing_composer_run(monkeypatch):
 def test_mlflow_logger_uses_env_var_run_name(monkeypatch):
     """Test that MLFlowLogger uses the 'RUN_NAME' environment variable if set."""
     mlflow = pytest.importorskip('mlflow')
+
     monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
     monkeypatch.setattr(mlflow, 'start_run', MagicMock())
 
     mock_state = MagicMock()
     mock_state.composer_run_name = 'dummy-run-name'
+    mock_search_runs = MagicMock(return_value=[MagicMock(info=MagicMock())])
+    monkeypatch.setattr(mlflow, 'search_runs', mock_search_runs)
     monkeypatch.setenv('RUN_NAME', 'env-run-name')
 
     test_logger = MLFlowLogger()
@@ -209,11 +212,14 @@ def test_mlflow_logger_uses_env_var_run_name(monkeypatch):
 def test_mlflow_logger_uses_state_run_name_if_no_env_var_set(monkeypatch):
     """Test that MLFlowLogger uses the state's run name if no 'RUN_NAME' environment variable is set."""
     mlflow = pytest.importorskip('mlflow')
+
     monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
     monkeypatch.setattr(mlflow, 'start_run', MagicMock())
 
     mock_state = MagicMock()
     mock_state.composer_run_name = 'dummy-run-name'
+    mock_search_runs = MagicMock(return_value=[MagicMock(info=MagicMock())])
+    monkeypatch.setattr(mlflow, 'search_runs', mock_search_runs)
 
     test_logger = MLFlowLogger()
     test_logger.init(state=mock_state, logger=MagicMock())
