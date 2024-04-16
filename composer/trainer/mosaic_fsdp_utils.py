@@ -1385,7 +1385,7 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
             group=(mesh, mesh_dim),
         )
         if torch.distributed.get_rank() % 8 == 0:
-            print(f"bigning debug to_replicate_tensor {pad_size=}, {pad_sizes=}, {full_pad_size=}, before pad result shape: {result.shape=}")
+            print(f"bigning debug to_replicate_tensor {pad_size=}, {pad_sizes=},  before pad result shape: {result.shape=}")
 
         # Unpad the tensor if the input tensor was padded
         if is_padded:
