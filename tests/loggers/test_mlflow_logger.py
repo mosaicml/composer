@@ -204,7 +204,7 @@ def test_mlflow_logger_uses_env_var_run_name(monkeypatch, mock_mlflow_client):
 
     monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
     monkeypatch.setattr(mlflow, 'start_run', MagicMock())
-    
+
     from composer.loggers.mlflow_logger import MLFlowLogger
     mock_state = MagicMock()
     mock_state.run_name = 'dummy-run-name'
