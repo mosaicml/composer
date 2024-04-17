@@ -1329,7 +1329,7 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
                             spec.placements,
                             run_check=False,
                             shape=spec.shape,
-                            stride=spec.stride,
+                            stride=spec.tensor_meta.stride,
                         )
                         print(f"bigning debug my unflatten_tensor")
                         if tensor.requires_grad:
