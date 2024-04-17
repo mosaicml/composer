@@ -659,30 +659,6 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
     from torch.distributed.tensor.parallel.fsdp import DTensorExtensions
 
     ###############################
-    @no_type_check
-    def _unflatten_tensor(tensor, spec, *, device_handle=None, compute_stream=None):
-        # unflatten would mainly be called everytime FSDP allgather parameters.
-        result = DTensor.from_local(
-            tensor,
-            spec.mesh,
-            spec.placements,
-            run_check=False,
-            shape=spec.shape,
-            stride=spec.stride,
-        )
-        print(f"bigning debug my unflatten_tensor")
-        if tensor.requires_grad:
-            # only register the hook if the tensor requires grad
-            tensor.register_hook(
-                partial(
-                    sync_grad_hook,
-                    device_handle=device_handle,
-                    compute_stream=compute_stream,
-                )
-            )
-        return result
-    from torch.distributed.tensor.parallel import _data_parallel_utils
-    _data_parallel_utils._unflatten_tensor = _unflatten_tensor
     ######################################
 
     def all_gather_dtensor_t2p3p0(
@@ -1343,6 +1319,50 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
                     
                     ext = fqn_to_param_ext[fqn]
 
+
+                    @no_type_check
+                    def _unflatten_tensor(tensor, spec, *, device_handle=None, compute_stream=None):
+                        # unflatten would mainly be called everytime FSDP allgather parameters.
+                        result = DTensor.from_local(
+                            tensor,
+                            spec.mesh,
+                            spec.placements,
+                            run_check=False,
+                            shape=spec.shape,
+                            stride=spec.stride,
+                        )
+                        print(f"bigning debug my unflatten_tensor")
+                        if tensor.requires_grad:
+                            # only register the hook if the tensor requires grad
+                            tensor.register_hook(
+                                partial(
+                                    sync_grad_hook,
+                                    device_handle=device_handle,
+                                    compute_stream=compute_stream,
+                                )
+                            )
+                        return result
+
+                    from torch.distributed.fsdp._common_utils import _set_fsdp_flattened
+                    def post_unflatten_transform(
+                        self, tensor: torch.Tensor, param_extension: Any
+                    ) -> torch.Tensor:
+                        stream = self.compute_stream or self.device_handle.current_stream()
+                        with self.device_handle.stream(stream):
+                            # runtime we put the unflattened tensor call on the compute stream since
+                            # the unflattened tensor might contain computations in fwd/bwd where we
+                            # need to sync properly.
+                            # TODO: this is a short term fix and we should make the get_unflat_views
+                            # directly happen in the compute stream.
+                            result = _unflatten_tensor(
+                                tensor,
+                                param_extension,
+                                device_handle=self.device_handle,
+                                compute_stream=self.compute_stream
+                            )
+                            _set_fsdp_flattened(result)
+                            return result
+
                     def _my_ext_post_unflatten_transform(
                         tensor,
                         param_extension,
@@ -1351,8 +1371,9 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
                         import inspect
 
                         if fsdp_extension is not None and param_extension is not None:
-                            print(f"bigning debug post unflatten transform: {inspect.getsource(fsdp_extension.post_unflatten_transform)}")
-                            return fsdp_extension.post_unflatten_transform(tensor, param_extension)
+                            print(f"bigning debug post unflatten transform: {inspect.getsource(fsdp_extension.post_unflatten_transform)}, {param_extension=}")
+                            #fsdp_extension.post_unflatten_transform = post_unflatten_transform
+                            return post_unflatten_transform(fsdp_extension, tensor, param_extension)
                         print(f"bigning debug just return tensor")
                         return tensor
 
