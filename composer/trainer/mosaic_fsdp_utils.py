@@ -658,6 +658,33 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
     from torch.distributed.fsdp.wrap import CustomPolicy, ModuleWrapPolicy, _Policy
     from torch.distributed.tensor.parallel.fsdp import DTensorExtensions
 
+    ###############################
+    @no_type_check
+    def _unflatten_tensor(tensor, spec, *, device_handle=None, compute_stream=None):
+        # unflatten would mainly be called everytime FSDP allgather parameters.
+        result = DTensor.from_local(
+            tensor,
+            spec.mesh,
+            spec.placements,
+            run_check=False,
+            shape=spec.shape,
+            stride=spec.stride,
+        )
+        print(f"bigning debug my unflatten_tensor")
+        if tensor.requires_grad:
+            # only register the hook if the tensor requires grad
+            tensor.register_hook(
+                partial(
+                    sync_grad_hook,
+                    device_handle=device_handle,
+                    compute_stream=compute_stream,
+                )
+            )
+        return result
+    from torch.distributed.tensor.parallel import _data_parallel_utils
+    _data_parallel_utils._unflatten_tensor = _unflatten_tensor
+    ######################################
+
     def all_gather_dtensor_t2p3p0(
         self,
         tensor: DTensor,
@@ -1419,6 +1446,7 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
             print(f"bigning debug {torch.distributed.get_rank()} to_replicate_tensor {pad_size=}, {pad_sizes=}, , after pad result shape: {result.shape=}")
         return result
 
+
     def redistribute_local_tensor(
         local_tensor: torch.Tensor,
         current_spec: DTensorSpec,
@@ -1525,27 +1553,3 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
     print(f"bigning debug replace redistribute tensor")
     redistribute.redistribute_local_tensor = redistribute_local_tensor
     
-    @no_type_check
-    def _unflatten_tensor(tensor, spec, *, device_handle=None, compute_stream=None):
-        # unflatten would mainly be called everytime FSDP allgather parameters.
-        result = DTensor.from_local(
-            tensor,
-            spec.mesh,
-            spec.placements,
-            run_check=False,
-            shape=spec.shape,
-            stride=spec.stride,
-        )
-        print(f"bigning debug my unflatten_tensor")
-        if tensor.requires_grad:
-            # only register the hook if the tensor requires grad
-            tensor.register_hook(
-                partial(
-                    sync_grad_hook,
-                    device_handle=device_handle,
-                    compute_stream=compute_stream,
-                )
-            )
-        return result
-    from torch.distributed.tensor.parallel import _data_parallel_utils
-    _data_parallel_utils._unflatten_tensor = _unflatten_tensor
