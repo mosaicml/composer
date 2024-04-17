@@ -1315,11 +1315,25 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
                 if fqn_to_param_ext.get(fqn) is not None:
                     
                     ext = fqn_to_param_ext[fqn]
-                    local_tensor = _ext_post_unflatten_transform(
+
+                    def _my_ext_post_unflatten_transform(
+                        tensor,
+                        param_extension,
+                        fsdp_extension,
+                    ) -> torch.Tensor:
+                        import inspect
+
+                        if fsdp_extension is not None and param_extension is not None:
+                            print(f"bigning debug post unflatten transform: {inspect.getsource(fsdp_extension.post_unflatten_transform)}")
+                            return fsdp_extension.post_unflatten_transform(tensor, param_extension)
+                        print(f"bigning debug just return tensor")
+                        return tensor
+
+                    local_tensor = _my_ext_post_unflatten_transform(
                         local_tensor, ext, fsdp_state._fsdp_extension
                     )
                     if 'ffn' in fqn_from_global_root and torch.distributed.get_rank() % 8 == 0:
-                        print(f"bigning debug after _ext_post_unflatten_transform: {param.shape}, after shape: {local_tensor.shape}")
+                        print(f"bigning debug after _ext_post_unflatten_transform: {param.shape}, after shape: {local_tensor.shape}, ")
                 state_dict[fqn_from_global_root] = local_tensor
                 if 'ffn' in fqn_from_global_root and torch.distributed.get_rank() % 8 == 0:
                     print(f"bigning debug before shape: {param.shape}, after shape: {local_tensor.shape}")
