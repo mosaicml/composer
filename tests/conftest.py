@@ -118,9 +118,9 @@ def pytest_configure():
             tiny_gpt2_model_helper,
             tiny_gpt2_tokenizer_helper,
             tiny_llama_tokenizer_helper,
-            tiny_mistral_config_helper,
-            tiny_mistral_model_helper,
-            tiny_mistral_tokenizer_helper,
+            tiny_mpt_config_helper,
+            tiny_mpt_model_helper,
+            tiny_mpt_tokenizer_helper,
             tiny_opt_config_helper,
             tiny_opt_model_helper,
             tiny_opt_tokenizer_helper,
@@ -141,9 +141,9 @@ def pytest_configure():
         pytest.tiny_t5_config = tiny_t5_config_helper()  # type: ignore
         pytest.tiny_t5_model = tiny_t5_model_helper(pytest.tiny_t5_config)  # type: ignore
         pytest.tiny_t5_tokenizer = tiny_t5_tokenizer_helper()  # type: ignore
-        pytest.tiny_mistral_config = tiny_mistral_config_helper()  # type: ignore
-        pytest.tiny_mistral_model = tiny_mistral_model_helper(pytest.tiny_mistral_config)  # type: ignore
-        pytest.tiny_mistral_tokenizer = tiny_mistral_tokenizer_helper()  # type: ignore
+        pytest.tiny_mpt_config = tiny_mpt_config_helper()  # type: ignore
+        pytest.tiny_mpt_model = tiny_mpt_model_helper(pytest.tiny_mpt_config)  # type: ignore
+        pytest.tiny_mpt_tokenizer = tiny_mpt_tokenizer_helper()  # type: ignore
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
