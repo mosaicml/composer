@@ -362,8 +362,7 @@ def test_mlflow_log_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
             'tokenizer': tiny_gpt2_tokenizer,
         },
         artifact_path='my_model',
-        metadata={'task': 'llm/v1/completions'},
-        task='text-generation',
+        task='llm/v1/completions',
     )
     test_mlflow_logger.post_close()
 
@@ -405,8 +404,7 @@ def test_mlflow_save_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
             'tokenizer': tiny_gpt2_tokenizer,
         },
         path=local_mlflow_save_path,
-        metadata={'task': 'llm/v1/completions'},
-        task='text-generation',
+        task='llm/v1/completions',
     )
     test_mlflow_logger.post_close()
 
