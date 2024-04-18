@@ -30,8 +30,8 @@ from tests.common.models import (
     configure_tiny_bert_tokenizer,
     configure_tiny_gpt2_model,
     configure_tiny_gpt2_tokenizer,
-    configure_tiny_mistral_model,
-    configure_tiny_mistral_tokenizer,
+    configure_tiny_mpt_model,
+    configure_tiny_mpt_tokenizer,
     configure_tiny_t5_model,
     configure_tiny_t5_tokenizer,
 )
@@ -59,7 +59,7 @@ def gpt2_peft_config():
     return _gpt2_peft_config()
 
 
-def _mistral_peft_config():
+def _mpt_peft_config():
     pytest.importorskip('peft')
     from peft import get_peft_config
 
@@ -72,8 +72,8 @@ def _mistral_peft_config():
 
 
 @pytest.fixture
-def mistral_peft_config():
-    return _mistral_peft_config()
+def mpt_peft_config():
+    return _mpt_peft_config()
 
 
 def test_hf_tokenizer_save(tmp_path: Path, tiny_bert_model, tiny_bert_tokenizer):
@@ -1422,7 +1422,7 @@ def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_c
     'model,tokenizer,peft_config',
     [
         (configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer, _gpt2_peft_config()),
-        (configure_tiny_mistral_model, configure_tiny_mistral_tokenizer, _mistral_peft_config()),
+        (configure_tiny_mpt_model, configure_tiny_mpt_tokenizer, _mpt_peft_config()),
     ],
 )
 def test_peft_generate(model, tokenizer, peft_config):

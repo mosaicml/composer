@@ -651,32 +651,32 @@ def configure_tiny_t5_hf_model(use_logits: bool = True) -> HuggingFaceModel:
     return HuggingFaceModel(configure_tiny_t5_model(), configure_tiny_t5_tokenizer(), use_logits)
 
 
-def configure_tiny_mistral_model() -> 'PreTrainedModel':
+def configure_tiny_mpt_model() -> 'PreTrainedModel':
     try:
         from transformers import PreTrainedModel
-        assert isinstance(pytest.tiny_mistral_model, PreTrainedModel)
-        return copy.deepcopy(pytest.tiny_mistral_model)
+        assert isinstance(pytest.tiny_mpt_model, PreTrainedModel)
+        return copy.deepcopy(pytest.tiny_mpt_model)
     except AttributeError:
         pytest.skip('Composer installed without NLP support')
 
 
-def configure_tiny_mistral_tokenizer() -> Union['PreTrainedTokenizer', 'PreTrainedTokenizerFast']:
+def configure_tiny_mpt_tokenizer() -> Union['PreTrainedTokenizer', 'PreTrainedTokenizerFast']:
     try:
         from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
-        assert isinstance(pytest.tiny_mistral_tokenizer, (PreTrainedTokenizer, PreTrainedTokenizerFast))
-        return copy.deepcopy(pytest.tiny_mistral_tokenizer)
+        assert isinstance(pytest.tiny_mpt_tokenizer, (PreTrainedTokenizer, PreTrainedTokenizerFast))
+        return copy.deepcopy(pytest.tiny_mpt_tokenizer)
     except AttributeError:
         pytest.skip('Composer installed without NLP support')
 
 
-def configure_tiny_mistral_config() -> 'PretrainedConfig':
+def configure_tiny_mpt_config() -> 'PretrainedConfig':
     try:
         from transformers import PretrainedConfig
-        assert isinstance(pytest.tiny_mistral_config, PretrainedConfig)
-        return copy.deepcopy(pytest.tiny_mistral_config)
+        assert isinstance(pytest.tiny_mpt_config, PretrainedConfig)
+        return copy.deepcopy(pytest.tiny_mpt_config)
     except AttributeError:
         pytest.skip('Composer installed without NLP support')
 
 
-def configure_tiny_mistral_hf_model(use_logits: bool = True) -> HuggingFaceModel:
-    return HuggingFaceModel(configure_tiny_mistral_model(), configure_tiny_mistral_tokenizer(), use_logits)
+def configure_tiny_mpt_hf_model(use_logits: bool = True) -> HuggingFaceModel:
+    return HuggingFaceModel(configure_tiny_mpt_model(), configure_tiny_mpt_tokenizer(), use_logits)
