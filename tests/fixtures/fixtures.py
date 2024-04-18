@@ -337,11 +337,10 @@ def tiny_mpt_config_helper():
     transformers = pytest.importorskip('transformers')
 
     tiny_overrides = {
-        'hidden_size': 128,
-        'intermediate_size': 256,
-        'num_attention_heads': 8,
-        'num_hidden_layers': 2,
-        'num_kv_heads': 4,
+        'd_model': 128,
+        'expansion_ratio': 1,
+        'n_heads': 8,
+        'n_layers': 2,
     }
     return transformers.AutoConfig.from_pretrained('mosaicml/mpt-7b', **tiny_overrides)
 
