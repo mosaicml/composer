@@ -686,6 +686,7 @@ def test_mlflow_log_image_works(tmp_path, device):
         def before_forward(self, state: State, logger: Logger):
             inputs = state.batch_get_item(key=0)
             images = inputs.data.cpu().numpy()
+            images = np.clip(images, 0, 1)
             logger.log_images(images, step=state.timestamp.batch.value)
             with pytest.warns(UserWarning):
                 logger.log_images(
