@@ -362,8 +362,7 @@ def test_mlflow_log_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
             'tokenizer': tiny_gpt2_tokenizer,
         },
         artifact_path='my_model',
-        metadata={'task': 'llm/v1/completions'},
-        task='text-generation',
+        task='llm/v1/completions',
     )
     test_mlflow_logger.post_close()
 
@@ -405,8 +404,7 @@ def test_mlflow_save_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
             'tokenizer': tiny_gpt2_tokenizer,
         },
         path=local_mlflow_save_path,
-        metadata={'task': 'llm/v1/completions'},
-        task='text-generation',
+        task='llm/v1/completions',
     )
     test_mlflow_logger.post_close()
 
@@ -418,16 +416,16 @@ def test_mlflow_save_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
 
 @pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
 @pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
-def test_mlflow_save_peft_model(tmp_path, tiny_mistral_model, tiny_mistral_tokenizer):
+def test_mlflow_save_peft_model(tmp_path, tiny_mpt_model, tiny_mpt_tokenizer):
     mlflow = pytest.importorskip('mlflow')
     peft = pytest.importorskip('peft')
 
     # Reload just so the model has the update base model name
-    tiny_mistral_model.save_pretrained(tmp_path / Path('tiny_mistral_save_pt'))
-    tiny_mistral_model = tiny_mistral_model.from_pretrained(tmp_path / Path('tiny_mistral_save_pt'))
+    tiny_mpt_model.save_pretrained(tmp_path / Path('tiny_mpt_save_pt'))
+    tiny_mpt_model = tiny_mpt_model.from_pretrained(tmp_path / Path('tiny_mpt_save_pt'))
 
     peft_config = {'peft_type': 'LORA'}
-    peft_model = peft.get_peft_model(tiny_mistral_model, peft.get_peft_config(peft_config))
+    peft_model = peft.get_peft_model(tiny_mpt_model, peft.get_peft_config(peft_config))
 
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
     mlflow_exp_name = 'test-log-model-exp-name'
@@ -441,7 +439,7 @@ def test_mlflow_save_peft_model(tmp_path, tiny_mistral_model, tiny_mistral_token
     mock_logger = MagicMock()
 
     peft_model.save_pretrained(tmp_path / Path('peft_model_save_pt'))
-    tiny_mistral_tokenizer.save_pretrained(tmp_path / Path('peft_model_save_pt'))
+    tiny_mpt_tokenizer.save_pretrained(tmp_path / Path('peft_model_save_pt'))
 
     local_mlflow_save_path = str(tmp_path / Path('my_model_local'))
     test_mlflow_logger.init(state=mock_state, logger=mock_logger)
@@ -454,8 +452,8 @@ def test_mlflow_save_peft_model(tmp_path, tiny_mistral_model, tiny_mistral_token
 
     loaded_model = mlflow.pyfunc.load_model(local_mlflow_save_path).unwrap_python_model()
 
-    check_hf_model_equivalence(loaded_model.model, tiny_mistral_model)
-    check_hf_tokenizer_equivalence(loaded_model.tokenizer, tiny_mistral_tokenizer)
+    check_hf_model_equivalence(loaded_model.model, tiny_mpt_model)
+    check_hf_tokenizer_equivalence(loaded_model.tokenizer, tiny_mpt_tokenizer)
 
 
 @pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
@@ -688,6 +686,7 @@ def test_mlflow_log_image_works(tmp_path, device):
         def before_forward(self, state: State, logger: Logger):
             inputs = state.batch_get_item(key=0)
             images = inputs.data.cpu().numpy()
+            images = np.clip(images, 0, 1)
             logger.log_images(images, step=state.timestamp.batch.value)
             with pytest.warns(UserWarning):
                 logger.log_images(
