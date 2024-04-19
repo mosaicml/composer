@@ -409,9 +409,9 @@ def _validate_evaluator(evaluator: Evaluator, device: Device):
     if hasattr(
         evaluator.dataloader,
         'seq_parallel_world_size',
-    ) and evaluator.dataloader.seq_parallel_world_size > 1 and abs(
-        evaluator.dataloader.device_eval_batch_size * evaluator.dataloader.seq_parallel_world_size - 1,
-    ) > 1e-4:  # type: ignore
+    ) and evaluator.dataloader.seq_parallel_world_size > 1 and abs(  # type: ignore
+        evaluator.dataloader.device_eval_batch_size * evaluator.dataloader.seq_parallel_world_size - 1,  # type: ignore
+    ) > 1e-4:
         raise ValueError(
             'Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
         )
@@ -1128,9 +1128,9 @@ class Trainer:
         if train_dataloader is not None and hasattr(
             train_dataloader,
             'seq_parallel_world_size',
-        ) and train_dataloader.seq_parallel_world_size > 1 and abs(
-            device_train_microbatch_size * train_dataloader.seq_parallel_world_size - 1,
-        ) > 1e-4:  # type: ignore
+        ) and train_dataloader.seq_parallel_world_size > 1 and abs( # type: ignore
+            device_train_microbatch_size * train_dataloader.seq_parallel_world_size - 1, # type: ignore
+        ) > 1e-4:
             raise ValueError(
                 '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
             )
@@ -2185,9 +2185,9 @@ class Trainer:
             if train_dataloader is not None and hasattr(
                 train_dataloader,
                 'seq_parallel_world_size',
-            ) and train_dataloader.seq_parallel_world_size > 1 and abs(
-                device_train_microbatch_size * train_dataloader.seq_parallel_world_size - 1,
-            ) > 1e-4:  # type: ignore
+            ) and train_dataloader.seq_parallel_world_size > 1 and abs(  # type: ignore
+                device_train_microbatch_size * train_dataloader.seq_parallel_world_size - 1, # type: ignore
+            ) > 1e-4:
                 raise ValueError(
                     '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
                 )
