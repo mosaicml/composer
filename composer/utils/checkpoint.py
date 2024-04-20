@@ -626,7 +626,7 @@ def load_sharded_checkpoint(
             else:
                 cur_state_dict = state.state_dict()
                 # For older versions of torch, we load optimizer separately.
-                if version.parse(torch.__version__) < version.parse('2.4.0'):
+                if version.parse(torch.__version__) < version.parse('2.2.9'):
                     cur_state_dict.pop('optimizers')
                 num_rng_ranks = _get_num_ranks_that_saved_rng(storage_reader.read_metadata())
                 state_dict: Dict[str, Any] = {
@@ -669,7 +669,7 @@ def load_sharded_checkpoint(
 
             # 2. Optionally load optimizer
             # if we are using later than 2.2.9 then optimizer will already be loaded
-            if version.parse(torch.__version__) < version.parse('2.4.0') and not load_weights_only:
+            if version.parse(torch.__version__) < version.parse('2.2.9') and not load_weights_only:
                 optim_state = load_sharded_optimizer_state_dict(
                     model_state_dict=state.state_dict()['model'],
                     optimizer_key='optimizers',
