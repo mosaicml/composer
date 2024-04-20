@@ -643,7 +643,7 @@ def load_sharded_checkpoint(
                 # Ensure state exists
                 state_dict['state'] = state_dict.get('state', {})
 
-            if version.parse(torch.__version__) > version.parse('2.4.0'):
+            if version.parse(torch.__version__) > version.parse('2.2.9'):
                 dist_cp.load(  # type: ignore
                     state_dict=state_dict,
                     storage_reader=storage_reader,
@@ -1109,7 +1109,7 @@ def _save_checkpoint(
             expect_file = True
 
         if expect_file:
-            if version.parse(torch.__version__) > version.parse('2.4.0'):
+            if version.parse(torch.__version__) > version.parse('2.2.9'):
                 dist_cp.save(  # type: ignore
                     state_dict=state_dict,
                     storage_writer=dist_cp.FileSystemWriter(dirname),
