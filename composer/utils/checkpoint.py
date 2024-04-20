@@ -626,7 +626,7 @@ def load_sharded_checkpoint(
             else:
                 cur_state_dict = state.state_dict()
                 # For older versions of torch, we load optimizer separately.
-                if version.parse(torch.__version__) < version.parse('2.2.9'):
+                if version.parse(torch.__version__) < version.parse('2.4.0'):
                     cur_state_dict.pop('optimizers')
                 num_rng_ranks = _get_num_ranks_that_saved_rng(storage_reader.read_metadata())
                 state_dict: Dict[str, Any] = {
@@ -643,7 +643,7 @@ def load_sharded_checkpoint(
                 # Ensure state exists
                 state_dict['state'] = state_dict.get('state', {})
 
-            if version.parse(torch.__version__) > version.parse('2.2.9'):
+            if version.parse(torch.__version__) > version.parse('2.4.0'):
                 dist_cp.load(  # type: ignore
                     state_dict=state_dict,
                     storage_reader=storage_reader,
@@ -669,7 +669,7 @@ def load_sharded_checkpoint(
 
             # 2. Optionally load optimizer
             # if we are using later than 2.2.9 then optimizer will already be loaded
-            if version.parse(torch.__version__) < version.parse('2.2.9') and not load_weights_only:
+            if version.parse(torch.__version__) < version.parse('2.4.0') and not load_weights_only:
                 optim_state = load_sharded_optimizer_state_dict(
                     model_state_dict=state.state_dict()['model'],
                     optimizer_key='optimizers',
@@ -1072,7 +1072,7 @@ def _save_checkpoint(
         # requires a top level state dict key for the optimizer.
         # See https://github.com/pytorch/pytorch/blob/v2.0.1/torch/distributed/checkpoint/optimizer.py#L271
         # for more info.
-        if version.parse(torch.__version__) < version.parse('2.2.9'):
+        if version.parse(torch.__version__) < version.parse('2.4.0'):
             state_dict['optimizers'] = state_dict['state'].pop('optimizers')
 
     log.debug('State dict created.')
@@ -1109,7 +1109,7 @@ def _save_checkpoint(
             expect_file = True
 
         if expect_file:
-            if version.parse(torch.__version__) > version.parse('2.2.9'):
+            if version.parse(torch.__version__) > version.parse('2.4.0'):
                 dist_cp.save(  # type: ignore
                     state_dict=state_dict,
                     storage_writer=dist_cp.FileSystemWriter(dirname),
