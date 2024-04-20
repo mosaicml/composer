@@ -72,6 +72,7 @@ def patch_pytorch():
         _optim_utils._shard_orig_param_state = _shard_orig_param_state
 
     elif version.parse(torch.__version__) < version.parse('2.3.1'):
+        pass
         # Monkey patch for torch < 2.3.1 ie torch == 2.3.0
         # Note: this is the same patch as 2.2.0, we are just making a new if branch
         # for clarity and modularity of changes.
