@@ -72,23 +72,11 @@ def _get_torch_dtype(dtype: Union[Precision, str]):
     elif dtype in ['bfloat16', 'bfloat', 'torch.bfloat16', 'bf16', 'amp_bf16']:
         return torch.bfloat16
     elif dtype in ['float8', 'torch.float8', 'fp8', 'amp_fp8', 'fp8e4m3', 'float8_e4m3', 'float8_e4m3fn', 'fp8e5m2', 'float8_e5m2']:
-        if not hasattr(torch, 'float8_e5m2'):
-            raise NotImplementedError('Torch has not enabled float8 yet.')
+        if hasattr(torch, 'float8'):
+            raise NotImplementedError('Torch has enabled float8. This should be updated to `return torch.float8`')
         else:
-            if dtype in ['float8', 'torch.float8', 'fp8']:
-                raise ValueError("Please be more specific about the fp8 dtype you want to use. Specify one of 'fp8e4m3', 'float8_e4m3', 'float8_e4m3fn', 'fp8e5m2', 'float8_e5m2'.")
-            else:
-                if dtype in ['fp8e4m3', 'float8_e4m3', 'float8_e4m3fn']:
-                    return torch.float8_e4m3fn
-                elif dtype in ['fp8e5m2', 'float8_e5m2']:
-                    return torch.float8_e5m2
-                else:
-                    raise ValueError(f'Not sure how to convert dtype={dtype} to a torch dtype.')
-        # if hasattr(torch, 'float8'):
-        #     raise NotImplementedError('Torch has enabled float8. This should be updated to `return torch.float8`')
-        # else:
-        #     warnings.warn('We use torch.bfloat16 by default for amp_fp8 as there is no fp8 datatype in PyTorch yet.')
-        #     return torch.bfloat16
+            warnings.warn('We use torch.bfloat16 by default for amp_fp8 as there is no fp8 datatype in PyTorch yet.')
+            return torch.bfloat16
     else:
         raise ValueError(f'Not sure how to convert dtype={dtype} to a torch dtype.')
 
