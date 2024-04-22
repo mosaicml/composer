@@ -1069,7 +1069,8 @@ def _save_checkpoint(
         # requires a top level state dict key for the optimizer.
         # See https://github.com/pytorch/pytorch/blob/v2.0.1/torch/distributed/checkpoint/optimizer.py#L271
         # for more info.
-        state_dict['optimizers'] = state_dict['state'].pop('optimizers')
+        # TODO: test if commenting this out works or not
+        #state_dict['optimizers'] = state_dict['state'].pop('optimizers')
 
     log.debug('State dict created.')
     dirname = os.path.dirname(save_filename)
