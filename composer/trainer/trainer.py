@@ -2539,7 +2539,7 @@ class Trainer:
             'time/batch_in_epoch': self.state.timestamp.batch_in_epoch.value,
             'time/sample_in_epoch': self.state.timestamp.sample_in_epoch.value,
         })
-        if self.state.previous_timestamp is not None and self.state.timestamp.token.value - self.state.previous_timestamp.token.value > 0:
+        if self.state.timestamp.token.value > 0:
             self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
             self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
 
