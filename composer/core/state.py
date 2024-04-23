@@ -1128,7 +1128,8 @@ class State(Serializable):
         Args:
             state_dict (Dict[str, Any]): The state to load.
         """
-        serialized_value = state_dict['optimizers']
+        #serialized_value = state_dict['optimizers']
+        serialized_value = state_dict['state'].pop('optimizers')
         for optimizer in ensure_tuple(self.optimizers):
             # Broadcast compatibility check as monolith rank 0 only loads won't have optimizer on all ranks
             skip_optimizer_load = 1 if serialized_value is not None and type(
@@ -1292,17 +1293,17 @@ class State(Serializable):
             strict (bool): Whether the keys (i.e., optimizer parameter names) in the optimizer
                 state dict should perfectly match the keys in the optimizer instance.
         """
+        serialized_value = state_dict['state'].pop('optimizers')
         if version.parse(torch.__version__) > version.parse('2.2.9'):
             from torch.distributed.checkpoint.state_dict import StateDictOptions, set_optimizer_state_dict
             optimizer = self.optimizers[0]
             set_optimizer_state_dict(
                 model=self.model,
                 optimizers=optimizer,
-                optim_state_dict=state_dict['optimizers'].get(type(optimizer).__qualname__, {}),
+                optim_state_dict=serialized_value.get(type(optimizer).__qualname__, {}),
                 options=StateDictOptions(strict=strict, cpu_offload=True),
             )
         else:
-            serialized_value = state_dict['optimizers']
             for optimizer in ensure_tuple(self.optimizers):
                 # Broadcast compatibility check as monolith rank 0 only loads won't have optimizer on all ranks
                 skip_optimizer_load = 1 if serialized_value is not None and type(
