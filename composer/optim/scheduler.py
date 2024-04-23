@@ -541,14 +541,16 @@ def _raise_if_max_duration_exceeds_t_max(t_max: Union[str, Time], state: State):
         return
     elif (
         t_max.unit == TimeUnit.BATCH and max_dur.unit == TimeUnit.EPOCH and state.dataloader_len is not None and
-        t_max.value >= max_dur.value * int(state.dataloader_len)):
-            # Batches are comparable to epochs through the dataloader length, and t_max is valid.
-            return
+        t_max.value >= max_dur.value * int(state.dataloader_len)
+    ):
+        # Batches are comparable to epochs through the dataloader length, and t_max is valid.
+        return
     elif (
         t_max.unit == TimeUnit.EPOCH and max_dur.unit == TimeUnit.BATCH and state.dataloader_len is not None and
-        t_max.value * int(state.dataloader_len) >= max_dur.value):
-            # Batches are comparable to epochs through the dataloader length, and t_max is valid.
-            return
+        t_max.value * int(state.dataloader_len) >= max_dur.value
+    ):
+        # Batches are comparable to epochs through the dataloader length, and t_max is valid.
+        return
     elif t_max.unit != max_dur.unit:
         # Units are not comparable, so we cannot check if t_max is valid. Log this and return.
         log.debug(
@@ -556,7 +558,7 @@ def _raise_if_max_duration_exceeds_t_max(t_max: Union[str, Time], state: State):
             'comparable, make sure that your LR schedule is defined at all points in the training duration.',
         )
         return
-    
+
     # None of the checks above passed. Time units are comparable, but t_max is invalid since it's less than max_dur.
     raise ValueError(
         f't_max {t_max} must be greater than or equal to max_duration {max_dur}. Otherwise, the LR schedule will '
