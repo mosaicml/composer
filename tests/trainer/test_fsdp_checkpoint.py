@@ -525,8 +525,8 @@ def test_fsdp_load_old_checkpoint(
                 'state': trainer2.state.state_dict(),
                 'rng': get_rng_state(),
             }
-            #if version.parse(torch.__version__) < version.parse('2.2.9'):
-            state_dict['state'].pop('optimizers')
+            if version.parse(torch.__version__) < version.parse('2.2.9'):
+                state_dict['state'].pop('optimizers')
 
             object_store = S3ObjectStore(bucket=f'{s3_bucket}')
             storage_reader = DistCPObjectStoreReader(
