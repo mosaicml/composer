@@ -52,9 +52,9 @@ from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
 
 if version.parse(torch.__version__) >= version.parse('2.3.0'):
-    from torch.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
+    from torch.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state  # type: ignore
 else:
-    from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
+    from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state  # type: ignore
 
 from composer.callbacks import CheckpointSaver, MemorySnapshot, OOMObserver, OptimizerMonitor
 from composer.core import (

@@ -30,9 +30,9 @@ from torch.utils.data import DataLoader, Dataset
 from torchmetrics import Metric
 
 if version.parse(torch.__version__) >= version.parse('2.3.0'):
-    from torch.amp.grad_scaler import GradScaler
+    from torch.amp.grad_scaler import GradScaler  # type: ignore
 else:
-    from torch.cuda.amp.grad_scaler import GradScaler
+    from torch.cuda.amp.grad_scaler import GradScaler  # type: ignore
 
 from composer.core.data_spec import DataSpec
 from composer.core.event import Event
