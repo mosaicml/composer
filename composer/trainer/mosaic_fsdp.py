@@ -87,8 +87,9 @@ def patch_pytorch():
         # Monkeypatch state_dict
         from torch.distributed.checkpoint import state_dict  # type: ignore
 
-        from composer.trainer.mosaic_fsdp_utils import _verify_options_t2p3p0
+        from composer.trainer.mosaic_fsdp_utils import _get_fqns, _verify_options_t2p3p0
         state_dict._verify_options = _verify_options_t2p3p0
+        state_dict._get_fqns = _get_fqns
 
         # Monkeypatch sharding optim state
         from torch.distributed.fsdp import _optim_utils
