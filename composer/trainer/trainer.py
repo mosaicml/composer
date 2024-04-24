@@ -41,8 +41,8 @@ import torch
 import torch.distributed
 import torch.nn as nn
 import torch.utils.data
+from packaging import version
 from torch._dynamo import OptimizedModule
-from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
 from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.distributed.fsdp._runtime_utils import _post_backward_final_callback
 from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
@@ -50,6 +50,11 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
+
+if version.parse(torch.__version__) >= version.parse('2.3.0'):
+    from torch.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
+else:
+    from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
 
 from composer.callbacks import CheckpointSaver, MemorySnapshot, OOMObserver, OptimizerMonitor
 from composer.core import (

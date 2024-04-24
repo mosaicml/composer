@@ -5,8 +5,13 @@ from collections import defaultdict
 from typing import Optional, Union
 
 import torch
-from torch.cuda.amp.grad_scaler import GradScaler, OptState, _refresh_per_optimizer_state
+from packaging import version
 from torch.optim import Optimizer
+
+if version.parse(torch.__version__) >= version.parse('2.3.0'):
+    from torch.amp.grad_scaler import GradScaler, OptState, _refresh_per_optimizer_state
+else:
+    from torch.cuda.amp.grad_scaler import GradScaler, OptState, _refresh_per_optimizer_state
 
 from composer.utils import dist
 
@@ -78,7 +83,7 @@ class ClosureGradScaler(GradScaler):
         return optimizer.step(closure=_amp_closure)  # type: ignore
 
     # Mostly copied from original grad_scaler implementation
-    # See: https://pytorch.org/docs/stable/_modules/torch/cuda/amp/grad_scaler.html#GradScaler
+    # See: https://pytorch.org/docs/stable/_modules/torch/amp/grad_scaler.html#GradScaler
     def update(self, new_scale: Optional[Union[float, torch.FloatTensor]] = None):
         """Updates the scale factor.
 
