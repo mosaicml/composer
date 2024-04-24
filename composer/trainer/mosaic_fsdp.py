@@ -15,20 +15,7 @@ from torch.distributed.fsdp import FullyShardedDataParallel
 
 def patch_pytorch():
     """Monkey patches pytorch functions based on pytorch version."""
-    if version.parse(torch.__version__) < version.parse('2.0.2'):
-        # Monkey patch for torch == 2.0.1
-
-        # Monkey patch __init__ where __init__ calls the custom _auto_wrap fn
-        from composer.trainer.mosaic_fsdp_utils import init_fn_t2p0p1
-
-        FullyShardedDataParallel.__init__ = init_fn_t2p0p1  # type: ignore
-
-        # Monkey patch sharding method
-        from composer.trainer.mosaic_fsdp_utils import build_metadata
-
-        ChunkShardingSpec.build_metadata = build_metadata
-
-    elif version.parse(torch.__version__) < version.parse('2.1.1'):
+    if version.parse(torch.__version__) < version.parse('2.1.1'):
         # Monkey patch for torch < 2.1.1 ie torch == 2.1.0
 
         # Monkey patch sharding method
