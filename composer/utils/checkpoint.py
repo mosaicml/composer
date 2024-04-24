@@ -171,7 +171,7 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
         """
         validated_checkpoint_paths = set()
         for read_item in plan.items:
-            data_path = self.path / self.storage_data[read_item.storage_index].relative_path
+            data_path = os.path.join(self.path, self.storage_data[read_item.storage_index].relative_path)
             if data_path in validated_checkpoint_paths:
                 continue
             _ensure_valid_checkpoint(data_path)
@@ -184,7 +184,7 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
         Raises:
             ValueError if the metadata file is invalid.
         """
-        metadata_file_path = self.path / '.metadata'
+        metadata_file_path = os.path.join(self.path, '.metadata')
         _ensure_valid_checkpoint(metadata_file_path)
         return super().read_metadata()
 
