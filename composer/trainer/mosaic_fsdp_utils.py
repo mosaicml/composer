@@ -971,7 +971,7 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
         """
         from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import _CHECKPOINT_PREFIX
         from torch.nn.parallel import DistributedDataParallel as DDP
-        from torch.distributed.fsdp import FSDP
+        from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
         from torch.distributed.checkpoint.state_dict import FLAT_PARAM
         from torch.distributed.fsdp._common_utils import FSDP_WRAPPED_MODULE
 
