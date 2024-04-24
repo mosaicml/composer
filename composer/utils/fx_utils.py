@@ -63,7 +63,7 @@ def count_op_instances(gm: GraphModule, ops: Union[Callable, str, List[Union[Cal
         for op in ops:
             if n.target == op:
                 count += 1
-            elif n.op == 'call_module' and isinstance(op, type) and isinstance(all_modules[n.target], op):
+            elif n.op == 'call_module' and isinstance(op, type) and isinstance(n.target, str) and isinstance(all_modules[n.target], op):
                 count += 1
     return count
 
