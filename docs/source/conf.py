@@ -14,7 +14,6 @@ add these directories to sys.path here. If the directory is relative to the
 documentation root, use os.path.abspath to make it absolute, like shown here.
 """
 import ast
-import importlib
 import inspect
 import json
 import os
@@ -442,10 +441,10 @@ def _generate_rst_files_for_modules() -> None:
     """
     docs_dir = os.path.abspath(os.path.dirname(__file__))
     module_rst_save_dir = os.path.join(docs_dir, 'api_reference')
-    # gather up modules to generate rst files for
+    # Gather up modules to generate rst files for
     document_modules = _modules_to_rst()
 
-    # rip out types that are duplicated in top-level composer module
+    # Rip out types that are duplicated in top-level composer module
     composer_imported_types = []
     for name in composer.__all__:
         obj = composer.__dict__[name]
@@ -458,10 +457,10 @@ def _generate_rst_files_for_modules() -> None:
         saveas = os.path.join(module_rst_save_dir, module.__name__ + '.rst')
         print(f'Generating rst file {saveas} for module: {module.__name__}')
 
-        # avoid duplicate entries in docs. We add torch's _LRScheduler to
-        # types, so we get a ``WARNING: duplicate object description`` if we
-        # don't exclude it
-        exclude_members = [torch.optim.lr_scheduler._LRScheduler]
+        # Avoid duplicate entries in docs. To avoid ``WARNING: duplicate object description``
+        # we exclude torch's _LRScheduler as we've added it to types. Similarly, we exclude
+        # typing.Any as we map Batch to Any.
+        exclude_members = [torch.optim.lr_scheduler._LRScheduler, Any]
         if module is not composer:
             exclude_members += composer_imported_types
 

@@ -29,6 +29,11 @@ from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader, Dataset
 from torchmetrics import Metric
 
+if version.parse(torch.__version__) >= version.parse('2.3.0'):
+    from torch.amp.grad_scaler import GradScaler  # type: ignore
+else:
+    from torch.cuda.amp.grad_scaler import GradScaler  # type: ignore
+
 from composer.core.data_spec import DataSpec
 from composer.core.event import Event
 from composer.core.precision import Precision
@@ -242,7 +247,7 @@ class State(Serializable):
             train the model. Multiple optimizers are not currently supported.
         schedulers (LRScheduler | Sequence[LRScheduler], optional):
             The learning rate scheduler (can also be a list or tuple of schedulers).
-        scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
+        scaler (torch.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
         save_metrics (bool, optional): Whether to save metrics in state_dict.
         algorithms (Algorithm | Sequence[Algorithm], optional): The algorithms used for training.
         callbacks (Callback | Sequence[Callback], optional): The callbacks used for training.
@@ -326,7 +331,7 @@ class State(Serializable):
         profiler (Profiler): The profiler (if profiling is enabled), or ``None`` if not profiling.
         rank_zero_seed (int): The seed of the rank zero process.
         run_name (str): The name for this training run.
-        scaler (torch.cuda.amp.GradScaler): The gradient scaler if using mixed-precision training, or
+        scaler (torch.amp.GradScaler): The gradient scaler if using mixed-precision training, or
             ``None`` if not using mixed-precision training.
         serialized_attributes (List[str]): The names of the attribute which are serialized in a checkpoint.
 
@@ -404,7 +409,7 @@ class State(Serializable):
         optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
 
         # scaler
-        scaler: Optional[torch.cuda.amp.grad_scaler.GradScaler] = None,
+        scaler: Optional[GradScaler] = None,
 
         # state_dict
         save_metrics: bool = False,
@@ -868,7 +873,7 @@ class State(Serializable):
         Returns:
             Dict[str, Any]: The state dict for the model.
         """
-        if version.parse(torch.__version__) > version.parse('2.2.9'):
+        if version.parse(torch.__version__) >= version.parse('2.3.0'):
             from torch.distributed.checkpoint.state_dict import StateDictOptions, get_model_state_dict
             if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
                 raise NotImplementedError(
@@ -906,7 +911,7 @@ class State(Serializable):
         Returns:
             Dict[str, Any]: The state dict for the optimizer.
         """
-        if version.parse(torch.__version__) > version.parse('2.2.9'):
+        if version.parse(torch.__version__) >= version.parse('2.3.0'):
             from torch.distributed.checkpoint.state_dict import StateDictOptions, get_optimizer_state_dict
             if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
                 raise NotImplementedError(
@@ -1228,7 +1233,7 @@ class State(Serializable):
         model_on_rank = state_dict['model'] is not None
 
         if model_on_rank:
-            if version.parse(torch.__version__) > version.parse('2.2.9'):
+            if version.parse(torch.__version__) >= version.parse('2.3.0'):
                 from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
                 set_model_state_dict(
                     model=self.model,
@@ -1292,7 +1297,7 @@ class State(Serializable):
             strict (bool): Whether the keys (i.e., optimizer parameter names) in the optimizer
                 state dict should perfectly match the keys in the optimizer instance.
         """
-        if version.parse(torch.__version__) > version.parse('2.2.9'):
+        if version.parse(torch.__version__) >= version.parse('2.3.0'):
             from torch.distributed.checkpoint.state_dict import StateDictOptions, set_optimizer_state_dict
             optimizer = self.optimizers[0]
             set_optimizer_state_dict(
