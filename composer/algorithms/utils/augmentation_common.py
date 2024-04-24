@@ -43,7 +43,7 @@ def image_as_type(image: _InputImgT, typ: Type[_OutputImgT]) -> _OutputImgT:
         raise TypeError(f'Only typ={{torch.Tensor, Image}} is supported; got {typ}')
 
     if typ is torch.Tensor:
-        return cast(_OutputImgT, torchvision.transforms.functional.to_tensor(image))  # PIL -> Tensor
+        return cast(_OutputImgT, torchvision.transforms.functional.to_tensor(image))  # type: ignore PIL -> Tensor
     return cast(_OutputImgT, torchvision.transforms.functional.to_pil_image(image))  # Tensor -> PIL
 
 
