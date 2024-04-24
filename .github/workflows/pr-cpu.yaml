@@ -17,7 +17,7 @@ jobs:
           container: mosaicml/pytorch:2.1.2_cpu-python3.10-ubuntu20.04
           markers: not daily and not remote and not gpu and not doctest
           pytest_command: coverage run -m pytest
-        - name: cpu-3.10-2.2.1
+        - name: cpu-3.10-2.2
           container: mosaicml/pytorch:2.2.1_cpu-python3.11-ubuntu20.04
           markers: not daily and not remote and not gpu and not doctest
           pytest_command: coverage run -m pytest
