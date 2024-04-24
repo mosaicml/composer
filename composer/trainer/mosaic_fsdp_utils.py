@@ -513,7 +513,7 @@ def _sharded_pre_load_state_dict_hook(
     _enter_unshard_params_ctx(module, fsdp_state, writeback=True)
 
 
-if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
+if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
         torch.__version__,
 ) < version.parse('2.3.1'):
     import copy
@@ -1006,7 +1006,7 @@ if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
         return a.untyped_storage().data_ptr() == b.untyped_storage().data_ptr()
 
 if version.parse(torch.__version__) >= version.parse('2.2.1') and version.parse(
-        torch.__version__,) < version.parse('2.2.9'):
+        torch.__version__,) < version.parse('2.2.3'):
 
     from torch.distributed.fsdp._optim_utils import FSDPParamInfo
     from torch.distributed.checkpoint._state_dict_utils import _gather_state_dict
