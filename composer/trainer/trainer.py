@@ -43,6 +43,7 @@ import torch.nn as nn
 import torch.utils.data
 from packaging import version
 from torch._dynamo import OptimizedModule
+from torch.cuda.amp.grad_scaler import GradScaler
 from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.distributed.fsdp._runtime_utils import _post_backward_final_callback
 from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
