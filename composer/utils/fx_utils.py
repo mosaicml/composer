@@ -63,7 +63,10 @@ def count_op_instances(gm: GraphModule, ops: Union[Callable, str, List[Union[Cal
         for op in ops:
             if n.target == op:
                 count += 1
-            elif n.op == 'call_module' and isinstance(op, type) and isinstance(n.target, str) and isinstance(all_modules[n.target], op):
+            elif n.op == 'call_module' and isinstance(op, type) and isinstance(n.target, str) and isinstance(
+                all_modules[n.target],
+                op,
+            ):
                 count += 1
     return count
 
@@ -333,7 +336,8 @@ def fuse_parallel_linears(gm: GraphModule, keep_weights: bool = False) -> GraphM
 
         # Check all the users of current node and collect all linear layers
         for user in list(node.users):
-            if user.op == 'call_module' and isinstance(all_modules[user.target], nn.Linear):
+            if user.op == 'call_module' and isinstance(user.target,
+                                                       str) and isinstance(all_modules[user.target], nn.Linear):
                 linears_to_fuse.append(user)
 
         # Fuse if there are more than 1 parallel linear layers
