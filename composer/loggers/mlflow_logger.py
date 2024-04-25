@@ -181,7 +181,7 @@ class MLFlowLogger(LoggerDestination):
             )
             self._run_id = new_run.info.run_id
 
-        tags = self.tags
+        tags = self.tags or {}
         if self.run_group:
             tags['run_group'] = self.run_group
         mlflow.start_run(

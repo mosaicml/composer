@@ -185,7 +185,7 @@ def test_mlflow_experiment_init_existing_composer_run(monkeypatch):
     mock_search_runs = MagicMock(return_value=[MagicMock(info=MagicMock(run_id=existing_id))])
     monkeypatch.setattr(mlflow, 'search_runs', mock_search_runs)
 
-    test_logger = MLFlowLogger()
+    test_logger = MLFlowLogger(resume=True)
     test_logger.init(state=mock_state, logger=MagicMock())
     assert test_logger._run_id == existing_id
 
@@ -872,6 +872,7 @@ def test_mlflow_resume_run(tmp_path):
 
     assert first_run.info.run_id != non_resumed_run.info.run_id
 
+
 def test_mlflow_run_group(tmp_path):
     mlflow = pytest.importorskip('mlflow')
 
@@ -886,7 +887,7 @@ def test_mlflow_run_group(tmp_path):
         experiment_name=experiment_name,
         log_system_metrics=True,
         run_name='test_run',
-        run_group="test_group",
+        run_group='test_group',
     )
     logger1.init(state=mock_state, logger=mock_logger)
     first_run = mlflow.active_run()
@@ -898,7 +899,7 @@ def test_mlflow_run_group(tmp_path):
         experiment_name=experiment_name,
         log_system_metrics=True,
         run_name='test_run',
-        run_group="test_group",
+        run_group='test_group',
     )
     logger2.init(state=mock_state, logger=mock_logger)
     second_run = mlflow.active_run()
@@ -906,8 +907,8 @@ def test_mlflow_run_group(tmp_path):
 
     # Fetch runs with the `run_group` tag, we should see the two runs created above get fetched.
     runs_with_group_tag = mlflow.search_runs(
-        experiment_ids=[experiment_id], 
-        filter_string=f"tags.run_group = 'test_group'",
+        experiment_ids=[experiment_id],
+        filter_string=f'tags.run_group = "test_group"',
     )
     fetched_run_ids = set(runs_with_group_tag.run_id.tolist())
     assert fetched_run_ids == {first_run.info.run_id, second_run.info.run_id}
