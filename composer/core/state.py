@@ -899,9 +899,9 @@ class State(Serializable):
             else:
                 model_state_dict = self.model.state_dict()
 
-        # If model is DDP wrapped, do not save the `module.` prefix, as that is an implementation detail
-        if self.is_model_ddp:
-            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, 'module.')
+            # If model is DDP wrapped, do not save the `module.` prefix, as that is an implementation detail
+            if self.is_model_ddp:
+                torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, 'module.')
 
         return model_state_dict
 
