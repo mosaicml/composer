@@ -525,7 +525,7 @@ def test_fsdp_load_old_checkpoint(
                 'state': trainer2.state.state_dict(),
                 'rng': get_rng_state(),
             }
-            if version.parse(torch.__version__) < version.parse('2.2.9'):
+            if version.parse(torch.__version__) < version.parse('2.2.3'):
                 state_dict['state'].pop('optimizers')
 
             object_store = S3ObjectStore(bucket=f'{s3_bucket}')
@@ -543,7 +543,7 @@ def test_fsdp_load_old_checkpoint(
                 planner=None,
                 process_group=process_group,
             )
-            if version.parse(torch.__version__) < version.parse('2.2.9'):
+            if version.parse(torch.__version__) < version.parse('2.2.3'):
                 from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
                 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
                 model_state_dict = state_dict['state']['model']

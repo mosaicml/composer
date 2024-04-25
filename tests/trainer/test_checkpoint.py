@@ -877,7 +877,7 @@ class TestCheckpointLoading:
         last_checkpoint = os.path.join('first', 'ep2.pt')
         if missing_key or unexpected_key:
             message = r'Error\(s\) in loading state_dict'
-            if version.parse(torch.__version__) < version.parse('2.2.9'):
+            if version.parse(torch.__version__) < version.parse('2.2.3') or not dist.is_initialized():
                 # Composer implements strict for older torch versions
                 message = 'Failed to load checkpoint due to'
             error_context = pytest.raises(RuntimeError, match=message)
@@ -1229,7 +1229,7 @@ class TestCheckpointLoading:
         NoOpModel.__init__ = lambda self, x: None  # type: ignore
         NoOpModel.__repr__ = lambda self: 'NoOpModel(3)'
         error_context = pytest.raises(KeyError, match='module.0.weight')
-        if version.parse(torch.__version__) < version.parse('2.2.9'):
+        if version.parse(torch.__version__) < version.parse('2.2.3') or not dist.is_initialized():
             error_context = pytest.raises(ValueError, match='loaded state dict contains a parameter group.*')
         with pytest.warns(UserWarning, match='required_on_load algorithm.*'), error_context:
             trainer_3 = self.get_trainer(load_path=os.path.join('first', 'ep1.pt'))
