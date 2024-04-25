@@ -60,6 +60,10 @@ class MLFlowLogger(LoggerDestination):
             log system metrics (CPU/GPU/memory/network usage) during training. (default: ``True``)
         ignore_metrics (List[str], optional): A list of glob patterns for metrics to ignore when logging. (default: ``None``)
         ignore_hyperparameters (List[str], optional): A list of glob patterns for hyperparameters to ignore when logging. (default: ``None``)
+        run_group (str, optional): A string to group runs together. (default: ``None``)
+        resume (bool, optional): If ``True``, Composer will search for an existing run tagged with
+            the `run_name` and resume it. If ``False``, Composer will create a new run. (default:
+            ``False``)
     """
 
     def __init__(
@@ -76,6 +80,8 @@ class MLFlowLogger(LoggerDestination):
         log_system_metrics: bool = True,
         ignore_metrics: Optional[List[str]] = None,
         ignore_hyperparameters: Optional[List[str]] = None,
+        run_group: Optional[str] = None,
+        resume: bool = False,
     ) -> None:
         try:
             import mlflow
@@ -90,6 +96,7 @@ class MLFlowLogger(LoggerDestination):
 
         self.experiment_name = experiment_name
         self.run_name = run_name
+        self.run_group = run_group
         self.tags = tags
         self.model_registry_prefix = model_registry_prefix
         self.model_registry_uri = model_registry_uri
@@ -103,6 +110,7 @@ class MLFlowLogger(LoggerDestination):
                     f'When registering to Unity Catalog, model_registry_prefix must be in the format ' +
                     f'{{catalog_name}}.{{schema_name}}, but got {self.model_registry_prefix}',
                 )
+        self.resume = resume
 
         self._rank_zero_only = rank_zero_only
         self._last_flush_time = time.time()
@@ -139,8 +147,50 @@ class MLFlowLogger(LoggerDestination):
                 else:
                     self._experiment_id = (self._mlflow_client.create_experiment(name=self.experiment_name))
 
-    def init(self, state: State, logger: Logger) -> None:
+    def _start_mlflow_run(self, state):
         import mlflow
+
+        env_run_id = os.getenv(
+            mlflow.environment_variables.MLFLOW_RUN_ID.name,  # pyright: ignore[reportGeneralTypeIssues]
+            None,
+        )
+        if env_run_id is not None:
+            self._run_id = env_run_id
+        elif self.resume:
+            # Search for an existing run tagged with this Composer run if `self.resume=True`.
+            assert self._experiment_id is not None
+            existing_runs = mlflow.search_runs(
+                experiment_ids=[self._experiment_id],
+                filter_string=f'tags.run_name = "{state.run_name}"',
+                output_format='list',
+            )
+
+            if len(existing_runs) > 0:
+                self._run_id = existing_runs[0].info.run_id
+            else:
+                new_run = self._mlflow_client.create_run(
+                    experiment_id=self._experiment_id,
+                    run_name=self.run_name,
+                )
+                self._run_id = new_run.info.run_id
+        else:
+            # Create a new run if `env_run_id` is not set or `self.resume=False`.
+            new_run = self._mlflow_client.create_run(
+                experiment_id=self._experiment_id,
+                run_name=self.run_name,
+            )
+            self._run_id = new_run.info.run_id
+
+        tags = self.tags
+        if self.run_group:
+            tags['run_group'] = self.run_group
+        mlflow.start_run(
+            run_id=self._run_id,
+            tags=self.tags,
+            log_system_metrics=self.log_system_metrics,
+        )
+
+    def init(self, state: State, logger: Logger) -> None:
         del logger  # unused
 
         if self.run_name is None:
@@ -156,34 +206,7 @@ class MLFlowLogger(LoggerDestination):
 
         # Start run
         if self._enabled:
-            env_run_id = os.getenv(
-                mlflow.environment_variables.MLFLOW_RUN_ID.name,  # pyright: ignore[reportGeneralTypeIssues]
-                None,
-            )
-            if env_run_id is not None:
-                self._run_id = env_run_id
-            else:
-                # Search for an existing run tagged with this Composer run.
-                assert self._experiment_id is not None
-                existing_runs = mlflow.search_runs(
-                    experiment_ids=[self._experiment_id],
-                    filter_string=f'tags.run_name = "{state.run_name}"',
-                    output_format='list',
-                )
-
-                if len(existing_runs) > 0:
-                    self._run_id = existing_runs[0].info.run_id
-                else:
-                    new_run = self._mlflow_client.create_run(
-                        experiment_id=self._experiment_id,
-                        run_name=self.run_name,
-                    )
-                    self._run_id = new_run.info.run_id
-            mlflow.start_run(
-                run_id=self._run_id,
-                tags=self.tags,
-                log_system_metrics=self.log_system_metrics,
-            )
+            self._start_mlflow_run(state)
 
         # If rank zero only, broadcast the MLFlow experiment and run IDs to other ranks, so the MLFlow run info is
         # available to other ranks during runtime.

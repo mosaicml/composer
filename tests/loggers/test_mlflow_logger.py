@@ -824,3 +824,90 @@ def test_mlflow_ignore_hyperparameters(tmp_path):
         'mlflow_experiment_id',
     ]
     assert set(expected_params_list) == set(actual_params_list)
+
+
+def test_mlflow_resume_run(tmp_path):
+    mlflow = pytest.importorskip('mlflow')
+
+    mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
+    experiment_name = 'mlflow_logging_test'
+    mock_state = MagicMock()
+    mock_logger = MagicMock()
+
+    test_mlflow_logger = MLFlowLogger(
+        tracking_uri=mlflow_uri,
+        experiment_name=experiment_name,
+        log_system_metrics=True,
+        run_name='test_run',
+    )
+    test_mlflow_logger.init(state=mock_state, logger=mock_logger)
+    first_run = mlflow.active_run()
+    test_mlflow_logger.post_close()
+
+    # Resume the run. The run id should be the same as the first run.
+    test_mlflow_logger = MLFlowLogger(
+        tracking_uri=mlflow_uri,
+        experiment_name=experiment_name,
+        log_system_metrics=True,
+        run_name='test_run',
+        resume=True,
+    )
+    test_mlflow_logger.init(state=mock_state, logger=mock_logger)
+    resumed_run = mlflow.active_run()
+    test_mlflow_logger.post_close()
+
+    assert first_run.info.run_id == resumed_run.info.run_id
+
+    # Not resume the run. A new run should be created (even with the same `run_name`).
+    test_mlflow_logger = MLFlowLogger(
+        tracking_uri=mlflow_uri,
+        experiment_name=experiment_name,
+        log_system_metrics=True,
+        run_name='test_run',
+        resume=False,
+    )
+    test_mlflow_logger.init(state=mock_state, logger=mock_logger)
+    non_resumed_run = mlflow.active_run()
+    test_mlflow_logger.post_close()
+
+    assert first_run.info.run_id != non_resumed_run.info.run_id
+
+def test_mlflow_run_group(tmp_path):
+    mlflow = pytest.importorskip('mlflow')
+
+    mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
+    experiment_name = 'mlflow_logging_test'
+    mock_state = MagicMock()
+    mock_logger = MagicMock()
+
+    # Create two runs with the same `run_group` attribute.
+    logger1 = MLFlowLogger(
+        tracking_uri=mlflow_uri,
+        experiment_name=experiment_name,
+        log_system_metrics=True,
+        run_name='test_run',
+        run_group="test_group",
+    )
+    logger1.init(state=mock_state, logger=mock_logger)
+    first_run = mlflow.active_run()
+    experiment_id = first_run.info.experiment_id
+    logger1.post_close()
+
+    logger2 = MLFlowLogger(
+        tracking_uri=mlflow_uri,
+        experiment_name=experiment_name,
+        log_system_metrics=True,
+        run_name='test_run',
+        run_group="test_group",
+    )
+    logger2.init(state=mock_state, logger=mock_logger)
+    second_run = mlflow.active_run()
+    logger2.post_close()
+
+    # Fetch runs with the `run_group` tag, we should see the two runs created above get fetched.
+    runs_with_group_tag = mlflow.search_runs(
+        experiment_ids=[experiment_id], 
+        filter_string=f"tags.run_group = 'test_group'",
+    )
+    fetched_run_ids = set(runs_with_group_tag.run_id.tolist())
+    assert fetched_run_ids == {first_run.info.run_id, second_run.info.run_id}
