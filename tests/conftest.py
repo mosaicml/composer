@@ -24,6 +24,15 @@ pytest_plugins = [
 ]
 
 
+import subprocess
+
+def pytest_runtest_teardown(item, nextitem):
+    print(f"Disk space usage after test '{item.name}':")
+    # Adjust the path and options as necessary
+    result = subprocess.run(['du', '-sh', '.'], stdout=subprocess.PIPE, text=True)
+    print(result.stdout)
+
+
 def _add_option(parser: pytest.Parser, name: str, help: str, choices: Optional[List[str]] = None):
     parser.addoption(
         f'--{name}',
