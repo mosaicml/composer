@@ -149,7 +149,6 @@ class MLFlowLogger(LoggerDestination):
         # Store the Composer run name in the MLFlow run tags so it can be retrieved for autoresume.
         self.tags = self.tags or {}
         self.tags['run_name'] = os.environ.get('RUN_NAME', state.run_name)
-        self.run_url = self.get_run_url()
 
         # Adjust name and group based on `rank_zero_only`.
         if not self._rank_zero_only:
