@@ -49,5 +49,5 @@ def test_tensorboard_log_image(test_tensorboard_logger):
             channels_last=channels_last,
         )
 
-    test_tensorboard_logger.post_close()
+    test_tensorboard_logger.close()
     # Tensorboard images are stored inline, so we can't check them automatically.

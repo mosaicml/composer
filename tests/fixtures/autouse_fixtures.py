@@ -49,8 +49,12 @@ def disable_wandb(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureReques
 @pytest.fixture(autouse=True)
 def reset_mlflow_tracking_dir():
     """Reset MLFlow tracking dir so it doesn't persist across tests"""
-    import mlflow
-    mlflow.set_tracking_uri(None)
+    try:
+        import mlflow
+        mlflow.set_tracking_uri(None)  # type: ignore
+    except ModuleNotFoundError:
+        # MLFlow not installed
+        pass
 
 
 @pytest.fixture(scope='session')
