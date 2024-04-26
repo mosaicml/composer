@@ -186,6 +186,7 @@ class MLFlowLogger(LoggerDestination):
                 tags=self.tags,
                 log_system_metrics=self.log_system_metrics,
             )
+            self.run_url = f'{self.tracking_uri}/#/experiments/{self._experiment_id}/runs/{self._run_id}'
 
         # If rank zero only, broadcast the MLFlow experiment and run IDs to other ranks, so the MLFlow run info is
         # available to other ranks during runtime.
@@ -196,28 +197,6 @@ class MLFlowLogger(LoggerDestination):
 
     def after_load(self, state: State, logger: Logger) -> None:
         logger.log_hyperparameters({'mlflow_experiment_id': self._experiment_id, 'mlflow_run_id': self._run_id})
-
-    def get_run_url(self):
-        assert self.experiment_name
-        assert self.tags
-        # Get experiment by name
-        experiment = self._mlflow_client.get_experiment_by_name(self.experiment_name)
-        if not experiment:
-            raise ValueError('Experiment not found')
-        experiment_id = experiment.experiment_id
-
-        # Search for runs by run name within the experiment
-        run_name = self.tags['run_name']
-        runs = self._mlflow_client.search_runs(
-            experiment_ids=[experiment_id],
-            filter_string=f'tags.mlflow.runName = "{run_name}"',
-        )
-        if not runs:
-            raise ValueError('Run not found')
-        run_id = runs[0].info.run_id
-
-        # Construct and return the URL for the run
-        return f'{self.tracking_uri}/#/experiments/{experiment_id}/runs/{run_id}'
 
     def log_table(
         self,
