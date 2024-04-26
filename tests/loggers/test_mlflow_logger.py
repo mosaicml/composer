@@ -175,6 +175,7 @@ def test_mlflow_init_existing_composer_run(monkeypatch):
     """
     mlflow = pytest.importorskip('mlflow')
 
+    monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
     monkeypatch.setattr(mlflow, 'start_run', MagicMock())
 
     mock_state = MagicMock()
