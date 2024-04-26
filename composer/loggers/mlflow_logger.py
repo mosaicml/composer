@@ -199,7 +199,7 @@ class MLFlowLogger(LoggerDestination):
 
     def get_run_url(self):
         assert self.experiment_name
-        assert self.self.tags
+        assert self.tags
         # Get experiment by name
         experiment = self._mlflow_client.get_experiment_by_name(self.experiment_name)
         if not experiment:

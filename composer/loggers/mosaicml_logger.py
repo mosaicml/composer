@@ -116,11 +116,8 @@ class MosaicMLLogger(LoggerDestination):
                     log.debug('WandB run URL not found, not logging to metadata')
             if isinstance(callback, MLFlowLogger):
                 run_url = callback.run_url
-                if run_url is not None:
-                    self._log_metadata({'mlflow/run_url': run_url})
-                    log.debug(f'Logging MLFlow run URL to metadata: {run_url}')
-                else:
-                    log.debug('MLFlow run URL not found, not logging to metadata')
+                self._log_metadata({'mlflow/run_url': run_url})
+                log.debug(f'Logging MLFlow run URL to metadata: {run_url}')
         self._flush_metadata(force_flush=True)
 
     def batch_start(self, state: State, logger: Logger) -> None:
