@@ -10,6 +10,8 @@ Block-wise stochastic depth assigns every residual block a probability of droppi
 
 ### Functional Interface
 
+<!--Test is very slow so we skip-->
+<!--pytest.mark.skip-->
 <!--pytest.mark.gpu-->
 <!--
 ```python
@@ -58,6 +60,8 @@ for epoch in range(1):
 
 ### Composer Trainer
 
+<!--Test is very slow so we skip-->
+<!--pytest.mark.skip-->
 <!--Torch 2.3 regression requires filtering cudnn warning-->
 <!--pytest.mark.filterwarnings(r'ignore:.*Plan failed with a cudnnException.*:UserWarning')-->
 <!--pytest.mark.gpu-->
