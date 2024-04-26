@@ -24,6 +24,7 @@ from composer.core.time import TimeUnit
 from composer.loggers import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.wandb_logger import WandBLogger
+from composer.loggers.mlflow_logger import MLFlowLogger
 from composer.utils import dist
 
 if TYPE_CHECKING:
@@ -113,6 +114,13 @@ class MosaicMLLogger(LoggerDestination):
                     log.debug(f'Logging WandB run URL to metadata: {run_url}')
                 else:
                     log.debug('WandB run URL not found, not logging to metadata')
+            if isinstance(callback, MLFlowLogger):
+                run_url = callback.run_url
+                if run_url is not None:
+                    self._log_metadata({'mlflow/run_url': run_url})
+                    log.debug(f'Logging MLFlow run URL to metadata: {run_url}')
+                else:
+                    log.debug('MLFlow run URL not found, not logging to metadata')
         self._flush_metadata(force_flush=True)
 
     def batch_start(self, state: State, logger: Logger) -> None:

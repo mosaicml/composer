@@ -138,6 +138,7 @@ class MLFlowLogger(LoggerDestination):
                     self._experiment_id = exp_from_name.experiment_id
                 else:
                     self._experiment_id = (self._mlflow_client.create_experiment(name=self.experiment_name))
+            self.run_url = self.get_run_url()
 
     def init(self, state: State, logger: Logger) -> None:
         import mlflow
@@ -165,7 +166,7 @@ class MLFlowLogger(LoggerDestination):
             else:
                 # Search for an existing run tagged with this Composer run.
                 assert self._experiment_id is not None
-                run_name = os.environ.get('RUN_NAME', state.run_name)
+                run_name = self.tags['run_name']
                 existing_runs = mlflow.search_runs(
                     experiment_ids=[self._experiment_id],
                     filter_string=f'tags.run_name = "{run_name}"',
@@ -195,6 +196,28 @@ class MLFlowLogger(LoggerDestination):
 
     def after_load(self, state: State, logger: Logger) -> None:
         logger.log_hyperparameters({'mlflow_experiment_id': self._experiment_id, 'mlflow_run_id': self._run_id})
+
+    def get_run_url(self):
+        assert self.experiment_name
+        assert self.self.tags
+        # Get experiment by name
+        experiment = self._mlflow_client.get_experiment_by_name(self.experiment_name)
+        if not experiment:
+            raise ValueError('Experiment not found')
+        experiment_id = experiment.experiment_id
+
+        # Search for runs by run name within the experiment
+        run_name = self.tags['run_name']
+        runs = self._mlflow_client.search_runs(
+            experiment_ids=[experiment_id],
+            filter_string=f'tags.mlflow.runName = "{run_name}"',
+        )
+        if not runs:
+            raise ValueError('Run not found')
+        run_id = runs[0].info.run_id
+
+        # Construct and return the URL for the run
+        return f'{self.tracking_uri}/#/experiments/{experiment_id}/runs/{run_id}'
 
     def log_table(
         self,
