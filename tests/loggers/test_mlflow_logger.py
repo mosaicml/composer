@@ -43,7 +43,7 @@ def _get_latest_mlflow_run(experiment_name, tracking_uri=None):
         raise ValueError(f'Experiment with name {experiment_name} is unexpectedly empty')
 
 
-def test_mlflow_experiment_init_unspecified(monkeypatch):
+def test_mlflow_init_unspecified(monkeypatch):
     """ Test that MLFlow experiment is set up correctly when no parameters are specified
 
     This mocks the mlflow library to check that the correct calls are made to set up the experiment
@@ -73,7 +73,7 @@ def test_mlflow_experiment_init_unspecified(monkeypatch):
     )
 
 
-def test_mlflow_experiment_init_specified(monkeypatch):
+def test_mlflow_init_specified(monkeypatch):
     """ Test that MLFlow experiment is set up correctly when all parameters are specified
 
     This mocks the mlflow library to check that the correct calls are made to set up the experiment
@@ -114,7 +114,7 @@ def test_mlflow_experiment_init_specified(monkeypatch):
     )
 
 
-def test_mlflow_experiment_init_ids(monkeypatch):
+def test_mlflow_init_ids(monkeypatch):
     """ Test that MLFlow experiment is set up correctly when ids in the environment are specified
 
     This mocks the mlflow library to check that the correct calls are made to set up the experiment
@@ -144,7 +144,7 @@ def test_mlflow_experiment_init_ids(monkeypatch):
     assert mlflow.start_run.called_with(run_id=mlflow_run_id)
 
 
-def test_mlflow_experiment_init_experiment_name(monkeypatch):
+def test_mlflow_init_experiment_name(monkeypatch):
     """ Test that MLFlow experiment is set up correctly when experiment name is specified
 
     This mocks the mlflow library to check that the correct calls are made to set up the experiment
@@ -170,7 +170,7 @@ def test_mlflow_experiment_init_experiment_name(monkeypatch):
     id_logger.post_close()
 
 
-def test_mlflow_experiment_init_existing_composer_run(monkeypatch):
+def test_mlflow_init_existing_composer_run(monkeypatch):
     """ Test that an existing MLFlow run is used if one tagged with `run_name` exists in the experiment for the Composer run.
     """
     mlflow = pytest.importorskip('mlflow')
@@ -238,7 +238,7 @@ def test_mlflow_logger_uses_state_run_name_if_no_env_var_set(monkeypatch, mock_m
     assert test_logger.tags['run_name'] == 'state-run-name'
 
 
-def test_mlflow_experiment_set_up(tmp_path):
+def test_mlflow_set_up(tmp_path):
     """ Test that MLFlow experiment is set up correctly within mlflow
     """
     mlflow = pytest.importorskip('mlflow')
