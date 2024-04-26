@@ -13,6 +13,8 @@ Weight Standardization is a reparametrization of convolutional weights such that
 ## How to Use
 
 ### Functional Interface
+<!--Test is very slow so we skip-->
+<!--pytest.mark.skip-->
 <!--pytest.mark.gpu-->
 <!--
 ```python
@@ -54,6 +56,8 @@ training_loop(my_cnn_model, my_train_dataloader)
 ```
 
 ### Composer Trainer
+<!--Test is very slow so we skip-->
+<!--pytest.mark.skip-->
 <!--pytest.mark.gpu-->
 <!--
 ```python
