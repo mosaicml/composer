@@ -225,6 +225,10 @@ extra_deps['mlflow'] = [
     'mlflow>=2.11.1,<3.0',
 ]
 
+extra_deps['gpu-flash2'] = [
+    'flash-attn==2.5.0',
+]
+
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
 extra_deps['databricks'] = ['databricks-sdk==0.25.1']
