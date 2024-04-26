@@ -62,8 +62,8 @@ class MLFlowLogger(LoggerDestination):
         ignore_hyperparameters (List[str], optional): A list of glob patterns for hyperparameters to ignore when logging. (default: ``None``)
         run_group (str, optional): A string to group runs together. (default: ``None``)
         resume (bool, optional): If ``True``, Composer will search for an existing run tagged with
-            the `run_name` and resume it. If ``False``, Composer will create a new run. (default:
-            ``False``)
+            the `run_name` and resume it, if no existing run is found, a new run will be created.
+            If ``False``, Composer will create a new run. (default: ``False``)
     """
 
     def __init__(
@@ -167,7 +167,12 @@ class MLFlowLogger(LoggerDestination):
 
             if len(existing_runs) > 0:
                 self._run_id = existing_runs[0].info.run_id
+                log.debug(f'Resuming mlflow run with run id: {self._run_id}')
             else:
+                log.debug(
+                    'Creating a new mlflow run as `resume` was set to True but no previous run was '
+                    'found.',
+                )
                 new_run = self._mlflow_client.create_run(
                     experiment_id=self._experiment_id,
                     run_name=self.run_name,
