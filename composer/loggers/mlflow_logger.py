@@ -164,8 +164,8 @@ class MLFlowLogger(LoggerDestination):
                 self._run_id = env_run_id
             else:
                 # Search for an existing run tagged with this Composer run.
-                run_name = os.environ.get('RUN_NAME', state.run_name)
                 assert self._experiment_id is not None
+                run_name = os.environ.get('RUN_NAME', state.run_name)
                 existing_runs = mlflow.search_runs(
                     experiment_ids=[self._experiment_id],
                     filter_string=f'tags.run_name = "{run_name}"',
