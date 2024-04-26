@@ -14,6 +14,8 @@ import textwrap
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
+import torch.cuda
+
 from composer.core import Callback, Event, State, Time, Timestamp
 from composer.loggers import Logger, MLFlowLogger
 from composer.utils import (
@@ -412,6 +414,9 @@ class CheckpointSaver(Callback):  # noqa: D101
                 self.all_saved_checkpoints_to_timestamp[save_filename] = load_timestamp
 
     def _save_checkpoint(self, state: State, logger: Logger):
+        # Clear the cache in case we are near the memory limit to give some space for NCCL.
+        torch.cuda.empty_cache()
+
         self.last_checkpoint_batch = state.timestamp.batch
 
         is_deepspeed = is_model_deepspeed(state.model)
