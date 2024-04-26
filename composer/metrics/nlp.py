@@ -108,7 +108,7 @@ class LanguageCrossEntropy(Metric):
         except:
             warnings.warn(
                 'Package `flash_attn` not installed. Using torch.nn.CrossEntropyLoss ' +
-                'to compute LanguageCrossEntropy metric, which will be slower.'
+                'to compute LanguageCrossEntropy metric, which will be slower.',
             )
             self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=ignore_index, reduction='sum')
         self.add_state('sum_loss', default=torch.tensor(0.), dist_reduce_fx='sum')
