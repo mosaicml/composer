@@ -167,7 +167,7 @@ class MLFlowLogger(LoggerDestination):
                 assert self._experiment_id is not None
                 existing_runs = mlflow.search_runs(
                     experiment_ids=[self._experiment_id],
-                    filter_string=f'tags.run_name = "{state.run_name}"',
+                    filter_string=f'tags.run_name = "{self.tags['run_name']}"',
                     output_format='list',
                 )
 
