@@ -62,7 +62,7 @@ class MLFlowLogger(LoggerDestination):
         ignore_hyperparameters (List[str], optional): A list of glob patterns for hyperparameters to ignore when logging. (default: ``None``)
         run_group (str, optional): A string to group runs together. (default: ``None``)
         resume (bool, optional): If ``True``, Composer will search for an existing run tagged with
-            the `run_name` and resume it, if no existing run is found, a new run will be created.
+            the `run_name` and resume it. If no existing run is found, a new run will be created.
             If ``False``, Composer will create a new run. (default: ``False``)
     """
 
