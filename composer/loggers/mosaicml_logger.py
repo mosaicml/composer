@@ -23,8 +23,8 @@ import torch
 from composer.core.time import TimeUnit
 from composer.loggers import Logger
 from composer.loggers.logger_destination import LoggerDestination
-from composer.loggers.wandb_logger import WandBLogger
 from composer.loggers.mlflow_logger import MLFlowLogger
+from composer.loggers.wandb_logger import WandBLogger
 from composer.utils import dist
 
 if TYPE_CHECKING:
