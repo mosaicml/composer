@@ -58,6 +58,8 @@ for epoch in range(1):
 
 ### Composer Trainer
 
+<!--Torch 2.3 regression requires filtering cudnn warning-->
+<!--pytest.mark.filterwarnings(r'ignore:.*Plan failed with a cudnnException.*:UserWarning')-->
 <!--pytest.mark.gpu-->
 <!--
 ```python
