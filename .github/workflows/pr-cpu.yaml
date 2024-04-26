@@ -30,24 +30,24 @@ jobs:
           markers: not daily and not remote and not gpu and doctest
           pytest_command: coverage run -m pytest tests/test_docs.py
     steps:
-      - name: Maximize Build Space on Worker
-        uses: easimon/maximize-build-space@v4
-        with:
-          overprovision-lvm: true
-          remove-dotnet: true
-          remove-android: true
-          remove-haskell: true
-      - uses: mosaicml/ci-testing/.github/workflows/pytest-cpu.yaml@v0.0.4
+    - name: Maximize Build Space on Worker
+      uses: easimon/maximize-build-space@v4
+      with:
+        overprovision-lvm: true
+        remove-dotnet: true
+        remove-android: true
+        remove-haskell: true
+    - uses: mosaicml/ci-testing/.github/workflows/pytest-cpu.yaml@v0.0.4
+      name: ${{ matrix.name }}
+      if: github.repository_owner == 'mosaicml'
+      with:
+        composer_package_name: mosaicml
+        container: ${{ matrix.container }}
         name: ${{ matrix.name }}
-        if: github.repository_owner == 'mosaicml'
-        with:
-          composer_package_name: mosaicml
-          container: ${{ matrix.container }}
-          name: ${{ matrix.name }}
-          pip_deps: "[all]"
-          pytest-command: ${{ matrix.pytest_command }}
-          pytest-markers: ${{ matrix.markers }}
-          safe_directory: composer
+        pip_deps: "[all]"
+        pytest-command: ${{ matrix.pytest_command }}
+        pytest-markers: ${{ matrix.markers }}
+        safe_directory: composer
   coverage:
     uses: ./.github/workflows/coverage.yaml
     name: Coverage Results
