@@ -118,6 +118,7 @@ class MosaicMLLogger(LoggerDestination):
                 run_url = f'{os.environ["DATABRICKS_HOST"]}ml/experiments/{callback._experiment_id}/runs/{callback._run_id}'
                 self._log_metadata({'mlflow/run_url': run_url})
                 log.debug(f'Logging MLFlow run URL to metadata: {run_url}')
+                callback.debug()
         self._flush_metadata(force_flush=True)
 
     def batch_start(self, state: State, logger: Logger) -> None:

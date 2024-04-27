@@ -138,6 +138,10 @@ class MLFlowLogger(LoggerDestination):
                     self._experiment_id = exp_from_name.experiment_id
                 else:
                     self._experiment_id = (self._mlflow_client.create_experiment(name=self.experiment_name))
+            print(f'---- DEBUG 1 exp_id: {self._experiment_id}, run_id {self._run_id}')
+
+    def debug():
+        print(f'---- DEBUG 2 exp_id: {self._experiment_id}, run_id {self._run_id}')
 
     def init(self, state: State, logger: Logger) -> None:
         import mlflow
