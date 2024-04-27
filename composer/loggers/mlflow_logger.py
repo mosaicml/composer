@@ -110,6 +110,7 @@ class MLFlowLogger(LoggerDestination):
 
         self._experiment_id: Optional[str] = None
         self._run_id = None
+        print('---- DEBUG: ', self._enabled)
 
         if self._enabled:
             self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
