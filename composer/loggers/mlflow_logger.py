@@ -110,7 +110,6 @@ class MLFlowLogger(LoggerDestination):
 
         self._experiment_id: Optional[str] = None
         self._run_id = None
-        print('---- DEBUG: ', self._enabled)
 
         if self._enabled:
             self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
@@ -139,7 +138,7 @@ class MLFlowLogger(LoggerDestination):
                     self._experiment_id = exp_from_name.experiment_id
                 else:
                     self._experiment_id = (self._mlflow_client.create_experiment(name=self.experiment_name))
-            #self.run_url = f'{self.tracking_uri}/#/experiments/{self._experiment_id}/runs/{self._run_id}'
+            self.run_url = f'{self.tracking_uri}/#/experiments/{self._experiment_id}/runs/{self._run_id}'
 
     def init(self, state: State, logger: Logger) -> None:
         import mlflow
