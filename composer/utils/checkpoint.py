@@ -643,19 +643,12 @@ def load_sharded_checkpoint(
                 # Ensure state exists
                 state_dict['state'] = state_dict.get('state', {})
 
-            if version.parse(torch.__version__) >= version.parse('2.3.0'):
-                dist_cp.load(
-                    state_dict=state_dict,
-                    storage_reader=storage_reader,
-                    planner=state.fsdp_config['load_planner'],
-                )
-            else:
-                dist_cp.load_state_dict(
-                    state_dict=state_dict,
-                    storage_reader=storage_reader,
-                    planner=state.fsdp_config['load_planner'],
-                    no_dist=(not dist.is_initialized()),
-                )
+            dist_cp.load_state_dict(
+                state_dict=state_dict,
+                storage_reader=storage_reader,
+                planner=state.fsdp_config['load_planner'],
+                no_dist=(not dist.is_initialized()),
+            )
 
             log.info(f'Loaded state dict')
             state.load_state_dict(
