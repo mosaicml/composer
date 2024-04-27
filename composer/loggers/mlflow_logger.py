@@ -142,6 +142,18 @@ class MLFlowLogger(LoggerDestination):
 
     def debug(self):
         print(f'---- DEBUG 2 exp_id: {self._experiment_id}, run_id {self._run_id}')
+        try:
+            experiment = client.get_experiment(self._experiment_id)
+            print('experiment found: ', experiment.name)
+        except:
+            print('experiment not found')
+        try:
+            run = client.get_run(self._run_id)
+            # The run name is stored under the tag 'mlflow.runName'
+            run_name = run.data.tags.get('mlflow.runName', 'No name set for this run')
+            print('run found: ', run_name)
+        except:
+            print('run not found')
 
     def init(self, state: State, logger: Logger) -> None:
         import mlflow
