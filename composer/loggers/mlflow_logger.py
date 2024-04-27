@@ -138,6 +138,7 @@ class MLFlowLogger(LoggerDestination):
                     self._experiment_id = exp_from_name.experiment_id
                 else:
                     self._experiment_id = (self._mlflow_client.create_experiment(name=self.experiment_name))
+            #self.run_url = f'{self.tracking_uri}/#/experiments/{self._experiment_id}/runs/{self._run_id}'
 
     def init(self, state: State, logger: Logger) -> None:
         import mlflow
@@ -185,7 +186,6 @@ class MLFlowLogger(LoggerDestination):
                 tags=self.tags,
                 log_system_metrics=self.log_system_metrics,
             )
-            self.run_url = f'{self.tracking_uri}/#/experiments/{self._experiment_id}/runs/{self._run_id}'
 
         # If rank zero only, broadcast the MLFlow experiment and run IDs to other ranks, so the MLFlow run info is
         # available to other ranks during runtime.
