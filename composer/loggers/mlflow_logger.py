@@ -111,6 +111,7 @@ class MLFlowLogger(LoggerDestination):
 
         self._experiment_id: Optional[str] = None
         self._run_id = None
+        self.run_url = None
 
         if self._enabled:
             self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
@@ -197,7 +198,7 @@ class MLFlowLogger(LoggerDestination):
     def after_load(self, state: State, logger: Logger) -> None:
         logger.log_hyperparameters({'mlflow_experiment_id': self._experiment_id, 'mlflow_run_id': self._run_id})
         self.run_url = posixpath.join(
-            os.environ.get('DATABRICKS_HOST'),
+            os.environ.get('DATABRICKS_HOST', ''),
             'ml',
             'experiments',
             str(self._experiment_id),
