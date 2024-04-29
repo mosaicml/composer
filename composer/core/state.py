@@ -1233,7 +1233,7 @@ class State(Serializable):
         model_on_rank = state_dict['model'] is not None
 
         if model_on_rank:
-            if False and version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
+            if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
                 from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
                 # TODO: Remove lazy init
                 from torch.distributed.fsdp._runtime_utils import _lazy_init
@@ -1325,7 +1325,7 @@ class State(Serializable):
 
             optim_state_dict = serialized_value[type(optimizer).__qualname__
                                                 ] if serialized_value is not None else None
-            if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
+            if False and version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
                 from torch.distributed.checkpoint.state_dict import StateDictOptions, set_optimizer_state_dict
                 optimizer = self.optimizers[0]
                 # TODO: Remove lazy init
