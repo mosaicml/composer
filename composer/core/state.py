@@ -1306,39 +1306,44 @@ class State(Serializable):
             strict (bool): Whether the keys (i.e., optimizer parameter names) in the optimizer
                 state dict should perfectly match the keys in the optimizer instance.
         """
-        if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
-            from torch.distributed.checkpoint.state_dict import StateDictOptions, set_optimizer_state_dict
-            optimizer = self.optimizers[0]
-            set_optimizer_state_dict(
-                model=self.model,
-                optimizers=optimizer,
-                optim_state_dict=state_dict['optimizers'].get(type(optimizer).__qualname__, {}),
-                options=StateDictOptions(
-                    full_state_dict=self.fsdp_state_dict_type != 'sharded',
-                    strict=strict,
-                    cpu_offload=True,
-                ),
+        serialized_value = state_dict['optimizers']
+        for optimizer in ensure_tuple(self.optimizers):
+            # Broadcast compatibility check as monolith rank 0 only loads won't have optimizer on all ranks
+            skip_optimizer_load = 1 if serialized_value is not None and type(
+                optimizer,
+            ).__qualname__ not in serialized_value else 0
+            skip_optimizer_load_tensor = self.device.tensor_to_device(
+                torch.tensor([skip_optimizer_load], dtype=torch.uint8),
             )
-        else:
-            serialized_value = state_dict['optimizers']
-            for optimizer in ensure_tuple(self.optimizers):
-                # Broadcast compatibility check as monolith rank 0 only loads won't have optimizer on all ranks
-                skip_optimizer_load = 1 if serialized_value is not None and type(
-                    optimizer,
-                ).__qualname__ not in serialized_value else 0
-                skip_optimizer_load_tensor = self.device.tensor_to_device(
-                    torch.tensor([skip_optimizer_load], dtype=torch.uint8),
+            dist.all_reduce(skip_optimizer_load_tensor, reduce_operation='MAX')
+            if skip_optimizer_load_tensor.item() == 1:
+                warnings.warn(
+                    f'{type(optimizer).__qualname__} is not in the state_dict. Its state will not be restored.',
+                    category=UserWarning,
                 )
-                dist.all_reduce(skip_optimizer_load_tensor, reduce_operation='MAX')
-                if skip_optimizer_load_tensor.item() == 1:
-                    warnings.warn(
-                        f'{type(optimizer).__qualname__} is not in the state_dict. Its state will not be restored.',
-                        category=UserWarning,
-                    )
-                    continue
+                continue
 
-                optim_state_dict = serialized_value[type(optimizer).__qualname__
-                                                   ] if serialized_value is not None else None
+            optim_state_dict = serialized_value[type(optimizer).__qualname__
+                                                ] if serialized_value is not None else None
+            if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
+                from torch.distributed.checkpoint.state_dict import StateDictOptions, set_optimizer_state_dict
+                optimizer = self.optimizers[0]
+                # TODO: Remove lazy init
+                from torch.distributed.fsdp._runtime_utils import _lazy_init
+                for module in self.model.modules():
+                    if isinstance(module, FSDP):
+                        _lazy_init(module, module)
+                set_optimizer_state_dict(
+                    model=self.model,
+                    optimizers=optimizer,
+                    optim_state_dict=optim_state_dict,
+                    options=StateDictOptions(
+                        full_state_dict=self.fsdp_state_dict_type != 'sharded',
+                        strict=strict,
+                        cpu_offload=True,
+                    ),
+                )
+            else:
                 if self.fsdp_enabled:
                     assert self.fsdp_state_dict_type is not None  # pyright
                     log.debug(f'Loading FSDP optimizer with fsdp_state_dict_type={self.fsdp_state_dict_type}')
