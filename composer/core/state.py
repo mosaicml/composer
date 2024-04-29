@@ -1235,10 +1235,19 @@ class State(Serializable):
         if model_on_rank:
             if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
                 from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
+                # TODO: Remove lazy init
+                from torch.distributed.fsdp._runtime_utils import _lazy_init
+                for module in self.model.modules():
+                    if isinstance(module, FSDP):
+                        _lazy_init(module, module)
                 set_model_state_dict(
                     model=self.model,
                     model_state_dict=state_dict['model'],
-                    options=StateDictOptions(strict=strict, cpu_offload=True),
+                    options=StateDictOptions(
+                        full_state_dict=self.fsdp_state_dict_type != 'sharded',
+                        strict=strict,
+                        cpu_offload=True,
+                    ),
                 )
             else:
                 missing_keys, unexpected_keys = [], []
@@ -1304,7 +1313,11 @@ class State(Serializable):
                 model=self.model,
                 optimizers=optimizer,
                 optim_state_dict=state_dict['optimizers'].get(type(optimizer).__qualname__, {}),
-                options=StateDictOptions(strict=strict, cpu_offload=True),
+                options=StateDictOptions(
+                    full_state_dict=self.fsdp_state_dict_type != 'sharded',
+                    strict=strict,
+                    cpu_offload=True,
+                ),
             )
         else:
             serialized_value = state_dict['optimizers']
