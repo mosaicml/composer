@@ -18,6 +18,7 @@ import numpy as np
 import pytest
 import torch
 from packaging import version
+from torch.distributed._shard.sharded_tensor import ShardedTensor
 from torch.utils.data import DataLoader
 from torchmetrics import Metric, MetricCollection
 from torchmetrics.classification import MulticlassAccuracy
@@ -184,6 +185,10 @@ def _compare_optims_between_state_dicts(state_dict1, state_dict2):
         for moment_name in state_dict2_param_moment_dict.keys():
             state_dict1_moment = state_dict1_param_moment_dict[moment_name].cpu()
             state_dict2_moment = state_dict2_param_moment_dict[moment_name].cpu()
+            if isinstance(state_dict1_moment, ShardedTensor):
+                state_dict1_moment = state_dict1_moment.local_tensor()
+            if isinstance(state_dict2_moment, ShardedTensor):
+                state_dict2_moment = state_dict2_moment.local_tensor()
             torch.testing.assert_close(state_dict1_moment, state_dict2_moment)
 
 
@@ -203,6 +208,10 @@ def _compare_model_params_between_state_dicts(state_dict1, state_dict2):
     for param_name in state_dict2_model_params.keys():
         state_dict1_model_tensor = state_dict1_model_params[param_name].cpu()
         state_dict2_model_tensor = state_dict2_model_params[param_name].cpu()
+        if isinstance(state_dict1_model_tensor, ShardedTensor):
+            state_dict1_model_tensor = state_dict1_model_tensor.local_tensor()
+        if isinstance(state_dict2_model_tensor, ShardedTensor):
+            state_dict2_model_tensor = state_dict2_model_tensor.local_tensor()
         torch.testing.assert_close(state_dict1_model_tensor, state_dict2_model_tensor)
 
 
