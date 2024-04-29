@@ -9,6 +9,7 @@ import fnmatch
 import logging
 import os
 import pathlib
+import posixpath
 import textwrap
 import time
 import warnings
@@ -138,7 +139,9 @@ class MLFlowLogger(LoggerDestination):
                     self._experiment_id = exp_from_name.experiment_id
                 else:
                     self._experiment_id = (self._mlflow_client.create_experiment(name=self.experiment_name))
-            self.run_url = posixpath.join(os.environ["DATABRICKS_HOST"], "ml", "experiments", str(self._experiment_id), "runs", str(self._run_id))
+            self.run_url = posixpath.join(
+                os.environ['DATABRICKS_HOST'], 'ml', 'experiments', str(self._experiment_id), 'runs', str(self._run_id)
+            )
 
     def init(self, state: State, logger: Logger) -> None:
         import mlflow
