@@ -203,12 +203,7 @@ def _compare_model_params_between_state_dicts(state_dict1, state_dict2):
     for param_name in state_dict2_model_params.keys():
         state_dict1_model_tensor = state_dict1_model_params[param_name].cpu()
         state_dict2_model_tensor = state_dict2_model_params[param_name].cpu()
-        torch.testing.assert_close(
-            state_dict1_model_tensor,
-            state_dict2_model_tensor,
-            rtol=1.6e-2,
-            atol=1.0e-4,
-        )
+        torch.testing.assert_close(state_dict1_model_tensor, state_dict2_model_tensor)
 
 
 def _compare_rng_states_between_trainers(rng_state1, rng_state2):
