@@ -1323,8 +1323,7 @@ class State(Serializable):
                 )
                 continue
 
-            optim_state_dict = serialized_value[type(optimizer).__qualname__
-                                                ] if serialized_value is not None else None
+            optim_state_dict = serialized_value[type(optimizer).__qualname__] if serialized_value is not None else None
             if False and version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
                 from torch.distributed.checkpoint.state_dict import StateDictOptions, set_optimizer_state_dict
                 optimizer = self.optimizers[0]
