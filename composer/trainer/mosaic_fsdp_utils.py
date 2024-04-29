@@ -565,7 +565,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
         if isinstance(b, DTensor):
             b = b._local_tensor
         return a.untyped_storage().data_ptr() == b.untyped_storage().data_ptr()
-    
+
     from torch.distributed.checkpoint.state_dict import FQNS_T
 
     @no_type_check
