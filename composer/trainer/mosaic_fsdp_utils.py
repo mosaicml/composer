@@ -565,3 +565,47 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
         if isinstance(b, DTensor):
             b = b._local_tensor
         return a.untyped_storage().data_ptr() == b.untyped_storage().data_ptr()
+
+    from torch.distributed.checkpoint.state_dict import _unflatten_model_state_dict, _verify_options, _load_model_state_dict, gc_context, _verify_state_dict
+
+    def set_model_state_dict(
+        model: nn.Module,
+        model_state_dict,
+        *,
+        options = None,
+    ):
+        """Load the model state_dict.
+
+        The counterpart of ``get_model_state_dict`` to set the state_dict to the
+        model. See ``set_state_dict`` for the detail usage.
+
+        Args:
+            model (nn.Module): the nn.Module to the model.
+            model_state_dict: (Dict[str, ValueType]):
+            the model state_dict to load. If the key of the ``model_state_dict``
+            is nn.Module, the key is a submodule of ``model`` and the value should
+            be the state_dict of the submodule. When loading the state_dict,
+            the prefix of the submodule will be append to the state_dict.
+            options (StateDictOptions): the options to control how
+                model state_dict and optimizer state_dict should be loaded. See
+                `StateDictOptions` for the details.
+
+        Returns:
+            ``NamedTuple`` with ``missing_keys`` and ``unexpected_keys`` fields:
+                * **missing_keys** is a list of str containing the missing keys
+                * **unexpected_keys** is a list of str containing the unexpected keys
+
+        :type model_state_dict: typing.Dict[str, ValueType]
+        """
+        from torch.distributed.fsdp._runtime_utils import _lazy_init
+        for module in model.modules():
+            if isinstance(module, FullyShardedDataParallel):
+                _lazy_init(module, module)
+        model_state_dict = _unflatten_model_state_dict(
+            model, model_state_dict,
+        )
+        with gc_context():
+            info = _verify_options(model, tuple(), optim_only=False, options=options)
+
+            _verify_state_dict(model_state_dict, {}, info)
+            return _load_model_state_dict(model, model_state_dict, info)

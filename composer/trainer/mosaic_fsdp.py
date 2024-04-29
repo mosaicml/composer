@@ -66,3 +66,8 @@ def patch_pytorch():
 
         from composer.trainer.mosaic_fsdp_utils import _same_storage
         _flat_param._same_storage = _same_storage
+
+        from torch.distributed.checkpoint import state_dict
+
+        from composer.trainer.mosaic_fsdp_utils import set_model_state_dict
+        state_dict.set_model_state_dict = set_model_state_dict
