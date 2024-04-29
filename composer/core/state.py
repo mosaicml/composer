@@ -889,7 +889,7 @@ class State(Serializable):
                 model=self.model,
                 submodules=None,
                 options=StateDictOptions(
-                    full_state_dict=self.fsdp_state_dict_type != 'sharded',
+                    full_state_dict=self.fsdp_state_dict_type == 'full',
                     cpu_offload=True,
                 ),
             )
@@ -929,7 +929,7 @@ class State(Serializable):
                 optimizers=optimizer,
                 submodules=None,
                 options=StateDictOptions(
-                    full_state_dict=self.fsdp_state_dict_type != 'sharded',
+                    full_state_dict=self.fsdp_state_dict_type == 'full',
                     cpu_offload=True,
                 ),
             )
@@ -1240,7 +1240,7 @@ class State(Serializable):
                     model=self.model,
                     model_state_dict=state_dict['model'],
                     options=StateDictOptions(
-                        full_state_dict=self.fsdp_state_dict_type != 'sharded',
+                        full_state_dict=self.fsdp_state_dict_type == 'full',
                         strict=strict,
                         cpu_offload=True,
                     ),
@@ -1325,14 +1325,15 @@ class State(Serializable):
 
                 # optim_state_dict is `None` on non-zero ranks when loading FSDP monolith
                 # checkpoint on rank 0 only. However, PyTorch modifies the state_dict (producing
-                # errors) before discarding the output. Accordingly, we mock the state dict
+                # errors) before discarding the output. Accordingly, we mock the state dict.
+                # See: https://github.com/pytorch/pytorch/issues/125177
                 optim_state_dict = MagicMock() if optim_state_dict is None else optim_state_dict
                 set_optimizer_state_dict(
                     model=self.model,
                     optimizers=optimizer,
                     optim_state_dict=optim_state_dict,
                     options=StateDictOptions(
-                        full_state_dict=self.fsdp_state_dict_type != 'sharded',
+                        full_state_dict=self.fsdp_state_dict_type == 'full',
                         strict=strict,
                         cpu_offload=True,
                     ),

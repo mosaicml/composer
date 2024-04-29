@@ -643,6 +643,8 @@ def load_sharded_checkpoint(
                 # Ensure state exists
                 state_dict['state'] = state_dict.get('state', {})
 
+            # dist_cp.load breaks unless the specified state_dict supports `load_state_dict`
+            # See: https://github.com/pytorch/pytorch/issues/125096
             dist_cp.load_state_dict(
                 state_dict=state_dict,
                 storage_reader=storage_reader,
