@@ -58,8 +58,10 @@ class MLFlowLogger(LoggerDestination):
             synchronously to the MLflow backend. If ``False``, Mlflow will log asynchronously. (default: ``False``)
         log_system_metrics (bool, optional): Whether to log system metrics. If ``True``, Mlflow will
             log system metrics (CPU/GPU/memory/network usage) during training. (default: ``True``)
+        rename_metrics (Dict[str, str], optional): A dict to rename metrics, requires an exact match on the key (default: ``None``)
         ignore_metrics (List[str], optional): A list of glob patterns for metrics to ignore when logging. (default: ``None``)
         ignore_hyperparameters (List[str], optional): A list of glob patterns for hyperparameters to ignore when logging. (default: ``None``)
+
     """
 
     def __init__(
@@ -74,6 +76,7 @@ class MLFlowLogger(LoggerDestination):
         model_registry_uri: Optional[str] = None,
         synchronous: bool = False,
         log_system_metrics: bool = True,
+        rename_metrics: Optional[Dict[str, str]] = None,
         ignore_metrics: Optional[List[str]] = None,
         ignore_hyperparameters: Optional[List[str]] = None,
     ) -> None:
@@ -95,6 +98,7 @@ class MLFlowLogger(LoggerDestination):
         self.model_registry_uri = model_registry_uri
         self.synchronous = synchronous
         self.log_system_metrics = log_system_metrics
+        self.rename_metrics = dict() if rename_metrics is None else rename_metrics
         self.ignore_metrics = [] if ignore_metrics is None else ignore_metrics
         self.ignore_hyperparameters = [] if ignore_hyperparameters is None else ignore_hyperparameters
         if self.model_registry_uri == 'databricks-uc':
@@ -220,12 +224,15 @@ class MLFlowLogger(LoggerDestination):
                 artifact_file=f'{name}.json',
             )
 
+    def rename(self, key: str):
+        return self.rename_metrics.get(key, key)
+
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         from mlflow import log_metrics
         if self._enabled:
             # Convert all metrics to floats to placate mlflow.
             metrics = {
-                k: float(v)
+                self.rename(k): float(v)
                 for k, v in metrics.items()
                 if not any(fnmatch.fnmatch(k, pattern) for pattern in self.ignore_metrics)
             }
