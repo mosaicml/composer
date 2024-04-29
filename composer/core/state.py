@@ -1233,7 +1233,7 @@ class State(Serializable):
         model_on_rank = state_dict['model'] is not None
 
         if model_on_rank:
-            if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
+            if False and version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
                 from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
                 # TODO: Remove lazy init
                 from torch.distributed.fsdp._runtime_utils import _lazy_init
