@@ -98,7 +98,7 @@ class MLFlowLogger(LoggerDestination):
         self.model_registry_uri = model_registry_uri
         self.synchronous = synchronous
         self.log_system_metrics = log_system_metrics
-        self.rename_metrics = dict() if rename_metrics is None else rename_metrics
+        self.rename_metrics = {} if rename_metrics is None else rename_metrics
         self.ignore_metrics = [] if ignore_metrics is None else ignore_metrics
         self.ignore_hyperparameters = [] if ignore_hyperparameters is None else ignore_hyperparameters
         if self.model_registry_uri == 'databricks-uc':
