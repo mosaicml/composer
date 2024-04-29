@@ -11,6 +11,7 @@ import warnings
 from collections import OrderedDict
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Union, cast
+from unittest.mock import MagicMock
 
 import numpy as np
 import torch
@@ -1319,14 +1320,13 @@ class State(Serializable):
                 continue
 
             optim_state_dict = serialized_value[type(optimizer).__qualname__] if serialized_value is not None else None
-            if False and version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
+            if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
                 from torch.distributed.checkpoint.state_dict import StateDictOptions, set_optimizer_state_dict
-                optimizer = self.optimizers[0]
-                # TODO: Remove lazy init
-                from torch.distributed.fsdp._runtime_utils import _lazy_init
-                for module in self.model.modules():
-                    if isinstance(module, FSDP):
-                        _lazy_init(module, module)
+
+                # optim_state_dict is `None` on non-zero ranks when loading FSDP monolith
+                # checkpoint on rank 0 only. However, PyTorch modifies the state_dict (producing
+                # errors) before discarding the output. Accordingly, we mock the state dict
+                optim_state_dict = MagicMock() if optim_state_dict is None else optim_state_dict
                 set_optimizer_state_dict(
                     model=self.model,
                     optimizers=optimizer,

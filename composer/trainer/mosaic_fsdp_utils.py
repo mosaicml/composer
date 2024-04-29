@@ -566,7 +566,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             b = b._local_tensor
         return a.untyped_storage().data_ptr() == b.untyped_storage().data_ptr()
 
-    from torch.distributed.checkpoint.state_dict import _unflatten_model_state_dict, _verify_options, _load_model_state_dict, gc_context, _verify_state_dict
+    from torch.distributed.checkpoint.state_dict import _unflatten_model_state_dict, _verify_options, _load_model_state_dict, gc_context, _verify_state_dict, _load_optim_state_dict
 
     def set_model_state_dict(
         model: nn.Module,
@@ -609,3 +609,45 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
 
             _verify_state_dict(model_state_dict, {}, info)
             return _load_model_state_dict(model, model_state_dict, info)
+
+    def set_optimizer_state_dict(
+        model: nn.Module,
+        optimizers: Union[torch.optim.Optimizer, Iterable[torch.optim.Optimizer]],
+        *,
+        optim_state_dict,
+        options = None,
+    ) -> None:
+        """Load the optimizers state_dict.
+
+        The counterpart of ``get_optimizer_state_dict`` to set the state_dict to the
+        optimizers. See ``set_state_dict`` for the detail usage.
+
+        Args:
+            model (nn.Module): the nn.Module to the model.
+            optimizers (Union[Optimizer, Iterable[Optimizer]]):
+                The optimizers that are used to optimize ``model``.
+            optim_state_dict: OptimizerStateType:
+                the optimizer state_dict to load.
+            options (StateDictOptions): the options to control how
+                model state_dict and optimizer state_dict should be loaded. See
+                `StateDictOptions` for the details.
+
+        Returns:
+            None
+
+        :type optim_state_dict: typing.OptimizerStateType
+        """
+        from torch.distributed.fsdp._runtime_utils import _lazy_init
+        for module in model.modules():
+            if isinstance(module, FullyShardedDataParallel):
+                _lazy_init(module, module)
+        with gc_context():
+            optimizers = (
+                (optimizers,)
+                if isinstance(optimizers, torch.optim.Optimizer)
+                else tuple(optimizers)
+            )
+            info = _verify_options(model, optimizers, optim_only=True, options=options)
+
+            _verify_state_dict({}, optim_state_dict, info)
+            _load_optim_state_dict(model, optimizers, optim_state_dict, info)
