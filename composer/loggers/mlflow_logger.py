@@ -139,9 +139,6 @@ class MLFlowLogger(LoggerDestination):
                     self._experiment_id = exp_from_name.experiment_id
                 else:
                     self._experiment_id = (self._mlflow_client.create_experiment(name=self.experiment_name))
-            self.run_url = posixpath.join(
-                os.environ['DATABRICKS_HOST'], 'ml', 'experiments', str(self._experiment_id), 'runs', str(self._run_id)
-            )
 
     def init(self, state: State, logger: Logger) -> None:
         import mlflow
@@ -199,6 +196,9 @@ class MLFlowLogger(LoggerDestination):
 
     def after_load(self, state: State, logger: Logger) -> None:
         logger.log_hyperparameters({'mlflow_experiment_id': self._experiment_id, 'mlflow_run_id': self._run_id})
+        self.run_url = posixpath.join(
+            os.environ['DATABRICKS_HOST'], 'ml', 'experiments', str(self._experiment_id), 'runs', str(self._run_id)
+        )
 
     def log_table(
         self,
