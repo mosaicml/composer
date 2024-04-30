@@ -740,6 +740,24 @@ class TestMlflowMetrics:
         # Undo the setup to avoid affecting other test cases.
         mlflow.set_system_metrics_sampling_interval(None)
 
+    def test_rename_metrics(self, device, num_batches, tmp_path):
+
+        logger = MLFlowLogger(
+            tracking_uri=tmp_path / Path('my-test-mlflow-uri'),
+            rename_metrics={
+                'loss/train/total': 'just_loss',
+                'nothing': 'still_nothing',
+            },
+        )
+
+        file_path = self.run_trainer(logger, num_batches)
+
+        metric_file = file_path / Path('metrics') / Path('just_loss')
+        assert os.path.exists(metric_file)
+
+        metric_file = file_path / Path('metrics') / Path('loss/train/total')
+        assert not os.path.exists(metric_file)
+
     @pytest.mark.parametrize(
         'ignore_hyperparameters',
         [
@@ -754,7 +772,7 @@ class TestMlflowMetrics:
             ignore_hyperparameters=ignore_hyperparameters,
         )
 
-        file_path = self.run_trainer(logger, num_batches, wait=True)
+        file_path = self.run_trainer(logger, num_batches)
 
         param_path = file_path / Path('params')
         actual_params_list = [param_filepath.stem for param_filepath in param_path.iterdir()]
@@ -777,21 +795,3 @@ class TestMlflowMetrics:
                 'mlflow_run_id',
             ]
         assert set(expected_params_list) == set(actual_params_list)
-
-    def test_rename_metrics(self, device, num_batches, tmp_path):
-
-        logger = MLFlowLogger(
-            tracking_uri=tmp_path / Path('my-test-mlflow-uri'),
-            rename_metrics={
-                'loss/train/total': 'just_loss',
-                'nothing': 'still_nothing',
-            },
-        )
-
-        file_path = self.run_trainer(logger, num_batches)
-
-        metric_file = file_path / Path('metrics') / Path('just_loss')
-        assert os.path.exists(metric_file)
-
-        metric_file = file_path / Path('metrics') / Path('loss/train/total')
-        assert not os.path.exists(metric_file)
