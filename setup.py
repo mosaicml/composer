@@ -226,7 +226,7 @@ extra_deps['mlflow'] = [
 ]
 
 extra_deps['gpu-flash2'] = [
-    'flash-attn==2.5.0',
+    'flash-attn==2.5.8',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
