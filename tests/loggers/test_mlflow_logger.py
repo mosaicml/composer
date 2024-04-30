@@ -754,7 +754,7 @@ class TestMlflowMetrics:
             ignore_hyperparameters=ignore_hyperparameters,
         )
 
-        file_path = self.run_trainer(logger, num_batches)
+        file_path = self.run_trainer(logger, num_batches, wait=True)
 
         param_path = file_path / Path('params')
         actual_params_list = [param_filepath.stem for param_filepath in param_path.iterdir()]
