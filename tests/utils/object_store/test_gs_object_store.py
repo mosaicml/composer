@@ -10,9 +10,9 @@ from botocore.exceptions import ClientError
 from torch.utils.data import DataLoader
 
 from composer.loggers import RemoteUploaderDownloader
+from composer.optim import DecoupledSGDW
 from composer.trainer import Trainer
 from composer.utils import GCSObjectStore
-from composer.optim import DecoupledSGDW
 from tests.common import RandomClassificationDataset, SimpleModel
 
 
@@ -61,6 +61,7 @@ def test_gs_object_store_integration_json_auth(expected_use_gcs_sdk_val=True, cl
     trainer_load.close()
 
 
+@pytest.mark.gpu
 @pytest.mark.remote
 def test_gs_object_store_integration_hmac_auth():
     with mock.patch.dict(os.environ):
