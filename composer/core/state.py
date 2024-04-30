@@ -1329,7 +1329,6 @@ class State(Serializable):
                 # errors) before discarding the output. Accordingly, we mock the state dict.
                 # See: https://github.com/pytorch/pytorch/issues/125177
                 optim_state_dict = MagicMock() if optim_state_dict is None else optim_state_dict
-                print('ZEROOOOOO')
                 optimizer.zero_grad(set_to_none=True)
                 set_optimizer_state_dict(
                     model=self.model,
