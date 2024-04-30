@@ -100,7 +100,7 @@ class MLFlowLogger(LoggerDestination):
         self.experiment_name = experiment_name
         self.run_name = run_name
         self.run_group = run_group
-        self.tags = tags
+        self.tags = tags or {}
         self.model_registry_prefix = model_registry_prefix
         self.model_registry_uri = model_registry_uri
         self.synchronous = synchronous
@@ -207,8 +207,7 @@ class MLFlowLogger(LoggerDestination):
         if self.run_name is None:
             self.run_name = state.run_name
 
-        # Store the Composer run name in the MLFlow run tags so it can be retrieved for autoresume.
-        self.tags = self.tags or {}
+        # Store the Composer run name in the MLFlow run tags so it can be retrieved for autoresume
         self.tags['run_name'] = os.environ.get('RUN_NAME', state.run_name)
 
         # Adjust name and group based on `rank_zero_only`.

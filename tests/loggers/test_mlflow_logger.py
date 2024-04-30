@@ -796,6 +796,7 @@ class TestMlflowMetrics:
         metric_file = file_path / Path('metrics') / Path('loss/train/total')
         assert not os.path.exists(metric_file)
 
+
 def test_mlflow_resume_run(tmp_path):
     mlflow = pytest.importorskip('mlflow')
 
