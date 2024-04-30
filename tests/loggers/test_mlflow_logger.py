@@ -16,9 +16,9 @@ from torch.utils.data import DataLoader
 from composer.core import Callback, State
 from composer.loggers import Logger, MLFlowLogger
 from composer.trainer import Trainer
-from tests.common.datasets import RandomImageDataset
+from tests.common.datasets import RandomClassificationDataset, RandomImageDataset
 from tests.common.markers import device
-from tests.common.models import SimpleConvModel
+from tests.common.models import SimpleConvModel, SimpleModel
 from tests.models.test_hf_model import check_hf_model_equivalence, check_hf_tokenizer_equivalence
 
 
@@ -598,86 +598,6 @@ def test_mlflow_register_uc_error(tmp_path, monkeypatch):
 
 
 @device('cpu')
-def test_mlflow_logging_works(tmp_path, device):
-    mlflow = pytest.importorskip('mlflow')
-
-    mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
-    experiment_name = 'mlflow_logging_test'
-    test_mlflow_logger = MLFlowLogger(
-        tracking_uri=mlflow_uri,
-        experiment_name=experiment_name,
-        log_system_metrics=True,
-    )
-    # Reduce the system metrics sampling interval to speed up the test.
-    mlflow.set_system_metrics_sampling_interval(1)
-
-    dataset_size = 64
-    batch_size = 4
-    num_batches = 4
-    eval_interval = '1ba'
-
-    trainer = Trainer(
-        model=SimpleConvModel(),
-        loggers=test_mlflow_logger,
-        train_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
-        eval_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
-        max_duration=f'{num_batches}ba',
-        eval_interval=eval_interval,
-        device=device,
-    )
-    trainer.fit()
-    # Allow system metrics to be collected.
-    time.sleep(2)
-    test_mlflow_logger.post_close()
-
-    run = _get_latest_mlflow_run(
-        experiment_name=experiment_name,
-        tracking_uri=mlflow_uri,
-    )
-    run_id = run.info.run_id
-    experiment_id = run.info.experiment_id
-
-    run_file_path = mlflow_uri / Path(experiment_id) / Path(run_id)
-
-    # Test metrics logged.
-    for metric_name in [
-        'metrics/train/MulticlassAccuracy',
-        'metrics/eval/MulticlassAccuracy',
-        'metrics/eval/CrossEntropy',
-        'loss/train/total',
-    ]:
-        metric_file = run_file_path / Path('metrics') / Path(metric_name)
-        with open(metric_file) as f:
-            csv_reader = csv.reader(f, delimiter=' ')
-            lines = list(csv_reader)
-
-        assert len(lines) == num_batches
-
-    # Test params logged.
-    param_path = run_file_path / Path('params')
-    actual_params_list = [param_filepath.stem for param_filepath in param_path.iterdir()]
-
-    expected_params_list = [
-        'num_cpus_per_node',
-        'node_name',
-        'num_nodes',
-        'rank_zero_seed',
-        'composer_version',
-        'composer_commit_hash',
-        'mlflow_experiment_id',
-        'mlflow_run_id',
-    ]
-    assert set(expected_params_list) == set(actual_params_list)
-
-    # Test system metrics logged.
-    metric_file = run_file_path / Path('metrics') / Path('system/cpu_utilization_percentage')
-    assert os.path.exists(metric_file)
-
-    # Undo the setup to avoid affecting other test cases.
-    mlflow.set_system_metrics_sampling_interval(None)
-
-
-@device('cpu')
 def test_mlflow_log_image_works(tmp_path, device):
     pytest.importorskip('mlflow')
 
@@ -734,97 +654,147 @@ def test_mlflow_log_image_works(tmp_path, device):
 
 
 @device('cpu')
-def test_mlflow_ignore_metrics(tmp_path, device):
-    mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
-    experiment_name = 'mlflow_logging_test'
-    test_mlflow_logger = MLFlowLogger(
-        tracking_uri=mlflow_uri,
-        experiment_name=experiment_name,
-        log_system_metrics=False,
-        ignore_metrics=['metrics/eval/*', 'nothing/should/match', 'metrics/train/CrossEntropy'],
+class TestMlflowMetrics:
+
+    @pytest.fixture
+    def num_batches(self):
+        return 4
+
+    def run_trainer(self, logger: MLFlowLogger, num_batches: int = 4, wait: bool = False):
+        trainer = Trainer(
+            model=SimpleModel(),
+            loggers=logger,
+            train_dataloader=DataLoader(RandomClassificationDataset(size=64), batch_size=4),
+            eval_dataloader=DataLoader(RandomClassificationDataset(size=64), batch_size=4),
+            max_duration=f'{num_batches}ba',
+            eval_interval='1ba',
+        )
+
+        trainer.fit()
+        time.sleep(2 if wait else 0)  # give time to log cpu
+
+        logger.post_close()
+
+        assert isinstance(logger._experiment_id, str)
+        assert isinstance(logger._run_id, str)
+
+        return logger.tracking_uri / Path(logger._experiment_id) / Path(logger._run_id)
+
+    @pytest.mark.parametrize(
+        'ignore_metrics,expected,ignored',
+        [
+            [
+                None,  # filter nothing
+                [
+                    'metrics/train/MulticlassAccuracy',
+                    'metrics/eval/MulticlassAccuracy',
+                    'metrics/eval/CrossEntropy',
+                    'loss/train/total',
+                ],
+                list(),
+            ],
+            [
+                ['metrics/eval/*', 'nothing/should/match', 'metrics/train/MulticlassAccuracy'],
+                ['loss/train/total'],
+                ['metrics/train/MulticlassAccuracy', 'metrics/eval/MulticlassAccuracy', 'metrics/eval/CrossEntropy'],
+            ],
+        ],
     )
+    def test_mlflow_ignore_metrics(self, num_batches, device, ignore_metrics, expected, ignored, tmp_path):
+        logger = MLFlowLogger(
+            tracking_uri=tmp_path / Path('my-test-mlflow-uri'),
+            ignore_metrics=ignore_metrics,
+        )
 
-    dataset_size = 64
-    batch_size = 4
-    num_batches = 4
-    eval_interval = '1ba'
+        file_path = self.run_trainer(logger, num_batches)
 
-    trainer = Trainer(
-        model=SimpleConvModel(),
-        loggers=test_mlflow_logger,
-        train_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
-        eval_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
-        max_duration=f'{num_batches}ba',
-        eval_interval=eval_interval,
-        device=device,
+        # test whether metrics logged
+        for metric_name in ignored:
+            metric_file = file_path / Path('metrics') / Path(metric_name)
+            assert not os.path.exists(metric_file)
+
+        for metric_name in expected:
+            metric_file = file_path / Path('metrics') / Path(metric_name)
+            with open(metric_file) as f:
+                csv_reader = csv.reader(f, delimiter=' ')
+                lines = list(csv_reader)
+
+            assert len(lines) == num_batches
+
+    @pytest.mark.parametrize('system_metrics', [True, False])
+    def test_mlflow_system_metrics(self, num_batches, device, tmp_path, system_metrics):
+        mlflow = pytest.importorskip('mlflow')
+
+        logger = MLFlowLogger(
+            tracking_uri=tmp_path / Path('my-test-mlflow-uri'),
+            log_system_metrics=system_metrics,
+        )
+
+        mlflow.set_system_metrics_sampling_interval(0.1)
+
+        file_path = self.run_trainer(logger, num_batches, wait=system_metrics)
+
+        metric_file = file_path / Path('metrics') / Path('system/cpu_utilization_percentage')
+        assert os.path.exists(metric_file) == system_metrics
+
+        # Undo the setup to avoid affecting other test cases.
+        mlflow.set_system_metrics_sampling_interval(None)
+
+    @pytest.mark.parametrize(
+        'ignore_hyperparameters',
+        [
+            ['num*', 'composer*', 'mlflow_run_id', 'nothing'],
+            None,
+        ],
     )
-    trainer.fit()
-    test_mlflow_logger.post_close()
+    def test_mlflow_log_hparams(self, ignore_hyperparameters, num_batches, device, tmp_path):
 
-    run = _get_latest_mlflow_run(
-        experiment_name=experiment_name,
-        tracking_uri=mlflow_uri,
-    )
-    run_id = run.info.run_id
-    experiment_id = run.info.experiment_id
+        logger = MLFlowLogger(
+            tracking_uri=tmp_path / Path('my-test-mlflow-uri'),
+            ignore_hyperparameters=ignore_hyperparameters,
+        )
 
-    run_file_path = mlflow_uri / Path(experiment_id) / Path(run_id)
+        file_path = self.run_trainer(logger, num_batches)
 
-    # Test metrics logged.
-    for metric_name in [
-        'metrics/train/MulticlassAccuracy',
-        'loss/train/total',
-    ]:
-        metric_file = run_file_path / Path('metrics') / Path(metric_name)
-        with open(metric_file) as f:
-            csv_reader = csv.reader(f, delimiter=' ')
-            lines = list(csv_reader)
+        param_path = file_path / Path('params')
+        actual_params_list = [param_filepath.stem for param_filepath in param_path.iterdir()]
 
-        assert len(lines) == num_batches
+        if ignore_hyperparameters is not None:
+            expected_params_list = [
+                'node_name',
+                'rank_zero_seed',
+                'mlflow_experiment_id',
+            ]
+        else:
+            expected_params_list = [
+                'num_cpus_per_node',
+                'node_name',
+                'num_nodes',
+                'rank_zero_seed',
+                'composer_version',
+                'composer_commit_hash',
+                'mlflow_experiment_id',
+                'mlflow_run_id',
+            ]
+        assert set(expected_params_list) == set(actual_params_list)
 
-    # Test metrics are not logged.
-    for metric_name in ['metrics/eval/MulticlassAccuracy', 'metrics/eval/CrossEntropy', 'metrics/train/CrossEntropy']:
-        metric_file = run_file_path / Path('metrics') / Path(metric_name)
+    def test_rename_metrics(self, device, num_batches, tmp_path):
+
+        logger = MLFlowLogger(
+            tracking_uri=tmp_path / Path('my-test-mlflow-uri'),
+            rename_metrics={
+                'loss/train/total': 'just_loss',
+                'nothing': 'still_nothing',
+            },
+        )
+
+        file_path = self.run_trainer(logger, num_batches)
+
+        metric_file = file_path / Path('metrics') / Path('just_loss')
+        assert os.path.exists(metric_file)
+
+        metric_file = file_path / Path('metrics') / Path('loss/train/total')
         assert not os.path.exists(metric_file)
-
-    # Test system metrics are not logged.
-    metric_file = run_file_path / Path('metrics') / Path('system/cpu_utilization_percentage')
-    assert not os.path.exists(metric_file)
-
-
-def test_mlflow_ignore_hyperparameters(tmp_path):
-    mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
-    experiment_name = 'mlflow_logging_test'
-    test_mlflow_logger = MLFlowLogger(
-        tracking_uri=mlflow_uri,
-        experiment_name=experiment_name,
-        log_system_metrics=False,
-        ignore_hyperparameters=['num*', 'mlflow_run_id', 'nothing'],
-    )
-
-    Trainer(model=SimpleConvModel(), loggers=test_mlflow_logger, max_duration=f'4ba')
-    test_mlflow_logger.post_close()
-
-    run = _get_latest_mlflow_run(
-        experiment_name=experiment_name,
-        tracking_uri=mlflow_uri,
-    )
-    run_file_path = mlflow_uri / Path(run.info.experiment_id) / Path(run.info.run_id)
-
-    # Test params logged.
-    param_path = run_file_path / Path('params')
-    actual_params_list = [param_filepath.stem for param_filepath in param_path.iterdir()]
-
-    # should not see num_cpus_per_node, num_nodes, mlflow_run_id
-    expected_params_list = [
-        'node_name',
-        'rank_zero_seed',
-        'composer_version',
-        'composer_commit_hash',
-        'mlflow_experiment_id',
-    ]
-    assert set(expected_params_list) == set(actual_params_list)
-
 
 def test_mlflow_resume_run(tmp_path):
     mlflow = pytest.importorskip('mlflow')
