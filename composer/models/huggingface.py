@@ -510,18 +510,6 @@ class HuggingFaceModel(ComposerModel):
                     'Generation eval cannot be used without providing a tokenizer to the model constructor.',
                 )
 
-            if 'generation_length' in batch:
-                warnings.warn(
-                    VersionedDeprecationWarning(
-                        '`generation_length` has been deprecated in favor of passing `max_new_tokens` directly into `generation_kwargs`.',
-                        remove_version='0.22.0',
-                    ),
-                )
-                if 'generation_kwargs' in batch:
-                    batch['generation_kwargs']['max_new_tokens'] = batch['generation_length']
-                else:
-                    batch['generation_kwargs'] = {'max_new_tokens': batch['generation_length']}
-
             self.labels = batch.pop('labels')
             generation = self.generate(
                 batch['input_ids'],
