@@ -225,7 +225,7 @@ extra_deps['mlflow'] = [
     'mlflow>=2.11.1,<3.0',
 ]
 
-extra_deps['gpu-flash2'] = [
+extra_deps['flash2'] = [
     'flash-attn==2.5.8',
 ]
 
