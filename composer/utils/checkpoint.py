@@ -1187,6 +1187,8 @@ def save_checkpoint(
     weights_only: bool = False,
     ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
 ) -> Union[str, None]:  # noqa: D103
+    # Clear the cache in case we are near the memory limit to give some space for NCCL.
+    torch.cuda.empty_cache()
     save_filename = get_save_filename(state, filename)
     return _save_checkpoint(state, save_filename, weights_only=weights_only, ignore_keys=ignore_keys)
 
