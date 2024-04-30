@@ -133,6 +133,8 @@ def test_notebook(notebook: str, device: str, s3_bucket: str):
         )
     if notebook_name == 'checkpoint_autoresume':
         pytest.skip('MNIST dataset download is flaky')
+    if notebook_name == 'exporting_for_inference':
+        pytest.skip('MNIST dataset download is flaky')
 
     try:
         import boto3
