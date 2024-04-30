@@ -61,6 +61,7 @@ def test_gs_object_store_integration_json_auth(expected_use_gcs_sdk_val=True, cl
     trainer_load.close()
 
 
+@pytest.mark.gpu
 @pytest.mark.remote
 def test_gs_object_store_integration_hmac_auth():
     with mock.patch.dict(os.environ):
