@@ -24,7 +24,6 @@ from torchmetrics import Metric
 from composer.devices import DeviceCPU
 from composer.models.base import ComposerModel
 from composer.utils import MissingConditionalImportError, dist, get_file, import_object, is_model_fsdp, safe_torch_load
-from composer.utils.warnings import VersionedDeprecationWarning
 
 try:
     from peft import PeftModel, get_peft_model
