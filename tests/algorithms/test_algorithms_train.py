@@ -12,6 +12,7 @@ from tests.algorithms.algorithm_settings import get_alg_dataloader, get_alg_kwar
 
 @pytest.mark.gpu
 @pytest.mark.parametrize('alg_cls', get_algs_with_marks())
+@pytest.mark.filterwarnings(r'ignore:.*Plan failed with a cudnnException.*:UserWarning')  # Torch 2.3 regression
 def test_algorithm_trains(alg_cls: Type[Algorithm]):
     alg_kwargs = get_alg_kwargs(alg_cls)
     model = get_alg_model(alg_cls)
