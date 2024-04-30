@@ -8,6 +8,7 @@ import copy
 import json
 import os
 import random
+import warnings
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
 
 import torch
@@ -17,6 +18,7 @@ from composer.core import DataSpec
 from composer.core.data_spec import _split_list, default_split_batch
 from composer.datasets.utils import stop_sequences_criteria
 from composer.utils import MissingConditionalImportError, dist, get_file
+from composer.utils.warnings import VersionedDeprecationWarning
 
 if TYPE_CHECKING:
     import transformers
@@ -24,7 +26,6 @@ if TYPE_CHECKING:
 
 # Allow models to have slightly more tokens than were used in the most verbose CoT in the dataset
 _MAX_ANSWER_BUFFER_LENGTH = 10
-
 __all__ = [
     'InContextLearningLMTaskDataset',
     'InContextLearningMultipleChoiceTaskDataset',
@@ -125,7 +126,6 @@ def _make_padded_input(
         input (torch.tensor): The padded and encoded context
         continuation_span (torch.tensor): The _inclusive_ range of indices corresponding to the continuation
     """
-
     inp = torch.tensor(
         (context_enc + continuation_enc),
         dtype=torch.long,
@@ -293,6 +293,14 @@ class InContextLearningDataset(Dataset):
         hf_parsing_map: Optional[Dict] = None,
         generation_kwargs: Optional[Dict] = None,
     ):
+        warnings.warn(
+            VersionedDeprecationWarning(
+                '`InContextLearningDataset`, it\'s subclasses, and eval utility functions have been deprecated and migrated'
+                + ' to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: ' +
+                'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                remove_version='0.23.0',
+            ),
+        )
         try:
             import datasets
 
@@ -630,17 +638,20 @@ class InContextLearningDataset(Dataset):
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
-    def split_batch(self, batch: Any, microbatch_size: int) -> List[Dict[str, Any]]:
+    def split_batch(self, batch: Any, microbatch_size: Union[int, float]) -> List[Dict[str, Any]]:
         """
         Handling for certain specialty columns that must be split into batches in different formats.
 
         Args:
             batch (Dict): Batch of data
-            microbatch_size (int): Size of microbatches
+            microbatch_size (int | float): Size of microbatches
 
         Returns:
             List: List of chunked batches
         """
+        if isinstance(microbatch_size, float):
+            raise ValueError('InContextLearningDataset does not support float microbatch sizes')
+
         # Don't split kwargs that don't change
         # Normally split torch tensors
         # List split lists of strings
@@ -1028,7 +1039,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
     def get_num_samples_in_batch(self, batch) -> int:
         return batch['input_ids'].shape[0] // self.num_choices
 
-    def split_batch(self, batch: Any, microbatch_size: int) -> List[Dict[str, Any]]:
+    def split_batch(self, batch: Any, microbatch_size: Union[int, float]) -> List[Dict[str, Any]]:
         """
         Split batch while ensuring all continuations are in the same microbatch.
 
@@ -1044,6 +1055,8 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         Returns:
             list: List of chunked batches
         """
+        if isinstance(microbatch_size, float):
+            raise ValueError('InContextLearningMultipleChoiceTaskDataset does not support float microbatch sizes')
         chunked = {}
         for k, v in batch.items():
             if k in self.static_keys:

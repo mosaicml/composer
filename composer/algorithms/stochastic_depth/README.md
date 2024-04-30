@@ -10,6 +10,8 @@
 
 ### Functional Interface
 
+<!--Test is very slow so we skip-->
+<!--pytest.mark.skip-->
 <!--pytest.mark.gpu-->
 <!--
 ```python
@@ -58,6 +60,8 @@ for epoch in range(1):
 
 ### Composer Trainer
 
+<!--Test is very slow so we skip-->
+<!--pytest.mark.skip-->
 <!--pytest.mark.gpu-->
 <!--
 ```python

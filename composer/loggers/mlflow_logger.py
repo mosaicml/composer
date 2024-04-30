@@ -9,6 +9,7 @@ import fnmatch
 import logging
 import os
 import pathlib
+import posixpath
 import textwrap
 import time
 import warnings
@@ -110,6 +111,7 @@ class MLFlowLogger(LoggerDestination):
 
         self._experiment_id: Optional[str] = None
         self._run_id = None
+        self.run_url = None
 
         if self._enabled:
             self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
@@ -148,7 +150,7 @@ class MLFlowLogger(LoggerDestination):
 
         # Store the Composer run name in the MLFlow run tags so it can be retrieved for autoresume.
         self.tags = self.tags or {}
-        self.tags['run_name'] = state.run_name
+        self.tags['run_name'] = os.environ.get('RUN_NAME', state.run_name)
 
         # Adjust name and group based on `rank_zero_only`.
         if not self._rank_zero_only:
@@ -165,21 +167,12 @@ class MLFlowLogger(LoggerDestination):
             else:
                 # Search for an existing run tagged with this Composer run.
                 assert self._experiment_id is not None
+                run_name = self.tags['run_name']
                 existing_runs = mlflow.search_runs(
                     experiment_ids=[self._experiment_id],
-                    filter_string=f'tags.run_name = "{state.run_name}"',
+                    filter_string=f'tags.run_name = "{run_name}"',
                     output_format='list',
                 )
-
-                # Check for the old tag (`composer_run_name`) For backwards compatibility in case a run using the old
-                # tag fails and the run is resumed with a newer version of Composer that uses `run_name` instead of
-                # `composer_run_name`.
-                if len(existing_runs) == 0:
-                    existing_runs = mlflow.search_runs(
-                        experiment_ids=[self._experiment_id],
-                        filter_string=f'tags.composer_run_name = "{state.run_name}"',
-                        output_format='list',
-                    )
 
                 if len(existing_runs) > 0:
                     self._run_id = existing_runs[0].info.run_id
@@ -204,6 +197,14 @@ class MLFlowLogger(LoggerDestination):
 
     def after_load(self, state: State, logger: Logger) -> None:
         logger.log_hyperparameters({'mlflow_experiment_id': self._experiment_id, 'mlflow_run_id': self._run_id})
+        self.run_url = posixpath.join(
+            os.environ.get('DATABRICKS_HOST', ''),
+            'ml',
+            'experiments',
+            str(self._experiment_id),
+            'runs',
+            str(self._run_id),
+        )
 
     def log_table(
         self,

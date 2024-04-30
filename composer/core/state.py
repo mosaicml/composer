@@ -11,6 +11,7 @@ import warnings
 from collections import OrderedDict
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Union, cast
+from unittest.mock import MagicMock
 
 import numpy as np
 import torch
@@ -28,6 +29,11 @@ from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader, Dataset
 from torchmetrics import Metric
+
+if version.parse(torch.__version__) >= version.parse('2.3.0'):
+    from torch.amp.grad_scaler import GradScaler  # type: ignore
+else:
+    from torch.cuda.amp.grad_scaler import GradScaler  # type: ignore
 
 from composer.core.data_spec import DataSpec
 from composer.core.event import Event
@@ -218,7 +224,7 @@ class State(Serializable):
             ``rank_zero_seed + dist.get_global_rank()``.
         run_name (str): The name for this training run.
         device (Device): The device used by this process. The trainer moves the model and loaded data to this device.
-        device_train_microbatch_size (int, optional): The microbatch size for each device during training.
+        device_train_microbatch_size (int | float, optional): The microbatch size for each device during training.
         auto_microbatching (bool, optional): Whether automatic microbatching is enabled.
         train_dataloader (Iterable, optional): Dataloader used for training
         evaluators (Evaluator | Evaluators, optional): :class:`.Evaluator` used for evaluation.
@@ -242,7 +248,7 @@ class State(Serializable):
             train the model. Multiple optimizers are not currently supported.
         schedulers (LRScheduler | Sequence[LRScheduler], optional):
             The learning rate scheduler (can also be a list or tuple of schedulers).
-        scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
+        scaler (torch.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
         save_metrics (bool, optional): Whether to save metrics in state_dict.
         algorithms (Algorithm | Sequence[Algorithm], optional): The algorithms used for training.
         callbacks (Callback | Sequence[Callback], optional): The callbacks used for training.
@@ -308,7 +314,7 @@ class State(Serializable):
         eval_timestamp (Timestamp): The timestamp for the current evaluation dataloader. This timestamp is reset
             before the dataloader is evaluated. The :attr:`~Timestamp.epoch` attribute for this timestamp is always
             ``0``.
-        device_train_microbatch_size (int): The size of each train microbatch per device.
+        device_train_microbatch_size (int | float): The size of each train microbatch per device.
         loss (torch.Tensor | Sequence[torch.Tensor] | Dict[Any, torch.Tensor]): The most recently computed loss.
         model (torch.nn.Module): The training model.
 
@@ -326,7 +332,7 @@ class State(Serializable):
         profiler (Profiler): The profiler (if profiling is enabled), or ``None`` if not profiling.
         rank_zero_seed (int): The seed of the rank zero process.
         run_name (str): The name for this training run.
-        scaler (torch.cuda.amp.GradScaler): The gradient scaler if using mixed-precision training, or
+        scaler (torch.amp.GradScaler): The gradient scaler if using mixed-precision training, or
             ``None`` if not using mixed-precision training.
         serialized_attributes (List[str]): The names of the attribute which are serialized in a checkpoint.
 
@@ -381,7 +387,7 @@ class State(Serializable):
         max_duration: Optional[Union[str, Time[int]]] = None,
 
         # data configurations
-        device_train_microbatch_size: Optional[int] = None,
+        device_train_microbatch_size: Optional[Union[int, float]] = None,
         auto_microbatching: bool = False,
 
         # dataloaders
@@ -404,7 +410,7 @@ class State(Serializable):
         optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
 
         # scaler
-        scaler: Optional[torch.cuda.amp.grad_scaler.GradScaler] = None,
+        scaler: Optional[GradScaler] = None,
 
         # state_dict
         save_metrics: bool = False,
@@ -868,7 +874,7 @@ class State(Serializable):
         Returns:
             Dict[str, Any]: The state dict for the model.
         """
-        if version.parse(torch.__version__) > version.parse('2.2.9'):
+        if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
             from torch.distributed.checkpoint.state_dict import StateDictOptions, get_model_state_dict
             if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
                 raise NotImplementedError(
@@ -883,7 +889,7 @@ class State(Serializable):
                 model=self.model,
                 submodules=None,
                 options=StateDictOptions(
-                    full_state_dict=self.fsdp_state_dict_type != 'sharded',
+                    full_state_dict=self.fsdp_state_dict_type == 'full',
                     cpu_offload=True,
                 ),
             )
@@ -894,9 +900,9 @@ class State(Serializable):
             else:
                 model_state_dict = self.model.state_dict()
 
-        # If model is DDP wrapped, do not save the `module.` prefix, as that is an implementation detail
-        if self.is_model_ddp:
-            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, 'module.')
+            # If model is DDP wrapped, do not save the `module.` prefix, as that is an implementation detail
+            if self.is_model_ddp:
+                torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, 'module.')
 
         return model_state_dict
 
@@ -906,7 +912,7 @@ class State(Serializable):
         Returns:
             Dict[str, Any]: The state dict for the optimizer.
         """
-        if version.parse(torch.__version__) > version.parse('2.2.9'):
+        if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
             from torch.distributed.checkpoint.state_dict import StateDictOptions, get_optimizer_state_dict
             if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
                 raise NotImplementedError(
@@ -923,7 +929,7 @@ class State(Serializable):
                 optimizers=optimizer,
                 submodules=None,
                 options=StateDictOptions(
-                    full_state_dict=self.fsdp_state_dict_type != 'sharded',
+                    full_state_dict=self.fsdp_state_dict_type == 'full',
                     cpu_offload=True,
                 ),
             )
@@ -1228,12 +1234,16 @@ class State(Serializable):
         model_on_rank = state_dict['model'] is not None
 
         if model_on_rank:
-            if version.parse(torch.__version__) > version.parse('2.2.9'):
+            if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
                 from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
                 set_model_state_dict(
                     model=self.model,
                     model_state_dict=state_dict['model'],
-                    options=StateDictOptions(strict=strict, cpu_offload=True),
+                    options=StateDictOptions(
+                        full_state_dict=self.fsdp_state_dict_type == 'full',
+                        strict=strict,
+                        cpu_offload=True,
+                    ),
                 )
             else:
                 missing_keys, unexpected_keys = [], []
@@ -1292,35 +1302,43 @@ class State(Serializable):
             strict (bool): Whether the keys (i.e., optimizer parameter names) in the optimizer
                 state dict should perfectly match the keys in the optimizer instance.
         """
-        if version.parse(torch.__version__) > version.parse('2.2.9'):
-            from torch.distributed.checkpoint.state_dict import StateDictOptions, set_optimizer_state_dict
-            optimizer = self.optimizers[0]
-            set_optimizer_state_dict(
-                model=self.model,
-                optimizers=optimizer,
-                optim_state_dict=state_dict['optimizers'].get(type(optimizer).__qualname__, {}),
-                options=StateDictOptions(strict=strict, cpu_offload=True),
+        serialized_value = state_dict['optimizers']
+        for optimizer in ensure_tuple(self.optimizers):
+            # Broadcast compatibility check as monolith rank 0 only loads won't have optimizer on all ranks
+            skip_optimizer_load = 1 if serialized_value is not None and type(
+                optimizer,
+            ).__qualname__ not in serialized_value else 0
+            skip_optimizer_load_tensor = self.device.tensor_to_device(
+                torch.tensor([skip_optimizer_load], dtype=torch.uint8),
             )
-        else:
-            serialized_value = state_dict['optimizers']
-            for optimizer in ensure_tuple(self.optimizers):
-                # Broadcast compatibility check as monolith rank 0 only loads won't have optimizer on all ranks
-                skip_optimizer_load = 1 if serialized_value is not None and type(
-                    optimizer,
-                ).__qualname__ not in serialized_value else 0
-                skip_optimizer_load_tensor = self.device.tensor_to_device(
-                    torch.tensor([skip_optimizer_load], dtype=torch.uint8),
+            dist.all_reduce(skip_optimizer_load_tensor, reduce_operation='MAX')
+            if skip_optimizer_load_tensor.item() == 1:
+                warnings.warn(
+                    f'{type(optimizer).__qualname__} is not in the state_dict. Its state will not be restored.',
+                    category=UserWarning,
                 )
-                dist.all_reduce(skip_optimizer_load_tensor, reduce_operation='MAX')
-                if skip_optimizer_load_tensor.item() == 1:
-                    warnings.warn(
-                        f'{type(optimizer).__qualname__} is not in the state_dict. Its state will not be restored.',
-                        category=UserWarning,
-                    )
-                    continue
+                continue
 
-                optim_state_dict = serialized_value[type(optimizer).__qualname__
-                                                   ] if serialized_value is not None else None
+            optim_state_dict = serialized_value[type(optimizer).__qualname__] if serialized_value is not None else None
+            if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
+                from torch.distributed.checkpoint.state_dict import StateDictOptions, set_optimizer_state_dict
+
+                # optim_state_dict is `None` on non-zero ranks when loading FSDP monolith
+                # checkpoint on rank 0 only. However, PyTorch modifies the state_dict (producing
+                # errors) before discarding the output. Accordingly, we mock the state dict.
+                # See: https://github.com/pytorch/pytorch/issues/125177
+                optim_state_dict = MagicMock() if optim_state_dict is None else optim_state_dict
+                set_optimizer_state_dict(
+                    model=self.model,
+                    optimizers=optimizer,
+                    optim_state_dict=optim_state_dict,
+                    options=StateDictOptions(
+                        full_state_dict=self.fsdp_state_dict_type == 'full',
+                        strict=strict,
+                        cpu_offload=True,
+                    ),
+                )
+            else:
                 if self.fsdp_enabled:
                     assert self.fsdp_state_dict_type is not None  # pyright
                     log.debug(f'Loading FSDP optimizer with fsdp_state_dict_type={self.fsdp_state_dict_type}')

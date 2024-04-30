@@ -6,7 +6,7 @@ import json
 import os
 import time
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -43,7 +43,7 @@ def _get_latest_mlflow_run(experiment_name, tracking_uri=None):
         raise ValueError(f'Experiment with name {experiment_name} is unexpectedly empty')
 
 
-def test_mlflow_experiment_init_unspecified(monkeypatch):
+def test_mlflow_init_unspecified(monkeypatch):
     """ Test that MLFlow experiment is set up correctly when no parameters are specified
 
     This mocks the mlflow library to check that the correct calls are made to set up the experiment
@@ -73,7 +73,7 @@ def test_mlflow_experiment_init_unspecified(monkeypatch):
     )
 
 
-def test_mlflow_experiment_init_specified(monkeypatch):
+def test_mlflow_init_specified(monkeypatch):
     """ Test that MLFlow experiment is set up correctly when all parameters are specified
 
     This mocks the mlflow library to check that the correct calls are made to set up the experiment
@@ -114,7 +114,7 @@ def test_mlflow_experiment_init_specified(monkeypatch):
     )
 
 
-def test_mlflow_experiment_init_ids(monkeypatch):
+def test_mlflow_init_ids(monkeypatch):
     """ Test that MLFlow experiment is set up correctly when ids in the environment are specified
 
     This mocks the mlflow library to check that the correct calls are made to set up the experiment
@@ -144,7 +144,7 @@ def test_mlflow_experiment_init_ids(monkeypatch):
     assert mlflow.start_run.called_with(run_id=mlflow_run_id)
 
 
-def test_mlflow_experiment_init_experiment_name(monkeypatch):
+def test_mlflow_init_experiment_name(monkeypatch):
     """ Test that MLFlow experiment is set up correctly when experiment name is specified
 
     This mocks the mlflow library to check that the correct calls are made to set up the experiment
@@ -170,7 +170,7 @@ def test_mlflow_experiment_init_experiment_name(monkeypatch):
     id_logger.post_close()
 
 
-def test_mlflow_experiment_init_existing_composer_run(monkeypatch):
+def test_mlflow_init_existing_composer_run(monkeypatch):
     """ Test that an existing MLFlow run is used if one tagged with `run_name` exists in the experiment for the Composer run.
     """
     mlflow = pytest.importorskip('mlflow')
@@ -190,27 +190,55 @@ def test_mlflow_experiment_init_existing_composer_run(monkeypatch):
     assert test_logger._run_id == existing_id
 
 
-def test_mlflow_experiment_init_existing_composer_run_with_old_tag(monkeypatch):
-    """ Test that an existing MLFlow run is used if one exists with the old `composer_run_name` tag.
-    """
+@pytest.fixture
+def mock_mlflow_client():
+    with patch('mlflow.tracking.MlflowClient') as MockClient:
+        mock_create_run = MagicMock(return_value=MagicMock(info=MagicMock(run_id='mock-run-id')))
+        MockClient.return_value.create_run = mock_create_run
+        yield MockClient
+
+
+def test_mlflow_logger_uses_env_var_run_name(monkeypatch, mock_mlflow_client):
+    """Test that MLFlowLogger uses the 'RUN_NAME' environment variable if set."""
     mlflow = pytest.importorskip('mlflow')
 
     monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
     monkeypatch.setattr(mlflow, 'start_run', MagicMock())
 
+    from composer.loggers.mlflow_logger import MLFlowLogger
     mock_state = MagicMock()
-    mock_state.composer_run_name = 'dummy-run-name'
+    mock_state.run_name = 'dummy-run-name'
+    monkeypatch.setenv('RUN_NAME', 'env-run-name')
+
+    test_logger = MLFlowLogger()
+    test_logger.init(state=mock_state, logger=MagicMock())
+
+    assert test_logger.tags is not None
+    assert test_logger.tags['run_name'] == 'env-run-name'
+    monkeypatch.delenv('RUN_NAME')
+
+
+def test_mlflow_logger_uses_state_run_name_if_no_env_var_set(monkeypatch, mock_mlflow_client):
+    """Test that MLFlowLogger uses the state's run name if no 'RUN_NAME' environment variable is set."""
+    mlflow = pytest.importorskip('mlflow')
+
+    monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
+    monkeypatch.setattr(mlflow, 'start_run', MagicMock())
+    mock_state = MagicMock()
+    mock_state.run_name = 'state-run-name'
 
     existing_id = 'dummy-id'
     mock_search_runs = MagicMock(return_value=[MagicMock(info=MagicMock(run_id=existing_id))])
     monkeypatch.setattr(mlflow, 'search_runs', mock_search_runs)
 
+    from composer.loggers.mlflow_logger import MLFlowLogger
     test_logger = MLFlowLogger()
     test_logger.init(state=mock_state, logger=MagicMock())
-    assert test_logger._run_id == existing_id
+    assert test_logger.tags is not None
+    assert test_logger.tags['run_name'] == 'state-run-name'
 
 
-def test_mlflow_experiment_set_up(tmp_path):
+def test_mlflow_set_up(tmp_path):
     """ Test that MLFlow experiment is set up correctly within mlflow
     """
     mlflow = pytest.importorskip('mlflow')
@@ -334,8 +362,7 @@ def test_mlflow_log_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
             'tokenizer': tiny_gpt2_tokenizer,
         },
         artifact_path='my_model',
-        metadata={'task': 'llm/v1/completions'},
-        task='text-generation',
+        task='llm/v1/completions',
     )
     test_mlflow_logger.post_close()
 
@@ -377,8 +404,7 @@ def test_mlflow_save_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
             'tokenizer': tiny_gpt2_tokenizer,
         },
         path=local_mlflow_save_path,
-        metadata={'task': 'llm/v1/completions'},
-        task='text-generation',
+        task='llm/v1/completions',
     )
     test_mlflow_logger.post_close()
 
@@ -390,16 +416,16 @@ def test_mlflow_save_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
 
 @pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
 @pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
-def test_mlflow_save_peft_model(tmp_path, tiny_mistral_model, tiny_mistral_tokenizer):
+def test_mlflow_save_peft_model(tmp_path, tiny_mpt_model, tiny_mpt_tokenizer):
     mlflow = pytest.importorskip('mlflow')
     peft = pytest.importorskip('peft')
 
     # Reload just so the model has the update base model name
-    tiny_mistral_model.save_pretrained(tmp_path / Path('tiny_mistral_save_pt'))
-    tiny_mistral_model = tiny_mistral_model.from_pretrained(tmp_path / Path('tiny_mistral_save_pt'))
+    tiny_mpt_model.save_pretrained(tmp_path / Path('tiny_mpt_save_pt'))
+    tiny_mpt_model = tiny_mpt_model.from_pretrained(tmp_path / Path('tiny_mpt_save_pt'))
 
     peft_config = {'peft_type': 'LORA'}
-    peft_model = peft.get_peft_model(tiny_mistral_model, peft.get_peft_config(peft_config))
+    peft_model = peft.get_peft_model(tiny_mpt_model, peft.get_peft_config(peft_config))
 
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
     mlflow_exp_name = 'test-log-model-exp-name'
@@ -413,7 +439,7 @@ def test_mlflow_save_peft_model(tmp_path, tiny_mistral_model, tiny_mistral_token
     mock_logger = MagicMock()
 
     peft_model.save_pretrained(tmp_path / Path('peft_model_save_pt'))
-    tiny_mistral_tokenizer.save_pretrained(tmp_path / Path('peft_model_save_pt'))
+    tiny_mpt_tokenizer.save_pretrained(tmp_path / Path('peft_model_save_pt'))
 
     local_mlflow_save_path = str(tmp_path / Path('my_model_local'))
     test_mlflow_logger.init(state=mock_state, logger=mock_logger)
@@ -426,8 +452,8 @@ def test_mlflow_save_peft_model(tmp_path, tiny_mistral_model, tiny_mistral_token
 
     loaded_model = mlflow.pyfunc.load_model(local_mlflow_save_path).unwrap_python_model()
 
-    check_hf_model_equivalence(loaded_model.model, tiny_mistral_model)
-    check_hf_tokenizer_equivalence(loaded_model.tokenizer, tiny_mistral_tokenizer)
+    check_hf_model_equivalence(loaded_model.model, tiny_mpt_model)
+    check_hf_tokenizer_equivalence(loaded_model.tokenizer, tiny_mpt_tokenizer)
 
 
 @pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
@@ -660,6 +686,7 @@ def test_mlflow_log_image_works(tmp_path, device):
         def before_forward(self, state: State, logger: Logger):
             inputs = state.batch_get_item(key=0)
             images = inputs.data.cpu().numpy()
+            images = np.clip(images, 0, 1)
             logger.log_images(images, step=state.timestamp.batch.value)
             with pytest.warns(UserWarning):
                 logger.log_images(

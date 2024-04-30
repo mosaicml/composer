@@ -203,6 +203,14 @@ class InContextLearningMetric(Metric):
     """Base class for In-context learning (ICL) metrics."""
 
     def __init__(self, *args, **kwargs):
+        warnings.warn(
+            VersionedDeprecationWarning(
+                '`InContextLearningMetric` and it\'s subclasses have been deprecated and ' +
+                'migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
+                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md',
+                remove_version='0.23.0',
+            ),
+        )
         super().__init__(*args, **kwargs)
         self.needs_batch = True
 
@@ -273,7 +281,7 @@ class InContextLearningMetric(Metric):
             raise ValueError('Cannot use both `outputs` and `output_logits`')
         if output_logits is not None:
             warnings.warn(
-                VersionedDeprecationWarning('`output_logits` has been renamed to `outputs`.', remove_version='0.21.0'),
+                VersionedDeprecationWarning('`output_logits` has been renamed to `outputs`.', remove_version='0.23.0'),
             )
             outputs = output_logits
 

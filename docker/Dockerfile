@@ -283,7 +283,8 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
 RUN if [ -n "$CUDA_VERSION" ] ; then \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir ninja==1.11.1 && \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir --force-reinstall packaging==22.0 && \
-        MAX_JOBS=1 pip${PYTHON_VERSION} install --no-cache-dir flash-attn==2.5.5; \
+        MAX_JOBS=1 pip${PYTHON_VERSION} install --no-cache-dir --no-build-isolation flash-attn==2.5.8; \
+        cd .. ; \
     fi
 
 ###############
