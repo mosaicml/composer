@@ -11,6 +11,7 @@ import warnings
 from collections import OrderedDict
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Union, cast
+from unittest.mock import MagicMock
 
 import numpy as np
 import torch
@@ -888,7 +889,7 @@ class State(Serializable):
                 model=self.model,
                 submodules=None,
                 options=StateDictOptions(
-                    full_state_dict=self.fsdp_state_dict_type != 'sharded',
+                    full_state_dict=self.fsdp_state_dict_type == 'full',
                     cpu_offload=True,
                 ),
             )
@@ -928,7 +929,7 @@ class State(Serializable):
                 optimizers=optimizer,
                 submodules=None,
                 options=StateDictOptions(
-                    full_state_dict=self.fsdp_state_dict_type != 'sharded',
+                    full_state_dict=self.fsdp_state_dict_type == 'full',
                     cpu_offload=True,
                 ),
             )
@@ -1238,7 +1239,11 @@ class State(Serializable):
                 set_model_state_dict(
                     model=self.model,
                     model_state_dict=state_dict['model'],
-                    options=StateDictOptions(strict=strict, cpu_offload=True),
+                    options=StateDictOptions(
+                        full_state_dict=self.fsdp_state_dict_type == 'full',
+                        strict=strict,
+                        cpu_offload=True,
+                    ),
                 )
             else:
                 missing_keys, unexpected_keys = [], []
@@ -1297,35 +1302,43 @@ class State(Serializable):
             strict (bool): Whether the keys (i.e., optimizer parameter names) in the optimizer
                 state dict should perfectly match the keys in the optimizer instance.
         """
-        if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
-            from torch.distributed.checkpoint.state_dict import StateDictOptions, set_optimizer_state_dict
-            optimizer = self.optimizers[0]
-            set_optimizer_state_dict(
-                model=self.model,
-                optimizers=optimizer,
-                optim_state_dict=state_dict['optimizers'].get(type(optimizer).__qualname__, {}),
-                options=StateDictOptions(strict=strict, cpu_offload=True),
+        serialized_value = state_dict['optimizers']
+        for optimizer in ensure_tuple(self.optimizers):
+            # Broadcast compatibility check as monolith rank 0 only loads won't have optimizer on all ranks
+            skip_optimizer_load = 1 if serialized_value is not None and type(
+                optimizer,
+            ).__qualname__ not in serialized_value else 0
+            skip_optimizer_load_tensor = self.device.tensor_to_device(
+                torch.tensor([skip_optimizer_load], dtype=torch.uint8),
             )
-        else:
-            serialized_value = state_dict['optimizers']
-            for optimizer in ensure_tuple(self.optimizers):
-                # Broadcast compatibility check as monolith rank 0 only loads won't have optimizer on all ranks
-                skip_optimizer_load = 1 if serialized_value is not None and type(
-                    optimizer,
-                ).__qualname__ not in serialized_value else 0
-                skip_optimizer_load_tensor = self.device.tensor_to_device(
-                    torch.tensor([skip_optimizer_load], dtype=torch.uint8),
+            dist.all_reduce(skip_optimizer_load_tensor, reduce_operation='MAX')
+            if skip_optimizer_load_tensor.item() == 1:
+                warnings.warn(
+                    f'{type(optimizer).__qualname__} is not in the state_dict. Its state will not be restored.',
+                    category=UserWarning,
                 )
-                dist.all_reduce(skip_optimizer_load_tensor, reduce_operation='MAX')
-                if skip_optimizer_load_tensor.item() == 1:
-                    warnings.warn(
-                        f'{type(optimizer).__qualname__} is not in the state_dict. Its state will not be restored.',
-                        category=UserWarning,
-                    )
-                    continue
+                continue
 
-                optim_state_dict = serialized_value[type(optimizer).__qualname__
-                                                   ] if serialized_value is not None else None
+            optim_state_dict = serialized_value[type(optimizer).__qualname__] if serialized_value is not None else None
+            if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
+                from torch.distributed.checkpoint.state_dict import StateDictOptions, set_optimizer_state_dict
+
+                # optim_state_dict is `None` on non-zero ranks when loading FSDP monolith
+                # checkpoint on rank 0 only. However, PyTorch modifies the state_dict (producing
+                # errors) before discarding the output. Accordingly, we mock the state dict.
+                # See: https://github.com/pytorch/pytorch/issues/125177
+                optim_state_dict = MagicMock() if optim_state_dict is None else optim_state_dict
+                set_optimizer_state_dict(
+                    model=self.model,
+                    optimizers=optimizer,
+                    optim_state_dict=optim_state_dict,
+                    options=StateDictOptions(
+                        full_state_dict=self.fsdp_state_dict_type == 'full',
+                        strict=strict,
+                        cpu_offload=True,
+                    ),
+                )
+            else:
                 if self.fsdp_enabled:
                     assert self.fsdp_state_dict_type is not None  # pyright
                     log.debug(f'Loading FSDP optimizer with fsdp_state_dict_type={self.fsdp_state_dict_type}')

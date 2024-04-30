@@ -52,6 +52,8 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
+<!--Torch 2.3 regression requires filtering cudnn warning-->
+<!--pytest.mark.filterwarnings(r'ignore:.*Plan failed with a cudnnException.*:UserWarning')-->
 <!--pytest.mark.gpu-->
 <!--
 ```python
