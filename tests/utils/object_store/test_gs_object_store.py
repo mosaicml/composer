@@ -10,9 +10,9 @@ from botocore.exceptions import ClientError
 from torch.utils.data import DataLoader
 
 from composer.loggers import RemoteUploaderDownloader
+from composer.optim import DecoupledSGDW
 from composer.trainer import Trainer
 from composer.utils import GCSObjectStore
-from composer.optim import DecoupledSGDW
 from tests.common import RandomClassificationDataset, SimpleModel
 
 
