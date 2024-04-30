@@ -388,7 +388,7 @@ def load_checkpoint(
     logger: Logger,
     object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
     load_weights_only: bool = False,
-    strict_model_weights: bool = False,
+    strict_model_weights: bool = True,
     progress_bar: bool = True,
     ignore_keys: Optional[Union[list[str], Callable[[dict], None]]] = None,
     exclude_algorithms: Optional[list[str]] = None,
@@ -440,7 +440,7 @@ def load_checkpoint(
         load_weights_only (bool, optional): Whether or not to only restore the model weights from the checkpoint without
             restoring the associated state. (default: ``False``)
         strict_model_weights (bool, optional): Whether or not to force that the checkpointed weights must exactly
-            match the model weights. (default: ``False``)
+            match the model weights. (default: ``True``)
         progress_bar (bool, optional): Whether or not to show a progress bar when downloading checkpoints.
             Ignored if the checkpoint is a local file path. (default: ``True``)
         ignore_keys (list[str] | (dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
@@ -1187,6 +1187,8 @@ def save_checkpoint(
     weights_only: bool = False,
     ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
 ) -> Union[str, None]:  # noqa: D103
+    # Clear the cache in case we are near the memory limit to give some space for NCCL.
+    torch.cuda.empty_cache()
     save_filename = get_save_filename(state, filename)
     return _save_checkpoint(state, save_filename, weights_only=weights_only, ignore_keys=ignore_keys)
 

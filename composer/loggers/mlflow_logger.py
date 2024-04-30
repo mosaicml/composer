@@ -9,6 +9,7 @@ import fnmatch
 import logging
 import os
 import pathlib
+import posixpath
 import textwrap
 import time
 import warnings
@@ -118,6 +119,7 @@ class MLFlowLogger(LoggerDestination):
 
         self._experiment_id: Optional[str] = None
         self._run_id = None
+        self.run_url = None
 
         if self._enabled:
             self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
@@ -159,9 +161,10 @@ class MLFlowLogger(LoggerDestination):
         elif self.resume:
             # Search for an existing run tagged with this Composer run if `self.resume=True`.
             assert self._experiment_id is not None
+            run_name = self.tags['run_name']
             existing_runs = mlflow.search_runs(
                 experiment_ids=[self._experiment_id],
-                filter_string=f'tags.run_name = "{state.run_name}"',
+                filter_string=f'tags.run_name = "{run_name}"',
                 output_format='list',
             )
 
@@ -222,6 +225,14 @@ class MLFlowLogger(LoggerDestination):
 
     def after_load(self, state: State, logger: Logger) -> None:
         logger.log_hyperparameters({'mlflow_experiment_id': self._experiment_id, 'mlflow_run_id': self._run_id})
+        self.run_url = posixpath.join(
+            os.environ.get('DATABRICKS_HOST', ''),
+            'ml',
+            'experiments',
+            str(self._experiment_id),
+            'runs',
+            str(self._run_id),
+        )
 
     def log_table(
         self,
