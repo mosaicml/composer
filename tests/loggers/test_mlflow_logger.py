@@ -743,8 +743,8 @@ class TestMlflowMetrics:
     @pytest.mark.parametrize(
         'ignore_hyperparameters',
         [
-            None,
             ['num*', 'composer*', 'mlflow_run_id', 'nothing'],
+            None,
         ],
     )
     def test_mlflow_log_hyperparameters(self, ignore_hyperparameters, num_batches, device, tmp_path):
