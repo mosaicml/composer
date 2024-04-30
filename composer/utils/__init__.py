@@ -56,6 +56,7 @@ from composer.utils.misc import (
     is_notebook,
     model_eval_mode,
     partial_format,
+    add_vision_dataset_transform,
 )
 from composer.utils.object_store import (
     GCSObjectStore,
@@ -136,6 +137,7 @@ __all__ = [
     'LocalEvalClient',
     'MosaicMLLambdaEvalClient',
     'partial_format',
+    'add_vision_dataset_transform',
     'VersionedDeprecationWarning',
     'is_compressed_pt',
     'CliCompressor',
