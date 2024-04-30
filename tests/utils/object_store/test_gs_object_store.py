@@ -33,7 +33,8 @@ def test_gs_object_store_integration_json_auth(expected_use_gcs_sdk_val=True, cl
         train_dataloader=train_dataloader,
         save_folder='gs://mosaicml-internal-integration-testing/checkpoints/{run_name}',
         save_filename='test-model.pt',
-        max_duration='2ba',
+        max_duration='1ba',
+        precision='bf16',
     )
     run_name = trainer_save.state.run_name
     gcs_os = get_gcs_os_from_trainer(trainer_save)
@@ -49,7 +50,8 @@ def test_gs_object_store_integration_json_auth(expected_use_gcs_sdk_val=True, cl
         model=model,
         train_dataloader=train_dataloader,
         load_path=f'gs://mosaicml-internal-integration-testing/checkpoints/{run_name}/test-model.pt',
-        max_duration='4ba',
+        max_duration='2ba',
+        precision='bf16',
     )
     trainer_load.fit()
     trainer_load.close()
