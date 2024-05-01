@@ -75,3 +75,11 @@ def patch_pytorch():
         state_dict.set_model_state_dict = set_model_state_dict
         state_dict.set_optimizer_state_dict = set_optimizer_state_dict
         state_dict._get_fqns = _get_fqns
+
+        # Monkeypatch multiple streams
+        from torch.distributed.fsdp import _runtime_utils
+        
+        from composer.trainer.mosaic_fsdp_utils import _wait_for_computation_stream, _root_pre_forward, _share_state_and_init_handle_attrs
+        _runtime_utils._wait_for_computation_stream = _wait_for_computation_stream
+        _runtime_utils._root_pre_forward = _root_pre_forward
+        _runtime_utils._share_state_and_init_handle_attrs = _share_state_and_init_handle_attrs
