@@ -77,13 +77,15 @@ def patch_pytorch():
         state_dict._get_fqns = _get_fqns
 
         # Monkeypatch multiple streams
-        from torch.distributed.fsdp import _runtime_utils
+        from torch.distributed.fsdp import _runtime_utils, FullyShardedDataParallel
 
         from composer.trainer.mosaic_fsdp_utils import (
             _root_pre_forward,
             _share_state_and_init_handle_attrs,
             _wait_for_computation_stream,
+            forward,
         )
         _runtime_utils._wait_for_computation_stream = _wait_for_computation_stream
         _runtime_utils._root_pre_forward = _root_pre_forward
         _runtime_utils._share_state_and_init_handle_attrs = _share_state_and_init_handle_attrs
+        FullyShardedDataParallel.forward = forward

@@ -723,7 +723,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
     from torch.distributed.utils import _p_assert, _to_kwargs
     from torch.distributed.distributed_c10d import get_process_group_ranks
     from torch.distributed.fsdp._common_utils import _is_composable, _FSDPState
-    from torch.distributed.fsdp._runtime_utils import _root_cast_forward_input, _cast_buffers_to_dtype_and_device, _get_buffers_and_dtypes_for_computation, _reset_flat_param_grad_info_if_needed, HOMOGENEOUS_ATTR_NAMES
+    from torch.distributed.fsdp._runtime_utils import _root_cast_forward_input, _cast_buffers_to_dtype_and_device, _get_buffers_and_dtypes_for_computation, _reset_flat_param_grad_info_if_needed, HOMOGENEOUS_ATTR_NAMES, _pre_forward, _pre_forward_unshard, _post_forward, _post_forward_reshard
 
 
     def _fsdp_state_has_default_pg(state: _FSDPState) -> bool:
@@ -959,3 +959,30 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
                 raise ValueError(
                     f'Expects one homogeneous value for {attr_name} but got {attr_values}',
                 )
+
+    def forward(self, *args: Any, **kwargs: Any) -> Any:
+        """Run the forward pass for the wrapped module, inserting FSDP-specific pre- and post-forward sharding logic."""
+        handle = self._handle
+        with torch.autograd.profiler.record_function(
+            "FullyShardedDataParallel.forward"
+        ):
+            args, kwargs = _root_pre_forward(self, self, args, kwargs)
+            unused = None
+            args, kwargs = _pre_forward(
+                self,
+                handle,
+                _pre_forward_unshard,
+                self._fsdp_wrapped_module,
+                args,
+                kwargs,
+            )
+            if handle:
+                _p_assert(
+                    handle.flat_param.device == self.compute_device,
+                    "Expected `FlatParameter` to be on the compute device "
+                    f"{self.compute_device} but got {handle.flat_param.device}",
+                )
+            output = self._fsdp_wrapped_module(*args, **kwargs)
+            return _post_forward(
+                self, handle, _post_forward_reshard, self, unused, output
+            )
