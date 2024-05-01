@@ -723,7 +723,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
     from torch.distributed.utils import _p_assert, _to_kwargs
     from torch.distributed.distributed_c10d import get_process_group_ranks
     from torch.distributed.fsdp._common_utils import _is_composable, _FSDPState
-    from torch.distributed.fsdp._runtime_utils import _root_cast_forward_input, _cast_buffers_to_dtype_and_device, _get_buffers_and_dtypes_for_computation, _reset_flat_param_grad_info_if_needed
+    from torch.distributed.fsdp._runtime_utils import _root_cast_forward_input, _cast_buffers_to_dtype_and_device, _get_buffers_and_dtypes_for_computation, _reset_flat_param_grad_info_if_needed, HOMOGENEOUS_ATTR_NAMES
 
 
     def _fsdp_state_has_default_pg(state: _FSDPState) -> bool:
@@ -782,6 +782,8 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             state (_FSDPState): State of the FSDP instance.
             module (nn.Module): Module for which this logic tries to run. It may or
                 may not be the root. If not, then this method does not do anything.
+            args (Tuple): Arguments to the forward method of the module.
+            kwargs (Dict): Keyword arguments to the forward method of the module.
         """
         with torch.profiler.record_function('FullyShardedDataParallel._root_pre_forward'):
             _lazy_init(state, module)
