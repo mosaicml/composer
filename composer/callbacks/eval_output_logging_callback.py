@@ -11,7 +11,7 @@ import torch
 
 from composer.core import Callback, State
 from composer.loggers import ConsoleLogger, Logger
-from composer.utils.dist import all_gather_object
+from composer.utils import dist, VersionedDeprecationWarning
 
 
 class EvalOutputLogging(Callback):
@@ -24,6 +24,16 @@ class EvalOutputLogging(Callback):
     """
 
     def __init__(self, log_tokens=False, *args, **kwargs):
+        warnings.warn(
+            VersionedDeprecationWarning(
+                '`InContextLearningMetric` and it\'s subclasses have been deprecated and ' +
+                'migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
+                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md.'
+                + 'As EvalOutputLogging only works for ICL metrics, it has been deprecated and '
+                + 'will be migrated as well.',
+                remove_version='0.24.0',
+            ),
+        )
         super().__init__(self, *args, **kwargs)
         self.log_tokens = log_tokens
         self.columns = None
@@ -104,7 +114,7 @@ class EvalOutputLogging(Callback):
         self.rows.extend(rows)
 
     def eval_end(self, state: State, logger: Logger) -> None:
-        list_of_rows = all_gather_object(self.rows)
+        list_of_rows = dist.all_gather_object(self.rows)
         rows = [row for rows in list_of_rows for row in rows]
         for dest_logger in logger.destinations:
             if not isinstance(dest_logger, ConsoleLogger):
