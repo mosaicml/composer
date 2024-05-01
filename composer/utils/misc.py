@@ -248,17 +248,12 @@ def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is
 
     Args:
         dataset (VisionDataset): A torchvision dataset.
-        transform (Callable): Function to be added to the dataset's collection of
-            transforms.
+        transform (Callable): Function to be added to the dataset's collection of transforms.
         is_tensor_transform (bool): Whether ``transform`` acts on data of the type
-            :class:`~torch.Tensor`. default: ``False``.
-            * If ``True``, and :class:`~torchvision.transforms.ToTensor` is present in the transforms of the
-              ``dataset``, then ``transform`` will be inserted after the
-              :class:`~torchvision.transforms.ToTensor` transform.
-            * If ``False`` and :class:`~torchvision.transforms.ToTensor` is present, the ``transform`` will be
-              inserted before :class:`~torchvision.transforms.ToTensor`.
-            * If :class:`~torchvision.transforms.ToTensor` is not present, the transform will be appended to
-              the end of collection of transforms.
+            :class:`~torch.Tensor`. The transform will be inserted before or after
+            :class:`~torchvision.transforms.ToTensor` depending on if this is ``True`` or ``False``
+            respectively. If :class:`~torchvision.transforms.ToTensor` is not present, the
+            transform will be appended to the end of the collection of transforms. (default: ``False``)
 
     Returns:
         None: The ``dataset`` is modified in-place.
