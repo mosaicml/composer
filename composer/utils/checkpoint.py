@@ -620,13 +620,32 @@ def load_sharded_checkpoint(
 
         # We need no_grad because we overwrite tensor values with set_() when we do elastic loading and we don't want the set_ op recorded in the computation graph.
         with torch.no_grad():
-            # 1. Load model and metadata first
+            # 1. Load metadata first
+            state_dict = {'state': {'metadata': state._get_state_metadata()}}
+            # dist_cp.load breaks unless the specified state_dict supports `load_state_dict`
+            # See: https://github.com/pytorch/pytorch/issues/125096
+            dist_cp.load_state_dict(
+                state_dict=state_dict,
+                storage_reader=storage_reader,
+                planner=state.fsdp_config['load_planner'],
+                no_dist=(not dist.is_initialized()),
+            )
+            # Torch <2.2.3 requires optimizer to be loaded separately with the key at root of
+            # state_dict. If either current version or loaded version is <2.2.3, we need to load
+            # optimizer separately.
+            # Note: This prevents checkpoints past 2.2.3 from being loaded on versions <2.2.3.
+            current_version_less_than_2_2_3 = version.parse(torch.__version__) < version.parse('2.2.3')
+            loaded_torch_version = state_dict['state']['metadata'].torch_version
+            loaded_version_less_than_2_2_3 = version.parse(loaded_torch_version) < version.parse('2.2.3')
+            optimizer_at_root = current_version_less_than_2_2_3 or loaded_version_less_than_2_2_3
+
+            # 2. Load model and metadata first
             if load_weights_only:
                 state_dict: Dict[str, Any] = {'state': {'model': state.get_model_state_dict()}}
             else:
                 cur_state_dict = state.state_dict()
                 # For older versions of torch, we load optimizer separately.
-                if version.parse(torch.__version__) < version.parse('2.2.3'):
+                if optimizer_at_root:
                     cur_state_dict.pop('optimizers')
                 num_rng_ranks = _get_num_ranks_that_saved_rng(storage_reader.read_metadata())
                 state_dict: Dict[str, Any] = {
@@ -661,9 +680,9 @@ def load_sharded_checkpoint(
                 algorithm_passes=algorithm_passes,
             )
 
-            # 2. Optionally load optimizer
+            # 3. Optionally load optimizer
             # if we are using later than 2.2.3 then optimizer will already be loaded
-            if version.parse(torch.__version__) < version.parse('2.2.3') and not load_weights_only:
+            if optimizer_at_root and not load_weights_only:
                 optim_state = load_sharded_optimizer_state_dict(
                     model_state_dict=state.state_dict()['model'],
                     optimizer_key='optimizers',
