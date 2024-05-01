@@ -19,7 +19,7 @@ def test_tensorboard_logger(tmp_path, dummy_state):
     return tensorboard_logger
 
 
-def test_tensorboard_log_image(test_tensorboard_logger):
+def test_tensorboard_log_image(test_tensorboard_logger, dummy_state):
     pytest.importorskip('tensorboard', reason='tensorboard is optional')
 
     image_variants = [
@@ -49,5 +49,6 @@ def test_tensorboard_log_image(test_tensorboard_logger):
             channels_last=channels_last,
         )
 
-    test_tensorboard_logger.post_close()
+    logger = Logger(dummy_state, [])
+    test_tensorboard_logger.close(dummy_state, logger)
     # Tensorboard images are stored inline, so we can't check them automatically.

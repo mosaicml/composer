@@ -112,7 +112,7 @@ Composer includes three built-in LoggerDestinations to store artifacts:
 
 *   The :class:`~composer.logger.neptune_logger.NeptuneLogger` can upload Composer training files
     as `Neptune Files <https://docs.neptune.ai/api/field_types/#file>`_, which are associated with the corresponding
-    Neptune project.
+    Neptune run.
 
 *   The :class:`~composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader` can upload Composer training files
     to any cloud storage backend or remote filesystem. We include integrations for AWS S3 and SFTP
@@ -159,6 +159,30 @@ Weights & Biases Artifacts
     )
 
     # Train!
+    trainer.fit()
+
+Neptune File upload
+^^^^^^^^^^^^^^^^^^^
+
+.. seealso::
+
+    The :class:`~composer.loggers.neptune_logger.NeptuneLogger` API Reference.
+
+.. testcode::
+    :skipif: True
+
+    from composer.loggers import NeptuneLogger
+    from composer import Trainer
+
+    # Configure the Neptune logger
+    logger = NeptuneLogger(
+        upload_checkpoints=True,  # enable logging of checkpoint files
+    )
+
+    # Define the trainer
+    trainer = Trainer(..., loggers=logger)
+
+    # Train
     trainer.fit()
 
 S3 Objects

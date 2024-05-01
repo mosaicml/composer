@@ -80,15 +80,18 @@ def _check_list_is_primitives(l):
     return True
 
 
-def _default_split_batch(batch: Any, microbatch_size: int) -> Sequence:
+def _default_split_batch(batch: Any, microbatch_size: Union[int, float]) -> Sequence:
     """Splits batch into chunks of size `microbatch_size` for gradient accumulation.
 
     Works with tensors, dictionaries of tensors, (x, y) tuples, and lists where ``batch`` is the 2nd dimension.
 
     Args:
         batch (Any): output from the dataloader.
-        microbatch_size (int): Size of microbatches to batch into.
+        microbatch_size (int | float): Size of microbatches to batch into.
     """
+    if isinstance(microbatch_size, float):
+        raise ValueError('_default_split_batch does not support floating point microbatch_size.')
+
     if isinstance(batch, torch.Tensor):  # check for a single stack of tensors
         return _split_tensor(batch, microbatch_size)
     elif isinstance(batch, Mapping):  # check for dictionary (hf style)
@@ -154,7 +157,7 @@ class DataSpec:
             normalization. It can modify the batch in-place, and it should return the modified batch. If not specified,
             the batch is not modified.
 
-        split_batch ((Batch, int) -> Sequence[Batch], optional): Function called by the :class:`.Trainer` to
+        split_batch ((Batch, (int | float)) -> Sequence[Batch], optional): Function called by the :class:`.Trainer` to
             split a batch (the first parameter) into microbatches of a given size (the second parameter). If
             the ``dataloader`` yields batches not of type :class:`torch.Tensor`, Mapping, Tuple, or List, then
             this function must be specified.
@@ -180,7 +183,7 @@ class DataSpec:
         num_samples: Optional[int] = None,
         num_tokens: Optional[int] = None,
         device_transforms: Optional[Callable[[Batch], Batch]] = None,
-        split_batch: Optional[Callable[[Batch, int], Sequence[Batch]]] = None,
+        split_batch: Optional[Callable[[Batch, Union[int, float]], Sequence[Batch]]] = None,
         get_num_samples_in_batch: Optional[Callable[[Batch], Union[int, float]]] = None,
         get_num_tokens_in_batch: Optional[Callable[[Batch], int]] = None,
     ) -> None:
@@ -218,7 +221,7 @@ class DataSpec:
             world_size = dist.get_world_size()
             # Check for Distributed Sampler if not using IterableDataset on more than 1 GPU
             if world_size > 1 and not isinstance(dataloader.dataset, torch.utils.data.IterableDataset):
-                is_sampler_distributed = dataloader.sampler and isinstance(dataloader.sampler, DistributedSampler)
+                is_sampler_distributed = isinstance(dataloader.sampler, DistributedSampler)
                 is_batch_sampler_distributed = dataloader.batch_sampler is not None and isinstance(
                     dataloader.batch_sampler,
                     DistributedSampler,

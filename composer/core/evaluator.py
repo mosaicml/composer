@@ -94,6 +94,8 @@ class Evaluator:
         self._eval_interval = None
         self.eval_interval = eval_interval
         self.auto_microbatching = _is_auto_microbatching(device_eval_microbatch_size)
+        if self.auto_microbatching and hasattr(self.dataloader, 'seq_parallel_world_size'):
+            raise ValueError('`device_eval_microbatch_size="auto"` is not compatible with sequence parallelism.')
         self.device_eval_microbatch_size = _get_initial_device_eval_microbatch_size(
             device_eval_microbatch_size,
             self.auto_microbatching,
@@ -177,7 +179,7 @@ def _get_initial_device_eval_microbatch_size(
                     ),
                 ) from e
         return batch_size
-    elif isinstance(device_eval_microbatch_size, int):
+    elif isinstance(device_eval_microbatch_size, Union[int, float]):
         return device_eval_microbatch_size
     else:
         raise ValueError("device_eval_microbatch_size must be an int or ``'auto'``")

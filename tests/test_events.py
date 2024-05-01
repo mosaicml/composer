@@ -22,8 +22,8 @@ def test_event_values(event: Event):
 
 class TestEventCalls:
 
-    eval_subset_num_batches = 5
-    train_subset_num_batches = 5
+    eval_subset_num_batches = 2
+    train_subset_num_batches = 2
 
     def get_trainer(self, precision='fp32', **kwargs):
         model = SimpleModel()

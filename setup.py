@@ -78,10 +78,10 @@ while True:
 install_requires = [
     'pyyaml>=6.0,<7',
     'tqdm>=4.62.3,<5',
-    'torchmetrics>=0.10.0,<1.3.2',
+    'torchmetrics>=0.10.0,<1.3.3',
     'torch_optimizer>=0.3.0,<0.4',
-    'torchvision>=0.13.1,<0.20',  # TODO: Tighten before release
-    'torch>=2.0.1,<2.3.1',  # TODO: Tighten before release
+    'torchvision>=0.13.1,<0.18.1',
+    'torch>=2.1.2,<2.3.1',
     'requests>=2.26.0,<3',
     'numpy>=1.21.5,<1.27.0',
     'psutil>=5.8.0,<6',
@@ -132,16 +132,17 @@ extra_deps['dev'] = [
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.17.0',
-    'traitlets==5.14.1',
+    'traitlets==5.14.3',
     'nbsphinx==0.9.1',
     'pandoc==2.3',
     'pypandoc==1.13',
-    'GitPython==3.1.42',
+    'GitPython==3.1.43',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
     'cryptography==41.0.5',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
+    'pillow==9.3.0',  # Matches the Pillow version listed in the Dockerfile
 ]
 
 extra_deps['system_metrics_monitor'] = {
@@ -178,7 +179,7 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,<4.39,!=4.34.0',
+    'transformers>=4.11,!=4.34.0,<4.41',
     'datasets>=2.4,<3',
 ]
 
@@ -187,7 +188,7 @@ extra_deps['peft'] = [
 ]
 
 extra_deps['sentencepiece'] = [
-    'protobuf<3.21',
+    'protobuf<5.27',
     'sentencepiece==0.2.0',
 ]
 
@@ -226,7 +227,7 @@ extra_deps['mlflow'] = [
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk==0.22.0']
+extra_deps['databricks'] = ['databricks-sdk==0.25.1']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 
