@@ -5,17 +5,15 @@ import json
 
 import torch
 from torch.utils.data import DataLoader
+from unittest.mock import MagicMock
 
 from composer.callbacks import EvalOutputLogging
 from composer.core.state import State
 from composer.core.time import Timestamp
-from composer.datasets.in_context_learning_evaluation import InContextLearningMultipleChoiceTaskDataset
 from composer.loggers import InMemoryLogger, Logger
-from composer.metrics.nlp import InContextLearningLMAccuracy, InContextLearningMultipleChoiceAccuracy
-from tests.common import device
 
 
-class MockDataset(InContextLearningMultipleChoiceTaskDataset):
+class MockDataset:
 
     def __init__(self, tokenizer):
         self.tokenizer = tokenizer
@@ -124,13 +122,14 @@ def mock_mc_computation(metric, tokenizer, state):
     metric.compute()
 
 
-@device('cpu')
-def test_eval_output_logging_lm(device, tiny_gpt2_tokenizer):
+def test_eval_output_logging_lm(tiny_gpt2_tokenizer):
     # this test simulates an unrolled version of the eval loop occurring twice
     state = MockState()
     in_memory_logger = InMemoryLogger()
     logger = Logger(state, in_memory_logger)
-    lm_metric = InContextLearningLMAccuracy()
+    lm_metric = MagicMock()
+    lm_metric.__class__.__name__ = 'InContextLearningLMAccuracy'
+    lm_metric.__str__ = lambda _: 'InContextLearningLMAccuracy()'
 
     state.add_metric('lm_acc', lm_metric)
 
@@ -146,6 +145,7 @@ def test_eval_output_logging_lm(device, tiny_gpt2_tokenizer):
         state.metric_outputs['metric_name'] = [
             lm_metric.__class__.__name__ for _ in range(0, state.batch['input_ids'].shape[0])
         ]
+        print(state.metric_outputs['metric_name'])
         eval_output_logging.eval_batch_end(state, logger)
         state.timestamp = Timestamp(batch=state.timestamp.batch.value + 1)
     eval_output_logging.eval_end(state, logger)
@@ -175,13 +175,12 @@ def test_eval_output_logging_lm(device, tiny_gpt2_tokenizer):
     ]
 
 
-@device('cpu')
-def test_eval_output_logging_mc(device, tiny_gpt2_tokenizer):
+def test_eval_output_logging_mc(tiny_gpt2_tokenizer):
     # this test simulates an unrolled version of the eval loop occurring twice
     state = MockState()
     in_memory_logger = InMemoryLogger()
     logger = Logger(state, in_memory_logger)
-    mc_metric = InContextLearningMultipleChoiceAccuracy()
+    mc_metric = MagicMock()
 
     state.add_metric('mc_acc', mc_metric)
 
