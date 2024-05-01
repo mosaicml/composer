@@ -416,7 +416,7 @@ def _validate_evaluator(evaluator: Evaluator, device: Device):
         evaluator.dataloader,
         'seq_parallel_world_size',
     ) and evaluator.dataloader.seq_parallel_world_size > 1 and abs(  # type: ignore
-        evaluator.dataloader.device_eval_batch_size * evaluator.dataloader.seq_parallel_world_size - 1,  # type: ignore
+        evaluator.device_eval_microbatch_size * evaluator.dataloader.seq_parallel_world_size - 1,  # type: ignore
     ) > 1e-4:
         raise ValueError(
             'Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
