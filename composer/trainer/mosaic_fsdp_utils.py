@@ -719,21 +719,21 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             _load_optim_state_dict(model, optimizers, optim_state_dict, info)
 
     ## Monkeypatches for multiple unshard streams
-        
+
     from torch.distributed.utils import _p_assert, _to_kwargs
     from torch.distributed.distributed_c10d import get_process_group_ranks
     from torch.distributed.fsdp._common_utils import _is_composable, _FSDPState
     from torch.distributed.fsdp._runtime_utils import _root_cast_forward_input, _cast_buffers_to_dtype_and_device, _get_buffers_and_dtypes_for_computation, _reset_flat_param_grad_info_if_needed
 
 
-    def fsdp_state_has_default_pg(state: _FSDPState) -> bool:
+    def _fsdp_state_has_default_pg(state: _FSDPState) -> bool:
         if state.process_group is None:
             # If no process group is attached to the _FSDPState, assume it uses default process group.
             return True
         return len(get_process_group_ranks(state.process_group)) == dist.get_world_size()
 
 
-    def fsdp_state_pg_ranks(state: _FSDPState) -> Tuple[int, ...]:
+    def _fsdp_state_pg_ranks(state: _FSDPState) -> Tuple[int, ...]:
         if state.process_group is None:
             return tuple(range(dist.get_world_size()))
         else:
@@ -745,7 +745,8 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
         unshard_streams: Set[torch.Stream],
         pre_unshard_stream: torch.Stream,
     ):
-        """
+        """_wait_for_computation_stream monkeypatch.
+
         Has the unshard and pre-unshard streams wait for the computation stream.
         For example, this should be called in the FSDP root's pre-forward to
         respect optimizer step computation.
@@ -753,8 +754,10 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
         # Tracing does not need to wait
         if torch.distributed._functional_collectives.is_torchdynamo_compiling():
             return
+        ## MONKEYPATCH START
         for unshard_stream in unshard_streams:
             unshard_stream.wait_stream(computation_stream)
+        ## MONKEYPATCH END
         # Having the pre-all-gather stream wait for the current stream even if we
         # do not leverage the pre-all-gather stream is tolerable since this only
         # runs once per iteration
@@ -768,19 +771,21 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
         args,
         kwargs,
     ) -> None:
-        """
+        """_root_pre_forward monkeypatch.
+
         Runs pre-forward logic specific to the root FSDP instance, which should run
         before any individual module's pre-forward. This starts with an attempt at
         lazy initialization (which only runs non-vacuously once). Otherwise, if
         this is called on a non-root FSDP instance, then it returns directly.
 
         Args:
+            state (_FSDPState): State of the FSDP instance.
             module (nn.Module): Module for which this logic tries to run. It may or
                 may not be the root. If not, then this method does not do anything.
         """
-        with torch.profiler.record_function("FullyShardedDataParallel._root_pre_forward"):
+        with torch.profiler.record_function('FullyShardedDataParallel._root_pre_forward'):
             _lazy_init(state, module)
-            _p_assert(state._is_root is not None, "Expects a root FSDP to have been set")
+            _p_assert(state._is_root is not None, 'Expects a root FSDP to have been set')
             if not state._is_root:
                 # Always cast forward inputs in the root of this local FSDP unit for mixed
                 # precision, as this is where mixed precision could be configed.
@@ -811,7 +816,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
                 # CPU overhead that can stem from retrieving all buffers and their types in the
                 # following else branch.
                 state._needs_buffer_dtype_restore_check = True
-            elif getattr(state, "_needs_buffer_dtype_restore_check", False):
+            elif getattr(state, '_needs_buffer_dtype_restore_check', False):
                 # Check if buffers are in full precision and we need to cast them
                 # back down.
                 (
@@ -822,12 +827,12 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
                     if any(
                         buffer.dtype != buffer_dtype_for_computation
                         for buffer, buffer_dtype_for_computation in zip(
-                            buffers, buffer_dtypes_for_computation
+                            buffers, buffer_dtypes_for_computation,
                         )
                     ):
                         # Assume we have to cast everything if there is one mismatch
                         _cast_buffers_to_dtype_and_device(
-                            buffers, buffer_dtypes_for_computation, state.compute_device
+                            buffers, buffer_dtypes_for_computation, state.compute_device,
                         )
                 # We don't have to check this again until we cast buffers to full precision again.
                 state._needs_buffer_dtype_restore_check = False
@@ -842,7 +847,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
                     handle._prefetched = False
             _wait_for_computation_stream(
                 state._device_handle.current_stream(),
-                state._all_unshard_streams,
+                state._all_unshard_streams,  # MONKEYPATCH
                 state._pre_unshard_stream,
             )
             _reset_flat_param_grad_info_if_needed(state._all_handles)
@@ -850,9 +855,9 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             # Prepares the forward inputs by moving them to ``compute_device``
             # TODO: Do not use the side stream for tensor copies for now; investigate
             # the perf with/without it.
-            with torch.profiler.record_function("FullyShardedDataParallel._to_kwargs"):
+            with torch.profiler.record_function('FullyShardedDataParallel._to_kwargs'):
                 args_tuple, kwargs_tuple = _to_kwargs(
-                    args, kwargs, state.compute_device, False
+                    args, kwargs, state.compute_device, False,
                 )
             args = args_tuple[0]
             kwargs = kwargs_tuple[0]
@@ -865,7 +870,8 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
         root_state: _FSDPState,
         root_module: nn.Module,
     ) -> None:
-        """
+        """_share_state_and_init_handle_attrs monkeypatch.
+
         Shares data structure state from the ``root_state`` to all FSDP states in
         ``root_module`` 's module tree, and initializes handle attributes. These
         are done together to require a single loop over the states.
@@ -880,22 +886,24 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
         # Update _has_optim_in_backward for each handle.
         for handle in root_state._all_handles:
             flat_param = handle.flat_param
-            if hasattr(flat_param, "_in_backward_optimizers"):
+            if hasattr(flat_param, '_in_backward_optimizers'):
                 raise RuntimeError(
-                    "FSDP optimizer in backward only supported with use_orig_params=True!"
+                    'FSDP optimizer in backward only supported with use_orig_params=True!',
                 )
             handle._has_optim_in_backward = flat_param._params is not None and any(
-                hasattr(param, "_in_backward_optimizers") for param in flat_param._params
+                hasattr(param, '_in_backward_optimizers') for param in flat_param._params
             )
             if handle._has_optim_in_backward:
-                torch._C._log_api_usage_once("fsdp.optimizer_in_backward")
+                torch._C._log_api_usage_once('fsdp.optimizer_in_backward')
+        ## MONKEYPATCH START
         # Keep track of any new unshard streams we may have to add for specific process groups.
         fsdp_pg_unshard_streams = {}
+        ## MONKEYPATCH END
         for fsdp_state in root_state._all_fsdp_states:
             for attr_name in HOMOGENEOUS_ATTR_NAMES:
                 _p_assert(
                     hasattr(fsdp_state, attr_name),
-                    f"FSDP state missing attribute {attr_name}",
+                    f'FSDP state missing attribute {attr_name}',
                 )
                 attr_name_to_values[attr_name].add(getattr(fsdp_state, attr_name))
             if fsdp_state is root_state:
@@ -908,17 +916,18 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             _p_assert(
                 fsdp_state._is_root is None or not fsdp_state._is_root,
                 "Non-root FSDP instance's `_is_root` should not have been "
-                "set yet or should have been set to `False`",
+                'set yet or should have been set to `False`',
             )
             fsdp_state._is_root = False
 
+            ## MONKEYPATCH START
             # Take care of any new unshard streams we have to create for non-default process groups.
-            if fsdp_state_has_default_pg(fsdp_state):
+            if _fsdp_state_has_default_pg(fsdp_state):
                 # If using default process group, unshard stream is the same as root fsdp instance.
                 fsdp_state._unshard_stream = root_state._unshard_stream
             else:
                 # Otherwise, unshard stream is separate.
-                state_pg_ranks = fsdp_state_pg_ranks(fsdp_state)
+                state_pg_ranks = _fsdp_state_pg_ranks(fsdp_state)
                 if state_pg_ranks in fsdp_pg_unshard_streams:
                     # Reuse already created the unshard stream for this process group.
                     fsdp_state._unshard_stream = fsdp_pg_unshard_streams[state_pg_ranks]
@@ -926,6 +935,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
                     # Create new unshard stream for this process group.
                     fsdp_state._unshard_stream = fsdp_state._device_handle.Stream()
                     fsdp_pg_unshard_streams[state_pg_ranks] = fsdp_state._unshard_stream
+            ## MONKEYPATCH END
 
             # All other stream assignments stay common across all of FSDP.
             fsdp_state._post_backward_stream = root_state._post_backward_stream
@@ -939,9 +949,11 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             handle = fsdp_state._handle
             if handle:
                 handle.init_flat_param_attributes()
+        ## MONKEYPATCH START
         root_state._all_unshard_streams = set(fsdp_pg_unshard_streams.values())
+        ## MONKEYPATCH END
         for attr_name, attr_values in attr_name_to_values.items():
             if len(attr_values) != 1:
                 raise ValueError(
-                    f"Expects one homogeneous value for {attr_name} but got {attr_values}"
+                    f'Expects one homogeneous value for {attr_name} but got {attr_values}',
                 )
