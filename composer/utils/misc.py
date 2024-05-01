@@ -6,6 +6,7 @@
 import logging
 import math
 import socket
+import textwrap
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Callable, Optional, Set, Type, Union
 
@@ -25,7 +26,7 @@ __all__ = [
     'get_free_tcp_port',
     'model_eval_mode',
     'create_interval_scheduler',
-    'add_vision_dataset_transform,'
+    'add_vision_dataset_transform',
 ]
 
 log = logging.getLogger(__name__)
@@ -244,6 +245,7 @@ def partial_format(s, *args, **kwargs) -> str:
 
 def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is_tensor_transform: bool = False):
     """Add a transform to a dataset's collection of transforms.
+
     Args:
         dataset (VisionDataset): A torchvision dataset.
         transform (Callable): Function to be added to the dataset's collection of
@@ -257,6 +259,7 @@ def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is
               inserted before :class:`~torchvision.transforms.ToTensor`.
             * If :class:`~torchvision.transforms.ToTensor` is not present, the transform will be appended to
               the end of collection of transforms.
+
     Returns:
         None: The ``dataset`` is modified in-place.
     """

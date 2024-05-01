@@ -11,7 +11,7 @@ import torch
 
 from composer.core import Callback, State
 from composer.loggers import ConsoleLogger, Logger
-from composer.utils import dist, VersionedDeprecationWarning
+from composer.utils import VersionedDeprecationWarning, dist
 
 
 class EvalOutputLogging(Callback):
@@ -28,9 +28,9 @@ class EvalOutputLogging(Callback):
             VersionedDeprecationWarning(
                 '`InContextLearningMetric` and it\'s subclasses have been deprecated and ' +
                 'migrated to MosaicML\'s llm-foundry repo under the llmfoundry.eval.datasets.in_context_learning module: '
-                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md.'
-                + 'As EvalOutputLogging only works for ICL metrics, it has been deprecated and '
-                + 'will be migrated as well.',
+                + 'https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md.' +
+                'As EvalOutputLogging only works for ICL metrics, it has been deprecated and ' +
+                'will be migrated as well.',
                 remove_version='0.24.0',
             ),
         )
