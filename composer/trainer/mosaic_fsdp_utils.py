@@ -991,7 +991,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
     
     # DEBUG MONKEYPATCHES
         
-    from torch.distributed.fsdp._runtime_utils import _prefetch_handle, _unshard
+    from torch.distributed.fsdp._runtime_utils import _prefetch_handle, _unshard, _PrefetchMode
         
     @no_type_check
     def _pre_forward_unshard(
