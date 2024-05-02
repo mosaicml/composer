@@ -100,9 +100,9 @@ def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str],
 
     # Validate the checkpoint.
     if not validate(checkpoint_filepath, specs):
-        raise ValueError(f'Checkpoint at {checkpoint_filepath} {specs=}is invalid.')
+        raise ValueError(f'Checkpoint at {checkpoint_filepath} is invalid.')
 
-    log.debug(f'Checkpoint at {checkpoint_filepath} {specs=} is valid.')
+    log.debug(f'Checkpoint at {checkpoint_filepath} is valid.')
     return checkpoint_filepath
 
 
