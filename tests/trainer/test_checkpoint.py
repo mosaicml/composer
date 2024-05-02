@@ -1345,7 +1345,6 @@ class TestCheckpointResumption:
             callbacks=[DummyStatefulCallback()],
             **kwargs,
         )
-        return my_trainer
 
     @pytest.mark.parametrize(
         'world_size',
