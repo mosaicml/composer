@@ -146,7 +146,7 @@ def _session_tiny_bert_model(_session_tiny_bert_config):  # type: ignore
 def tiny_bert_tokenizer_helper():
     transformers = pytest.importorskip('transformers')
 
-    return transformers.AutoTokenizer.from_pretrained('bert-base-uncased')
+    return transformers.AutoTokenizer.from_pretrained('google-bert/bert-base-uncased')
 
 
 @pytest.fixture(scope='session')
@@ -162,7 +162,7 @@ def tiny_bert_config_helper():
         'num_hidden_layers': 2,
         'intermediate_size': 512,
     }
-    return transformers.AutoConfig.from_pretrained('bert-base-uncased', **tiny_overrides)
+    return transformers.AutoConfig.from_pretrained('google-bert/bert-base-uncased', **tiny_overrides)
 
 
 @pytest.fixture(scope='session')
