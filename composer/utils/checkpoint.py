@@ -186,6 +186,7 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
         """
         metadata_file_path = os.path.join(self.path, '.metadata')
         _ensure_valid_checkpoint(metadata_file_path)
+        log.info(f"bigning debug metadata file size: {os.path.get_size(metadata_file_path)} bytes")
         return super().read_metadata()
 
 
