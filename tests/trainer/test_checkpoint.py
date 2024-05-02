@@ -1573,8 +1573,6 @@ class TestCheckpointResumption:
             train_subset_num_batches=2,
         )
 
-        print(f'\n(inside test case) {bm_fc2_bias=}')
-
         trainer_1.fit()
         trainer_1.close()
 
@@ -1592,9 +1590,6 @@ class TestCheckpointResumption:
 
         success = sync_module_states == True and model_1_init_device == 'cpu'
         with contextlib.nullcontext() if success else pytest.raises(ValueError):
-            rank_resumed_file = resume_file.format(rank=0, batch=1)
-            resumed_model = torch.load(rank_resumed_file)
-
             trainer_2 = self.get_trainer(
                 model_init_device=model_init_device,
                 save_folder=os.path.join(save_folder, 'second'),
