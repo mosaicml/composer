@@ -938,6 +938,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
                     # Create new unshard stream for this process group.
                     fsdp_state._unshard_stream = fsdp_state._device_handle.Stream()
                     fsdp_pg_unshard_streams[state_pg_ranks] = fsdp_state._unshard_stream
+                    print(f'\tNew stream {fsdp_state._unshard_stream} for process group {state_pg_ranks}')
             ## MONKEYPATCH END
 
             # All other stream assignments stay common across all of FSDP.
@@ -1006,8 +1007,8 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             _unshard(state, handle, state._unshard_stream, state._pre_unshard_stream)
         handle._needs_pre_forward_unshard = False
         # Don't wait during trace
-        print(f'_pre_forward_unshard wait on stream {state._device_handle.current_stream()}')
-        print(f'\t_pre_forward_unshard wait on stream {tuple(get_process_group_ranks(state._unshard_stream))}')
+        print(f'_pre_forward_unshard {state._device_handle.current_stream()} wait on stream {state._unshard_stream}')
+        # print(f'\t_pre_forward_unshard wait on stream {tuple(get_process_group_ranks(state._unshard_stream))}')
         if not torch.distributed._functional_collectives.is_torchdynamo_compiling():
             state._device_handle.current_stream().wait_stream(state._unshard_stream)
         with torch.profiler.record_function(
