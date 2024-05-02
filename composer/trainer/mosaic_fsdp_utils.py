@@ -930,6 +930,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             else:
                 # Otherwise, unshard stream is separate.
                 state_pg_ranks = _fsdp_state_pg_ranks(fsdp_state)
+                print(f'Process group ranks: {state_pg_ranks} in {fsdp_pg_unshard_streams.keys()} is {state_pg_ranks in fsdp_pg_unshard_streams}')
                 if state_pg_ranks in fsdp_pg_unshard_streams:
                     # Reuse already created the unshard stream for this process group.
                     fsdp_state._unshard_stream = fsdp_pg_unshard_streams[state_pg_ranks]
