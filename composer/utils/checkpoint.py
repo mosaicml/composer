@@ -230,6 +230,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
             metadata_path = str(Path(source_path) / Path('.metadata'))
             download_object_or_file(metadata_path, metadata_destination, object_store)
         dist.barrier()
+        log.info(f"bigning debug after downloading metadata file, size: {os.path.get_size(metadata_destination)} bytes")
 
         # FileSystemReader takes in a root directory in its constructor, which is the dir where
         # the metadata is expected to be stored. Also, this is parent directory for any shard file relative paths
