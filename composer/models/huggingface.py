@@ -71,8 +71,8 @@ class HuggingFaceModel(ComposerModel):
         import transformers
         from composer.models import HuggingFaceModel
 
-        hf_model = transformers.AutoModelForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=2)
-        hf_tokenizer = transformers.AutoTokenizer.from_pretrained('bert-base-uncased')
+        hf_model = transformers.AutoModelForSequenceClassification.from_pretrained('google-bert/bert-base-uncased', num_labels=2)
+        hf_tokenizer = transformers.AutoTokenizer.from_pretrained('google-bert/bert-base-uncased')
         model = HuggingFaceModel(hf_model, hf_tokenizer)
     """
 
