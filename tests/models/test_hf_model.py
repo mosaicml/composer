@@ -19,7 +19,7 @@ from torchmetrics.classification import MulticlassAccuracy
 from torchmetrics.regression import PearsonCorrCoef
 
 from composer.loggers import InMemoryLogger
-from composer.metrics import InContextLearningLMAccuracy, LanguageCrossEntropy, MaskedAccuracy
+from composer.metrics import LanguageCrossEntropy, MaskedAccuracy
 from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
 from composer.utils import dist, is_model_fsdp
@@ -1053,13 +1053,13 @@ def test_separate_eval_metrics(tiny_bert_model, tiny_bert_tokenizer):
         tiny_bert_model,
         tokenizer=tiny_bert_tokenizer,
         metrics=[LanguageCrossEntropy()],
-        eval_metrics=[MaskedAccuracy(), InContextLearningLMAccuracy()],
+        eval_metrics=[MaskedAccuracy(), LanguageCrossEntropy()],
     )
 
     assert hf_model.train_metrics is not None
     assert hf_model.val_metrics is not None
     assert hf_model.train_metrics.keys() == {'LanguageCrossEntropy'}
-    assert hf_model.val_metrics.keys() == {'InContextLearningLMAccuracy', 'MaskedAccuracy'}
+    assert hf_model.val_metrics.keys() == {'LanguageCrossEntropy', 'MaskedAccuracy'}
 
 
 @pytest.mark.parametrize('checkpoint_upload_folder', [None, 's3://checkpoints-bucket/'])

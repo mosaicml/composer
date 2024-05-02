@@ -5,7 +5,6 @@ from composer import (
     algorithms,
     callbacks,
     core,
-    datasets,
     devices,
     functional,
     loggers,
@@ -26,7 +25,6 @@ def test_smoketest():
     assert callbacks
     assert algorithms
     assert core
-    assert datasets
     assert devices
     assert functional
     assert loggers
