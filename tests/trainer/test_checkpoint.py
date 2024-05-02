@@ -1251,10 +1251,8 @@ class TestCheckpointResumption:
         **kwargs,
     ):
         model = SimpleModel()
-        model_copy = SimpleModel()
         model.fc1.to(model_init_device)
         model.fc2.to(model_init_device)
-        # assert model.fc2.bias.shape == model_copy.fc2.bias.shape  # passes
         optimizer = torch.optim.Adam(model.parameters())
 
         train_dataset = RandomClassificationDataset(size=24)
@@ -1581,8 +1579,6 @@ class TestCheckpointResumption:
             max_duration='1ep',
             train_subset_num_batches=2,
         )
-        # sd_1_fc2_bias = trainer_1.state.model.state_dict()['module.fc2.bias']
-        # assert sd_1_fc2_bias.shape == bm_fc2_bias.shape
 
         print(f'\n(inside test case) {bm_fc2_bias=}')
 
