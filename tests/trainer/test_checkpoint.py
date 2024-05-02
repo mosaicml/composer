@@ -1345,9 +1345,6 @@ class TestCheckpointResumption:
             callbacks=[DummyStatefulCallback()],
             **kwargs,
         )
-        print(my_trainer.state.model.state_dict())
-        # assert my_trainer.state.model.state_dict(
-        # )['module.fc2.bias'].shape == model_copy.fc2.bias.shape  # fails but should pass
         return my_trainer
 
     @pytest.mark.parametrize(
