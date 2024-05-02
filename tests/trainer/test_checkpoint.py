@@ -1561,9 +1561,6 @@ class TestCheckpointResumption:
         tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
         save_folder = pathlib.Path(tmp_paths[0])
 
-        bare_model = SimpleModel()
-        bm_fc2_bias = bare_model.fc2.bias
-
         trainer_1 = self.get_trainer(
             save_folder=os.path.join(save_folder, 'first'),
             save_filename=save_filename,
@@ -1597,7 +1594,6 @@ class TestCheckpointResumption:
         with contextlib.nullcontext() if success else pytest.raises(ValueError):
             rank_resumed_file = resume_file.format(rank=0, batch=1)
             resumed_model = torch.load(rank_resumed_file)
-            # print(f"\n(inside test case) {resumed_model['state']['model']['module.fc2.bias']=}")
 
             trainer_2 = self.get_trainer(
                 model_init_device=model_init_device,
