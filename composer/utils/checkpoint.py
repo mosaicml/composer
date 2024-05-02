@@ -62,8 +62,8 @@ def _get_checkpoint_validation_function() -> Optional[Callable[[Union[Path, str]
                     It should be in the form '{module_name}.{fn_name}'.
 
     Returns:
-        Callable[[Union[Path, str]], bool] The checkpoint validation function that returns
-            True given a valid checkpoint and False otherwise.
+        Callable[[Union[Path, str], Optional[int], Optional[int]], bool] The checkpoint validation function that returns
+            True given a valid checkpoint, optional offset, and optional length and False otherwise.
     """
     name = os.environ.get('CHECKPOINT_VALIDATION_FUNCTION', None)
     if name is None:
@@ -76,7 +76,7 @@ def _get_checkpoint_validation_function() -> Optional[Callable[[Union[Path, str]
     return fn
 
 
-def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str]) -> Union[Path, str]:
+def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str], offset: Optional[int]=None, length: Optional[int]=None) -> Union[Path, str]:
     """Ensures that the checkpoint at checkpoint_filepath is valid.
 
     using the function specified by the CHECKPOINT_VALIDATION_FUNCTION environment variable.
@@ -88,16 +88,18 @@ def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str]) -> Union[Pat
     Raises:
         ValueError if checkpoint file is invalid.
     """
+    if (offset is None and length is not None) or (offset is not None and length is None):
+        raise ValueError(f'Got {offset=} and {length=}. Both offset and length must be set or not set.')
+
     # Get the validation function by name.
     validate = _get_checkpoint_validation_function()
 
     # No function name has been specified.
     if validate is None:
-        log.debug('No validation function specified. Skipping checkpoint validation.')
         return checkpoint_filepath
 
     # Validate the checkpoint.
-    if not validate(checkpoint_filepath):
+    if not validate(checkpoint_filepath, offset, length):
         raise ValueError(f'Checkpoint at {checkpoint_filepath} is invalid.')
 
     log.debug(f'Checkpoint at {checkpoint_filepath} is valid.')
@@ -171,11 +173,14 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
         """
         validated_checkpoint_paths = set()
         for read_item in plan.items:
-            data_path = os.path.join(self.path, self.storage_data[read_item.storage_index].relative_path)
-            if data_path in validated_checkpoint_paths:
+            item_md = self.storage_data[read_item.storage_index]            
+            data_path = os.path.join(self.path, item_md.relative_path)
+            offset = item_md.offset
+            length = item_md.length
+            if (data_path, offset, length) in validated_checkpoint_paths:
                 continue
-            _ensure_valid_checkpoint(data_path)
-            validated_checkpoint_paths.add(data_path)
+            _ensure_valid_checkpoint(data_path, offset, length)
+            validated_checkpoint_paths.add((data_path, offset, length))
         return super().read_data(plan, planner)
 
     def read_metadata(self) -> Metadata:
