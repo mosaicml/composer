@@ -54,7 +54,7 @@ _DEEPSPEED_TAG = 'deepspeed'  # always tag with the same, deterministic name. We
 _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME = f'__{dist.get_global_rank()}_0.distcp'
 
 
-def _get_checkpoint_validation_function() -> Optional[Callable[[Union[Path, str], Any], bool]]:
+def _get_checkpoint_validation_function() -> Optional[Callable[[Union[Path, str], Optional[List[Tuple[int,int]]]], bool]]:
     """Get the validation function by name.
 
     Args:
@@ -76,7 +76,8 @@ def _get_checkpoint_validation_function() -> Optional[Callable[[Union[Path, str]
     return fn
 
 
-def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str], specs: Optional[List[Tuple[int,int]]]=None) -> Union[Path, str]:
+def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str],
+                             specs: Optional[List[Tuple[int, int]]] = None) -> Union[Path, str]:
     """Ensures that the checkpoint at checkpoint_filepath is valid.
 
     using the function specified by the CHECKPOINT_VALIDATION_FUNCTION environment variable.
@@ -170,9 +171,9 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
         Raises:
             ValueError if the data file is invalid.
         """
-        path_to_specs: Dict[str, List[Tuple[int, int]]] = dict()
+        path_to_specs: Dict[str, List[Tuple[int, int]]] = {}
         for read_item in plan.items:
-            item_md = self.storage_data[read_item.storage_index]            
+            item_md = self.storage_data[read_item.storage_index]
             path = os.path.join(self.path, item_md.relative_path)
             path_to_specs.setdefault(path, []).append((item_md.offset, item_md.length))
         for path, spec in path_to_specs.items():
