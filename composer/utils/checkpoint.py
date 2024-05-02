@@ -16,7 +16,7 @@ import textwrap
 import warnings
 from importlib import import_module
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 from packaging import version
@@ -54,7 +54,7 @@ _DEEPSPEED_TAG = 'deepspeed'  # always tag with the same, deterministic name. We
 _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME = f'__{dist.get_global_rank()}_0.distcp'
 
 
-def _get_checkpoint_validation_function() -> Optional[Callable[[Union[Path, str]], bool]]:
+def _get_checkpoint_validation_function() -> Optional[Callable[[Union[Path, str], Any], bool]]:
     """Get the validation function by name.
 
     Args:
@@ -63,7 +63,7 @@ def _get_checkpoint_validation_function() -> Optional[Callable[[Union[Path, str]
 
     Returns:
         Callable[[Union[Path, str], Optional[int], Optional[int]], bool] The checkpoint validation function that returns
-            True given a valid checkpoint, optional offset, and optional length and False otherwise.
+            True given a valid checkpoint and optionally a list of offsets and lengths to check and False otherwise.
     """
     name = os.environ.get('CHECKPOINT_VALIDATION_FUNCTION', None)
     if name is None:
@@ -76,7 +76,7 @@ def _get_checkpoint_validation_function() -> Optional[Callable[[Union[Path, str]
     return fn
 
 
-def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str], offset: Optional[int]=None, length: Optional[int]=None) -> Union[Path, str]:
+def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str], specs: Optional[List[Tuple[int,int]]]=None) -> Union[Path, str]:
     """Ensures that the checkpoint at checkpoint_filepath is valid.
 
     using the function specified by the CHECKPOINT_VALIDATION_FUNCTION environment variable.
@@ -84,12 +84,11 @@ def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str], offset: Opti
 
     Args:
         checkpoint_filepath (Union[Path,str]): The path to the checkpoint file.
+        specs (Optional[List[Tuple[int,int]]]): A list of offsets and lengths to check. Defaults to None.
 
     Raises:
         ValueError if checkpoint file is invalid.
     """
-    if (offset is None and length is not None) or (offset is not None and length is None):
-        raise ValueError(f'Got {offset=} and {length=}. Both offset and length must be set or not set.')
 
     # Get the validation function by name.
     validate = _get_checkpoint_validation_function()
@@ -99,7 +98,7 @@ def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str], offset: Opti
         return checkpoint_filepath
 
     # Validate the checkpoint.
-    if not validate(checkpoint_filepath, offset, length):
+    if not validate(checkpoint_filepath, specs):
         raise ValueError(f'Checkpoint at {checkpoint_filepath} is invalid.')
 
     log.debug(f'Checkpoint at {checkpoint_filepath} is valid.')
@@ -171,16 +170,13 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
         Raises:
             ValueError if the data file is invalid.
         """
-        validated_checkpoint_paths = set()
+        path_to_specs: Dict[str, List[Tuple[int, int]]] = dict()
         for read_item in plan.items:
             item_md = self.storage_data[read_item.storage_index]            
-            data_path = os.path.join(self.path, item_md.relative_path)
-            offset = item_md.offset
-            length = item_md.length
-            if (data_path, offset, length) in validated_checkpoint_paths:
-                continue
-            _ensure_valid_checkpoint(data_path, offset, length)
-            validated_checkpoint_paths.add((data_path, offset, length))
+            path = os.path.join(self.path, item_md.relative_path)
+            path_to_specs.setdefault(path, []).append((item_md.offset, item_md.length))
+        for path, spec in path_to_specs.items():
+            _ensure_valid_checkpoint(path, spec)
         return super().read_data(plan, planner)
 
     def read_metadata(self) -> Metadata:
