@@ -56,11 +56,7 @@ _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME = f'__{dist.get_global_rank()}_0.distcp'
 
 def _get_checkpoint_validation_function(
 ) -> Optional[Callable[[Union[Path, str], Optional[List[Tuple[int, int]]]], bool]]:
-    """Get the validation function by name.
-
-    Args:
-        name (str): Qualified name of the checkpoint validation function.
-                    It should be in the form '{module_name}.{fn_name}'.
+    """Get the validation function specified by the environment variable `CHECKPOINT_VALIDATION_FUNCTION`.
 
     Returns:
         Callable[[Union[Path, str], Optional[int], Optional[int]], bool] The checkpoint validation function that returns
