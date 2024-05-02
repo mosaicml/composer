@@ -89,3 +89,7 @@ def patch_pytorch():
         _runtime_utils._root_pre_forward = _root_pre_forward
         _runtime_utils._share_state_and_init_handle_attrs = _share_state_and_init_handle_attrs
         FullyShardedDataParallel.forward = forward
+
+        # DEBUG MONKEYPATCH
+        from composer.trainer.mosaic_fsdp_utils import _pre_forward_unshard
+        _runtime_utils._pre_forward_unshard = _pre_forward_unshard

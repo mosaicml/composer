@@ -987,3 +987,30 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             return _post_forward(
                 self, handle, _post_forward_reshard, self, unused, output
             )
+    
+    # DEBUG MONKEYPATCHES
+        
+    from torch.distributed.fsdp._runtime_utils import _prefetch_handle
+        
+    @no_type_check
+    def _pre_forward_unshard(
+        state: _FSDPState,
+        handle,
+    ) -> None:
+        """Unshards parameters in the pre-forward."""
+        if not handle:
+            return
+        # If the handles have been prefetched, then there is no need to call
+        # `_unshard()` again
+        if not handle._prefetched:
+            _unshard(state, handle, state._unshard_stream, state._pre_unshard_stream)
+        handle._needs_pre_forward_unshard = False
+        # Don't wait during trace
+        print(f'_pre_forward_unshard wait on stream {state._device_handle.current_stream()}')
+        print(f'\t_pre_forward_unshard wait on stream {tuple(get_process_group_ranks(state._unshard_stream))}')
+        if not torch.distributed._functional_collectives.is_torchdynamo_compiling():
+            state._device_handle.current_stream().wait_stream(state._unshard_stream)
+        with torch.profiler.record_function(
+            "FullyShardedDataParallel._pre_forward_prefetch"
+        ):
+            _prefetch_handle(state, handle, _PrefetchMode.FORWARD)
