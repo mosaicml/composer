@@ -41,8 +41,9 @@ import torch
 import torch.distributed
 import torch.nn as nn
 import torch.utils.data
+from packaging import version
 from torch._dynamo import OptimizedModule
-from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
+from torch.cuda.amp.grad_scaler import GradScaler
 from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.distributed.fsdp._runtime_utils import _post_backward_final_callback
 from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
@@ -50,6 +51,11 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
+
+if version.parse(torch.__version__) >= version.parse('2.3.0'):
+    from torch.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state  # type: ignore
+else:
+    from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state  # type: ignore
 
 from composer.callbacks import CheckpointSaver, MemorySnapshot, OOMObserver, OptimizerMonitor
 from composer.core import (
@@ -409,7 +415,9 @@ def _validate_evaluator(evaluator: Evaluator, device: Device):
     if hasattr(
         evaluator.dataloader,
         'seq_parallel_world_size',
-    ) and evaluator.dataloader.seq_parallel_world_size > 1 and evaluator.dataloader.device_eval_batch_size * evaluator.dataloader.seq_parallel_world_size != 1:  # type: ignore
+    ) and evaluator.dataloader.seq_parallel_world_size > 1 and abs(  # type: ignore
+        evaluator.device_eval_microbatch_size * evaluator.dataloader.seq_parallel_world_size - 1,  # type: ignore
+    ) > 1e-4:
         raise ValueError(
             'Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
         )
@@ -1126,7 +1134,9 @@ class Trainer:
         if train_dataloader is not None and hasattr(
             train_dataloader,
             'seq_parallel_world_size',
-        ) and train_dataloader.seq_parallel_world_size > 1 and device_train_microbatch_size * train_dataloader.seq_parallel_world_size != 1:  # type: ignore
+        ) and train_dataloader.seq_parallel_world_size > 1 and abs( # type: ignore
+            device_train_microbatch_size * train_dataloader.seq_parallel_world_size - 1, # type: ignore
+        ) > 1e-4:
             raise ValueError(
                 '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
             )
@@ -2181,7 +2191,9 @@ class Trainer:
             if train_dataloader is not None and hasattr(
                 train_dataloader,
                 'seq_parallel_world_size',
-            ) and train_dataloader.seq_parallel_world_size > 1 and device_train_microbatch_size * train_dataloader.seq_parallel_world_size != 1:  # type: ignore
+            ) and train_dataloader.seq_parallel_world_size > 1 and abs(  # type: ignore
+                device_train_microbatch_size * train_dataloader.seq_parallel_world_size - 1, # type: ignore
+            ) > 1e-4:
                 raise ValueError(
                     '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
                 )
@@ -2247,14 +2259,12 @@ class Trainer:
         return metrics
 
     def _compute_and_log_metrics(self, dataloader_label: str, metrics: Dict[str, Metric]):
-        """Computes metrics, logs the results, and updates the state with the deep-copied metrics.
+        """Computes metrics, logs the results, and updates the state with the metrics.
 
         Args:
             dataloader_label (str): The dataloader label.
             metrics (Dict[str, Metric]): The metrics to compute.
         """
-        metrics = deepcopy(metrics)
-
         # log computed metrics
         computed_metrics = {}
         for metric_name, metric in metrics.items():
@@ -2535,7 +2545,7 @@ class Trainer:
             'time/batch_in_epoch': self.state.timestamp.batch_in_epoch.value,
             'time/sample_in_epoch': self.state.timestamp.sample_in_epoch.value,
         })
-        if self.state.previous_timestamp is not None and self.state.timestamp.token.value - self.state.previous_timestamp.token.value > 0:
+        if self.state.timestamp.token.value > 0:
             self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
             self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
 

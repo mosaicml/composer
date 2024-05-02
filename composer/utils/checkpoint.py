@@ -171,7 +171,7 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
         """
         validated_checkpoint_paths = set()
         for read_item in plan.items:
-            data_path = self.path / self.storage_data[read_item.storage_index].relative_path
+            data_path = os.path.join(self.path, self.storage_data[read_item.storage_index].relative_path)
             if data_path in validated_checkpoint_paths:
                 continue
             _ensure_valid_checkpoint(data_path)
@@ -184,7 +184,7 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
         Raises:
             ValueError if the metadata file is invalid.
         """
-        metadata_file_path = self.path / '.metadata'
+        metadata_file_path = os.path.join(self.path, '.metadata')
         _ensure_valid_checkpoint(metadata_file_path)
         return super().read_metadata()
 
@@ -388,7 +388,7 @@ def load_checkpoint(
     logger: Logger,
     object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
     load_weights_only: bool = False,
-    strict_model_weights: bool = False,
+    strict_model_weights: bool = True,
     progress_bar: bool = True,
     ignore_keys: Optional[Union[list[str], Callable[[dict], None]]] = None,
     exclude_algorithms: Optional[list[str]] = None,
@@ -440,7 +440,7 @@ def load_checkpoint(
         load_weights_only (bool, optional): Whether or not to only restore the model weights from the checkpoint without
             restoring the associated state. (default: ``False``)
         strict_model_weights (bool, optional): Whether or not to force that the checkpointed weights must exactly
-            match the model weights. (default: ``False``)
+            match the model weights. (default: ``True``)
         progress_bar (bool, optional): Whether or not to show a progress bar when downloading checkpoints.
             Ignored if the checkpoint is a local file path. (default: ``True``)
         ignore_keys (list[str] | (dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
@@ -620,13 +620,21 @@ def load_sharded_checkpoint(
 
         # We need no_grad because we overwrite tensor values with set_() when we do elastic loading and we don't want the set_ op recorded in the computation graph.
         with torch.no_grad():
-            # 1. Load model and metadata first
+            # 1. Load metadata first for backwards compatability check
+            # We need to check if the "optimizers" is at the root of the state dict to determine
+            # how to load the optimizer state.
+            metadata = storage_reader.read_metadata()
+            # Retrieve all top-level keys of the metadata.
+            top_level_keys = [v[0] for v in metadata.planner_data.values()]
+            optimizers_at_root = 'optimizers' in top_level_keys
+
+            # 2. Load model and metadata
             if load_weights_only:
                 state_dict: Dict[str, Any] = {'state': {'model': state.get_model_state_dict()}}
             else:
                 cur_state_dict = state.state_dict()
-                # For older versions of torch, we load optimizer separately.
-                if version.parse(torch.__version__) < version.parse('2.2.9'):
+                # If 'optimizers' is at root-level, we load it separately.
+                if optimizers_at_root:
                     cur_state_dict.pop('optimizers')
                 num_rng_ranks = _get_num_ranks_that_saved_rng(storage_reader.read_metadata())
                 state_dict: Dict[str, Any] = {
@@ -643,20 +651,14 @@ def load_sharded_checkpoint(
                 # Ensure state exists
                 state_dict['state'] = state_dict.get('state', {})
 
-            if version.parse(torch.__version__) > version.parse('2.2.9'):
-                dist_cp.load(  # type: ignore
-                    state_dict=state_dict,
-                    storage_reader=storage_reader,
-                    planner=state.fsdp_config['load_planner'],
-                    no_dist=(not dist.is_initialized()),
-                )
-            else:
-                dist_cp.load_state_dict(
-                    state_dict=state_dict,
-                    storage_reader=storage_reader,
-                    planner=state.fsdp_config['load_planner'],
-                    no_dist=(not dist.is_initialized()),
-                )
+            # dist_cp.load breaks unless the specified state_dict supports `load_state_dict`
+            # See: https://github.com/pytorch/pytorch/issues/125096
+            dist_cp.load_state_dict(
+                state_dict=state_dict,
+                storage_reader=storage_reader,
+                planner=state.fsdp_config['load_planner'],
+                no_dist=(not dist.is_initialized()),
+            )
 
             log.info(f'Loaded state dict')
             state.load_state_dict(
@@ -667,9 +669,9 @@ def load_sharded_checkpoint(
                 algorithm_passes=algorithm_passes,
             )
 
-            # 2. Optionally load optimizer
-            # if we are using later than 2.2.9 then optimizer will already be loaded
-            if version.parse(torch.__version__) < version.parse('2.2.9') and not load_weights_only:
+            # 3. Optionally load optimizer
+            # If 'optimizers' was not at root-level, then it will already be loaded
+            if optimizers_at_root and not load_weights_only:
                 optim_state = load_sharded_optimizer_state_dict(
                     model_state_dict=state.state_dict()['model'],
                     optimizer_key='optimizers',
@@ -1067,12 +1069,12 @@ def _save_checkpoint(
         # Only rank 0 saves RNG
         if dist.get_global_rank() > 0:
             state_dict.pop('rng')
-        # To load optimizer states with 2.0 <= torch < 2.2.9 , the optimizer state must be at the top
+        # To load optimizer states with 2.0 <= torch < 2.2.3 , the optimizer state must be at the top
         # level of the state dict because the load_sharded_optimizer_state_dict function
         # requires a top level state dict key for the optimizer.
         # See https://github.com/pytorch/pytorch/blob/v2.0.1/torch/distributed/checkpoint/optimizer.py#L271
         # for more info.
-        if version.parse(torch.__version__) < version.parse('2.2.9'):
+        if version.parse(torch.__version__) < version.parse('2.2.3'):
             state_dict['optimizers'] = state_dict['state'].pop('optimizers')
 
     log.debug('State dict created.')
@@ -1109,8 +1111,8 @@ def _save_checkpoint(
             expect_file = True
 
         if expect_file:
-            if version.parse(torch.__version__) > version.parse('2.2.9'):
-                dist_cp.save(  # type: ignore
+            if version.parse(torch.__version__) >= version.parse('2.3.0'):
+                dist_cp.save(
                     state_dict=state_dict,
                     storage_writer=dist_cp.FileSystemWriter(dirname),
                     planner=state.fsdp_config['save_planner'],
@@ -1193,6 +1195,8 @@ def save_checkpoint(
     weights_only: bool = False,
     ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
 ) -> Union[str, None]:  # noqa: D103
+    # Clear the cache in case we are near the memory limit to give some space for NCCL.
+    torch.cuda.empty_cache()
     save_filename = get_save_filename(state, filename)
     return _save_checkpoint(state, save_filename, weights_only=weights_only, ignore_keys=ignore_keys)
 

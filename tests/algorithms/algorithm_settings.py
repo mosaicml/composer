@@ -97,23 +97,6 @@ simple_vision_pil_settings = {
     'kwargs': {},
 }
 
-simple_resnet_settings = {
-    'model': (
-        composer_resnet,
-        {
-            'model_name': 'resnet18',
-            'num_classes': 2,
-        },
-    ),
-    'dataset': (
-        RandomImageDataset,
-        {
-            'shape': (3, 224, 224),
-        },
-    ),
-    'kwargs': {},
-}
-
 _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     GradientClipping: {
         'model': SimpleConvModel,
@@ -158,7 +141,15 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
             'half_life': '1ba',
         },
     },
-    Factorize: simple_resnet_settings,
+    Factorize: {
+        'model': SimpleConvModel,
+        'dataset': RandomImageDataset,
+        'kwargs': {
+            'min_channels': 4,
+            'min_features': 4,
+            'latent_features': 2,
+        },
+    },
     GatedLinearUnits: simple_bert_settings,
     GhostBatchNorm: {
         'model': (
@@ -205,7 +196,13 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
             'max_seq_length': 16,
         },
     },
-    SqueezeExcite: simple_resnet_settings,
+    SqueezeExcite: {
+        'model': SimpleConvModel,
+        'dataset': RandomImageDataset,
+        'kwargs': {
+            'min_channels': 4,
+        },
+    },
     StochasticDepth: {
         'model': (
             composer_resnet,

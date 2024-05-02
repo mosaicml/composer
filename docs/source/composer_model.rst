@@ -210,7 +210,7 @@ and make it compatible with our trainer.
 
     # huggingface model
     model = AutoModelForSequenceClassification.from_pretrained(
-                            'bert-base-uncased',
+                            'google-bert/bert-base-uncased',
                              num_labels=2)
 
     # list of torchmetrics

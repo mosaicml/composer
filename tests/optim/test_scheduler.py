@@ -440,6 +440,7 @@ def test_warmup_schedulers_fail_fast(
     max_duration_no_epoch = state.max_duration
     if max_duration_unit == 'ep':
         max_duration_no_epoch = Time.from_timestring(max_duration_unit_to_str['ba'])
+
     error_context = contextlib.nullcontext()
     if (
         hasattr(scheduler, 't_max') and
