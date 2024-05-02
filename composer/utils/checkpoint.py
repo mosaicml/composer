@@ -54,7 +54,8 @@ _DEEPSPEED_TAG = 'deepspeed'  # always tag with the same, deterministic name. We
 _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME = f'__{dist.get_global_rank()}_0.distcp'
 
 
-def _get_checkpoint_validation_function() -> Optional[Callable[[Union[Path, str], Optional[List[Tuple[int,int]]]], bool]]:
+def _get_checkpoint_validation_function(
+) -> Optional[Callable[[Union[Path, str], Optional[List[Tuple[int, int]]]], bool]]:
     """Get the validation function by name.
 
     Args:
@@ -99,9 +100,9 @@ def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str],
 
     # Validate the checkpoint.
     if not validate(checkpoint_filepath, specs):
-        raise ValueError(f'Checkpoint at {checkpoint_filepath} is invalid.')
+        raise ValueError(f'Checkpoint at {checkpoint_filepath} {specs=}is invalid.')
 
-    log.debug(f'Checkpoint at {checkpoint_filepath} is valid.')
+    log.debug(f'Checkpoint at {checkpoint_filepath} {specs=} is valid.')
     return checkpoint_filepath
 
 
