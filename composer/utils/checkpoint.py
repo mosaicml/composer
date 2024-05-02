@@ -90,7 +90,6 @@ def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str],
     Raises:
         ValueError if checkpoint file is invalid.
     """
-
     # Get the validation function by name.
     validate = _get_checkpoint_validation_function()
 
