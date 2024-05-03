@@ -159,7 +159,9 @@ filterwarnings = [
     # Ignore autograd kernel warning inside DeepSpeed
     '''ignore:.*an autograd kernel was not registered to the Autograd key.*:UserWarning''',
     # Ignore save_state_dict / load_state_dict deprecation warnings
-    '''ignore:'.*_state_dict' is deprecated and will be removed in future versions.*:UserWarning'''
+    '''ignore:'.*_state_dict' is deprecated and will be removed in future versions.*:UserWarning''',
+    # Ignore HF deprecation which affects their own libraries
+    '''ignore:'.*`resume_download` is deprecated and will be removed in version.*:FutureWarning'''
 ]
 
 # Coverage
