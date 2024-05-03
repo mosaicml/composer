@@ -72,11 +72,14 @@ def test_gs_object_store_integration_hmac_auth():
 
 @pytest.fixture
 def gs_object_store(monkeypatch):
+    from google import auth
     from google.cloud.storage import Client
-    with mock.patch.dict(os.environ, {'GOOGLE_APPLICATION_CREDENTIALS': 'FAKE_CREDENTIAL'}):
-        mock_client = mock.MagicMock()
-        with mock.patch.object(Client, 'from_service_account_json', return_value=mock_client):
-            yield GCSObjectStore(bucket='test-bucket', prefix='test-prefix')
+    with mock.patch.object(auth, 'default', return_value=(None, None)):
+        with mock.patch.object(Client, '__init__', return_value=None):
+            with mock.patch.object(Client, 'get_bucket', return_value=mock.MagicMock()):
+                gcs_object_store = GCSObjectStore(bucket='test-bucket', prefix='test-prefix')
+                gcs_object_store.client = mock.MagicMock()
+                yield gcs_object_store
 
 
 def test_get_uri(gs_object_store):

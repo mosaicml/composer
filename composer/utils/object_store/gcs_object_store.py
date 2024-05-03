@@ -95,14 +95,15 @@ class GCSObjectStore(ObjectStore):
         else:
             try:
                 credentials, _ = default_auth()
-                self.gcs_client = Client(credentials=credentials)
+                self.client = Client(credentials=credentials)
                 self.use_gcs_sdk = True
                 try:
-                    self.bucket = self.gcs_client.get_bucket(self.bucket_name, timeout=60)
+                    self.bucket = self.client.get_bucket(self.bucket_name, timeout=60)
                 except Exception as e:
                     _reraise_gcs_errors(self.get_uri(object_name=''), e)
-            except (DefaultCredentialsError, EnvironmentError):
+            except (DefaultCredentialsError, EnvironmentError) as e:
                 raise ValueError(
+                    f'No GCS_KEY/GCS_SECRET found and client construction failed with `{e}`. '
                     'Either set the environment variables `GCS_KEY` and `GCS_SECRET` or use any of '
                     'the methods in https://cloud.google.com/docs/authentication/external/set-up-adc '
                     'to set up Application Default Credentials. '
