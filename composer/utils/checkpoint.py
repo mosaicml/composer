@@ -623,11 +623,14 @@ def load_sharded_checkpoint(
             # how to load the optimizer state.
             try:
                 metadata = storage_reader.read_metadata()
-            except AttributeError:
-                raise ValueError(
-                    'Unable to read checkpoint metadata. The checkpoint was likely saved with a '
-                    'newer version of torch. Upgrade your torch version to load this checkpoint.',
-                )
+            except AttributeError as e:
+                if '_MEM_FORMAT_ENCODING' in str(e):
+                    raise ValueError(
+                        'Unable to read checkpoint metadata. The checkpoint was likely saved with a '
+                        'newer version of torch. Upgrade your torch version to load this checkpoint.',
+                    )
+                else:
+                    raise
             # Retrieve all top-level keys of the metadata.
             top_level_keys = [v[0] for v in metadata.planner_data.values()]
             optimizers_at_root = 'optimizers' in top_level_keys
