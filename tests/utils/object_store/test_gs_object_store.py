@@ -72,7 +72,7 @@ def test_gs_object_store_integration_hmac_auth():
 
 @pytest.fixture
 def gs_object_store(monkeypatch):
-    from google import auth
+    from google import auth  # type: ignore
     from google.cloud.storage import Client
     with mock.patch.object(auth, 'default', return_value=(None, None)):
         with mock.patch.object(Client, '__init__', return_value=None):
