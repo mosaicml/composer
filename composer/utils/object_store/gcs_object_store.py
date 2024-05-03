@@ -61,6 +61,8 @@ class GCSObjectStore(ObjectStore):
         prefix: str = '',
     ) -> None:
         try:
+            from google.auth import default as default_auth
+            from google.auth.exceptions import DefaultCredentialsError
             from google.cloud.storage import Client
         except ImportError as e:
             raise MissingConditionalImportError('gcs', 'google.cloud.storage') from e
@@ -73,16 +75,8 @@ class GCSObjectStore(ObjectStore):
 
         self.s3_object_store = None
 
-        if 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ:
-            service_account_path = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
-            self.client = Client.from_service_account_json(service_account_path)
-            self.use_gcs_sdk = True
-            try:
-                self.bucket = self.client.get_bucket(self.bucket_name, timeout=60)
-            except Exception as e:
-                _reraise_gcs_errors(self.get_uri(object_name=''), e)
-
-        elif 'GCS_KEY' in os.environ and 'GCS_SECRET' in os.environ:
+        # elif 'GCS_KEY' in os.environ and 'GCS_SECRET' in os.environ:
+        if 'GCS_KEY' in os.environ and 'GCS_SECRET' in os.environ:
             # Create a session and use it to make our client. Unlike Resources and Sessions,
             # clients are generally thread-safe.
 
@@ -99,10 +93,21 @@ class GCSObjectStore(ObjectStore):
             self.client = None
             self.use_gcs_sdk = False
         else:
-            raise ValueError(
-                f'GOOGLE_APPLICATION_CREDENTIALS needs to be set for ' +
-                f'service level accounts or GCS_KEY and GCS_SECRET env variables must be set.',
-            )
+            try:
+                credentials, _ = default_auth()
+                self.gcs_client = Client(credentials=credentials)
+                self.use_gcs_sdk = True
+                try:
+                    self.bucket = self.gcs_client.get_bucket(self.bucket_name, timeout=60)
+                except Exception as e:
+                    _reraise_gcs_errors(self.get_uri(object_name=''), e)
+            except (DefaultCredentialsError, EnvironmentError):
+                raise ValueError(
+                    'Either set the environment variables `GCS_KEY` and `GCS_SECRET` or use any of '
+                    'the methods in https://cloud.google.com/docs/authentication/external/set-up-adc '
+                    'to set up Application Default Credentials. '
+                    'See also https://docs.mosaicml.com/projects/mcli/en/latest/resources/secrets/gcp.html.',
+                )
 
     def get_key(self, object_name: str) -> str:
         return f'{self.prefix}{object_name}'
