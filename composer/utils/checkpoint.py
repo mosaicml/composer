@@ -621,7 +621,13 @@ def load_sharded_checkpoint(
             # 1. Load metadata first for backwards compatability check
             # We need to check if the "optimizers" is at the root of the state dict to determine
             # how to load the optimizer state.
-            metadata = storage_reader.read_metadata()
+            try:
+                metadata = storage_reader.read_metadata()
+            except AttributeError:
+                raise ValueError(
+                    'Unable to read checkpoint metadata. The checkpoint was likely saved with a '
+                    'newer version of torch. Upgrade your torch version to load this checkpoint.',
+                )
             # Retrieve all top-level keys of the metadata.
             top_level_keys = [v[0] for v in metadata.planner_data.values()]
             optimizers_at_root = 'optimizers' in top_level_keys
