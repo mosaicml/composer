@@ -3121,7 +3121,7 @@ class Trainer:
             return False
 
         precision = Precision(precision)
-        use_grad_scaling = precision == Precision.AMP_FP16
+        use_grad_scaling = (precision == Precision.AMP_FP16 or precision == Precision.AMP_BF16)
 
         if use_grad_scaling and (scaler is None or not scaler.is_enabled()):
             raise RuntimeError(f'Attempting to use grad scaling with {precision}, but scaler is not enabled.'
@@ -3174,7 +3174,7 @@ class Trainer:
         if self.state.device.dist_backend == 'xla':
             return False
         
-        if self.state.precision != Precision.AMP_FP16:
+        if self.state.precision != Precision.AMP_FP16 and self.state.precision != Precision.AMP_BF16:
             return True
 
         if not hasattr(self.state, 'optimizers'):
