@@ -146,7 +146,7 @@ def _session_tiny_bert_model(_session_tiny_bert_config):  # type: ignore
 def tiny_bert_tokenizer_helper():
     transformers = pytest.importorskip('transformers')
 
-    return transformers.AutoTokenizer.from_pretrained('bert-base-uncased')
+    return transformers.AutoTokenizer.from_pretrained('google-bert/bert-base-uncased')
 
 
 @pytest.fixture(scope='session')
@@ -162,7 +162,7 @@ def tiny_bert_config_helper():
         'num_hidden_layers': 2,
         'intermediate_size': 512,
     }
-    return transformers.AutoConfig.from_pretrained('bert-base-uncased', **tiny_overrides)
+    return transformers.AutoConfig.from_pretrained('google-bert/bert-base-uncased', **tiny_overrides)
 
 
 @pytest.fixture(scope='session')
@@ -302,7 +302,7 @@ def tiny_t5_config_helper():
     transformers = pytest.importorskip('transformers')
 
     tiny_overrides = {'d_ff': 128, 'd_model': 64, 'num_layers': 2, 'num_decoder_layers': 2, 'num_heads': 2}
-    return transformers.AutoConfig.from_pretrained('t5-small', **tiny_overrides)
+    return transformers.AutoConfig.from_pretrained('google-t5/t5-small', **tiny_overrides)
 
 
 @pytest.fixture(scope='session')
@@ -313,7 +313,7 @@ def _session_tiny_t5_config():  # type: ignore
 def tiny_t5_tokenizer_helper():
     transformers = pytest.importorskip('transformers')
 
-    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('t5-small', model_max_length=512)
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('google-t5/t5-small', model_max_length=512)
     return hf_tokenizer
 
 
