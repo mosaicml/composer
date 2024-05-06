@@ -74,6 +74,8 @@ def test_gs_object_store_integration_hmac_auth():
 def gs_object_store(monkeypatch):
     from google import auth  # type: ignore
     from google.cloud.storage import Client
+    monkeypatch.delenv('GCS_KEY', raising=False)
+    monkeypatch.delenv('GCS_SECRET', raising=False)
     with mock.patch.object(auth, 'default', return_value=(None, None)):
         with mock.patch.object(Client, '__init__', return_value=None):
             with mock.patch.object(Client, 'get_bucket', return_value=mock.MagicMock()):
