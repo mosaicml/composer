@@ -139,7 +139,7 @@ extra_deps['dev'] = [
     'GitPython==3.1.43',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
-    'cryptography==41.0.5',
+    'cryptography==42.0.6',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
     'pillow==9.3.0',  # Matches the Pillow version listed in the Dockerfile
