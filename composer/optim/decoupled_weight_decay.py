@@ -269,7 +269,7 @@ class DecoupledAdamW(AdamW):
             grad = grads[i]
             exp_avg = exp_avgs[i]
             exp_avg_sq = exp_avg_sqs[i]
-            step = state_steps[i].item()
+            step = state_steps[i]
 
             # Perform stepweight decay
             if weight_decay != 0:
@@ -335,7 +335,7 @@ class DecoupledAdamW(AdamW):
 
                 # State initialization
                 if 'step' not in state:
-                    state['step'] = torch.zeros((), dtype=torch.float, device=p.device)
+                    state['step'] = 0 
                     # Exponential moving average of gradient values
                     state['exp_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
                     # Exponential moving average of squared gradient values
