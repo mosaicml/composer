@@ -176,7 +176,7 @@ class GCSObjectStore(ObjectStore):
         dest = object_name
         dest = str(src) if dest == '' else dest
         blob = self.bucket.blob(self.get_key(dest))
-        blob.upload_from_filename(src, retry=DEFAULT_RETRY)
+        blob.upload_from_filename(src, retry=DEFAULT_RETRY)  # pyright: ignore[reportGeneralTypeIssues]
 
     def download_object(
         self,
