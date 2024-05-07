@@ -116,7 +116,8 @@ def test_upload_object(gs_object_store, monkeypatch):
 
     gs_object_store.upload_object(destination_blob_name, source_file_name)
 
-    mock_blob.upload_from_filename.assert_called_with(source_file_name)
+    from google.cloud.storage.retry import DEFAULT_RETRY
+    mock_blob.upload_from_filename.assert_called_with(source_file_name, retry=DEFAULT_RETRY)
     assert mock_blob.upload_from_filename.call_count == 1
 
 
