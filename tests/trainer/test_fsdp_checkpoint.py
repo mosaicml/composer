@@ -428,6 +428,10 @@ def test_fsdp_mixed_with_sync(
             ),
         ),
         '0.18.1',
+        '0.19.0',
+        '0.20.0',
+        '0.21.0',
+        '0.22.0',
     ],
 )
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
@@ -444,6 +448,9 @@ def test_fsdp_load_old_checkpoint(
 ):
     if composer_version == '0.18.1' and state_dict_type == 'full' and precision == 'amp_bf16' and sharding_strategy == 'FULL_SHARD':
         pytest.skip('TODO: This checkpoint is missing')
+
+    if composer_version in ['0.22.0'] and version.parse(torch.__version__) < version.parse('2.3.0'):
+        pytest.skip('Current torch version is older than torch version that checkpoint was written with.')
 
     if composer_version in ['0.13.5', '0.14.0', '0.14.1', '0.15.1']:
         rank = 0 if state_dict_type == 'full' else '{rank}'
@@ -527,8 +534,6 @@ def test_fsdp_load_old_checkpoint(
                 'state': trainer2.state.state_dict(),
                 'rng': get_rng_state(),
             }
-            if version.parse(torch.__version__) < version.parse('2.2.3'):
-                state_dict['state'].pop('optimizers')
 
             object_store = S3ObjectStore(bucket=f'{s3_bucket}')
             storage_reader = DistCPObjectStoreReader(
@@ -538,6 +543,14 @@ def test_fsdp_load_old_checkpoint(
                 device_mesh=None,
             )
 
+            # Load metadata first, and check if 'optimizers' is a top-level key. Pop if it is.
+            metadata = storage_reader.read_metadata()
+            # Retrieve all top-level keys of the metadata.
+            top_level_keys = [v[0] for v in metadata.planner_data.values()]
+            optimizers_at_root = 'optimizers' in top_level_keys
+            if optimizers_at_root:
+                state_dict['state'].pop('optimizers')
+
             process_group = None
             dist_cp.load_state_dict(
                 state_dict=state_dict,
@@ -545,7 +558,7 @@ def test_fsdp_load_old_checkpoint(
                 planner=None,
                 process_group=process_group,
             )
-            if version.parse(torch.__version__) < version.parse('2.2.3'):
+            if optimizers_at_root:
                 from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
                 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
                 model_state_dict = state_dict['state']['model']
@@ -659,7 +672,7 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
         expectation = pytest.raises(ValueError)
 
     def mock_get_checkpoint_validation_function():
-        return lambda _: is_valid_checkpoint
+        return lambda checkpoint_path, specs: is_valid_checkpoint
 
     tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
     save_folder = os.path.join(tmp_paths[0], 'checkpoints')

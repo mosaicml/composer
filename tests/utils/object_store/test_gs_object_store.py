@@ -10,6 +10,7 @@ from botocore.exceptions import ClientError
 from torch.utils.data import DataLoader
 
 from composer.loggers import RemoteUploaderDownloader
+from composer.optim import DecoupledSGDW
 from composer.trainer import Trainer
 from composer.utils import GCSObjectStore
 from tests.common import RandomClassificationDataset, SimpleModel
@@ -28,13 +29,15 @@ def test_gs_object_store_integration_json_auth(expected_use_gcs_sdk_val=True, cl
     model = SimpleModel()
     train_dataset = RandomClassificationDataset()
     train_dataloader = DataLoader(dataset=train_dataset)
+    optimizer = DecoupledSGDW(model.parameters(), lr=1e-4)
     trainer_save = Trainer(
         model=model,
+        optimizers=optimizer,
         train_dataloader=train_dataloader,
         save_folder='gs://mosaicml-internal-integration-testing/checkpoints/{run_name}',
         save_filename='test-model.pt',
         max_duration='1ba',
-        precision='bf16',
+        precision='amp_bf16',
     )
     run_name = trainer_save.state.run_name
     gcs_os = get_gcs_os_from_trainer(trainer_save)
@@ -48,15 +51,17 @@ def test_gs_object_store_integration_json_auth(expected_use_gcs_sdk_val=True, cl
 
     trainer_load = Trainer(
         model=model,
+        optimizers=optimizer,
         train_dataloader=train_dataloader,
         load_path=f'gs://mosaicml-internal-integration-testing/checkpoints/{run_name}/test-model.pt',
         max_duration='2ba',
-        precision='bf16',
+        precision='amp_bf16',
     )
     trainer_load.fit()
     trainer_load.close()
 
 
+@pytest.mark.gpu
 @pytest.mark.remote
 def test_gs_object_store_integration_hmac_auth():
     with mock.patch.dict(os.environ):
@@ -67,11 +72,16 @@ def test_gs_object_store_integration_hmac_auth():
 
 @pytest.fixture
 def gs_object_store(monkeypatch):
+    from google import auth  # type: ignore
     from google.cloud.storage import Client
-    with mock.patch.dict(os.environ, {'GOOGLE_APPLICATION_CREDENTIALS': 'FAKE_CREDENTIAL'}):
-        mock_client = mock.MagicMock()
-        with mock.patch.object(Client, 'from_service_account_json', return_value=mock_client):
-            yield GCSObjectStore(bucket='test-bucket', prefix='test-prefix')
+    monkeypatch.delenv('GCS_KEY', raising=False)
+    monkeypatch.delenv('GCS_SECRET', raising=False)
+    with mock.patch.object(auth, 'default', return_value=(None, None)):
+        with mock.patch.object(Client, '__init__', return_value=None):
+            with mock.patch.object(Client, 'get_bucket', return_value=mock.MagicMock()):
+                gcs_object_store = GCSObjectStore(bucket='test-bucket', prefix='test-prefix')
+                gcs_object_store.client = mock.MagicMock()
+                yield gcs_object_store
 
 
 def test_get_uri(gs_object_store):

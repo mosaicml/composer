@@ -24,7 +24,6 @@ from torchmetrics import Metric
 from composer.devices import DeviceCPU
 from composer.models.base import ComposerModel
 from composer.utils import MissingConditionalImportError, dist, get_file, import_object, is_model_fsdp, safe_torch_load
-from composer.utils.warnings import VersionedDeprecationWarning
 
 try:
     from peft import PeftModel, get_peft_model
@@ -72,8 +71,8 @@ class HuggingFaceModel(ComposerModel):
         import transformers
         from composer.models import HuggingFaceModel
 
-        hf_model = transformers.AutoModelForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=2)
-        hf_tokenizer = transformers.AutoTokenizer.from_pretrained('bert-base-uncased')
+        hf_model = transformers.AutoModelForSequenceClassification.from_pretrained('google-bert/bert-base-uncased', num_labels=2)
+        hf_tokenizer = transformers.AutoTokenizer.from_pretrained('google-bert/bert-base-uncased')
         model = HuggingFaceModel(hf_model, hf_tokenizer)
     """
 
@@ -509,18 +508,6 @@ class HuggingFaceModel(ComposerModel):
                 raise ValueError(
                     'Generation eval cannot be used without providing a tokenizer to the model constructor.',
                 )
-
-            if 'generation_length' in batch:
-                warnings.warn(
-                    VersionedDeprecationWarning(
-                        '`generation_length` has been deprecated in favor of passing `max_new_tokens` directly into `generation_kwargs`.',
-                        remove_version='0.22.0',
-                    ),
-                )
-                if 'generation_kwargs' in batch:
-                    batch['generation_kwargs']['max_new_tokens'] = batch['generation_length']
-                else:
-                    batch['generation_kwargs'] = {'max_new_tokens': batch['generation_length']}
 
             self.labels = batch.pop('labels')
             generation = self.generate(

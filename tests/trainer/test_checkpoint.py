@@ -12,7 +12,7 @@ import tarfile
 import tempfile
 import time
 from glob import glob
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -1766,7 +1766,14 @@ def test_rotate_checkpoints(
     dist.barrier()  # all ranks finish before cleaning up tmpdir
 
 
-def simple_validate(filepath: str):
+def simple_validate(filepath: str, specs: Optional[List[Tuple[int, int]]] = None) -> bool:
+    if specs is not None:
+        with open(filepath, 'r') as f:
+            for offset, length in specs:
+                f.seek(offset)
+                if f.read(length) != 'good':
+                    return False
+        return True
     with open(filepath, 'r') as f:
         return f.read() == 'good'
 
@@ -1793,6 +1800,13 @@ def test_checkpoint_validation(tmp_path):
     # Correct usage and successful validation.
     with patch.dict(os.environ, {'CHECKPOINT_VALIDATION_FUNCTION': 'tests.trainer.test_checkpoint.simple_validate'}):
         result = _ensure_valid_checkpoint(checkpoint_filepath)
+        assert result == checkpoint_filepath
+
+    # Correct usage with offset and lengths and successful validation.
+    with open(checkpoint_filepath, 'w') as f:
+        f.write('good good')
+    with patch.dict(os.environ, {'CHECKPOINT_VALIDATION_FUNCTION': 'tests.trainer.test_checkpoint.simple_validate'}):
+        result = _ensure_valid_checkpoint(checkpoint_filepath, specs=[(0, 4), (5, 4)])
         assert result == checkpoint_filepath
 
     # Correct usage and failed validation.
