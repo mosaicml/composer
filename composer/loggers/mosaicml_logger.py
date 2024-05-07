@@ -277,11 +277,12 @@ def dict_to_str(data: Dict[str, Any]):
 def exception_to_json_serializable_dict(exc: Exception):
     """Converts exception into a JSON serializable dictionary for run metadata."""
     default_exc_attrs = set(dir(Exception()))
+    tb = traceback.extract_stack()
     exc_data = {
         'class': exc.__class__.__name__,
         'message': str(exc),
         'attributes': {},
-        'traceback': str(traceback.format_exception(exc)),
+        'traceback': str(traceback.format_tb(tb)),
     }
 
     for attr in dir(exc):
