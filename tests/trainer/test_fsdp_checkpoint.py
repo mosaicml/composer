@@ -295,7 +295,7 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
         ['adam', False, 'amp_bf16', True, True, False],  # save_weights_only requires load_weights_only
         ['adam', False, 'amp_bf16', False, True, False],
         ['adam', False, 'amp_bf16', False, False, True],
-    ]
+    ],
 )
 def test_fsdp_full_state_dict_load(
     world_size,
