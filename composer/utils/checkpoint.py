@@ -16,7 +16,7 @@ import textwrap
 import warnings
 from importlib import import_module
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 from packaging import version
@@ -54,16 +54,13 @@ _DEEPSPEED_TAG = 'deepspeed'  # always tag with the same, deterministic name. We
 _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME = f'__{dist.get_global_rank()}_0.distcp'
 
 
-def _get_checkpoint_validation_function() -> Optional[Callable[[Union[Path, str]], bool]]:
-    """Get the validation function by name.
-
-    Args:
-        name (str): Qualified name of the checkpoint validation function.
-                    It should be in the form '{module_name}.{fn_name}'.
+def _get_checkpoint_validation_function(
+) -> Optional[Callable[[Union[Path, str], Optional[List[Tuple[int, int]]]], bool]]:
+    """Get the validation function specified by the environment variable `CHECKPOINT_VALIDATION_FUNCTION`.
 
     Returns:
-        Callable[[Union[Path, str]], bool] The checkpoint validation function that returns
-            True given a valid checkpoint and False otherwise.
+        Callable[[Union[Path, str], Optional[int], Optional[int]], bool] The checkpoint validation function that returns
+            True given a valid checkpoint and optionally a list of offsets and lengths to check and False otherwise.
     """
     name = os.environ.get('CHECKPOINT_VALIDATION_FUNCTION', None)
     if name is None:
@@ -76,7 +73,8 @@ def _get_checkpoint_validation_function() -> Optional[Callable[[Union[Path, str]
     return fn
 
 
-def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str]) -> Union[Path, str]:
+def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str],
+                             specs: Optional[List[Tuple[int, int]]] = None) -> Union[Path, str]:
     """Ensures that the checkpoint at checkpoint_filepath is valid.
 
     using the function specified by the CHECKPOINT_VALIDATION_FUNCTION environment variable.
@@ -84,6 +82,7 @@ def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str]) -> Union[Pat
 
     Args:
         checkpoint_filepath (Union[Path,str]): The path to the checkpoint file.
+        specs (Optional[List[Tuple[int,int]]]): A list of offsets and lengths to check. Defaults to None.
 
     Raises:
         ValueError if checkpoint file is invalid.
@@ -93,11 +92,10 @@ def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str]) -> Union[Pat
 
     # No function name has been specified.
     if validate is None:
-        log.debug('No validation function specified. Skipping checkpoint validation.')
         return checkpoint_filepath
 
     # Validate the checkpoint.
-    if not validate(checkpoint_filepath):
+    if not validate(checkpoint_filepath, specs):
         raise ValueError(f'Checkpoint at {checkpoint_filepath} is invalid.')
 
     log.debug(f'Checkpoint at {checkpoint_filepath} is valid.')
@@ -169,13 +167,13 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
         Raises:
             ValueError if the data file is invalid.
         """
-        validated_checkpoint_paths = set()
+        path_to_specs: Dict[str, List[Tuple[int, int]]] = {}
         for read_item in plan.items:
-            data_path = os.path.join(self.path, self.storage_data[read_item.storage_index].relative_path)
-            if data_path in validated_checkpoint_paths:
-                continue
-            _ensure_valid_checkpoint(data_path)
-            validated_checkpoint_paths.add(data_path)
+            item_md = self.storage_data[read_item.storage_index]
+            path = os.path.join(self.path, item_md.relative_path)
+            path_to_specs.setdefault(path, []).append((item_md.offset, item_md.length))
+        for path, spec in path_to_specs.items():
+            _ensure_valid_checkpoint(path, spec)
         return super().read_data(plan, planner)
 
     def read_metadata(self) -> Metadata:
@@ -623,7 +621,16 @@ def load_sharded_checkpoint(
             # 1. Load metadata first for backwards compatability check
             # We need to check if the "optimizers" is at the root of the state dict to determine
             # how to load the optimizer state.
-            metadata = storage_reader.read_metadata()
+            try:
+                metadata = storage_reader.read_metadata()
+            except AttributeError as e:
+                if '_MEM_FORMAT_ENCODING' in str(e):
+                    raise ValueError(
+                        'Unable to read checkpoint metadata. The checkpoint was likely saved with a '
+                        'newer version of torch. Upgrade your torch version to load this checkpoint.',
+                    )
+                else:
+                    raise
             # Retrieve all top-level keys of the metadata.
             top_level_keys = [v[0] for v in metadata.planner_data.values()]
             optimizers_at_root = 'optimizers' in top_level_keys

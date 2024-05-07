@@ -449,6 +449,9 @@ def test_fsdp_load_old_checkpoint(
     if composer_version == '0.18.1' and state_dict_type == 'full' and precision == 'amp_bf16' and sharding_strategy == 'FULL_SHARD':
         pytest.skip('TODO: This checkpoint is missing')
 
+    if composer_version in ['0.22.0'] and version.parse(torch.__version__) < version.parse('2.3.0'):
+        pytest.skip('Current torch version is older than torch version that checkpoint was written with.')
+
     if composer_version in ['0.13.5', '0.14.0', '0.14.1', '0.15.1']:
         rank = 0 if state_dict_type == 'full' else '{rank}'
 
@@ -669,7 +672,7 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
         expectation = pytest.raises(ValueError)
 
     def mock_get_checkpoint_validation_function():
-        return lambda _: is_valid_checkpoint
+        return lambda checkpoint_path, specs: is_valid_checkpoint
 
     tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
     save_folder = os.path.join(tmp_paths[0], 'checkpoints')
