@@ -425,7 +425,7 @@ class DecoupledAdamW(AdamW):
         beta1, beta2 = self.param_groups[0]['betas']
         if param in self.state:
             param_optim_state = self.state[param]
-            step = param_optim_state['step'].item()
+            step = param_optim_state['step']
             bias_correction1 = 1 - beta1**step
             bias_correction2 = 1 - beta2**step
             denom = (param_optim_state['exp_avg_sq'].sqrt() / math.sqrt(bias_correction2)).add_(eps)
