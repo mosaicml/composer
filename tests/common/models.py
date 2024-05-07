@@ -111,6 +111,19 @@ class SimpleMLP(torch.nn.Module):
 
     def forward(self, x):
         return self.net(x)
+    
+
+class EvenSimplerMLP(torch.nn.Module):
+
+    def __init__(self, num_features: int, device: str):
+        super().__init__()
+        fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+
+        self.net = torch.nn.Sequential(fc1, fc2)
+
+    def forward(self, x):
+        return self.net(x)
 
 
 class SimpleWeightTiedModel(ComposerClassifier):

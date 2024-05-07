@@ -1,6 +1,6 @@
 from torch import nn
-from typing import Any, Dict, Union, Optional
-from composer.model import ComposerModel
+from typing import Any, Dict, Union, Optional, Sequence
+from composer.models import ComposerModel
 from torch.nn.parallel import DistributedDataParallel
 from packaging import version
 import torch
@@ -15,8 +15,8 @@ from contextlib import nullcontext
 def get_model_state_dict(model: Union[ComposerModel, nn.Module], 
                          sharded: bool, 
                          precision: Optional[str]=None,
-                         include_keys: Optional[list[str]]=None,
-                         ignore_keys: Optional[list[str]]=None) -> Dict[str, Any]:
+                         include_keys: Optional[Union[str, Sequence[str]]]=None,
+                         ignore_keys: Optional[Union[str, Sequence[str]]]=None) -> Dict[str, Any]:
     """Generate the state dict of the model.
     
     Args:
@@ -39,7 +39,7 @@ def get_model_state_dict(model: Union[ComposerModel, nn.Module],
     if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
         from torch.distributed.checkpoint.state_dict import StateDictOptions, get_model_state_dict as dcp_get_model_state_dict
         get_nonsharded_state_dict = not sharded
-        with precision_context:
+        with precision_context():
             model_state_dict = dcp_get_model_state_dict(
                 model=model,
                 submodules=None,
@@ -50,20 +50,26 @@ def get_model_state_dict(model: Union[ComposerModel, nn.Module],
         )
     else:
         if is_fsdp:
-            with precision_context:
+            with precision_context():
                 model_state_dict = _get_model_state_dict_with_fsdp_context_manager(model, sharded)
         else:
-            with precision_context:
+            with precision_context():
                 model_state_dict = model.state_dict()
         if isinstance(model, DistributedDataParallel):
             nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, 'module.')
     
     if include_keys is not None:
+        if isinstance(include_keys, str):
+            include_keys = [include_keys]
         model_state_dict = {k: v for k, v in model_state_dict.items() if any(fnmatch.fnmatch(k, key) for key in include_keys)}
     if ignore_keys is not None:
+        if isinstance(ignore_keys, str):
+            ignore_keys = [ignore_keys]
         model_state_dict = {k: v for k, v in model_state_dict.items() if not any(fnmatch.fnmatch(k, key) for key in ignore_keys)}
             
-def _is_model_fsdp(self, model) -> bool:
+    return model_state_dict
+
+def _is_model_fsdp(model) -> bool:
     """Indicates if FSDP is enabled.
 
         Args:
@@ -73,7 +79,7 @@ def _is_model_fsdp(self, model) -> bool:
             True if FSDP is enabled, False otherwise.
     
     """
-    for module in self.model.modules():
+    for module in model.modules():
         if isinstance(module, FSDP):
             return True
     return False
