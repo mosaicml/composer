@@ -1558,8 +1558,8 @@ class TestCheckpointResumption:
         }
 
         # All ranks use rank 0 folder
-        tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
-        save_folder = pathlib.Path(tmp_paths[0])
+        tmp_save_folder_paths = dist.all_gather_object(os.path.abspath(tmp_path))
+        save_folder = pathlib.Path(tmp_save_folder_paths[0])
 
         trainer_1 = self.get_trainer(
             save_folder=os.path.join(save_folder, 'first'),
@@ -1590,6 +1590,13 @@ class TestCheckpointResumption:
 
         success = sync_module_states == True and model_1_init_device == 'cpu'
         with contextlib.nullcontext() if success else pytest.raises(ValueError):
+            load_path = resume_file.format(rank=0)
+            with open(load_path, 'rb') as f:
+                state_dict = torch.load(f)
+                # a bunch of debugging print statements:
+                print('state_dict: ', state_dict)
+                print('module.fc2.bias', state_dict['state']['model']['fc2.bias'])
+
             trainer_2 = self.get_trainer(
                 model_init_device=model_init_device,
                 save_folder=os.path.join(save_folder, 'second'),
