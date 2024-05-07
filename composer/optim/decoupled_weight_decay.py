@@ -14,7 +14,7 @@ import math
 from typing import Iterable, List, Optional, Tuple, Union
 
 import torch
-from torch.optim import SGD, AdamW
+from torch.optim import SGD, AdamW, Optimizer
 from torch.optim.optimizer import required  # type: ignore
 
 from composer.utils import dist
@@ -230,6 +230,16 @@ class DecoupledAdamW(AdamW):
         for group in self.param_groups:
             group['initial_lr'] = group['lr']
         self.amsgrad = amsgrad
+
+    def __setstate__(self, state):
+        Optimizer.__setstate__(self, state)
+        for group in self.param_groups:
+            group.setdefault("amsgrad", False)
+            group.setdefault("maximize", False)
+            group.setdefault("foreach", None)
+            group.setdefault("capturable", False)
+            group.setdefault("differentiable", False)
+            fused = group.setdefault("fused", None)
 
     @staticmethod
     def adamw(
