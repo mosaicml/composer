@@ -282,7 +282,7 @@ def exception_to_json_serializable_dict(exc: Exception):
         'class': exc.__class__.__name__,
         'message': str(exc),
         'attributes': {},
-        'traceback': str(traceback.format_tb(tb)),
+        'traceback': str(tb.format()),
     }
 
     for attr in dir(exc):
