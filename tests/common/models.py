@@ -111,7 +111,7 @@ class SimpleMLP(torch.nn.Module):
 
     def forward(self, x):
         return self.net(x)
-    
+
 
 class EvenSimplerMLP(torch.nn.Module):
 
@@ -120,10 +120,20 @@ class EvenSimplerMLP(torch.nn.Module):
         fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
         fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
 
-        self.net = torch.nn.Sequential(fc1, fc2)
+        self.module = torch.nn.Sequential(fc1, torch.nn.ReLU(), fc2)
 
     def forward(self, x):
-        return self.net(x)
+        return self.module(x)
+
+
+class SimpleComposerMLP(ComposerClassifier):
+
+    def __init__(self, num_features: int, device: str, num_classes: int = 3):
+        fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+
+        net = torch.nn.Sequential(fc1, torch.nn.ReLU(), fc2)
+        super().__init__(num_classes=num_classes, module=net)
 
 
 class SimpleWeightTiedModel(ComposerClassifier):
