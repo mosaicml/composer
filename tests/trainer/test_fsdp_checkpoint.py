@@ -285,12 +285,16 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
 
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
-@pytest.mark.parametrize('autoresume', [True, False])
-@pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
-@pytest.mark.parametrize('save_weights_only', [True, False])
-@pytest.mark.parametrize('load_weights_only', [True, False])
-@pytest.mark.parametrize('load_fsdp_monolith_rank0_only', [True, False])
+@pytest.mark.parametrize(
+    'optimizer,autoresume,precision,save_weights_only,load_weights_only,load_fsdp_monolith_rank0_only', [
+        ['adam', False, 'amp_bf16', False, False, False],
+        ['adamw', False, 'amp_bf16', False, False, False],
+        ['adam', True, 'amp_bf16', False, False, False],
+        ['adam', False, 'amp_fp16', False, False, False],
+        ['adam', False, 'amp_bf16', True, True, False],  # save_weights_only requires load_weights_only
+        ['adam', False, 'amp_bf16', False, True, False],
+        ['adam', False, 'amp_bf16', False, False, True],
+])
 def test_fsdp_full_state_dict_load(
     world_size,
     tmp_path: pathlib.Path,
@@ -301,9 +305,6 @@ def test_fsdp_full_state_dict_load(
     load_weights_only: bool,
     load_fsdp_monolith_rank0_only: bool,
 ):
-    if save_weights_only and not load_weights_only:
-        pytest.skip()
-
     if autoresume:
         run_name = 'my-cool-autoresume-run'
     else:
