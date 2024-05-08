@@ -137,3 +137,30 @@ def test_get_model_state_dict_precision_unsharded_model(precision: str, use_comp
                                             ignore_keys=None)
     for tens in model_state_dict.values():
         assert tens.dtype == precision
+
+
+@world_size(2)
+@pytest.mark.gpu
+@pytest.mark.parametrize('precision', [torch.float32,
+                                       torch.float16,
+                                       torch.bfloat16,
+                                       ]
+                                       )
+@pytest.mark.parametrize('use_composer_model', [True, False])
+def test_get_model_state_dict_precision_sharded_model(world_size, precision: str, use_composer_model: bool):
+    if use_composer_model:
+        model = SimpleComposerMLP(num_features=8, device='cuda')
+    else:
+        model = EvenSimplerMLP(num_features=8, device='cuda')
+
+    sharded_model = FSDP(model,
+                    use_orig_params=True,
+                    sync_module_states=True
+                    )
+    model_state_dict = get_model_state_dict(sharded_model,
+                                            precision=precision,
+                                            sharded=True,
+                                            include_keys=None,
+                                            ignore_keys=None)
+    for sharded_tens in model_state_dict.values():
+        assert sharded_tens.local_tensor().dtype == precision
