@@ -23,6 +23,7 @@ def get_model_state_dict(
     precision: str = 'fp32',
     include_keys: Optional[Union[str, Sequence[str]]] = None,
     ignore_keys: Optional[Union[str, Sequence[str]]] = None,
+    cpu_offload: Optional[bool] = None,
 ) -> Dict[str, Any]:
     """Generate the state dict of the model.
 
@@ -41,6 +42,7 @@ def get_model_state_dict(
         raise ValueError('Both include_keys and ignore_keys cannot be non-None.')
 
     is_fsdp = _is_model_fsdp(model)
+    cpu_offload = cpu_offload if cpu_offload is not None else is_fsdp
     if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
         from torch.distributed.checkpoint.state_dict import StateDictOptions
         from torch.distributed.checkpoint.state_dict import get_model_state_dict as dcp_get_model_state_dict
@@ -51,7 +53,7 @@ def get_model_state_dict(
                 submodules=None,
                 options=StateDictOptions(
                     full_state_dict=get_nonsharded_state_dict,
-                    cpu_offload=is_fsdp,
+                    cpu_offload=cpu_offload,
                 ),
             )
     else:
