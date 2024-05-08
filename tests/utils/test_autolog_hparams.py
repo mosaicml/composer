@@ -178,6 +178,7 @@ def test_extract_hparams_trainer():
         'deepspeed_config': None,
         'fsdp_config': None,
         'fsdp_auto_wrap': True,
+        'tp_config': None,
 
         # System/Numerics
         'device': 'DeviceCPU',
