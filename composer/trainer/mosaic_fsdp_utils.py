@@ -65,6 +65,37 @@ BACKWARD_PREFETCH_MAP = {
 logger = logging.getLogger(__name__)
 
 
+def set_fsdp_default(fsdp_config: Dict[str, Any]):
+    """Modify fsdp_config to set default values for missing keys."""
+    fsdp_config.setdefault('activation_checkpointing', False)
+    fsdp_config.setdefault('activation_checkpointing_reentrant', True)
+    fsdp_config.setdefault('activation_cpu_offload', False)
+    fsdp_config.setdefault('te_checkpoint_wrapper', False)
+    fsdp_config.setdefault('te_shard_fp8_weight', False)
+    fsdp_config.setdefault('backward_prefetch', 'BACKWARD_POST')
+    fsdp_config.setdefault('backward_prefetch_limit', 1)
+    fsdp_config.setdefault('cpu_offload', False)
+    fsdp_config.setdefault('data_parallel_shard_degree', -1)
+    fsdp_config.setdefault('data_parallel_replicate_degree', 1)
+    fsdp_config.setdefault('forward_prefetch', False)
+    fsdp_config.setdefault('forward_prefetch_limit', 1)
+    fsdp_config.setdefault('ignored_modules', None)
+    fsdp_config.setdefault('keep_low_precision_grads', False)
+    fsdp_config.setdefault('limit_all_gathers', True)
+    fsdp_config.setdefault('load_monolith_rank0_only', False)
+    fsdp_config.setdefault('load_planner', None)
+    fsdp_config.setdefault('mixed_precision', 'DEFAULT')
+    fsdp_config.setdefault('process_group', None)
+    fsdp_config.setdefault('save_planner', None)
+    fsdp_config.setdefault('sharded_ckpt_prefix_dir', 'ep{epoch}-ba{batch}')
+    fsdp_config.setdefault('sharding_strategy', 'FULL_SHARD')
+    fsdp_config.setdefault('state_dict_type', 'full')
+    fsdp_config.setdefault('sync_module_states', False)
+    fsdp_config.setdefault('use_orig_params', True)
+    fsdp_config.setdefault('verbose', False)
+    return fsdp_config
+
+
 def _get_torch_dtype(dtype: Union[Precision, str]):
     """Convert common string representations of dtypes to torch dtypes."""
     dtype = dtype.value if isinstance(dtype, Precision) else dtype

@@ -28,6 +28,7 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader, Dataset
+from torch.distributed._tensor.device_mesh import init_device_mesh, DeviceMesh
 from torchmetrics import Metric
 
 if version.parse(torch.__version__) >= version.parse('2.3.0'):
@@ -190,6 +191,49 @@ def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
             attribute_name = attribute_name[1:]
         state[attribute_name] = serialized_value
     return state
+
+
+def _create_device_mesh(device: Device, fsdp_config: Optional[Dict[str, Any]], tp_config: Optional[Dict[str, Any]]):
+    if fsdp_config is None:
+        return None
+
+    # Gather dimensions and names for the device mesh
+    dims, names = [], []
+    dims.append(fsdp_config['data_parallel_shard_degree'])
+    names.append('dp_shard')
+    if fsdp_config['data_parallel_replicate_degree'] != 1:
+        dims.append(fsdp_config['data_parallel_replicate_degree'])
+        names.append('dp_replicate')
+    if tp_config is not None:
+        dims.append(tp_config['tensor_parallel_degree'])
+        names.append('tp')
+    
+    # Fill in the unspecified dimensions
+    product_of_dims = 1
+    unspecified_dim_names = []
+    for dim, name in zip(dims, names):
+        if dim != -1:
+            product_of_dims *= dim
+        else:
+            unspecified_dim_names.append(name)
+    if len(unspecified_dim_names) > 1:
+        raise ValueError(f'Found multiple parallelism dimensions with -1: {unspecified_dim_names}. '
+                        'Only one is allowed, which is set to fill the remaining dimensions.')
+    remaining_dimension = dist.get_world_size() // product_of_dims
+    if remaining_dimension * product_of_dims != dist.get_world_size():
+        raise ValueError(f'World size {dist.get_world_size()} is not divisible by the product of the specified '
+                        'parallelism degrees. Please ensure the product of the specified parallelism degrees '
+                        'matches the world size.')
+    for i, dim in enumerate(dims):
+        if dim == -1:
+            dims[i] = remaining_dimension
+            break
+
+    device_type = device.name
+    if device_type == 'gpu':
+        device_type = 'cuda'
+
+    return init_device_mesh(device_type=device_type, mesh_shape=dims, mesh_dim_names=names)
 
 
 _STATE_DICT_SERIALIZED_ATTRIBUTES = [
@@ -472,8 +516,13 @@ class State(Serializable):
         self.fsdp_auto_wrap = fsdp_auto_wrap
         self.tp_config = tp_config
 
-        if self.tp_config is not None and version.parse(torch.__version__.split('.dev')[0]) < version.parse('2.3.0'):
-            raise ValueError('Tensor parallelism (TP) requires torch>=2.3.0.')
+        if self.tp_config is not None:
+            if version.parse(torch.__version__.split('.dev')[0]) < version.parse('2.3.0'):
+                raise ValueError('Tensor parallelism (TP) requires torch>=2.3.0.')
+            if self.fsdp_config is None:
+                raise ValueError('Tensor parallelism (TP) currently requires FSDP to be enabled .'
+                                 'An empty `fsdp_config` can be specified to enable FSDP with '
+                                 'default settings.')
 
         if self.load_fsdp_monolith_rank0_only:
             if self.tp_config is not None:
@@ -531,6 +580,12 @@ class State(Serializable):
                     'fsdp_config["state_dict_type"] = "full" to disable sharded checkpoints.',
                 ),
             )
+
+        self.device_mesh: Optional[DeviceMesh] = _create_device_mesh(self.device, self.fsdp_config, self.tp_config)
+        if self.fsdp_config is not None and self.device_mesh is not None:
+            self.fsdp_config['device_mesh'] = self.device_mesh['dp_shard']  # TODO: Support HSDP slicing
+        if self.tp_config is not None and self.device_mesh is not None:
+            self.tp_config['device_mesh'] = self.device_mesh['tp']
 
         # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None

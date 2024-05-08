@@ -102,8 +102,8 @@ from composer.trainer.dist_strategy import (
     prepare_ddp_module,
     prepare_fsdp_module,
     prepare_tp_module,
-    set_fsdp_default,
 )
+from composer.trainer.mosaic_fsdp_utils import set_fsdp_default
 from composer.utils import (
     ExportFormat,
     MissingConditionalImportError,
@@ -1163,6 +1163,7 @@ class Trainer:
         assert not isinstance(device_train_microbatch_size, str)
 
         # Distributed
+        fsdp_config = set_fsdp_default(fsdp_config) if fsdp_config is not None else None
         if deepspeed_config is not None or fsdp_config is not None or dist.get_world_size() > 1:
             # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
             # And torch.distributed is always required for multi-rank training
@@ -1236,7 +1237,7 @@ class Trainer:
             run_name=run_name,
             save_metrics=save_metrics,
             deepspeed_config=deepspeed_config,
-            fsdp_config=set_fsdp_default(fsdp_config) if fsdp_config is not None else None,
+            fsdp_config=fsdp_config,
             fsdp_auto_wrap=fsdp_auto_wrap,
             tp_config=tp_config,
         )

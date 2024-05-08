@@ -142,35 +142,6 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) ->
     )
 
 
-def set_fsdp_default(fsdp_config: Dict[str, Any]):
-    """Modify fsdp_config to set default values for missing keys."""
-    fsdp_config.setdefault('activation_checkpointing', False)
-    fsdp_config.setdefault('activation_checkpointing_reentrant', True)
-    fsdp_config.setdefault('activation_cpu_offload', False)
-    fsdp_config.setdefault('te_checkpoint_wrapper', False)
-    fsdp_config.setdefault('te_shard_fp8_weight', False)
-    fsdp_config.setdefault('backward_prefetch', 'BACKWARD_POST')
-    fsdp_config.setdefault('backward_prefetch_limit', 1)
-    fsdp_config.setdefault('cpu_offload', False)
-    fsdp_config.setdefault('forward_prefetch', False)
-    fsdp_config.setdefault('forward_prefetch_limit', 1)
-    fsdp_config.setdefault('ignored_modules', None)
-    fsdp_config.setdefault('keep_low_precision_grads', False)
-    fsdp_config.setdefault('limit_all_gathers', True)
-    fsdp_config.setdefault('load_monolith_rank0_only', False)
-    fsdp_config.setdefault('load_planner', None)
-    fsdp_config.setdefault('mixed_precision', 'DEFAULT')
-    fsdp_config.setdefault('process_group', None)
-    fsdp_config.setdefault('save_planner', None)
-    fsdp_config.setdefault('sharded_ckpt_prefix_dir', 'ep{epoch}-ba{batch}')
-    fsdp_config.setdefault('sharding_strategy', 'FULL_SHARD')
-    fsdp_config.setdefault('state_dict_type', 'full')
-    fsdp_config.setdefault('sync_module_states', False)
-    fsdp_config.setdefault('use_orig_params', True)
-    fsdp_config.setdefault('verbose', False)
-    return fsdp_config
-
-
 def _recreate_fsdp_param_groups_from_unwrapped_opt_info(
     fsdp_wrapped_named_params: Iterator[Tuple[str, torch.nn.Parameter]],
     non_wrapped_param_names_to_group_num: Dict[str, int],
@@ -251,8 +222,6 @@ def prepare_fsdp_module(
         te_rng_seed(int): The seed to use for the Transformer Engine activation checkpointing RNG. Defaults to 1234.
     """
     patch_pytorch()
-
-    set_fsdp_default(fsdp_config)
 
     # Check sync_module_states is True for mixed initialization or HSDP
     if fsdp_config['sync_module_states'] == False:
@@ -342,29 +311,7 @@ def prepare_fsdp_module(
     kwargs = {}
     if version.parse(torch.__version__.split('.dev')[0]) >= version.parse('2.2.0'):
         if 'device_mesh' in fsdp_config:
-            device_mesh_size = len(fsdp_config['device_mesh'])
-            if sharding_strategy in [
-                ShardingStrategy.FULL_SHARD,
-                ShardingStrategy.SHARD_GRAD_OP,
-                ShardingStrategy.NO_SHARD,
-            ] and device_mesh_size != 1:
-                raise ValueError(
-                    f'FSDP sharding strategy {sharding_map_key.upper()} requires a device mesh '
-                    f'of size 1 but got device mesh size of {device_mesh_size}.',
-                )
-            elif sharding_strategy in [
-                ShardingStrategy.HYBRID_SHARD,
-                ShardingStrategy._HYBRID_SHARD_ZERO2,
-            ] and device_mesh_size != 2:
-                raise ValueError(
-                    f'FSDP sharding strategy {sharding_map_key.upper()} requires a device mesh '
-                    f'of size 2 but got device mesh size of {device_mesh_size}.',
-                )
-            from torch.distributed._tensor import init_device_mesh
-            kwargs['device_mesh'] = init_device_mesh(
-                'cuda',
-                tuple([int(x) for x in fsdp_config['device_mesh']]),
-            )
+            kwargs['device_mesh'] = fsdp_config['device_mesh']
 
     cpu_offload = get_cpu_offload(cpu_offload=fsdp_config['cpu_offload'])
 
