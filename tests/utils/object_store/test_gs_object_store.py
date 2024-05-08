@@ -69,7 +69,7 @@ def test_gs_object_store_integration_json_auth():
             del os.environ['GCS_KEY']
         if 'GCS_SECRET' in os.environ:
             del os.environ['GCS_SECRET']
-        test_gs_object_store_integration_json_auth(expected_use_gcs_sdk_val=True, client_should_be_none=False)
+        test_gs_object_store_integration_hmac_auth(expected_use_gcs_sdk_val=True, client_should_be_none=False)
 
 
 @pytest.fixture
