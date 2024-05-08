@@ -15,9 +15,9 @@ from tests.common.compare import deep_compare
 @pytest.mark.parametrize('use_composer_model', [True, False])
 def test_get_model_state_dict_unsharded_model(use_composer_model: bool):
     if use_composer_model:
-        model = SimpleComposerMLP(num_features=8, device='cpu')
+        model = SimpleComposerMLP(num_features=8, device='cuda')
     else:
-        model = EvenSimplerMLP(num_features=8, device='cpu')
+        model = EvenSimplerMLP(num_features=8, device='cuda')
     model_state_dict = get_model_state_dict(model, sharded=False, include_keys=None, ignore_keys=None)
     for name, param in model.named_parameters():
         print(name)
@@ -28,9 +28,9 @@ def test_get_model_state_dict_unsharded_model(use_composer_model: bool):
 @pytest.mark.parametrize('use_composer_model', [True, False])
 def test_get_model_state_dict_include(use_composer_model: bool):
     if use_composer_model:
-        model = SimpleComposerMLP(num_features=8, device='cpu')
+        model = SimpleComposerMLP(num_features=8, device='cuda')
     else:
-        model = EvenSimplerMLP(num_features=8, device='cpu')
+        model = EvenSimplerMLP(num_features=8, device='cuda')
     model_state_dict = get_model_state_dict(model, sharded=False, include_keys=['module.0.weight'])
     assert set(model_state_dict.keys()) == {'module.0.weight'}
 
@@ -41,9 +41,9 @@ def test_get_model_state_dict_include(use_composer_model: bool):
 @pytest.mark.parametrize('use_composer_model', [True, False])
 def test_get_model_state_dict_ignore(use_composer_model: bool):
     if use_composer_model:
-        model = SimpleComposerMLP(num_features=8, device='cpu')
+        model = SimpleComposerMLP(num_features=8, device='cuda')
     else:
-        model = EvenSimplerMLP(num_features=8, device='cpu')
+        model = EvenSimplerMLP(num_features=8, device='cuda')
 
     model_state_dict = get_model_state_dict(model, sharded=False, ignore_keys='module.2.weight')
     assert set(model_state_dict.keys()) == {'module.0.weight'}
@@ -116,4 +116,24 @@ def test_get_model_state_dict_sharded(world_size, use_composer_model: bool):
     if dist.get_global_rank() == 0:
         deep_compare(pre_shard_full_state_dict, post_shard_reconstructed_full_sd)
     
-    
+
+# TODO test precision
+@pytest.mark.gpu
+@pytest.mark.parametrize('precision', [torch.float32,
+                                       torch.float16,
+                                       torch.bfloat16,
+                                       ]
+                                       )
+@pytest.mark.parametrize('use_composer_model', [True, False])
+def test_get_model_state_dict_precision_unsharded_model(precision: str, use_composer_model: bool):
+    if use_composer_model:
+        model = SimpleComposerMLP(num_features=8, device='cuda')
+    else:
+        model = EvenSimplerMLP(num_features=8, device='cuda')
+    model_state_dict = get_model_state_dict(model,
+                                            precision=precision,
+                                            sharded=False,
+                                            include_keys=None,
+                                            ignore_keys=None)
+    for tens in model_state_dict.values():
+        assert tens.dtype == precision

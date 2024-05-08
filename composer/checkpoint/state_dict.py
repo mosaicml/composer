@@ -15,12 +15,15 @@ from torch.nn.parallel import DistributedDataParallel
 from composer.core import get_precision_context
 from composer.models import ComposerModel
 from composer.utils import dist
+import logging 
+
+log = logging.getLogger(__name__)
 
 
 def get_model_state_dict(
     model: Union[ComposerModel, nn.Module],
     sharded: bool,
-    precision: str = 'fp32',
+    precision: Union[str, torch.dtype] = 'fp32',
     include_keys: Optional[Union[str, Sequence[str]]] = None,
     ignore_keys: Optional[Union[str, Sequence[str]]] = None,
     cpu_offload: Optional[bool] = None,
@@ -43,44 +46,73 @@ def get_model_state_dict(
 
     is_fsdp = _is_model_fsdp(model)
     cpu_offload = cpu_offload if cpu_offload is not None else is_fsdp
+
+    log.debug('Extracting model state dict')
     if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
         from torch.distributed.checkpoint.state_dict import StateDictOptions
         from torch.distributed.checkpoint.state_dict import get_model_state_dict as dcp_get_model_state_dict
         get_nonsharded_state_dict = not sharded
-        with get_precision_context(precision):
-            model_state_dict = dcp_get_model_state_dict(
-                model=model,
-                submodules=None,
-                options=StateDictOptions(
-                    full_state_dict=get_nonsharded_state_dict,
-                    cpu_offload=cpu_offload,
-                ),
-            )
+
+        model_state_dict = dcp_get_model_state_dict(
+            model=model,
+            submodules=None,
+            options=StateDictOptions(
+                full_state_dict=get_nonsharded_state_dict,
+                cpu_offload=cpu_offload,
+            ),
+        )
     else:
         if is_fsdp:
-            with get_precision_context(precision):
-                model_state_dict = _get_model_state_dict_with_fsdp_context_manager(model, sharded)
+            model_state_dict = _get_model_state_dict_with_fsdp_context_manager(model, sharded)
         else:
-            with get_precision_context(precision):
-                model_state_dict = model.state_dict()
+            model_state_dict = model.state_dict()
         if isinstance(model, DistributedDataParallel):
             nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, 'module.')
 
     if include_keys is not None:
-        if isinstance(include_keys, str):
-            include_keys = [include_keys]
-        model_state_dict = {
-            k: v for k, v in model_state_dict.items() if any(fnmatch.fnmatch(k, key) for key in include_keys)
-        }
-    if ignore_keys is not None:
-        if isinstance(ignore_keys, str):
-            ignore_keys = [ignore_keys]
-        model_state_dict = {
-            k: v for k, v in model_state_dict.items() if not any(fnmatch.fnmatch(k, key) for key in ignore_keys)
-        }
+       model_state_dict = _extract_keys_from_state_dict(model_state_dict, include_keys)
 
+    if ignore_keys is not None:
+        model_state_dict = _remove_keys_from_state_dict(model_state_dict, ignore_keys)
+
+    model_state_dict = _convert_to_dict_to_precision(state_dict=model_state_dict, precision=precision)
+
+    log.debug('Finished extracting model state dict')
     return model_state_dict
 
+
+STR_TO_DTYPE = {'fp32': torch.float32,
+             'fp16': torch.float16,
+             'bf16': torch.bfloat16,
+             }
+
+
+def _convert_to_dict_to_precision(state_dict: Dict[str, Any], precision: Union[str, torch.dtype]):
+    if isinstance(precision, str):
+        precision = STR_TO_DTYPE[precision]
+
+    new_state_dict = {
+        k: v.to(precision) for k, v in state_dict.items()
+    }
+    return new_state_dict
+
+
+def _extract_keys_from_state_dict(state_dict: Dict[str, Any], include_keys: Union[str, Sequence[str]]):
+    if isinstance(include_keys, str):
+        include_keys = [include_keys]
+    new_state_dict = {
+        k: v for k, v in state_dict.items() if any(fnmatch.fnmatch(k, key) for key in include_keys)
+    }
+
+    return new_state_dict
+
+def _remove_keys_from_state_dict(state_dict: Dict[str, Any], ignore_keys: Union[str, Sequence[str]]):
+    if isinstance(ignore_keys, str):
+        ignore_keys = [ignore_keys]
+    new_state_dict = {
+            k: v for k, v in state_dict.items() if not any(fnmatch.fnmatch(k, key) for key in ignore_keys)
+        }
+    return new_state_dict
 
 def _is_model_fsdp(model) -> bool:
     """Indicates if FSDP is enabled.
