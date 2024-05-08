@@ -75,7 +75,6 @@ class GCSObjectStore(ObjectStore):
 
         self.s3_object_store = None
 
-        # elif 'GCS_KEY' in os.environ and 'GCS_SECRET' in os.environ:
         if 'GCS_KEY' in os.environ and 'GCS_SECRET' in os.environ:
             # Create a session and use it to make our client. Unlike Resources and Sessions,
             # clients are generally thread-safe.
