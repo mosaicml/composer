@@ -13,6 +13,7 @@ import torch
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
+from composer.trainer._scaler import ClosureGradScaler
 from composer.utils import ensure_tuple
 
 log = logging.getLogger(__name__)
@@ -174,3 +175,5 @@ class SAM(Algorithm):
                 interval=self.interval,
             ) for optimizer in ensure_tuple(state.optimizers)
         )
+
+        state.scaler = ClosureGradScaler()
