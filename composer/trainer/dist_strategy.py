@@ -189,10 +189,10 @@ def prepare_tp_module(
     layer_plan = tp_config['layer_plan']
     from torch.distributed.tensor.parallel import (
         ColwiseParallel,
-        parallelize_module,
         PrepareModuleInput,
         RowwiseParallel,
         SequenceParallel,
+        parallelize_module,
     )
     parallelize_module(
         module=model,

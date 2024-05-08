@@ -3,15 +3,15 @@
 
 import pytest
 import torch
-from torch.utils.data import DataLoader
 from torch.distributed._tensor.device_mesh import init_device_mesh
 from torch.distributed.tensor.parallel import (
     ColwiseParallel,
-    parallelize_module,
     PrepareModuleInput,
     RowwiseParallel,
     SequenceParallel,
+    parallelize_module,
 )
+from torch.utils.data import DataLoader
 
 from composer.trainer.trainer import Trainer
 from composer.utils import dist
@@ -20,6 +20,7 @@ from tests.common import (
     SimpleModel,
     world_size,
 )
+
 
 @pytest.mark.gpu
 @world_size(2)
