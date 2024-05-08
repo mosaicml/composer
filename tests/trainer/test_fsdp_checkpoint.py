@@ -285,19 +285,28 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
 
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
-@pytest.mark.parametrize('autoresume', [True, False])
-@pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
-@pytest.mark.parametrize('load_fsdp_monolith_rank0_only', [True, False])
+@pytest.mark.parametrize(
+    'optimizer,autoresume,precision,save_weights_only,load_weights_only,load_fsdp_monolith_rank0_only',
+    [
+        ['adam', False, 'amp_bf16', False, False, False],
+        ['adamw', False, 'amp_bf16', False, False, False],
+        ['adam', True, 'amp_bf16', False, False, False],
+        ['adam', False, 'amp_fp16', False, False, False],
+        ['adam', False, 'amp_bf16', True, True, False],  # save_weights_only requires load_weights_only
+        ['adam', False, 'amp_bf16', False, True, False],
+        ['adam', False, 'amp_bf16', False, False, True],
+    ],
+)
 def test_fsdp_full_state_dict_load(
     world_size,
     tmp_path: pathlib.Path,
     autoresume: bool,
     precision: str,
     optimizer: str,
+    save_weights_only: bool,
+    load_weights_only: bool,
     load_fsdp_monolith_rank0_only: bool,
 ):
-
     if autoresume:
         run_name = 'my-cool-autoresume-run'
     else:
@@ -315,6 +324,7 @@ def test_fsdp_full_state_dict_load(
         autoresume=autoresume,
         optimizer=optimizer,
         fsdp_config=fsdp_config,
+        save_weights_only=save_weights_only,
     )
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
@@ -330,6 +340,7 @@ def test_fsdp_full_state_dict_load(
         max_duration='4ba',
         optimizer=optimizer,
         fsdp_config=fsdp_config,
+        load_weights_only=load_weights_only,
     )
     state_dict_from_trainer2 = trainer2.state.state_dict()
 
@@ -338,10 +349,11 @@ def test_fsdp_full_state_dict_load(
             state_dict_from_trainer1,
             state_dict_from_trainer2,
         )
-        _compare_optims_between_state_dicts(
-            state_dict_from_trainer1,
-            state_dict_from_trainer2,
-        )
+        if not load_weights_only:
+            _compare_optims_between_state_dicts(
+                state_dict_from_trainer1,
+                state_dict_from_trainer2,
+            )
         _compare_metrics_between_state_dicts(
             state_dict_from_trainer1,
             state_dict_from_trainer2,
