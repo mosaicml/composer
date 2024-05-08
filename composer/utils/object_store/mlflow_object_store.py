@@ -112,6 +112,7 @@ def _patch_adls_file_upload_with_timeout(sas_url, local_file, start_byte, size, 
         headers: Additional headers to include in the Patch request body
         is_single: Whether this is the only patch operation for this file
     """
+    log.debug('Inside patched adls upload function')
     from mlflow.azure.client import _append_query_parameters, _is_valid_adls_patch_header, _logger
     from mlflow.utils import rest_utils
     from mlflow.utils.file_utils import read_chunk
@@ -131,7 +132,7 @@ def _patch_adls_file_upload_with_timeout(sas_url, local_file, start_byte, size, 
     data = read_chunk(local_file, size, start_byte)
 
     ### Changed here to pass a timeout along to cloud_storage_http_request
-    timeout = os.environ['MLFLOW_PATCH_ADLS_FILE_UPLOAD_TIMEOUT']
+    timeout = int(os.environ['MLFLOW_PATCH_ADLS_FILE_UPLOAD_TIMEOUT'])
     debug_requests_on()
     with rest_utils.cloud_storage_http_request(
         'patch',
