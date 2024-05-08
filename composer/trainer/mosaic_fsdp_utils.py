@@ -13,7 +13,6 @@ import functools
 import logging
 import math
 import warnings
-import contextlib
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union, cast, no_type_check
 
@@ -35,7 +34,7 @@ from torch.distributed.fsdp._fsdp_extensions import _ext_pre_load_state_dict_tra
 from torch.distributed.utils import _replace_by_prefix
 
 from composer.core import Precision
-from composer.utils import dist
+from composer.utils import dist, VersionedDeprecationWarning
 
 if TYPE_CHECKING:
     if version.parse(torch.__version__) >= version.parse('2.0.1') and version.parse(
@@ -67,6 +66,20 @@ logger = logging.getLogger(__name__)
 
 def set_fsdp_default(fsdp_config: Dict[str, Any]):
     """Modify fsdp_config to set default values for missing keys."""
+    if 'process_group' in fsdp_config:
+        warnings.warn(VersionedDeprecationWarning('process_group is deprecated. Please specify `data_parallel_shard_degree` and `data_parallel_replicate_degree` instead.', remove_version='0.24.0'))
+
+    print(fsdp_config)
+
+    if 'device_mesh' in fsdp_config:
+        warnings.warn(VersionedDeprecationWarning('device_mesh is deprecated. Please specify `data_parallel_shard_degree` and `data_parallel_replicate_degree` instead.', remove_version='0.24.0'))
+        if 'data_parallel_shard_degree' in fsdp_config or 'data_parallel_replicate_degree' in fsdp_config:
+            raise ValueError('Cannot specify both `device_mesh` and `data_parallel_shard_degree` or `data_parallel_replicate_degree`. Please remove `device_mesh`.')
+        device_mesh = fsdp_config.pop('device_mesh')
+        fsdp_config['data_parallel_shard_degree'] = device_mesh[0]
+        if len(device_mesh) > 1:
+            fsdp_config['data_parallel_replicate_degree'] = device_mesh[1]
+
     fsdp_config.setdefault('activation_checkpointing', False)
     fsdp_config.setdefault('activation_checkpointing_reentrant', True)
     fsdp_config.setdefault('activation_cpu_offload', False)

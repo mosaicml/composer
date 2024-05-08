@@ -3,6 +3,7 @@
 
 import contextlib
 from unittest.mock import MagicMock
+from typing import Optional
 
 import pytest
 import torch
@@ -233,20 +234,24 @@ def test_fsdp_process_group(world_size: int):
     'sharding_strategy',
     ['SHARD_GRAD_OP', 'FULL_SHARD', 'HYBRID_SHARD', '_HYBRID_SHARD_ZERO2'],
 )
-@pytest.mark.parametrize('device_mesh', [[2], [1, 2]])
-def test_wrong_size_device_mesh_error(world_size: int, sharding_strategy: str, device_mesh: list[int]):
+@pytest.mark.parametrize('replicate_degree', [None, 1])
+def test_wrong_size_device_mesh_error(world_size: int, sharding_strategy: str, replicate_degree: Optional[int]):
     context = contextlib.nullcontext()
-    if sharding_strategy in ['SHARD_GRAD_OP', 'FULL_SHARD'] and len(device_mesh) != 1:
-        context = pytest.raises(ValueError, match='.*requires a device mesh of size 1.*')
-    if sharding_strategy in ['HYBRID_SHARD', '_HYBRID_SHARD_ZERO2'] and len(device_mesh) != 2:
-        context = pytest.raises(ValueError, match='.*requires a device mesh of size 2.*')
+    if sharding_strategy in ['SHARD_GRAD_OP', 'FULL_SHARD'] and replicate_degree is not None:
+        context = pytest.warns(UserWarning, match='.*is not supported with 2D device mesh.*')
+    if sharding_strategy in ['HYBRID_SHARD', '_HYBRID_SHARD_ZERO2'] and replicate_degree is None:
+        context = pytest.warns(UserWarning, match='.*is not supported with 1D device mesh.*')
+    # with context:
+    fsdp_config = {
+        'sharding_strategy': sharding_strategy,
+        'data_parallel_shard_degree': 2,
+    }
+    if replicate_degree is not None:
+        fsdp_config['data_parallel_replicate_degree'] = replicate_degree
     with context:
         Trainer(
             model=SimpleModel(),
-            fsdp_config={
-                'sharding_strategy': sharding_strategy,
-                'device_mesh': device_mesh,
-            },
+            fsdp_config=fsdp_config,
         )
 
 
@@ -417,3 +422,54 @@ def test_fsdp_same_state_after_oom_reshard(world_size: int):
     output_2 = fsdp_oom_model(x)
 
     assert torch.equal(output_1, output_2)
+
+
+@pytest.mark.gpu
+@world_size(2)
+def test_fsdp_device_mesh(world_size: int):
+    model = SimpleModel()
+    model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+
+    # Expect warning via pytest
+    with pytest.warns(DeprecationWarning):
+        Trainer(
+            model=model,
+            fsdp_config={
+                'device_mesh': [2]
+            },
+            max_duration='3ba',
+        )
+
+
+@pytest.mark.gpu
+@world_size(2)
+def test_fsdp_shard(world_size: int):
+    model = SimpleModel()
+    model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+
+    Trainer(
+        model=model,
+        fsdp_config={
+            'data_parallel_shard_degree': 2,
+        },
+        max_duration='3ba',
+    )
+
+
+@pytest.mark.gpu
+@world_size(2)
+def test_fsdp_shard_and_replicate(world_size: int):
+    model = SimpleModel()
+    model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+
+    Trainer(
+        model=model,
+        fsdp_config={
+            'data_parallel_shard_degree': 2,
+            'data_parallel_replicate_degree': 1,
+        },
+        max_duration='3ba',
+    )
