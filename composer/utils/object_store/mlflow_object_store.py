@@ -133,7 +133,7 @@ def _patch_adls_file_upload_with_timeout(sas_url, local_file, start_byte, size, 
 
     ### Changed here to pass a timeout along to cloud_storage_http_request
     timeout = int(os.environ.get('MLFLOW_PATCH_ADLS_FILE_UPLOAD_TIMEOUT', 30))
-    print(f"Patch timeout is {timeout}")
+    print(f'Patch timeout is {timeout}')
     debug_requests_on()
     with rest_utils.cloud_storage_http_request(
         'patch',
@@ -203,7 +203,7 @@ class MLFlowObjectStore(ObjectStore):
             raise MissingConditionalImportError('databricks', conda_package='databricks-sdk>=0.15.0,<1.0') from e
 
         log.debug('Patching MLflow Azure client to include timeout in ADLS file upload')
-        mlflow.azure.client.patch_adls_file_upload = _patch_adls_file_upload_with_timeout  # type: ignore
+        mlflow.store.artifact.databricks_artifact_repo.patch_adls_file_upload = _patch_adls_file_upload_with_timeout  # type: ignore
 
         tracking_uri = os.getenv(
             mlflow.environment_variables.MLFLOW_TRACKING_URI.name,  # pyright: ignore[reportGeneralTypeIssues]
