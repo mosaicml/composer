@@ -17,6 +17,7 @@ import numpy as np
 import torch
 import torch.nn.modules.utils
 from packaging import version
+from torch.distributed._tensor.device_mesh import DeviceMesh, init_device_mesh
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.fully_sharded_data_parallel import (
     FullOptimStateDictConfig,
@@ -28,7 +29,6 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader, Dataset
-from torch.distributed._tensor.device_mesh import init_device_mesh, DeviceMesh
 from torchmetrics import Metric
 
 if version.parse(torch.__version__) >= version.parse('2.3.0'):
@@ -207,7 +207,7 @@ def _create_device_mesh(device: Device, fsdp_config: Optional[Dict[str, Any]], t
     if tp_config is not None:
         dims.append(tp_config['tensor_parallel_degree'])
         names.append('tp')
-    
+
     # Fill in the unspecified dimensions
     product_of_dims = 1
     unspecified_dim_names = []
@@ -217,13 +217,17 @@ def _create_device_mesh(device: Device, fsdp_config: Optional[Dict[str, Any]], t
         else:
             unspecified_dim_names.append(name)
     if len(unspecified_dim_names) > 1:
-        raise ValueError(f'Found multiple parallelism dimensions with -1: {unspecified_dim_names}. '
-                        'Only one is allowed, which is set to fill the remaining dimensions.')
+        raise ValueError(
+            f'Found multiple parallelism dimensions with -1: {unspecified_dim_names}. '
+            'Only one is allowed, which is set to fill the remaining dimensions.'
+        )
     remaining_dimension = dist.get_world_size() // product_of_dims
     if remaining_dimension * product_of_dims != dist.get_world_size():
-        raise ValueError(f'World size {dist.get_world_size()} is not divisible by the product of the specified '
-                        'parallelism degrees. Please ensure the product of the specified parallelism degrees '
-                        'matches the world size.')
+        raise ValueError(
+            f'World size {dist.get_world_size()} is not divisible by the product of the specified '
+            'parallelism degrees. Please ensure the product of the specified parallelism degrees '
+            'matches the world size.'
+        )
     for i, dim in enumerate(dims):
         if dim == -1:
             dims[i] = remaining_dimension
@@ -520,9 +524,11 @@ class State(Serializable):
             if version.parse(torch.__version__.split('.dev')[0]) < version.parse('2.3.0'):
                 raise ValueError('Tensor parallelism (TP) requires torch>=2.3.0.')
             if self.fsdp_config is None:
-                raise ValueError('Tensor parallelism (TP) currently requires FSDP to be enabled .'
-                                 'An empty `fsdp_config` can be specified to enable FSDP with '
-                                 'default settings.')
+                raise ValueError(
+                    'Tensor parallelism (TP) currently requires FSDP to be enabled .'
+                    'An empty `fsdp_config` can be specified to enable FSDP with '
+                    'default settings.'
+                )
 
         if self.load_fsdp_monolith_rank0_only:
             if self.tp_config is not None:
