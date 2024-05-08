@@ -72,6 +72,52 @@ def _wrap_mlflow_exceptions(uri: str, e: Exception):
     raise e
 
 
+# Original source: https://github.com/mlflow/mlflow/blob/a85081631eb665fa25046cb0b7daf0fbbdd5949f/mlflow/azure/client.py#L42
+def _patch_adls_file_upload_with_timeout(sas_url, local_file, start_byte, size, position, headers, is_single):
+    """Performs an ADLS Azure file create `Patch` operation.
+
+    (https://docs.microsoft.com/en-us/rest/api/storageservices/datalakestoragegen2/path/update)
+
+    Args:
+        sas_url: A shared access signature URL referring to the Azure ADLS server
+            to which the file update command should be issued.
+        local_file: The local file to upload
+        start_byte: The starting byte of the local file to upload
+        size: The number of bytes to upload
+        position: Positional offset of the data in the Patch request
+        headers: Additional headers to include in the Patch request body
+        is_single: Whether this is the only patch operation for this file
+    """
+    from mlflow.azure.client import _append_query_parameters, _is_valid_adls_patch_header, _logger
+    from mlflow.utils import rest_utils
+    from mlflow.utils.file_utils import read_chunk
+
+    new_params = {'action': 'append', 'position': str(position)}
+    if is_single:
+        new_params['flush'] = 'true'
+    request_url = _append_query_parameters(sas_url, new_params)
+
+    request_headers = {}
+    for name, value in headers.items():
+        if _is_valid_adls_patch_header(name):
+            request_headers[name] = value
+        else:
+            _logger.debug("Removed unsupported '%s' header for ADLS Gen2 Patch operation", name)
+
+    data = read_chunk(local_file, size, start_byte)
+
+    ### Changed here to pass a timeout along to cloud_storage_http_request
+    timeout = os.environ['MLFLOW_PATCH_ADLS_FILE_UPLOAD_TIMEOUT']
+    with rest_utils.cloud_storage_http_request(
+        'patch',
+        request_url,
+        data=data,
+        headers=request_headers,
+        timeout=timeout,
+    ) as response:
+        rest_utils.augmented_raise_for_status(response)
+
+
 class MLFlowObjectStore(ObjectStore):
     """Utility class for uploading and downloading artifacts from MLflow.
 
@@ -126,6 +172,9 @@ class MLFlowObjectStore(ObjectStore):
             from databricks.sdk import WorkspaceClient
         except ImportError as e:
             raise MissingConditionalImportError('databricks', conda_package='databricks-sdk>=0.15.0,<1.0') from e
+
+        if 'MLFLOW_PATCH_ADLS_FILE_UPLOAD_TIMEOUT' in os.environ:
+            mlflow.azure.client.patch_adls_file_upload = _patch_adls_file_upload_with_timeout  # type: ignore
 
         tracking_uri = os.getenv(
             mlflow.environment_variables.MLFLOW_TRACKING_URI.name,  # pyright: ignore[reportGeneralTypeIssues]
