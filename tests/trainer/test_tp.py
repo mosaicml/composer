@@ -3,14 +3,8 @@
 
 import pytest
 import torch
+from packaging import version
 from torch.distributed._tensor.device_mesh import init_device_mesh
-from torch.distributed.tensor.parallel import (
-    ColwiseParallel,
-    PrepareModuleInput,
-    RowwiseParallel,
-    SequenceParallel,
-    parallelize_module,
-)
 from torch.utils.data import DataLoader
 
 from composer.trainer.trainer import Trainer
@@ -24,7 +18,16 @@ from tests.common import (
 
 @pytest.mark.gpu
 @world_size(2)
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
 def test_tp_train(world_size: int):
+    from torch.distributed.tensor.parallel import (
+        ColwiseParallel,
+        PrepareModuleInput,
+        RowwiseParallel,
+        SequenceParallel,
+        parallelize_module,
+    )
+
     model = SimpleModel()
     dataset = RandomClassificationDataset(size=10)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))

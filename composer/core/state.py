@@ -198,7 +198,8 @@ def _create_device_mesh(device: Device, fsdp_config: Optional[Dict[str, Any]], t
         return None
 
     # Gather dimensions and names for the device mesh
-    dims, names = [], []
+    dims: List[int] = []
+    names: List[str] = []
     dims.append(fsdp_config['data_parallel_shard_degree'])
     names.append('dp_shard')
     if fsdp_config['data_parallel_replicate_degree'] != 1:
@@ -219,14 +220,14 @@ def _create_device_mesh(device: Device, fsdp_config: Optional[Dict[str, Any]], t
     if len(unspecified_dim_names) > 1:
         raise ValueError(
             f'Found multiple parallelism dimensions with -1: {unspecified_dim_names}. '
-            'Only one is allowed, which is set to fill the remaining dimensions.'
+            'Only one is allowed, which is set to fill the remaining dimensions.',
         )
     remaining_dimension = dist.get_world_size() // product_of_dims
     if remaining_dimension * product_of_dims != dist.get_world_size():
         raise ValueError(
             f'World size {dist.get_world_size()} is not divisible by the product of the specified '
             'parallelism degrees. Please ensure the product of the specified parallelism degrees '
-            'matches the world size.'
+            'matches the world size.',
         )
     for i, dim in enumerate(dims):
         if dim == -1:
@@ -237,7 +238,7 @@ def _create_device_mesh(device: Device, fsdp_config: Optional[Dict[str, Any]], t
     if device_type == 'gpu':
         device_type = 'cuda'
 
-    return init_device_mesh(device_type=device_type, mesh_shape=dims, mesh_dim_names=names)
+    return init_device_mesh(device_type=device_type, mesh_shape=tuple(dims), mesh_dim_names=tuple(names))
 
 
 _STATE_DICT_SERIALIZED_ATTRIBUTES = [
@@ -527,7 +528,7 @@ class State(Serializable):
                 raise ValueError(
                     'Tensor parallelism (TP) currently requires FSDP to be enabled .'
                     'An empty `fsdp_config` can be specified to enable FSDP with '
-                    'default settings.'
+                    'default settings.',
                 )
 
         if self.load_fsdp_monolith_rank0_only:
