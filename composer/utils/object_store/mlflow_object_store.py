@@ -72,30 +72,6 @@ def _wrap_mlflow_exceptions(uri: str, e: Exception):
     raise e
 
 
-from http.client import HTTPConnection
-
-
-def debug_requests_on():
-    HTTPConnection.debuglevel = 1
-
-    logging.basicConfig()
-    logging.getLogger().setLevel(logging.DEBUG)
-    requests_log = logging.getLogger('requests.packages.urllib3')
-    requests_log.setLevel(logging.DEBUG)
-    requests_log.propagate = True
-
-
-def debug_requests_off():
-    HTTPConnection.debuglevel = 0
-
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.WARNING)
-    root_logger.handlers = []
-    requests_log = logging.getLogger('requests.packages.urllib3')
-    requests_log.setLevel(logging.WARNING)
-    requests_log.propagate = False
-
-
 # Original source: https://github.com/mlflow/mlflow/blob/a85081631eb665fa25046cb0b7daf0fbbdd5949f/mlflow/azure/client.py#L42
 def _patch_adls_file_upload_with_timeout(sas_url, local_file, start_byte, size, position, headers, is_single):
     """Performs an ADLS Azure file create `Patch` operation.
@@ -134,7 +110,6 @@ def _patch_adls_file_upload_with_timeout(sas_url, local_file, start_byte, size, 
     ### Changed here to pass a timeout along to cloud_storage_http_request
     timeout = int(os.environ.get('MLFLOW_PATCH_ADLS_FILE_UPLOAD_TIMEOUT', 30))
     print(f'Patch timeout is {timeout}')
-    debug_requests_on()
     with rest_utils.cloud_storage_http_request(
         'patch',
         request_url,
@@ -143,8 +118,6 @@ def _patch_adls_file_upload_with_timeout(sas_url, local_file, start_byte, size, 
         timeout=timeout,
     ) as response:
         rest_utils.augmented_raise_for_status(response)
-
-    debug_requests_off()
 
 
 class MLFlowObjectStore(ObjectStore):
