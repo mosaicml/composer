@@ -36,8 +36,8 @@ def test_tp_train(world_size: int):
     )
 
     layer_plan = {
-        'model.fc1': ColwiseParallel(),
-        'model.fc2': RowwiseParallel(),
+        'fc1': ColwiseParallel(),
+        'fc2': RowwiseParallel(),
     }
 
     trainer = Trainer(
