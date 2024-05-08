@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import contextlib
-from unittest.mock import MagicMock
 from typing import Optional
+from unittest.mock import MagicMock
 
 import pytest
 import torch
@@ -436,7 +436,7 @@ def test_fsdp_device_mesh(world_size: int):
         Trainer(
             model=model,
             fsdp_config={
-                'device_mesh': [2]
+                'device_mesh': [2],
             },
             max_duration='3ba',
         )
