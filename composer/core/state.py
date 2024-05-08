@@ -255,6 +255,7 @@ class State(Serializable):
         deepspeed_config (Dict[str, Any], optional): The configuration dictionary for deepspeed.
         fsdp_config (Dict[str, Any], optional): The configuration dictionary for FSDP.
         fsdp_auto_wrap (bool, optional): Whether to automatically wrap the model with FSDP.
+        tp_config (Dict[str, Any], optional): The configuration dictionary for TP.
 
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
@@ -423,6 +424,7 @@ class State(Serializable):
         deepspeed_config: Optional[Dict[str, Any]] = None,
         fsdp_config: Optional[Dict[str, Any]] = None,
         fsdp_auto_wrap: bool = True,
+        tp_config: Optional[Dict[str, Any]] = None,
     ):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
@@ -468,8 +470,14 @@ class State(Serializable):
         self.deepspeed_config = deepspeed_config
         self.fsdp_config = fsdp_config
         self.fsdp_auto_wrap = fsdp_auto_wrap
+        self.tp_config = tp_config
+
+        if self.tp_config is not None and version.parse(torch.__version__.split('.dev')[0]) < version.parse('2.3.0'):
+            raise ValueError('Tensor parallelism (TP) requires torch>=2.3.0.')
 
         if self.load_fsdp_monolith_rank0_only:
+            if self.tp_config is not None:
+                raise ValueError('load_fsdp_monolith_rank0_only is not compatible with tensor parallelism (TP).')
             assert fsdp_config is not None
             error_message = ''
             if fsdp_config['use_orig_params'] == True:

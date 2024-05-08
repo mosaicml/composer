@@ -34,7 +34,7 @@ from composer.trainer.mosaic_fsdp_utils import (
 )
 from composer.utils import StringEnum, dist, ensure_tuple
 
-__all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare_fsdp_module']
+__all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare_fsdp_module', 'prepare_tp_module']
 
 log = logging.getLogger(__name__)
 
@@ -207,6 +207,27 @@ def _recreate_fsdp_param_groups_from_unwrapped_opt_info(
 
     # return sorted optimizer info groups
     return [group_num_to_optimizer_info[num] for num in sorted(group_num_to_optimizer_info.keys())]
+
+
+def prepare_tp_module(
+    model: torch.nn.Module,
+    tp_config: Dict[str, Any],
+) -> None:
+    """Prepare a module (assumed ComposerModel) for use with tensor parallel."""
+    device_mesh = tp_config['device_mesh']
+    layer_plan = tp_config['layer_plan']
+    from torch.distributed.tensor.parallel import (
+        ColwiseParallel,
+        parallelize_module,
+        PrepareModuleInput,
+        RowwiseParallel,
+        SequenceParallel,
+    )
+    parallelize_module(
+        module=model,
+        device_mesh=device_mesh,
+        parallelize_plan=layer_plan,
+    )
 
 
 def prepare_fsdp_module(

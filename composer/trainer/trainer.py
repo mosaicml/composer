@@ -101,6 +101,7 @@ from composer.trainer.dist_strategy import (
     ddp_sync_context,
     prepare_ddp_module,
     prepare_fsdp_module,
+    prepare_tp_module,
     set_fsdp_default,
 )
 from composer.utils import (
@@ -911,7 +912,7 @@ class Trainer:
             disable FSDP, set to ``None``. (default: ``None``)
         fsdp_auto_wrap (bool, optional): option to let trainer wrap the module, or if
             the module is already wrapped outside, allow the user to disable auto-wrapping.
-
+        tp_config (Dict[str, Any], optional): Configuration for tensor parallelism.
         device (Device | str, optional): The device to use for training, which can be ``'cpu'``, ``'gpu'``,
             ``'tpu'``, or ``'mps'``. (default: ``None``)
 
@@ -1051,10 +1052,11 @@ class Trainer:
         # Graceful Resumption
         autoresume: bool = False,
 
-        # DeepSpeed
+        # Parallelism
         deepspeed_config: Optional[Dict[str, Any]] = None,
         fsdp_config: Optional[Dict[str, Any]] = None,
         fsdp_auto_wrap: bool = True,
+        tp_config: Optional[Dict[str, Any]] = None,
 
         # System/Numerics
         device: Optional[Union[str, Device]] = None,
@@ -1236,6 +1238,7 @@ class Trainer:
             deepspeed_config=deepspeed_config,
             fsdp_config=set_fsdp_default(fsdp_config) if fsdp_config is not None else None,
             fsdp_auto_wrap=fsdp_auto_wrap,
+            tp_config=tp_config,
         )
 
         # Console Logging
@@ -1410,7 +1413,7 @@ class Trainer:
                 if latest_remote_file_name is not None:
                     latest_remote_file_name = partial_format(latest_remote_file_name, **mlflow_format_kwargs)
 
-        # Log hparams.
+        # Log hparams
         if self.auto_log_hparams:
             locs = locals()
             if 'cb' in locs:
@@ -1423,7 +1426,7 @@ class Trainer:
         self.logger.log_hyperparameters({'composer_version': composer_env_dict['composer_version']})
         self.logger.log_hyperparameters({'composer_commit_hash': str(composer_env_dict['composer_commit_hash'])})
 
-        # Log gpus and nodes.
+        # Log gpus and nodes
         device_name = self.state.device.__class__.__name__.lstrip('Device').lower()
         self.logger.log_hyperparameters({
             'num_nodes': int(dist.get_world_size() / dist.get_local_world_size()),
@@ -1553,9 +1556,18 @@ class Trainer:
         self._original_model = self.state.model
 
         # If using PyTorch DDP, the model must be loaded before it is wrapped with DDP.
-        # If using DeepSpeed, the engine must be initialized before the model is loaded.
+        # If using TP, the model must be wrapped before FSDP.
         # If using FSDP, the model must be wrapped and then loaded unless loading a monolith
         # checkpoint on rank 0 only, in which case the model be loaded before it is wrapped.
+        # If using DeepSpeed, the engine must be initialized before the model is loaded.
+
+        # TP wrap
+        if self.state.tp_config is not None:
+            with reproducibility.seed_context(self.state.rank_zero_seed):
+                prepare_tp_module(
+                    model,
+                    self.state.tp_config,
+                )
 
         # FSDP wrap if not using monolith checkpoint on rank 0 only
         if self.state.fsdp_config is not None and fsdp_auto_wrap and not self.state.load_fsdp_monolith_rank0_only:
