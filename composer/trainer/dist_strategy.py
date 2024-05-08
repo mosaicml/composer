@@ -16,8 +16,9 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     apply_activation_checkpointing,
     checkpoint_wrapper,
 )
-from torch.distributed.fsdp import FullyShardedDataParallel, ShardingStrategy
+from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.distributed.fsdp._common_utils import clean_tensor_name
+from torch.distributed.tensor.parallel import parallelize_module
 from torch.nn.parallel import DistributedDataParallel
 from torchmetrics import Metric, MetricCollection
 
@@ -187,13 +188,6 @@ def prepare_tp_module(
     """Prepare a module (assumed ComposerModel) for use with tensor parallel."""
     device_mesh = tp_config['device_mesh']
     layer_plan = tp_config['layer_plan']
-    from torch.distributed.tensor.parallel import (
-        ColwiseParallel,
-        parallelize_module,
-        PrepareModuleInput,
-        RowwiseParallel,
-        SequenceParallel,
-    )
     parallelize_module(
         module=model,
         device_mesh=device_mesh,

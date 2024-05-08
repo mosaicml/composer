@@ -7,7 +7,6 @@ from torch.utils.data import DataLoader
 from torch.distributed._tensor.device_mesh import init_device_mesh
 from torch.distributed.tensor.parallel import (
     ColwiseParallel,
-    parallelize_module,
     PrepareModuleInput,
     RowwiseParallel,
     SequenceParallel,
