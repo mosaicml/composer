@@ -671,6 +671,8 @@ def _upload_worker(
                 continue
         uri = remote_backend.get_uri(remote_file_name)
 
+        local_rank = dist.get_local_rank()
+        assert local_rank != 0
         if remote_file_name.endswith('.distcp'):
             filename = remote_file_name.split('/')[-1]
             rank = filename.split('_')[-2]
