@@ -75,3 +75,8 @@ def patch_pytorch():
         state_dict.set_model_state_dict = set_model_state_dict
         state_dict.set_optimizer_state_dict = set_optimizer_state_dict
         state_dict._get_fqns = _get_fqns
+
+
+        from composer.trainer.mosaic_fsdp_utils import dedup_save_plans
+        from torch.distributed.checkpoint import _dedup_save_plans
+        _dedup_save_plans.dedup_save_plans = dedup_save_plans
