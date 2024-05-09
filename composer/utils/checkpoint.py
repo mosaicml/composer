@@ -169,6 +169,13 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
         """
         path_to_specs: Dict[str, List[Tuple[int, int]]] = {}
         for read_item in plan.items:
+
+            relative_file_path = self.storage_data[read_item.storage_index].relative_path
+            rank = torch.distributed.get_rank()
+            if rank == 0:
+                if "__1_0" in relative_file_path:
+                    print(f"bigning debug rank 0 found 1 file: {read_item=}")
+
             item_md = self.storage_data[read_item.storage_index]
             path = os.path.join(self.path, item_md.relative_path)
             path_to_specs.setdefault(path, []).append((item_md.offset, item_md.length))
@@ -1119,10 +1126,14 @@ def _save_checkpoint(
 
         if expect_file:
             if version.parse(torch.__version__) >= version.parse('2.3.0'):
+                save_planner = state.fsdp_config['save_planner']
+                if save_planner is None:
+                    from composer.trainer.mosaic_fsdp_utils import SavePlannerWithDedupFix
+                    save_planner = SavePlannerWithDedupFix()
                 dist_cp.save(
                     state_dict=state_dict,
                     storage_writer=dist_cp.FileSystemWriter(dirname),
-                    planner=state.fsdp_config['save_planner'],
+                    planner=save_planner,
                     process_group=process_group,
                 )
             else:
