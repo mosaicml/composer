@@ -110,7 +110,7 @@ class TestSAMParamGroups():
     def test_param_groups_id_matching(self, config, world_size: int):
         trainer = Trainer(**config)
 
-        sam_optimizer: SAMOptimizer = trainer.state.optimizers[0]
+        sam_optimizer: SAMOptimizer = trainer.state.optimizers[0]  # type: ignore
         base_optimizer: torch.optim.Optimizer = sam_optimizer.base_optimizer
 
         # Both SAMOptimizer and base_optimizer have to reference the same param groups
@@ -120,11 +120,11 @@ class TestSAMParamGroups():
         trainer = Trainer(**config)
         trainer.fit()
 
-        sam_optimizer: SAMOptimizer = trainer.state.optimizers[0]
+        sam_optimizer: SAMOptimizer = trainer.state.optimizers[0]  # type: ignore
         base_optimizer: torch.optim.Optimizer = sam_optimizer.base_optimizer
 
         # If SAMOptimizer and base_optimizer reference the same param groups, then
-        # the params are synchronized after updating (e.g. `lr` by a LR scheduler, 
+        # the params are synchronized after updating (e.g. `lr` by a LR scheduler,
         # weights by an optimizer step, etc.)
         assert math.isclose(
             sam_optimizer.param_groups[0]['lr'],

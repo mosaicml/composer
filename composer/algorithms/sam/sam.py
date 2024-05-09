@@ -176,4 +176,5 @@ class SAM(Algorithm):
             ) for optimizer in ensure_tuple(state.optimizers)
         )
 
+        # Switch to ClosureGradScaler as SAM supports and requires it
         state.scaler = ClosureGradScaler()
