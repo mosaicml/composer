@@ -660,11 +660,6 @@ def _upload_worker(
     The worker will continuously poll ``file_queue`` for files to upload. Once ``is_finished`` is set, the worker will
     exit once ``file_queue`` is empty.
     """
-    from composer.utils import dist
-    # Stagger uploads by one minute per local rank
-    stagger_wait = dist.get_local_rank() * 60
-    time.sleep(stagger_wait)
-
     remote_backend = _build_remote_backend(remote_backend_name, backend_kwargs)
     while True:
         try:
@@ -675,6 +670,11 @@ def _upload_worker(
             else:
                 continue
         uri = remote_backend.get_uri(remote_file_name)
+
+        if remote_file_name.endswith('.distcp'):
+            filename = remote_file_name.split('/')[-1]
+            rank = filename.split('_')[-2]
+            time.sleep(int(rank % 8) * 60)
 
         # defining as a function-in-function to use decorator notation with num_attempts as an argument
         @retry(ObjectStoreTransientError, num_attempts=num_attempts)
