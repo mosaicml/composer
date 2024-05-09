@@ -672,11 +672,12 @@ def _upload_worker(
         uri = remote_backend.get_uri(remote_file_name)
 
         local_rank = dist.get_local_rank()
+        local_rank_stagger = os.environ.get('COMPOSER_LOCAL_RANK_STAGGER_SECONDS', 0)
+        time.sleep(local_rank * local_rank_stagger)
         if remote_file_name.endswith('.distcp'):
             filename = remote_file_name.split('/')[-1]
             rank = int(filename.split('_')[-2]) % 8
             assert local_rank == rank
-            time.sleep(rank * 60)
 
         # defining as a function-in-function to use decorator notation with num_attempts as an argument
         @retry(ObjectStoreTransientError, num_attempts=num_attempts)
