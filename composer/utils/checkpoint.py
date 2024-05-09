@@ -175,6 +175,9 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
             if rank == 0:
                 if "__1_0" in relative_file_path:
                     print(f"bigning debug rank 0 found 1 file: {read_item=}")
+                    raise RuntimeError(f"haha")
+                else:
+                    print(f"bigning debug no __1 file: {relative_file_path}")
 
             item_md = self.storage_data[read_item.storage_index]
             path = os.path.join(self.path, item_md.relative_path)
