@@ -660,6 +660,11 @@ def _upload_worker(
     The worker will continuously poll ``file_queue`` for files to upload. Once ``is_finished`` is set, the worker will
     exit once ``file_queue`` is empty.
     """
+    from composer.utils import dist
+    # Stagger uploads by one minute per local rank
+    stagger_wait = dist.get_local_rank() * 60
+    time.sleep(stagger_wait)
+
     remote_backend = _build_remote_backend(remote_backend_name, backend_kwargs)
     while True:
         try:
