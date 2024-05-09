@@ -44,6 +44,7 @@ class TimeUnit(StringEnum):
     SAMPLE = 'sp'
     TOKEN = 'tok'
     DURATION = 'dur'
+    SECOND = 'sec'
 
 
 # regex for parsing time string, matches timeunit and chars prior to unit as value
@@ -211,6 +212,20 @@ class Time(Generic[TValue], Serializable):
             Time: :class:`Time` instance, in duration.
         """
         return cls(duration, TimeUnit.DURATION)
+
+    @classmethod
+    def from_second(cls, second: int) -> Time:
+        """Create a :class:`Time` with units of :attr:`TimeUnit.SECOND`.
+
+        Equivalent to ``Time(batch, TimeUnit.SECOND)``.
+
+        Args:
+            second (int): Number of seconds.
+
+        Returns:
+            Time: :class:`Time` instance, in seconds.
+        """
+        return cls(second, TimeUnit.SECOND)
 
     @property
     def value(self) -> TValue:
@@ -647,6 +662,8 @@ class Timestamp(Serializable):
             return self.sample
         if unit == TimeUnit.TOKEN:
             return self.token
+        if unit == TimeUnit.SECOND:
+            return Time(int(self._total_wct.total_seconds()) if self._total_wct else 0, TimeUnit.SECOND)
         raise ValueError(f'Invalid unit: {unit}')
 
     def _parse(self, other: Union[int, float, Time, str]) -> Time:
