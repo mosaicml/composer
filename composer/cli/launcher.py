@@ -16,6 +16,7 @@ import time
 import traceback
 from argparse import ArgumentParser
 from typing import Any, Dict, List, Union
+from packaging import version
 
 import psutil
 import torch
@@ -317,6 +318,14 @@ def _launch_processes(
     log.info('Starting distributed environment on local node for global_rank(%s-%s)', base_rank, base_rank + nproc - 1)
     log.info('Distributed KV store: tcp://%s:%s', master_addr, master_port)
 
+    nccl_env_variable = {
+        (
+            'NCCL_ASYNC_ERROR_HANDLING'
+            if version.parse(torch.__version__) < version.parse("2.2.0")
+            else 'TORCH_NCCL_ASYNC_ERROR_HANDLING'
+        ): '1'
+    }
+    
     for local_rank in range(nproc):
         global_rank = base_rank + local_rank
         if command_mode and module_mode:
@@ -339,7 +348,7 @@ def _launch_processes(
             MASTER_ADDR=master_addr,
             MASTER_PORT=str(master_port),
             PYTHONUNBUFFERED='1',
-            TORCH_NCCL_ASYNC_ERROR_HANDLING='1',
+            **nccl_env_variable,
         ):
             # Populate the distributed variables in all launcher args
             for arg in training_script_args:
