@@ -92,7 +92,12 @@ def create_interval_scheduler(
             return True
 
         if time_interval.unit in {
-            TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE, TimeUnit.SECOND
+            TimeUnit.ITERATION,
+            TimeUnit.EPOCH,
+            TimeUnit.BATCH,
+            TimeUnit.TOKEN,
+            TimeUnit.SAMPLE,
+            TimeUnit.SECOND,
         }:
             previous_count = state.previous_timestamp.get(time_interval.unit)
             count = state.timestamp.get(time_interval.unit)
