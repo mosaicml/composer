@@ -674,7 +674,7 @@ def _upload_worker(
         if remote_file_name.endswith('.distcp'):
             filename = remote_file_name.split('/')[-1]
             rank = filename.split('_')[-2]
-            time.sleep(int(rank % 8) * 60)
+            time.sleep((int(rank) % 8) * 60)
 
         # defining as a function-in-function to use decorator notation with num_attempts as an argument
         @retry(ObjectStoreTransientError, num_attempts=num_attempts)
