@@ -16,10 +16,10 @@ import time
 import traceback
 from argparse import ArgumentParser
 from typing import Any, Dict, List, Union
-from packaging import version
 
 import psutil
 import torch
+from packaging import version
 
 import composer
 from composer.loggers.mosaicml_logger import (
@@ -320,12 +320,11 @@ def _launch_processes(
 
     nccl_env_variable = {
         (
-            'NCCL_ASYNC_ERROR_HANDLING'
-            if version.parse(torch.__version__) < version.parse("2.2.0")
-            else 'TORCH_NCCL_ASYNC_ERROR_HANDLING'
-        ): '1'
+            'NCCL_ASYNC_ERROR_HANDLING' if version.parse(torch.__version__) < version.parse('2.2.0') else 'TORCH_NCCL_ASYNC_ERROR_HANDLING'
+        ):
+            '1',
     }
-    
+
     for local_rank in range(nproc):
         global_rank = base_rank + local_rank
         if command_mode and module_mode:
