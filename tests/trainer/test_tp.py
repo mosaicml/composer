@@ -18,6 +18,7 @@ from tests.common import (
 
 @pytest.mark.gpu
 @world_size(2)
+@pytest.mark.filterwarnings("ignore:FSDP is switching to use `NO_SHARD`.*:UserWarning")
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
 def test_tp_train(world_size: int):
     from torch.distributed.tensor.parallel import (
@@ -33,15 +34,9 @@ def test_tp_train(world_size: int):
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
 
-    device_mesh = init_device_mesh(
-        'cuda',
-        (2,),
-        mesh_dim_names=('tensor_parallel',),
-    )
-
     layer_plan = {
-        'model.fc1': ColwiseParallel(),
-        'model.fc2': RowwiseParallel(),
+        'fc1': ColwiseParallel(),
+        'fc2': RowwiseParallel(),
     }
 
     trainer = Trainer(
@@ -49,9 +44,10 @@ def test_tp_train(world_size: int):
         optimizers=optimizer,
         train_dataloader=dataloader,
         tp_config={
-            'device_mesh': device_mesh,
             'layer_plan': layer_plan,
+            'tensor_parallel_degree': 2,
         },
+        fsdp_config={},
         max_duration='3ba',
     )
 
