@@ -122,6 +122,38 @@ def _patch_adls_file_upload_with_timeout(sas_url, local_file, start_byte, size, 
         rest_utils.augmented_raise_for_status(response)
         response.close()
 
+def _put_adls_file_creation_with_timeout(sas_url, headers):
+    """
+    Performs an ADLS Azure file create `Put` operation
+    (https://docs.microsoft.com/en-us/rest/api/storageservices/datalakestoragegen2/path/create)
+
+    :param sas_url: A shared access signature URL referring to the Azure ADLS server
+                    to which the file creation command should be issued.
+    :param headers: Additional headers to include in the Put request body
+    """
+    print('Inside patched adls put function')
+    from mlflow.azure.client import _append_query_parameters, _is_valid_adls_put_header, _logger
+    from mlflow.utils import rest_utils
+
+    request_url = _append_query_parameters(sas_url, {"resource": "file"})
+
+    request_headers = {}
+    for name, value in headers.items():
+        if _is_valid_adls_put_header(name):
+            request_headers[name] = value
+        else:
+            _logger.debug("Removed unsupported '%s' header for ADLS Gen2 Put operation", name)
+
+    ### Changed here to pass a timeout along to cloud_storage_http_request
+    timeout = int(os.environ.get('MLFLOW_PATCH_ADLS_FILE_UPLOAD_TIMEOUT', 30))
+    import socket
+    socket.setdefaulttimeout(60.0)
+    print(f'Patch timeout is {timeout}')
+    with rest_utils.cloud_storage_http_request(
+        "put", request_url, headers=request_headers
+    ) as response:
+        rest_utils.augmented_raise_for_status(response)
+
 
 class MLFlowObjectStore(ObjectStore):
     """Utility class for uploading and downloading artifacts from MLflow.
@@ -180,6 +212,7 @@ class MLFlowObjectStore(ObjectStore):
 
         log.debug('Patching MLflow Azure client to include timeout in ADLS file upload')
         mlflow.store.artifact.databricks_artifact_repo.patch_adls_file_upload = _patch_adls_file_upload_with_timeout  # type: ignore
+        mlflow.store.artifact.databricks_artifact_repo.put_adls_file_creation = _put_adls_file_creation_with_timeout  # type: ignore
 
         tracking_uri = os.getenv(
             mlflow.environment_variables.MLFLOW_TRACKING_URI.name,  # pyright: ignore[reportGeneralTypeIssues]
