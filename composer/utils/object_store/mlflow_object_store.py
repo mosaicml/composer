@@ -118,6 +118,7 @@ def _patch_adls_file_upload_with_timeout(sas_url, local_file, start_byte, size, 
         timeout=timeout,
     ) as response:
         rest_utils.augmented_raise_for_status(response)
+        response.close()
 
 
 class MLFlowObjectStore(ObjectStore):
@@ -176,6 +177,8 @@ class MLFlowObjectStore(ObjectStore):
             raise MissingConditionalImportError('databricks', conda_package='databricks-sdk>=0.15.0,<1.0') from e
 
         log.debug('Patching MLflow Azure client to include timeout in ADLS file upload')
+        import socket
+        socket.setdefaulttimeout(60.0)
         mlflow.store.artifact.databricks_artifact_repo.patch_adls_file_upload = _patch_adls_file_upload_with_timeout  # type: ignore
 
         tracking_uri = os.getenv(
