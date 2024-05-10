@@ -13,7 +13,6 @@ from torch import nn
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn.parallel import DistributedDataParallel
 
-from composer.core import get_precision_context
 from composer.models import ComposerModel
 from composer.utils import dist
 
