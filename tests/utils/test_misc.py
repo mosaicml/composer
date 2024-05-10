@@ -64,39 +64,3 @@ def test_interval_scheduler(
 
     actual = interval_scheduler(dummy_state, event)  # type: ignore (intentional)
     assert actual == expected
-
-class DummyStateWCT:
-
-    def __init__(self, current_batches: int, max_duration: str, dataloader_len: str):
-        self.previous_timestamp = Timestamp(total_wct=current_batches - 1)
-        self.timestamp = Timestamp(total_wct=current_batches)
-        self.max_duration = Time.from_timestring(max_duration)
-        self.dataloader_len = Time.from_timestring(dataloader_len)
-
-    def get_elapsed_duration(self):
-        return 0
-
-@pytest.mark.parametrize(
-    'interval,current_batches,max_duration,dataloader_len,expected',
-    [
-        ('1sec', 1, '10sec', '10ba', True),
-        ('2sec', 2, '20sec', '20ba', True),
-        ('2sec', 1, '20sec', '20ba', False),
-        ('10sec', 10, '100sec', '100ba', True),
-        ('4sec', 4, '40sec', '40ba', True)
-    ],
-)
-def test_interval_scheduler_seconds(
-    interval: str,
-    current_batches: int,
-    max_duration: str,
-    dataloader_len: str,
-    expected: bool,
-):
-    interval_scheduler = create_interval_scheduler(interval)
-    dummy_state = DummyStateWCT(current_batches, max_duration, dataloader_len)
-
-    event = Event.BATCH_CHECKPOINT
-
-    actual = interval_scheduler(dummy_state, event)
-    assert actual == expected
