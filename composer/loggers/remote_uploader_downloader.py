@@ -676,7 +676,7 @@ def _upload_worker(
         # the concurrency by a factor of num GPUs per node.
         local_rank = dist.get_local_rank()
         local_rank_stagger = int(os.environ.get('COMPOSER_LOCAL_RANK_STAGGER_SECONDS', 0))
-        log.debug(f'Staggering uploads by {local_rank * local_rank_stagger} seconds on local rank{local_rank}.')
+        log.debug(f'Staggering uploads by {local_rank * local_rank_stagger} seconds on local rank {local_rank}.')
         time.sleep(local_rank * local_rank_stagger)
 
         # defining as a function-in-function to use decorator notation with num_attempts as an argument
