@@ -4,6 +4,7 @@
 """Useful functions for generating state dicts and manipulating them."""
 
 import fnmatch
+import logging
 from typing import Any, Dict, Optional, Sequence, Union
 
 import torch
@@ -15,7 +16,6 @@ from torch.nn.parallel import DistributedDataParallel
 from composer.core import get_precision_context
 from composer.models import ComposerModel
 from composer.utils import dist
-import logging 
 
 log = logging.getLogger(__name__)
 
@@ -70,7 +70,7 @@ def get_model_state_dict(
             nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, 'module.')
 
     if include_keys is not None:
-       model_state_dict = _extract_keys_from_state_dict(model_state_dict, include_keys)
+        model_state_dict = _extract_keys_from_state_dict(model_state_dict, include_keys)
 
     if ignore_keys is not None:
         model_state_dict = _remove_keys_from_state_dict(model_state_dict, ignore_keys)
@@ -81,38 +81,35 @@ def get_model_state_dict(
     return model_state_dict
 
 
-STR_TO_DTYPE = {'fp32': torch.float32,
-             'fp16': torch.float16,
-             'bf16': torch.bfloat16,
-             }
+STR_TO_DTYPE = {
+    'fp32': torch.float32,
+    'fp16': torch.float16,
+    'bf16': torch.bfloat16,
+}
 
 
 def _convert_to_dict_to_precision(state_dict: Dict[str, Any], precision: Union[str, torch.dtype]):
     if isinstance(precision, str):
         precision = STR_TO_DTYPE[precision]
 
-    new_state_dict = {
-        k: v.to(precision) for k, v in state_dict.items()
-    }
+    new_state_dict = {k: v.to(precision) for k, v in state_dict.items()}
     return new_state_dict
 
 
 def _extract_keys_from_state_dict(state_dict: Dict[str, Any], include_keys: Union[str, Sequence[str]]):
     if isinstance(include_keys, str):
         include_keys = [include_keys]
-    new_state_dict = {
-        k: v for k, v in state_dict.items() if any(fnmatch.fnmatch(k, key) for key in include_keys)
-    }
+    new_state_dict = {k: v for k, v in state_dict.items() if any(fnmatch.fnmatch(k, key) for key in include_keys)}
 
     return new_state_dict
+
 
 def _remove_keys_from_state_dict(state_dict: Dict[str, Any], ignore_keys: Union[str, Sequence[str]]):
     if isinstance(ignore_keys, str):
         ignore_keys = [ignore_keys]
-    new_state_dict = {
-            k: v for k, v in state_dict.items() if not any(fnmatch.fnmatch(k, key) for key in ignore_keys)
-        }
+    new_state_dict = {k: v for k, v in state_dict.items() if not any(fnmatch.fnmatch(k, key) for key in ignore_keys)}
     return new_state_dict
+
 
 def _is_model_fsdp(model) -> bool:
     """Indicates if FSDP is enabled.
