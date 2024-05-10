@@ -529,6 +529,9 @@ def main():
     logging.basicConfig()
     log.setLevel(logging.INFO if args.verbose else logging.WARNING)
 
+    if os.environ.get("OVERRIDE_EXCEPTHOOK", "false").lower() == "true":
+        raise Exception("This is a test exception to test the except hook")
+
     processes = {}
 
     log_tmpdir = tempfile.TemporaryDirectory()
