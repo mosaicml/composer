@@ -123,8 +123,8 @@ def _patch_adls_file_upload_with_timeout(sas_url, local_file, start_byte, size, 
 
 
 def _put_adls_file_creation_with_timeout(sas_url, headers):
-    """
-    Performs an ADLS Azure file create `Put` operation
+    """Performs an ADLS Azure file create `Put` operation
+    
     (https://docs.microsoft.com/en-us/rest/api/storageservices/datalakestoragegen2/path/create)
 
     :param sas_url: A shared access signature URL referring to the Azure ADLS server
