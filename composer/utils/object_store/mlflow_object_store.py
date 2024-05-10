@@ -121,6 +121,7 @@ def _patch_adls_file_upload_with_timeout(sas_url, local_file, start_byte, size, 
         rest_utils.augmented_raise_for_status(response)
         response.close()
 
+
 def _put_adls_file_creation_with_timeout(sas_url, headers):
     """
     Performs an ADLS Azure file create `Put` operation
@@ -133,7 +134,7 @@ def _put_adls_file_creation_with_timeout(sas_url, headers):
     from mlflow.azure.client import _append_query_parameters, _is_valid_adls_put_header, _logger
     from mlflow.utils import rest_utils
 
-    request_url = _append_query_parameters(sas_url, {"resource": "file"})
+    request_url = _append_query_parameters(sas_url, {'resource': 'file'})
 
     request_headers = {}
     for name, value in headers.items():
@@ -148,7 +149,10 @@ def _put_adls_file_creation_with_timeout(sas_url, headers):
     import socket
     socket.setdefaulttimeout(60.0)
     with rest_utils.cloud_storage_http_request(
-        "put", request_url, headers=request_headers, timeout=timeout,
+        'put',
+        request_url,
+        headers=request_headers,
+        timeout=timeout,
     ) as response:
         rest_utils.augmented_raise_for_status(response)
 
