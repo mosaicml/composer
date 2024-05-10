@@ -88,7 +88,6 @@ def _patch_adls_file_upload_with_timeout(sas_url, local_file, start_byte, size, 
         headers: Additional headers to include in the Patch request body
         is_single: Whether this is the only patch operation for this file
     """
-    print('Inside patched adls upload function')
     from mlflow.azure.client import _append_query_parameters, _is_valid_adls_patch_header, _logger
     from mlflow.utils import rest_utils
     from mlflow.utils.file_utils import read_chunk
@@ -108,10 +107,10 @@ def _patch_adls_file_upload_with_timeout(sas_url, local_file, start_byte, size, 
     data = read_chunk(local_file, size, start_byte)
 
     ### Changed here to pass a timeout along to cloud_storage_http_request
+    ### And to set the socket timeout
     timeout = int(os.environ.get('MLFLOW_PATCH_ADLS_FILE_UPLOAD_TIMEOUT', 30))
     import socket
     socket.setdefaulttimeout(60.0)
-    print(f'Patch timeout is {timeout}')
     with rest_utils.cloud_storage_http_request(
         'patch',
         request_url,
@@ -131,7 +130,6 @@ def _put_adls_file_creation_with_timeout(sas_url, headers):
                     to which the file creation command should be issued.
     :param headers: Additional headers to include in the Put request body
     """
-    print('Inside patched adls put function')
     from mlflow.azure.client import _append_query_parameters, _is_valid_adls_put_header, _logger
     from mlflow.utils import rest_utils
 
@@ -145,12 +143,12 @@ def _put_adls_file_creation_with_timeout(sas_url, headers):
             _logger.debug("Removed unsupported '%s' header for ADLS Gen2 Put operation", name)
 
     ### Changed here to pass a timeout along to cloud_storage_http_request
+    ### And to set the socket timeout
     timeout = int(os.environ.get('MLFLOW_PATCH_ADLS_FILE_UPLOAD_TIMEOUT', 30))
     import socket
     socket.setdefaulttimeout(60.0)
-    print(f'Patch timeout is {timeout}')
     with rest_utils.cloud_storage_http_request(
-        "put", request_url, headers=request_headers
+        "put", request_url, headers=request_headers, timeout=timeout,
     ) as response:
         rest_utils.augmented_raise_for_status(response)
 
@@ -158,7 +156,7 @@ def _put_adls_file_creation_with_timeout(sas_url, headers):
 class MLFlowObjectStore(ObjectStore):
     """Utility class for uploading and downloading artifacts from MLflow.
 
-    It can be initializd for an existing run, a new run in an existing experiment, the active run used by the `mlflow`
+    It can be initialized for an existing run, a new run in an existing experiment, the active run used by the `mlflow`
     module, or a new run in a new experiment. See the documentation for ``path`` for more details.
 
     .. note::
