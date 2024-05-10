@@ -75,9 +75,8 @@ def _wrap_mlflow_exceptions(uri: str, e: Exception):
 def _get_timeout_and_set_socket_default() -> Optional[int]:
     timeout = os.environ.get('MLFLOW_PATCHED_FILE_UPLOAD_TIMEOUT', None)
     if timeout is not None:
-        timeout = int(timeout)
-    if timeout is not None:
         import socket
+        timeout = int(timeout)
         socket.setdefaulttimeout(timeout)
     return timeout
 
