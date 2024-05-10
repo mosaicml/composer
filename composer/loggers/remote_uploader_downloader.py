@@ -672,7 +672,7 @@ def _upload_worker(
         uri = remote_backend.get_uri(remote_file_name)
 
         local_rank = dist.get_local_rank()
-        local_rank_stagger = os.environ.get('COMPOSER_LOCAL_RANK_STAGGER_SECONDS', 0)
+        local_rank_stagger = int(os.environ.get('COMPOSER_LOCAL_RANK_STAGGER_SECONDS', 0))
         time.sleep(local_rank * local_rank_stagger)
 
         # defining as a function-in-function to use decorator notation with num_attempts as an argument
