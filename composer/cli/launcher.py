@@ -530,6 +530,7 @@ def main():
     log.setLevel(logging.INFO if args.verbose else logging.WARNING)
 
     if os.environ.get("OVERRIDE_EXCEPTHOOK", "false").lower() == "true":
+        log.info("Overriding except hook")
         raise Exception("This is a test exception to test the except hook")
 
     processes = {}
