@@ -108,9 +108,12 @@ def _patch_adls_file_upload_with_timeout(sas_url, local_file, start_byte, size, 
 
     ### Changed here to pass a timeout along to cloud_storage_http_request
     ### And to set the socket timeout
-    timeout = int(os.environ.get('MLFLOW_PATCH_ADLS_FILE_UPLOAD_TIMEOUT', 30))
-    import socket
-    socket.setdefaulttimeout(60.0)
+    timeout = os.environ.get('MLFLOW_PATCHED_FILE_UPLOAD_TIMEOUT', None)
+    if timeout is not None:
+        timeout = int(timeout)
+    if timeout is not None:
+        import socket
+        socket.setdefaulttimeout(timeout)
     with rest_utils.cloud_storage_http_request(
         'patch',
         request_url,
@@ -123,8 +126,8 @@ def _patch_adls_file_upload_with_timeout(sas_url, local_file, start_byte, size, 
 
 
 def _put_adls_file_creation_with_timeout(sas_url, headers):
-    """Performs an ADLS Azure file create `Put` operation
-    
+    """Performs an ADLS Azure file create `Put` operation.
+
     (https://docs.microsoft.com/en-us/rest/api/storageservices/datalakestoragegen2/path/create)
 
     :param sas_url: A shared access signature URL referring to the Azure ADLS server
@@ -145,9 +148,12 @@ def _put_adls_file_creation_with_timeout(sas_url, headers):
 
     ### Changed here to pass a timeout along to cloud_storage_http_request
     ### And to set the socket timeout
-    timeout = int(os.environ.get('MLFLOW_PATCH_ADLS_FILE_UPLOAD_TIMEOUT', 30))
-    import socket
-    socket.setdefaulttimeout(60.0)
+    timeout = os.environ.get('MLFLOW_PATCHED_FILE_UPLOAD_TIMEOUT', None)
+    if timeout is not None:
+        timeout = int(timeout)
+    if timeout is not None:
+        import socket
+        socket.setdefaulttimeout(timeout)
     with rest_utils.cloud_storage_http_request(
         'put',
         request_url,
