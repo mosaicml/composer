@@ -671,8 +671,12 @@ def _upload_worker(
                 continue
         uri = remote_backend.get_uri(remote_file_name)
 
+        # When encountering issues with too much concurrency in uploads, staggering the uploads can help.
+        # This stagger is intended for use when uploading model shards from every rank, and will effectively reduce
+        # the concurrency by a factor of num GPUs per node.
         local_rank = dist.get_local_rank()
         local_rank_stagger = int(os.environ.get('COMPOSER_LOCAL_RANK_STAGGER_SECONDS', 0))
+        log.debug(f'Staggering uploads by {local_rank * local_rank_stagger} seconds on {local_rank} local rank.')
         time.sleep(local_rank * local_rank_stagger)
 
         # defining as a function-in-function to use decorator notation with num_attempts as an argument
