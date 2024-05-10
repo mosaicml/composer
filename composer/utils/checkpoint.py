@@ -169,15 +169,6 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
         """
         path_to_specs: Dict[str, List[Tuple[int, int]]] = {}
         for read_item in plan.items:
-
-            relative_file_path = self.storage_data[read_item.storage_index].relative_path
-            rank = torch.distributed.get_rank()
-            if rank == 0:
-                if "__1_0" in relative_file_path:
-                    print(f"bigning debug rank 0 found 1 file: {read_item=}")
-                else:
-                    print(f"bigning debug no __1 file: {relative_file_path}")
-
             item_md = self.storage_data[read_item.storage_index]
             path = os.path.join(self.path, item_md.relative_path)
             path_to_specs.setdefault(path, []).append((item_md.offset, item_md.length))

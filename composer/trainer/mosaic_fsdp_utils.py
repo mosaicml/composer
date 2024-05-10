@@ -719,6 +719,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             _load_optim_state_dict(model, optimizers, optim_state_dict, info)
 
 
+    # torch2.3 patch to fix https://github.com/pytorch/pytorch/issues/125740
     from torch.distributed.checkpoint.default_planner import (
         create_default_global_save_plan,
         DefaultSavePlanner,
@@ -737,7 +738,6 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
         a set of SavePlans, only the smallest SavePlan in terms of planned storage keeps the entry.
         """
 
-        print(f"bigning debug my dedup save plan")
         write_item_to_plan_indices: Dict[MetadataIndex, Set[int]] = defaultdict(set)
         write_item_idx_to_write_item: Dict[MetadataIndex, WriteItem] = {}
         for plan_idx, plan in enumerate(all_plans):
@@ -775,7 +775,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
 
     class SavePlannerWithDedupFix(DefaultSavePlanner):
         def create_global_plan(
-            self, all_plans: List[SavePlan]
+            self, all_plans: List[SavePlan],
         ) -> Tuple[List[SavePlan], Metadata]:
             all_plans = dedup_save_plans(all_plans)
 
@@ -791,7 +791,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
                 metadata = dataclasses.replace(metadata, planner_data=merged_mappings)
 
             if not _validate_global_plan(global_plan, metadata):
-                raise ValueError("Failed to validate global plan")
+                raise ValueError('Failed to validate global plan')
 
             self.global_plan = global_plan
             self.metadata = metadata
