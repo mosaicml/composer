@@ -72,6 +72,16 @@ def _wrap_mlflow_exceptions(uri: str, e: Exception):
     raise e
 
 
+def _get_timeout_and_set_socket_default() -> Optional[int]:
+    timeout = os.environ.get('MLFLOW_PATCHED_FILE_UPLOAD_TIMEOUT', None)
+    if timeout is not None:
+        timeout = int(timeout)
+    if timeout is not None:
+        import socket
+        socket.setdefaulttimeout(timeout)
+    return timeout
+
+
 # Original source: https://github.com/mlflow/mlflow/blob/a85081631eb665fa25046cb0b7daf0fbbdd5949f/mlflow/azure/client.py#L42
 def _patch_adls_file_upload_with_timeout(sas_url, local_file, start_byte, size, position, headers, is_single):
     """Performs an ADLS Azure file create `Patch` operation.
@@ -108,12 +118,7 @@ def _patch_adls_file_upload_with_timeout(sas_url, local_file, start_byte, size, 
 
     ### Changed here to pass a timeout along to cloud_storage_http_request
     ### And to set the socket timeout
-    timeout = os.environ.get('MLFLOW_PATCHED_FILE_UPLOAD_TIMEOUT', None)
-    if timeout is not None:
-        timeout = int(timeout)
-    if timeout is not None:
-        import socket
-        socket.setdefaulttimeout(timeout)
+    timeout = _get_timeout_and_set_socket_default()
     with rest_utils.cloud_storage_http_request(
         'patch',
         request_url,
@@ -147,12 +152,7 @@ def _put_adls_file_creation_with_timeout(sas_url, headers):
 
     ### Changed here to pass a timeout along to cloud_storage_http_request
     ### And to set the socket timeout
-    timeout = os.environ.get('MLFLOW_PATCHED_FILE_UPLOAD_TIMEOUT', None)
-    if timeout is not None:
-        timeout = int(timeout)
-    if timeout is not None:
-        import socket
-        socket.setdefaulttimeout(timeout)
+    timeout = _get_timeout_and_set_socket_default()
     with rest_utils.cloud_storage_http_request(
         'put',
         request_url,
