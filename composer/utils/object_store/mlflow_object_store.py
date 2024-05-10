@@ -216,6 +216,8 @@ class MLFlowObjectStore(ObjectStore):
         except ImportError as e:
             raise MissingConditionalImportError('databricks', conda_package='databricks-sdk>=0.15.0,<1.0') from e
 
+        # This is a temporary workaround for an intermittent hang we have encountered when uploading files to ADLS.
+        # MLflow is working on an upstream fix, but in the meantime, patching in timeouts works around the hang.
         log.debug('Patching MLflow Azure client to include timeout in ADLS file upload')
         mlflow.store.artifact.databricks_artifact_repo.patch_adls_file_upload = _patch_adls_file_upload_with_timeout  # type: ignore
         mlflow.store.artifact.databricks_artifact_repo.put_adls_file_creation = _put_adls_file_creation_with_timeout  # type: ignore
