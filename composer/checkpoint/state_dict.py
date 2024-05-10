@@ -33,9 +33,10 @@ def get_model_state_dict(
         model: The model to get the state dict from.
         sharded: Whether the model state dict should be sharded or not. If True, every rank returns the state dict of its shards.
             If False, then rank 0 returns the state dict of the entire model.
-        precision: The precision of the model.
+        precision: The precision of the model. Can be specified as a string ('fp32', 'fp16', 'bf16') or a torch.dtype.
         include_keys: The list of keys to exclusively include in the state dict. If None, all keys are included. Both include_keys and ignore_keys cannot be non-None.
         ignore_keys: The list of keys to ignore in the state dict. If None, no keys are ignored. Both include_keys and ignore_keys cannot be non-None.
+        cpu_offload: Whether to offload the state dict to CPU. If None, it is set to True if FSDP is enabled, False otherwise.
 
     Returns:
         The state dict of the model.
@@ -44,26 +45,30 @@ def get_model_state_dict(
         raise ValueError('Both include_keys and ignore_keys cannot be non-None.')
 
     is_fsdp = _is_model_fsdp(model)
+    # If using fsdp we default to using cpu_offload=True to avoid CUDA OOM errors on gather.
     cpu_offload = cpu_offload if cpu_offload is not None else is_fsdp
 
     log.debug('Extracting model state dict')
     if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
         from torch.distributed.checkpoint.state_dict import StateDictOptions
-        from torch.distributed.checkpoint.state_dict import get_model_state_dict as dcp_get_model_state_dict
-        get_nonsharded_state_dict = not sharded
+        from torch.distributed.checkpoint.state_dict import get_model_state_dict as torch_get_model_state_dict
+        use_unsharded_state_dict: bool = not sharded
 
-        model_state_dict = dcp_get_model_state_dict(
+        log.debug('Calling torch get_model_state_dict...')
+        model_state_dict = torch_get_model_state_dict(
             model=model,
-            submodules=None,
+            submodules=None, # We will handle extracting submodules ourselves down below.
             options=StateDictOptions(
-                full_state_dict=get_nonsharded_state_dict,
+                full_state_dict=use_unsharded_state_dict,
                 cpu_offload=cpu_offload,
             ),
         )
     else:
         if is_fsdp:
+            log.debug('Calling legacy FSDP context manager to get model state dict...')
             model_state_dict = _get_model_state_dict_with_fsdp_context_manager(model, sharded)
         else:
+            log.debug('Calling model.state_dict() for non-FSDP model...')
             model_state_dict = model.state_dict()
         if isinstance(model, DistributedDataParallel):
             nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, 'module.')
@@ -74,7 +79,7 @@ def get_model_state_dict(
     if ignore_keys is not None:
         model_state_dict = _remove_keys_from_state_dict(model_state_dict, ignore_keys)
 
-    model_state_dict = _convert_to_dict_to_precision(state_dict=model_state_dict, precision=precision)
+    model_state_dict = _cast_state_dict_to_precision(state_dict=model_state_dict, precision=precision)
 
     log.debug('Finished extracting model state dict')
     return model_state_dict
@@ -87,7 +92,7 @@ STR_TO_DTYPE = {
 }
 
 
-def _convert_to_dict_to_precision(state_dict: Dict[str, Any], precision: Union[str, torch.dtype]):
+def _cast_state_dict_to_precision(state_dict: Dict[str, Any], precision: Union[str, torch.dtype]):
     if isinstance(precision, str):
         precision = STR_TO_DTYPE[precision]
 

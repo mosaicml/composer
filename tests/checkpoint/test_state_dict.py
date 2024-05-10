@@ -11,7 +11,7 @@ from tests.common.compare import deep_compare
 from tests.common.markers import world_size
 from tests.common.models import EvenSimplerMLP, SimpleComposerMLP
 
-
+@pytest.mark.gpu
 @pytest.mark.parametrize('use_composer_model', [True, False])
 def test_get_model_state_dict_unsharded_model(use_composer_model: bool):
     if use_composer_model:
@@ -24,7 +24,7 @@ def test_get_model_state_dict_unsharded_model(use_composer_model: bool):
         assert name in model_state_dict
         assert torch.equal(model_state_dict[name], param)
 
-
+@pytest.mark.gpu
 @pytest.mark.parametrize('use_composer_model', [True, False])
 def test_get_model_state_dict_include(use_composer_model: bool):
     if use_composer_model:
@@ -37,7 +37,7 @@ def test_get_model_state_dict_include(use_composer_model: bool):
     model_state_dict = get_model_state_dict(model, sharded=False, include_keys='module.2*')
     assert set(model_state_dict.keys()) == {'module.2.weight'}
 
-
+@pytest.mark.gpu
 @pytest.mark.parametrize('use_composer_model', [True, False])
 def test_get_model_state_dict_ignore(use_composer_model: bool):
     if use_composer_model:
