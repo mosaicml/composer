@@ -733,11 +733,6 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
     from torch.distributed.checkpoint.metadata import MetadataIndex, Metadata
 
     def dedup_save_plans(all_plans: List[SavePlan]) -> List[SavePlan]:
-        """
-        Removes duplicate entries from appearing on multiple SavePlans. For each duplicate across
-        a set of SavePlans, only the smallest SavePlan in terms of planned storage keeps the entry.
-        """
-
         write_item_to_plan_indices: Dict[MetadataIndex, Set[int]] = defaultdict(set)
         write_item_idx_to_write_item: Dict[MetadataIndex, WriteItem] = {}
         for plan_idx, plan in enumerate(all_plans):
@@ -773,7 +768,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
         return all_plans
 
 
-    class SavePlannerWithDedupFix(DefaultSavePlanner):
+    class SavePlannerWithDedupFix(DefaultSavePlanner):  # noqa: D101
         def create_global_plan(
             self, all_plans: List[SavePlan],
         ) -> Tuple[List[SavePlan], Metadata]:
