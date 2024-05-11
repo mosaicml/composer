@@ -65,7 +65,10 @@ def create_interval_scheduler(
         interval_event = Event.EPOCH_CHECKPOINT if checkpoint_events else Event.EPOCH_END
     elif time_interval.unit == TimeUnit.ITERATION:
         interval_event = Event.ITERATION_CHECKPOINT if checkpoint_events else Event.ITERATION_END
-    elif time_interval.unit in {TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE, TimeUnit.DURATION, TimeUnit.SECOND, TimeUnit.MINUTE, TimeUnit.HOUR}:
+    elif time_interval.unit in {
+        TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE, TimeUnit.DURATION, TimeUnit.SECOND, TimeUnit.MINUTE,
+        TimeUnit.HOUR
+    }:
         interval_event = Event.BATCH_CHECKPOINT if checkpoint_events else Event.BATCH_END
     else:
         raise NotImplementedError(
@@ -99,8 +102,8 @@ def create_interval_scheduler(
             TimeUnit.TOKEN,
             TimeUnit.SAMPLE,
             TimeUnit.SECOND,
-            TimeUnit.MINUTE, 
-            TimeUnit.HOUR
+            TimeUnit.MINUTE,
+            TimeUnit.HOUR,
         }:
             # Set time_interval to be in seconds if it's in minutes or hours
             previous_count = state.previous_timestamp.get(time_interval.unit)
