@@ -664,7 +664,7 @@ class Timestamp(Serializable):
             return self.sample
         if unit == TimeUnit.TOKEN:
             return self.token
-        if unit == TimeUnit.SECOND:
+        if unit == TimeUnit.SECOND or unit == TimeUnit.MINUTE or unit == TimeUnit.HOUR:
             return Time(int(self._total_wct.total_seconds()) if self._total_wct else 0, TimeUnit.SECOND)
         raise ValueError(f'Invalid unit: {unit}')
 

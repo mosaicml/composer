@@ -61,6 +61,12 @@ def create_interval_scheduler(
         final_events = {Event.BATCH_CHECKPOINT, Event.EPOCH_CHECKPOINT}
 
     time_interval: Time = Time.from_input(interval, TimeUnit.EPOCH)
+    # convert to seconds
+    if time_interval.unit == TimeUnit.MINUTE:
+        time_interval = Time.from_second(time_interval.value * 60)
+    if time_interval.unit == TimeUnit.HOUR:
+        time_interval = Time.from_second(time_interval.value * 60 * 60)
+
     if time_interval.unit == TimeUnit.EPOCH:
         interval_event = Event.EPOCH_CHECKPOINT if checkpoint_events else Event.EPOCH_END
     elif time_interval.unit == TimeUnit.ITERATION:
