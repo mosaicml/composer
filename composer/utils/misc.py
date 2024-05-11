@@ -66,8 +66,13 @@ def create_interval_scheduler(
     elif time_interval.unit == TimeUnit.ITERATION:
         interval_event = Event.ITERATION_CHECKPOINT if checkpoint_events else Event.ITERATION_END
     elif time_interval.unit in {
-        TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE, TimeUnit.DURATION, TimeUnit.SECOND, TimeUnit.MINUTE,
-        TimeUnit.HOUR
+        TimeUnit.BATCH,
+        TimeUnit.TOKEN,
+        TimeUnit.SAMPLE,
+        TimeUnit.DURATION,
+        TimeUnit.SECOND,
+        TimeUnit.MINUTE,
+        TimeUnit.HOUR,
     }:
         interval_event = Event.BATCH_CHECKPOINT if checkpoint_events else Event.BATCH_END
     else:
