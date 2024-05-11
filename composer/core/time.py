@@ -45,6 +45,8 @@ class TimeUnit(StringEnum):
     TOKEN = 'tok'
     DURATION = 'dur'
     SECOND = 'sec'
+    MINUTE = 'min'
+    HOUR = 'hr'
 
 
 # regex for parsing time string, matches timeunit and chars prior to unit as value

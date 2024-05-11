@@ -61,15 +61,29 @@ def create_interval_scheduler(
         final_events = {Event.BATCH_CHECKPOINT, Event.EPOCH_CHECKPOINT}
 
     time_interval: Time = Time.from_input(interval, TimeUnit.EPOCH)
+    if time_interval.unit == TimeUnit.MINUTE:
+        time_interval = Time.from_input(time_interval.value * 60, TimeUnit.SECOND)
+    elif time_interval.unit == TimeUnit.HOUR:
+        time_interval = Time.from_input(time_interval.value * 3600, TimeUnit.SECOND)
+    time_segment_units = {
+        TimeUnit.ITERATION,
+        TimeUnit.EPOCH,
+        TimeUnit.BATCH,
+        TimeUnit.TOKEN,
+        TimeUnit.SAMPLE,
+        TimeUnit.SECOND,
+        TimeUnit.MINUTE,
+        TimeUnit.HOUR,
+    }
     if time_interval.unit == TimeUnit.EPOCH:
         interval_event = Event.EPOCH_CHECKPOINT if checkpoint_events else Event.EPOCH_END
     elif time_interval.unit == TimeUnit.ITERATION:
         interval_event = Event.ITERATION_CHECKPOINT if checkpoint_events else Event.ITERATION_END
-    elif time_interval.unit in {TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE, TimeUnit.DURATION, TimeUnit.SECOND}:
+    elif time_interval.unit in time_segment_units:
         interval_event = Event.BATCH_CHECKPOINT if checkpoint_events else Event.BATCH_END
     else:
         raise NotImplementedError(
-            f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.',
+            f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE, TimeUnit.SECOND, TimeUnit.MINUTE, TimeUnit.HOUR.',
         )
 
     last_batch_seen = -1
@@ -91,14 +105,8 @@ def create_interval_scheduler(
         if include_end_of_training and event in final_events and elapsed_duration >= 1.0 and state.timestamp.batch != last_batch_seen:
             return True
 
-        if time_interval.unit in {
-            TimeUnit.ITERATION,
-            TimeUnit.EPOCH,
-            TimeUnit.BATCH,
-            TimeUnit.TOKEN,
-            TimeUnit.SAMPLE,
-            TimeUnit.SECOND,
-        }:
+        if time_interval.unit in time_segment_units:
+            # Set time_interval to be in seconds if it's in minutes or hours
             previous_count = state.previous_timestamp.get(time_interval.unit)
             count = state.timestamp.get(time_interval.unit)
         # If the eval_interval is a duration, we will track progress in terms of the unit of max_duration
@@ -108,7 +116,7 @@ def create_interval_scheduler(
             count = state.timestamp.get(state.max_duration.unit)
         else:
             raise NotImplementedError(
-                f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.',
+                f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE, TimeUnit.SECOND, TimeUnit.MINUTE, TimeUnit.HOUR.',
             )
 
         threshold_passed = math.floor(previous_count / time_interval.value) != math.floor(count / time_interval.value)
