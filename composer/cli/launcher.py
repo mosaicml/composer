@@ -340,6 +340,7 @@ def _launch_processes(
             MASTER_PORT=str(master_port),
             PYTHONUNBUFFERED='1',
             NCCL_ASYNC_ERROR_HANDLING='1',
+            PYTHONPATH=
         ):
             # Populate the distributed variables in all launcher args
             for arg in training_script_args:
@@ -371,7 +372,7 @@ def _launch_processes(
 
                 stdout_file = _get_file(stdout_file_format)
                 stderr_file = _get_file(stderr_file_format) if stderr_file_format is not None else None
-
+                
                 process = subprocess.Popen(
                     cmd,
                     stdout=stdout_file,
@@ -524,13 +525,14 @@ def _aggregate_process_returncode(processes: Dict[int, subprocess.Popen]) -> int
 
 def main():
     """Entrypoint into the Composer CLI."""
+    log.info('Starting Composer CLI')
     args = _parse_args()
 
     logging.basicConfig()
     log.setLevel(logging.INFO if args.verbose else logging.WARNING)
 
     if os.environ.get("OVERRIDE_EXCEPTHOOK", "false").lower() == "true":
-        log.info("Overriding except hook")
+        log.info('n'.join(sys.path))
         raise Exception("This is a test exception to test the except hook")
 
     processes = {}
