@@ -218,7 +218,7 @@ def test_list_objects_nested_folders(ws_client, uc_object_store):
     prefix = 'Volumes/catalog/schema/volume/path/to/folder'
 
     ws_client.files.list_directory_contents = MagicMock(
-        side_effect=[uc_list_api_responses[0], uc_list_api_responses[1]]
+        side_effect=[uc_list_api_responses[0], uc_list_api_responses[1]],
     )
     actual_files = uc_object_store.list_objects(prefix=prefix)
 
