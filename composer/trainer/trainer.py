@@ -1725,6 +1725,10 @@ class Trainer:
                 if wandb.run is None:
                     load_object_store.init(self.state, self.logger)
             _, _, parsed_load_path = parse_uri(load_path)
+
+            print('\n\n[2, Random]' + '*' * 50 + '\n')
+            print(self.state.state_dict()['model']['module.2.weight'])
+
             self._rng_state = checkpoint.load_checkpoint(
                 state=self.state,
                 logger=self.logger,

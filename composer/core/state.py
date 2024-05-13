@@ -238,6 +238,8 @@ def _create_device_mesh(device: Device, fsdp_config: Optional[Dict[str, Any]], t
     if device_type == 'gpu':
         device_type = 'cuda'
 
+    # TODO: Validate product is = world size if none are -1. Also validate if before -1, it is <= world size
+
     return init_device_mesh(device_type=device_type, mesh_shape=tuple(dims), mesh_dim_names=tuple(names))
 
 
@@ -1292,6 +1294,8 @@ class State(Serializable):
             algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
                 to sort them into the correct order. (default: ``None``)
         """
+        print('\n\n[2.3, load_model_state]' + '*' * 50 + '\n')
+        print(state_dict['model']['module.2.weight'])
         if 'algorithms' in state_dict:
             self._apply_required_algorithms(state_dict, logger, exclude_algorithms, algorithm_passes)
 

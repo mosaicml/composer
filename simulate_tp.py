@@ -122,18 +122,22 @@ layer_plan = {
     'fc2': RowwiseParallel(),
 }
 
+tp_config = {
+    'tensor_parallel_degree': 2,
+    'state_dict_type': 'sharded',
+}
+
+fsdp_config = {
+    'data_parallel_shard_degree': 4,
+    'state_dict_type': 'sharded',
+}
+
 trainer = Trainer(
     model=model,
     optimizers=optimizer,
     train_dataloader=dataloader,
-    tp_config = {
-        'layer_plan': layer_plan,
-        'tensor_parallel_degree': 2,
-    },
-    fsdp_config={
-        'data_parallel_shard_degree': 2,
-        'state_dict_type': 'sharded',
-    },
+    # tp_config={**tp_config},
+    fsdp_config={**fsdp_config},
     progress_bar=False,
     log_to_console=True,
     max_duration='3ba',
@@ -143,33 +147,35 @@ trainer = Trainer(
 )
 trainer.fit()
 
-print(trainer.state.state_dict())
+
+print('\n\n[1, Saved]' + '*' * 50 + '\n')
+print(trainer.state.state_dict()['model']['module.2.weight'])
 
 model2 = SimpleModel()
 trainer2 = Trainer(
     model=model2,
     optimizers=optimizer,
     train_dataloader=dataloader,
-    tp_config = {
-        'layer_plan': layer_plan,
-        'tensor_parallel_degree': 2,
-    },
-    fsdp_config={
-        'data_parallel_shard_degree': 2,
-        'state_dict_type': 'sharded',
-    },
+    # tp_config={**tp_config},
+    fsdp_config={**fsdp_config},
     progress_bar=False,
     log_to_console=True,
     max_duration='3ba',
     save_folder='./checkpoints',
     save_interval='1ba',
     save_overwrite=True,
-    load_path='./checkpoints/ep0-ba3/'
-    # load_path='./checkpoints/ep0-ba3-rank0.pt',
+    # load_path='./checkpoints/ep0-ba2/'
+    # load_path='./checkpoints/ep0-ba2-rank0.pt',
 )
 
-print(trainer2.state.state_dict())
+print('\n\n[1.1, Random Init]' + '*' * 50 + '\n')
+print(trainer2.state.state_dict()['model']['module.2.weight'])
 
+from composer.utils import checkpoint
+checkpoint.load_checkpoint(path='./checkpoints/ep0-ba1/', state=trainer2.state, logger=trainer2.logger)
+
+print('\n\n[3, Loaded]' + '*' * 50 + '\n')
+print(trainer2.state.state_dict()['model']['module.2.weight'])
 
 trainer2.fit()
 

@@ -667,6 +667,9 @@ def load_sharded_checkpoint(
                 no_dist=(not dist.is_initialized()),
             )
 
+            print('\n\n[2.2, Loaded]' + '*' * 50 + '\n')
+            print(state_dict['state']['model']['module.2.weight'])
+
             log.info(f'Loaded state dict')
             state.load_state_dict(
                 state_dict['state'],
