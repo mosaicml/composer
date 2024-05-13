@@ -529,11 +529,13 @@ def main():
     args = _parse_args()
 
     logging.basicConfig()
-    log.setLevel(logging.INFO if args.verbose else logging.WARNING)
-
+    log.setLevel(logging.INFO)
+    log.info("the sys path from composer is:")
+    log.info('\n'.join(sys.path))
+    log.info("the override except hook var from composer is:"
+             + os.environ.get("OVERRIDE_EXCEPTHOOK", "false"))
     if os.environ.get("OVERRIDE_EXCEPTHOOK", "false").lower() == "true":
-        log.info('n'.join(sys.path))
-        raise Exception("This is a test exception to test the except hook")
+        raise Exception("This is a test exception to test the except hook from composer")
 
     processes = {}
 
