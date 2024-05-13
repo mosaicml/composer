@@ -251,7 +251,9 @@ class UCObjectStore(ObjectStore):
             while len(stack) > 0:
                 current_path = stack.pop()
 
-                ls_results = self.client.files.list_directory_contents(self._get_object_path(current_path))
+                ls_results = self.client.files.list_directory_contents(
+                    directory_path=self._get_object_path(current_path)
+                )
 
                 for dir_entry in ls_results:
                     path = dir_entry.path
