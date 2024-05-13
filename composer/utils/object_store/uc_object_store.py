@@ -252,7 +252,7 @@ class UCObjectStore(ObjectStore):
                 current_path = stack.pop()
 
                 ls_results = self.client.files.list_directory_contents(
-                    directory_path=self._get_object_path(current_path)
+                    directory_path=self._get_object_path(current_path),
                 )
 
                 for dir_entry in ls_results:
