@@ -6,16 +6,12 @@ from functools import partial
 import torch
 import torch.distributed as tdist
 from torch.distributed.checkpoint.state_dict import StateDictOptions, get_model_state_dict
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import ShardingStrategy
 
-from composer.models.tasks.classification import ComposerClassifier
 from composer.trainer.dist_strategy import prepare_fsdp_module
-from composer.trainer.trainer import Trainer
 from composer.utils.device import get_device
 
 
-class CounterExampleModel(ComposerClassifier):
+class CounterExampleModel(torch.nn.Module):
     """Small classification model.
 
     Args:
@@ -47,8 +43,9 @@ class CounterExampleModel(ComposerClassifier):
             torch.nn.Softmax(dim=-1),
         )
         net.param_init_fn = self.param_init_fn  # pyright: ignore[reportGeneralTypeIssues]
-        super().__init__(module=net, num_classes=num_classes)
+        super().__init__()
 
+        self.net = net
         # Important: It is crucial that the FC layers are bound to `self`
         # for the optimizer surgery tests.
         # These tests attempt to perform surgery on `fc1` layer, and we want
@@ -68,23 +65,8 @@ class CounterExampleModel(ComposerClassifier):
 
 if __name__ == '__main__':
     tdist.init_process_group(backend='gloo')
-    # model = CounterExampleModel()
 
     torch_model = CounterExampleModel()
-    # torch_model.to('cuda')
-
-    # model.to('cuda')
-
-    # sharded_model = FSDP(model, param_init_fn=model.param_init_fn, use_orig_params=True, sharding_strategy=ShardingStrategy.FULL_SHARD)
-
-    # if tdist.get_rank() == 0:
-    #     print(f'{model.fc2.bias=}')
-    #     print(f"{state_dict['fc2.bias']=}")
-
-    # trainer = Trainer(model=model, device='gpu', fsdp_config={
-    #     'use_orig_params': True,
-    #     'state_dict_type': 'full',
-    # })
 
     fsdp_config = {
         'use_orig_params': True,
@@ -110,3 +92,4 @@ if __name__ == '__main__':
 
     if tdist.get_rank() == 0:
         print(f"{torch_state_dict['fc2.bias']=}")
+        assert len(torch_state_dict['fc2.bias']) != 0
