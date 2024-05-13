@@ -241,37 +241,8 @@ class UCObjectStore(ObjectStore):
 
         from databricks.sdk.core import DatabricksError
         try:
-            # NOTE: This API is in preview and should not be directly used outside of this instance
-            logging.warn('UCObjectStore.list_objects is experimental.')
-
-            # Iteratively get all UC Volume files with `prefix`.
-            stack = [prefix]
-            all_files = []
-
-            while len(stack) > 0:
-                current_path = stack.pop()
-
-                # Note: Databricks SDK handles HTTP errors and retries.
-                # See https://github.com/databricks/databricks-sdk-py/blob/v0.18.0/databricks/sdk/core.py#L125 and
-                # https://github.com/databricks/databricks-sdk-py/blob/v0.18.0/databricks/sdk/retries.py#L33 .
-                resp = self.client.api_client.do(
-                    method='GET',
-                    path=self._UC_VOLUME_LIST_API_ENDPOINT,
-                    data=json.dumps({'path': self._get_object_path(current_path)}),
-                    headers={'Source': 'mosaicml/composer'},
-                )
-                print(resp)
-
-                assert isinstance(resp, dict), 'Response is not a dictionary'
-
-                for f in resp.get('files', []):
-                    fpath = f['path']
-                    if f['is_dir']:
-                        stack.append(fpath)
-                    else:
-                        all_files.append(fpath)
-
-            return all_files
+            ls_results = [entry.path for entry in self.client.files.list_directory_contents(prefix)]
+            return ls_results
 
         except DatabricksError as e:
             _wrap_errors(self.get_uri(prefix), e)
