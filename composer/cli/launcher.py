@@ -346,10 +346,10 @@ def _launch_processes(
             for arg in training_script_args:
                 cmd.append(os.path.expandvars(os.path.expanduser(arg)))
 
-            # parameters_file = os.environ.get('PARAMETERS', None)
-            # if parameters_file is not None:
-            #     parameters_dir = os.path.dirname(parameters_file)
-            #     sys.path = [parameters_dir] + sys.path
+            parameters_file = os.environ.get('PARAMETERS', None)
+            if parameters_file is not None:
+                parameters_dir = os.path.dirname(parameters_file)
+                sys.path = [parameters_dir] + sys.path
 
             log.warning('the sys path from composer after adding the mnt/config again is:' + '\n'.join(sys.path))
 
@@ -532,9 +532,11 @@ def _aggregate_process_returncode(processes: Dict[int, subprocess.Popen]) -> int
 
 def main():
     """Entrypoint into the Composer CLI."""
-    log.warn('Starting Composer CLI')
-    args = _parse_args()
     log.warn('the sys path from composer is:')
+    log.warn('Starting Composer CLI')
+    log.warn('\n'.join(sys.path))
+    args = _parse_args()
+    log.warn('the sys path from composer after args parse is:')
     log.warn('\n'.join(sys.path))
     log.warn('the override except hook var from composer is:' + os.environ.get('OVERRIDE_EXCEPTHOOK', 'false'))
     # if os.environ.get('OVERRIDE_EXCEPTHOOK', 'false').lower() == 'true':
