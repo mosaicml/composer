@@ -31,6 +31,7 @@ from composer.utils import get_free_tcp_port
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
 
 log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
 
 
 def _get_parser():
@@ -345,6 +346,11 @@ def _launch_processes(
             for arg in training_script_args:
                 cmd.append(os.path.expandvars(os.path.expanduser(arg)))
 
+            parameters_file = os.environ.get('PARAMETERS', None)
+            if parameters_file is not None:
+                parameters_dir = os.path.dirname(parameters_file)
+                sys.path = [parameters_dir] + sys.path
+
             log.info(
                 'Launching process for local_rank(%s), global_rank(%s) with command(%s)',
                 local_rank,
@@ -526,9 +532,6 @@ def main():
     """Entrypoint into the Composer CLI."""
     log.warn('Starting Composer CLI')
     args = _parse_args()
-
-    logging.basicConfig()
-    log.setLevel(logging.INFO)
     log.warn('the sys path from composer is:')
     log.warn('\n'.join(sys.path))
     log.warn('the override except hook var from composer is:' + os.environ.get('OVERRIDE_EXCEPTHOOK', 'false'))
