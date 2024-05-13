@@ -6,6 +6,7 @@ from functools import partial
 import torch
 import torch.distributed as tdist
 from torch.distributed.checkpoint.state_dict import StateDictOptions, get_model_state_dict
+from torch.distributed.fsdp import FullyShardedDataParallel, ShardingStrategy
 
 from composer.trainer.dist_strategy import prepare_fsdp_module
 from composer.utils.device import get_device
@@ -66,7 +67,8 @@ class CounterExampleModel(torch.nn.Module):
 if __name__ == '__main__':
     tdist.init_process_group(backend='gloo')
 
-    torch_model = CounterExampleModel()
+    prepared_fsdp_model = CounterExampleModel()
+    bare_torch_model = CounterExampleModel()
 
     fsdp_config = {
         'use_orig_params': True,
@@ -75,21 +77,34 @@ if __name__ == '__main__':
 
     device = get_device('gpu')
     prepare_fsdp_module(
-        model=torch_model,
+        model=prepared_fsdp_model,
         fsdp_config=fsdp_config,
         optimizers=None,
         precision='amp_bf16',
         device=device,
         auto_microbatching=True,
     )
-    fsdp_model = torch_model
 
-    torch_state_dict = get_model_state_dict(
-        fsdp_model,
+    prepared_state_dict = get_model_state_dict(
+        prepared_fsdp_model,
+        submodules=None,
+        options=StateDictOptions(full_state_dict=True),
+    )
+
+    wrapped_model = FullyShardedDataParallel(
+        bare_torch_model,
+        use_orig_params=True,
+        sharding_strategy=ShardingStrategy.FULL_SHARD,
+    )
+    wrapped_model.to(f'cuda:{tdist.get_rank()}')
+    wrapped_state_dict = get_model_state_dict(
+        wrapped_model,
         submodules=None,
         options=StateDictOptions(full_state_dict=True),
     )
 
     if tdist.get_rank() == 0:
-        print(f"{torch_state_dict['fc2.bias']=}")
-        assert len(torch_state_dict['fc2.bias']) != 0
+        print(f"{prepared_state_dict['fc2.bias']=}")
+        print(f"{wrapped_state_dict['fc2.bias']=}")
+        assert len(prepared_state_dict['fc2.bias']) != 0
+        assert len(wrapped_state_dict['fc2.bias']) != 0
