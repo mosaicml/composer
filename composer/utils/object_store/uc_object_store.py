@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import pathlib
@@ -96,16 +95,20 @@ class UCObjectStore(ObjectStore):
         # The first 4 dirs form the prefix
         return os.path.join(*dirs[:4])
 
-    def _get_object_path(self, object_name: str) -> str:
+    def _get_object_path(self, object_name: Optional[str] = None) -> str:
         """Return the absolute Single Path Namespace for the given object_name.
 
         Args:
-            object_name (str): Absolute or relative path of the object w.r.t. the
+            object_name (optional, str): Absolute or relative path of the object w.r.t. the
             UC Volumes root.
         """
         # convert object name to relative path if prefix is included
-        if os.path.commonprefix([object_name, self.prefix]) == self.prefix:
+        if object_name is not None and os.path.commonprefix([object_name, self.prefix]) == self.prefix:
             object_name = os.path.relpath(object_name, start=self.prefix)
+
+        if object_name is None:
+            return os.path.join('/', self.prefix)
+
         return os.path.join('/', self.prefix, object_name)
 
     def get_uri(self, object_name: str) -> str:
@@ -241,8 +244,26 @@ class UCObjectStore(ObjectStore):
 
         from databricks.sdk.core import DatabricksError
         try:
-            ls_results = [entry.path for entry in self.client.files.list_directory_contents(os.path.join('/', prefix))]
-            return ls_results
+            # Iteratively get all UC Volume files with `prefix`.
+            stack = [prefix]
+            all_files = []
+
+            while len(stack) > 0:
+                current_path = stack.pop()
+
+                ls_results = self.client.files.list_directory_contents(self._get_object_path(current_path))
+
+                for dir_entry in ls_results:
+                    path = dir_entry.path
+                    is_directory = dir_entry.is_directory
+                    assert isinstance(path, str)
+
+                    if is_directory:
+                        stack.append(path)
+                    else:
+                        all_files.append(path)
+
+            return all_files
 
         except DatabricksError as e:
             _wrap_errors(self.get_uri(prefix), e)
