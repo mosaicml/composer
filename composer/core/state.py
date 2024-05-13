@@ -528,7 +528,7 @@ class State(Serializable):
                 raise ValueError('Tensor parallelism (TP) requires torch>=2.3.0.')
             if self.fsdp_config is None:
                 raise ValueError(
-                    'Tensor parallelism (TP) currently requires FSDP to be enabled .'
+                    'Tensor parallelism (TP) currently requires FSDP to be enabled. '
                     'An empty `fsdp_config` can be specified to enable FSDP with '
                     'default settings.',
                 )

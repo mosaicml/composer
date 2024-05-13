@@ -241,7 +241,6 @@ def test_wrong_size_device_mesh_error(world_size: int, sharding_strategy: str, r
         context = pytest.warns(UserWarning, match='.*is not supported with 2D device mesh.*')
     if sharding_strategy in ['HYBRID_SHARD', '_HYBRID_SHARD_ZERO2'] and replicate_degree is None:
         context = pytest.warns(UserWarning, match='.*is not supported with 1D device mesh.*')
-    # with context:
     fsdp_config = {
         'sharding_strategy': sharding_strategy,
         'data_parallel_shard_degree': 2,
