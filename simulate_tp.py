@@ -103,7 +103,8 @@ model = SimpleModel()
 dataset = RandomClassificationDataset(size=10)
 dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
 optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
-state_dict_type = 'full'
+state_dict_type = 'sharded'
+# state_dict_type = 'full'
 
 layer_plan = {
     'module.2': ColwiseParallel(),
@@ -141,6 +142,7 @@ if state_dict_type == 'sharded' or dist.get_global_rank() == 0:
     print(state_dict['model']['module.2.weight'])
 
 model2 = SimpleModel()
+load_path = './checkpoints/ep0-ba3/' if state_dict_type == 'sharded' else './checkpoints/ep0-ba3-rank0.pt'
 trainer2 = Trainer(
     model=model2,
     optimizers=optimizer,
@@ -153,8 +155,7 @@ trainer2 = Trainer(
     save_folder='./checkpoints',
     save_interval='1ba',
     save_overwrite=True,
-    load_path='./checkpoints/ep0-ba3/',
-    # load_path='./checkpoints/ep0-ba3-rank0.pt',
+    load_path=load_path,
     # load_weights_only=True,
 )
 
