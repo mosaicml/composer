@@ -1,8 +1,16 @@
-from functools import partial
-import torch
-from composer.models.tasks.classification import ComposerClassifier
+# Copyright 2024 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
+from functools import partial
+
+import torch
+import torch.distributed as tdist
 from torch.distributed.checkpoint.state_dict import StateDictOptions, get_model_state_dict
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp import ShardingStrategy
+
+from composer.models.tasks.classification import ComposerClassifier
+from composer.trainer.trainer import Trainer
 
 
 class CounterExampleModel(ComposerClassifier):
@@ -56,17 +64,33 @@ class CounterExampleModel(ComposerClassifier):
                 torch.nn.init.zeros_(module.bias)
 
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
+    # tdist.init_process_group(backend='gloo')
     model = CounterExampleModel()
-    model_init_device = 'cpu'
-    print(model)
 
-    model.fc1.to(model_init_device)
-    model.fc2.to(model_init_device)
+    torch_model = CounterExampleModel()
+    torch_model.to('cuda')
 
-    state_dict = get_model_state_dict(
-        model,
+    # model.to('cuda')
+
+    # sharded_model = FSDP(model, param_init_fn=model.param_init_fn, use_orig_params=True, sharding_strategy=ShardingStrategy.FULL_SHARD)
+
+    # if tdist.get_rank() == 0:
+    #     print(f'{model.fc2.bias=}')
+    #     print(f"{state_dict['fc2.bias']=}")
+
+    trainer = Trainer(model=model, device='gpu', fsdp_config={
+        'use_orig_params': True,
+        'state_dict_type': 'full',
+    })
+
+    fsdp_model = FSDP(torch_model, use_orig_params=True)
+
+    torch_state_dict = get_model_state_dict(
+        fsdp_model,
         submodules=None,
         options=StateDictOptions(full_state_dict=True),
     )
+
+    if tdist.get_rank() == 0:
+        print(f"{torch_state_dict['fc2.bias']=}")
