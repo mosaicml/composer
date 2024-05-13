@@ -329,6 +329,15 @@ def _launch_processes(
             cmd.append('-m')
 
         cmd.append(training_script)
+        parameters_file = os.environ.get('PARAMETERS', None)
+        if parameters_file is not None:
+            parameters_dir = os.path.dirname(parameters_file)
+            sys.path = [parameters_dir] + sys.path
+
+        log.warning(
+            'the sys path and excepthook from composer after adding the mnt/config again is:' + '\n'.join(sys.path)
+        )
+        log.warning(sys.excepthook)
 
         # Update the env with the distributed variables
         with _patch_env(
@@ -345,13 +354,6 @@ def _launch_processes(
             # Populate the distributed variables in all launcher args
             for arg in training_script_args:
                 cmd.append(os.path.expandvars(os.path.expanduser(arg)))
-
-            parameters_file = os.environ.get('PARAMETERS', None)
-            if parameters_file is not None:
-                parameters_dir = os.path.dirname(parameters_file)
-                sys.path = [parameters_dir] + sys.path
-
-            log.warning('the sys path from composer after adding the mnt/config again is:' + '\n'.join(sys.path))
 
             log.info(
                 'Launching process for local_rank(%s), global_rank(%s) with command(%s)',
@@ -532,12 +534,15 @@ def _aggregate_process_returncode(processes: Dict[int, subprocess.Popen]) -> int
 
 def main():
     """Entrypoint into the Composer CLI."""
-    log.warn('the sys path from composer is:')
     log.warn('Starting Composer CLI')
+    log.warn('the sys path and excepthook from composer is:')
     log.warn('\n'.join(sys.path))
+    log.warn(sys.excepthook)
+
     args = _parse_args()
-    log.warn('the sys path from composer after args parse is:')
+    log.warn('the sys path and excepthook from composer after args parse is:')
     log.warn('\n'.join(sys.path))
+    log.warn(sys.excepthook)
     log.warn('the override except hook var from composer is:' + os.environ.get('OVERRIDE_EXCEPTHOOK', 'false'))
     # if os.environ.get('OVERRIDE_EXCEPTHOOK', 'false').lower() == 'true':
     #     raise Exception('This is a test exception to test the except hook from composer')
