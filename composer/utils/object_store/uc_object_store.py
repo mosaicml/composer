@@ -100,7 +100,7 @@ class UCObjectStore(ObjectStore):
 
         Args:
             object_name (optional, str): Absolute or relative path of the object w.r.t. the
-            UC Volumes root.
+            UC Volumes root. If None, the prefix path is returned.
         """
         # convert object name to relative path if prefix is included
         if object_name is not None and os.path.commonprefix([object_name, self.prefix]) == self.prefix:
