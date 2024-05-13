@@ -260,6 +260,7 @@ class UCObjectStore(ObjectStore):
                     data=json.dumps({'path': self._get_object_path(current_path)}),
                     headers={'Source': 'mosaicml/composer'},
                 )
+                print(resp)
 
                 assert isinstance(resp, dict), 'Response is not a dictionary'
 
