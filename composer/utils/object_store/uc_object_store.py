@@ -242,7 +242,6 @@ class UCObjectStore(ObjectStore):
         from databricks.sdk.core import DatabricksError
         try:
             ls_results = [entry.path for entry in self.client.files.list_directory_contents(os.path.join('/', prefix))]
-            print(len(ls_results))
             return ls_results
 
         except DatabricksError as e:
