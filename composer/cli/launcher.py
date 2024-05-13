@@ -351,6 +351,8 @@ def _launch_processes(
                 parameters_dir = os.path.dirname(parameters_file)
                 sys.path = [parameters_dir] + sys.path
 
+            log.warning('the sys path from composer after adding the mnt/config again is:' + '\n'.join(sys.path))
+
             log.info(
                 'Launching process for local_rank(%s), global_rank(%s) with command(%s)',
                 local_rank,
