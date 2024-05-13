@@ -116,7 +116,9 @@ def test_exceptions_are_printed(tmp_path: pathlib.Path):
 
     with open(logfile_name, 'r') as f:
         log_lines = f.readlines()
+        print(log_lines)
         assert '[stderr]: RuntimeError: My Exception!\n' == log_lines[-1]
+        assert False
 
     # Since the trainer was closed, future prints should not appear in the file logger
     print('SHOULD NOT BE CAPTURED')
