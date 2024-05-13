@@ -10,7 +10,9 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import ShardingStrategy
 
 from composer.models.tasks.classification import ComposerClassifier
+from composer.trainer.dist_strategy import prepare_fsdp_module
 from composer.trainer.trainer import Trainer
+from composer.utils.device import get_device
 
 
 class CounterExampleModel(ComposerClassifier):
@@ -65,11 +67,11 @@ class CounterExampleModel(ComposerClassifier):
 
 
 if __name__ == '__main__':
-    # tdist.init_process_group(backend='gloo')
-    model = CounterExampleModel()
+    tdist.init_process_group(backend='gloo')
+    # model = CounterExampleModel()
 
     torch_model = CounterExampleModel()
-    torch_model.to('cuda')
+    # torch_model.to('cuda')
 
     # model.to('cuda')
 
@@ -79,12 +81,26 @@ if __name__ == '__main__':
     #     print(f'{model.fc2.bias=}')
     #     print(f"{state_dict['fc2.bias']=}")
 
-    trainer = Trainer(model=model, device='gpu', fsdp_config={
+    # trainer = Trainer(model=model, device='gpu', fsdp_config={
+    #     'use_orig_params': True,
+    #     'state_dict_type': 'full',
+    # })
+
+    fsdp_config = {
         'use_orig_params': True,
         'state_dict_type': 'full',
-    })
+    }
 
-    fsdp_model = FSDP(torch_model, use_orig_params=True)
+    device = get_device('gpu')
+    prepare_fsdp_module(
+        model=torch_model,
+        fsdp_config=fsdp_config,
+        optimizers=None,
+        precision='amp_bf16',
+        device=device,
+        auto_microbatching=True,
+    )
+    fsdp_model = torch_model
 
     torch_state_dict = get_model_state_dict(
         fsdp_model,
