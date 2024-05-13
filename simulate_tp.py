@@ -165,7 +165,7 @@ trainer2 = Trainer(
 # from composer.utils import checkpoint
 # checkpoint.load_checkpoint(path='./checkpoints/ep0-ba3/', state=trainer2.state, logger=trainer2.logger)
 
-state_dict = trainer.state.state_dict()
+state_dict = trainer2.state.state_dict()
 if state_dict_type == 'sharded' or dist.get_global_rank() == 0:
     print('\n\n[3, Loaded]' + '*' * 50 + '\n')
     print(state_dict['model']['module.2.weight'])
