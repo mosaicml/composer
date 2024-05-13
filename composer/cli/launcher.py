@@ -340,7 +340,6 @@ def _launch_processes(
             MASTER_PORT=str(master_port),
             PYTHONUNBUFFERED='1',
             NCCL_ASYNC_ERROR_HANDLING='1',
-            PYTHONPATH=
         ):
             # Populate the distributed variables in all launcher args
             for arg in training_script_args:
@@ -372,7 +371,7 @@ def _launch_processes(
 
                 stdout_file = _get_file(stdout_file_format)
                 stderr_file = _get_file(stderr_file_format) if stderr_file_format is not None else None
-                
+
                 process = subprocess.Popen(
                     cmd,
                     stdout=stdout_file,
@@ -530,12 +529,11 @@ def main():
 
     logging.basicConfig()
     log.setLevel(logging.INFO)
-    log.info("the sys path from composer is:")
+    log.info('the sys path from composer is:')
     log.info('\n'.join(sys.path))
-    log.info("the override except hook var from composer is:"
-             + os.environ.get("OVERRIDE_EXCEPTHOOK", "false"))
-    if os.environ.get("OVERRIDE_EXCEPTHOOK", "false").lower() == "true":
-        raise Exception("This is a test exception to test the except hook from composer")
+    log.info('the override except hook var from composer is:' + os.environ.get('OVERRIDE_EXCEPTHOOK', 'false'))
+    if os.environ.get('OVERRIDE_EXCEPTHOOK', 'false').lower() == 'true':
+        raise Exception('This is a test exception to test the except hook from composer')
 
     processes = {}
 
