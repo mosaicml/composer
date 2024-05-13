@@ -133,7 +133,7 @@ extra_deps['dev'] = [
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.17.0',
     'traitlets==5.14.3',
-    'nbsphinx==0.9.1',
+    'nbsphinx==0.9.4',
     'pandoc==2.3',
     'pypandoc==1.13',
     'GitPython==3.1.43',
