@@ -524,14 +524,14 @@ def _aggregate_process_returncode(processes: Dict[int, subprocess.Popen]) -> int
 
 def main():
     """Entrypoint into the Composer CLI."""
-    log.info('Starting Composer CLI')
+    log.warn('Starting Composer CLI')
     args = _parse_args()
 
     logging.basicConfig()
     log.setLevel(logging.INFO)
-    log.info('the sys path from composer is:')
-    log.info('\n'.join(sys.path))
-    log.info('the override except hook var from composer is:' + os.environ.get('OVERRIDE_EXCEPTHOOK', 'false'))
+    log.warn('the sys path from composer is:')
+    log.warn('\n'.join(sys.path))
+    log.warn('the override except hook var from composer is:' + os.environ.get('OVERRIDE_EXCEPTHOOK', 'false'))
     if os.environ.get('OVERRIDE_EXCEPTHOOK', 'false').lower() == 'true':
         raise Exception('This is a test exception to test the except hook from composer')
 
