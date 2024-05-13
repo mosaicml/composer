@@ -1294,8 +1294,6 @@ class State(Serializable):
             algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
                 to sort them into the correct order. (default: ``None``)
         """
-        print('\n\n[2.3, load_model_state]' + '*' * 50 + '\n')
-        print(state_dict['model']['module.2.weight'])
         if 'algorithms' in state_dict:
             self._apply_required_algorithms(state_dict, logger, exclude_algorithms, algorithm_passes)
 

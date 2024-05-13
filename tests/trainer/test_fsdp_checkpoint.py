@@ -723,13 +723,13 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
 @pytest.mark.parametrize(
     'weights_only,optimizer,precision,autoresume,load_ignore_keys,use_symlink,use_tp',
     [
-        # [False, 'adamw', 'amp_bf16', False, None, False, False],
-        # [True, 'adamw', 'amp_bf16', False, None, False, False],
-        # [False, 'adam', 'amp_bf16', False, None, False, False],
-        # [False, 'adamw', 'amp_fp16', False, None, False, False],
-        # [False, 'adamw', 'amp_bf16', True, None, False, False],
-        # [False, 'adamw', 'amp_bf16', False, ['rng'], False, False],
-        # [False, 'adamw', 'amp_bf16', False, None, True, False],
+        [False, 'adamw', 'amp_bf16', False, None, False, False],
+        [True, 'adamw', 'amp_bf16', False, None, False, False],
+        [False, 'adam', 'amp_bf16', False, None, False, False],
+        [False, 'adamw', 'amp_fp16', False, None, False, False],
+        [False, 'adamw', 'amp_bf16', True, None, False, False],
+        [False, 'adamw', 'amp_bf16', False, ['rng'], False, False],
+        [False, 'adamw', 'amp_bf16', False, None, True, False],
         [False, 'adamw', 'amp_bf16', False, None, False, True],
     ],
 )

@@ -85,8 +85,8 @@ class SimpleModel(ComposerClassifier):
         # These tests attempt to perform surgery on `fc1` layer, and we want
         # to make sure that post-surgery, self.fc1 refers to the same parameters
         # as self.net[1]
-        self.fc1 = fc1
-        self.fc2 = fc2
+        # self.fc1 = fc1
+        # self.fc2 = fc2
 
     def param_init_fn(self, module):
         init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
@@ -103,40 +103,28 @@ model = SimpleModel()
 dataset = RandomClassificationDataset(size=10)
 dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
 optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
-
-# device_mesh = init_device_mesh(
-#     'cuda',
-#     (1, 2),
-#     mesh_dim_names=('dp', 'tp'),
-# )
-
-# device_mesh = init_device_mesh(
-#     'cuda',
-#     (4,),
-#     mesh_dim_names=('tp',),
-# )
-
+state_dict_type = 'full'
 
 layer_plan = {
-    'fc1': ColwiseParallel(),
-    'fc2': RowwiseParallel(),
+    'module.2': ColwiseParallel(),
+    'module.4': RowwiseParallel(),
 }
 
 tp_config = {
     'tensor_parallel_degree': 2,
-    'state_dict_type': 'sharded',
+    'layer_plan': layer_plan,
 }
 
 fsdp_config = {
-    'data_parallel_shard_degree': 4,
-    'state_dict_type': 'sharded',
+    # 'data_parallel_shard_degree': 2,
+    'state_dict_type': state_dict_type,
 }
 
 trainer = Trainer(
     model=model,
     optimizers=optimizer,
     train_dataloader=dataloader,
-    # tp_config={**tp_config},
+    tp_config={**tp_config},
     fsdp_config={**fsdp_config},
     progress_bar=False,
     log_to_console=True,
@@ -147,16 +135,17 @@ trainer = Trainer(
 )
 trainer.fit()
 
-
-print('\n\n[1, Saved]' + '*' * 50 + '\n')
-print(trainer.state.state_dict()['model']['module.2.weight'])
+state_dict = trainer.state.state_dict()
+if state_dict_type == 'sharded' or dist.get_global_rank() == 0:
+    print('\n\n[1, Saved]' + '*' * 50 + '\n')
+    print(state_dict['model']['module.2.weight'])
 
 model2 = SimpleModel()
 trainer2 = Trainer(
     model=model2,
     optimizers=optimizer,
     train_dataloader=dataloader,
-    # tp_config={**tp_config},
+    tp_config={**tp_config},
     fsdp_config={**fsdp_config},
     progress_bar=False,
     log_to_console=True,
@@ -164,18 +153,21 @@ trainer2 = Trainer(
     save_folder='./checkpoints',
     save_interval='1ba',
     save_overwrite=True,
-    # load_path='./checkpoints/ep0-ba2/'
-    # load_path='./checkpoints/ep0-ba2-rank0.pt',
+    load_path='./checkpoints/ep0-ba3/',
+    # load_path='./checkpoints/ep0-ba3-rank0.pt',
+    # load_weights_only=True,
 )
 
-print('\n\n[1.1, Random Init]' + '*' * 50 + '\n')
-print(trainer2.state.state_dict()['model']['module.2.weight'])
+# print('\n\n[1.1, Random Init]' + '*' * 50 + '\n')
+# print(trainer2.state.state_dict()['model']['module.2.weight'])
 
-from composer.utils import checkpoint
-checkpoint.load_checkpoint(path='./checkpoints/ep0-ba1/', state=trainer2.state, logger=trainer2.logger)
+# from composer.utils import checkpoint
+# checkpoint.load_checkpoint(path='./checkpoints/ep0-ba3/', state=trainer2.state, logger=trainer2.logger)
 
-print('\n\n[3, Loaded]' + '*' * 50 + '\n')
-print(trainer2.state.state_dict()['model']['module.2.weight'])
+state_dict = trainer.state.state_dict()
+if state_dict_type == 'sharded' or dist.get_global_rank() == 0:
+    print('\n\n[3, Loaded]' + '*' * 50 + '\n')
+    print(state_dict['model']['module.2.weight'])
 
-trainer2.fit()
+# trainer2.fit()
 
