@@ -263,6 +263,7 @@ class UCObjectStore(ObjectStore):
                     else:
                         all_files.append(path)
 
+            print(len(all_files))
             return all_files
 
         except DatabricksError as e:
