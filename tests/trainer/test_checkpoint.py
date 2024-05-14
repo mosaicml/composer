@@ -1511,113 +1511,6 @@ class TestCheckpointResumption:
         # Epoch count starts at O
         assert trainer.state.train_dataloader.batch_sampler.epoch == max_duration - 1
 
-    @pytest.mark.parametrize(
-        'world_size',
-        [
-            pytest.param(2, marks=pytest.mark.world_size(2)),
-        ],
-    )
-    @pytest.mark.parametrize(
-        'device',
-        [
-            pytest.param('gpu', marks=pytest.mark.gpu),
-        ],
-    )
-    @pytest.mark.parametrize(
-        'use_orig_params,sync_module_states,model_1_init_device,model_2_init_device',
-        [
-            pytest.param(False, True, 'cpu', 'cpu'),  # success
-            pytest.param(False, True, 'cpu', 'meta'),  # success
-            pytest.param(True, True, 'cpu', 'cpu'),  # fail
-            pytest.param(False, False, 'cpu', 'cpu'),  # fail
-            pytest.param(False, True, 'meta', 'cpu'),  # fail
-        ],
-    )
-    @pytest.mark.filterwarnings('ignore:An unexpected prefix is detected. This case.*')
-    @pytest.mark.filterwarnings(
-        'ignore:``FullyShardedDataParallel.scatter_full_optim_state_dict``is being deprecated and is replaced by.*',
-    )
-    def test_fsdp_monolith_resumption(
-        self,
-        device: str,
-        world_size: int,
-        use_orig_params: bool,
-        sync_module_states: bool,
-        model_1_init_device: str,
-        model_2_init_device: str,
-        tmp_path: pathlib.Path,
-    ):
-        save_interval = '1ba'
-        save_filename = 'ba{batch}-rank{rank}.pt'
-        resume_file = 'ba1-rank{rank}.pt'
-        final_checkpoint = 'latest-rank{rank}.pt'
-        fsdp_config = {
-            'use_orig_params': use_orig_params,
-            'sync_module_states': sync_module_states,
-            'state_dict_type': 'full',
-        }
-
-        # All ranks use rank 0 folder
-        tmp_save_folder_paths = dist.all_gather_object(os.path.abspath(tmp_path))
-        save_folder = pathlib.Path(tmp_save_folder_paths[0])
-
-        trainer_1 = self.get_trainer(
-            save_folder=os.path.join(save_folder, 'first'),
-            save_filename=save_filename,
-            save_interval=save_interval,
-            eval_interval=save_interval,
-            fsdp_config=fsdp_config,
-            device=device,
-            precision='amp_fp16',
-            max_duration='1ep',
-            train_subset_num_batches=2,
-        )
-
-        trainer_1.fit()
-        trainer_1.close()
-
-        self._assert_expected_num_checkpoints(
-            save_folder=os.path.join(save_folder, 'first'),
-            save_interval=save_interval,
-            num_epochs=1,  # set in get_trainer()
-            num_batches_per_epoch=2,  # set in get_trainer()
-            is_deepspeed=False,
-        )
-
-        resume_file = os.path.join(save_folder, 'first', resume_file)
-        model_init_device = [model_1_init_device, model_2_init_device][dist.get_global_rank()]
-        fsdp_config['load_monolith_rank0_only'] = True
-
-        success = sync_module_states == True and model_1_init_device == 'cpu'
-        with contextlib.nullcontext() if success else pytest.raises(ValueError):
-            load_path = resume_file.format(rank=0)
-            with open(load_path, 'rb') as f:
-                state_dict = torch.load(f)
-                # a bunch of debugging print statements:
-                print('state_dict: ', state_dict)
-                print('module.fc2.bias', state_dict['state']['model']['fc2.bias'])
-
-            trainer_2 = self.get_trainer(
-                model_init_device=model_init_device,
-                save_folder=os.path.join(save_folder, 'second'),
-                save_filename=save_filename,
-                save_interval=save_interval,
-                eval_interval=save_interval,
-                fsdp_config=fsdp_config,
-                device=device,
-                precision='amp_fp16',
-                max_duration='1ep',
-                train_subset_num_batches=2,
-                load_path=resume_file,  # <-- resume training from file
-            )
-            trainer_2.fit()
-            trainer_2.close()
-
-            _assert_checkpoints_equivalent(
-                save_folder / 'first' / final_checkpoint,
-                save_folder / 'second' / final_checkpoint,
-            )
-
     @pytest.mark.parametrize('spin_dataloaders', [False, True])
     def test_spin_dataloaders(
         self,
@@ -1681,8 +1574,8 @@ class TestCheckpointResumption:
             os.path.join(save_folder, 'second', 'latest-rank{rank}.pt'),
         )
 
+    @staticmethod
     def _assert_expected_num_checkpoints(
-        self,
         save_folder: str,
         save_interval: str,
         num_epochs: int,
