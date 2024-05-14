@@ -227,6 +227,7 @@ def _main():
             entry['AWS_OFI_NCCL_VERSION'] = 'v1.9.1-aws'
 
         pytorch_entries.append(entry)
+    
     nightly_entry = {
         'AWS_OFI_NCCL_VERSION': '',
         'BASE_IMAGE': 'nvidia/cuda:12.1.1-cudnn8-devel-ubuntu20.04',
@@ -243,6 +244,7 @@ def _main():
         'TORCHVISION_VERSION': '0.19.0',
      }
     pytorch_entries.append(nightly_entry)
+    
     composer_entries = []
 
     # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
