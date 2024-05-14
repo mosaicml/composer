@@ -1169,11 +1169,11 @@ def test_fsdp_monolith_resumption(
     save_filename = 'ba{batch}-rank{rank}.pt'
     resume_file = 'ba1-rank{rank}.pt'
     final_checkpoint = 'latest-rank{rank}.pt'
-    fsdp_config = {
-        'use_orig_params': use_orig_params,
-        'sync_module_states': sync_module_states,
-        'state_dict_type': 'full',
-    }
+    fsdp_config = FSDPConfig(
+        use_orig_params=use_orig_params,
+        sync_module_states=sync_module_states,
+        state_dict_type='full',
+    )
 
     # All ranks use rank 0 folder
     tmp_save_folder_paths = dist.all_gather_object(os.path.abspath(tmp_path))
@@ -1210,12 +1210,9 @@ def test_fsdp_monolith_resumption(
             save_folder=os.path.join(save_folder, 'second'),
             save_filename=save_filename,
             save_interval=save_interval,
-            eval_interval=save_interval,
             fsdp_config=fsdp_config,
-            device=device,
             precision='amp_fp16',
             max_duration='1ep',
-            train_subset_num_batches=2,
             load_path=resume_file,  # <-- resume training from file
         )
         trainer_2.fit()
