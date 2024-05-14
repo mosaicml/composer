@@ -1183,12 +1183,9 @@ def test_fsdp_monolith_resumption(
         save_folder=os.path.join(save_folder, 'first'),
         save_filename=save_filename,
         save_interval=save_interval,
-        eval_interval=save_interval,
         fsdp_config=fsdp_config,
-        device=device,
         precision='amp_fp16',
         max_duration='1ep',
-        train_subset_num_batches=2,
     )
 
     trainer_1.fit()
