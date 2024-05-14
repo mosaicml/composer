@@ -1,15 +1,11 @@
 # Copyright 2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from functools import partial
 
 import torch
 import torch.distributed as tdist
 from torch.distributed.checkpoint.state_dict import StateDictOptions, get_model_state_dict
 from torch.distributed.fsdp import FullyShardedDataParallel, ShardingStrategy
-
-from composer.trainer.dist_strategy import prepare_fsdp_module
-from composer.utils.device import get_device
 
 
 class WrapperModel(torch.nn.Module):
@@ -67,7 +63,6 @@ class CounterExampleModel(torch.nn.Module):
 if __name__ == '__main__':
     tdist.init_process_group(backend='gloo')
 
-    prepared_fsdp_model = WrapperModel()
     bare_torch_model = WrapperModel()
 
     fsdp_config = {
@@ -75,26 +70,11 @@ if __name__ == '__main__':
         'state_dict_type': 'full',
     }
 
-    device = get_device('gpu')
-    prepare_fsdp_module(
-        model=prepared_fsdp_model,
-        fsdp_config=fsdp_config,
-        optimizers=None,
-        precision='amp_bf16',
-        device=device,
-        auto_microbatching=True,
-    )
-
-    prepared_state_dict = get_model_state_dict(
-        prepared_fsdp_model,
-        submodules=None,
-        options=StateDictOptions(full_state_dict=True),
-    )
-
     for elem in ['model', 'fc1', 'fc2']:
         inner_module = getattr(bare_torch_model, elem)
         inner_module.to(f'cuda:{tdist.get_rank()}')
 
+        print(f'wrapping {elem=} {inner_module=}')
         wrapped_inner_module = FullyShardedDataParallel(
             inner_module,
             use_orig_params=True,
@@ -103,15 +83,20 @@ if __name__ == '__main__':
         setattr(bare_torch_model, elem, wrapped_inner_module)
 
     wrapped_state_dict = get_model_state_dict(
+        bare_torch_model,
+        submodules=None,
+        options=StateDictOptions(full_state_dict=True),
+    )
+
+    inner_state_dict = get_model_state_dict(
         bare_torch_model.model,
         submodules=None,
         options=StateDictOptions(full_state_dict=True),
     )
 
     if tdist.get_rank() == 0:
-        print(f'{prepared_fsdp_model=}')
         print(f'{bare_torch_model=}')
-        print(f"{prepared_state_dict['fc2.bias']=}")
+        print(f"{inner_state_dict['fc2.bias']=}")
         print(f"{wrapped_state_dict['fc2.bias']=}")
-        assert len(prepared_state_dict['fc2.bias']) != 0
+        assert len(inner_state_dict['fc2.bias']) != 0
         assert len(wrapped_state_dict['fc2.bias']) != 0
