@@ -1194,7 +1194,7 @@ def test_fsdp_monolith_resumption(
         save_folder=os.path.join(save_folder, 'first'),
         save_interval=save_interval,
         num_epochs=1,  # set in get_trainer()
-        num_batches_per_epoch=2,  # set in get_trainer()
+        num_batches_per_epoch=8,  # set in get_trainer()
         is_deepspeed=False,
     )
 
