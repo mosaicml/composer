@@ -52,7 +52,6 @@ class CounterExampleModel(torch.nn.Module):
             fc2,
             torch.nn.Softmax(dim=-1),
         )
-        net.param_init_fn = self.param_init_fn  # pyright: ignore[reportGeneralTypeIssues]
         super().__init__()
 
         self.net = net
@@ -63,14 +62,6 @@ class CounterExampleModel(torch.nn.Module):
         # as self.net[1]
         self.fc1 = fc1
         self.fc2 = fc2
-
-    def param_init_fn(self, module):
-        init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
-
-        if isinstance(module, torch.nn.Linear):
-            init_fn(module.weight)
-            if module.bias is not None:  # pyright: ignore[reportUnnecessaryComparison]
-                torch.nn.init.zeros_(module.bias)
 
 
 if __name__ == '__main__':
