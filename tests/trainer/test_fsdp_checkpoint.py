@@ -1201,7 +1201,7 @@ def test_fsdp_monolith_resumption(
     resume_file = os.path.join(save_folder, 'first', resume_file)
     model_init_device = [model_1_init_device, model_2_init_device][dist.get_global_rank()]
     fsdp_config_dict = dataclasses.asdict(fsdp_config)
-    fsdp_config_dict['load_monolith_rank0_only'] = True
+    fsdp_config_dict['load_fsdp_monolith_rank0_only'] = True
     fsdp_config = FSDPConfig(**fsdp_config_dict)
 
     success = sync_module_states == True and model_1_init_device == 'cpu'
