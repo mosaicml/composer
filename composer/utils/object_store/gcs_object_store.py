@@ -75,7 +75,6 @@ class GCSObjectStore(ObjectStore):
 
         self.s3_object_store = None
 
-        # elif 'GCS_KEY' in os.environ and 'GCS_SECRET' in os.environ:
         if 'GCS_KEY' in os.environ and 'GCS_SECRET' in os.environ:
             # Create a session and use it to make our client. Unlike Resources and Sessions,
             # clients are generally thread-safe.
@@ -171,11 +170,12 @@ class GCSObjectStore(ObjectStore):
 
         if callback is not None:
             raise ValueError('callback is not supported in gcs upload_object()')
+        from google.cloud.storage.retry import DEFAULT_RETRY
         src = filename
         dest = object_name
         dest = str(src) if dest == '' else dest
         blob = self.bucket.blob(self.get_key(dest))
-        blob.upload_from_filename(src)
+        blob.upload_from_filename(src, retry=DEFAULT_RETRY)  # pyright: ignore[reportGeneralTypeIssues]
 
     def download_object(
         self,
