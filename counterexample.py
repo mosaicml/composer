@@ -118,6 +118,8 @@ if __name__ == '__main__':
     )
 
     if tdist.get_rank() == 0:
+        print(f'{prepared_fsdp_model=}')
+        print(f'{bare_torch_model=}')
         print(f"{prepared_state_dict['fc2.bias']=}")
         print(f"{wrapped_state_dict['fc2.bias']=}")
         assert len(prepared_state_dict['fc2.bias']) != 0
