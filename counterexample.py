@@ -12,6 +12,16 @@ from composer.trainer.dist_strategy import prepare_fsdp_module
 from composer.utils.device import get_device
 
 
+class WrapperModel(torch.nn.Module):
+
+    def __init__(self):
+
+        super().__init__()
+        self.model = CounterExampleModel()
+        self.fc1 = self.model.fc1
+        self.fc2 = self.model.fc2
+
+
 class CounterExampleModel(torch.nn.Module):
     """Small classification model.
 
@@ -67,8 +77,8 @@ class CounterExampleModel(torch.nn.Module):
 if __name__ == '__main__':
     tdist.init_process_group(backend='gloo')
 
-    prepared_fsdp_model = CounterExampleModel()
-    bare_torch_model = CounterExampleModel()
+    prepared_fsdp_model = WrapperModel()
+    bare_torch_model = WrapperModel()
 
     fsdp_config = {
         'use_orig_params': True,
