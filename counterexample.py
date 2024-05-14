@@ -63,39 +63,34 @@ class CounterExampleModel(torch.nn.Module):
 if __name__ == '__main__':
     tdist.init_process_group(backend='gloo')
 
-    bare_torch_model = WrapperModel()
+    wrapped_torch_module = WrapperModel()
 
     fsdp_config = {
         'use_orig_params': True,
         'state_dict_type': 'full',
     }
 
-    for elem in ['model', 'fc1', 'fc2']:
-        inner_module = getattr(bare_torch_model, elem)
-        inner_module.to(f'cuda:{tdist.get_rank()}')
-
-        print(f'wrapping {elem=} {inner_module=}')
-        wrapped_inner_module = FullyShardedDataParallel(
-            inner_module,
-            use_orig_params=True,
-            sharding_strategy=ShardingStrategy.FULL_SHARD,
-        )
-        setattr(bare_torch_model, elem, wrapped_inner_module)
+    wrapped_torch_module = FullyShardedDataParallel(
+        wrapped_torch_module,
+        use_orig_params=True,
+        sharding_strategy=ShardingStrategy.FULL_SHARD,
+        device_id = torch.cuda.current_device(),
+    )
 
     wrapped_state_dict = get_model_state_dict(
-        bare_torch_model,
+        wrapped_torch_module,
         submodules=None,
         options=StateDictOptions(full_state_dict=True),
     )
 
     inner_state_dict = get_model_state_dict(
-        bare_torch_model.model,
+        wrapped_torch_module.model,
         submodules=None,
         options=StateDictOptions(full_state_dict=True),
     )
 
     if tdist.get_rank() == 0:
-        print(f'{bare_torch_model=}')
+        print(f'{wrapped_torch_module=}')
         print(f"{inner_state_dict['fc2.bias']=}")
         print(f"{wrapped_state_dict['fc2.bias']=}")
         assert len(inner_state_dict['fc2.bias']) != 0
