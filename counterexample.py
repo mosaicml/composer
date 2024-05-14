@@ -15,7 +15,6 @@ from composer.utils.device import get_device
 class WrapperModel(torch.nn.Module):
 
     def __init__(self):
-
         super().__init__()
         self.model = CounterExampleModel()
         self.fc1 = self.model.fc1
@@ -101,14 +100,19 @@ if __name__ == '__main__':
         options=StateDictOptions(full_state_dict=True),
     )
 
-    wrapped_model = FullyShardedDataParallel(
-        bare_torch_model,
-        use_orig_params=True,
-        sharding_strategy=ShardingStrategy.FULL_SHARD,
-    )
-    wrapped_model.to(f'cuda:{tdist.get_rank()}')
+    for elem in ['model', 'fc1', 'fc2']:
+        inner_module = getattr(bare_torch_model, elem)
+        inner_module.to(f'cuda:{tdist.get_rank()}')
+
+        wrapped_inner_module = FullyShardedDataParallel(
+            inner_module,
+            use_orig_params=True,
+            sharding_strategy=ShardingStrategy.FULL_SHARD,
+        )
+        setattr(bare_torch_model, elem, wrapped_inner_module)
+
     wrapped_state_dict = get_model_state_dict(
-        wrapped_model,
+        bare_torch_model.model,
         submodules=None,
         options=StateDictOptions(full_state_dict=True),
     )
