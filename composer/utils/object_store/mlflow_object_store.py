@@ -126,6 +126,7 @@ def _patch_adls_file_upload_with_timeout(sas_url, local_file, start_byte, size, 
         timeout=timeout,
     ) as response:
         rest_utils.augmented_raise_for_status(response)
+        response.close()
 
 
 def _put_adls_file_creation_with_timeout(sas_url, headers):
@@ -159,6 +160,7 @@ def _put_adls_file_creation_with_timeout(sas_url, headers):
         timeout=timeout,
     ) as response:
         rest_utils.augmented_raise_for_status(response)
+        response.close()
 
 
 class MLFlowObjectStore(ObjectStore):
