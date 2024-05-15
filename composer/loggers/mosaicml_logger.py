@@ -12,7 +12,6 @@ import logging
 import operator
 import os
 import time
-import traceback
 import warnings
 from concurrent.futures import wait
 from functools import reduce
@@ -277,7 +276,7 @@ def dict_to_str(data: Dict[str, Any]):
 def exception_to_json_serializable_dict(exc: Exception):
     """Converts exception into a JSON serializable dictionary for run metadata."""
     default_exc_attrs = set(dir(Exception()))
-    exc_data = {'class': exc.__class__.__name__, 'message': str(exc), 'attributes': {}, 'traceback': str(traceback.format_exception(exc))}
+    exc_data = {'class': exc.__class__.__name__, 'message': str(exc), 'attributes': {}}
 
     for attr in dir(exc):
         # Exclude default attributes and special methods
