@@ -84,7 +84,7 @@ class FSDPConfig:
     sharded_ckpt_prefix_dir: str = 'ba{batch}'
     sync_module_states: bool = True
     use_orig_params: bool = False
-    load_fsdp_monolith_rank0_only: bool = False
+    load_monolith_rank0_only: bool = False
     save_planner: Optional[Any] = None
     load_planner: Optional[Any] = None
 
@@ -288,14 +288,14 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
 @pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
 @pytest.mark.parametrize('autoresume', [True, False])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
-@pytest.mark.parametrize('load_fsdp_monolith_rank0_only', [True, False])
+@pytest.mark.parametrize('load_monolith_rank0_only', [True, False])
 def test_fsdp_full_state_dict_load(
     world_size,
     tmp_path: pathlib.Path,
     autoresume: bool,
     precision: str,
     optimizer: str,
-    load_fsdp_monolith_rank0_only: bool,
+    load_monolith_rank0_only: bool,
 ):
 
     if autoresume:
@@ -305,7 +305,7 @@ def test_fsdp_full_state_dict_load(
     save_folder = tmp_path
     save_filename = 'rank{rank}.pt'
 
-    fsdp_config = FSDPConfig(load_fsdp_monolith_rank0_only=load_fsdp_monolith_rank0_only)
+    fsdp_config = FSDPConfig(load_monolith_rank0_only=load_monolith_rank0_only)
 
     trainer1 = get_trainer(
         save_folder=str(save_folder),

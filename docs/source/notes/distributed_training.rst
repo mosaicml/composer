@@ -192,7 +192,7 @@ The full spec and defaults for Composer's `fsdp_config` is here:
       'ignored_modules': Optional[Iterable[torch.nn.Module]], # Default: None
       'keep_low_precision_grads': bool = True | False, # Default: False
       'limit_all_gathers': bool = True | False, # Default: False
-      'load_fsdp_monolith_rank0_only': bool = True | False, # Default: False
+      'load_monolith_rank0_only': bool = True | False, # Default: False
       'load_planner': torch.distributed.checkpoint.planner.LoadPlanner, # Default: None
       'mixed_precision': str = 'FULL' | 'DEFAULT' | 'PURE', # Default: 'DEFAULT'
       # Note: you can explicitly provide a dictionary too
@@ -392,7 +392,7 @@ Depending on the value you set for :code:`state_dict_type`, you can get differen
 1. :code:`state_dict_type='full'`
 The default. Saves one big checkpoint file for the whole model.
 It does this by gathering the model state to the global rank 0 device, unflattening it, and then saving it out.
-If `load_fsdp_monolith_rank0_only=True`, then when loading checkpoints the global rank 0 device will load in the checkpoint file and scatter the
+If `load_monolith_rank0_only=True`, then when loading checkpoints the global rank 0 device will load in the checkpoint file and scatter the
 model and optimizer state to the other ranks, which will will dramatically reduce the memory usage on system. Otherwise, all ranks will separately load in the checkpoint file.
 
 2. :code:`state_dict_type='sharded'`

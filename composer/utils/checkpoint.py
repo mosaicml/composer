@@ -892,17 +892,17 @@ def glob_filter(exclude_globs: list[str]) -> Callable[[dict], None]:
 def safe_torch_load(
     composer_states_filepath: Union[Path, str],
     map_location: str = 'cpu',
-    load_fsdp_monolith_rank0_only: bool = False,
+    load_monolith_rank0_only: bool = False,
 ) -> dict[str, Any]:
     """Load a torch checkpoint, catching errors due to backwards compatibility issues.
 
     Args:
         composer_states_filepath: The path to the checkpoint file.
         map_location: The location to load the checkpoint to.
-        load_fsdp_monolith_rank0_only: Whether the checkpoint is a monolith FSDP checkpoint.
+        load_monolith_rank0_only: Whether the checkpoint is a monolith FSDP checkpoint.
     """
     try:
-        if load_fsdp_monolith_rank0_only:
+        if load_monolith_rank0_only:
             log.info(
                 'Loading monolith FSDP checkpoint. Only rank 0 will load and broadcast non-weight/optimizer state.',
             )
@@ -959,7 +959,7 @@ def _restore_checkpoint(
     # Now, all ranks load the checkpoint that local rank zero downloaded
     state_dict = safe_torch_load(
         composer_states_filepath=composer_states_filepath,
-        load_fsdp_monolith_rank0_only=state.load_fsdp_monolith_rank0_only,
+        load_monolith_rank0_only=state.load_monolith_rank0_only,
     )
     if ignore_keys:
         # Filter provided list of key paths

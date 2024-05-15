@@ -157,7 +157,7 @@ def set_fsdp_default(fsdp_config: Dict[str, Any]):
     fsdp_config.setdefault('ignored_modules', None)
     fsdp_config.setdefault('keep_low_precision_grads', False)
     fsdp_config.setdefault('limit_all_gathers', True)
-    fsdp_config.setdefault('load_fsdp_monolith_rank0_only', False)
+    fsdp_config.setdefault('load_monolith_rank0_only', False)
     fsdp_config.setdefault('load_planner', None)
     fsdp_config.setdefault('mixed_precision', 'DEFAULT')
     fsdp_config.setdefault('process_group', None)

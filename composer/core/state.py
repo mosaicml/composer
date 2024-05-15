@@ -469,18 +469,18 @@ class State(Serializable):
         self.fsdp_config = fsdp_config
         self.fsdp_auto_wrap = fsdp_auto_wrap
 
-        if self.load_fsdp_monolith_rank0_only:
+        if self.load_monolith_rank0_only:
             assert fsdp_config is not None
             error_message = ''
             if fsdp_config['use_orig_params'] == True:
                 error_message += textwrap.dedent(
-                    "load_fsdp_monolith_rank0_only requires fsdp_config['use_orig_params'] to be False. "
-                    "Either set fsdp_config['use_orig_params'] = False or set load_fsdp_monolith_rank0_only = False. ",
+                    "load_monolith_rank0_only requires fsdp_config['use_orig_params'] to be False. "
+                    "Either set fsdp_config['use_orig_params'] = False or set load_monolith_rank0_only = False. ",
                 )
             if fsdp_config['sync_module_states'] == False:
                 error_message += textwrap.dedent(
-                    "load_fsdp_monolith_rank0_only requires fsdp_config['sync_module_states'] to be True. "
-                    "Either set fsdp_config['sync_module_states'] = True or set load_fsdp_monolith_rank0_only = False. ",
+                    "load_monolith_rank0_only requires fsdp_config['sync_module_states'] to be True. "
+                    "Either set fsdp_config['sync_module_states'] = True or set load_monolith_rank0_only = False. ",
                 )
             # Broadcast rank 0 meta check to all ranks so error can be raised on all ranks
             rank0_on_meta = 0
@@ -490,9 +490,9 @@ class State(Serializable):
             dist.all_reduce(rank0_on_meta_tensor, reduce_operation='MAX')
             if rank0_on_meta_tensor.item() == 1:
                 error_message += textwrap.dedent(
-                    'load_fsdp_monolith_rank0_only requires the rank 0 model to be on cpu or gpu, '
+                    'load_monolith_rank0_only requires the rank 0 model to be on cpu or gpu, '
                     'but detected model device as meta. Either move the model to cpu or gpu, or set '
-                    'load_fsdp_monolith_rank0_only = False. ',
+                    'load_monolith_rank0_only = False. ',
                 )
             if error_message != '':
                 raise ValueError(error_message)
@@ -805,10 +805,10 @@ class State(Serializable):
             return None
 
     @property
-    def load_fsdp_monolith_rank0_only(self):
+    def load_monolith_rank0_only(self):
         return (
             self.fsdp_config is not None and self.fsdp_auto_wrap and self.fsdp_config['state_dict_type'] == 'full' and
-            self.fsdp_config['load_fsdp_monolith_rank0_only'] == True
+            self.fsdp_config['load_monolith_rank0_only'] == True
         )
 
     def _get_integrations_state_dict(self) -> Dict[str, Any]:
@@ -1157,7 +1157,7 @@ class State(Serializable):
                 log.debug(f'Loading FSDP optimizer with fsdp_state_dict_type={self.fsdp_state_dict_type}')
                 # Loading FSDP monolith on rank 0 only requires FSDP.scatter_full_optim_state_dict
                 # as the context manager does not seem to pass rank0_only=True for the optimizer config
-                if self.load_fsdp_monolith_rank0_only:
+                if self.load_monolith_rank0_only:
                     optim_state_dict = _legacy_optim_state_dict_to_load(
                         optim_state_dict=optim_state_dict,
                         model=self.model,
@@ -1249,7 +1249,7 @@ class State(Serializable):
                 missing_keys, unexpected_keys = [], []
                 try:
                     # Load model if it exists
-                    if self.fsdp_enabled and self.fsdp_state_dict_type is not None and not self.load_fsdp_monolith_rank0_only:
+                    if self.fsdp_enabled and self.fsdp_state_dict_type is not None and not self.load_monolith_rank0_only:
                         log.debug(
                             f'Loading model state dict with strict={strict} and FSDP state_dict_type={self.fsdp_state_dict_type}',
                         )
@@ -1279,7 +1279,7 @@ class State(Serializable):
                     log.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
 
         # If loading FSDP monolith checkpoint on rank 0 only, the model must be wrapped after loading
-        if self.load_fsdp_monolith_rank0_only:
+        if self.load_monolith_rank0_only:
             assert self.fsdp_config is not None
             log.info('Wrapping model with FSDP after loading model_state.')
             from composer.trainer.dist_strategy import prepare_fsdp_module
@@ -1344,7 +1344,7 @@ class State(Serializable):
                     log.debug(f'Loading FSDP optimizer with fsdp_state_dict_type={self.fsdp_state_dict_type}')
                     # Loading FSDP monolith on rank 0 only requires FSDP.scatter_full_optim_state_dict
                     # as the context manager does not seem to pass rank0_only=True for the optimizer config
-                    if self.load_fsdp_monolith_rank0_only:
+                    if self.load_monolith_rank0_only:
                         optim_state_dict = _legacy_optim_state_dict_to_load(
                             optim_state_dict=optim_state_dict,
                             model=self.model,
