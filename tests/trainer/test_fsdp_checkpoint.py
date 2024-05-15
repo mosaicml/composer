@@ -1175,8 +1175,8 @@ def test_fsdp_monolith_resumption(
     )
 
     # All ranks use rank 0 folder
-    tmp_save_folder_paths = dist.all_gather_object(os.path.abspath(tmp_path))
-    save_folder = pathlib.Path(tmp_save_folder_paths[0])
+    tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
+    save_folder = pathlib.Path(tmp_paths[0])
 
     trainer_1 = get_trainer(
         save_folder=os.path.join(save_folder, 'first'),
