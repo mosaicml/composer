@@ -45,12 +45,15 @@ def get_model_state_dict(
         raise ValueError('Both include_keys and ignore_keys cannot be non-None.')
 
     is_fsdp = _is_model_fsdp(model)
+    if not is_fsdp and sharded:
+        raise ValueError('Sharded state dict can only be generated for FSDP models.')
     cpu_offload = cpu_offload if cpu_offload is not None else is_fsdp
 
     log.debug('Extracting model state dict')
     if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
         from torch.distributed.checkpoint.state_dict import StateDictOptions
         from torch.distributed.checkpoint.state_dict import get_model_state_dict as dcp_get_model_state_dict
+        
         get_nonsharded_state_dict = not sharded
 
         model_state_dict = dcp_get_model_state_dict(

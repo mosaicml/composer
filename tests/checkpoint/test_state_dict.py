@@ -3,6 +3,7 @@
 
 import pytest
 import torch
+from torch.distributed.device_mesh import init_device_mesh
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 from composer.checkpoint import get_model_state_dict
@@ -55,8 +56,9 @@ def test_get_model_state_dict_ignore(use_composer_model: bool):
 #TODO add tests for sharded and for precision
 @pytest.mark.gpu
 @world_size(2)
+@pytest.mark.parametrize('tensor_type', ['sharded_tensor', 'dtensor'])
 @pytest.mark.parametrize('use_composer_model', [True, False])
-def test_get_model_state_dict_full_for_sharded_model(world_size, use_composer_model: bool):
+def test_get_model_state_dict_full_for_sharded_model(world_size, tensor_type, use_composer_model: bool):
     if use_composer_model:
         model = SimpleComposerMLP(num_features=16, device='cuda')
     else:
@@ -69,12 +71,12 @@ def test_get_model_state_dict_full_for_sharded_model(world_size, use_composer_mo
         sharded=False,
         cpu_offload=True,  # Set this to True, so that both state dicts will be on cpu
     )
-
+    device_mesh = init_device_mesh('cuda', (2,)) if tensor_type == 'dtensor' else None
     sharded_model = FSDP(
         model,
         use_orig_params=True,
-        sync_module_states=
-        True,  # We set this to enable easy comparison between rank 0 unsharded model and full state dict
+        sync_module_states=True,  # We set this to enable easy comparison between rank 0 unsharded model and full state dict
+        device_mesh=device_mesh,
     )
 
     post_shard_full_state_dict = get_model_state_dict(sharded_model, sharded=False)
@@ -85,8 +87,9 @@ def test_get_model_state_dict_full_for_sharded_model(world_size, use_composer_mo
 
 @pytest.mark.gpu
 @world_size(2)
+@pytest.mark.parametrize('tensor_type', ['sharded_tensor', 'dtensor'])
 @pytest.mark.parametrize('use_composer_model', [True, False])
-def test_get_model_state_dict_sharded(world_size, use_composer_model: bool):
+def test_get_model_state_dict_sharded(world_size, tensor_type, use_composer_model: bool):
     if use_composer_model:
         model = SimpleComposerMLP(num_features=16, device='cuda')
     else:
@@ -99,10 +102,13 @@ def test_get_model_state_dict_sharded(world_size, use_composer_model: bool):
         sharded=False,
         cpu_offload=True,  # Set this to True, so that both state dicts will be on cpu
     )
+
+    device_mesh = init_device_mesh('cuda', (2,)) if tensor_type == 'dtensor' else None
     sharded_model = FSDP(
         model,
         use_orig_params=True,
         sync_module_states=True,
+        device_mesh=device_mesh,
     )
 
     post_shard_sharded_sd = get_model_state_dict(sharded_model, sharded=True)
@@ -112,7 +118,10 @@ def test_get_model_state_dict_sharded(world_size, use_composer_model: bool):
     # 2. Gather each rank's state dicts
     # 3. Make a "reconstructed" full state dict by, for each key, concatenating all the tensor shards into one big tensor
     # 4. Compare this "reconstructed" full state dict to the original model's state dict to ensure they are the same.
-    local_tensor_sd = {n: p.local_tensor() for n, p in post_shard_sharded_sd.items()}
+    local_tensor_sd = {
+        n: (p.local_tensor() if tensor_type == 'sharded_tensor' else p.to_local())
+        for n, p in post_shard_sharded_sd.items()
+    }
     all_local_tensor_sd = dist.all_gather_object(local_tensor_sd)
     post_shard_reconstructed_full_sd = {
         n: torch.cat(
@@ -161,17 +170,22 @@ def test_get_model_state_dict_precision_unsharded_model(precision: str, use_comp
         torch.bfloat16,
     ],
 )
+@pytest.mark.parametrize('tensor_type', ['sharded_tensor', 'dtensor'])
 @pytest.mark.parametrize('use_composer_model', [True, False])
-def test_get_model_state_dict_precision_sharded_model(world_size, precision: str, use_composer_model: bool):
+def test_get_model_state_dict_precision_sharded_model(
+    world_size, tensor_type, precision: str, use_composer_model: bool
+):
     if use_composer_model:
         model = SimpleComposerMLP(num_features=8, device='cuda')
     else:
         model = EvenSimplerMLP(num_features=8, device='cuda')
 
+    device_mesh = init_device_mesh('cuda', (2,)) if tensor_type == 'dtensor' else None
     sharded_model = FSDP(
         model,
         use_orig_params=True,
         sync_module_states=True,
+        device_mesh=device_mesh,
     )
     model_state_dict = get_model_state_dict(
         sharded_model,
@@ -181,4 +195,5 @@ def test_get_model_state_dict_precision_sharded_model(world_size, precision: str
         ignore_keys=None,
     )
     for sharded_tens in model_state_dict.values():
-        assert sharded_tens.local_tensor().dtype == precision
+        local_tensor = sharded_tens.local_tensor() if tensor_type == 'sharded_tensor' else sharded_tens.to_local()
+        assert local_tensor.dtype == precision
