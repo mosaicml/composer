@@ -285,19 +285,29 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
 
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
-@pytest.mark.parametrize('autoresume', [True, False])
-@pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
-@pytest.mark.parametrize('load_monolith_rank0_only', [True, False])
+@pytest.mark.parametrize(
+    'optimizer,autoresume,precision,save_weights_only,load_weights_only,load_monolith_rank0_only',
+    [
+        ['adam', False, 'amp_bf16', False, False, False],
+        ['adamw', False, 'amp_bf16', False, False, False],
+        ['adam', True, 'amp_bf16', False, False, False],
+        ['adam', False, 'amp_fp16', False, False, False],
+        ['adam', False, 'amp_bf16', True, True, False],  # save_weights_only requires load_weights_only
+        ['adam', False, 'amp_bf16', False, True, False],
+        ['adam', False, 'amp_bf16', False, False, True],
+    ],
+)
 def test_fsdp_full_state_dict_load(
     world_size,
     tmp_path: pathlib.Path,
     autoresume: bool,
     precision: str,
     optimizer: str,
+
+    save_weights_only: bool,
+    load_weights_only: bool,
     load_monolith_rank0_only: bool,
 ):
-
     if autoresume:
         run_name = 'my-cool-autoresume-run'
     else:
@@ -315,6 +325,7 @@ def test_fsdp_full_state_dict_load(
         autoresume=autoresume,
         optimizer=optimizer,
         fsdp_config=fsdp_config,
+        save_weights_only=save_weights_only,
     )
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
@@ -330,6 +341,7 @@ def test_fsdp_full_state_dict_load(
         max_duration='4ba',
         optimizer=optimizer,
         fsdp_config=fsdp_config,
+        load_weights_only=load_weights_only,
     )
     state_dict_from_trainer2 = trainer2.state.state_dict()
 
@@ -338,10 +350,11 @@ def test_fsdp_full_state_dict_load(
             state_dict_from_trainer1,
             state_dict_from_trainer2,
         )
-        _compare_optims_between_state_dicts(
-            state_dict_from_trainer1,
-            state_dict_from_trainer2,
-        )
+        if not load_weights_only:
+            _compare_optims_between_state_dicts(
+                state_dict_from_trainer1,
+                state_dict_from_trainer2,
+            )
         _compare_metrics_between_state_dicts(
             state_dict_from_trainer1,
             state_dict_from_trainer2,
@@ -448,6 +461,9 @@ def test_fsdp_load_old_checkpoint(
 ):
     if composer_version == '0.18.1' and state_dict_type == 'full' and precision == 'amp_bf16' and sharding_strategy == 'FULL_SHARD':
         pytest.skip('TODO: This checkpoint is missing')
+
+    if composer_version in ['0.22.0'] and version.parse(torch.__version__) < version.parse('2.3.0'):
+        pytest.skip('Current torch version is older than torch version that checkpoint was written with.')
 
     if composer_version in ['0.13.5', '0.14.0', '0.14.1', '0.15.1']:
         rank = 0 if state_dict_type == 'full' else '{rank}'
@@ -669,7 +685,7 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
         expectation = pytest.raises(ValueError)
 
     def mock_get_checkpoint_validation_function():
-        return lambda _: is_valid_checkpoint
+        return lambda checkpoint_path, specs: is_valid_checkpoint
 
     tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
     save_folder = os.path.join(tmp_paths[0], 'checkpoints')

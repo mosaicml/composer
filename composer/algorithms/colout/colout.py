@@ -18,9 +18,8 @@ from torchvision.datasets import VisionDataset
 
 from composer.algorithms.utils.augmentation_common import image_as_type
 from composer.core import Algorithm, Event, State
-from composer.datasets.utils import add_vision_dataset_transform
 from composer.loggers import Logger
-from composer.utils import ensure_tuple
+from composer.utils import add_vision_dataset_transform, ensure_tuple
 
 log = logging.getLogger(__name__)
 

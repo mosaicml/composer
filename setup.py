@@ -139,7 +139,7 @@ extra_deps['dev'] = [
     'GitPython==3.1.43',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
-    'cryptography==41.0.5',
+    'cryptography==42.0.6',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
     'pillow==9.3.0',  # Matches the Pillow version listed in the Dockerfile
@@ -185,7 +185,7 @@ extra_deps['nlp'] = [
 ]
 
 extra_deps['peft'] = [
-    'peft>=0.7.0,<0.8',
+    'peft>=0.10.0,<0.11',
 ]
 
 extra_deps['sentencepiece'] = [
@@ -228,7 +228,7 @@ extra_deps['mlflow'] = [
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk==0.25.1']
+extra_deps['databricks'] = ['databricks-sdk==0.27.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 
