@@ -805,6 +805,14 @@ class State(Serializable):
             return None
 
     @property
+    def load_fsdp_monolith_rank0_only(self):
+        warnings.warn(
+            message='load_fsdp_monolith_rank0_only is deprecated. Use load_monolith_rank0_only instead.',
+            category=DeprecationWarning,
+        )
+        return self.load_monolith_rank0_only
+
+    @property
     def load_monolith_rank0_only(self):
         return (
             self.fsdp_config is not None and self.fsdp_auto_wrap and self.fsdp_config['state_dict_type'] == 'full' and
