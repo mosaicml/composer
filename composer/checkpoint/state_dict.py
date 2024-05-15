@@ -50,11 +50,11 @@ def get_model_state_dict(
     cpu_offload = cpu_offload if cpu_offload is not None else is_fsdp
 
     log.debug('Extracting model state dict')
-    if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
+    if version.parse(torch.__version__) >= version.parse('2.2.0') and dist.is_initialized():
         from torch.distributed.checkpoint.state_dict import StateDictOptions
-        from torch.distributed.checkpoint.state_dict import get_model_state_dict as dcp_get_model_state_dict
+        from torch.distributed.checkpoint.state_dict import get_model_state_dict as torch_get_model_state_dict
         
-        get_nonsharded_state_dict = not sharded
+        use_unsharded_state_dict = not sharded
 
         log.debug('Calling torch get_model_state_dict...')
         model_state_dict = torch_get_model_state_dict(
