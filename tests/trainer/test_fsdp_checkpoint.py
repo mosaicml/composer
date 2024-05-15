@@ -1193,20 +1193,23 @@ def test_fsdp_monolith_resumption(
     fsdp_config_dict['load_monolith_rank0_only'] = True
     fsdp_config = FSDPConfig(**fsdp_config_dict)
 
-    trainer_2 = get_trainer(
-        model_init_device=model_init_device,
-        save_folder=os.path.join(save_folder, 'second'),
-        save_filename=save_filename,
-        save_interval=save_interval,
-        fsdp_config=fsdp_config,
-        precision='amp_fp16',
-        max_duration='1ep',
-        load_path=resume_file,  # <-- resume training from file
-    )
-    trainer_2.fit()
-    trainer_2.close()
+    success = (sync_module_states == True)
 
-    _assert_checkpoints_equivalent(
-        save_folder / 'first' / final_checkpoint,
-        save_folder / 'second' / final_checkpoint,
-    )
+    with (does_not_raise if success else pytest.raises(ValueError)):
+        trainer_2 = get_trainer(
+            model_init_device=model_init_device,
+            save_folder=os.path.join(save_folder, 'second'),
+            save_filename=save_filename,
+            save_interval=save_interval,
+            fsdp_config=fsdp_config,
+            precision='amp_fp16',
+            max_duration='1ep',
+            load_path=resume_file,  # <-- resume training from file
+        )
+        trainer_2.fit()
+        trainer_2.close()
+
+        _assert_checkpoints_equivalent(
+            save_folder / 'first' / final_checkpoint,
+            save_folder / 'second' / final_checkpoint,
+        )
