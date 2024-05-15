@@ -30,6 +30,8 @@ from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader, Dataset
 from torchmetrics import Metric
 
+from composer.utils.warnings import VersionedDeprecationWarning
+
 if version.parse(torch.__version__) >= version.parse('2.3.0'):
     from torch.amp.grad_scaler import GradScaler  # type: ignore
 else:
@@ -807,8 +809,10 @@ class State(Serializable):
     @property
     def load_fsdp_monolith_rank0_only(self):
         warnings.warn(
-            message='load_fsdp_monolith_rank0_only is deprecated. Use load_monolith_rank0_only instead.',
-            category=DeprecationWarning,
+            VersionedDeprecationWarning(
+                'load_fsdp_monolith_rank0_only is deprecated. Use load_monolith_rank0_only instead.',
+                '0.24',
+            ),
         )
         return self.load_monolith_rank0_only
 
