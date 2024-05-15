@@ -12,7 +12,7 @@ from composer import Time
 from composer.core.time import TimeUnit
 
 
-def deep_compare(item1: Any, item2: Any, atol: float = 0.0, rtol: float = 0.0, device_check: bool = True):
+def deep_compare(item1: Any, item2: Any, atol: float = 0.0, rtol: float = 0.0):
     """Compare two items recursively. Supports dicts, lists, tuples, tensors, numpy arrays, Composer Time objects, and callables.
 
     Args:
@@ -23,10 +23,10 @@ def deep_compare(item1: Any, item2: Any, atol: float = 0.0, rtol: float = 0.0, d
         device_check (bool): Whether to compare the device of torch tensors. If False
             it will cast both items to cpu (default: True).
     """
-    return _check_item(item1, item2, path='', atol=atol, rtol=rtol, device_check=device_check)
+    return _check_item(item1, item2, path='', atol=atol, rtol=rtol)
 
 
-def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: float = 0.0, device_check: bool = True):
+def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: float = 0.0):
     if item1 is None:
         assert item2 is None, f'{path} differs: {item1} != {item2}'
         return
@@ -36,9 +36,9 @@ def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: floa
         return
     if isinstance(item1, torch.Tensor):
         assert isinstance(item2, torch.Tensor)
-
-        item1 = item1.cpu()
-        item2 = item2.cpu()
+        if item1.device != item2.device:
+            item1 = item1.cpu()
+            item2 = item2.cpu()
         assert item1.allclose(item2, rtol=rtol, atol=atol), f'{path} differs'
         return
     if isinstance(item1, np.ndarray):

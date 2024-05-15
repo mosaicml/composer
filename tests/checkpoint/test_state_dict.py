@@ -93,7 +93,7 @@ def test_get_model_state_dict_full_for_sharded_model(world_size, tensor_type, us
     post_shard_full_state_dict = get_model_state_dict(sharded_model, sharded_state_dict=False)
 
     if dist.get_global_rank() == 0:
-        deep_compare(pre_shard_state_dict, post_shard_full_state_dict, device_check=False)
+        deep_compare(pre_shard_state_dict, post_shard_full_state_dict)
 
 
 @pytest.mark.gpu
@@ -150,7 +150,7 @@ def test_get_model_state_dict_sharded(world_size, tensor_type, use_composer_mode
         ) for n in pre_shard_full_state_dict.keys()
     }
     if dist.get_global_rank() == 0:
-        deep_compare(pre_shard_full_state_dict, post_shard_reconstructed_full_sd, device_check=False)
+        deep_compare(pre_shard_full_state_dict, post_shard_reconstructed_full_sd)
 
 
 @world_size(2)
