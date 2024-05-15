@@ -25,7 +25,7 @@ def get_gcs_os_from_trainer(trainer: Trainer) -> GCSObjectStore:
 
 @pytest.mark.gpu  # json auth is hard to set up on github actions / CPU tests
 @pytest.mark.remote
-def test_gs_object_store_integration_json_auth(expected_use_gcs_sdk_val=True, client_should_be_none=False):
+def test_gs_object_store_integration_hmac_auth(expected_use_gcs_sdk_val=False, client_should_be_none=True):
     model = SimpleModel()
     train_dataset = RandomClassificationDataset()
     train_dataloader = DataLoader(dataset=train_dataset)
@@ -63,20 +63,27 @@ def test_gs_object_store_integration_json_auth(expected_use_gcs_sdk_val=True, cl
 
 @pytest.mark.gpu
 @pytest.mark.remote
-def test_gs_object_store_integration_hmac_auth():
+def test_gs_object_store_integration_json_auth():
     with mock.patch.dict(os.environ):
-        if 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ:
-            del os.environ['GOOGLE_APPLICATION_CREDENTIALS']
-        test_gs_object_store_integration_json_auth(expected_use_gcs_sdk_val=False, client_should_be_none=True)
+        if 'GCS_KEY' in os.environ:
+            del os.environ['GCS_KEY']
+        if 'GCS_SECRET' in os.environ:
+            del os.environ['GCS_SECRET']
+        test_gs_object_store_integration_hmac_auth(expected_use_gcs_sdk_val=True, client_should_be_none=False)
 
 
 @pytest.fixture
 def gs_object_store(monkeypatch):
+    from google import auth  # type: ignore
     from google.cloud.storage import Client
-    with mock.patch.dict(os.environ, {'GOOGLE_APPLICATION_CREDENTIALS': 'FAKE_CREDENTIAL'}):
-        mock_client = mock.MagicMock()
-        with mock.patch.object(Client, 'from_service_account_json', return_value=mock_client):
-            yield GCSObjectStore(bucket='test-bucket', prefix='test-prefix')
+    monkeypatch.delenv('GCS_KEY', raising=False)
+    monkeypatch.delenv('GCS_SECRET', raising=False)
+    with mock.patch.object(auth, 'default', return_value=(None, None)):
+        with mock.patch.object(Client, '__init__', return_value=None):
+            with mock.patch.object(Client, 'get_bucket', return_value=mock.MagicMock()):
+                gcs_object_store = GCSObjectStore(bucket='test-bucket', prefix='test-prefix')
+                gcs_object_store.client = mock.MagicMock()
+                yield gcs_object_store
 
 
 def test_get_uri(gs_object_store):
@@ -111,7 +118,8 @@ def test_upload_object(gs_object_store, monkeypatch):
 
     gs_object_store.upload_object(destination_blob_name, source_file_name)
 
-    mock_blob.upload_from_filename.assert_called_with(source_file_name)
+    from google.cloud.storage.retry import DEFAULT_RETRY
+    mock_blob.upload_from_filename.assert_called_with(source_file_name, retry=DEFAULT_RETRY)
     assert mock_blob.upload_from_filename.call_count == 1
 
 
