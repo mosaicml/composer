@@ -303,7 +303,6 @@ def test_fsdp_full_state_dict_load(
     autoresume: bool,
     precision: str,
     optimizer: str,
-
     save_weights_only: bool,
     load_weights_only: bool,
     load_monolith_rank0_only: bool,
