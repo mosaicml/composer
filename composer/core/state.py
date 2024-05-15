@@ -808,7 +808,7 @@ class State(Serializable):
     def load_fsdp_monolith_rank0_only(self):
         return (
             self.fsdp_config is not None and self.fsdp_auto_wrap and self.fsdp_config['state_dict_type'] == 'full' and
-            self.fsdp_config['load_monolith_rank0_only'] == True
+            self.fsdp_config['load_fsdp_monolith_rank0_only'] == True
         )
 
     def _get_integrations_state_dict(self) -> Dict[str, Any]:
