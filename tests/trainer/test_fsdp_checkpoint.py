@@ -286,7 +286,6 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
 
 @pytest.mark.gpu
 @world_size(2)
-<<<<<<< HEAD
 @pytest.mark.parametrize(
     'optimizer,autoresume,precision,save_weights_only,load_weights_only,load_monolith_rank0_only',
     [
@@ -299,25 +298,15 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
         ['adam', False, 'amp_bf16', False, False, True],
     ],
 )
-=======
-@pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
-@pytest.mark.parametrize('autoresume', [True, False])
-@pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
-@pytest.mark.parametrize('load_monolith_rank0_only', [True, False])
->>>>>>> milo/fsdp
 def test_fsdp_full_state_dict_load(
     world_size,
     tmp_path: pathlib.Path,
     autoresume: bool,
     precision: str,
     optimizer: str,
-<<<<<<< HEAD
     save_weights_only: bool,
     load_weights_only: bool,
     load_monolith_rank0_only: bool,
-=======
-    load_monolith_rank0_only: bool,
->>>>>>> milo/fsdp
 ):
     if autoresume:
         run_name = 'my-cool-autoresume-run'
@@ -336,7 +325,6 @@ def test_fsdp_full_state_dict_load(
         autoresume=autoresume,
         optimizer=optimizer,
         fsdp_config=fsdp_config,
-        save_weights_only=save_weights_only,
     )
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
