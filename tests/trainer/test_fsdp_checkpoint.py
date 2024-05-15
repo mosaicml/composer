@@ -1195,7 +1195,7 @@ def test_fsdp_monolith_resumption(
 
     success = (sync_module_states == True)
 
-    with (does_not_raise if success else pytest.raises(ValueError)):
+    with (does_not_raise() if success else pytest.raises(ValueError)):
         trainer_2 = get_trainer(
             model_init_device=model_init_device,
             save_folder=os.path.join(save_folder, 'second'),
