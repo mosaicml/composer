@@ -21,7 +21,7 @@ log = logging.getLogger(__name__)
 
 def get_model_state_dict(
     model: Union[ComposerModel, nn.Module],
-    sharded: bool,
+    sharded_state_dict: bool,
     precision: Union[str, torch.dtype] = 'fp32',
     include_keys: Optional[Union[str, Sequence[str]]] = None,
     ignore_keys: Optional[Union[str, Sequence[str]]] = None,
@@ -31,7 +31,7 @@ def get_model_state_dict(
 
     Args:
         model: The model to get the state dict from.
-        sharded: Whether the model state dict should be sharded or not. If True, every rank returns the state dict of its shards.
+        sharded_state_dict: Whether the model state dict should be sharded or not. If True, every rank returns the state dict of its shards.
             If False, then rank 0 returns the state dict of the entire model.
         precision: The precision of the model. Can be specified as a string ('fp32', 'fp16', 'bf16') or a torch.dtype.
         include_keys: The list of keys to exclusively include in the state dict. If None, all keys are included. Both include_keys and ignore_keys cannot be non-None.
@@ -45,16 +45,16 @@ def get_model_state_dict(
         raise ValueError('Both include_keys and ignore_keys cannot be non-None.')
 
     is_fsdp = _is_model_fsdp(model)
-    if not is_fsdp and sharded:
+    if not is_fsdp and sharded_state_dict:
         raise ValueError('Sharded state dict can only be generated for FSDP models.')
-    cpu_offload = cpu_offload if cpu_offload is not None else is_fsdp
+    cpu_offload = cpu_offload if cpu_offload is not None else (is_fsdp and not sharded_state_dict)
 
     log.debug('Extracting model state dict')
     if version.parse(torch.__version__) >= version.parse('2.2.0') and dist.is_initialized():
         from torch.distributed.checkpoint.state_dict import StateDictOptions
         from torch.distributed.checkpoint.state_dict import get_model_state_dict as torch_get_model_state_dict
-        
-        use_unsharded_state_dict = not sharded
+
+        use_unsharded_state_dict = not sharded_state_dict
 
         log.debug('Calling torch get_model_state_dict...')
         model_state_dict = torch_get_model_state_dict(
@@ -68,7 +68,7 @@ def get_model_state_dict(
     else:
         if is_fsdp:
             log.debug('Calling legacy FSDP context manager to get model state dict...')
-            model_state_dict = _get_model_state_dict_with_fsdp_context_manager(model, sharded)
+            model_state_dict = _get_model_state_dict_with_fsdp_context_manager(model, sharded_state_dict, cpu_offload)
         else:
             log.debug('Calling model.state_dict() for non-FSDP model...')
             model_state_dict = model.state_dict()
@@ -133,7 +133,8 @@ def _is_model_fsdp(model) -> bool:
     return False
 
 
-def _get_model_state_dict_with_fsdp_context_manager(model: nn.Module, sharded: bool) -> Dict[str, Any]:
+def _get_model_state_dict_with_fsdp_context_manager(model: nn.Module, sharded_state_dict: bool,
+                                                    cpu_offload: bool) -> Dict[str, Any]:
     """Get the model state dict with the FSDP context manager.
 
     Args:
@@ -149,11 +150,12 @@ def _get_model_state_dict_with_fsdp_context_manager(model: nn.Module, sharded: b
         ShardedStateDictConfig,
         StateDictType,
     )
-    state_dict_type = StateDictType.SHARDED_STATE_DICT if sharded else StateDictType.FULL_STATE_DICT
-    state_dict_config = ShardedStateDictConfig(offload_to_cpu=True,) if sharded else FullStateDictConfig(
-        rank0_only=True,
-        offload_to_cpu=True,
-    )
+    state_dict_type = StateDictType.SHARDED_STATE_DICT if sharded_state_dict else StateDictType.FULL_STATE_DICT
+    state_dict_config = ShardedStateDictConfig(offload_to_cpu=cpu_offload,
+                                              ) if sharded_state_dict else FullStateDictConfig(
+                                                  rank0_only=True,
+                                                  offload_to_cpu=cpu_offload,
+                                              )
     with FSDP.state_dict_type(model, state_dict_type=state_dict_type, state_dict_config=state_dict_config):
         model_state_dict = model.state_dict()
     return model_state_dict

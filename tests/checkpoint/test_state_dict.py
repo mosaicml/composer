@@ -3,7 +3,7 @@
 
 import pytest
 import torch
-from torch.distributed.device_mesh import init_device_mesh
+from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 from composer.checkpoint import get_model_state_dict
@@ -20,7 +20,7 @@ def test_get_model_state_dict_unsharded_model(use_composer_model: bool):
         model = SimpleComposerMLP(num_features=8, device='cuda')
     else:
         model = EvenSimplerMLP(num_features=8, device='cuda')
-    model_state_dict = get_model_state_dict(model, sharded=False, include_keys=None, ignore_keys=None)
+    model_state_dict = get_model_state_dict(model, sharded_state_dict=False, include_keys=None, ignore_keys=None)
     for name, param in model.named_parameters():
         print(name)
         assert name in model_state_dict
@@ -34,10 +34,10 @@ def test_get_model_state_dict_include(use_composer_model: bool):
         model = SimpleComposerMLP(num_features=8, device='cuda')
     else:
         model = EvenSimplerMLP(num_features=8, device='cuda')
-    model_state_dict = get_model_state_dict(model, sharded=False, include_keys=['module.0.weight'])
+    model_state_dict = get_model_state_dict(model, sharded_state_dict=False, include_keys=['module.0.weight'])
     assert set(model_state_dict.keys()) == {'module.0.weight'}
 
-    model_state_dict = get_model_state_dict(model, sharded=False, include_keys='module.2*')
+    model_state_dict = get_model_state_dict(model, sharded_state_dict=False, include_keys='module.2*')
     assert set(model_state_dict.keys()) == {'module.2.weight'}
 
 
@@ -49,10 +49,10 @@ def test_get_model_state_dict_ignore(use_composer_model: bool):
     else:
         model = EvenSimplerMLP(num_features=8, device='cuda')
 
-    model_state_dict = get_model_state_dict(model, sharded=False, ignore_keys='module.2.weight')
+    model_state_dict = get_model_state_dict(model, sharded_state_dict=False, ignore_keys='module.2.weight')
     assert set(model_state_dict.keys()) == {'module.0.weight'}
 
-    model_state_dict = get_model_state_dict(model, sharded=False, ignore_keys=['module.2*'])
+    model_state_dict = get_model_state_dict(model, sharded_state_dict=False, ignore_keys=['module.2*'])
     assert set(model_state_dict.keys()) == {'module.0.weight'}
 
 
@@ -62,6 +62,8 @@ def test_get_model_state_dict_ignore(use_composer_model: bool):
 @pytest.mark.parametrize('tensor_type', ['sharded_tensor', 'dtensor'])
 @pytest.mark.parametrize('use_composer_model', [True, False])
 def test_get_model_state_dict_full_for_sharded_model(world_size, tensor_type, use_composer_model: bool):
+    if tensor_type == 'dtensor' and version.parse(torch.__version__) < version.parse('2.2.0'):
+        pytest.skip('DTensor is only supported in PyTorch >= 2.2.0')
     if use_composer_model:
         model = SimpleComposerMLP(num_features=16, device='cuda')
     else:
@@ -71,21 +73,27 @@ def test_get_model_state_dict_full_for_sharded_model(world_size, tensor_type, us
     # before fsdp wrapping in order to keep pre-sharding shapes.
     pre_shard_state_dict = get_model_state_dict(
         model,
-        sharded=False,
-        cpu_offload=True,  # Set this to True, so that both state dicts will be on cpu
+        sharded_state_dict=False,
     )
-    device_mesh = init_device_mesh('cuda', (2,)) if tensor_type == 'dtensor' else None
+    fsdp_kwargs = dict(
+        use_orig_params=True,
+        sync_module_states=True,  # To enable easy comparison between rank 0 unsharded model and full state dict
+    )
+
+    if tensor_type == 'dtensor':
+        from torch.distributed.device_mesh import init_device_mesh
+        device_mesh = init_device_mesh('cuda', (2,))
+        fsdp_kwargs.update(device_mesh=device_mesh)
+
     sharded_model = FSDP(
         model,
-        use_orig_params=True,
-        sync_module_states=True,  # We set this to enable easy comparison between rank 0 unsharded model and full state dict
-        device_mesh=device_mesh,
+        **fsdp_kwargs,
     )
 
-    post_shard_full_state_dict = get_model_state_dict(sharded_model, sharded=False)
+    post_shard_full_state_dict = get_model_state_dict(sharded_model, sharded_state_dict=False)
 
     if dist.get_global_rank() == 0:
-        deep_compare(pre_shard_state_dict, post_shard_full_state_dict)
+        deep_compare(pre_shard_state_dict, post_shard_full_state_dict, device_check=False)
 
 
 @pytest.mark.gpu
@@ -93,6 +101,9 @@ def test_get_model_state_dict_full_for_sharded_model(world_size, tensor_type, us
 @pytest.mark.parametrize('tensor_type', ['sharded_tensor', 'dtensor'])
 @pytest.mark.parametrize('use_composer_model', [True, False])
 def test_get_model_state_dict_sharded(world_size, tensor_type, use_composer_model: bool):
+    if tensor_type == 'dtensor' and version.parse(torch.__version__) < version.parse('2.2.0'):
+        pytest.skip('DTensor is only supported in PyTorch >= 2.2.0')
+
     if use_composer_model:
         model = SimpleComposerMLP(num_features=16, device='cuda')
     else:
@@ -102,19 +113,25 @@ def test_get_model_state_dict_sharded(world_size, tensor_type, use_composer_mode
     # before fsdp wrapping in order to keep pre-sharding shapes.
     pre_shard_full_state_dict = get_model_state_dict(
         model,
-        sharded=False,
-        cpu_offload=True,  # Set this to True, so that both state dicts will be on cpu
+        sharded_state_dict=False,
     )
 
-    device_mesh = init_device_mesh('cuda', (2,)) if tensor_type == 'dtensor' else None
+    fsdp_kwargs = dict(
+        use_orig_params=True,
+        sync_module_states=True,  # To enable easy comparison between rank 0 unsharded model and full state dict
+    )
+
+    if tensor_type == 'dtensor':
+        from torch.distributed.device_mesh import init_device_mesh
+        device_mesh = init_device_mesh('cuda', (2,))
+        fsdp_kwargs.update(device_mesh=device_mesh)
+
     sharded_model = FSDP(
         model,
-        use_orig_params=True,
-        sync_module_states=True,
-        device_mesh=device_mesh,
+        **fsdp_kwargs,
     )
 
-    post_shard_sharded_sd = get_model_state_dict(sharded_model, sharded=True)
+    post_shard_sharded_sd = get_model_state_dict(sharded_model, sharded_state_dict=True)
 
     # In order to test if the sharded state dict is correct we go through this process:
     # 1. Transform the each rank's state dict's values by extracting the the local tensor from the ShardedTensor object
@@ -128,12 +145,64 @@ def test_get_model_state_dict_sharded(world_size, tensor_type, use_composer_mode
     all_local_tensor_sd = dist.all_gather_object(local_tensor_sd)
     post_shard_reconstructed_full_sd = {
         n: torch.cat(
-            [sd[n] for sd in all_local_tensor_sd],
+            [sd[n].cuda() for sd in all_local_tensor_sd],
             dim=0,  # dim=0 because fsdp shards each tensor on the 0th dimension
         ) for n in pre_shard_full_state_dict.keys()
     }
     if dist.get_global_rank() == 0:
-        deep_compare(pre_shard_full_state_dict, post_shard_reconstructed_full_sd)
+        deep_compare(pre_shard_full_state_dict, post_shard_reconstructed_full_sd, device_check=False)
+
+
+@world_size(2)
+@pytest.mark.gpu
+@pytest.mark.parametrize(
+    'precision',
+    [
+        torch.float32,
+        torch.float16,
+        torch.bfloat16,
+    ],
+)
+@pytest.mark.parametrize('tensor_type', ['sharded_tensor', 'dtensor'])
+@pytest.mark.parametrize('use_composer_model', [True, False])
+def test_get_model_state_dict_precision_sharded_model(
+    world_size,
+    tensor_type,
+    precision: str,
+    use_composer_model: bool,
+):
+    if tensor_type == 'dtensor' and version.parse(torch.__version__) < version.parse('2.2.0'):
+        pytest.skip('DTensor is only supported in PyTorch >= 2.2.0')
+    if use_composer_model:
+        model = SimpleComposerMLP(num_features=8, device='cuda')
+    else:
+        model = EvenSimplerMLP(num_features=8, device='cuda')
+
+    fsdp_kwargs = dict(
+        use_orig_params=True,
+        sync_module_states=True,  # To enable easy comparison between rank 0 unsharded model and full state dict
+    )
+
+    if tensor_type == 'dtensor':
+        from torch.distributed.device_mesh import init_device_mesh
+        device_mesh = init_device_mesh('cuda', (2,))
+        fsdp_kwargs.update(device_mesh=device_mesh)
+
+    sharded_model = FSDP(
+        model,
+        **fsdp_kwargs,
+    )
+
+    model_state_dict = get_model_state_dict(
+        sharded_model,
+        precision=precision,
+        sharded_state_dict=True,
+        include_keys=None,
+        ignore_keys=None,
+    )
+    for sharded_tens in model_state_dict.values():
+        local_tensor = sharded_tens.local_tensor() if tensor_type == 'sharded_tensor' else sharded_tens.to_local()
+        assert local_tensor.dtype == precision
 
 
 # TODO test precision
@@ -155,48 +224,9 @@ def test_get_model_state_dict_precision_unsharded_model(precision: str, use_comp
     model_state_dict = get_model_state_dict(
         model,
         precision=precision,
-        sharded=False,
+        sharded_state_dict=False,
         include_keys=None,
         ignore_keys=None,
     )
     for tens in model_state_dict.values():
         assert tens.dtype == precision
-
-
-@world_size(2)
-@pytest.mark.gpu
-@pytest.mark.parametrize(
-    'precision',
-    [
-        torch.float32,
-        torch.float16,
-        torch.bfloat16,
-    ],
-)
-@pytest.mark.parametrize('tensor_type', ['sharded_tensor', 'dtensor'])
-@pytest.mark.parametrize('use_composer_model', [True, False])
-def test_get_model_state_dict_precision_sharded_model(
-    world_size, tensor_type, precision: str, use_composer_model: bool
-):
-    if use_composer_model:
-        model = SimpleComposerMLP(num_features=8, device='cuda')
-    else:
-        model = EvenSimplerMLP(num_features=8, device='cuda')
-
-    device_mesh = init_device_mesh('cuda', (2,)) if tensor_type == 'dtensor' else None
-    sharded_model = FSDP(
-        model,
-        use_orig_params=True,
-        sync_module_states=True,
-        device_mesh=device_mesh,
-    )
-    model_state_dict = get_model_state_dict(
-        sharded_model,
-        precision=precision,
-        sharded=True,
-        include_keys=None,
-        ignore_keys=None,
-    )
-    for sharded_tens in model_state_dict.values():
-        local_tensor = sharded_tens.local_tensor() if tensor_type == 'sharded_tensor' else sharded_tens.to_local()
-        assert local_tensor.dtype == precision
