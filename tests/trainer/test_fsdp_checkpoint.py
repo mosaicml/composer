@@ -1141,16 +1141,8 @@ def test_fsdp_planner(
         pytest.param('gpu', marks=pytest.mark.gpu),
     ],
 )
-@pytest.mark.parametrize(
-    'use_orig_params,sync_module_states,model_1_init_device,model_2_init_device',
-    [
-        pytest.param(False, True, 'cpu', 'cpu'),  # success
-        pytest.param(False, True, 'cpu', 'meta'),  # success
-        pytest.param(True, True, 'cpu', 'cpu'),  # fail
-        pytest.param(False, False, 'cpu', 'cpu'),  # fail
-        pytest.param(False, True, 'meta', 'cpu'),  # fail
-    ],
-)
+@pytest.mark.parametrize('use_orig_params', [True, False])
+@pytest.mark.parametrize('sync_module_states', [True, False])
 @pytest.mark.filterwarnings('ignore:An unexpected prefix is detected. This case.*')
 @pytest.mark.filterwarnings(
     'ignore:``FullyShardedDataParallel.scatter_full_optim_state_dict``is being deprecated and is replaced by.*',
@@ -1160,8 +1152,6 @@ def test_fsdp_monolith_resumption(
     world_size: int,
     use_orig_params: bool,
     sync_module_states: bool,
-    model_1_init_device: str,
-    model_2_init_device: str,
     tmp_path: pathlib.Path,
 ):
     save_interval = '1ba'
@@ -1199,27 +1189,25 @@ def test_fsdp_monolith_resumption(
     )
 
     resume_file = os.path.join(save_folder, 'first', resume_file)
-    model_init_device = [model_1_init_device, model_2_init_device][dist.get_global_rank()]
+    model_init_device = 'cpu'
     fsdp_config_dict = dataclasses.asdict(fsdp_config)
     fsdp_config_dict['load_fsdp_monolith_rank0_only'] = True
     fsdp_config = FSDPConfig(**fsdp_config_dict)
 
-    success = sync_module_states == True and model_1_init_device == 'cpu'
-    with contextlib.nullcontext() if success else pytest.raises(ValueError):
-        trainer_2 = get_trainer(
-            model_init_device=model_init_device,
-            save_folder=os.path.join(save_folder, 'second'),
-            save_filename=save_filename,
-            save_interval=save_interval,
-            fsdp_config=fsdp_config,
-            precision='amp_fp16',
-            max_duration='1ep',
-            load_path=resume_file,  # <-- resume training from file
-        )
-        trainer_2.fit()
-        trainer_2.close()
+    trainer_2 = get_trainer(
+        model_init_device=model_init_device,
+        save_folder=os.path.join(save_folder, 'second'),
+        save_filename=save_filename,
+        save_interval=save_interval,
+        fsdp_config=fsdp_config,
+        precision='amp_fp16',
+        max_duration='1ep',
+        load_path=resume_file,  # <-- resume training from file
+    )
+    trainer_2.fit()
+    trainer_2.close()
 
-        _assert_checkpoints_equivalent(
-            save_folder / 'first' / final_checkpoint,
-            save_folder / 'second' / final_checkpoint,
-        )
+    _assert_checkpoints_equivalent(
+        save_folder / 'first' / final_checkpoint,
+        save_folder / 'second' / final_checkpoint,
+    )
