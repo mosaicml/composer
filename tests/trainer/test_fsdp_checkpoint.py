@@ -85,7 +85,7 @@ class FSDPConfig:
     sharded_ckpt_prefix_dir: str = 'ba{batch}'
     sync_module_states: bool = True
     use_orig_params: bool = False
-    load_fsdp_monolith_rank0_only: bool = False
+    load_monolith_rank0_only: bool = False
     save_planner: Optional[Any] = None
     load_planner: Optional[Any] = None
 
@@ -286,8 +286,9 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
 
 @pytest.mark.gpu
 @world_size(2)
+<<<<<<< HEAD
 @pytest.mark.parametrize(
-    'optimizer,autoresume,precision,save_weights_only,load_weights_only,load_fsdp_monolith_rank0_only',
+    'optimizer,autoresume,precision,save_weights_only,load_weights_only,load_monolith_rank0_only',
     [
         ['adam', False, 'amp_bf16', False, False, False],
         ['adamw', False, 'amp_bf16', False, False, False],
@@ -298,15 +299,25 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
         ['adam', False, 'amp_bf16', False, False, True],
     ],
 )
+=======
+@pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
+@pytest.mark.parametrize('autoresume', [True, False])
+@pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
+@pytest.mark.parametrize('load_monolith_rank0_only', [True, False])
+>>>>>>> milo/fsdp
 def test_fsdp_full_state_dict_load(
     world_size,
     tmp_path: pathlib.Path,
     autoresume: bool,
     precision: str,
     optimizer: str,
+<<<<<<< HEAD
     save_weights_only: bool,
     load_weights_only: bool,
-    load_fsdp_monolith_rank0_only: bool,
+    load_monolith_rank0_only: bool,
+=======
+    load_monolith_rank0_only: bool,
+>>>>>>> milo/fsdp
 ):
     if autoresume:
         run_name = 'my-cool-autoresume-run'
@@ -315,7 +326,7 @@ def test_fsdp_full_state_dict_load(
     save_folder = tmp_path
     save_filename = 'rank{rank}.pt'
 
-    fsdp_config = FSDPConfig(load_fsdp_monolith_rank0_only=load_fsdp_monolith_rank0_only)
+    fsdp_config = FSDPConfig(load_monolith_rank0_only=load_monolith_rank0_only)
 
     trainer1 = get_trainer(
         save_folder=str(save_folder),
@@ -1191,7 +1202,7 @@ def test_fsdp_monolith_resumption(
     resume_file = os.path.join(save_folder, 'first', resume_file)
     model_init_device = 'cpu'
     fsdp_config_dict = dataclasses.asdict(fsdp_config)
-    fsdp_config_dict['load_fsdp_monolith_rank0_only'] = True
+    fsdp_config_dict['load_monolith_rank0_only'] = True
     fsdp_config = FSDPConfig(**fsdp_config_dict)
 
     trainer_2 = get_trainer(
