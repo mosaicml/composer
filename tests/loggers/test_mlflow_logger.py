@@ -416,6 +416,7 @@ def test_mlflow_save_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
 
 @pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
 @pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
+@pytest.mark.filterwarnings("ignore:.*Could not find a config file.*:UserWarning")
 def test_mlflow_save_peft_model(tmp_path, tiny_mpt_model, tiny_mpt_tokenizer):
     mlflow = pytest.importorskip('mlflow')
     peft = pytest.importorskip('peft')
