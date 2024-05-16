@@ -21,12 +21,9 @@ from tests.common import (
 @pytest.mark.filterwarnings('ignore:FSDP is switching to use `NO_SHARD`.*:UserWarning')
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
 def test_tp_train(world_size: int):
-    from torch.distributed.tensor.parallel import (
+    from torch.distributed.tensor.parallel import (  # PrepareModuleInput,; SequenceParallel,; parallelize_module,
         ColwiseParallel,
-        # PrepareModuleInput,
         RowwiseParallel,
-        # SequenceParallel,
-        # parallelize_module,
     )
 
     model = SimpleModel()
