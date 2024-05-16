@@ -87,6 +87,7 @@ jobs:
       uses: docker/build-push-action@v3
       with:
         context: ${{ inputs.context }}
+        platforms: linux/amd64,linux/arm64
         tags: ${{ env.IMAGE_TAG }}
         target: ${{ inputs.target }}
         push: ${{ inputs.push }}
