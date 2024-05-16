@@ -630,7 +630,11 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
                     fqn_obj_names.append(curr_obj_name)
             else:
                 fqn_obj_names.append(curr_obj_name)
-                curr_obj = getattr(curr_obj, curr_obj_name)
+                if curr_obj_name == nn.modules.module._EXTRA_STATE_KEY_SUFFIX:
+                    if i != len(obj_names) - 1:
+                        raise RuntimeError("Expect `_extra_state` to be the last obj name")
+                else:
+                    curr_obj = getattr(curr_obj, curr_obj_name)
 
         return {'.'.join(fqn_obj_names).replace(_CHECKPOINT_PREFIX, '')}
 
