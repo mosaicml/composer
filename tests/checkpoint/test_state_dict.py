@@ -1,9 +1,10 @@
 # Copyright 2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Any, Dict
+
 import pytest
 import torch
-from typing import Dict, Any
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
