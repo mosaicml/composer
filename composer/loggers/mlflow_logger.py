@@ -488,7 +488,7 @@ class MLFlowLogger(LoggerDestination):
                 )
 
     def post_close(self):
-        log.info('Closing MLFlowLogger, run_id: %s', self._run_id)
+        log.info('Closing MLFlowLogger, run_id: %s enabled: %s', self._run_id, self._enabled)
 
         if self._enabled and self._run_id is not None:
             import mlflow
@@ -499,6 +499,8 @@ class MLFlowLogger(LoggerDestination):
                 status = 'FINISHED'
             else:
                 status = 'FAILED'
+
+            log.info('Closing MLFlowLogger with status: %s', status)
 
             mlflow.flush_async_logging()
 
