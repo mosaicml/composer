@@ -212,10 +212,16 @@ ENV PYTORCH_NIGHTLY_URL=${PYTORCH_NIGHTLY_URL}
 ENV PYTORCH_NIGHTLY_VERSION=${PYTORCH_NIGHTLY_VERSION}
 
 RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
-      CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
-        pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
-            torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
-            torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} ; \
+        if [ "$TARGETARCH" = "amd64" ]; then \
+        CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
+            pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
+                torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
+                torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} ; \
+        else \
+            CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
+            pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/cpu/fbgemm_gpu-0.5.0%2Bcpu-cp310-cp310-manylinux2014_aarch64.whl \
+                torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
+                torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} ; \
     else \
         pip${PYTHON_VERSION} install --no-cache-dir --pre --index-url ${PYTORCH_NIGHTLY_URL} \
             torch==${PYTORCH_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
