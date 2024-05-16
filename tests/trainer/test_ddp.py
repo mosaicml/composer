@@ -171,7 +171,7 @@ def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path
                 'activation_checkpointing': False,
                 'activation_cpu_offload': False,
                 'verbose': False,
-            }
+            },
         }
 
     max_epochs = 2

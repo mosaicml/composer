@@ -118,7 +118,7 @@ class TestEventCalls:
                     'activation_checkpointing': False,
                     'activation_ocpu_offload': False,
                     'verbose': False,
-                }
+                },
             }
 
         trainer = self.get_trainer(

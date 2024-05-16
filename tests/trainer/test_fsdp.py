@@ -67,7 +67,7 @@ def test_fsdp_device_initialization(
                 'activation_checkpointing_reentrant': reentrant,
                 'mixed_precision': mixed_precision,
                 'sync_module_states': True if device == 'mixed' else False,
-            }
+            },
         },
         max_duration='3ba',
     )
@@ -134,7 +134,7 @@ def test_fsdp_inits_params_once(model: ComposerClassifier, device: str, world_si
                 'mixed_precision': 'PURE',
                 'sharding_strategy': 'SHARD_GRAD_OP',
                 'sync_module_states': True if device == 'mixed' else False,
-            }
+            },
         },
         max_duration='3ba',
     )
@@ -200,7 +200,7 @@ def test_fsdp_prefetch_limit(forward_prefetch_limit: int, backward_prefetch_limi
             'fsdp': {
                 'forward_prefetch_limit': forward_prefetch_limit,
                 'backward_prefetch_limit': backward_prefetch_limit,
-            }
+            },
         },
         max_duration='3ba',
     )
@@ -227,7 +227,7 @@ def test_fsdp_process_group(world_size: int):
         parallelism_config={
             'fsdp': {
                 'process_group': 'mod1',  # all ranks
-            }
+            },
         },
         max_duration='3ba',
     )
@@ -253,7 +253,7 @@ def test_wrong_size_device_mesh_error(world_size: int, sharding_strategy: str, r
         'fsdp': {
             'sharding_strategy': sharding_strategy,
             'data_parallel_shard_degree': 2,
-        }
+        },
     }
     if replicate_degree is not None:
         parallelism_config['fsdp']['data_parallel_replicate_degree'] = replicate_degree
@@ -298,7 +298,7 @@ def test_fsdp_act_ckpt_offload(
             'activation_checkpointing': activation_checkpointing,
             'activation_checkpointing_reentrant': False,
             'activation_cpu_offload': activation_cpu_offload,
-        }
+        },
     }
 
     model.fc1._activation_checkpointing = True  # pyright: ignore[reportGeneralTypeIssues]

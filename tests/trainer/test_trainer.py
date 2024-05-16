@@ -673,7 +673,7 @@ class TestTrainerInitOrFit:
                 'activation_checkpointing': False,
                 'activation_cpu_offload': False,
                 'verbose': False,
-            }
+            },
         }
 
         # Need to catch the case where we try to train
@@ -717,7 +717,7 @@ class TestTrainerInitOrFit:
                 'activation_checkpointing': False,
                 'activation_cpu_offload': False,
                 'verbose': False,
-            }
+            },
         }
 
         # Need to catch the case where we try to train

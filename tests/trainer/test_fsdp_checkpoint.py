@@ -141,7 +141,7 @@ def get_trainer(
         model=model,
         optimizers=optim,
         train_dataloader=dataloader,
-        fsdp_config=dataclasses.asdict(fsdp_config),
+        parallelism_config={'fsdp': dataclasses.asdict(fsdp_config)},
         save_folder=save_folder,
         max_duration=max_duration,
         save_interval=save_interval,

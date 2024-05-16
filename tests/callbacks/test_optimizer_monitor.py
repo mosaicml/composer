@@ -85,7 +85,7 @@ def test_fsdp_optimizer_monitor(device, world_size, use_orig_params):
                 'activation_cpu_offload': False,
                 'verbose': False,
                 'use_orig_params': use_orig_params,
-            }
+            },
         },
     )
     trainer.fit()
@@ -159,7 +159,7 @@ def test_fsdp_optimizer_monitor_transformer(device, world_size, tiny_gpt2_model,
                 'activation_cpu_offload': False,
                 'verbose': False,
                 'use_orig_params': use_orig_params,
-            }
+            },
         },
     )
     trainer.fit()

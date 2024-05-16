@@ -47,7 +47,7 @@ class TestGenerate():
             max_duration=max_duration,
             callbacks=generate_cb,
             parallelism_config={'fsdp': {
-                'sharding_strategy': 'FULL_SHARD'
+                'sharding_strategy': 'FULL_SHARD',
             }} if use_fsdp else None,
         )
 
