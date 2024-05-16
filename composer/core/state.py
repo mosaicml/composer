@@ -306,9 +306,7 @@ class State(Serializable):
         algorithms (Algorithm | Sequence[Algorithm], optional): The algorithms used for training.
         callbacks (Callback | Sequence[Callback], optional): The callbacks used for training.
         deepspeed_config (Dict[str, Any], optional): The configuration dictionary for deepspeed.
-        fsdp_config (Dict[str, Any], optional): The configuration dictionary for FSDP.
-        fsdp_auto_wrap (bool, optional): Whether to automatically wrap the model with FSDP.
-        tp_config (Dict[str, Any], optional): The configuration dictionary for TP.
+        parallelism_config (Dict[str, Any], optional): The configuration dictionary for parallelism.
 
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
@@ -475,9 +473,7 @@ class State(Serializable):
 
         # Distributed training configs
         deepspeed_config: Optional[Dict[str, Any]] = None,
-        fsdp_config: Optional[Dict[str, Any]] = None,
-        fsdp_auto_wrap: bool = True,
-        tp_config: Optional[Dict[str, Any]] = None,
+        parallelism_config: Optional[Dict[str, Any]] = None,
     ):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
@@ -521,9 +517,13 @@ class State(Serializable):
         self.profiler: Optional[Profiler] = None
 
         self.deepspeed_config = deepspeed_config
-        self.fsdp_config = fsdp_config
-        self.fsdp_auto_wrap = fsdp_auto_wrap
-        self.tp_config = tp_config
+        parallelism_config = parallelism_config or {}
+        self.fsdp_config = parallelism_config.get('fsdp_config', None)
+        if self.fsdp_config is not None:
+            from composer.trainer.mosaic_fsdp_utils import set_fsdp_default
+            
+            self.fsdp_config = set_fsdp_default(self.fsdp_config)
+        self.tp_config = parallelism_config.get('tp_config', None)
 
         if self.tp_config is not None:
             if version.parse(torch.__version__.split('.dev')[0]) < version.parse('2.3.0'):
@@ -891,7 +891,7 @@ class State(Serializable):
     @property
     def load_monolith_rank0_only(self):
         return (
-            self.fsdp_config is not None and self.fsdp_auto_wrap and self.fsdp_config['state_dict_type'] == 'full' and
+            self.fsdp_config is not None and self.fsdp_config['auto_wrap'] and self.fsdp_config['state_dict_type'] == 'full' and
             self.fsdp_config['load_monolith_rank0_only'] == True
         )
 

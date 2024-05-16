@@ -103,12 +103,12 @@ from composer.trainer.dist_strategy import (
     prepare_fsdp_module,
     prepare_tp_module,
 )
-from composer.trainer.mosaic_fsdp_utils import set_fsdp_default
 from composer.utils import (
     ExportFormat,
     MissingConditionalImportError,
     ObjectStore,
     Transform,
+    VersionedDeprecationWarning,
     checkpoint,
     dist,
     ensure_tuple,
@@ -912,6 +912,20 @@ class Trainer:
             disable FSDP, set to ``None``. (default: ``None``)
         fsdp_auto_wrap (bool, optional): option to let trainer wrap the module, or if
             the module is already wrapped outside, allow the user to disable auto-wrapping.
+        parallelism_config (Dict[str, Any], optional): Configuration for parallelism options. 
+            Currently supports fsdp and tensor parallelism, whose respective configs are specified
+            as the keys ``fsdp_config`` and ``tp_config``. (default: ``None``)
+
+            For `parallelism_config['fsdp_config']`, see :doc:`FSDP Documentation </notes/distributed_training>`
+                for more details. To use FSDP with default values, set to the empty dictionary ``{}``. To
+                disable FSDP, set to ``None`` or remove the key from the dictionary.
+
+            For `parallelism_config['tp_config']`, see :doc:`Tensor Parallelism Documentation </notes/tensor_parallelism>`
+                for more details. To use Tensor Parallelism with default values, set to the empty dictionary ``{}``. To
+                disable Tensor Parallelism, set to ``None`` or remove the key from the dictionary.
+
+            .. note:: This parameter is experimental and subject to change without standard deprecation
+                cycles.
         tp_config (Dict[str, Any], optional): Configuration for tensor parallelism.
         device (Device | str, optional): The device to use for training, which can be ``'cpu'``, ``'gpu'``,
             ``'tpu'``, or ``'mps'``. (default: ``None``)
@@ -1056,7 +1070,7 @@ class Trainer:
         deepspeed_config: Optional[Dict[str, Any]] = None,
         fsdp_config: Optional[Dict[str, Any]] = None,
         fsdp_auto_wrap: bool = True,
-        tp_config: Optional[Dict[str, Any]] = None,
+        parallelism_config: Optional[Dict[str, Any]] = None,
 
         # System/Numerics
         device: Optional[Union[str, Device]] = None,
@@ -1222,6 +1236,22 @@ class Trainer:
             run_name = _generate_run_name()
         log.info('Run name: %s', run_name)
 
+        # Parse deprecated parallelism arguments
+        if fsdp_config is not None:
+            warnings.warn(VersionedDeprecationWarning("fsdp_config is deprecated and will be removed in v0.26.0. Please use parallelism_config['fsdp_config'] instead."))
+            if parallelism_config is None:
+                parallelism_config = {}
+            if parallelism_config.get('fsdp_config') is not None:
+                raise ValueError('fsdp_config is specified in both fsdp_config and parallelism_config. Please specify it in only in parallelism_config.')
+            parallelism_config['fsdp_config'] = fsdp_config
+        if not fsdp_auto_wrap:
+            warnings.warn(VersionedDeprecationWarning("fsdp_auto_wrap=False is deprecated and will be removed in v0.26.0. Please use parallelism_config['fsdp_config']['auto_wrap'] instead."))
+            if parallelism_config is None:
+                parallelism_config = {}
+            if parallelism_config.get('fsdp_config') is None:
+                parallelism_config['fsdp_config'] = {}
+            parallelism_config['fsdp_config']['auto_wrap'] = fsdp_auto_wrap
+
         # Create the State
         self.state = State(
             rank_zero_seed=rank_zero_seed,
@@ -1237,9 +1267,7 @@ class Trainer:
             run_name=run_name,
             save_metrics=save_metrics,
             deepspeed_config=deepspeed_config,
-            fsdp_config=fsdp_config,
-            fsdp_auto_wrap=fsdp_auto_wrap,
-            tp_config=tp_config,
+            parallelism_config=parallelism_config,
         )
 
         # Console Logging
@@ -1571,7 +1599,7 @@ class Trainer:
                 )
 
         # FSDP wrap if not using monolith checkpoint on rank 0 only
-        if self.state.fsdp_config is not None and fsdp_auto_wrap and not self.state.load_monolith_rank0_only:
+        if self.state.fsdp_config is not None and self.state.fsdp_config['auto_wrap'] and not self.state.load_monolith_rank0_only:
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 prepare_fsdp_module(
                     model,
@@ -1726,9 +1754,6 @@ class Trainer:
                     load_object_store.init(self.state, self.logger)
             _, _, parsed_load_path = parse_uri(load_path)
 
-            # print('\n\n[2, Random]' + '*' * 50 + '\n')
-            # print(self.state.state_dict()['model']['module.2.weight'])
-
             self._rng_state = checkpoint.load_checkpoint(
                 state=self.state,
                 logger=self.logger,
@@ -1745,7 +1770,7 @@ class Trainer:
 
         # FSDP wrap if model is not yet wrapped and FSDP is enabled. This can happen if
         # load_monolith_rank0_only=True but no checkpoint was loaded.
-        if not self.state.fsdp_enabled and self.state.fsdp_config is not None and self.state.fsdp_auto_wrap and self.state.load_monolith_rank0_only:
+        if not self.state.fsdp_enabled and self.state.fsdp_config is not None and self.state.fsdp_config['auto_wrap'] and self.state.load_monolith_rank0_only:
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
 

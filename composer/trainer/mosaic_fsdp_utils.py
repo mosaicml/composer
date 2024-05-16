@@ -81,6 +81,7 @@ def set_fsdp_default(fsdp_config: Dict[str, Any]):
     fsdp_config.setdefault('activation_checkpointing', False)
     fsdp_config.setdefault('activation_checkpointing_reentrant', True)
     fsdp_config.setdefault('activation_cpu_offload', False)
+    fsdp_config.setdefault('auto_wrap', True)
     fsdp_config.setdefault('te_checkpoint_wrapper', False)
     fsdp_config.setdefault('te_shard_fp8_weight', False)
     fsdp_config.setdefault('backward_prefetch', 'BACKWARD_POST')
