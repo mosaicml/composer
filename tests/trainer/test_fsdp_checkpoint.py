@@ -1139,7 +1139,6 @@ def test_fsdp_planner(
     'ignore:``FullyShardedDataParallel.scatter_full_optim_state_dict``is being deprecated and is replaced by.*',
 )
 def test_fsdp_monolith_resumption(
-    device: str,
     world_size: int,
     use_orig_params: bool,
     sync_module_states: bool,
