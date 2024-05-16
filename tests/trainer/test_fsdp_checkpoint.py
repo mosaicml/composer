@@ -1128,18 +1128,8 @@ def test_fsdp_planner(
     trainer2.close()
 
 
-@pytest.mark.parametrize(
-    'world_size',
-    [
-        pytest.param(2, marks=pytest.mark.world_size(2)),
-    ],
-)
-@pytest.mark.parametrize(
-    'device',
-    [
-        pytest.param('gpu', marks=pytest.mark.gpu),
-    ],
-)
+@pytest.mark.gpu
+@world_size(2)
 @pytest.mark.parametrize('use_orig_params', [True, False])
 @pytest.mark.parametrize('sync_module_states', [True, False])
 @pytest.mark.parametrize('model_1_init_device', ['cpu', 'meta'])
