@@ -84,7 +84,7 @@ class FSDPConfig:
     sharded_ckpt_prefix_dir: str = 'ba{batch}'
     sync_module_states: bool = True
     use_orig_params: bool = False
-    load_fsdp_monolith_rank0_only: bool = False
+    load_monolith_rank0_only: bool = False
     save_planner: Optional[Any] = None
     load_planner: Optional[Any] = None
     data_parallel_shard_degree: int = 2
@@ -288,7 +288,7 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
 @pytest.mark.gpu
 @world_size(2)
 @pytest.mark.parametrize(
-    'optimizer,autoresume,precision,save_weights_only,load_weights_only,load_fsdp_monolith_rank0_only',
+    'optimizer,autoresume,precision,save_weights_only,load_weights_only,load_monolith_rank0_only',
     [
         ['adam', False, 'amp_bf16', False, False, False],
         ['adamw', False, 'amp_bf16', False, False, False],
@@ -307,7 +307,7 @@ def test_fsdp_full_state_dict_load(
     optimizer: str,
     save_weights_only: bool,
     load_weights_only: bool,
-    load_fsdp_monolith_rank0_only: bool,
+    load_monolith_rank0_only: bool,
 ):
     if autoresume:
         run_name = 'my-cool-autoresume-run'
@@ -316,7 +316,7 @@ def test_fsdp_full_state_dict_load(
     save_folder = tmp_path
     save_filename = 'rank{rank}.pt'
 
-    fsdp_config = FSDPConfig(load_fsdp_monolith_rank0_only=load_fsdp_monolith_rank0_only)
+    fsdp_config = FSDPConfig(load_monolith_rank0_only=load_monolith_rank0_only)
 
     trainer1 = get_trainer(
         save_folder=str(save_folder),
