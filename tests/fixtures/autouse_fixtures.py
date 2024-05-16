@@ -84,7 +84,7 @@ def configure_dist(request: pytest.FixtureRequest):
     assert device is not None
 
     if not dist.is_initialized():
-        dist.initialize_dist(device, timeout=300.0)
+        dist.initialize_dist(device, timeout=10.0)
     # Hold PyTest until all ranks have reached this barrier. Ensure that no rank starts
     # any test before other ranks are ready to start it, which could be a cause of random timeouts
     # (e.g. rank 1 starts the next test while rank 0 is finishing up the previous test).
