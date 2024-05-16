@@ -42,7 +42,7 @@ def get_model_state_dict(
         The state dict of the model.
     """
     if include_keys is not None and ignore_keys is not None:
-        raise ValueError('Both include_keys and ignore_keys cannot be non-None.')
+        raise ValueError(f'Both {include_keys=} and {ignore_keys=} cannot be non-None.')
 
     is_fsdp = _is_model_fsdp(model)
     if not is_fsdp and sharded_state_dict:
