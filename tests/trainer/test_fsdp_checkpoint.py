@@ -775,17 +775,16 @@ def test_fsdp_partitioned_state_dict_load(
     save_filename = 'ba{batch}-rank{rank}.pt'
 
     fsdp_config = FSDPConfig(state_dict_type='sharded')
-    tp_config = None 
+    tp_config = None
     if use_tp:
         fsdp_config = FSDPConfig(data_parallel_shard_degree=1)
         from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
         tp_config = {
-            
             'tensor_parallel_degree': 2,
             'layer_plan': {
                 'model.fc1': ColwiseParallel(),
                 'model.fc2': RowwiseParallel(),
-            }
+            },
         }
 
     trainer1 = get_trainer(

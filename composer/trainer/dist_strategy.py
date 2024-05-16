@@ -11,13 +11,12 @@ from typing import Any, Callable, ContextManager, Dict, Iterator, List, Optional
 
 import torch
 from packaging import version
-from torch.distributed.fsdp import ShardingStrategy
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     CheckpointImpl,
     apply_activation_checkpointing,
     checkpoint_wrapper,
 )
-from torch.distributed.fsdp import FullyShardedDataParallel
+from torch.distributed.fsdp import FullyShardedDataParallel, ShardingStrategy
 from torch.distributed.fsdp._common_utils import clean_tensor_name
 from torch.nn.parallel import DistributedDataParallel
 from torchmetrics import Metric, MetricCollection

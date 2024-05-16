@@ -1,20 +1,23 @@
+# Copyright 2024 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 from functools import partial
 from typing import Sequence
 
 import torch
-from torch.utils.data import DataLoader, Dataset
-from torch.distributed._tensor.device_mesh import init_device_mesh, DeviceMesh
+from torch.distributed._tensor.device_mesh import DeviceMesh, init_device_mesh
 from torch.distributed.tensor.parallel import (
     ColwiseParallel,
-    parallelize_module,
     PrepareModuleInput,
     RowwiseParallel,
     SequenceParallel,
+    parallelize_module,
 )
+from torch.utils.data import DataLoader, Dataset
 
+from composer.models import ComposerClassifier
 from composer.trainer.trainer import Trainer
 from composer.utils import dist
-from composer.models import ComposerClassifier
 
 
 class RandomClassificationDataset(Dataset):
@@ -44,7 +47,7 @@ class RandomClassificationDataset(Dataset):
         if self.y is None:
             self.y = torch.randint(0, self.num_classes, size=(self.size,))
         return self.x[index], self.y[index]
-    
+
 
 class SimpleModel(ComposerClassifier):
     """Small classification model.
@@ -126,8 +129,12 @@ trainer = Trainer(
     optimizers=optimizer,
     train_dataloader=dataloader,
     parallelism_config={
-        'fsdp_config': {**fsdp_config},
-        'tp_config': {**tp_config},
+        'fsdp_config': {
+            **fsdp_config
+        },
+        'tp_config': {
+            **tp_config
+        },
     },
     progress_bar=False,
     log_to_console=True,
@@ -150,8 +157,12 @@ trainer2 = Trainer(
     optimizers=optimizer,
     train_dataloader=dataloader,
     parallelism_config={
-        'fsdp_config': {**fsdp_config},
-        'tp_config': {**tp_config},
+        'fsdp_config': {
+            **fsdp_config
+        },
+        'tp_config': {
+            **tp_config
+        },
     },
     progress_bar=False,
     log_to_console=True,
@@ -175,4 +186,3 @@ if state_dict_type == 'sharded' or dist.get_global_rank() == 0:
     print(state_dict['model']['module.2.weight'])
 
 # trainer2.fit()
-

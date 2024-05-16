@@ -103,6 +103,7 @@ from composer.trainer.dist_strategy import (
     prepare_fsdp_module,
     prepare_tp_module,
 )
+from composer.trainer.mosaic_fsdp_utils import set_fsdp_default
 from composer.utils import (
     ExportFormat,
     MissingConditionalImportError,
@@ -912,7 +913,7 @@ class Trainer:
             disable FSDP, set to ``None``. (default: ``None``)
         fsdp_auto_wrap (bool, optional): option to let trainer wrap the module, or if
             the module is already wrapped outside, allow the user to disable auto-wrapping.
-        parallelism_config (Dict[str, Any], optional): Configuration for parallelism options. 
+        parallelism_config (Dict[str, Any], optional): Configuration for parallelism options.
             Currently supports fsdp and tensor parallelism, whose respective configs are specified
             as the keys ``fsdp_config`` and ``tp_config``. (default: ``None``)
 
@@ -1177,8 +1178,35 @@ class Trainer:
         assert not isinstance(device_train_microbatch_size, str)
 
         # Distributed
-        fsdp_config = set_fsdp_default(fsdp_config) if fsdp_config is not None else None
-        if deepspeed_config is not None or fsdp_config is not None or dist.get_world_size() > 1:
+        if fsdp_config is not None:
+            warnings.warn(
+                VersionedDeprecationWarning(
+                    "fsdp_config is deprecated and will be removed in v0.26.0. Please use parallelism_config['fsdp_config'] instead."
+                )
+            )
+            if parallelism_config is None:
+                parallelism_config = {}
+            if parallelism_config.get('fsdp_config') is not None:
+                raise ValueError(
+                    'fsdp_config is specified in both fsdp_config and parallelism_config. Please specify it in only in parallelism_config.'
+                )
+            parallelism_config['fsdp_config'] = fsdp_config
+        if not fsdp_auto_wrap:
+            warnings.warn(
+                VersionedDeprecationWarning(
+                    "fsdp_auto_wrap=False is deprecated and will be removed in v0.26.0. Please use parallelism_config['fsdp_config']['auto_wrap'] instead."
+                )
+            )
+            if parallelism_config is None:
+                parallelism_config = {}
+            if parallelism_config.get('fsdp_config') is None:
+                parallelism_config['fsdp_config'] = {}
+            parallelism_config['fsdp_config']['auto_wrap'] = fsdp_auto_wrap
+        if parallelism_config is not None:
+            if 'fsdp_config' in parallelism_config:
+                parallelism_config['fsdp_config'] = set_fsdp_default(parallelism_config['fsdp_config'])
+            # TODO: set defaults for TP
+        if deepspeed_config is not None or parallelism_config is not None or dist.get_world_size() > 1:
             # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
             # And torch.distributed is always required for multi-rank training
             dist.initialize_dist(device, dist_timeout)
@@ -1214,7 +1242,7 @@ class Trainer:
                 raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
 
         # Move the model and optimizers to the device
-        if deepspeed_config is None and fsdp_config is None:
+        if deepspeed_config is None and parallelism_config is None:
             # check if model is already on tpu
             if isinstance(device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
                 raise ValueError(
@@ -1235,22 +1263,6 @@ class Trainer:
                 raise ValueError('When autoresume=True, the `run_name` must be specified.')
             run_name = _generate_run_name()
         log.info('Run name: %s', run_name)
-
-        # Parse deprecated parallelism arguments
-        if fsdp_config is not None:
-            warnings.warn(VersionedDeprecationWarning("fsdp_config is deprecated and will be removed in v0.26.0. Please use parallelism_config['fsdp_config'] instead."))
-            if parallelism_config is None:
-                parallelism_config = {}
-            if parallelism_config.get('fsdp_config') is not None:
-                raise ValueError('fsdp_config is specified in both fsdp_config and parallelism_config. Please specify it in only in parallelism_config.')
-            parallelism_config['fsdp_config'] = fsdp_config
-        if not fsdp_auto_wrap:
-            warnings.warn(VersionedDeprecationWarning("fsdp_auto_wrap=False is deprecated and will be removed in v0.26.0. Please use parallelism_config['fsdp_config']['auto_wrap'] instead."))
-            if parallelism_config is None:
-                parallelism_config = {}
-            if parallelism_config.get('fsdp_config') is None:
-                parallelism_config['fsdp_config'] = {}
-            parallelism_config['fsdp_config']['auto_wrap'] = fsdp_auto_wrap
 
         # Create the State
         self.state = State(
@@ -1599,7 +1611,8 @@ class Trainer:
                 )
 
         # FSDP wrap if not using monolith checkpoint on rank 0 only
-        if self.state.fsdp_config is not None and self.state.fsdp_config['auto_wrap'] and not self.state.load_monolith_rank0_only:
+        if self.state.fsdp_config is not None and self.state.fsdp_config['auto_wrap'
+                                                                        ] and not self.state.load_monolith_rank0_only:
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 prepare_fsdp_module(
                     model,
@@ -1770,7 +1783,8 @@ class Trainer:
 
         # FSDP wrap if model is not yet wrapped and FSDP is enabled. This can happen if
         # load_monolith_rank0_only=True but no checkpoint was loaded.
-        if not self.state.fsdp_enabled and self.state.fsdp_config is not None and self.state.fsdp_config['auto_wrap'] and self.state.load_monolith_rank0_only:
+        if not self.state.fsdp_enabled and self.state.fsdp_config is not None and self.state.fsdp_config[
+            'auto_wrap'] and self.state.load_monolith_rank0_only:
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
 

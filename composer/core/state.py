@@ -519,10 +519,6 @@ class State(Serializable):
         self.deepspeed_config = deepspeed_config
         parallelism_config = parallelism_config or {}
         self.fsdp_config = parallelism_config.get('fsdp_config', None)
-        if self.fsdp_config is not None:
-            from composer.trainer.mosaic_fsdp_utils import set_fsdp_default
-            
-            self.fsdp_config = set_fsdp_default(self.fsdp_config)
         self.tp_config = parallelism_config.get('tp_config', None)
 
         if self.tp_config is not None:
@@ -538,14 +534,14 @@ class State(Serializable):
         if self.load_monolith_rank0_only:
             if self.tp_config is not None:
                 raise ValueError('load_fsdp_monolith_rank0_only is not compatible with tensor parallelism (TP).')
-            assert fsdp_config is not None
+            assert self.fsdp_config is not None
             error_message = ''
-            if fsdp_config['use_orig_params'] == True:
+            if self.fsdp_config['use_orig_params'] == True:
                 error_message += textwrap.dedent(
                     "load_monolith_rank0_only requires fsdp_config['use_orig_params'] to be False. "
                     "Either set fsdp_config['use_orig_params'] = False or set load_monolith_rank0_only = False. ",
                 )
-            if fsdp_config['sync_module_states'] == False:
+            if self.fsdp_config['sync_module_states'] == False:
                 error_message += textwrap.dedent(
                     "load_monolith_rank0_only requires fsdp_config['sync_module_states'] to be True. "
                     "Either set fsdp_config['sync_module_states'] = True or set load_monolith_rank0_only = False. ",
@@ -891,8 +887,8 @@ class State(Serializable):
     @property
     def load_monolith_rank0_only(self):
         return (
-            self.fsdp_config is not None and self.fsdp_config['auto_wrap'] and self.fsdp_config['state_dict_type'] == 'full' and
-            self.fsdp_config['load_monolith_rank0_only'] == True
+            self.fsdp_config is not None and self.fsdp_config['auto_wrap'] and
+            self.fsdp_config['state_dict_type'] == 'full' and self.fsdp_config['load_monolith_rank0_only'] == True
         )
 
     def _get_integrations_state_dict(self) -> Dict[str, Any]:
