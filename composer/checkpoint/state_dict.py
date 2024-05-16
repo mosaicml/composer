@@ -42,7 +42,7 @@ def get_model_state_dict(
         The state dict of the model.
     """
     if include_keys is not None and ignore_keys is not None:
-        raise ValueError('Both include_keys and ignore_keys cannot be non-None.')
+        raise ValueError(f'Both {include_keys=} and {ignore_keys=} cannot be non-None.')
 
     is_fsdp = _is_model_fsdp(model)
     if not is_fsdp and sharded_state_dict:
@@ -59,7 +59,7 @@ def get_model_state_dict(
         log.debug('Calling torch get_model_state_dict...')
         model_state_dict = torch_get_model_state_dict(
             model=model,
-            submodules=None, # We will handle extracting submodules ourselves down below.
+            submodules=None,  # We extract submodules below
             options=StateDictOptions(
                 full_state_dict=use_unsharded_state_dict,
                 cpu_offload=cpu_offload,
