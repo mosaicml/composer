@@ -921,7 +921,7 @@ class Trainer:
                 for more details. To use FSDP with default values, set to the empty dictionary ``{}``. To
                 disable FSDP, set to ``None`` or remove the key from the dictionary.
 
-            For `parallelism_config['tp']`, see :doc:`Tensor Parallelism Documentation </notes/tensor_parallelism>`
+            For `parallelism_config['tp']`, see TODO: ADD DOCS!
                 for more details. To use Tensor Parallelism with default values, set to the empty dictionary ``{}``. To
                 disable Tensor Parallelism, set to ``None`` or remove the key from the dictionary.
 
