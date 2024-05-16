@@ -121,7 +121,7 @@ def get_trainer(
         train_metrics=train_metrics,
         val_metrics=val_metrics,
     )
-    model.to(model_init_device)
+    model.module.to(model_init_device)
     dataset = RandomClassificationDataset(shape=(num_features,), size=128)
     dataloader = DataLoader(
         dataset,
