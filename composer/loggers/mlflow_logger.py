@@ -488,11 +488,13 @@ class MLFlowLogger(LoggerDestination):
                 )
 
     def post_close(self):
+        log.info('Closing MLFlowLogger, run_id: %s', self._run_id)
+
         if self._enabled and self._run_id is not None:
             import mlflow
 
             exc_tpe, exc_info, tb = sys.exc_info()
-            log.debug(f'Closing MLFlowLogger with exc_tpe={exc_tpe}, exc_info={exc_info}, tb={tb}')
+            log.info(f'Closing MLFlowLogger with exc_tpe={exc_tpe}, exc_info={exc_info}, tb={tb}')
             if (exc_tpe, exc_info, tb) == (None, None, None):
                 status = 'FINISHED'
             else:
