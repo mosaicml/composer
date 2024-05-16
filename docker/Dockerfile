@@ -221,6 +221,7 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
             pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/cpu/torch_stable.html \
                 torch==${PYTORCH_VERSION} \
                 torchvision==${TORCHVISION_VERSION} ; \
+        fi ; \
     else \
         pip${PYTHON_VERSION} install --no-cache-dir --pre --index-url ${PYTORCH_NIGHTLY_URL} \
             torch==${PYTORCH_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
