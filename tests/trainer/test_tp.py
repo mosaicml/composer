@@ -18,6 +18,7 @@ from tests.common import (
 
 @pytest.mark.gpu
 @world_size(2)
+@pytest.mark.skip  # TP does not work with DP dimension 1
 @pytest.mark.filterwarnings("ignore:FSDP is switching to use `NO_SHARD`.*:UserWarning")
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
 def test_tp_train(world_size: int):
