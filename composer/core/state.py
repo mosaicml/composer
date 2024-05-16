@@ -518,8 +518,8 @@ class State(Serializable):
 
         self.deepspeed_config = deepspeed_config
         parallelism_config = parallelism_config or {}
-        self.fsdp_config = parallelism_config.get('fsdp_config', None)
-        self.tp_config = parallelism_config.get('tp_config', None)
+        self.fsdp_config = parallelism_config.get('fsdp', None)
+        self.tp_config = parallelism_config.get('tp', None)
 
         if self.tp_config is not None:
             if version.parse(torch.__version__.split('.dev')[0]) < version.parse('2.3.0'):

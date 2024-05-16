@@ -594,7 +594,7 @@ def get_lm_trainer(
         save_interval='1ep',
         save_filename='hf-checkpoint.pt',
         load_path=load_path,
-        fsdp_config=fsdp_config,
+        parallelism_config={'fsdp': fsdp_config},
         loggers=in_memory_logger,
         device_train_microbatch_size=batch_size
         if device_train_microbatch_size is None else device_train_microbatch_size,
@@ -1222,18 +1222,16 @@ def test_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
             'GPT2 is not currently supported with DDP. See https://github.com/huggingface/transformers/issues/22482 for more details.',
         )
 
-    fsdp_config = None
+    parallelism_config = None
     if use_fsdp:
-        fsdp_config = {
-            'sharding_strategy': 'FULL_SHARD',
-        }
+        parallelism_config = {'fsdp': {'sharding_strategy': 'FULL_SHARD',}}
 
     hf_tokenizer = hf_tokenizer()
 
     model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, use_logits=True)
 
     # just instantiating Trainer to go through the normal FSDP code path
-    trainer = Trainer(model=model, fsdp_config=fsdp_config, device=device)
+    trainer = Trainer(model=model, parallelism_config=parallelism_config, device=device)
 
     device = trainer.state.device
 
@@ -1292,18 +1290,16 @@ def test_eval_forward_generate(device, world_size, hf_model, hf_tokenizer, use_f
             'GPT2 is not currently supported with DDP. See https://github.com/huggingface/transformers/issues/22482 for more details.',
         )
 
-    fsdp_config = None
+    parallelism_config = None
     if use_fsdp:
-        fsdp_config = {
-            'sharding_strategy': 'FULL_SHARD',
-        }
+        parallelism_config = {'fsdp': {'sharding_strategy': 'FULL_SHARD',}}
 
     hf_tokenizer = hf_tokenizer()
 
     model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, use_logits=True)
 
     # just instantiating Trainer to go through the normal FSDP code path
-    trainer = Trainer(model=model, fsdp_config=fsdp_config, device=device)
+    trainer = Trainer(model=model, parallelism_config=parallelism_config, device=device)
 
     device = trainer.state.device
 

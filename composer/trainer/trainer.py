@@ -915,13 +915,13 @@ class Trainer:
             the module is already wrapped outside, allow the user to disable auto-wrapping.
         parallelism_config (Dict[str, Any], optional): Configuration for parallelism options.
             Currently supports fsdp and tensor parallelism, whose respective configs are specified
-            as the keys ``fsdp_config`` and ``tp_config``. (default: ``None``)
+            as the keys ``fsdp`` and ``tp``. (default: ``None``)
 
-            For `parallelism_config['fsdp_config']`, see :doc:`FSDP Documentation </notes/distributed_training>`
+            For `parallelism_config['fsdp']`, see :doc:`FSDP Documentation </notes/distributed_training>`
                 for more details. To use FSDP with default values, set to the empty dictionary ``{}``. To
                 disable FSDP, set to ``None`` or remove the key from the dictionary.
 
-            For `parallelism_config['tp_config']`, see :doc:`Tensor Parallelism Documentation </notes/tensor_parallelism>`
+            For `parallelism_config['tp']`, see :doc:`Tensor Parallelism Documentation </notes/tensor_parallelism>`
                 for more details. To use Tensor Parallelism with default values, set to the empty dictionary ``{}``. To
                 disable Tensor Parallelism, set to ``None`` or remove the key from the dictionary.
 
@@ -1181,30 +1181,32 @@ class Trainer:
         if fsdp_config is not None:
             warnings.warn(
                 VersionedDeprecationWarning(
-                    "fsdp_config is deprecated and will be removed in v0.26.0. Please use parallelism_config['fsdp_config'] instead."
-                )
+                    "fsdp_config is deprecated. Please use parallelism_config['fsdp'] instead.",
+                    remove_version='0.26.0',
+                ),
             )
             if parallelism_config is None:
                 parallelism_config = {}
-            if parallelism_config.get('fsdp_config') is not None:
+            if parallelism_config.get('fsdp') is not None:
                 raise ValueError(
-                    'fsdp_config is specified in both fsdp_config and parallelism_config. Please specify it in only in parallelism_config.'
+                    'fsdp_config is specified in both fsdp_config and parallelism_config. Please specify it in only in parallelism_config.',
                 )
             parallelism_config['fsdp_config'] = fsdp_config
         if not fsdp_auto_wrap:
             warnings.warn(
                 VersionedDeprecationWarning(
-                    "fsdp_auto_wrap=False is deprecated and will be removed in v0.26.0. Please use parallelism_config['fsdp_config']['auto_wrap'] instead."
-                )
+                    "fsdp_auto_wrap=False is deprecated. Please use parallelism_config['fsdp']['auto_wrap'] instead.",
+                    remove_version='0.26.0',
+                ),
             )
             if parallelism_config is None:
                 parallelism_config = {}
-            if parallelism_config.get('fsdp_config') is None:
-                parallelism_config['fsdp_config'] = {}
-            parallelism_config['fsdp_config']['auto_wrap'] = fsdp_auto_wrap
+            if parallelism_config.get('fsdp') is None:
+                parallelism_config['fsdp'] = {}
+            parallelism_config['fsdp']['auto_wrap'] = fsdp_auto_wrap
         if parallelism_config is not None:
-            if 'fsdp_config' in parallelism_config:
-                parallelism_config['fsdp_config'] = set_fsdp_default(parallelism_config['fsdp_config'])
+            if 'fsdp' in parallelism_config:
+                parallelism_config['fsdp'] = set_fsdp_default(parallelism_config['fsdp'])
             # TODO: set defaults for TP
         if deepspeed_config is not None or parallelism_config is not None or dist.get_world_size() > 1:
             # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1

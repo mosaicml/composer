@@ -130,10 +130,10 @@ trainer = Trainer(
     train_dataloader=dataloader,
     parallelism_config={
         'fsdp_config': {
-            **fsdp_config
+            **fsdp_config,
         },
         'tp_config': {
-            **tp_config
+            **tp_config,
         },
     },
     progress_bar=False,
@@ -158,10 +158,10 @@ trainer2 = Trainer(
     train_dataloader=dataloader,
     parallelism_config={
         'fsdp_config': {
-            **fsdp_config
+            **fsdp_config,
         },
         'tp_config': {
-            **tp_config
+            **tp_config,
         },
     },
     progress_bar=False,

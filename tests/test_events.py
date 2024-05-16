@@ -107,23 +107,25 @@ class TestEventCalls:
         if deepspeed_zero_stage:
             deepspeed_config = {'zero_optimization': {'stage': deepspeed_zero_stage}}
 
-        fsdp_config = None
+        parallelism_config = None
         if use_fsdp:
-            fsdp_config = {
-                'sharding_strategy': 'FULL_SHARD',
-                'cpu_offload': False,
-                'mixed_precision': 'PURE',
-                'backward_prefetch': 'BACKWARD_PRE',
-                'activation_checkpointing': False,
-                'activation_ocpu_offload': False,
-                'verbose': False,
+            parallelism_config = {
+                'fsdp': {
+                    'sharding_strategy': 'FULL_SHARD',
+                    'cpu_offload': False,
+                    'mixed_precision': 'PURE',
+                    'backward_prefetch': 'BACKWARD_PRE',
+                    'activation_checkpointing': False,
+                    'activation_ocpu_offload': False,
+                    'verbose': False,
+                }
             }
 
         trainer = self.get_trainer(
             precision=precision,
             device=device,
             deepspeed_config=deepspeed_config,
-            fsdp_config=fsdp_config,
+            parallelism_config=parallelism_config,
             save_interval=save_interval,
             eval_interval=save_interval,
         )

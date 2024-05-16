@@ -44,11 +44,13 @@ def test_tp_train(world_size: int):
         model=model,
         optimizers=optimizer,
         train_dataloader=dataloader,
-        tp_config={
-            'layer_plan': layer_plan,
-            'tensor_parallel_degree': 2,
+        parallelism_config={
+            'tp': {
+                'layer_plan': layer_plan,
+                'tensor_parallel_degree': 2,
+            },
+            'fsdp': {},
         },
-        fsdp_config={},
         max_duration='3ba',
     )
 

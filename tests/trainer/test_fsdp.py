@@ -62,10 +62,12 @@ def test_fsdp_device_initialization(
         model=model,
         optimizers=optimizer,
         train_dataloader=dataloader,
-        fsdp_config={
-            'activation_checkpointing_reentrant': reentrant,
-            'mixed_precision': mixed_precision,
-            'sync_module_states': True if device == 'mixed' else False,
+        parallelism_config={
+            'fsdp': {
+                'activation_checkpointing_reentrant': reentrant,
+                'mixed_precision': mixed_precision,
+                'sync_module_states': True if device == 'mixed' else False,
+            }
         },
         max_duration='3ba',
     )
@@ -127,10 +129,12 @@ def test_fsdp_inits_params_once(model: ComposerClassifier, device: str, world_si
         model=model,
         optimizers=optimizer,
         train_dataloader=dataloader,
-        fsdp_config={
-            'mixed_precision': 'PURE',
-            'sharding_strategy': 'SHARD_GRAD_OP',
-            'sync_module_states': True if device == 'mixed' else False,
+        parallelism_config={
+            'fsdp': {
+                'mixed_precision': 'PURE',
+                'sharding_strategy': 'SHARD_GRAD_OP',
+                'sync_module_states': True if device == 'mixed' else False,
+            }
         },
         max_duration='3ba',
     )
@@ -168,10 +172,10 @@ def test_fsdp_meta_initialization_none(model: ComposerClassifier, mixed_precisio
         model=model,
         optimizers=optimizer,
         train_dataloader=dataloader,
-        fsdp_config={
+        parallelism_config={'fsdp': {
             'mixed_precision': mixed_precision,
             'sharding_strategy': 'SHARD_GRAD_OP',
-        },
+        }},
         max_duration='3ba',
     )
 
@@ -192,9 +196,11 @@ def test_fsdp_prefetch_limit(forward_prefetch_limit: int, backward_prefetch_limi
         model=model,
         optimizers=optimizer,
         train_dataloader=dataloader,
-        fsdp_config={
-            'forward_prefetch_limit': forward_prefetch_limit,
-            'backward_prefetch_limit': backward_prefetch_limit,
+        parallelism_config={
+            'fsdp': {
+                'forward_prefetch_limit': forward_prefetch_limit,
+                'backward_prefetch_limit': backward_prefetch_limit,
+            }
         },
         max_duration='3ba',
     )
@@ -218,8 +224,10 @@ def test_fsdp_process_group(world_size: int):
         model=model,
         optimizers=optimizer,
         train_dataloader=dataloader,
-        fsdp_config={
-            'process_group': 'mod1',  # all ranks
+        parallelism_config={
+            'fsdp': {
+                'process_group': 'mod1',  # all ranks
+            }
         },
         max_duration='3ba',
     )
@@ -241,16 +249,18 @@ def test_wrong_size_device_mesh_error(world_size: int, sharding_strategy: str, r
         context = pytest.warns(UserWarning, match='.*is not supported with 2D device mesh.*')
     if sharding_strategy in ['HYBRID_SHARD', '_HYBRID_SHARD_ZERO2'] and replicate_degree is None:
         context = pytest.warns(UserWarning, match='.*is not supported with 1D device mesh.*')
-    fsdp_config = {
-        'sharding_strategy': sharding_strategy,
-        'data_parallel_shard_degree': 2,
+    parallelism_config = {
+        'fsdp': {
+            'sharding_strategy': sharding_strategy,
+            'data_parallel_shard_degree': 2,
+        }
     }
     if replicate_degree is not None:
-        fsdp_config['data_parallel_replicate_degree'] = replicate_degree
+        parallelism_config['fsdp']['data_parallel_replicate_degree'] = replicate_degree
     with context:
         Trainer(
             model=SimpleModel(),
-            fsdp_config=fsdp_config,
+            parallelism_config=parallelism_config,
         )
 
 
@@ -283,10 +293,12 @@ def test_fsdp_act_ckpt_offload(
 ):
     model = SimpleMLP()
 
-    fsdp_config = {
-        'activation_checkpointing': activation_checkpointing,
-        'activation_checkpointing_reentrant': False,
-        'activation_cpu_offload': activation_cpu_offload,
+    parallelism_config = {
+        'fsdp': {
+            'activation_checkpointing': activation_checkpointing,
+            'activation_checkpointing_reentrant': False,
+            'activation_cpu_offload': activation_cpu_offload,
+        }
     }
 
     model.fc1._activation_checkpointing = True  # pyright: ignore[reportGeneralTypeIssues]
@@ -294,7 +306,7 @@ def test_fsdp_act_ckpt_offload(
     trainer = Trainer(
         model=model,
         device='gpu',
-        fsdp_config=fsdp_config,
+        parallelism_config=parallelism_config,
     )
 
     assert trainer.state.fsdp_enabled
@@ -328,7 +340,7 @@ def test_fsdp_reshard_after_oom(world_size: int):
 
     trainer = Trainer(
         model=model,
-        fsdp_config={},
+        parallelism_config={'fsdp': {}},
         max_duration='3ba',
     )
     fsdp_model = trainer.state.model
@@ -364,7 +376,7 @@ def test_fsdp_same_state_after_oom_reshard(world_size: int):
 
     trainer = Trainer(
         model=model,
-        fsdp_config={},
+        parallelism_config={'fsdp': {}},
         dist_timeout=20,
         optimizers=optimizer,
         seed=1,
@@ -386,7 +398,7 @@ def test_fsdp_same_state_after_oom_reshard(world_size: int):
     oom_handle = oom_model.fc2.register_full_backward_hook(oom_hook)
     oom_trainer = Trainer(
         model=oom_model,
-        fsdp_config={},
+        parallelism_config={'fsdp': {}},
         dist_timeout=20,
         optimizers=oom_model_optimizer,
         seed=1,
@@ -434,9 +446,9 @@ def test_fsdp_device_mesh(world_size: int):
     with pytest.warns(DeprecationWarning):
         Trainer(
             model=model,
-            fsdp_config={
+            parallelism_config={'fsdp': {
                 'device_mesh': [2],
-            },
+            }},
             max_duration='3ba',
         )
 
@@ -450,9 +462,9 @@ def test_fsdp_shard(world_size: int):
 
     Trainer(
         model=model,
-        fsdp_config={
+        parallelism_config={'fsdp': {
             'data_parallel_shard_degree': 2,
-        },
+        }},
         max_duration='3ba',
     )
 
@@ -466,9 +478,9 @@ def test_fsdp_shard_and_replicate(world_size: int):
 
     Trainer(
         model=model,
-        fsdp_config={
+        parallelism_config={'fsdp': {
             'data_parallel_shard_degree': 2,
             'data_parallel_replicate_degree': 1,
-        },
+        }},
         max_duration='3ba',
     )
