@@ -59,7 +59,7 @@ def get_model_state_dict(
         log.debug('Calling torch get_model_state_dict...')
         model_state_dict = torch_get_model_state_dict(
             model=model,
-            submodules=None, # We will handle extracting submodules ourselves down below.
+            submodules=None,  # We extract submodules below
             options=StateDictOptions(
                 full_state_dict=use_unsharded_state_dict,
                 cpu_offload=cpu_offload,
