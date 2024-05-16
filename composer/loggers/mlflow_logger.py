@@ -491,13 +491,13 @@ class MLFlowLogger(LoggerDestination):
         if self._enabled and self._run_id is not None:
             import mlflow
 
-            mlflow.flush_async_logging()
-
             exc_tpe, exc_info, tb = sys.exc_info()
             if (exc_tpe, exc_info, tb) == (None, None, None):
                 status = 'FINISHED'
             else:
                 status = 'FAILED'
+
+            mlflow.flush_async_logging()
 
             log.info(f'Setting MLflow run status to {status}')
             self._mlflow_client.set_terminated(self._run_id, status=status)
