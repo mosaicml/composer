@@ -191,10 +191,13 @@ ARG PILLOW_SIMD_VERSION
 # so when pillow_simd is installed, other packages won't later override it
 COPY pillow_stub /tmp/pillow_stub
 
-RUN pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
-    pip${PYTHON_VERSION} install --no-cache-dir --upgrade pillow_simd==${PILLOW_SIMD_VERSION} && \
-    rm -rf /tmp/pillow_stub
-
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+        pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
+        pip${PYTHON_VERSION} install --no-cache-dir --upgrade pillow_simd==${PILLOW_SIMD_VERSION} && \
+        rm -rf /tmp/pillow_stub; \
+    else \
+        pip${PYTHON_VERSION} install --no-cache-dir --upgrade Pillow==${PILLOW_PSEUDOVERSION}; \
+    fi
 #################
 # Install Pytorch
 #################
