@@ -492,6 +492,7 @@ class MLFlowLogger(LoggerDestination):
             import mlflow
 
             exc_tpe, exc_info, tb = sys.exc_info()
+            log.debug(f'Closing MLFlowLogger with exc_tpe={exc_tpe}, exc_info={exc_info}, tb={tb}')
             if (exc_tpe, exc_info, tb) == (None, None, None):
                 status = 'FINISHED'
             else:
@@ -499,7 +500,6 @@ class MLFlowLogger(LoggerDestination):
 
             mlflow.flush_async_logging()
 
-            log.info(f'Setting MLflow run status to {status}')
             self._mlflow_client.set_terminated(self._run_id, status=status)
             mlflow.end_run(status=status)
 
