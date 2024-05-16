@@ -4,7 +4,6 @@
 import pytest
 import torch
 from packaging import version
-from torch.distributed._tensor.device_mesh import init_device_mesh
 from torch.utils.data import DataLoader
 
 from composer.trainer.trainer import Trainer
@@ -24,10 +23,10 @@ from tests.common import (
 def test_tp_train(world_size: int):
     from torch.distributed.tensor.parallel import (
         ColwiseParallel,
-        PrepareModuleInput,
+        # PrepareModuleInput,
         RowwiseParallel,
-        SequenceParallel,
-        parallelize_module,
+        # SequenceParallel,
+        # parallelize_module,
     )
 
     model = SimpleModel()

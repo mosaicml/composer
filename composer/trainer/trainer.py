@@ -1205,7 +1205,7 @@ class Trainer:
                 parallelism_config['fsdp'] = {}
             parallelism_config['fsdp']['auto_wrap'] = fsdp_auto_wrap
         if parallelism_config is not None:
-            if 'fsdp' in parallelism_config:
+            if parallelism_config.get('fsdp', None) is not None:
                 parallelism_config['fsdp'] = set_fsdp_default(parallelism_config['fsdp'])
             # TODO: set defaults for TP
         if deepspeed_config is not None or parallelism_config is not None or dist.get_world_size() > 1:
