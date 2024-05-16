@@ -536,11 +536,6 @@ class State(Serializable):
                 raise ValueError('load_fsdp_monolith_rank0_only is not compatible with tensor parallelism (TP).')
             assert self.fsdp_config is not None
             error_message = ''
-            if self.fsdp_config['use_orig_params'] == True:
-                error_message += textwrap.dedent(
-                    "load_monolith_rank0_only requires fsdp_config['use_orig_params'] to be False. "
-                    "Either set fsdp_config['use_orig_params'] = False or set load_monolith_rank0_only = False. ",
-                )
             if self.fsdp_config['sync_module_states'] == False:
                 error_message += textwrap.dedent(
                     "load_monolith_rank0_only requires fsdp_config['sync_module_states'] to be True. "
