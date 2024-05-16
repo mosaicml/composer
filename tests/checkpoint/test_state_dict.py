@@ -3,6 +3,7 @@
 
 import pytest
 import torch
+from typing import Dict, Any
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
@@ -75,7 +76,7 @@ def test_get_model_state_dict_full_for_sharded_model(world_size, tensor_type, us
         model,
         sharded_state_dict=False,
     )
-    fsdp_kwargs = dict(
+    fsdp_kwargs: Dict[str, Any] = dict(
         use_orig_params=True,
         sync_module_states=True,  # To enable easy comparison between rank 0 unsharded model and full state dict
     )
@@ -83,7 +84,7 @@ def test_get_model_state_dict_full_for_sharded_model(world_size, tensor_type, us
     if tensor_type == 'dtensor':
         from torch.distributed.device_mesh import init_device_mesh
         device_mesh = init_device_mesh('cuda', (2,))
-        fsdp_kwargs.update(device_mesh=device_mesh)
+        fsdp_kwargs['device_mesh'] = device_mesh
 
     sharded_model = FSDP(
         model,
@@ -116,7 +117,7 @@ def test_get_model_state_dict_sharded(world_size, tensor_type, use_composer_mode
         sharded_state_dict=False,
     )
 
-    fsdp_kwargs = dict(
+    fsdp_kwargs: Dict[str, Any] = dict(
         use_orig_params=True,
         sync_module_states=True,  # To enable easy comparison between rank 0 unsharded model and full state dict
     )
@@ -178,7 +179,7 @@ def test_get_model_state_dict_precision_sharded_model(
     else:
         model = EvenSimplerMLP(num_features=8, device='cuda')
 
-    fsdp_kwargs = dict(
+    fsdp_kwargs: Dict[str, Any] = dict(
         use_orig_params=True,
         sync_module_states=True,  # To enable easy comparison between rank 0 unsharded model and full state dict
     )
