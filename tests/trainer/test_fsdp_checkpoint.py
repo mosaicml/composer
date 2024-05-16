@@ -286,6 +286,7 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
 
 @pytest.mark.gpu
 @world_size(2)
+@pytest.mark.filterwarnings(r'ignore:.*scatter_full_optim_state_dict``is being deprecated.*:UserWarning')
 @pytest.mark.parametrize(
     'optimizer,autoresume,precision,save_weights_only,load_weights_only,load_monolith_rank0_only',
     [
