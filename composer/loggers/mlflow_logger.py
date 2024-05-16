@@ -492,13 +492,16 @@ class MLFlowLogger(LoggerDestination):
             import mlflow
 
             mlflow.flush_async_logging()
-            self._mlflow_client.set_terminated(self._run_id)
 
             exc_tpe, exc_info, tb = sys.exc_info()
             if (exc_tpe, exc_info, tb) == (None, None, None):
-                mlflow.end_run(status='FINISHED')
+                status = 'FINISHED'
             else:
-                mlflow.end_run(status='FAILED')
+                status = 'FAILED'
+
+            log.info(f'Setting MLflow run status to {status}')
+            self._mlflow_client.set_terminated(self._run_id, status=status)
+            mlflow.end_run(status=status)
 
 
 def _convert_to_mlflow_image(image: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:
