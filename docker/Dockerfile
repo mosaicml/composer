@@ -272,8 +272,8 @@ ARG MOFED_VERSION
 RUN if [ -n "$MOFED_VERSION" ] ; then \
         mkdir -p /tmp/mofed && \
         wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu22.04-aarch64.tgz && \
-        tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu22.04-aarch64.tgz -C /tmp/mofed && \
-        /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu22.04-aarch64/mlnxofedinstall --user-space-only --without-fw-update --force && \
+        tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-aarch64.tgz -C /tmp/mofed && \
+        /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-aarch64/mlnxofedinstall --user-space-only --without-fw-update --force && \
         rm -rf /tmp/mofed ; \
     fi
 
