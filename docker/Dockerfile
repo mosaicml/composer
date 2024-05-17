@@ -86,25 +86,26 @@ RUN if [ -n "$CUDA_VERSION" ]; then \
 # update repository keys
 # https://developer.nvidia.com/blog/updating-the-cuda-linux-gpg-repository-key/
 RUN if [ -n "$CUDA_VERSION" ] ; then \
-        # remove . to format endpoint
-        LINIX_DISTRO_VERSION="${LINIX_DISTRO_VERSION//./}" && \
+RUN if [ -n "$CUDA_VERSION" ]; then \
+        LINUX_DISTRO_VERSION="${LINUX_DISTRO_VERSION//./}" && \
         rm -f /etc/apt/sources.list.d/cuda.list && \
         rm -f /etc/apt/sources.list.d/nvidia-ml.list && \
-        apt-get update &&  \
+        apt-get update && \
         apt-get install -y --no-install-recommends wget && \
         apt-get autoclean && \
         apt-get clean && \
-        rm -rf /var/lib/apt/lists/* \
+        rm -rf /var/lib/apt/lists/* && \
         apt-key del 7fa2af80 && \
         mkdir -p /tmp/cuda-keyring && \
-        if [ $TARGETARCH = 'amd64']; then \
-            wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/${LINIX_DISTRO}${LINIX_DISTRO_VERSION}/x86_64/cuda-keyring_1.0-1_all.deb && \
+        if [ "$TARGETARCH" = 'amd64' ]; then \
+            wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/${LINUX_DISTRO}${LINUX_DISTRO_VERSION}/x86_64/cuda-keyring_1.0-1_all.deb; \
         else \
-            wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/${LINIX_DISTRO}${LINIX_DISTRO_VERSION}/arm64/cuda-keyring_1.0-1_all.deb && \
-        fi \
+            wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/${LINUX_DISTRO}${LINUX_DISTRO_VERSION}/arm64/cuda-keyring_1.0-1_all.deb; \
+        fi && \
         dpkg -i /tmp/cuda-keyring/cuda-keyring_1.0-1_all.deb && \
-        rm -rf /tmp/cuda-keyring ; \
+        rm -rf /tmp/cuda-keyring; \
     fi
+
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
