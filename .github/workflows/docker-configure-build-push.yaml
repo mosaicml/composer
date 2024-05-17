@@ -88,6 +88,7 @@ jobs:
       with:
         context: ${{ inputs.context }}
         tags: ${{ env.IMAGE_TAG }}
+        platforms: linux/amd64,linux/arm64
         target: ${{ inputs.target }}
         push: ${{ inputs.push }}
         cache-from: type=registry,ref=${{ env.IMAGE_CACHE }}

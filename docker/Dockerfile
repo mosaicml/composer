@@ -12,8 +12,9 @@ ARG CUDA_VERSION=11.3.1
 
 # Calculate the base image based on CUDA_VERSION
 ARG BASE_IMAGE=${CUDA_VERSION:+"nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu20.04"}
+ARG LINUX_DISTRO
+ARG LINUX_DISTRO_VERSION
 ARG BASE_IMAGE=${BASE_IMAGE:-"ubuntu:20.04"}
-
 # The Python version to install
 ARG PYTHON_VERSION=3.10
 
@@ -191,9 +192,14 @@ ARG PILLOW_SIMD_VERSION
 # so when pillow_simd is installed, other packages won't later override it
 COPY pillow_stub /tmp/pillow_stub
 
-RUN pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
-    pip${PYTHON_VERSION} install --no-cache-dir --upgrade pillow_simd==${PILLOW_SIMD_VERSION} && \
-    rm -rf /tmp/pillow_stub
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+        pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
+        pip${PYTHON_VERSION} install --no-cache-dir --upgrade pillow_simd==${PILLOW_SIMD_VERSION} && \
+        rm -rf /tmp/pillow_stub; \
+    # Install Pillow as arm64 is not supported by pillow-simd,
+        else \
+        pip${PYTHON_VERSION} install --no-cache-dir --upgrade Pillow==${PILLOW_PSEUDOVERSION}; \
+    fi
 
 #################
 # Install Pytorch
@@ -209,10 +215,16 @@ ENV PYTORCH_NIGHTLY_URL=${PYTORCH_NIGHTLY_URL}
 ENV PYTORCH_NIGHTLY_VERSION=${PYTORCH_NIGHTLY_VERSION}
 
 RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
-      CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
-        pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
-            torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
-            torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} ; \
+        if [ "$TARGETARCH" = "amd64" ]; then \
+        CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
+            pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
+                torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
+                torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} ; \
+        else \
+            pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/cpu/torch_stable.html \
+                torch==${PYTORCH_VERSION} \
+                torchvision==${TORCHVISION_VERSION} ; \
+        fi ; \
     else \
         pip${PYTHON_VERSION} install --no-cache-dir --pre --index-url ${PYTORCH_NIGHTLY_URL} \
             torch==${PYTORCH_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
@@ -267,13 +279,17 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
 # Mellanox OFED driver installation
 ###################################
 
-ARG MOFED_VERSION
-
+ARG MOFED_PACKAGE
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+        MOFED_PACKAGE="ubuntu20.04-x86_64"; \
+    else \
+        MOFED_PACKAGE="ubuntu20.04-aarch64"; \
+    fi
 RUN if [ -n "$MOFED_VERSION" ] ; then \
         mkdir -p /tmp/mofed && \
-        wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz && \
-        tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz -C /tmp/mofed && \
-        /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64/mlnxofedinstall --user-space-only --without-fw-update --force && \
+        wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_PACKAGE}.tgz && \
+        tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_PACKAGE}.tgz -C /tmp/mofed && \
+        /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_PACKAGE}/mlnxofedinstall --user-space-only --without-fw-update --force && \
         rm -rf /tmp/mofed ; \
     fi
 
