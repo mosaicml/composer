@@ -289,10 +289,10 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
 
 RUN if [ -n "$MOFED_VERSION" ] ; then \
         if [ "$TARGETARCH" = "amd64" ]; then \
-                MOFED_PACKAGE="x86_64"; \
-            else \
-                MOFED_PACKAGE="aarch64"; \
-            fi \
+            MOFED_PACKAGE="x86_64"; \
+        else \
+            MOFED_PACKAGE="aarch64"; \
+        fi \
         mkdir -p /tmp/mofed && \
         wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-${LINUX_DISTRO}${LINUX_DISTRO_VERSION}-${MOFED_PACKAGE}.tgz && \
         tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-${LINUX_DISTRO}${LINUX_DISTRO_VERSION}-${MOFED_PACKAGE}.tgz -C /tmp/mofed && \
