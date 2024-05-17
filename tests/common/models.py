@@ -113,6 +113,8 @@ class SimpleMLP(torch.nn.Module):
         return self.net(x)
 
 
+# We use this Module to test state dict generation because fc1 and fc2
+# are not submodules of EvenSimplerMLP, like they are in SimpleMLP.
 class EvenSimplerMLP(torch.nn.Module):
 
     def __init__(self, num_features: int, device: str):
@@ -126,6 +128,8 @@ class EvenSimplerMLP(torch.nn.Module):
         return self.module(x)
 
 
+# This model is used when you want a SimpleMLP, but you want to explicitly
+# test ComposerModels instead of nn.Module.
 class SimpleComposerMLP(ComposerClassifier):
 
     def __init__(self, num_features: int, device: str, num_classes: int = 3):
