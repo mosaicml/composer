@@ -69,6 +69,9 @@ ARG COMPOSER_INSTALL_COMMAND='mosaicml[all]'
 FROM ${BASE_IMAGE} AS pytorch_stage
 ARG DEBIAN_FRONTEND=noninteractive
 
+ARG LINUX_DISTRO='ubuntu'
+ARG LINUX_DISTRO_VERSION='20.04'
+
 #######################
 # Set the shell to bash
 #######################
