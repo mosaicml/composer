@@ -34,6 +34,9 @@ def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: floa
         return
     if isinstance(item1, torch.Tensor):
         assert isinstance(item2, torch.Tensor)
+        if item1.device != item2.device:
+            item1 = item1.cpu()
+            item2 = item2.cpu()
         assert item1.allclose(item2, rtol=rtol, atol=atol), f'{path} differs'
         return
     if isinstance(item1, np.ndarray):
