@@ -20,8 +20,6 @@ def deep_compare(item1: Any, item2: Any, atol: float = 0.0, rtol: float = 0.0):
         item2 (Any): The second item
         atol (bool): Atol tolerance for torch tensors and numpy arrays (default: 0.0)
         rtol (float): Rtol tolerance for torch tensors and numpy arrays (default: 0.0)
-        device_check (bool): Whether to compare the device of torch tensors. If False
-            it will cast both items to cpu (default: True).
     """
     return _check_item(item1, item2, path='', atol=atol, rtol=rtol)
 
