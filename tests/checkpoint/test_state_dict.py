@@ -58,7 +58,6 @@ def test_get_model_state_dict_ignore(use_composer_model: bool):
     assert set(model_state_dict.keys()) == {'module.0.weight'}
 
 
-#TODO add tests for sharded and for precision
 @pytest.mark.gpu
 @world_size(2)
 @pytest.mark.parametrize('tensor_type', ['sharded_tensor', 'dtensor'])
@@ -207,7 +206,6 @@ def test_get_model_state_dict_precision_sharded_model(
         assert local_tensor.dtype == precision
 
 
-# TODO test precision
 @pytest.mark.gpu
 @pytest.mark.parametrize(
     'precision',
