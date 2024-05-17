@@ -10,11 +10,13 @@
 # ARG CUDA_VERSION=
 ARG CUDA_VERSION=11.3.1
 
+# Can use these to dynamically set the base image using the build matrix in the future.
+ARG LINUX_DISTRO='ubuntu'
+ARG LINUX_DISTRO_VERSION='20.04'
+
 # Calculate the base image based on CUDA_VERSION
-ARG BASE_IMAGE=${CUDA_VERSION:+"nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu20.04"}
-ARG LINUX_DISTRO
-ARG LINUX_DISTRO_VERSION
-ARG BASE_IMAGE=${BASE_IMAGE:-"ubuntu:20.04"}
+ARG BASE_IMAGE=${CUDA_VERSION}:+"nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-${LINUX_DISTRO}${LINUX_DISTRO_VERSION}"
+ARG BASE_IMAGE=${BASE_IMAGE}:-"${LINUX_DISTRO}:${LINUX_DISTRO_VERSION}"
 # The Python version to install
 ARG PYTHON_VERSION=3.10
 
@@ -81,10 +83,11 @@ RUN if [ -n "$CUDA_VERSION" ]; then \
         rm -f /usr/local/cuda-$(echo $CUDA_VERSION | cut -c -4)/cuda-$(echo $CUDA_VERSION | cut -c -4); \
     fi
 
-
 # update repository keys
 # https://developer.nvidia.com/blog/updating-the-cuda-linux-gpg-repository-key/
 RUN if [ -n "$CUDA_VERSION" ] ; then \
+        # remove . to format endpoint
+        LINIX_DISTRO_VERSION="${LINIX_DISTRO_VERSION//./}" && \
         rm -f /etc/apt/sources.list.d/cuda.list && \
         rm -f /etc/apt/sources.list.d/nvidia-ml.list && \
         apt-get update &&  \
@@ -94,7 +97,11 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         rm -rf /var/lib/apt/lists/* \
         apt-key del 7fa2af80 && \
         mkdir -p /tmp/cuda-keyring && \
-        wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb && \
+        if [ $TARGETARCH = 'amd64']; then \
+            wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/${LINIX_DISTRO}${LINIX_DISTRO_VERSION}/x86_64/cuda-keyring_1.0-1_all.deb && \
+        else \
+            wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/${LINIX_DISTRO}${LINIX_DISTRO_VERSION}/arm64/cuda-keyring_1.0-1_all.deb && \
+        fi \
         dpkg -i /tmp/cuda-keyring/cuda-keyring_1.0-1_all.deb && \
         rm -rf /tmp/cuda-keyring ; \
     fi
@@ -221,6 +228,7 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
                 torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
                 torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} ; \
         else \
+            # torch==<version>+cpu not working with arm for some reason, so using torch==<version> instead with the install from cpu package endpoint
             pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/cpu/torch_stable.html \
                 torch==${PYTORCH_VERSION} \
                 torchvision==${TORCHVISION_VERSION} ; \
@@ -279,17 +287,16 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
 # Mellanox OFED driver installation
 ###################################
 
-ARG MOFED_PACKAGE
-RUN if [ "$TARGETARCH" = "amd64" ]; then \
-        MOFED_PACKAGE="ubuntu20.04-x86_64"; \
-    else \
-        MOFED_PACKAGE="ubuntu20.04-aarch64"; \
-    fi
 RUN if [ -n "$MOFED_VERSION" ] ; then \
+        if [ "$TARGETARCH" = "amd64" ]; then \
+                MOFED_PACKAGE="x86_64"; \
+            else \
+                MOFED_PACKAGE="aarch64"; \
+            fi \
         mkdir -p /tmp/mofed && \
-        wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_PACKAGE}.tgz && \
-        tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_PACKAGE}.tgz -C /tmp/mofed && \
-        /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_PACKAGE}/mlnxofedinstall --user-space-only --without-fw-update --force && \
+        wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-${LINUX_DISTRO}${LINUX_DISTRO_VERSION}-${MOFED_PACKAGE}.tgz && \
+        tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-${LINUX_DISTRO}${LINUX_DISTRO_VERSION}-${MOFED_PACKAGE}.tgz -C /tmp/mofed && \
+        /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-${LINUX_DISTRO}${LINUX_DISTRO_VERSION}-${MOFED_PACKAGE}/mlnxofedinstall --user-space-only --without-fw-update --force && \
         rm -rf /tmp/mofed ; \
     fi
 
