@@ -51,8 +51,8 @@ def get_model_state_dict(
 
     log.debug('Extracting model state dict')
     if version.parse(torch.__version__) >= version.parse('2.2.0') and dist.is_initialized():
+        from torch.distributed.checkpoint import state_dict as DCPSD  # Distributed Checkpoint State Dict
         from torch.distributed.checkpoint.state_dict import StateDictOptions
-        from torch.distributed.checkpoint import state_dict as DCPSD # Distributed Checkpoint State Dict
 
         use_unsharded_state_dict = not sharded_state_dict
 
