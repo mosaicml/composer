@@ -57,6 +57,7 @@ from composer.utils.misc import (
     is_notebook,
     model_eval_mode,
     partial_format,
+    STR_TO_DTYPE,
 )
 from composer.utils.object_store import (
     GCSObjectStore,
@@ -143,4 +144,5 @@ __all__ = [
     'CliCompressor',
     'get_compressor',
     'KNOWN_COMPRESSORS',
+    'STR_TO_DTYPE',
 ]

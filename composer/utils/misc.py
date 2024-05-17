@@ -27,10 +27,17 @@ __all__ = [
     'model_eval_mode',
     'create_interval_scheduler',
     'add_vision_dataset_transform',
+    'STR_TO_DTYPE',
 ]
 
 log = logging.getLogger(__name__)
 
+
+STR_TO_DTYPE = {
+    'fp32': torch.float32,
+    'fp16': torch.float16,
+    'bf16': torch.bfloat16,
+}
 
 def create_interval_scheduler(
     interval: Union[str, int, 'Time'],
