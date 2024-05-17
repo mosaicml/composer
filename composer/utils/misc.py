@@ -32,12 +32,12 @@ __all__ = [
 
 log = logging.getLogger(__name__)
 
-
 STR_TO_DTYPE = {
     'fp32': torch.float32,
     'fp16': torch.float16,
     'bf16': torch.bfloat16,
 }
+
 
 def create_interval_scheduler(
     interval: Union[str, int, 'Time'],

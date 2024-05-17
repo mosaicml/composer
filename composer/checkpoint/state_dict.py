@@ -14,14 +14,14 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn.parallel import DistributedDataParallel
 
 from composer.models import ComposerModel
-from composer.utils import dist, STR_TO_DTYPE
+from composer.utils import STR_TO_DTYPE, dist
 
 log = logging.getLogger(__name__)
 
 
 def get_model_state_dict(
     model: Union[ComposerModel, nn.Module],
-    sharded_state_dict: bool=False,
+    sharded_state_dict: bool = False,
     precision: Union[str, torch.dtype] = 'fp32',
     include_keys: Optional[Union[str, Sequence[str]]] = None,
     ignore_keys: Optional[Union[str, Sequence[str]]] = None,

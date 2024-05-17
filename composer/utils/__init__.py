@@ -49,6 +49,7 @@ from composer.utils.import_helpers import MissingConditionalImportError, import_
 from composer.utils.inference import ExportFormat, Transform, export_for_inference, export_with_logger, quantize_dynamic
 from composer.utils.iter_helpers import IteratorFileStream, ensure_tuple, map_collection
 from composer.utils.misc import (
+    STR_TO_DTYPE,
     add_vision_dataset_transform,
     create_interval_scheduler,
     get_free_tcp_port,
@@ -57,7 +58,6 @@ from composer.utils.misc import (
     is_notebook,
     model_eval_mode,
     partial_format,
-    STR_TO_DTYPE,
 )
 from composer.utils.object_store import (
     GCSObjectStore,
