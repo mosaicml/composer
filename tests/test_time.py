@@ -20,7 +20,7 @@ from composer.core.time import Time, Timestamp, TimeUnit
         ['4_000tok', 4000, TimeUnit.TOKEN],
         ['4_00_0tok', 4000, TimeUnit.TOKEN],
         ['0.5dur', 0.5, TimeUnit.DURATION],
-        ['5sec', 5, TimeUnit.SECOND],
+        ['1h20m40s', 4840, TimeUnit.SECOND],
     ],
 )
 def test_time_parse(time_string: str, expected_value: int, expected_unit: TimeUnit):

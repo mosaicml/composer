@@ -45,8 +45,6 @@ class TimeUnit(StringEnum):
     TOKEN = 'tok'
     DURATION = 'dur'
     SECOND = 'sec'
-    MINUTE = 'min'
-    HOUR = 'hr'
 
 
 # regex for parsing time string, matches timeunit and chars prior to unit as value
@@ -216,18 +214,25 @@ class Time(Generic[TValue], Serializable):
         return cls(duration, TimeUnit.DURATION)
 
     @classmethod
-    def from_second(cls, second: int) -> Time:
+    def from_timedelta(cls, timedelta: str) -> Time:
         """Create a :class:`Time` with units of :attr:`TimeUnit.SECOND`.
 
         Equivalent to ``Time(batch, TimeUnit.SECOND)``.
 
         Args:
-            second (int): Number of seconds.
+            timedelta (int): timedelta string in _h_m_s.
 
         Returns:
             Time: :class:`Time` instance, in seconds.
         """
-        return cls(second, TimeUnit.SECOND)
+        timedelta_match = re.match(r'^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$', timedelta)
+        if timedelta_match and any(timedelta_match.groups()):
+            hours = int(timedelta_match.group(1) or 0)
+            minutes = int(timedelta_match.group(2) or 0)
+            seconds = int(timedelta_match.group(3) or 0)
+            total_seconds = hours * 60 * 60 + minutes * 60 + seconds
+            return cls(total_seconds, TimeUnit.SECOND)
+        assert False, "Invalid timedelta string"
 
     @property
     def value(self) -> TValue:
@@ -409,6 +414,15 @@ class Time(Generic[TValue], Serializable):
         Returns:
             Time: An instance of :class:`Time`.
         """
+        #Handle TimeDelta matching first
+        timedelta_match = re.match(r'^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$', timestring)
+        if timedelta_match and any(timedelta_match.groups()):
+            hours = int(timedelta_match.group(1) or 0)
+            minutes = int(timedelta_match.group(2) or 0)
+            seconds = int(timedelta_match.group(3) or 0)
+            total_seconds = hours * 60 * 60 + minutes * 60 + seconds
+            return cls(total_seconds, TimeUnit.SECOND)
+
         match = _TIME_STR_REGEX.findall(timestring)
         if len(match) != 1:
             raise ValueError(f'Invalid time string: {timestring}')
@@ -664,7 +678,7 @@ class Timestamp(Serializable):
             return self.sample
         if unit == TimeUnit.TOKEN:
             return self.token
-        if unit == TimeUnit.SECOND or unit == TimeUnit.MINUTE or unit == TimeUnit.HOUR:
+        if unit == TimeUnit.SECOND:
             return Time(int(self._total_wct.total_seconds()) if self._total_wct else 0, TimeUnit.SECOND)
         raise ValueError(f'Invalid unit: {unit}')
 

@@ -61,13 +61,6 @@ def create_interval_scheduler(
         final_events = {Event.BATCH_CHECKPOINT, Event.EPOCH_CHECKPOINT}
 
     time_interval: Time = Time.from_input(interval, TimeUnit.EPOCH)
-
-    # convert to seconds
-    if time_interval.unit == TimeUnit.MINUTE:
-        time_interval = Time.from_second(time_interval.value * 60)
-    if time_interval.unit == TimeUnit.HOUR:
-        time_interval = Time.from_second(time_interval.value * 60 * 60)
-
     if time_interval.unit == TimeUnit.EPOCH:
         interval_event = Event.EPOCH_CHECKPOINT if checkpoint_events else Event.EPOCH_END
     elif time_interval.unit == TimeUnit.ITERATION:
@@ -78,14 +71,12 @@ def create_interval_scheduler(
         TimeUnit.SAMPLE,
         TimeUnit.DURATION,
         TimeUnit.SECOND,
-        TimeUnit.MINUTE,
-        TimeUnit.HOUR,
     }:
         interval_event = Event.BATCH_CHECKPOINT if checkpoint_events else Event.BATCH_END
     else:
         raise NotImplementedError(
             f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, ' +\
-            'TimeUnit.SAMPLE, TimeUnit.SECOND, TimeUnit.MINUTE, TimeUnit.HOUR',
+            'TimeUnit.SAMPLE, TimeUnit.SECOND
         )
 
     last_batch_seen = -1
@@ -114,8 +105,6 @@ def create_interval_scheduler(
             TimeUnit.TOKEN,
             TimeUnit.SAMPLE,
             TimeUnit.SECOND,
-            TimeUnit.MINUTE,
-            TimeUnit.HOUR,
         }:
             # Set time_interval to be in seconds if it's in minutes or hours
             previous_count = state.previous_timestamp.get(time_interval.unit)
@@ -128,7 +117,7 @@ def create_interval_scheduler(
         else:
             raise NotImplementedError(
                 f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, ' +\
-                'TimeUnit.SAMPLE, TimeUnit.SECOND, TimeUnit.MINUTE, TimeUnit.HOUR',
+                'TimeUnit.SAMPLE, TimeUnit.SECOND
             )
 
         threshold_passed = math.floor(previous_count / time_interval.value) != math.floor(count / time_interval.value)
