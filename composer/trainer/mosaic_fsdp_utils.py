@@ -801,6 +801,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
         device_mesh,
         mesh_dim_names: Tuple[str],
     ):
+        """Monkeypatch create_child_mesh to nightly version."""
         # swap the current dim to the last dim then reshape to flatten out other
         # dims, so we can just extract the list of ranks which contains cur_rank.
         mesh_dims = [
@@ -818,7 +819,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
         mesh_sizes = [device_mesh.mesh.size(mesh_dim) for mesh_dim in mesh_dims]
 
         pg_ranks_by_dim = device_mesh.mesh.permute(
-            *all_mesh_dims, *mesh_dims
+            *all_mesh_dims, *mesh_dims,
         ).reshape(-1, *mesh_sizes)
 
         for mesh_nd in pg_ranks_by_dim:
@@ -847,9 +848,10 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
         *,
         mesh_dim_names: Optional[Tuple[str, ...]] = None,
     ) -> None:
+        """Monkeypatch device mesh __init__ to nightly version."""
         self.device_type = device_type
-        if isinstance(mesh, torch.Tensor) and mesh.device.type != "cpu":
-            raise ValueError(f"`mesh` must be a CPU tensor, got {mesh}")
+        if isinstance(mesh, torch.Tensor) and mesh.device.type != 'cpu':
+            raise ValueError(f'`mesh` must be a CPU tensor, got {mesh}')
         self.mesh = (
             mesh.detach().cpu()
             if isinstance(mesh, torch.Tensor)
@@ -864,7 +866,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
 
         # Skip process group initialization if xla device.
         # TODO(yeounoh) implement DeviceMesh backend and register XLA backend.
-        if device_type != "xla":
+        if device_type != 'xla':
             # always try to create default (world) pg, even if it is not initialized
             # already. The world pg is used for device mesh identity (rank) on each
             # process (we need to know if the current global rank is in the mesh or not).
@@ -872,14 +874,16 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             if not self._parent_mesh:
                 self._init_process_groups()
 
-    def device_mesh__getitem__(self, mesh_dim_names: Union[str, Tuple[str]]) -> "DeviceMesh":
-        """
+    def device_mesh__getitem__(self, mesh_dim_names: Union[str, Tuple[str]]) -> 'DeviceMesh':
+        """Monkeypatch device_mesh __getitem__ to nightly version.
+
         Slice the current DeviceMesh based on the mesh_dim_name given to create a child
         DeviceMesh.
 
         Args:
             mesh_dim_name (str): the name of the mesh dimension of the parent DeviceMesh
             to create a child DeviceMesh for.
+
         Returns:
             A :class:`DeviceMesh` object
 
@@ -901,15 +905,15 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             >>> mesh = DeviceMesh(device_type="cuda", mesh=[[0, 1, 2, 3],[4, 5, 6, 7]])
         """
         if not self.mesh_dim_names:
-            raise RuntimeError("Cannot slice a DeviceMesh without mesh_dim_names.")
+            raise RuntimeError('Cannot slice a DeviceMesh without mesh_dim_names.')
 
         mesh_dim_names = (
             (mesh_dim_names,) if isinstance(mesh_dim_names, str) else mesh_dim_names
         )
 
         error_msg = (
-            f"Invalid mesh_dim_name {mesh_dim_names} specified. "
-            f"Valid mesh_dim_names should be a contiguous subsequence of {self.mesh_dim_names}."
+            f'Invalid mesh_dim_name {mesh_dim_names} specified. '
+            f'Valid mesh_dim_names should be a contiguous subsequence of {self.mesh_dim_names}.'
         )
 
         # When the dimension slicing out is equal to the mesh dimensions of the current DeviceMesh,

@@ -75,7 +75,7 @@ def patch_pytorch():
         state_dict.set_model_state_dict = set_model_state_dict
         state_dict.set_optimizer_state_dict = set_optimizer_state_dict
         state_dict._get_fqns = _get_fqns
-        
+
         # Monkeypatch for ND child submeshes
         from torch.distributed.device_mesh import DeviceMesh, _MeshEnv
 
