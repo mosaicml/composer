@@ -76,7 +76,7 @@ def create_interval_scheduler(
     else:
         raise NotImplementedError(
             f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, ' +\
-            'TimeUnit.SAMPLE, TimeUnit.SECOND
+            'TimeUnit.SAMPLE, TimeUnit.SECOND'
         )
 
     last_batch_seen = -1
@@ -117,7 +117,7 @@ def create_interval_scheduler(
         else:
             raise NotImplementedError(
                 f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, ' +\
-                'TimeUnit.SAMPLE, TimeUnit.SECOND
+                'TimeUnit.SAMPLE, TimeUnit.SECOND'
             )
 
         threshold_passed = math.floor(previous_count / time_interval.value) != math.floor(count / time_interval.value)
