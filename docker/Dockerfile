@@ -85,7 +85,6 @@ RUN if [ -n "$CUDA_VERSION" ]; then \
 
 # update repository keys
 # https://developer.nvidia.com/blog/updating-the-cuda-linux-gpg-repository-key/
-RUN if [ -n "$CUDA_VERSION" ] ; then \
 RUN if [ -n "$CUDA_VERSION" ]; then \
         LINUX_DISTRO_VERSION="${LINUX_DISTRO_VERSION//./}" && \
         rm -f /etc/apt/sources.list.d/cuda.list && \
@@ -97,7 +96,7 @@ RUN if [ -n "$CUDA_VERSION" ]; then \
         rm -rf /var/lib/apt/lists/* && \
         apt-key del 7fa2af80 && \
         mkdir -p /tmp/cuda-keyring && \
-        if [ "$TARGETARCH" = 'amd64' ]; then \
+        if [ "$TARGETARCH" = "amd64" ]; then \
             wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/${LINUX_DISTRO}${LINUX_DISTRO_VERSION}/x86_64/cuda-keyring_1.0-1_all.deb; \
         else \
             wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/${LINUX_DISTRO}${LINUX_DISTRO_VERSION}/arm64/cuda-keyring_1.0-1_all.deb; \
