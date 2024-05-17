@@ -77,6 +77,7 @@ def patch_pytorch():
         state_dict._get_fqns = _get_fqns
 
         # Monkeypatch for ND child submeshes
+        # PR: https://github.com/pytorch/pytorch/pull/119752
         from torch.distributed.device_mesh import DeviceMesh, _MeshEnv
 
         from composer.trainer.mosaic_fsdp_utils import create_child_mesh, device_mesh__getitem__, device_mesh__init__
