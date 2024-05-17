@@ -497,7 +497,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
                 state_dict.pop(key)
 
         if info.full_state_dict:
-            ranks_only = tuple() if not info.cpu_offload else (0,)
+            ranks_only = () if not info.cpu_offload else (0,)
             return _gather_state_dict(
                 state_dict, cpu_offload=info.cpu_offload, ranks_only=ranks_only,
             )
