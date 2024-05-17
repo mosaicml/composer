@@ -68,10 +68,24 @@ def patch_pytorch():
         _flat_param._same_storage = _same_storage
 
         # Monkeypatch state_dict to get FQNs correctly.
-        # Issue: https://github.com/pytorch/pytorch/pull/124698
+        # Issue 1: https://github.com/pytorch/pytorch/pull/124698
+        # Issue 2: https://github.com/pytorch/pytorch/issues/122946
+        #  - PR 2: https://github.com/pytorch/pytorch/pull/125336
         from torch.distributed.checkpoint import state_dict
 
-        from composer.trainer.mosaic_fsdp_utils import _get_fqns, set_model_state_dict, set_optimizer_state_dict
+        from composer.trainer.mosaic_fsdp_utils import (
+            _get_fqns,
+            _get_model_state_dict,
+            _load_model_state_dict,
+            _verify_options,
+            set_model_state_dict,
+            set_optimizer_state_dict,
+        )
         state_dict.set_model_state_dict = set_model_state_dict
         state_dict.set_optimizer_state_dict = set_optimizer_state_dict
+        # Issue 2: https://github.com/pytorch/pytorch/issues/122946
+        #  - PR 2: https://github.com/pytorch/pytorch/pull/125336
         state_dict._get_fqns = _get_fqns
+        state_dict._verify_options = _verify_options
+        state_dict._get_model_state_dict = _get_model_state_dict
+        state_dict._load_model_state_dict = _load_model_state_dict
