@@ -292,7 +292,7 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
             MOFED_PACKAGE="x86_64"; \
         else \
             MOFED_PACKAGE="aarch64"; \
-        fi \
+        fi; \
         mkdir -p /tmp/mofed && \
         wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-${LINUX_DISTRO}${LINUX_DISTRO_VERSION}-${MOFED_PACKAGE}.tgz && \
         tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-${LINUX_DISTRO}${LINUX_DISTRO_VERSION}-${MOFED_PACKAGE}.tgz -C /tmp/mofed && \
