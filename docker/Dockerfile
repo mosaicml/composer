@@ -67,6 +67,9 @@ ARG COMPOSER_INSTALL_COMMAND='mosaicml[all]'
 #########################
 
 FROM ${BASE_IMAGE} AS pytorch_stage
+
+WORKDIR /composer_{$TARGETARCH}
+
 ARG DEBIAN_FRONTEND=noninteractive
 
 ARG LINUX_DISTRO='ubuntu'
