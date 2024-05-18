@@ -36,7 +36,7 @@ on:
         required: true
 jobs:
   configure-build-push:
-    runs-on: mosaic-8wide
+    runs-on: mosaic-4wide
     steps:
 
     - name: Checkout
