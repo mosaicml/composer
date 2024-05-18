@@ -1510,6 +1510,7 @@ class Trainer:
 
         # Max Duration
         if max_duration is not None:
+            assert not(Time.from_timedelta(max_duration)), 'Max Duration cannot be in Wall Clock Time'
             self.state.max_duration = ensure_time(max_duration, TimeUnit.EPOCH)
 
         self.logger.log_hyperparameters({'rank_zero_seed': rank_zero_seed})
