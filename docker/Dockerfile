@@ -95,27 +95,28 @@ RUN if [ -n "$CUDA_VERSION" ]; then \
         rm -f /etc/apt/sources.list.d/cuda.list && \
         rm -f /etc/apt/sources.list.d/nvidia-ml.list && \
         if [ "$TARGETARCH" = "amd64" ]; then \
-        apt-get update &&  \
-        apt-get install -y --no-install-recommends wget && \
-        apt-get autoclean && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/* \
-        apt-key del 7fa2af80 && \
-        mkdir -p /tmp/cuda-keyring && \
-        wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/${LINUX_DISTRO}${LINUX_DISTRO_VERSION}/x86_64/cuda-keyring_1.0-1_all.deb; \
-        dpkg -i /tmp/cuda-keyring/cuda-keyring_1.0-1_all.deb && \
-        rm -rf /tmp/cuda-keyring ; \
+            apt-get update &&  \
+            apt-get install -y --no-install-recommends wget && \
+            apt-get autoclean && \
+            apt-get clean && \
+            rm -rf /var/lib/apt/lists/* \
+            apt-key del 7fa2af80 && \
+            mkdir -p /tmp/cuda-keyring && \
+            wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/${LINUX_DISTRO}${LINUX_DISTRO_VERSION}/x86_64/cuda-keyring_1.0-1_all.deb; \
+            dpkg -i /tmp/cuda-keyring/cuda-keyring_1.0-1_all.deb && \
+            rm -rf /tmp/cuda-keyring ; \
         else \
-        apt-get install -y gnupg gnupg1 gnupg2 && \
-        apt-get install -y --no-install-recommends wget && \
-        apt-get autoclean && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/* \
-        apt-key del 7fa2af80 && \
-        mkdir -p /tmp/cuda-keyring && \
-        wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/${LINUX_DISTRO}${LINUX_DISTRO_VERSION}/arm64/cuda-keyring_1.0-1_all.deb; \
-        dpkg -i /tmp/cuda-keyring/cuda-keyring_1.0-1_all.deb && \
-        rm -rf /tmp/cuda-keyring ; \
+            apt-get update &&  \
+            apt-get install -y gnupg gnupg1 gnupg2 && \
+            apt-get install -y --no-install-recommends wget && \
+            apt-get autoclean && \
+            apt-get clean && \
+            rm -rf /var/lib/apt/lists/* \
+            apt-key del 7fa2af80 && \
+            mkdir -p /tmp/cuda-keyring && \
+            wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/${LINUX_DISTRO}${LINUX_DISTRO_VERSION}/arm64/cuda-keyring_1.0-1_all.deb; \
+            dpkg -i /tmp/cuda-keyring/cuda-keyring_1.0-1_all.deb && \
+            rm -rf /tmp/cuda-keyring ; \
         fi ; \
     fi
 
