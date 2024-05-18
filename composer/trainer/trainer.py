@@ -1510,7 +1510,13 @@ class Trainer:
 
         # Max Duration
         if max_duration is not None:
-            assert not (Time.from_timedelta(max_duration)), 'Max Duration cannot be in Wall Clock Time'
+            # Check that max duration is not WCT
+            assert not(isinstance(timedelta, Time) and max_duration.unit == TimeUnit.SECOND), 'Max Duration cannot be in Wall Clock Time'
+            try:
+                assert not (Time.from_timedelta(str(max_duration))), 'Max Duration cannot be in Wall Clock Time'
+            except AssertionError:
+                pass
+
             self.state.max_duration = ensure_time(max_duration, TimeUnit.EPOCH)
 
         self.logger.log_hyperparameters({'rank_zero_seed': rank_zero_seed})
