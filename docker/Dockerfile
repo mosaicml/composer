@@ -68,8 +68,6 @@ ARG COMPOSER_INSTALL_COMMAND='mosaicml[all]'
 
 FROM ${BASE_IMAGE} AS pytorch_stage
 
-WORKDIR /composer_${TARGETARCH}
-
 ARG DEBIAN_FRONTEND=noninteractive
 
 ARG LINUX_DISTRO='ubuntu'
@@ -81,6 +79,7 @@ ARG LINUX_DISTRO_VERSION='20.04'
 SHELL ["/bin/bash", "-c"]
 
 ARG CUDA_VERSION
+
 
 # Remove a bad symlink from the base composer image
 # If this file is present after the first command, kaniko
@@ -95,22 +94,29 @@ RUN if [ -n "$CUDA_VERSION" ]; then \
         LINUX_DISTRO_VERSION="${LINUX_DISTRO_VERSION//./}" && \
         rm -f /etc/apt/sources.list.d/cuda.list && \
         rm -f /etc/apt/sources.list.d/nvidia-ml.list && \
-        apt-get update && \
-        mkdir -p /tmp/cuda-keyring && \
         if [ "$TARGETARCH" = "amd64" ]; then \
-            apt-get install -y --no-install-recommends wget && \
-            wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/${LINUX_DISTRO}${LINUX_DISTRO_VERSION}/x86_64/cuda-keyring_1.0-1_all.deb; \
-        else \
-            apt-get install -y gnupg gnupg1 gnupg2 && \
-            apt-get install -y --no-install-recommends wget && \
-            wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/${LINUX_DISTRO}${LINUX_DISTRO_VERSION}/arm64/cuda-keyring_1.0-1_all.deb; \
-        fi && \
+        apt-get update &&  \
+        apt-get install -y --no-install-recommends wget && \
         apt-get autoclean && \
         apt-get clean && \
-        rm -rf /var/lib/apt/lists/* && \
+        rm -rf /var/lib/apt/lists/* \
         apt-key del 7fa2af80 && \
+        mkdir -p /tmp/cuda-keyring && \
+        wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/${LINUX_DISTRO}${LINUX_DISTRO_VERSION}/x86_64/cuda-keyring_1.0-1_all.deb; \
         dpkg -i /tmp/cuda-keyring/cuda-keyring_1.0-1_all.deb && \
-        rm -rf /tmp/cuda-keyring; \
+        rm -rf /tmp/cuda-keyring ; \
+        else \
+        apt-get install -y gnupg gnupg1 gnupg2 && \
+        apt-get install -y --no-install-recommends wget && \
+        apt-get autoclean && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* \
+        apt-key del 7fa2af80 && \
+        mkdir -p /tmp/cuda-keyring && \
+        wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/${LINUX_DISTRO}${LINUX_DISTRO_VERSION}/arm64/cuda-keyring_1.0-1_all.deb; \
+        dpkg -i /tmp/cuda-keyring/cuda-keyring_1.0-1_all.deb && \
+        rm -rf /tmp/cuda-keyring ; \
+        fi ; \
     fi
 
 
@@ -362,8 +368,8 @@ RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml 
 #########################
 # Upgrade apt packages
 #########################
-RUN apt-get update && \
-    apt-get upgrade -y && \
+RUN apt-get update -v && \
+    apt-get upgrade -y -v && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
