@@ -17,7 +17,7 @@
 <a href="https://www.mosaicml.com">[Website]</a>
 - <a href="https://docs.mosaicml.com/projects/composer/en/stable/getting_started/installation.html">[Getting Started]</a>
 - <a href="https://docs.mosaicml.com/projects/composer/">[Docs]</a>
-- <a href="https://www.mosaicml.com/careers">[We're Hiring!]</a>
+- <a href="https://www.databricks.com/company/careers/open-positions?department=Mosaic%20AI&location=all">[We're Hiring!]</a>
 </p></h4>
 
 <p align="center">
@@ -236,18 +236,17 @@ Here are some resources actively maintained by the Composer community to help yo
 </tbody>
 </table>
 
-# 🛠️ For Best Results, Use with the MosaicML Ecosystem
+# 🛠️ For Best Results, Use within the Databricks & MosaicML Ecosystem
 
 Composer can be used on its own, but for the smoothest experience we recommend using it in combination with other components of the MosaicML ecosystem:
 
-![We recommend that you train models with Composer, MosaicML StreamingDatasets, and the MosaicML platform.](docs/source/_static/images/ecosystem.png)
+![We recommend that you train models with Composer, MosaicML StreamingDatasets, and Mosaic AI training.](docs/source/_static/images/ecosystem.png)
 
-- [**MosaicML platform**](https://www.mosaicml.com/training) (MCLI)- Our proprietary Command Line Interface (CLI) and Python SDK for orchestrating, scaling, and monitoring the GPU nodes and container images executing training and deployment. Used by our customers for training their own Generative AI models.
-    - **To get started, [sign up here](https://www.mosaicml.com/get-started?utm_source=blog&utm_medium=referral&utm_campaign=llama2) to apply for access and check out our [Training](https://www.mosaicml.com/training) and [Inference](https://www.mosaicml.com/inference) product pages**
+- [**Mosaic AI training**](https://www.databricks.com/product/machine-learning/mosaic-ai-training) (MCLI)- Our proprietary Command Line Interface (CLI) and Python SDK for orchestrating, scaling, and monitoring the GPU nodes and container images executing training and deployment. Used by our customers for training their own Generative AI models.
+    - **To get started, [reach out here](https://www.databricks.com/company/contact) and check out our [Training](https://www.databricks.com/product/machine-learning/mosaic-ai-training) product pages**
 - [**MosaicML LLM Foundry**](https://github.com/mosaicml/llm-foundry) - This open source repository contains code for training, finetuning, evaluating, and preparing LLMs for inference with [Composer](https://github.com/mosaicml/composer). Designed to be easy to use, efficient and flexible, this codebase is designed to enable rapid experimentation with the latest techniques.
 - [**MosaicML StreamingDataset**](https://github.com/mosaicml/streaming) - Open-source library for fast, accurate streaming from cloud storage.
 - [**MosaicML Diffusion**](https://github.com/mosaicml/diffusion) - Open-source code to train your own Stable Diffusion model on your own data.  Learn more via our blogs: ([Results](https://www.mosaicml.com/blog/stable-diffusion-2) , [Speedup Details](https://www.mosaicml.com/blog/diffusion))
-- [**MosaicML Examples**](https://github.com/mosaicml/examples) - This repo contains reference examples for using the [MosaicML platform](https://www.notion.so/Composer-README-Draft-5d30690d40f04cdf8528f749e98782bf?pvs=21) to train and deploy machine learning models at scale. It's designed to be easily forked/copied and modified.
 
 # **🏆 Project Showcase**
 
@@ -258,7 +257,7 @@ Here are some projects and experiments that used Composer. Got something to add?
     - [MPT-7B-8k Blog](https://www.mosaicml.com/blog/long-context-mpt-7b-8k)
     - [MPT-30B Blog](https://www.mosaicml.com/blog/mpt-30b)
 - [**Mosaic Diffusion Models**](https://www.mosaicml.com/blog/training-stable-diffusion-from-scratch-costs-160k): see how we trained a stable diffusion model from scratch for <$50k
-- [**replit-code-v1-3b**](https://huggingface.co/replit/replit-code-v1-3b): A 2.7B Causal Language Model focused on **Code Completion,** trained by Replit on the MosaicML platform in 10 days.
+- [**replit-code-v1-3b**](https://huggingface.co/replit/replit-code-v1-3b): A 2.7B Causal Language Model focused on **Code Completion,** trained by Replit on Mosaic AI training in 10 days.
 - **BabyLLM:** the first LLM to support both Arabic and English. This 7B model was trained by MetaDialog on the world’s largest Arabic/English dataset to improve customer support workflows ([Blog](https://blogs.nvidia.com/blog/2023/08/31/generative-ai-startups-africa-middle-east/))
 - [**BioMedLM**](https://www.mosaicml.com/blog/introducing-pubmed-gpt): a domain-specific LLM for Bio Medicine built by MosaicML and [Stanford CRFM](https://crfm.stanford.edu/)
 
@@ -268,7 +267,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
 
 To start contributing, see our [Contributing](https://github.com/mosaicml/composer/blob/dev/CONTRIBUTING.md) page.
 
-P.S.: [We're hiring](https://www.mosaicml.com/careers)!
+P.S.: [We're hiring](https://www.databricks.com/company/careers/open-positions?department=Mosaic%20AI&location=all)!
 
 # ❓FAQ
 
@@ -276,7 +275,7 @@ P.S.: [We're hiring](https://www.mosaicml.com/careers)!
     - We recommend that users combine components of the MosaicML ecosystem for the smoothest experience:
         - Composer
         - [StreamingDataset](https://github.com/mosaicml/streaming)
-        - [MCLI](https://www.mosaicml.com/training) (MosaicML platform)
+        - [MCLI](https://www.databricks.com/product/machine-learning/mosaic-ai-training) (Databricks Mosaic AI Training)
 - **How can I get community support for using Composer?**
     - You can join our [Community Slack](https://mosaicml.me/slack)!
 - **How does Composer compare to other trainers like NeMo Megatron and PyTorch Lightning?**
