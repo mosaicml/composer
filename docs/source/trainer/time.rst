@@ -24,11 +24,11 @@ Duration is defined as a multiplier of the ``max_duration``.
 
 These above string inputs are valid when an argument accepts the |Time|
 type. There are some exceptions -- for example ``dur`` is not valid when
-setting ``max_duration`` as that is circular and seconds cannot be used 
-for schedulers and ``max_duration``. 
+setting ``max_duration`` as that is circular and seconds cannot be used
+for schedulers and ``max_duration``.
 
 Using timedelta strings are also supported and will be converted into
-seconds in the |Time| class. For instance, something like 1h20m40s is 
+seconds in the |Time| class. For instance, something like 1h20m40s is
 supported and will be converted to Time(4840, TimeUnit.SECOND).
 
 Users can also specify milestones for objects such as learning rate schedulers
