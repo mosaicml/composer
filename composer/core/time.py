@@ -414,7 +414,7 @@ class Time(Generic[TValue], Serializable):
         Returns:
             Time: An instance of :class:`Time`.
         """
-        #Handle TimeDelta matching first
+        # Handle TimeDelta matching first
         timedelta_match = re.match(r'^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$', timestring)
         if timedelta_match and any(timedelta_match.groups()):
             hours = int(timedelta_match.group(1) or 0)
