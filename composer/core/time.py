@@ -232,7 +232,7 @@ class Time(Generic[TValue], Serializable):
             seconds = int(timedelta_match.group(3) or 0)
             total_seconds = hours * 60 * 60 + minutes * 60 + seconds
             return cls(total_seconds, TimeUnit.SECOND)
-        assert False, "Invalid timedelta string"
+        assert False, 'Invalid timedelta string'
 
     @property
     def value(self) -> TValue:
