@@ -15,7 +15,7 @@ import pytest
 
 from composer.core import Event, State
 from composer.loggers import Logger, RemoteUploaderDownloader
-from composer.utils.object_store.object_store import ObjectStore
+from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError
 
 
 class DummyObjectStore(ObjectStore):
@@ -188,6 +188,44 @@ def test_remote_uploader_downloader_no_overwrite(
         overwrite_delay=overwrite_delay,
         event_to_test=event_to_test,
     )
+
+
+def test_allow_overwrite_on_retry(tmp_path: pathlib.Path, dummy_state: State):
+    file_path = tmp_path / 'samples' / 'sample'
+    os.makedirs(tmp_path / 'samples')
+    with open(file_path, 'w') as f:
+        f.write('sample')
+
+    class MLFlowDummyObjectStore(DummyObjectStore):
+        def __init__(self, dir: pathlib.Path | None = None, always_fail: bool = False, **kwargs: Dict[str, Any]) -> None:
+            self._retry = 0
+            super().__init__(dir, always_fail, **kwargs)
+        def upload_object(self, object_name: str, filename: str | pathlib.Path, callback: Callable[[int, int], None] | None = None) -> None:
+            if self._retry == 0:
+                self._retry += 1
+                raise ObjectStoreTransientError('Retry this')
+            self._retry += 1
+            return super().upload_object(object_name, filename, callback)
+        def get_object_size(self, object_name: str) -> int:
+            if self._retry > 0:
+                return 1
+            return super().get_object_size(object_name)
+    with patch('composer.loggers.remote_uploader_downloader.S3ObjectStore', MLFlowDummyObjectStore):
+
+        remote_uploader_downloader = RemoteUploaderDownloader(
+            bucket_uri=f"s3://{tmp_path}/'object_store_backend",
+            backend_kwargs={
+                'dir': tmp_path / 'object_store_backend',
+            },
+            upload_staging_folder=str(tmp_path / 'staging_folder'),
+            num_attempts=2,
+        )
+        logger = Logger(dummy_state, destinations=[remote_uploader_downloader])
+
+        remote_uploader_downloader.run_event(Event.INIT, dummy_state, logger)
+        remote_file_name = 'remote_file_name'
+        remote_uploader_downloader.upload_file(dummy_state, remote_file_name, file_path, overwrite=False)
+
 
 
 @pytest.mark.parametrize('use_procs', [True, False])
