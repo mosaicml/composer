@@ -13,10 +13,12 @@ class DummyState:
 
     def __init__(self, current_batches: int, max_duration: str, dataloader_len: str, seconds_per_batch: int):
         self.previous_timestamp = Timestamp(
-            batch=current_batches - 1, total_wct=datetime.timedelta(seconds=(current_batches - 1) * seconds_per_batch)
+            batch=current_batches - 1,
+            total_wct=datetime.timedelta(seconds=(current_batches - 1) * seconds_per_batch),
         )
         self.timestamp = Timestamp(
-            batch=current_batches - 1, total_wct=datetime.timedelta(seconds=current_batches * seconds_per_batch)
+            batch=current_batches - 1,
+            total_wct=datetime.timedelta(seconds=current_batches * seconds_per_batch),
         )
         self.max_duration = Time.from_timestring(max_duration)
         self.dataloader_len = Time.from_timestring(dataloader_len)
@@ -75,5 +77,5 @@ def test_interval_scheduler(
 
     event = Event.BATCH_CHECKPOINT
 
-    actual = interval_scheduler(dummy_state, event)
+    actual = interval_scheduler(dummy_state, event)  # type: ignore (intentional)
     assert actual == expected
