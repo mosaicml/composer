@@ -196,36 +196,43 @@ def test_allow_overwrite_on_retry(tmp_path: pathlib.Path, dummy_state: State):
     with open(file_path, 'w') as f:
         f.write('sample')
 
-    class MLFlowDummyObjectStore(DummyObjectStore):
+    # Dummy object store that fails the first two uploads
+    # This tests that the remote uploader downloader allows overwriting a partially uploaded file on a retry.
+    class RetryDummyObjectStore(DummyObjectStore):
         def __init__(self, dir: pathlib.Path | None = None, always_fail: bool = False, **kwargs: Dict[str, Any]) -> None:
             self._retry = 0
             super().__init__(dir, always_fail, **kwargs)
         def upload_object(self, object_name: str, filename: str | pathlib.Path, callback: Callable[[int, int], None] | None = None) -> None:
-            if self._retry == 0:
-                self._retry += 1
+            if self._retry < 2:
+                self._retry += 1 # Takes two retries to upload the file
                 raise ObjectStoreTransientError('Retry this')
             self._retry += 1
             return super().upload_object(object_name, filename, callback)
         def get_object_size(self, object_name: str) -> int:
             if self._retry > 0:
-                return 1
+                return 1 # The 0th upload resulted in a partial upload
             return super().get_object_size(object_name)
-    with patch('composer.loggers.remote_uploader_downloader.S3ObjectStore', MLFlowDummyObjectStore):
+        
+    fork_context = multiprocessing.get_context('fork')
+    with patch('composer.loggers.remote_uploader_downloader.S3ObjectStore', RetryDummyObjectStore):
+        with patch('composer.loggers.remote_uploader_downloader.multiprocessing.get_context', lambda _: fork_context):
+            remote_uploader_downloader = RemoteUploaderDownloader(
+                bucket_uri=f"s3://{tmp_path}/'object_store_backend",
+                backend_kwargs={
+                    'dir': tmp_path / 'object_store_backend',
+                },
+                num_concurrent_uploads=4,
+                upload_staging_folder=str(tmp_path / 'staging_folder'),
+                use_procs=True,
+                num_attempts=3,
+            )
+            logger = Logger(dummy_state, destinations=[remote_uploader_downloader])
 
-        remote_uploader_downloader = RemoteUploaderDownloader(
-            bucket_uri=f"s3://{tmp_path}/'object_store_backend",
-            backend_kwargs={
-                'dir': tmp_path / 'object_store_backend',
-            },
-            upload_staging_folder=str(tmp_path / 'staging_folder'),
-            num_attempts=2,
-        )
-        logger = Logger(dummy_state, destinations=[remote_uploader_downloader])
-
-        remote_uploader_downloader.run_event(Event.INIT, dummy_state, logger)
-        remote_file_name = 'remote_file_name'
-        remote_uploader_downloader.upload_file(dummy_state, remote_file_name, file_path, overwrite=False)
-
+            remote_uploader_downloader.run_event(Event.INIT, dummy_state, logger)
+            remote_file_name = 'remote_file_name'
+            remote_uploader_downloader.upload_file(dummy_state, remote_file_name, file_path, overwrite=False)
+            remote_uploader_downloader.close(dummy_state, logger=logger)
+            remote_uploader_downloader.post_close()
 
 
 @pytest.mark.parametrize('use_procs', [True, False])
