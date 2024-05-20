@@ -1,6 +1,8 @@
 # Copyright 2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+# TODO: Delete before merging
+
 """Test script for TP."""
 
 from functools import partial

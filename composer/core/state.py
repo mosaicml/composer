@@ -224,23 +224,37 @@ def _create_device_mesh(device: Device, fsdp_config: Optional[Dict[str, Any]], t
             f'Found multiple parallelism dimensions with -1: {unspecified_dim_names}. '
             'Only one is allowed, which is set to fill the remaining dimensions.',
         )
-    remaining_dimension = dist.get_world_size() // product_of_dims
-    if remaining_dimension * product_of_dims != dist.get_world_size():
-        raise ValueError(
-            f'World size {dist.get_world_size()} is not divisible by the product of the specified '
-            'parallelism degrees. Please ensure the product of the specified parallelism degrees '
-            'matches the world size.',
-        )
-    for i, dim in enumerate(dims):
-        if dim == -1:
-            dims[i] = remaining_dimension
-            break
+    elif len(unspecified_dim_names) == 1:
+        if dist.get_world_size() > product_of_dims:
+            raise ValueError(
+                f'World size {dist.get_world_size()} is greater than the product of the specified parallelism degrees. '
+                'Please ensure the product of the specified parallelism degrees matches the world size. Currently ',
+                f'specified degrees are {names=}, {dims=}. One dimension can also be left as -1, which will '
+                'automatically be specified to ensure the product matches the world size.',
+            )
+        remaining_dimension = dist.get_world_size() // product_of_dims
+        if remaining_dimension * product_of_dims != dist.get_world_size():
+            raise ValueError(
+                f'World size {dist.get_world_size()} is not divisible by the product of the specified '
+                'parallelism degrees. Please ensure the product of the specified parallelism degrees '
+                'matches the world size.',
+            )
+        for i, dim in enumerate(dims):
+            if dim == -1:
+                dims[i] = remaining_dimension
+                break
+    else:
+        if product_of_dims != dist.get_world_size():
+            raise ValueError(
+                f'World size {dist.get_world_size()} does not equal the product of the specified parallelism degrees. '
+                'Please ensure the product of the specified parallelism degrees matches the world size. Currently ',
+                f'specified degrees are {names=}, {dims=}. One dimension can also be left as -1, which will '
+                'automatically be specified to ensure the product matches the world size.',
+            )
 
     device_type = device.name
     if device_type == 'gpu':
         device_type = 'cuda'
-
-    # TODO: Validate product is = world size if none are -1. Also validate if before -1, it is <= world size
 
     return init_device_mesh(device_type=device_type, mesh_shape=tuple(dims), mesh_dim_names=tuple(names))
 
