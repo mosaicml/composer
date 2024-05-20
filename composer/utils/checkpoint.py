@@ -611,7 +611,7 @@ def load_sharded_checkpoint(
                 source_path=source_path,
                 destination_path=str(Path(rank0_download_tempdir) / Path('checkpoints')),
                 object_store=object_store,
-                device_mesh=state.fsdp_device_mesh,
+                device_mesh=state.device_mesh,
             )
         else:
             storage_reader = FileSystemReaderWithValidation(source_path)
@@ -1107,7 +1107,7 @@ def _save_checkpoint(
 
         log.debug(f'Saving sharded checkpoints to {save_filename}...')
         process_group = None
-        device_mesh = state.fsdp_device_mesh
+        device_mesh = state.device_mesh
         if device_mesh is not None and device_mesh.ndim == 2:
             # If hybrid shard, only rank in first replica saves
             expect_file = device_mesh.get_local_rank(mesh_dim=0) == 0
