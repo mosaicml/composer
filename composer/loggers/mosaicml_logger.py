@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Log to the MosaicML platform."""
+"""Log to Mosaic AI Training."""
 
 from __future__ import annotations
 
@@ -42,12 +42,12 @@ MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR = 'MOSAICML_GPU_LOG_FILE_PREFIX'
 
 
 class MosaicMLLogger(LoggerDestination):
-    """Log to the MosaicML platform.
+    """Log to Mosaic AI Training.
 
-    Logs metrics to the MosaicML platform. Logging only happens on rank 0 every ``log_interval``
+    Logs metrics to Mosaic AI Training. Logging only happens on rank 0 every ``log_interval``
     seconds to avoid performance issues.
 
-    When running on the MosaicML platform, the logger is automatically enabled by Trainer. To disable,
+    When running on Mosaic AI Training, the logger is automatically enabled by Trainer. To disable,
     the environment variable 'MOSAICML_PLATFORM' can be set to False.
 
     Args:
