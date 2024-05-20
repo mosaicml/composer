@@ -307,7 +307,7 @@ def prepare_fsdp_module(
     if version.parse(torch.__version__.split('.dev')[0]) >= version.parse('2.2.0') and 'device_mesh' in fsdp_config:
         if 'process_group' not in fsdp_config:
             warnings.warn(
-                'process_group and device_mesh are set for FSDP, so ignoring device_mesh. Please set process_group to None.'
+                'process_group and device_mesh are set for FSDP, so ignoring device_mesh. Please set process_group to None.',
             )
         else:
             ndim = fsdp_config['device_mesh'].ndim
