@@ -122,7 +122,8 @@ tp_config = {
 }
 
 fsdp_config = {
-    # 'data_parallel_shard_degree': 2,
+    'data_parallel_shard_degree': 2,
+    'data_parallel_replicate_degree': 2,
     'state_dict_type': state_dict_type,
 }
 
@@ -131,12 +132,12 @@ trainer = Trainer(
     optimizers=optimizer,
     train_dataloader=dataloader,
     parallelism_config={
-        'fsdp_config': {
+        'fsdp': {
             **fsdp_config,
         },
-        'tp_config': {
-            **tp_config,
-        },
+        # 'tp': {
+        #     **tp_config,
+        # },
     },
     progress_bar=False,
     log_to_console=True,
@@ -159,12 +160,12 @@ trainer2 = Trainer(
     optimizers=optimizer,
     train_dataloader=dataloader,
     parallelism_config={
-        'fsdp_config': {
+        'fsdp': {
             **fsdp_config,
         },
-        'tp_config': {
-            **tp_config,
-        },
+        # 'tp': {
+        #     **tp_config,
+        # },
     },
     progress_bar=False,
     log_to_console=True,

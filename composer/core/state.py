@@ -520,7 +520,7 @@ class State(Serializable):
         parallelism_config = parallelism_config or {}
         self.fsdp_config = parallelism_config.get('fsdp', None)
         self.tp_config = parallelism_config.get('tp', None)
-        if self.fsdp_config is not None or self.tp_config is not None:
+        if self.fsdp_config is not None:
             # Add an earlier call to patch_pytorch as we require device_mesh slicing before any
             # model wrapping.
             from composer.trainer.mosaic_fsdp import patch_pytorch
