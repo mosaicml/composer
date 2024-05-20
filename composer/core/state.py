@@ -225,12 +225,12 @@ def _create_device_mesh(device: Device, fsdp_config: Optional[Dict[str, Any]], t
             'Only one is allowed, which is set to fill the remaining dimensions.',
         )
     elif len(unspecified_dim_names) == 1:
-        if dist.get_world_size() > product_of_dims:
+        if product_of_dims > dist.get_world_size():
             raise ValueError(
-                f'World size {dist.get_world_size()} is greater than the product of the specified parallelism degrees. '
-                'Please ensure the product of the specified parallelism degrees matches the world size. Currently ',
-                f'specified degrees are {names=}, {dims=}. One dimension can also be left as -1, which will '
-                'automatically be specified to ensure the product matches the world size.',
+                f'World size {dist.get_world_size()} is greater than the product of the specified parallelism degrees '
+                f'{product_of_dims}. Please ensure the product of the specified parallelism degrees matches the world ',
+                f'size. Currently specified degrees are {names=}, {dims=}. One dimension can also be left as -1, which '
+                'will automatically be specified to ensure the product matches the world size.',
             )
         remaining_dimension = dist.get_world_size() // product_of_dims
         if remaining_dimension * product_of_dims != dist.get_world_size():
@@ -246,10 +246,10 @@ def _create_device_mesh(device: Device, fsdp_config: Optional[Dict[str, Any]], t
     else:
         if product_of_dims != dist.get_world_size():
             raise ValueError(
-                f'World size {dist.get_world_size()} does not equal the product of the specified parallelism degrees. '
-                'Please ensure the product of the specified parallelism degrees matches the world size. Currently ',
-                f'specified degrees are {names=}, {dims=}. One dimension can also be left as -1, which will '
-                'automatically be specified to ensure the product matches the world size.',
+                f'World size {dist.get_world_size()} does not equal the product of the specified parallelism degrees '
+                f'{product_of_dims}. Please ensure the product of the specified parallelism degrees matches the world ',
+                f'size. Currently specified degrees are {names=}, {dims=}. One dimension can also be left as -1, which '
+                'will automatically be specified to ensure the product matches the world size.',
             )
 
     device_type = device.name
@@ -886,7 +886,7 @@ class State(Serializable):
     @property
     def fsdp_device_mesh(self):
         warnings.warn(VersionedDeprecationWarning('fsdp_device_mesh is deprecated. Use device_mesh instead.', '0.24'))
-        self.device_mesh
+        return self.device_mesh
 
     @property
     def load_fsdp_monolith_rank0_only(self):
