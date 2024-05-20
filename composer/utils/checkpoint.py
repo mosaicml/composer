@@ -42,6 +42,8 @@ from composer.utils.object_store import ObjectStore
 from composer.utils.retrying import retry
 
 if TYPE_CHECKING:
+    from torch.distributed.distributed_c10d import ProcessGroup
+
     from composer.core import AlgorithmPass, State
     from composer.loggers import Logger, LoggerDestination
 
@@ -1113,6 +1115,7 @@ def _save_checkpoint(
             expect_file = device_mesh.get_local_rank(mesh_dim=0) == 0
             if expect_file:
                 process_group = device_mesh.get_group(1)  # Shard process_group for first replica
+                assert isinstance(process_group, ProcessGroup)
                 log.debug(f'Saving on global_rank={dist.get_global_rank()}, {expect_file=}')
         else:
             expect_file = True
