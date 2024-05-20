@@ -1,13 +1,23 @@
+# Copyright 2024 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 import datetime
+
 import pytest
 
 from composer.core import Event, Time, Timestamp
 from composer.utils.misc import create_interval_scheduler, partial_format
 
+
 class DummyState:
+
     def __init__(self, current_batches: int, max_duration: str, dataloader_len: str, seconds_per_batch: int):
-        self.previous_timestamp = Timestamp(batch=current_batches - 1, total_wct=datetime.timedelta(seconds=(current_batches-1)* seconds_per_batch))
-        self.timestamp = Timestamp(batch=current_batches - 1, total_wct=datetime.timedelta(seconds=current_batches* seconds_per_batch))
+        self.previous_timestamp = Timestamp(
+            batch=current_batches - 1, total_wct=datetime.timedelta(seconds=(current_batches - 1) * seconds_per_batch)
+        )
+        self.timestamp = Timestamp(
+            batch=current_batches - 1, total_wct=datetime.timedelta(seconds=current_batches * seconds_per_batch)
+        )
         self.max_duration = Time.from_timestring(max_duration)
         self.dataloader_len = Time.from_timestring(dataloader_len)
         self.seconds_per_batch = seconds_per_batch
@@ -15,6 +25,7 @@ class DummyState:
 
     def get_elapsed_duration(self):
         return self.total_elapsed_time.total_seconds() / self.max_duration.value
+
 
 def test_partial_format():
     # No args provided
@@ -32,6 +43,7 @@ def test_partial_format():
     assert partial_format('{foo} {}', 'World') == '{foo} World'
     assert partial_format('{foo} {}', foo='Hello') == 'Hello {}'
     assert partial_format('{foo} {}', 'World', foo='Hello') == 'Hello World'
+
 
 @pytest.mark.parametrize(
     'interval,current_batches,max_duration,dataloader_len,seconds_per_batch,expected',
@@ -65,4 +77,3 @@ def test_interval_scheduler(
 
     actual = interval_scheduler(dummy_state, event)
     assert actual == expected
-
