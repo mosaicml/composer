@@ -586,10 +586,10 @@ class State(Serializable):
         self.device_mesh: Optional[DeviceMesh] = _create_device_mesh(self.device, self.fsdp_config, self.tp_config)
         print(f'device_mesh: {self.device_mesh}')
         if self.fsdp_config is not None and self.device_mesh is not None:
+            fsdp_mesh_dim_names = ['dp_shard']
             if 'dp_replicate' in self.device_mesh.mesh_dim_names:
-                self.fsdp_config['device_mesh'] = self.device_mesh[('dp_shard', 'dp_replicate')]
-            else:
-                self.fsdp_config['device_mesh'] = self.device_mesh['dp_shard']
+                fsdp_mesh_dim_names.append('dp_replicate')
+            self.fsdp_config['device_mesh'] = self.device_mesh[tuple(fsdp_mesh_dim_names)]
         if self.tp_config is not None and self.device_mesh is not None:
             self.tp_config['device_mesh'] = self.device_mesh['tp']
 
