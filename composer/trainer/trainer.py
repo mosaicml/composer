@@ -1205,9 +1205,12 @@ class Trainer:
                 parallelism_config['fsdp'] = {}
             parallelism_config['fsdp']['auto_wrap'] = fsdp_auto_wrap
         if parallelism_config is not None:
+            # Set defaults and create shallow copies of configs to avoid changing user's config
+            parallelism_config = {**parallelism_config}
             if parallelism_config.get('fsdp', None) is not None:
-                parallelism_config['fsdp'] = set_fsdp_default(parallelism_config['fsdp'])
-            # TODO: set defaults for TP
+                parallelism_config['fsdp'] = set_fsdp_default({**parallelism_config['fsdp']})
+            if parallelism_config.get('tp', None) is not None:
+                parallelism_config['tp'] = {**parallelism_config['tp']}
         if deepspeed_config is not None or parallelism_config is not None or dist.get_world_size() > 1:
             # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
             # And torch.distributed is always required for multi-rank training

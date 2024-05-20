@@ -66,7 +66,6 @@ logger = logging.getLogger(__name__)
 
 def set_fsdp_default(fsdp_config: Dict[str, Any]):
     """Modify fsdp_config to set default values for missing keys."""
-    print(fsdp_config)
     if 'process_group' in fsdp_config:
         warnings.warn(VersionedDeprecationWarning('process_group is deprecated. Please specify `data_parallel_shard_degree` and `data_parallel_replicate_degree` instead.', remove_version='0.24.0'))
 
