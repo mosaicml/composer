@@ -202,7 +202,7 @@ def test_allow_overwrite_on_retry(tmp_path: pathlib.Path, dummy_state: State):
 
         def __init__(
             self,
-            dir: pathlib.Path | None = None,
+            dir: Optional[pathlib.Path] = None,
             always_fail: bool = False,
             **kwargs: Dict[str, Any],
         ) -> None:
@@ -212,8 +212,8 @@ def test_allow_overwrite_on_retry(tmp_path: pathlib.Path, dummy_state: State):
         def upload_object(
             self,
             object_name: str,
-            filename: str | pathlib.Path,
-            callback: Callable[[int, int], None] | None = None,
+            filename: Union[str, pathlib.Path],
+            callback: Optional[Callable[[int, int], None]] = None,
         ) -> None:
             if self._retry < 2:
                 self._retry += 1  # Takes two retries to upload the file
