@@ -199,20 +199,33 @@ def test_allow_overwrite_on_retry(tmp_path: pathlib.Path, dummy_state: State):
     # Dummy object store that fails the first two uploads
     # This tests that the remote uploader downloader allows overwriting a partially uploaded file on a retry.
     class RetryDummyObjectStore(DummyObjectStore):
-        def __init__(self, dir: pathlib.Path | None = None, always_fail: bool = False, **kwargs: Dict[str, Any]) -> None:
+
+        def __init__(
+            self,
+            dir: pathlib.Path | None = None,
+            always_fail: bool = False,
+            **kwargs: Dict[str, Any],
+        ) -> None:
             self._retry = 0
             super().__init__(dir, always_fail, **kwargs)
-        def upload_object(self, object_name: str, filename: str | pathlib.Path, callback: Callable[[int, int], None] | None = None) -> None:
+
+        def upload_object(
+            self,
+            object_name: str,
+            filename: str | pathlib.Path,
+            callback: Callable[[int, int], None] | None = None,
+        ) -> None:
             if self._retry < 2:
-                self._retry += 1 # Takes two retries to upload the file
+                self._retry += 1  # Takes two retries to upload the file
                 raise ObjectStoreTransientError('Retry this')
             self._retry += 1
             return super().upload_object(object_name, filename, callback)
+
         def get_object_size(self, object_name: str) -> int:
             if self._retry > 0:
-                return 1 # The 0th upload resulted in a partial upload
+                return 1  # The 0th upload resulted in a partial upload
             return super().get_object_size(object_name)
-        
+
     fork_context = multiprocessing.get_context('fork')
     with patch('composer.loggers.remote_uploader_downloader.S3ObjectStore', RetryDummyObjectStore):
         with patch('composer.loggers.remote_uploader_downloader.multiprocessing.get_context', lambda _: fork_context):
