@@ -33,7 +33,7 @@
     <a href="https://docs.mosaicml.com/projects/composer/en/stable/">
         <img alt="Documentation" src="https://readthedocs.org/projects/composer/badge/?version=stable">
     </a>
-    <a href="https://mosaicml.me/slack">
+    <a href="https://dub.sh/mcomm">
         <img alt="Chat @ Slack" src="https://img.shields.io/badge/slack-chat-2eb67d.svg?logo=slack">
     </a>
     <a href="https://github.com/mosaicml/composer/blob/dev/LICENSE">
@@ -201,7 +201,7 @@ Next, check out our [Getting Started Colab](https://colab.research.google.com/gi
 
 Once you’ve completed the Quick Start, you can go through the below tutorials or our [documentation](https://docs.mosaicml.com/projects/composer/en/stable/) to further familiarize yourself with Composer.
 
-If you have any questions, please feel free to reach out to us on our [Community Slack](https://mosaicml.me/slack)!
+If you have any questions, please feel free to reach out to us on our [Community Slack](https://dub.sh/mcomm)!
 
 Here are some resources actively maintained by the Composer community to help you get started:
 <table>
@@ -250,7 +250,7 @@ Composer can be used on its own, but for the smoothest experience we recommend u
 
 # **🏆 Project Showcase**
 
-Here are some projects and experiments that used Composer. Got something to add? Share in our [Community Slack](https://mosaicml.me/slack)!
+Here are some projects and experiments that used Composer. Got something to add? Share in our [Community Slack](https://dub.sh/mcomm)!
 
 - [**MPT Foundation Series:**](https://www.mosaicml.com/mpt) Commercially usable open source LLMs, optimized for fast training and inference and trained with Composer.
     - [MPT-7B Blog](https://www.mosaicml.com/blog/mpt-7b)
@@ -277,7 +277,7 @@ P.S.: [We're hiring](https://www.databricks.com/company/careers/open-positions?
         - [StreamingDataset](https://github.com/mosaicml/streaming)
         - [MCLI](https://www.databricks.com/product/machine-learning/mosaic-ai-training) (Databricks Mosaic AI Training)
 - **How can I get community support for using Composer?**
-    - You can join our [Community Slack](https://mosaicml.me/slack)!
+    - You can join our [Community Slack](https://dub.sh/mcomm)!
 - **How does Composer compare to other trainers like NeMo Megatron and PyTorch Lightning?**
     - We built Composer to be optimized for both simplicity and efficiency. Community users have shared that they enjoy Composer for its capabilities and ease of use compared to alternative libraries.
 - **How do I use Composer to train graph neural networks (GNNs), or Generative Adversarial Networks (GANs), or models for reinforcement learning (RL)?**
