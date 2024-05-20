@@ -26,6 +26,7 @@ def test_is_compressed_pt() -> None:
     assert not is_compressed_pt('')
     assert not is_compressed_pt('x.lz4')
     assert not is_compressed_pt('x.tar.lz4')
+    assert not is_compressed_pt('x.pt.symlink')
 
 
 def test_get_invalid_compressor() -> None:
