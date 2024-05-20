@@ -68,6 +68,8 @@ ARG COMPOSER_INSTALL_COMMAND='mosaicml[all]'
 
 FROM ${BASE_IMAGE} AS pytorch_stage
 
+ARG TARGETARCH
+
 ARG DEBIAN_FRONTEND=noninteractive
 
 ARG LINUX_DISTRO='ubuntu'
@@ -99,7 +101,7 @@ RUN if [ -n "$CUDA_VERSION" ]; then \
         if [ "$TARGETARCH" = "amd64" ]; then \
             apt-get install -y --no-install-recommends wget && \
             wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/${LINUX_DISTRO}${LINUX_DISTRO_VERSION}/x86_64/cuda-keyring_1.0-1_all.deb; \
-        else \
+        elif [ "$TARGETARCH" = "arm64" ]; then \
             apt-get install -y gnupg gnupg1 gnupg2 && \
             apt-get install -y --no-install-recommends wget && \
             wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/${LINUX_DISTRO}${LINUX_DISTRO_VERSION}/arm64/cuda-keyring_1.0-1_all.deb; \
@@ -210,7 +212,7 @@ RUN if [ "$TARGETARCH" = "amd64" ]; then \
         pip${PYTHON_VERSION} install --no-cache-dir --upgrade pillow_simd==${PILLOW_SIMD_VERSION} && \
         rm -rf /tmp/pillow_stub; \
     # Install Pillow as arm64 is not supported by pillow-simd,
-        else \
+    elif [ "$TARGETARCH" = "arm64" ]; then \
         pip${PYTHON_VERSION} install --no-cache-dir --upgrade Pillow==${PILLOW_PSEUDOVERSION}; \
     fi
 
@@ -233,7 +235,7 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
             pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
                 torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
                 torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} ; \
-        else \
+        elif [ "$TARGETARCH" = "arm64" ]; then \
             # torch==<version>+cpu not working with arm for some reason, so using torch==<version> instead with the install from cpu package endpoint
             pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/cpu/torch_stable.html \
                 torch==${PYTORCH_VERSION} \
@@ -293,17 +295,21 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
 # Mellanox OFED driver installation
 ###################################
 
-RUN if [ -n "$MOFED_VERSION" ] ; then \
+ARG MOFED_VERSION
+
+
+RUN if [ -n "$MOFED_VERSION" ]; then \
         if [ "$TARGETARCH" = "amd64" ]; then \
             MOFED_PACKAGE="x86_64"; \
-        else \
+        elif [ "$TARGETARCH" = "arm64" ]; then \
             MOFED_PACKAGE="aarch64"; \
-        fi; \
+        fi && \
+        echo "MOFED Package: $MOFED_PACKAGE" && \
         mkdir -p /tmp/mofed && \
         wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-${LINUX_DISTRO}${LINUX_DISTRO_VERSION}-${MOFED_PACKAGE}.tgz && \
         tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-${LINUX_DISTRO}${LINUX_DISTRO_VERSION}-${MOFED_PACKAGE}.tgz -C /tmp/mofed && \
         /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-${LINUX_DISTRO}${LINUX_DISTRO_VERSION}-${MOFED_PACKAGE}/mlnxofedinstall --user-space-only --without-fw-update --force && \
-        rm -rf /tmp/mofed ; \
+        rm -rf /tmp/mofed; \
     fi
 
 ##########################
