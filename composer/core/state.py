@@ -520,6 +520,12 @@ class State(Serializable):
         parallelism_config = parallelism_config or {}
         self.fsdp_config = parallelism_config.get('fsdp', None)
         self.tp_config = parallelism_config.get('tp', None)
+        if self.fsdp_config is not None or self.tp_config is not None:
+            # Add an earlier call to patch_pytorch as we require device_mesh slicing before any
+            # model wrapping.
+            from composer.trainer.mosaic_fsdp import patch_pytorch
+
+            patch_pytorch()
 
         if self.tp_config is not None:
             if version.parse(torch.__version__.split('.dev')[0]) < version.parse('2.3.0'):
@@ -584,7 +590,6 @@ class State(Serializable):
             )
 
         self.device_mesh: Optional[DeviceMesh] = _create_device_mesh(self.device, self.fsdp_config, self.tp_config)
-        print(f'device_mesh: {self.device_mesh}')
         if self.fsdp_config is not None and self.device_mesh is not None:
             fsdp_mesh_dim_names = ['dp_shard']
             if 'dp_replicate' in self.device_mesh.mesh_dim_names:
