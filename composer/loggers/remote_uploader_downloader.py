@@ -673,8 +673,8 @@ def _upload_worker(
 
         # defining as a function-in-function to use decorator notation with num_attempts as an argument
         @retry(ObjectStoreTransientError, num_attempts=num_attempts)
-        def upload_file():
-            if not overwrite:
+        def upload_file(retry_index: int = 0):
+            if retry_index == 0 and not overwrite:
                 try:
                     remote_backend.get_object_size(remote_file_name)
                 except FileNotFoundError:
