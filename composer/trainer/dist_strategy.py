@@ -305,20 +305,25 @@ def prepare_fsdp_module(
 
     kwargs = {}
     if version.parse(torch.__version__.split('.dev')[0]) >= version.parse('2.2.0') and 'device_mesh' in fsdp_config:
-        ndim = fsdp_config['device_mesh'].ndim
-        if ndim == 1 and sharding_strategy == ShardingStrategy.HYBRID_SHARD:
-            sharding_strategy = ShardingStrategy.FULL_SHARD
-            warnings.warn('HYBRID_SHARD is not supported with 1D device mesh. Using FULL_SHARD instead.')
-        elif ndim == 1 and sharding_strategy == ShardingStrategy._HYBRID_SHARD_ZERO2:
-            sharding_strategy = ShardingStrategy.SHARD_GRAD_OP
-            warnings.warn('_HYBRID_SHARD_ZERO2 is not supported with 1D device mesh. Using SHARD_GRAD_OP instead.')
-        elif ndim == 2 and sharding_strategy == ShardingStrategy.SHARD_GRAD_OP:
-            sharding_strategy = ShardingStrategy._HYBRID_SHARD_ZERO2
-            warnings.warn('SHARD_GRAD_OP is not supported with 2D device mesh. Using _HYBRID_SHARD_ZERO2 instead.')
-        elif ndim == 2 and sharding_strategy == ShardingStrategy.FULL_SHARD:
-            sharding_strategy = ShardingStrategy.HYBRID_SHARD
-            warnings.warn('FULL_SHARD is not supported with 2D device mesh. Using HYBRID_SHARD instead.')
-        kwargs['device_mesh'] = fsdp_config['device_mesh']
+        if 'process_group' not in fsdp_config:
+            warnings.warn(
+                'process_group and device_mesh are set for FSDP, so ignoring device_mesh. Please set process_group to None.'
+            )
+        else:
+            ndim = fsdp_config['device_mesh'].ndim
+            if ndim == 1 and sharding_strategy == ShardingStrategy.HYBRID_SHARD:
+                sharding_strategy = ShardingStrategy.FULL_SHARD
+                warnings.warn('HYBRID_SHARD is not supported with 1D device mesh. Using FULL_SHARD instead.')
+            elif ndim == 1 and sharding_strategy == ShardingStrategy._HYBRID_SHARD_ZERO2:
+                sharding_strategy = ShardingStrategy.SHARD_GRAD_OP
+                warnings.warn('_HYBRID_SHARD_ZERO2 is not supported with 1D device mesh. Using SHARD_GRAD_OP instead.')
+            elif ndim == 2 and sharding_strategy == ShardingStrategy.SHARD_GRAD_OP:
+                sharding_strategy = ShardingStrategy._HYBRID_SHARD_ZERO2
+                warnings.warn('SHARD_GRAD_OP is not supported with 2D device mesh. Using _HYBRID_SHARD_ZERO2 instead.')
+            elif ndim == 2 and sharding_strategy == ShardingStrategy.FULL_SHARD:
+                sharding_strategy = ShardingStrategy.HYBRID_SHARD
+                warnings.warn('FULL_SHARD is not supported with 2D device mesh. Using HYBRID_SHARD instead.')
+            kwargs['device_mesh'] = fsdp_config['device_mesh']
 
     cpu_offload = get_cpu_offload(cpu_offload=fsdp_config['cpu_offload'])
 

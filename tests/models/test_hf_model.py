@@ -1488,12 +1488,6 @@ def test_peft_fsdp_trains(
 
     fsdp_config = {
         'sharding_strategy': 'FULL_SHARD',
-        'cpu_offload': False,
-        'mixed_precision': 'PURE',
-        'backward_prefetch': 'BACKWARD_PRE',
-        'activation_checkpointing': False,
-        'activation_cpu_offload': False,
-        'verbose': False,
     }
 
     stashed_model = copy.deepcopy(tiny_gpt2_model)

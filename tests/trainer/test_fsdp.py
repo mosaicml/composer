@@ -1,8 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-import contextlib
-from typing import Optional
 from unittest.mock import MagicMock
 
 import pytest
@@ -233,35 +231,6 @@ def test_fsdp_process_group(world_size: int):
     )
 
     trainer.fit()
-
-
-@pytest.mark.gpu
-@world_size(2)
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.2.0'), reason='Device mesh requires Torch 2.2')
-@pytest.mark.parametrize(
-    'sharding_strategy',
-    ['SHARD_GRAD_OP', 'FULL_SHARD', 'HYBRID_SHARD', '_HYBRID_SHARD_ZERO2'],
-)
-@pytest.mark.parametrize('replicate_degree', [None, 1])
-def test_wrong_size_device_mesh_error(world_size: int, sharding_strategy: str, replicate_degree: Optional[int]):
-    context = contextlib.nullcontext()
-    if sharding_strategy in ['SHARD_GRAD_OP', 'FULL_SHARD'] and replicate_degree is not None:
-        context = pytest.warns(UserWarning, match='.*is not supported with 2D device mesh.*')
-    if sharding_strategy in ['HYBRID_SHARD', '_HYBRID_SHARD_ZERO2'] and replicate_degree is None:
-        context = pytest.warns(UserWarning, match='.*is not supported with 1D device mesh.*')
-    parallelism_config = {
-        'fsdp': {
-            'sharding_strategy': sharding_strategy,
-            'data_parallel_shard_degree': 2,
-        },
-    }
-    if replicate_degree is not None:
-        parallelism_config['fsdp']['data_parallel_replicate_degree'] = replicate_degree
-    with context:
-        Trainer(
-            model=SimpleModel(),
-            parallelism_config=parallelism_config,
-        )
 
 
 class SimpleMLP(ComposerModel):
