@@ -420,7 +420,7 @@ class Time(Generic[TValue], Serializable):
         # Handle TimeDelta matching first
         try:
             return Time.from_timedelta(timestring)
-        except ValueError as e:
+        except ValueError:
             pass
 
         match = _TIME_STR_REGEX.findall(timestring)
