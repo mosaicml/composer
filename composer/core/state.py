@@ -242,6 +242,7 @@ def _create_device_mesh(device: Device, fsdp_config: Optional[Dict[str, Any]], t
         for i, dim in enumerate(dims):
             if dim == -1:
                 dims[i] = remaining_dimension
+                log.info(f'Automatically setting {names[i]} to have parallelization degree {remaining_dimension}.')
                 break
     else:
         if product_of_dims != dist.get_world_size():

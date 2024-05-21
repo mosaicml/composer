@@ -210,6 +210,7 @@ def test_fsdp_prefetch_limit(forward_prefetch_limit: int, backward_prefetch_limi
 @world_size(2)
 @pytest.mark.filterwarnings('ignore:Instantiating FSDP with custom process groups.*:UserWarning')
 @pytest.mark.filterwarnings('ignore:Composer is instantiating custom process groups.*:UserWarning')
+@pytest.mark.filterwarnings('ignore:.*process_group and device_mesh are set for FSDP.*.:UserWarning')
 def test_fsdp_process_group(world_size: int):
     model = SimpleModel()
     model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
