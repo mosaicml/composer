@@ -5,7 +5,7 @@
 
 import fnmatch
 import logging
-from typing import Any, Dict, Optional, Sequence, Union
+from typing import Any, Dict, Optional, Sequence, Union, Iterable
 
 import torch
 from packaging import version
@@ -14,7 +14,10 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn.parallel import DistributedDataParallel
 
 from composer.models import ComposerModel
-from composer.utils import STR_TO_DTYPE, dist
+from composer.utils import STR_TO_DTYPE, dist, _dataset_of
+from torch.utils.data import DataLoader, Dataset
+from composer.core.evaluator import Evaluator
+from composer.core.time import Timestamp
 
 log = logging.getLogger(__name__)
 
@@ -152,3 +155,53 @@ def _get_model_state_dict_with_fsdp_context_manager(model: nn.Module, sharded_st
     with FSDP.state_dict_type(model, state_dict_type=state_dict_type, state_dict_config=state_dict_config):
         model_state_dict = model.state_dict()
     return model_state_dict
+
+
+def get_resumption_state_dict(state: Optional[State]=None) -> Dict[str, Any]:
+    """Generate the state dict for any objects needed for resumption.
+
+    This includes:
+        * timestamp
+        * scheduler
+        * dataset_state
+        * scaler
+        * rank_zero_seed
+        * callbacks 
+        * algorithms?
+
+    Returns:
+        The state dict containing the objects needed for resumption.
+    """
+    
+
+def get_dataset_state_dict(
+        train_dataloader: Optional[Union[DataLoader, Iterable]],
+        evaluators: Sequence[Evaluator],
+        timestamp: Timestamp,
+ ) -> Dict[str, Any]:
+    """Collect the state dict(s) of our train and eval dataset(s).
+
+    Returns:
+        Dict[str, Any]: The state dict(s).
+    """
+    get_dataset_state_dict = {
+        'train': None,
+        'eval': {},
+    }
+
+    dataset = _dataset_of(train_dataloader)
+    if hasattr(dataset, 'state_dict'):
+        num_samples = int(timestamp.sample_in_epoch.value)
+        obj['train'] = dataset.state_dict(num_samples, True)  # pyright: ignore
+
+    for evaluator in evaluators:
+        dataset = _dataset_of(evaluator)
+        if hasattr(dataset, 'state_dict'):
+            # Don't save eval sample because we do not checkpoint during eval.
+            obj['eval'][evaluator.label] = dataset.state_dict(0, True)  # pyright: ignore
+
+    return get_dataset_state_dict 
+# def _get_timestamp_state_dict
+# def _get_scheduler_state_dict, 
+# def _dataset_state_state_dict
+

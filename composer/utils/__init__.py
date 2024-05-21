@@ -72,6 +72,7 @@ from composer.utils.object_store import (
 )
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
+from composer.utils.data_helpers import _dataset_of
 from composer.utils.warnings import VersionedDeprecationWarning
 
 __all__ = [
@@ -145,4 +146,5 @@ __all__ = [
     'get_compressor',
     'KNOWN_COMPRESSORS',
     'STR_TO_DTYPE',
+    '_dataset_of'
 ]
