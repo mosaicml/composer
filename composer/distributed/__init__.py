@@ -11,7 +11,7 @@ from composer.distributed.dist_strategy import (
     prepare_fsdp_module,
     prepare_tp_module,
 )
-from composer.distributed.mosaic_fsdp import SavePlannerWithDedupFix, patch_pytorch, set_fsdp_default
+from composer.distributed.mosaic_fsdp import patch_pytorch, set_fsdp_default
 
 __all__ = [
     'fix_batch_precision_for_deepspeed',
@@ -23,5 +23,4 @@ __all__ = [
     'prepare_tp_module',
     'patch_pytorch',
     'set_fsdp_default',
-    'SavePlannerWithDedupFix',
 ]

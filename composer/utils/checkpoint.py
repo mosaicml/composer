@@ -1125,7 +1125,7 @@ def _save_checkpoint(
             if version.parse(torch.__version__) >= version.parse('2.3.0'):
                 save_planner = state.fsdp_config['save_planner']
                 if save_planner is None:
-                    from composer.distributed import SavePlannerWithDedupFix
+                    from composer.distributed.mosaic_fsdp import SavePlannerWithDedupFix
 
                     save_planner = SavePlannerWithDedupFix()
                 dist_cp.save(
