@@ -226,16 +226,14 @@ class Time(Generic[TValue], Serializable):
             Time: :class:`Time` instance, in seconds.
         """
         # Convert timestring to be strptime parsable
-        if 'h' not in timestring:
-            timestring = '0h' + timestring
-        if 'm' not in timestring:
-            timestring = timestring.replace('h', 'h0m')
-        if 's' not in timestring:
-            timestring = timestring + '0s'
-        time_struct = datetime.datetime.strptime(timestring, '%Hh%Mm%Ss')
-        delta = datetime.timedelta(hours=time_struct.hour, minutes=time_struct.minute, seconds=time_struct.second)
-        total_seconds = delta.total_seconds()
-        return cls(int(total_seconds), TimeUnit.SECOND)
+        verified_wct = verify_wct(timestring)
+        if verified_wct:
+            time_struct = datetime.datetime.strptime(verified_wct, '%Hh%Mm%Ss')
+            delta = datetime.timedelta(hours=time_struct.hour, minutes=time_struct.minute, seconds=time_struct.second)
+            total_seconds = delta.total_seconds()
+            return cls(int(total_seconds), TimeUnit.SECOND)
+        else:
+            raise ValueError('Invalid timedelta')
 
     @property
     def value(self) -> TValue:
@@ -418,10 +416,8 @@ class Time(Generic[TValue], Serializable):
             Time: An instance of :class:`Time`.
         """
         # Handle TimeDelta matching first
-        try:
+        if verify_wct(timestring):
             return Time.from_timedelta(timestring)
-        except ValueError:
-            pass
 
         match = _TIME_STR_REGEX.findall(timestring)
         if len(match) != 1:
@@ -967,18 +963,39 @@ class Timestamp(Serializable):
         )
 
 
-def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str], allow_wct=True) -> Time:
+def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str]) -> Time:
     """Ensure ``maybe_time`` is an instance of :class:`.Time`.
 
     Args:
         maybe_time (Time | str): A time string, integer, or instance of :class:`.Time`.
         int_unit (TimeUnit | str): The unit to use if ``maybe_time`` is an integer
-        allow_wct (bool): check if wall clock time is allowed
 
     Returns:
         Time: An instance of :class:`.Time`.
     """
     time_obj = Time.from_input(maybe_time, int_unit)
-    if time_obj.unit == TimeUnit.SECOND and not allow_wct:
-        raise ValueError('Max Duration cannot be in Wall Clock Time')
     return time_obj
+
+
+def verify_wct(timestamp: str) -> Optional[bool]:
+        """return a valid datetime formated wct timestamp if input is a valid wct.
+
+        Args:
+            timestamp (str): A string that represents a timestamp in wct.
+
+        Returns:
+            bool: a properly formatted datetime if input is valid else None
+        """
+        if 'h' not in timestamp:
+            timestamp = '0h' + timestamp
+        if 'm' not in timestamp:
+            timestamp = timestamp.replace('h', 'h0m')
+        if 's' not in timestamp:
+            timestamp = timestamp + '0s'
+
+        pattern = r'^(\d+h)?(\d+m)?(\d+s)?$'
+        match = re.match(pattern, timestamp)
+        if bool(match):
+            return timestamp
+        else:
+            return None
