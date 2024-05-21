@@ -17,7 +17,7 @@ See the :doc:`Time Guide </trainer/time>` for more details on tracking time duri
 """
 from __future__ import annotations
 
-import datetime
+from datetime import datetime, timedelta
 import re
 from typing import Any, Dict, Generic, Optional, TypeVar, Union, cast
 
@@ -214,18 +214,18 @@ class Time(Generic[TValue], Serializable):
         return cls(duration, TimeUnit.DURATION)
 
     @classmethod
-    def from_timedelta(cls, timedelta: str) -> Time:
+    def from_timedelta(cls, timestring: str) -> Time:
         """Create a :class:`Time` with units of :attr:`TimeUnit.SECOND`.
 
         Equivalent to ``Time(batch, TimeUnit.SECOND)``.
 
         Args:
-            timedelta (int): timedelta string in _h_m_s.
+            timestring (int): timedelta string in _h_m_s.
 
         Returns:
             Time: :class:`Time` instance, in seconds.
         """
-        time_struct = datetime.strptime(timedelta_str, '%H:%M:%S')
+        time_struct = datetime.strptime(timestring, '%H:%M:%S')
         delta = timedelta(hours=time_struct.hour, minutes=time_struct.minute, seconds=time_struct.second)
         total_seconds = delta.total_seconds()
         return cls(total_seconds, TimeUnit.SECOND)
@@ -411,13 +411,10 @@ class Time(Generic[TValue], Serializable):
             Time: An instance of :class:`Time`.
         """
         # Handle TimeDelta matching first
-        timedelta_match = re.match(r'^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$', timestring)
-        if timedelta_match and any(timedelta_match.groups()):
-            hours = int(timedelta_match.group(1) or 0)
-            minutes = int(timedelta_match.group(2) or 0)
-            seconds = int(timedelta_match.group(3) or 0)
-            total_seconds = hours * 60 * 60 + minutes * 60 + seconds
-            return cls(total_seconds, TimeUnit.SECOND)
+        try:
+            return Time.from_timedelta(timestring)
+        except:
+            pass
 
         match = _TIME_STR_REGEX.findall(timestring)
         if len(match) != 1:
