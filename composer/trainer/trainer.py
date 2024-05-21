@@ -79,6 +79,16 @@ from composer.core import (
     get_precision_context,
 )
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
+from composer.distributed import (
+    DDPSyncStrategy,
+    ddp_sync_context,
+    fix_batch_precision_for_deepspeed,
+    parse_deepspeed_config,
+    prepare_ddp_module,
+    prepare_fsdp_module,
+    prepare_tp_module,
+    set_fsdp_default,
+)
 from composer.loggers import (
     ConsoleLogger,
     Logger,
@@ -93,17 +103,8 @@ from composer.loggers.mosaicml_logger import MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSA
 from composer.models import ComposerModel
 from composer.optim import ComposerScheduler, DecoupledSGDW, compile_composer_scheduler
 from composer.profiler import Profiler
-from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
-from composer.trainer.dist_strategy import (
-    DDPSyncStrategy,
-    ddp_sync_context,
-    prepare_ddp_module,
-    prepare_fsdp_module,
-    prepare_tp_module,
-)
-from composer.trainer.mosaic_fsdp_utils import set_fsdp_default
 from composer.utils import (
     ExportFormat,
     MissingConditionalImportError,
@@ -1646,7 +1647,7 @@ class Trainer:
                     conda_package='deepspeed>=0.5.5',
                     conda_channel=None,
                 ) from e
-            self.state.deepspeed_config = _parse_deepspeed_config(self.state.deepspeed_config, state=self.state)
+            self.state.deepspeed_config = parse_deepspeed_config(self.state.deepspeed_config, state=self.state)
             optimizer = ensure_tuple(self.state.optimizers)[0]
             log.debug('Initializing deepspeed')
             (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(
@@ -2476,7 +2477,7 @@ class Trainer:
                 rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
 
                 if self.state.deepspeed_enabled:
-                    self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
+                    self.state.batch = fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
                 self.engine.run_event(Event.AFTER_DATALOADER)
 
@@ -3070,7 +3071,7 @@ class Trainer:
 
                 # Fix the batch if using DeepSpeed
                 if self.state.deepspeed_enabled:
-                    self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
+                    self.state.batch = fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
                 self.engine.run_event(Event.PREDICT_BATCH_START)
 
@@ -3354,7 +3355,7 @@ class Trainer:
                     last_batch = self.state.eval_timestamp.sample + batch_num_samples >= dataset_len
 
                 if self.state.deepspeed_enabled:
-                    self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
+                    self.state.batch = fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
                 self.engine.run_event(Event.EVAL_BATCH_START)
 

@@ -23,12 +23,12 @@ from torchmetrics import Metric, MetricCollection
 
 from composer.core import Precision, State
 from composer.devices import Device
-from composer.trainer.meta_safe_apply import meta_safe_apply
-from composer.trainer.mosaic_fsdp import patch_pytorch
-from composer.trainer.mosaic_fsdp_utils import (
+from composer.distributed.meta_safe_apply import meta_safe_apply
+from composer.distributed.mosaic_fsdp import (
+    patch_pytorch,
     BACKWARD_PREFETCH_MAP,
     SHARDING_MAP,
-    _set_custom_fsdp_module_kwargs,
+    set_custom_fsdp_module_kwargs,
     get_cpu_offload,
     get_mixed_precision,
 )
@@ -362,7 +362,7 @@ def prepare_fsdp_module(
     process_group = None
     if fsdp_config['process_group'] is not None:
         process_group_dict = {'process_group': fsdp_config['process_group']}
-        process_group = _set_custom_fsdp_module_kwargs(process_group_dict, process_group_cache)['process_group']
+        process_group = set_custom_fsdp_module_kwargs(process_group_dict, process_group_cache)['process_group']
     backward_prefetch = BACKWARD_PREFETCH_MAP[fsdp_config['backward_prefetch'].upper()]
     activation_checkpointing = fsdp_config['activation_checkpointing']
     activation_cpu_offload = fsdp_config['activation_cpu_offload']
@@ -536,7 +536,7 @@ def prepare_fsdp_module(
                     elif hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
                         ret = obj.fsdp_wrap_fn(module)
                         if isinstance(ret, dict):
-                            ret = _set_custom_fsdp_module_kwargs(ret, process_group_cache)
+                            ret = set_custom_fsdp_module_kwargs(ret, process_group_cache)
                     if ret and auto_microbatching:
                         module.register_forward_hook(sync_hook)
                         module.register_full_backward_hook(sync_hook)

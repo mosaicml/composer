@@ -31,8 +31,6 @@ from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader, Dataset
 from torchmetrics import Metric
 
-from composer.utils.warnings import VersionedDeprecationWarning
-
 if version.parse(torch.__version__) >= version.parse('2.3.0'):
     from torch.amp.grad_scaler import GradScaler  # type: ignore
 else:
@@ -44,7 +42,9 @@ from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit, ensure_time
 from composer.devices import Device
+from composer.distributed import patch_pytorch, prepare_fsdp_module
 from composer.utils import (
+    VersionedDeprecationWarning,
     batch_get,
     batch_set,
     dist,
@@ -196,7 +196,9 @@ def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
 
 
 def _create_device_mesh(
-    device: Device, fsdp_config: Optional[Dict[str, Any]], tp_config: Optional[Dict[str, Any]]
+    device: Device,
+    fsdp_config: Optional[Dict[str, Any]],
+    tp_config: Optional[Dict[str, Any]],
 ) -> Optional[DeviceMesh]:
     if fsdp_config is None:
         return None
@@ -540,8 +542,6 @@ class State(Serializable):
         if self.fsdp_config is not None:
             # Add an earlier call to patch_pytorch as we require device_mesh slicing before any
             # model wrapping.
-            from composer.trainer.mosaic_fsdp import patch_pytorch
-
             patch_pytorch()
 
         if self.tp_config is not None:
@@ -1379,7 +1379,6 @@ class State(Serializable):
         if self.load_monolith_rank0_only:
             assert self.fsdp_config is not None
             log.info('Wrapping model with FSDP after loading model_state.')
-            from composer.trainer.dist_strategy import prepare_fsdp_module
             with reproducibility.seed_context(self.rank_zero_seed):
                 prepare_fsdp_module(
                     self.model,
