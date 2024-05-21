@@ -25,12 +25,12 @@ from composer.core import Precision, State
 from composer.devices import Device
 from composer.distributed.meta_safe_apply import meta_safe_apply
 from composer.distributed.mosaic_fsdp import (
-    patch_pytorch,
     BACKWARD_PREFETCH_MAP,
     SHARDING_MAP,
-    set_custom_fsdp_module_kwargs,
     get_cpu_offload,
     get_mixed_precision,
+    patch_pytorch,
+    set_custom_fsdp_module_kwargs,
 )
 from composer.utils import StringEnum, dist, ensure_tuple
 
