@@ -42,7 +42,6 @@ from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit, ensure_time
 from composer.devices import Device
-from composer.distributed import patch_pytorch, prepare_fsdp_module
 from composer.utils import (
     VersionedDeprecationWarning,
     batch_get,
@@ -540,6 +539,8 @@ class State(Serializable):
         self.fsdp_config = parallelism_config.get('fsdp', None)
         self.tp_config = parallelism_config.get('tp', None)
         if self.fsdp_config is not None:
+            from composer.distributed import patch_pytorch
+
             # Add an earlier call to patch_pytorch as we require device_mesh slicing before any
             # model wrapping.
             patch_pytorch()
@@ -1380,6 +1381,8 @@ class State(Serializable):
             assert self.fsdp_config is not None
             log.info('Wrapping model with FSDP after loading model_state.')
             with reproducibility.seed_context(self.rank_zero_seed):
+                from composer.distributed import prepare_fsdp_module
+
                 prepare_fsdp_module(
                     self.model,
                     self.optimizers,

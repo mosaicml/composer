@@ -26,7 +26,6 @@ from torch.distributed.checkpoint.metadata import Metadata
 from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
 from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
 
-from composer.distributed import SavePlannerWithDedupFix
 from composer.utils import dist, reproducibility
 from composer.utils.compression import get_compressor, is_compressed_pt
 from composer.utils.file_helpers import (
@@ -1126,6 +1125,8 @@ def _save_checkpoint(
             if version.parse(torch.__version__) >= version.parse('2.3.0'):
                 save_planner = state.fsdp_config['save_planner']
                 if save_planner is None:
+                    from composer.distributed import SavePlannerWithDedupFix
+
                     save_planner = SavePlannerWithDedupFix()
                 dist_cp.save(
                     state_dict=state_dict,
