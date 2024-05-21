@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Union
 
 import psutil
 import torch
+from packaging import version
 
 import composer
 from composer.loggers.mosaicml_logger import (
@@ -317,6 +318,13 @@ def _launch_processes(
     log.info('Starting distributed environment on local node for global_rank(%s-%s)', base_rank, base_rank + nproc - 1)
     log.info('Distributed KV store: tcp://%s:%s', master_addr, master_port)
 
+    nccl_env_variable = {
+        (
+            'NCCL_ASYNC_ERROR_HANDLING' if version.parse(torch.__version__) < version.parse('2.2.0') else 'TORCH_NCCL_ASYNC_ERROR_HANDLING'
+        ):
+            '1',
+    }
+
     for local_rank in range(nproc):
         global_rank = base_rank + local_rank
         if command_mode and module_mode:
@@ -339,7 +347,7 @@ def _launch_processes(
             MASTER_ADDR=master_addr,
             MASTER_PORT=str(master_port),
             PYTHONUNBUFFERED='1',
-            NCCL_ASYNC_ERROR_HANDLING='1',
+            **nccl_env_variable,
         ):
             # Populate the distributed variables in all launcher args
             for arg in training_script_args:
@@ -541,11 +549,11 @@ def main():
     if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and str(
         os.environ.get(MOSAICML_LOG_DIR_ENV_VAR, 'false'),
     ).lower() != 'false' and os.environ.get(MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR, 'false').lower() != 'false':
-        log.info('Logging all GPU ranks to Mosaic Platform.')
+        log.info('Logging all GPU ranks to Mosaic AI Training.')
         log_file_format = f'{os.environ.get(MOSAICML_LOG_DIR_ENV_VAR)}/{os.environ.get(MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR)}{{local_rank}}.txt'
         if args.stderr is not None or args.stdout is not None:
             log.info(
-                'Logging to Mosaic Platform. Ignoring provided stdout and stderr args. To use provided stdout and stderr, set MOSAICML_LOG_DIR=false.',
+                'Logging to Mosaic AI Training. Ignoring provided stdout and stderr args. To use provided stdout and stderr, set MOSAICML_LOG_DIR=false.',
             )
         args.stdout = log_file_format
         args.stderr = None

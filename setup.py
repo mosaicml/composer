@@ -102,7 +102,7 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
     'junitparser==3.1.2',
-    'coverage[toml]==7.4.4',
+    'coverage[toml]==7.5.1',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
     'ipython==8.11.0',
@@ -179,13 +179,13 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,!=4.34.0,<4.41',
+    'transformers>=4.11,!=4.34.0,<4.42',
     'datasets>=2.4,<3',
     'huggingface-hub>=0.21.2,<0.23',
 ]
 
 extra_deps['peft'] = [
-    'peft>=0.7.0,<0.8',
+    'peft>=0.10.0,<0.11',
 ]
 
 extra_deps['sentencepiece'] = [
@@ -228,7 +228,7 @@ extra_deps['mlflow'] = [
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk==0.27.0']
+extra_deps['databricks'] = ['databricks-sdk==0.27.1']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 

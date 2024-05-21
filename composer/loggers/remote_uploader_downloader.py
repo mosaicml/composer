@@ -673,8 +673,8 @@ def _upload_worker(
 
         # defining as a function-in-function to use decorator notation with num_attempts as an argument
         @retry(ObjectStoreTransientError, num_attempts=num_attempts)
-        def upload_file():
-            if not overwrite:
+        def upload_file(retry_index: int = 0):
+            if retry_index == 0 and not overwrite:
                 try:
                     remote_backend.get_object_size(remote_file_name)
                 except FileNotFoundError:
@@ -697,5 +697,13 @@ def _upload_worker(
             os.remove(file_path_to_upload)
             file_queue.task_done()
             completed_queue.put_nowait(remote_file_name)
+
+        # When encountering issues with too much concurrency in uploads, staggering the uploads can help.
+        # This stagger is intended for use when uploading model shards from every rank, and will effectively reduce
+        # the concurrency by a factor of num GPUs per node.
+        local_rank = dist.get_local_rank()
+        local_rank_stagger = int(os.environ.get('COMPOSER_LOCAL_RANK_STAGGER_SECONDS', 0))
+        log.debug(f'Staggering uploads by {local_rank * local_rank_stagger} seconds on {local_rank} local rank.')
+        time.sleep(local_rank * local_rank_stagger)
 
         upload_file()
