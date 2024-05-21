@@ -225,9 +225,13 @@ class Time(Generic[TValue], Serializable):
         Returns:
             Time: :class:`Time` instance, in seconds.
         """
+        print('---- DEBUG')
         time_struct = datetime.datetime.strptime(timestring, '%Hh%Mm%Ss')
+        print(time_struct)
         delta = datetime.timedelta(hours=time_struct.hour, minutes=time_struct.minute, seconds=time_struct.second)
+        print(delta)
         total_seconds = delta.total_seconds()
+        print(total_seconds)
         return cls(total_seconds, TimeUnit.SECOND)
 
     @property
@@ -413,7 +417,8 @@ class Time(Generic[TValue], Serializable):
         # Handle TimeDelta matching first
         try:
             return Time.from_timedelta(timestring)
-        except ValueError:
+        except ValueError as e:
+            print(e)
             pass
 
         match = _TIME_STR_REGEX.findall(timestring)
