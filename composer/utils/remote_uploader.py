@@ -9,10 +9,12 @@ import os
 import pathlib
 import shutil
 import tempfile
+import time
 import uuid
 from concurrent.futures import Future, ProcessPoolExecutor
 from typing import List
 
+from composer.utils.dist import get_local_rank
 from composer.utils.file_helpers import (
     maybe_create_object_store_from_uri,
 )
@@ -33,8 +35,8 @@ def _upload_file_to_object_store(
 ) -> int:
 
     @retry(ObjectStoreTransientError, num_attempts=num_attempts)
-    def upload_file():
-        if not overwrite:
+    def upload_file(retry_index: int = 0):
+        if retry_index == 0 and not overwrite:
             try:
                 object_store.get_object_size(remote_file_name)
             except FileNotFoundError:
@@ -49,14 +51,14 @@ def _upload_file_to_object_store(
         )
         os.remove(local_file_path)
 
-	log.info(f'Finished uploading file {local_file_path} to {remote_file_name}')
-# When encountering issues with too much concurrency in uploads, staggering the uploads can help.
-	# This stagger is intended for use when uploading model shards from every rank, and will effectively reduce
-	# the concurrency by a factor of num GPUs per node.
-	local_rank = dist.get_local_rank()
-	local_rank_stagger = int(os.environ.get('COMPOSER_LOCAL_RANK_STAGGER_SECONDS', 0))
-	log.debug(f'Staggering uploads by {local_rank * local_rank_stagger} seconds on {local_rank} local rank.')
-	time.sleep(local_rank * local_rank_stagger)
+    log.info(f'Finished uploading file {local_file_path} to {remote_file_name}')
+    # When encountering issues with too much concurrency in uploads, staggering the uploads can help.
+    # This stagger is intended for use when uploading model shards from every rank, and will effectively reduce
+    # the concurrency by a factor of num GPUs per node.
+    local_rank = get_local_rank()
+    local_rank_stagger = int(os.environ.get('COMPOSER_LOCAL_RANK_STAGGER_SECONDS', 0))
+    log.debug(f'Staggering uploads by {local_rank * local_rank_stagger} seconds on {local_rank} local rank.')
+    time.sleep(local_rank * local_rank_stagger)
     upload_file()
     return 0
 
