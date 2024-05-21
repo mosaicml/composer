@@ -195,7 +195,7 @@ def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
     return state
 
 
-def _create_device_mesh(device: Device, fsdp_config: Optional[Dict[str, Any]], tp_config: Optional[Dict[str, Any]]):
+def _create_device_mesh(device: Device, fsdp_config: Optional[Dict[str, Any]], tp_config: Optional[Dict[str, Any]]) -> DeviceMesh:
     if fsdp_config is None:
         return None
 

@@ -927,7 +927,6 @@ class Trainer:
 
             .. note:: This parameter is experimental and subject to change without standard deprecation
                 cycles.
-        tp_config (Dict[str, Any], optional): Configuration for tensor parallelism.
         device (Device | str, optional): The device to use for training, which can be ``'cpu'``, ``'gpu'``,
             ``'tpu'``, or ``'mps'``. (default: ``None``)
 
