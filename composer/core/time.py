@@ -235,7 +235,7 @@ class Time(Generic[TValue], Serializable):
         time_struct = datetime.datetime.strptime(timestring, '%Hh%Mm%Ss')
         delta = datetime.timedelta(hours=time_struct.hour, minutes=time_struct.minute, seconds=time_struct.second)
         total_seconds = delta.total_seconds()
-        return cls(total_seconds, TimeUnit.SECOND)
+        return cls(int(total_seconds), TimeUnit.SECOND)
 
     @property
     def value(self) -> TValue:
