@@ -978,24 +978,24 @@ def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str
 
 
 def verify_wct(timestamp: str) -> Optional[bool]:
-        """return a valid datetime formated wct timestamp if input is a valid wct.
+    """Return a valid datetime formated wct timestamp if input is a valid wct.
 
-        Args:
-            timestamp (str): A string that represents a timestamp in wct.
+    Args:
+        timestamp (str): A string that represents a timestamp in wct.
 
-        Returns:
-            bool: a properly formatted datetime if input is valid else None
-        """
-        if 'h' not in timestamp:
-            timestamp = '0h' + timestamp
-        if 'm' not in timestamp:
-            timestamp = timestamp.replace('h', 'h0m')
-        if 's' not in timestamp:
-            timestamp = timestamp + '0s'
+    Returns:
+        bool: a properly formatted datetime if input is valid else None
+    """
+    if 'h' not in timestamp:
+        timestamp = '0h' + timestamp
+    if 'm' not in timestamp:
+        timestamp = timestamp.replace('h', 'h0m')
+    if 's' not in timestamp:
+        timestamp = timestamp + '0s'
 
-        pattern = r'^(\d+h)?(\d+m)?(\d+s)?$'
-        match = re.match(pattern, timestamp)
-        if bool(match):
-            return timestamp
-        else:
-            return None
+    pattern = r'^(\d+h)?(\d+m)?(\d+s)?$'
+    match = re.match(pattern, timestamp)
+    if bool(match):
+        return timestamp
+    else:
+        return None
