@@ -17,8 +17,8 @@ See the :doc:`Time Guide </trainer/time>` for more details on tracking time duri
 """
 from __future__ import annotations
 
+import datetime
 import re
-from datetime import datetime, timedelta
 from typing import Any, Dict, Generic, Optional, TypeVar, Union, cast
 
 from composer.core.serializable import Serializable
@@ -226,7 +226,7 @@ class Time(Generic[TValue], Serializable):
             Time: :class:`Time` instance, in seconds.
         """
         time_struct = datetime.strptime(timestring, '%H:%M:%S')
-        delta = timedelta(hours=time_struct.hour, minutes=time_struct.minute, seconds=time_struct.second)
+        delta = datetime.timedelta(hours=time_struct.hour, minutes=time_struct.minute, seconds=time_struct.second)
         total_seconds = delta.total_seconds()
         return cls(total_seconds, TimeUnit.SECOND)
 
