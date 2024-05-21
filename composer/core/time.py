@@ -225,14 +225,10 @@ class Time(Generic[TValue], Serializable):
         Returns:
             Time: :class:`Time` instance, in seconds.
         """
-        timedelta_match = re.match(r'^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$', timedelta)
-        if timedelta_match and any(timedelta_match.groups()):
-            hours = int(timedelta_match.group(1) or 0)
-            minutes = int(timedelta_match.group(2) or 0)
-            seconds = int(timedelta_match.group(3) or 0)
-            total_seconds = hours * 60 * 60 + minutes * 60 + seconds
-            return cls(total_seconds, TimeUnit.SECOND)
-        assert False, 'Invalid timedelta string'
+        time_struct = datetime.strptime(timedelta_str, '%H:%M:%S')
+        delta = timedelta(hours=time_struct.hour, minutes=time_struct.minute, seconds=time_struct.second)
+        total_seconds = delta.total_seconds()
+        return cls(total_seconds, TimeUnit.SECOND)
 
     @property
     def value(self) -> TValue:
@@ -967,14 +963,18 @@ class Timestamp(Serializable):
         )
 
 
-def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str]) -> Time:
+def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str], allow_wct=True) -> Time:
     """Ensure ``maybe_time`` is an instance of :class:`.Time`.
 
     Args:
         maybe_time (Time | str): A time string, integer, or instance of :class:`.Time`.
         int_unit (TimeUnit | str): The unit to use if ``maybe_time`` is an integer
+        allow_wct (bool): check if wall clock time is allowed
 
     Returns:
         Time: An instance of :class:`.Time`.
     """
-    return Time.from_input(maybe_time, int_unit)
+    time_obj = Time.from_input(maybe_time, int_unit, allow_wct)
+    if time_obj.unit == TimeUnit.SECOND and not allow_wct:
+        raise ValueError('Scheduler cannot be in Wall Clock Time')
+    return Time.from_input(maybe_time, int_unit, allow_wct)

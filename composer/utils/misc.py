@@ -106,7 +106,6 @@ def create_interval_scheduler(
             TimeUnit.SAMPLE,
             TimeUnit.SECOND,
         }:
-            # Set time_interval to be in seconds if it's in minutes or hours
             previous_count = state.previous_timestamp.get(time_interval.unit)
             count = state.timestamp.get(time_interval.unit)
         # If the eval_interval is a duration, we will track progress in terms of the unit of max_duration
