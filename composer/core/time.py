@@ -225,13 +225,16 @@ class Time(Generic[TValue], Serializable):
         Returns:
             Time: :class:`Time` instance, in seconds.
         """
-        print('---- DEBUG')
+        # Convert timestring to be strptime parsable
+        if 'h' not in timestring:
+            timestring = '0h' + timestring
+        if 'm' not in timestring:
+            timestring = timestring.replace('h', 'h0m')
+        if 's' not in timestring:
+            timestring = timestring + '0s'
         time_struct = datetime.datetime.strptime(timestring, '%Hh%Mm%Ss')
-        print(time_struct)
         delta = datetime.timedelta(hours=time_struct.hour, minutes=time_struct.minute, seconds=time_struct.second)
-        print(delta)
         total_seconds = delta.total_seconds()
-        print(total_seconds)
         return cls(total_seconds, TimeUnit.SECOND)
 
     @property
@@ -979,4 +982,4 @@ def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str
     time_obj = Time.from_input(maybe_time, int_unit, allow_wct)
     if time_obj.unit == TimeUnit.SECOND and not allow_wct:
         raise ValueError('Scheduler cannot be in Wall Clock Time')
-    return Time.from_input(maybe_time, int_unit, allow_wct)
+    return time_obj
