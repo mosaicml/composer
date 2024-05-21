@@ -421,7 +421,6 @@ class Time(Generic[TValue], Serializable):
         try:
             return Time.from_timedelta(timestring)
         except ValueError as e:
-            print(e)
             pass
 
         match = _TIME_STR_REGEX.findall(timestring)
