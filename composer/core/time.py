@@ -17,8 +17,8 @@ See the :doc:`Time Guide </trainer/time>` for more details on tracking time duri
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta
 import re
+from datetime import datetime, timedelta
 from typing import Any, Dict, Generic, Optional, TypeVar, Union, cast
 
 from composer.core.serializable import Serializable
