@@ -203,10 +203,10 @@ def _create_device_mesh(device: Device, fsdp_config: Optional[Dict[str, Any]], t
     dims: List[int] = []
     names: List[str] = []
     dims.append(fsdp_config['data_parallel_shard_degree'])
-    names.append('dp_shard')
+    names.append('data_parallel_shard_degree')
     if fsdp_config['data_parallel_replicate_degree'] != 1:
         dims.append(fsdp_config['data_parallel_replicate_degree'])
-        names.append('dp_replicate')
+        names.append('data_parallel_replicate_degree')
     if tp_config is not None:
         dims.append(tp_config['tensor_parallel_degree'])
         names.append('tp')
@@ -606,9 +606,9 @@ class State(Serializable):
 
         self.device_mesh: Optional[DeviceMesh] = _create_device_mesh(self.device, self.fsdp_config, self.tp_config)
         if self.fsdp_config is not None and self.device_mesh is not None:
-            fsdp_mesh_dim_names = ['dp_shard']
-            if self.device_mesh.mesh_dim_names is not None and 'dp_replicate' in self.device_mesh.mesh_dim_names:
-                fsdp_mesh_dim_names.append('dp_replicate')
+            fsdp_mesh_dim_names = ['data_parallel_shard_degree']
+            if self.device_mesh.mesh_dim_names is not None and 'data_parallel_replicate_degree' in self.device_mesh.mesh_dim_names:
+                fsdp_mesh_dim_names.append('data_parallel_replicate_degree')
             self.fsdp_config['device_mesh'] = self.device_mesh[tuple(fsdp_mesh_dim_names)]  # type: ignore
         if self.tp_config is not None and self.device_mesh is not None:
             self.tp_config['device_mesh'] = self.device_mesh['tp']

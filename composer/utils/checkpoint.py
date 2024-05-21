@@ -1110,9 +1110,10 @@ def _save_checkpoint(
         log.debug(f'Saving sharded checkpoints to {save_filename}...')
         process_group = None
         device_mesh = state.device_mesh
-        if device_mesh is not None and device_mesh.ndim == 2:
+        if device_mesh is not None and device_mesh.mesh_dim_names is not None and 'data_parallel_replicate_degree' in device_mesh.mesh_dim_names:
             # If hybrid shard, only rank in first replica saves
-            expect_file = device_mesh.get_local_rank(mesh_dim=0) == 0
+            hsdp_index = device_mesh.mesh_dim_names.index('data_parallel_replicate_degree')
+            expect_file = device_mesh.get_local_rank(mesh_dim=hsdp_index) == 0
             if expect_file:
                 process_group = device_mesh.get_group(1)  # Shard process_group for first replica
                 assert isinstance(process_group, ProcessGroup)  # For type checker
