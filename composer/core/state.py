@@ -43,6 +43,7 @@ from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit, ensure_time
 from composer.devices import Device
 from composer.utils import (
+    ParallelismType,
     VersionedDeprecationWarning,
     batch_get,
     batch_set,
@@ -206,13 +207,13 @@ def _create_device_mesh(
     dims: List[int] = []
     names: List[str] = []
     dims.append(fsdp_config['data_parallel_shard_degree'])
-    names.append('data_parallel_shard_degree')
-    if fsdp_config['data_parallel_replicate_degree'] != 1:
+    names.append(ParallelismType.DATA_PARALLEL_SHARD.value)
+    if fsdp_config[ParallelismType.DATA_PARALLEL_REPLICATE.value] != 1:
         dims.append(fsdp_config['data_parallel_replicate_degree'])
-        names.append('data_parallel_replicate_degree')
+        names.append(ParallelismType.DATA_PARALLEL_REPLICATE.value)
     if tp_config is not None:
         dims.append(tp_config['tensor_parallel_degree'])
-        names.append('tp')
+        names.append(ParallelismType.TENSOR_PARALLEL.value)
 
     # Fill in the unspecified dimensions
     product_of_dims = 1
@@ -609,12 +610,12 @@ class State(Serializable):
 
         self.device_mesh: Optional[DeviceMesh] = _create_device_mesh(self.device, self.fsdp_config, self.tp_config)
         if self.fsdp_config is not None and self.device_mesh is not None:
-            fsdp_mesh_dim_names = ['data_parallel_shard_degree']
-            if self.device_mesh.mesh_dim_names is not None and 'data_parallel_replicate_degree' in self.device_mesh.mesh_dim_names:
-                fsdp_mesh_dim_names.append('data_parallel_replicate_degree')
+            fsdp_mesh_dim_names = [ParallelismType.DATA_PARALLEL_SHARD.value]
+            if self.device_mesh.mesh_dim_names is not None and ParallelismType.DATA_PARALLEL_REPLICATE.value in self.device_mesh.mesh_dim_names:
+                fsdp_mesh_dim_names.append(ParallelismType.DATA_PARALLEL_REPLICATE.value)
             self.fsdp_config['device_mesh'] = self.device_mesh[tuple(fsdp_mesh_dim_names)]  # type: ignore
         if self.tp_config is not None and self.device_mesh is not None:
-            self.tp_config['device_mesh'] = self.device_mesh['tp']
+            self.tp_config['device_mesh'] = self.device_mesh[ParallelismType.TENSOR_PARALLEL.value]
 
         # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None

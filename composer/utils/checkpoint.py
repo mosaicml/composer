@@ -37,7 +37,7 @@ from composer.utils.file_helpers import (
     is_tar,
     parse_uri,
 )
-from composer.utils.misc import is_model_deepspeed, partial_format
+from composer.utils.misc import ParallelismType, is_model_deepspeed, partial_format
 from composer.utils.object_store import ObjectStore
 from composer.utils.retrying import retry
 
@@ -1110,9 +1110,9 @@ def _save_checkpoint(
         log.debug(f'Saving sharded checkpoints to {save_filename}...')
         process_group = None
         device_mesh = state.device_mesh
-        if device_mesh is not None and device_mesh.mesh_dim_names is not None and 'data_parallel_replicate_degree' in device_mesh.mesh_dim_names:
+        if device_mesh is not None and device_mesh.mesh_dim_names is not None and ParallelismType.DATA_PARALLEL_REPLICATE.value in device_mesh.mesh_dim_names:
             # If hybrid shard, only rank in first replica saves
-            hsdp_index = device_mesh.mesh_dim_names.index('data_parallel_replicate_degree')
+            hsdp_index = device_mesh.mesh_dim_names.index(ParallelismType.DATA_PARALLEL_REPLICATE.value)
             expect_file = device_mesh.get_local_rank(mesh_dim=hsdp_index) == 0
             if expect_file:
                 process_group = device_mesh.get_group(1)  # Shard process_group for first replica
