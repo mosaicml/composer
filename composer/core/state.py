@@ -610,9 +610,10 @@ class State(Serializable):
 
         self.device_mesh: Optional[DeviceMesh] = _create_device_mesh(self.device, self.fsdp_config, self.tp_config)
         if self.fsdp_config is not None and self.device_mesh is not None:
-            fsdp_mesh_dim_names = [ParallelismType.DATA_PARALLEL_SHARD.value]
+            fsdp_mesh_dim_names = []
             if self.device_mesh.mesh_dim_names is not None and ParallelismType.DATA_PARALLEL_REPLICATE.value in self.device_mesh.mesh_dim_names:
                 fsdp_mesh_dim_names.append(ParallelismType.DATA_PARALLEL_REPLICATE.value)
+            fsdp_mesh_dim_names.append(ParallelismType.DATA_PARALLEL_SHARD.value)
             self.fsdp_config['device_mesh'] = self.device_mesh[tuple(fsdp_mesh_dim_names)]  # type: ignore
         if self.tp_config is not None and self.device_mesh is not None:
             self.tp_config['device_mesh'] = self.device_mesh[ParallelismType.TENSOR_PARALLEL.value]
