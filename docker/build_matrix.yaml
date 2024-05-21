@@ -24,6 +24,7 @@
   PYTORCH_VERSION: 2.3.0
   TAGS:
   - mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
+  - mosaicml/pytorch:latest
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.18.0
 - AWS_OFI_NCCL_VERSION: v1.9.1-aws
@@ -51,6 +52,7 @@
   PYTORCH_VERSION: 2.3.0
   TAGS:
   - mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04-aws
+  - mosaicml/pytorch:latest-aws
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.18.0
 - AWS_OFI_NCCL_VERSION: ''
@@ -65,6 +67,7 @@
   PYTORCH_VERSION: 2.3.0
   TAGS:
   - mosaicml/pytorch:2.3.0_cpu-python3.11-ubuntu20.04
+  - mosaicml/pytorch:latest_cpu
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.18.0
 - AWS_OFI_NCCL_VERSION: ''
@@ -223,7 +226,7 @@
     brand=unknown,driver>=525,driver<526 brand=nvidia,driver>=525,driver<526 brand=nvidiartx,driver>=525,driver<526
     brand=geforce,driver>=525,driver<526 brand=geforcertx,driver>=525,driver<526 brand=quadro,driver>=525,driver<526
     brand=quadrortx,driver>=525,driver<526 brand=titan,driver>=525,driver<526 brand=titanrtx,driver>=525,driver<526
-  PYTHON_VERSION: '3.10'
+  PYTHON_VERSION: '3.11'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.3.0
@@ -239,7 +242,7 @@
   IMAGE_NAME: composer-0-22-0-cpu
   MOFED_VERSION: 5.5-1.0.3.2
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
-  PYTHON_VERSION: '3.10'
+  PYTHON_VERSION: '3.11'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.3.0
