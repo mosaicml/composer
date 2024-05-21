@@ -979,7 +979,7 @@ def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str
     Returns:
         Time: An instance of :class:`.Time`.
     """
-    time_obj = Time.from_input(maybe_time, int_unit, allow_wct)
+    time_obj = Time.from_input(maybe_time, int_unit)
     if time_obj.unit == TimeUnit.SECOND and not allow_wct:
         raise ValueError('Scheduler cannot be in Wall Clock Time')
     return time_obj
