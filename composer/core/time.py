@@ -981,5 +981,5 @@ def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str
     """
     time_obj = Time.from_input(maybe_time, int_unit)
     if time_obj.unit == TimeUnit.SECOND and not allow_wct:
-        raise ValueError('Scheduler cannot be in Wall Clock Time')
+        raise ValueError('Max Duration cannot be in Wall Clock Time')
     return time_obj
