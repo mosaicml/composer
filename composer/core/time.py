@@ -977,14 +977,14 @@ def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str
     return time_obj
 
 
-def verify_wct(timestamp: str) -> Optional[bool]:
+def verify_wct(timestamp: str) -> Optional[str]:
     """Return a valid datetime formated wct timestamp if input is a valid wct.
 
     Args:
         timestamp (str): A string that represents a timestamp in wct.
 
     Returns:
-        bool: a properly formatted datetime if input is valid else None
+        str: a properly formatted datetime if input is valid else None
     """
     if 'h' not in timestamp:
         timestamp = '0h' + timestamp
