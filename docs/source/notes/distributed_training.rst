@@ -176,9 +176,9 @@ At a high level, when you use the Composer Trainer, you must pass it a :mod:`Com
 
 Inside that :mod:`ComposerModel` you may have one or many submodules, such as a :code:`.model` or :code:`.language_model` or :code:`.classifier` that is the actual :mod:`torch.nn.Module` that you will be deploying at inference time. In our case, this is the `GPT <https://github.com/mosaicml/examples/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py#L102>`__ module that we build and attach :mod:`ComposerGPT.model`.
 
-When you provide an :code:`fsdp_config={...}` dictionary to the Composer Trainer, then on :code:`__init__`, the Trainer will attempt to wrap **each of the submodules** of your :mod:`ComposerModel` with an FSDP auto wrap policy. This wrapping is recursive, so not only is `GPT` wrapped, but all submodules of `GPT` may/may not be wrapped too. See the `FSDP documentation <https://pytorch.org/docs/stable/fsdp.html>`__ for more details on how auto wrap policies work.
+When you provide an :code:`parallelism_config={'fsdp': {...}}` dictionary to the Composer Trainer, then on :code:`__init__`, the Trainer will attempt to wrap **each of the submodules** of your :mod:`ComposerModel` with an FSDP auto wrap policy. This wrapping is recursive, so not only is `GPT` wrapped, but all submodules of `GPT` may/may not be wrapped too. See the `FSDP documentation <https://pytorch.org/docs/stable/fsdp.html>`__ for more details on how auto wrap policies work.
 
-The full spec and defaults for Composer's `fsdp_config` is here:
+The full spec and defaults for Composer's fsdp config is here:
 
 .. code:: python
 
@@ -188,6 +188,8 @@ The full spec and defaults for Composer's `fsdp_config` is here:
       'activation_cpu_offload': bool = True | False, # Default: False
       'backward_prefetch': str = 'BACKWARD_PRE' | 'BACKWARD_POST' | 'NONE', # Default: 'BACKWARD_POST'
       'cpu_offload': bool = True | False, # Default: False, cpu_offload not supported yet
+      'data_parallel_shard_degree': int = -1, # Default: -1
+      'data_parallel_replicate_degree': int = 1, # Default: 1
       'forward_prefetch': bool = True | False, # Default: False
       'ignored_modules': Optional[Iterable[torch.nn.Module]], # Default: None
       'keep_low_precision_grads': bool = True | False, # Default: False
@@ -201,7 +203,6 @@ The full spec and defaults for Composer's `fsdp_config` is here:
       #   'reduce_dtype': 'fp32' | 'fp16' | 'bf16',
       #   'buffer_dtype': 'fp32' | 'fp16' | 'bf16',
       # },
-      'process_group': str = 'self' | 'node' | 'local_rank_across_nodes' | 'setK' | 'modK', # Default: None
       'save_planner': torch.distributed.checkpoint.planner.SavePlanner, # Default: None
       'sharded_ckpt_prefix_dir': str = 'ep{epoch}-ba{batch}', # Default: 'ep{epoch}-ba{batch}'
       'sharding_strategy': str = 'FULL_SHARD' | 'SHARD_GRAD_OP' | 'NO_SHARD', # Default: 'FULL_SHARD'
@@ -211,7 +212,7 @@ The full spec and defaults for Composer's `fsdp_config` is here:
       'verbose': bool = True | False, # Default: False
     }
 
-All values come with defaults and can be optionally defined in the :code:`fsdp_config`. Most parameters map directly to parameters in the `FSDP documentation <https://pytorch.org/docs/stable/fsdp.html#torch.distributed.fsdp.FullyShardedDataParallel>`__.
+All values come with defaults and can be optionally defined in the :code:`fsdp_config`. Most parameters map directly to parameters in the `FSDP documentation <https://pytorch.org/docs/stable/fsdp.html#torch.distributed.fsdp.FullyShardedDataParallel>`__. This config is passed under `parallelism_config['fsdp']` to the Composer Trainer. Two important parameters which do not map include `data_parallel_shard_degree`, which dictates the number of devices to shard across, and `data_parallel_replicate_degree`, which dictates the number of devices to replicate across.
 
 One Composer-specific pattern is that if :code:`mixed_precision` is provided as a :code:`str`, then we automatically infer the settings to use from the Trainer's :code:`precision`, which is already being used for autocast, and we construct an associated MixedPrecision object for FSDP:
 
@@ -243,7 +244,7 @@ An example code snippet for using FSDP with composer is provided below:
     import torch.nn as nn
     from composer import Trainer
 
-    class Block (nn.Module):
+    class Block(nn.Module):
         ...
 
     class Model(nn.Module):
@@ -299,7 +300,7 @@ An example code snippet for using FSDP with composer is provided below:
 
     trainer = Trainer(
         model=composer_model,
-        fsdp_config=fsdp_config,
+        parallelism_config={'fsdp': fsdp_config},
         ...
     )
 
@@ -415,7 +416,7 @@ For example, to save sharded checkpoints to disk locally (`state_dict_type='shar
     import torch.nn as nn
     from composer import Trainer
 
-    class Block (nn.Module):
+    class Block(nn.Module):
         ...
 
     class Model(nn.Module):
@@ -464,7 +465,7 @@ For example, to save sharded checkpoints to disk locally (`state_dict_type='shar
     trainer = Trainer(
         model=composer_model,
         max_duration='4ba'
-        fsdp_config=fsdp_config,
+        parallelism_config={'fsdp': fsdp_config},
         save_folder='checkpoints',
         save_interval='2ba',
         ...
@@ -490,7 +491,7 @@ To load these checkpoint files, you would need to do something like this:
     trainer = Trainer(
         model=composer_model,
         max_duration='4ba'
-        fsdp_config=fsdp_config,
+        parallelism_config={'fsdp': fsdp_config},
         load_path='./checkpoints/ba2-shards' # load_path must be the path to the prefix directory and not to a specific file.
         ...
     )
@@ -506,61 +507,99 @@ Four things to note in this load example:
 4. To do multinode resumption (resuming on more than one node regardless of how many nodes you saved on), you must be using torch 2.0.1 or higher due a bug in torch 2.0.0.
 
 
+Tensor Parallel (TP)
+--------------------
 
-Saving and Loading Sharded Checkpoints with FSDP and Torch 1.13
----------------------------------------------------------------
+Composer integrates Pytorch's `Tensor Parallel <https://pytorch.org/docs/stable/distributed.tensor.parallel.html>`__ API with some syntactic sugar to make it easy to write custom models that work with Composer + TP.
 
-To save sharded checkpoints to disk locally (`state_dict_type='sharded'`) with FSDP on PyTorch version 1.13, you must do:
-
-.. code:: python
-
-    trainer = Trainer(
-        model=composer_model,
-        max_duration='4ba'
-        fsdp_config=fsdp_config,
-        save_folder='checkpoints',
-        save_filename='ba{batch}_rank{rank}.pt',
-        save_interval='2ba',
-        ...
-    )
-
-    trainer.fit()
-
-After the second batch, this code will save N checkpoint files to the local directory ``./checkpoints/ba2-shards``. For example,
-if you trained with 4 ranks, ``./checkpoints/ba2-shards`` would contain 4 files: ``ba2_rank0.pt``, ``ba2_rank1.pt``, ``ba2_rank2.pt``, and ``ba2_rank3.pt``.
-After the fourth batch, N checkpoint files (``ba4_rank0.pt``, ``ba4_rank1.pt``, etc.) will saved to ``./checkpoints/ba4-shards``
-To load these checkpoint files, you would need to do something like this:
+To enable Tensor Parallel, a tensor parallel config must be passed to the Composer Trainer. The full spec and defaults for Composer's tensor parallelism_config is here:
 
 .. code:: python
 
+    tp_config = {
+        tensor_parallel_degree: int = 1, # Default: 1
+        pipeline_parallel_degree: int = 1, # Default: None
+    }
+
+All values come with defaults and can be optionally defined in the :code:`tp_config`. Most parameters map directly to parameters in the `Tensor Parallel documentation <https://pytorch.org/docs/stable/distributed.tensor.parallel.html#torch.distributed.tensor.parallel.parallelize_module>`__. This config is passed under `parallelism_config['tp']` to the Composer Trainer. An important parameters which do not map include `tensor_parallel_degree`, which dictates the number of devices to shard across.
+
+
+An example code snippet for using FSDP with composer is provided below:
+
+.. code:: python
+
+    import torch.nn as nn
+    from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
     from composer import Trainer
+
+    class Block(nn.Module):
+        ...
+
+    class Model(nn.Module):
+        def __init__(self, n_layers):
+            super().__init__()
+            self.blocks = nn.ModuleList([
+                Block(...) for _ in range(n_layers)
+            ]),
+            self.head = nn.Linear(...)
+
+        def forward(self, inputs):
+            ...
+
+        # FSDP Wrap Function
+        def fsdp_wrap_fn(self, module):
+            return isinstance(module, Block)
+
+        # Activation Checkpointing Function
+        def activation_checkpointing_fn(self, module):
+            return isinstance(module, Block)
+
+
+    class MyComposerModel(ComposerModel):
+
+        def __init__(self, n_layers):
+            super().__init__()
+            self.model = Model(n_layers)
+            ...
+
+        def forward(self, batch):
+            ...
+
+        def eval_forward(self, batch, outputs=None):
+            ...
+
+        def loss(self, outputs, batch):
+            ...
+
+        ...
+
+    composer_model = MyComposerModel(n_layers=3)
 
     fsdp_config = {
         'sharding_strategy': 'FULL_SHARD',
-        'state_dict_type': 'sharded',
+        'cpu_offload': False, # Not supported yet
+        'mixed_precision': 'DEFAULT',
+        'backward_prefetch': 'BACKWARD_POST',
+        'activation_checkpointing': False,
+        'activation_cpu_offload': False,
+        'verbose': True
+    }
+    tp_config = {
+        'tensor_parallel_degree': 2,
+        layer_plan = {
+            'model.0.fc1': ColwiseParallel(),
+            'model.0.fc2': RowwiseParallel(),
+        }
     }
 
 
     trainer = Trainer(
         model=composer_model,
-        max_duration='4ba'
-        fsdp_config=fsdp_config,
-        load_path='./checkpoints/ba2-shards/ba2_rank{rank}.pt'
+        parallelism_config={'fsdp': fsdp_config},
         ...
     )
 
-Three things to note in this torch 1.13 load example:
+    trainer.fit()
 
-1. Instead of setting ``load_path`` to the path to a specific file, we keep the ``{rank}`` placeholder to denote that
-the file to load is different for each rank.
-
-2. We must set ``'state_dict_type': 'sharded'``, like we did during the save.
-
-3. Composer with torch 1.13 does not support elastic checkpointing (more ranks than checkpoint files or more files than ranks), so you
-must make sure the number of ranks you run on during load is the same as the number you used during save (the same as the number of files).
-Upgrading to torch 2.0.0 or higher will enable elastic checkpointing!
-
-
-.. _Pytorch DDP: https://pytorch.org/docs/master/generated/torch.nn.parallel.DistributedDataParallel.html
-.. _Deepspeed Zero: https://www.deepspeed.ai/
-.. _Pytorch FSDP: https://pytorch.org/docs/stable/fsdp.html
+.. note::
+    This is an experimental feature and is subject to change. Many features, such as `load_monolith_rank0_only` or tensor parallelism without FSDP, are not yet supported.

@@ -137,13 +137,9 @@ def get_trainer(
     else:
         raise ValueError(f'Unsupported optimizer name {optimizer}')
 
-    parallelism_config = None
-    if fsdp_config is not None and tp_config is not None:
-        parallelism_config = {'fsdp': dataclasses.asdict(fsdp_config), 'tp': tp_config}
-    elif fsdp_config is not None:
-        parallelism_config = {'fsdp': dataclasses.asdict(fsdp_config)}
-    elif tp_config is not None:
-        parallelism_config = {'tp': tp_config}
+    parallelism_config = {'fsdp': dataclasses.asdict(fsdp_config)}
+    if tp_config is not None:
+        parallelism_config['tp'] = tp_config
 
     trainer = Trainer(
         algorithms=algorithms,
