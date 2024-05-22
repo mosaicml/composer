@@ -91,8 +91,8 @@ class SimpleModel(ComposerClassifier):
         # These tests attempt to perform surgery on `fc1` layer, and we want
         # to make sure that post-surgery, self.fc1 refers to the same parameters
         # as self.net[1]
-        # self.fc1 = fc1
-        # self.fc2 = fc2
+        self.fc1 = fc1
+        self.fc2 = fc2
 
     def param_init_fn(self, module):
         init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)

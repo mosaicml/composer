@@ -555,6 +555,11 @@ class State(Serializable):
                     'An empty `fsdp_config` can be specified to enable FSDP with '
                     'default settings.',
                 )
+            if not self.fsdp_config['use_orig_params']:
+                raise ValueError(
+                    'Tensor parallelism (TP) currently requires FSDP with use_orig_params=True, '
+                    'which is the default and recommended setting.',
+                )
 
         if self.load_monolith_rank0_only:
             if self.tp_config is not None:
