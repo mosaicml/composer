@@ -23,6 +23,8 @@ from tests.common.models import (
     EmptyModel,
     SimpleConvModel,
     SimpleModel,
+    SimpleMLP,
+    EvenSimplerMLP,
     SimpleModelWithDropout,
     SimpleTransformerClassifier,
     SimpleTransformerMaskedLM,
@@ -64,4 +66,6 @@ __all__ = [
     'SimpleDataset',
     'InfiniteClassificationDataset',
     'composer_resnet',
+    'SimpleMLP',
+    'EvenSimplerMLP',
 ]

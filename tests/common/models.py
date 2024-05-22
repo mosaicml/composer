@@ -91,8 +91,8 @@ class SimpleModel(ComposerClassifier):
         # These tests attempt to perform surgery on `fc1` layer, and we want
         # to make sure that post-surgery, self.fc1 refers to the same parameters
         # as self.net[1]
-        self.fc1 = fc1
-        self.fc2 = fc2
+        # self.fc1 = fc1
+        # self.fc2 = fc2
 
     def param_init_fn(self, module):
         init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
@@ -105,7 +105,7 @@ class SimpleModel(ComposerClassifier):
 
 class SimpleMLP(torch.nn.Module):
 
-    def __init__(self, num_features: int, device: str):
+    def __init__(self, num_features: int, device: str = 'cpu'):
         super().__init__()
         self.fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
         self.fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
@@ -120,7 +120,7 @@ class SimpleMLP(torch.nn.Module):
 # are not submodules of EvenSimplerMLP, like they are in SimpleMLP.
 class EvenSimplerMLP(torch.nn.Module):
 
-    def __init__(self, num_features: int, device: str):
+    def __init__(self, num_features: int, device: str = 'cpu'):
         super().__init__()
         fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
         fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
