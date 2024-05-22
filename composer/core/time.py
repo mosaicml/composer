@@ -27,6 +27,30 @@ from composer.utils import StringEnum
 __all__ = ['TimeUnit', 'Time', 'Timestamp', 'ensure_time']
 
 
+def verify_wct(timestamp: str) -> Optional[str]:
+    """Return a valid datetime formated wct timestamp if input is a valid wct.
+
+    Args:
+        timestamp (str): A string that represents a timestamp in wct.
+
+    Returns:
+        str: a properly formatted datetime if input is valid else None
+    """
+    if 'h' not in timestamp:
+        timestamp = '0h' + timestamp
+    if 'm' not in timestamp:
+        timestamp = timestamp.replace('h', 'h0m')
+    if 's' not in timestamp:
+        timestamp = timestamp + '0s'
+
+    pattern = r'^(\d+h)?(\d+m)?(\d+s)?$'
+    match = re.match(pattern, timestamp)
+    if bool(match):
+        return timestamp
+    else:
+        raise ValueError(f'{timestamp} was passed in, which does not fit XXhYYmZZs formatting')
+
+
 class TimeUnit(StringEnum):
     """Enum class to represent units of time for the training process.
 
@@ -227,13 +251,10 @@ class Time(Generic[TValue], Serializable):
         """
         # Convert timestring to be strptime parsable
         verified_wct = verify_wct(timestring)
-        if verified_wct:
-            time_struct = datetime.datetime.strptime(verified_wct, '%Hh%Mm%Ss')
-            delta = datetime.timedelta(hours=time_struct.hour, minutes=time_struct.minute, seconds=time_struct.second)
-            total_seconds = delta.total_seconds()
-            return cls(int(total_seconds), TimeUnit.SECOND)
-        else:
-            raise ValueError('Invalid timedelta')
+        time_struct = datetime.datetime.strptime(verified_wct, '%Hh%Mm%Ss')
+        delta = datetime.timedelta(hours=time_struct.hour, minutes=time_struct.minute, seconds=time_struct.second)
+        total_seconds = delta.total_seconds()
+        return cls(int(total_seconds), TimeUnit.SECOND)
 
     @property
     def value(self) -> TValue:
@@ -416,8 +437,10 @@ class Time(Generic[TValue], Serializable):
             Time: An instance of :class:`Time`.
         """
         # Handle TimeDelta matching first
-        if verify_wct(timestring):
+        try:
             return Time.from_timedelta(timestring)
+        except ValueError:
+            pass
 
         match = _TIME_STR_REGEX.findall(timestring)
         if len(match) != 1:
@@ -975,27 +998,3 @@ def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str
     """
     time_obj = Time.from_input(maybe_time, int_unit)
     return time_obj
-
-
-def verify_wct(timestamp: str) -> Optional[str]:
-    """Return a valid datetime formated wct timestamp if input is a valid wct.
-
-    Args:
-        timestamp (str): A string that represents a timestamp in wct.
-
-    Returns:
-        str: a properly formatted datetime if input is valid else None
-    """
-    if 'h' not in timestamp:
-        timestamp = '0h' + timestamp
-    if 'm' not in timestamp:
-        timestamp = timestamp.replace('h', 'h0m')
-    if 's' not in timestamp:
-        timestamp = timestamp + '0s'
-
-    pattern = r'^(\d+h)?(\d+m)?(\d+s)?$'
-    match = re.match(pattern, timestamp)
-    if bool(match):
-        return timestamp
-    else:
-        return None
