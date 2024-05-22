@@ -77,6 +77,7 @@ def patch_pytorch():
             _get_fqns,
             _get_model_state_dict,
             _load_model_state_dict,
+            _split_optim_state_dict,
             _verify_options,
             set_model_state_dict,
             set_optimizer_state_dict,
@@ -89,6 +90,7 @@ def patch_pytorch():
         state_dict._verify_options = _verify_options
         state_dict._get_model_state_dict = _get_model_state_dict
         state_dict._load_model_state_dict = _load_model_state_dict
+        state_dict._split_optim_state_dict = _split_optim_state_dict
 
         # Monkeypatch for ND child submeshes
         # PR: https://github.com/pytorch/pytorch/pull/119752
