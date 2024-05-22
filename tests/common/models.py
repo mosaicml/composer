@@ -55,6 +55,9 @@ class SimpleModel(ComposerClassifier):
     Args:
         num_features (int): number of input features (default: 1)
         num_classes (int): number of classes (default: 2)
+        num_hidden (int): number of hidden units (default: 8)
+        device (str): the device to initialize the model (default: 'cpu')
+        bias (bool): whether or not to include bias in the linear layers (default: True)
     """
 
     def __init__(

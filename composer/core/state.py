@@ -206,7 +206,7 @@ def _create_device_mesh(
     # Gather dimensions and names for the device mesh
     dims: List[int] = []
     names: List[str] = []
-    if fsdp_config[ParallelismType.DATA_PARALLEL_REPLICATE.value] != 1:
+    if fsdp_config['data_parallel_replicate_degree'] != 1:
         dims.append(fsdp_config['data_parallel_replicate_degree'])
         names.append(ParallelismType.DATA_PARALLEL_REPLICATE.value)
     dims.append(fsdp_config['data_parallel_shard_degree'])

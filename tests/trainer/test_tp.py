@@ -16,19 +16,14 @@ from tests.common import (
 
 
 @pytest.mark.gpu
-@world_size(2)
-@pytest.mark.skip  # TP does not work with DP dimension 1
-@pytest.mark.filterwarnings('ignore:FSDP is switching to use `NO_SHARD`.*:UserWarning')
+@world_size(4)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
 def test_tp_train(world_size: int):
-    from torch.distributed.tensor.parallel import (  # PrepareModuleInput,; SequenceParallel,; parallelize_module,
-        ColwiseParallel,
-        RowwiseParallel,
-    )
+    from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
 
     model = SimpleModel()
-    dataset = RandomClassificationDataset(size=10)
-    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
+    dataset = RandomClassificationDataset(size=8)
+    dataloader = DataLoader(dataset, batch_size=2, sampler=dist.get_sampler(dataset))
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
 
     layer_plan = {
