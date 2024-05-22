@@ -25,7 +25,12 @@ def deep_compare(item1: Any, item2: Any, atol: float = 0.0, rtol: float = 0.0, i
 
 
 def _check_item(
-    item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: float = 0.0, ignore_keys: Optional[List[str]] = None
+    item1: Any,
+    item2: Any,
+    path: str,
+    rtol: float = 0.0,
+    atol: float = 0.0,
+    ignore_keys: Optional[List[str]] = None,
 ):
     if item1 is None:
         assert item2 is None, f'{path} differs: {item1} != {item2}'
@@ -97,7 +102,7 @@ def _check_dict_recursively(
     path: str,
     atol: float,
     rtol: float,
-    ignore_keys: Optional[List[str]] = None
+    ignore_keys: Optional[List[str]] = None,
 ):
     assert len(dict1) == len(dict2), f'{path} differs: {dict1} != {dict2}'
     for k, val1 in dict1.items():

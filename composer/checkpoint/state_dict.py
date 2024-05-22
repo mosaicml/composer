@@ -89,7 +89,7 @@ def get_model_state_dict(
     return model_state_dict
 
 
-def _cast_state_dict_to_precision(state_dict: Dict[str, Any], precision: Union[str, torch.dtype]):
+def _cast_state_dict_to_precision(state_dict: Dict[str, Any], precision: Union[str, torch.dtype]) -> Dict[str, Any]:
     if isinstance(precision, str):
         precision = STR_TO_DTYPE[precision]
 
@@ -157,7 +157,10 @@ def _get_model_state_dict_with_fsdp_context_manager(model: nn.Module, sharded_st
 
 
 def _get_optim_state_dict_with_fsdp_context_manager(
-    model: nn.Module, optimizer: torch.optim.Optimizer, sharded_state_dict: bool, cpu_offload: bool
+    model: nn.Module,
+    optimizer: torch.optim.Optimizer,
+    sharded_state_dict: bool,
+    cpu_offload: bool,
 ) -> Dict[str, Any]:
     """Get the optimizer state dict with the FSDP context manager.
 
@@ -187,13 +190,13 @@ def _get_optim_state_dict_with_fsdp_context_manager(
                                                   offload_to_cpu=cpu_offload,
                                               )
     optim_state_dict_config = ShardedOptimStateDictConfig(
-        offload_to_cpu=cpu_offload
+        offload_to_cpu=cpu_offload,
     ) if sharded_state_dict else FullOptimStateDictConfig(rank0_only=True, offload_to_cpu=cpu_offload)
     with FSDP.state_dict_type(
         model,
         state_dict_type=state_dict_type,
         state_dict_config=state_dict_config,
-        optim_state_dict_config=optim_state_dict_config
+        optim_state_dict_config=optim_state_dict_config,
     ):
         optim_state_dict = FSDP.optim_state_dict(model, optimizer)
     return optim_state_dict
@@ -235,7 +238,7 @@ def get_optim_state_dict(
     if version.parse(torch.__version__) >= version.parse('2.2.0') and dist.is_initialized():
         from torch.distributed.checkpoint.state_dict import StateDictOptions, get_optimizer_state_dict
         log.debug('Calling torch get_optimizer_state_dict...')
-        optim_state_dict = get_optimizer_state_dict(
+        optim_state_dict: Dict[str, Any] = get_optimizer_state_dict(
                 model=model,
                 optimizers=optimizer,
                 submodules=None, # We extract submodules below
@@ -248,7 +251,10 @@ def get_optim_state_dict(
         if is_fsdp:
             log.debug('Calling legacy FSDP context manager to get optim state dict...')
             optim_state_dict = _get_optim_state_dict_with_fsdp_context_manager(
-                model, optimizer, sharded_state_dict, cpu_offload
+                model,
+                optimizer,
+                sharded_state_dict,
+                cpu_offload,
             )
         else:
             optim_state_dict = optimizer.state_dict()
@@ -264,7 +270,9 @@ def get_optim_state_dict(
 
 
 def _remove_keys_from_optim_state_dict(
-    optim_state_dict: Dict[str, Any], model: Union[ComposerModel, nn.Module], ignore_keys: Union[str, Sequence[str]]
+    optim_state_dict: Dict[str, Any],
+    model: Union[ComposerModel, nn.Module],
+    ignore_keys: Union[str, Sequence[str]],
 ):
     if isinstance(ignore_keys, str):
         ignore_keys = [ignore_keys]
@@ -283,7 +291,9 @@ def _remove_keys_from_optim_state_dict(
 
 
 def _extract_keys_from_optim_state_dict(
-    optim_state_dict: Dict[str, Any], model: Union[ComposerModel, nn.Module], include_keys: Union[str, Sequence[str]]
+    optim_state_dict: Dict[str, Any],
+    model: Union[ComposerModel, nn.Module],
+    include_keys: Union[str, Sequence[str]],
 ):
     if isinstance(include_keys, str):
         include_keys = [include_keys]

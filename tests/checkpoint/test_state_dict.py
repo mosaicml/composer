@@ -345,7 +345,7 @@ def test_get_optim_state_dict_ignore(use_composer_model: bool):
     ],
 )
 @pytest.mark.parametrize('use_composer_model', [True, False])
-def test_get_model_state_dict_precision_unsharded_model(precision: str, use_composer_model: bool):
+def test_get_optim_state_dict_precision_unsharded_model(precision: str, use_composer_model: bool):
     model, optimizer = _init_model_and_optimizer(use_composer_model=use_composer_model, take_step=True)
     optim_state_dict = get_optim_state_dict(model, optimizer, precision=precision)
     for param_state in optim_state_dict['state'].values():
