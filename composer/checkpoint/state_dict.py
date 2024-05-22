@@ -18,6 +18,8 @@ from composer.utils import STR_TO_DTYPE, dist
 
 log = logging.getLogger(__name__)
 
+__all__ = ['get_model_state_dict', 'get_optim_state_dict']
+
 
 def get_model_state_dict(
     model: Union[ComposerModel, nn.Module],
@@ -198,8 +200,8 @@ def _get_optim_state_dict_with_fsdp_context_manager(model: nn.Module,
 def get_optim_state_dict(
                          model: Union[ComposerModel, nn.Module],
                          optimizer: torch.optim.Optimizer,
-                         sharded_state_dict: bool,
-                         precision: str,
+                         sharded_state_dict: bool = False,
+                         precision: str = 'fp32',
                          include_keys: Optional[Union[str, Sequence[str]]] = None,
                          ignore_keys: Optional[Union[str, Sequence[str]]] = None,
                          cpu_offload: Optional[bool] = None,
@@ -249,7 +251,40 @@ def get_optim_state_dict(
                                                                             cpu_offload)
         else:
             optim_state_dict = optimizer.state_dict()
-
     
-    optim_state_dict = _cast_state_dict_to_precision(state_dict=optim_state_dict,
-                                                     precision=precision)
+    if ignore_keys is not None:
+        optim_state_dict = _remove_keys_from_optim_state_dict(optim_state_dict, model, ignore_keys)
+    if include_keys is not None:
+        optim_state_dict = _extract_keys_from_optim_state_dict(optim_state_dict, model, include_keys)
+
+    for param_ind, param_state_dict in optim_state_dict['state'].items():
+        optim_state_dict['state'][param_ind] = _cast_state_dict_to_precision(param_state_dict, precision)
+    return optim_state_dict
+ 
+ 
+def _remove_keys_from_optim_state_dict(optim_state_dict: Dict[str, Any], model: Union[ComposerModel, nn.Module], ignore_keys: Union[str, Sequence[str]]):
+    if isinstance(ignore_keys, str):
+        ignore_keys = [ignore_keys]
+
+    # optim_state_dict['state'] is a dictionary mapping the param_ind (0,1,2,..., len(model.parameters())-1)
+    # to the optimizer state for that parameter e.g. 'step', 'exp_avg', 'exp_avg_sq'.
+    # The param_ind ordering is determined by passing model.parameters()
+    # to the optimizer. The underlying generator for model.parameters() is model.named_parameters()
+    # so we need to use model.named_parameters() instead of model.state_dict().keys() to match fqn to ind correctly.
+    param_inds = list(optim_state_dict['state'].keys())
+    for param_ind, (param_fqn, _) in zip(param_inds, model.named_parameters()):
+        if any([fnmatch.fnmatch(param_fqn, ignore_key) for ignore_key in ignore_keys]):
+            optim_state_dict['state'].pop(param_ind)
+
+    return optim_state_dict
+
+def _extract_keys_from_optim_state_dict(optim_state_dict: Dict[str, Any], model: Union[ComposerModel, nn.Module], include_keys: Union[str, Sequence[str]]):
+    if isinstance(include_keys, str):
+        include_keys = [include_keys]
+    param_inds = list(optim_state_dict['state'].keys())
+    # See comment in _remove_keys_from_optim_state_dict.
+    for param_ind, (param_fqn, _) in zip(param_inds, model.named_parameters()):
+        if not any([fnmatch.fnmatch(param_fqn, include_key) for include_key in include_keys]):
+            optim_state_dict['state'].pop(param_ind)
+
+    return optim_state_dict

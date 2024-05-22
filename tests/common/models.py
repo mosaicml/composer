@@ -117,10 +117,10 @@ class SimpleMLP(torch.nn.Module):
 # are not submodules of EvenSimplerMLP, like they are in SimpleMLP.
 class EvenSimplerMLP(torch.nn.Module):
 
-    def __init__(self, num_features: int, device: str):
+    def __init__(self, num_features: int, device: str, num_out_features: int=3):
         super().__init__()
         fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
-        fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        fc2 = torch.nn.Linear(num_features, num_out_features, device=device, bias=False)
 
         self.module = torch.nn.Sequential(fc1, torch.nn.ReLU(), fc2)
 
@@ -134,7 +134,7 @@ class SimpleComposerMLP(ComposerClassifier):
 
     def __init__(self, num_features: int, device: str, num_classes: int = 3):
         fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
-        fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        fc2 = torch.nn.Linear(num_features, num_classes, device=device, bias=False)
 
         net = torch.nn.Sequential(fc1, torch.nn.ReLU(), fc2)
         super().__init__(num_classes=num_classes, module=net)

@@ -8,12 +8,13 @@ import torch
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
-from composer.checkpoint import get_model_state_dict
+from composer.checkpoint import get_model_state_dict, get_optim_state_dict
 from composer.utils import dist
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
 from tests.common.models import EvenSimplerMLP, SimpleComposerMLP
-
+from torch.optim import adam
+import fnmatch
 
 @pytest.mark.gpu
 @pytest.mark.parametrize('use_composer_model', [True, False])
@@ -230,3 +231,128 @@ def test_get_model_state_dict_precision_unsharded_model(precision: str, use_comp
     )
     for tens in model_state_dict.values():
         assert tens.dtype == precision
+
+def _init_model_and_optimizer(use_composer_model: bool, num_classes=3, batch_size = 5, num_features = 8, take_step=True):
+ 
+    if use_composer_model:
+        model = SimpleComposerMLP(num_features=num_features, num_classes=num_classes, device='cuda')
+        loss_fn = model._loss_fn
+    else:
+        model = EvenSimplerMLP(num_features=num_features,
+                               num_out_features=num_classes,
+                               device='cuda')
+        loss_fn = torch.nn.CrossEntropyLoss()
+
+    inputs = torch.randn(batch_size, num_features, device='cuda')
+    targets = torch.randint(low=0, high=num_classes, size=(batch_size,), device='cuda', dtype=torch.long)
+    batch = (inputs, targets) if use_composer_model else inputs
+    outputs = model(batch)
+    optimizer = adam.Adam(model.parameters())
+    loss = loss_fn(outputs, targets)
+    loss.backward()
+    if take_step:
+        optimizer.step()
+    return model, optimizer
+
+
+@pytest.mark.gpu
+@pytest.mark.parametrize('use_composer_model', [True, False])
+def test_get_optim_state_dict_unsharded_model(use_composer_model: bool):
+    model, optimizer = _init_model_and_optimizer(use_composer_model=use_composer_model, take_step=False)
+    
+    # Before ever taking a step it should be empty.
+    optim_state_dict = get_optim_state_dict(model, optimizer)
+    assert optim_state_dict['state'] == optimizer.state == {}
+
+    optimizer.step()
+    optim_state_dict = get_optim_state_dict(model, optimizer)
+   
+    # Dict mapping parameter index to optimizer state for that parameter.
+    osd_state = optim_state_dict['state']
+    # Dict mapping parameter itself to optimizer state for that parameter.
+    optim_state = optimizer.state
+
+    # Make sure optimizer state is the same between the state dict and the optimizer object.
+    for osd_param_state, opt_param_state in zip(osd_state.values(), optim_state.values()):
+        deep_compare(osd_param_state, opt_param_state)
+
+    # Make sure the optimizer state in the state dict is the same shape as the parameter it corresponds to.
+    params = list(model.parameters())
+    for param_ind, param_state in osd_state.items():
+        param = params[param_ind]
+        assert param.shape == param_state['exp_avg'].shape
+        assert param.shape == param_state['exp_avg_sq'].shape
+
+    # Make sure param groups between the state dict and the optimizer object are the same.
+    for osd_group, opt_group in zip(optim_state_dict['param_groups'], optimizer.param_groups):
+        # Only params should differ between the two.
+        # * in the optimizer state dict params will be indices into the model's parameters list.
+        # * in the optimizer object params will be the actual parameter tensors.
+        deep_compare(osd_group, opt_group, ignore_keys=['params'])
+  
+    
+@pytest.mark.gpu
+@pytest.mark.parametrize('use_composer_model', [True, False])
+def test_get_optim_state_dict_include(use_composer_model: bool):
+    model, optimizer = _init_model_and_optimizer(use_composer_model=use_composer_model,
+                                                 take_step=True)
+    fqns = [param_fqn for param_fqn, _ in model.named_parameters()]
+    include_keys=['module.0.weight']
+    optim_state_dict = get_optim_state_dict(model, optimizer, include_keys=include_keys)
+    expected_optim_state_keys = []
+    for fqn in fqns:
+        if any([fnmatch.fnmatch(fqn, include_key) for include_key in include_keys]):
+            expected_optim_state_keys.append(fqns.index(fqn))
+    assert set(optim_state_dict['state'].keys()) == set(expected_optim_state_keys)
+    
+    include_keys=['module.2*']
+    optim_state_dict = get_optim_state_dict(model, optimizer, include_keys=include_keys)
+    expected_optim_state_keys = []
+    for fqn in fqns:
+        if any([fnmatch.fnmatch(fqn, include_key) for include_key in include_keys]):
+            expected_optim_state_keys.append(fqns.index(fqn))
+    assert set(optim_state_dict['state'].keys()) == set(expected_optim_state_keys)
+
+
+@pytest.mark.gpu
+@pytest.mark.parametrize('use_composer_model', [True, False])
+def test_get_optim_state_dict_ignore(use_composer_model: bool):
+    model, optimizer = _init_model_and_optimizer(use_composer_model=use_composer_model,
+                                                 take_step=True)
+    fqns = [param_fqn for param_fqn, _ in model.named_parameters()]
+    ignore_keys=['module.0*']
+    optim_state_dict = get_optim_state_dict(model, optimizer, ignore_keys=ignore_keys)
+    expected_optim_state_keys = []
+    for fqn in fqns:
+        if not any([fnmatch.fnmatch(fqn, ignore_key) for ignore_key in ignore_keys]):
+            expected_optim_state_keys.append(fqns.index(fqn))
+    assert set(optim_state_dict['state'].keys()) == set(expected_optim_state_keys)
+    
+    ignore_keys=['module.2.weight']
+    optim_state_dict = get_optim_state_dict(model, optimizer, ignore_keys=ignore_keys)
+    expected_optim_state_keys = []
+    for fqn in fqns:
+        if not any([fnmatch.fnmatch(fqn, ignore_key) for ignore_key in ignore_keys]):
+            expected_optim_state_keys.append(fqns.index(fqn))
+    assert set(optim_state_dict['state'].keys()) == set(expected_optim_state_keys)
+
+
+@pytest.mark.gpu
+@pytest.mark.parametrize(
+    'precision',
+    [
+        torch.float32,
+        torch.float16,
+        torch.bfloat16,
+    ],
+)
+@pytest.mark.parametrize('use_composer_model', [True, False])
+def test_get_model_state_dict_precision_unsharded_model(precision: str, use_composer_model: bool):
+    model, optimizer = _init_model_and_optimizer(use_composer_model=use_composer_model,
+                                                 take_step=True)
+    optim_state_dict = get_optim_state_dict(model, optimizer, precision=precision)
+    for param_state in optim_state_dict['state'].values():
+        assert param_state['exp_avg'].dtype == precision
+        assert param_state['exp_avg_sq'].dtype == precision
+
+
