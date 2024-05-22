@@ -650,8 +650,9 @@ def test_mlflow_log_image_works(tmp_path, device):
     experiment_id = run.info.experiment_id
 
     run_file_path = mlflow_uri / Path(experiment_id) / Path(run_id)
-    im_dir = run_file_path / Path('artifacts')
-    assert len(os.listdir(im_dir)) == expected_num_ims
+    im_dir = run_file_path / Path('artifacts') / Path('images')
+    # 2 (compressed & uncompressed) per image, and two log images calls in ImageLogger
+    assert len(os.listdir(im_dir)) == expected_num_ims * 2 * 2 
 
 
 @device('cpu')
