@@ -137,12 +137,20 @@ def get_trainer(
     else:
         raise ValueError(f'Unsupported optimizer name {optimizer}')
 
+    parallelism_config = None
+    if fsdp_config is not None and tp_config is not None:
+        parallelism_config = {'fsdp': dataclasses.asdict(fsdp_config), 'tp': tp_config}
+    elif fsdp_config is not None:
+        parallelism_config = {'fsdp': dataclasses.asdict(fsdp_config)}
+    elif tp_config is not None:
+        parallelism_config = {'tp': tp_config}
+
     trainer = Trainer(
         algorithms=algorithms,
         model=model,
         optimizers=optim,
         train_dataloader=dataloader,
-        parallelism_config={'fsdp': dataclasses.asdict(fsdp_config)},
+        parallelism_config=parallelism_config,
         save_folder=save_folder,
         max_duration=max_duration,
         save_interval=save_interval,
@@ -719,19 +727,18 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
 
 
 @pytest.mark.gpu
-@world_size(2)
 @pytest.mark.parametrize('use_remote', [pytest.param(True, marks=pytest.mark.remote), False])
 @pytest.mark.parametrize(
-    'weights_only,optimizer,precision,autoresume,load_ignore_keys,use_symlink,use_tp',
+    'world_size,weights_only,optimizer,precision,autoresume,load_ignore_keys,use_symlink,use_tp',
     [
-        [False, 'adamw', 'amp_bf16', False, None, False, False],
-        [True, 'adamw', 'amp_bf16', False, None, False, False],
-        [False, 'adam', 'amp_bf16', False, None, False, False],
-        [False, 'adamw', 'amp_fp16', False, None, False, False],
-        [False, 'adamw', 'amp_bf16', True, None, False, False],
-        [False, 'adamw', 'amp_bf16', False, ['rng'], False, False],
-        [False, 'adamw', 'amp_bf16', False, None, True, False],
-        [False, 'adamw', 'amp_bf16', False, None, False, True],
+        pytest.param(2, False, 'adamw', 'amp_bf16', False, None, False, False, marks=pytest.mark.world_size(2)),
+        pytest.param(2, True, 'adamw', 'amp_bf16', False, None, False, False, marks=pytest.mark.world_size(2)),
+        pytest.param(2, False, 'adam', 'amp_bf16', False, None, False, False, marks=pytest.mark.world_size(2)),
+        pytest.param(2, False, 'adamw', 'amp_fp16', False, None, False, False, marks=pytest.mark.world_size(2)),
+        pytest.param(2, False, 'adamw', 'amp_bf16', True, None, False, False, marks=pytest.mark.world_size(2)),
+        pytest.param(2, False, 'adamw', 'amp_bf16', False, ['rng'], False, False, marks=pytest.mark.world_size(2)),
+        pytest.param(2, False, 'adamw', 'amp_bf16', False, None, True, False, marks=pytest.mark.world_size(2)),
+        pytest.param(2, False, 'adamw', 'amp_bf16', False, None, False, True, marks=pytest.mark.world_size(4)),
     ],
 )
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
@@ -752,8 +759,6 @@ def test_fsdp_partitioned_state_dict_load(
     s3_ephemeral_prefix,
     request,
 ):
-    if use_tp:
-        pytest.skip('TP does not work with DP dimension 1')
     if weights_only and autoresume:
         pytest.skip('Weights only with autoresume is not supported')
     if use_tp and version.parse(torch.__version__) < version.parse('2.3.0'):
@@ -778,13 +783,13 @@ def test_fsdp_partitioned_state_dict_load(
     fsdp_config = FSDPConfig(state_dict_type='sharded')
     tp_config = None
     if use_tp:
-        fsdp_config = FSDPConfig(data_parallel_shard_degree=1)
+        fsdp_config = FSDPConfig(state_dict_type='full')
         from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
         tp_config = {
             'tensor_parallel_degree': 2,
             'layer_plan': {
-                'model.fc1': ColwiseParallel(),
-                'model.fc2': RowwiseParallel(),
+                'module.0': ColwiseParallel(),
+                'module.2': RowwiseParallel(),
             },
         }
 
