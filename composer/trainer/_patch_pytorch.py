@@ -293,7 +293,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
                                                         _offload_state_dict_to_cpu,
                                                         _verify_state_dict,
                                                          StateDictOptions, _StateDictInfo,
-                                                         FLAT_PARAM, FQNS_T)
+                                                         FLAT_PARAM, FQNS_T, STATE, PARAMS, PG)
     from torch.distributed._state_dict_utils import _gather_state_dict
     from torch.nn.modules.module import _IncompatibleKeys
     from torch.distributed.fsdp import (
@@ -682,7 +682,59 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
 
             _verify_state_dict({}, optim_state_dict, info)
             _load_optim_state_dict(model, optimizers, optim_state_dict, info)
+    
+    def _split_optim_state_dict(
+        model: nn.Module,
+        optim: torch.optim.Optimizer,
+        optim_state_dict: OptimizerStateType,
+        info: _StateDictInfo,
+    ) -> OptimizerStateType:
+        """
+        Extract the corresponding optim state_dict from ``optim_state_dict`` for
+        ``optim`` and return the result optim state_dict.
 
+        Args:
+            model (nn.Module): the root model.
+            optim (torch.optim.Optimizer): the optimizer.
+            optim_state_dict (Dict[str, ValueType]): the superset optim state_dict that
+                contains the optim state_dict of ``optim``.
+            info (_StateDictInfo): state dict information.
+
+        Returns:
+            The optim state_dict of ``optim``.
+        """
+
+        state: DictValueType = {}
+        pg_state: ListDictValueType = []
+        return_osd: OptimizerStateType = {STATE: state, PG: pg_state}
+        pg_mapping: Dict[int, int] = {}
+
+        for param_group in optim.param_groups:
+            pg_state.append({PARAMS: []})
+            for param in param_group[PARAMS]:
+                for fqn in info.fqn_param_mapping[param]:
+                    params = pg_state[-1][PARAMS]
+                    assert isinstance(params, list)
+                    params.append(fqn)
+                    if param.requires_grad:
+                        state[fqn] = cast(DictValueType, optim_state_dict[STATE])[fqn]
+                    for loaded_param_group in cast(ListDictValueType, optim_state_dict[PG]):
+                        params = loaded_param_group[PARAMS]
+                        assert isinstance(params, list)
+                        if fqn in params:
+                            pg_mapping[id(loaded_param_group)] = len(return_osd[PG]) - 1
+
+        for param_group in cast(ListDictValueType, optim_state_dict[PG]):
+            idx = pg_mapping.get(id(param_group), -1)
+            if idx == -1:
+                continue
+            for key, value in param_group.items():
+                if key == PARAMS:
+                    continue
+                # TODO: check if value is the same if exists.
+                pg_state[idx][key] = value
+
+        return return_osd
 
     # torch2.3 patch to fix https://github.com/pytorch/pytorch/issues/125740
     from torch.distributed.checkpoint.default_planner import (

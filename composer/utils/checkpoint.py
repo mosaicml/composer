@@ -999,7 +999,7 @@ def _restore_checkpoint(
         # Ensure state exists
         state_dict['state'] = state_dict.get('state', {})
     log.debug(f"Loaded checkpoint with keys {state_dict.keys()} and state keys {state_dict['state'].keys()}")
-
+    
     if is_model_deepspeed(state.model):
         if extracted_checkpoint_folder is None:
             raise RuntimeError('Deepspeed checkpoints require a tarball, not a weights file.')
