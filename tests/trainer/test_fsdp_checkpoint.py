@@ -19,6 +19,8 @@ import pytest
 import torch
 from packaging import version
 from torch.distributed._shard.sharded_tensor import ShardedTensor
+from torch.distributed._tensor import DTensor
+
 from torch.utils.data import DataLoader
 from torchmetrics import Metric, MetricCollection
 from torchmetrics.classification import MulticlassAccuracy
@@ -88,7 +90,7 @@ class FSDPConfig:
     load_monolith_rank0_only: bool = False
     save_planner: Optional[Any] = None
     load_planner: Optional[Any] = None
-    data_parallel_shard_degree: int = 2
+    data_parallel_shard_degree: int = -1
 
 
 def get_trainer(
@@ -96,7 +98,7 @@ def get_trainer(
     save_folder: Optional[str] = None,
     save_filename: str = 'ba{batch}-rank{rank}.pt',
     save_overwrite: bool = False,
-    num_features: int = 2,
+    num_features: int = 4,
     num_classes: int = 2,
     load_path: Optional[str] = None,
     autoresume: bool = False,
@@ -196,6 +198,10 @@ def _compare_optims_between_state_dicts(state_dict1, state_dict2):
                 state_dict1_moment = state_dict1_moment.local_tensor()
             if isinstance(state_dict2_moment, ShardedTensor):
                 state_dict2_moment = state_dict2_moment.local_tensor()
+            if isinstance(state_dict1_model_tensor, DTensor):
+                state_dict1_model_tensor = state_dict1_model_tensor.to_local()
+            if isinstance(state_dict2_model_tensor, DTensor):
+                state_dict2_model_tensor = state_dict2_model_tensor.to_local()
             torch.testing.assert_close(state_dict1_moment, state_dict2_moment)
 
 
@@ -219,6 +225,11 @@ def _compare_model_params_between_state_dicts(state_dict1, state_dict2):
             state_dict1_model_tensor = state_dict1_model_tensor.local_tensor()
         if isinstance(state_dict2_model_tensor, ShardedTensor):
             state_dict2_model_tensor = state_dict2_model_tensor.local_tensor()
+        if isinstance(state_dict1_model_tensor, DTensor):
+            state_dict1_model_tensor = state_dict1_model_tensor.to_local()
+        if isinstance(state_dict2_model_tensor, DTensor):
+            state_dict2_model_tensor = state_dict2_model_tensor.to_local()
+        
         torch.testing.assert_close(state_dict1_model_tensor, state_dict2_model_tensor)
 
 
@@ -779,7 +790,7 @@ def test_fsdp_partitioned_state_dict_load(
     fsdp_config = FSDPConfig(state_dict_type='sharded')
     tp_config = None
     if use_tp:
-        fsdp_config = FSDPConfig(state_dict_type='full')
+        fsdp_config = FSDPConfig(state_dict_type='sharded')
         from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
         tp_config = {
             'tensor_parallel_degree': 2,
@@ -836,6 +847,7 @@ def test_fsdp_partitioned_state_dict_load(
         optimizer=optimizer,
         load_weights_only=weights_only,
         fsdp_config=fsdp_config,
+        tp_config=tp_config,
         load_ignore_keys=load_ignore_keys,
     )
     state_dict_from_trainer2 = trainer2.state.state_dict()
