@@ -27,7 +27,7 @@ from composer.utils import StringEnum
 __all__ = ['TimeUnit', 'Time', 'Timestamp', 'ensure_time']
 
 
-def verify_wct(timestamp: str) -> Optional[str]:
+def verify_wct(timestamp: str) -> str:
     """Return a valid datetime formated wct timestamp if input is a valid wct.
 
     Args:
