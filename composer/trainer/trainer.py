@@ -1374,6 +1374,7 @@ class Trainer:
                 ignore_keys=save_ignore_keys,
                 save_interval=save_interval,
                 num_checkpoints_to_keep=save_num_checkpoints_to_keep,
+                save_folder=save_folder,
             )
             self.state.callbacks.append(self._checkpoint_saver)
 

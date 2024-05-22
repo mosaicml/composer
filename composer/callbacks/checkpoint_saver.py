@@ -29,6 +29,8 @@ from composer.utils import (
     format_name_with_dist_and_time,
     is_model_deepspeed,
     partial_format,
+    RemoteUploader,
+    parse_uri,
 )
 from composer.utils.compression import get_compressor, is_compressed_pt
 from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
@@ -288,6 +290,9 @@ class CheckpointSaver(Callback):  # noqa: D101
         num_checkpoints_to_keep: int = -1,
         weights_only: bool = False,
         ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
+        # RemoteUploaderV2 params
+        use_remote_uploader_v2: bool = False,
+        save_folder: Optional[str] = None,
     ):
         folder = str(folder)
         filename = str(filename)
@@ -320,6 +325,16 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.ignore_keys = ignore_keys
 
         self.start_batch = None
+
+        self.remote_uploader = None
+        self.use_remote_uploader_v2 = use_remote_uploader_v2 
+        if self.use_remote_uploader_v2:
+            backend, _, _ = parse_uri(save_folder)
+            if backend != '':
+                self.remote_uploader = RemoteUploader(
+                    remote_folder = save_folder,
+                )
+
 
     def init(self, state: State, logger: Logger) -> None:
         # If MLFlowLogger is being used, format MLFlow-specific placeholders in the save folder and paths.
@@ -482,11 +497,18 @@ class CheckpointSaver(Callback):  # noqa: D101
                         state.timestamp,
                     )
                     assert metadata_local_file_path is not None
-                    logger.upload_file(
-                        remote_file_name=metadata_remote_file_name,
-                        file_path=metadata_local_file_path,
-                        overwrite=self.overwrite,
-                    )
+                    if self.use_remote_uploader_v2 and self.remote_uploader is not None:
+                        self.remote_uploader.upload_file_async(
+                            remote_file_name=metadata_remote_file_name,
+                            file_path=metadata_local_file_path,
+                            overwrite=self.overwrite,
+                        )
+                    else:
+                        logger.upload_file(
+                            remote_file_name=metadata_remote_file_name,
+                            file_path=metadata_local_file_path,
+                            overwrite=self.overwrite,
+                        )
             else:
                 remote_file_name = self.remote_file_name.format(
                     state,
@@ -495,7 +517,14 @@ class CheckpointSaver(Callback):  # noqa: D101
 
             log.debug(f'Uploading checkpoint to {remote_file_name}')
             try:
-                logger.upload_file(remote_file_name=remote_file_name, file_path=saved_path, overwrite=self.overwrite)
+                if self.use_remote_uploader_v2 and self.remote_uploader is not None:
+                    self.remote_uploader.upload_file_async(
+                        remote_file_name=remote_file_name,
+                        file_path=saved_path,
+                        overwrite=self.overwrite,
+                    )
+                else:
+                    logger.upload_file(remote_file_name=remote_file_name, file_path=saved_path, overwrite=self.overwrite)
             except FileExistsError as e:
                 raise FileExistsError(
                     f'Uploading checkpoint failed with error: {e}. overwrite was set to {self.overwrite}. To overwrite checkpoints with Trainer, set save_overwrite to True.',
@@ -520,11 +549,18 @@ class CheckpointSaver(Callback):  # noqa: D101
                     this_rank_saves_symlinks = dist.get_global_rank() == 0 or not state.fsdp_sharded_state_dict_enabled
                     if this_rank_saves_symlinks:
                         create_symlink_file(src_path, symlink_filename)
-                        logger.upload_file(
-                            remote_file_name=symlink_name,
-                            file_path=symlink_filename,
-                            overwrite=True,
-                        )
+                        if self.use_remote_uploader_v2 and self.remote_uploader is not None:
+                            self.remote_uploader.upload_file_async(
+                                remote_file_name=symlink_name,
+                                file_path=symlink_filename,
+                                overwrite=True,
+                            )
+                        else:
+                            logger.upload_file(
+                                remote_file_name=symlink_name,
+                                file_path=symlink_filename,
+                                overwrite=True,
+                            )
 
         self.saved_checkpoints.append(saved_path)
 
@@ -542,3 +578,14 @@ class CheckpointSaver(Callback):  # noqa: D101
             else:
                 if dist.get_global_rank() == 0:
                     shutil.rmtree(prefix_dir)
+    # RemoteUploader v2
+    def batch_end(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
+        raise 
+
+    def epoch_end(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
+        raise
+
+    def post_close(self):
+        raise

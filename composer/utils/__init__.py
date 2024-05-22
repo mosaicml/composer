@@ -70,6 +70,7 @@ from composer.utils.object_store import (
     SFTPObjectStore,
     UCObjectStore,
 )
+from composer.utils.remote_uploader import RemoteUploader
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
 from composer.utils.warnings import VersionedDeprecationWarning
@@ -145,4 +146,5 @@ __all__ = [
     'get_compressor',
     'KNOWN_COMPRESSORS',
     'STR_TO_DTYPE',
+    'RemoteUploader',
 ]
