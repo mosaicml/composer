@@ -18,7 +18,9 @@ performing the same work, so inspecting the rank zero is sufficient to
 reason about memory, performance, and other properties.
 
 Within Composer, we have three options for data-parallelism-only
-execution: `Pytorch DDP`_ (default), `Pytorch FSDP`_, and `DeepSpeed Zero`_. Although Pytorch DDP is the default, DeepSpeed Zero provides better performance and lower memory utilization when configured correctly, and Pytorch FSDP increases memory and computational efficiency, while producing the same results as Pytorch DDP.
+execution: `Pytorch DDP`_ (default), `Pytorch FSDP`_, and `DeepSpeed Zero`_.
+Although Pytorch DDP is the default, Pytorch FSDP increases memory and computational
+efficiency when configured correctly while producing the same results and is the recommended option.
 
 Usage
 -----
@@ -170,13 +172,26 @@ from the trainer.
 FullyShardedDataParallel (FSDP)
 -------------------------------
 
-Composer integrates Pytorch's `FullyShardedDataParallel <https://pytorch.org/docs/stable/fsdp.html>`__ engine with some syntactic sugar to make it easy to write custom models that work with Composer + FSDP.
+Composer integrates Pytorch's `FullyShardedDataParallel <https://pytorch.org/docs/stable/fsdp.html>`__
+engine with some syntactic sugar to make it easy to write custom models that work with Composer + FSDP.
 
-At a high level, when you use the Composer Trainer, you must pass it a :mod:`ComposerModel` like `ComposerGPT <https://github.com/mosaicml/examples/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py#L178>`__ that defines certain functions like :code:`forward`, :code:`eval_forward`, :code:`loss`, etc. that are called during the training loop.
+At a high level, when you use the Composer Trainer, you must pass it a :mod:`ComposerModel` like
+`ComposerGPT <https://github.com/mosaicml/examples/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py#L178>`__
+that defines certain functions like :code:`forward`, :code:`eval_forward`, :code:`loss`, etc. that
+are called during the training loop.
 
-Inside that :mod:`ComposerModel` you may have one or many submodules, such as a :code:`.model` or :code:`.language_model` or :code:`.classifier` that is the actual :mod:`torch.nn.Module` that you will be deploying at inference time. In our case, this is the `GPT <https://github.com/mosaicml/examples/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py#L102>`__ module that we build and attach :mod:`ComposerGPT.model`.
+Inside that :mod:`ComposerModel` you may have one or many submodules, such as a :code:`.model` or
+:code:`.language_model` or :code:`.classifier` that is the actual :mod:`torch.nn.Module` that you
+will be deploying at inference time. In our case, this is the
+`GPT <https://github.com/mosaicml/examples/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py#L102>`__
+module that we build and attach :mod:`ComposerGPT.model`.
 
-When you provide an :code:`parallelism_config={'fsdp': {...}}` dictionary to the Composer Trainer, then on :code:`__init__`, the Trainer will attempt to wrap **each of the submodules** of your :mod:`ComposerModel` with an FSDP auto wrap policy. This wrapping is recursive, so not only is `GPT` wrapped, but all submodules of `GPT` may/may not be wrapped too. See the `FSDP documentation <https://pytorch.org/docs/stable/fsdp.html>`__ for more details on how auto wrap policies work.
+When you provide an :code:`parallelism_config={'fsdp': {...}}` dictionary to the Composer Trainer,
+then on :code:`__init__`, the Trainer will attempt to wrap **each of the submodules** of your
+:mod:`ComposerModel` with an FSDP auto wrap policy. This wrapping is recursive, so not only is
+`GPT` wrapped, but all submodules of `GPT` may/may not be wrapped too. See the
+`FSDP documentation <https://pytorch.org/docs/stable/fsdp.html>`__ for more details on how auto
+wrap policies work.
 
 The full spec and defaults for Composer's fsdp config is here:
 
@@ -212,9 +227,17 @@ The full spec and defaults for Composer's fsdp config is here:
       'verbose': bool = True | False, # Default: False
     }
 
-All values come with defaults and can be optionally defined in the :code:`fsdp_config`. Most parameters map directly to parameters in the `FSDP documentation <https://pytorch.org/docs/stable/fsdp.html#torch.distributed.fsdp.FullyShardedDataParallel>`__. This config is passed under `parallelism_config['fsdp']` to the Composer Trainer. Two important parameters which do not map include `data_parallel_shard_degree`, which dictates the number of devices to shard across, and `data_parallel_replicate_degree`, which dictates the number of devices to replicate across.
+All values come with defaults and can be optionally defined in the :code:`fsdp_config`. Most
+parameters map directly to parameters in the
+`FSDP documentation <https://pytorch.org/docs/stable/fsdp.html#torch.distributed.fsdp.FullyShardedDataParallel>`__.
+This config is passed under `parallelism_config['fsdp']` to the Composer Trainer. Two important
+parameters which do not map include `data_parallel_shard_degree`, which dictates the number of
+devices to shard across, and `data_parallel_replicate_degree`, which dictates the number of
+devices to replicate across.
 
-One Composer-specific pattern is that if :code:`mixed_precision` is provided as a :code:`str`, then we automatically infer the settings to use from the Trainer's :code:`precision`, which is already being used for autocast, and we construct an associated MixedPrecision object for FSDP:
+One Composer-specific pattern is that if :code:`mixed_precision` is provided as a :code:`str`,
+then we automatically infer the settings to use from the Trainer's :code:`precision`, which is
+already being used for autocast, and we construct an associated MixedPrecision object for FSDP:
 
 .. code:: python
 
@@ -372,7 +395,8 @@ A very similar auto wrap policy is provided for activation checkpointing, with a
         def activation_checkpointing_fn(self, module):
             return isinstance(module, Block)
 
-While the user can instantiate and pass in process groups, Composer enables process groups to be specified using the following options:
+While the user can instantiate and pass in process groups, Composer enables process groups to be
+specified using the following options:
 
 1. :code:`'self'`: the degenerate case where all process groups only operate within their current rank (:code:`'self'` == :code:`'set1'`). This is useful when you do not want a layer to be synchonized across accelerators.
 
@@ -393,8 +417,9 @@ Depending on the value you set for :code:`state_dict_type`, you can get differen
 1. :code:`state_dict_type='full'`
 The default. Saves one big checkpoint file for the whole model.
 It does this by gathering the model state to the global rank 0 device, unflattening it, and then saving it out.
-If `load_monolith_rank0_only=True`, then when loading checkpoints the global rank 0 device will load in the checkpoint file and scatter the
-model and optimizer state to the other ranks, which will will dramatically reduce the memory usage on system. Otherwise, all ranks will separately load in the checkpoint file.
+If `load_monolith_rank0_only=True`, then when loading checkpoints the global rank 0 device will load
+in the checkpoint file and scatter the model and optimizer state to the other ranks, which will will
+dramatically reduce the memory usage on system. Otherwise, all ranks will separately load in the checkpoint file.
 
 2. :code:`state_dict_type='sharded'`
 Each rank saves out an unflattened shard. For loading, each rank loads in the checkpoint file
@@ -404,8 +429,9 @@ corresponding to their unflattened shard.
 See `The FSDP docs <https://pytorch.org/docs/stable/fsdp.html#torch.distributed.fsdp.FullyShardedDataParallel.state_dict>`__ for more info.
 
 If you use sharded checkpoints (`state_dict_type='sharded'`), your run will save as many files as you have
-ranks at each checkpointing event (plus one metadata file for torch versions 2.0.0 or higher). This can quicky pollute your `save_folder` with a lot of files after a couple checkpointing events.
-To help keep your checkpoint shard files organized, Composer will save each set of shards in it's own prefix directory, which you can configure
+ranks at each checkpointing event (plus one metadata file for torch versions 2.0.0 or higher). This can quicky
+pollute your `save_folder` with a lot of files after a couple checkpointing events. To help keep your
+checkpoint shard files organized, Composer will save each set of shards in it's own prefix directory, which you can configure
 by using `'sharded_ckpt_prefix_dir'` (default value `sharded_ckpt_prefix_dir='ep{epoch}-ba{batch}'`). Checkpoint shards will be saved to
 `{save_folder} / {sharded_ckpt_prefix_dir}`
 
@@ -510,9 +536,11 @@ Four things to note in this load example:
 Tensor Parallel (TP)
 --------------------
 
-Composer integrates Pytorch's `Tensor Parallel <https://pytorch.org/docs/stable/distributed.tensor.parallel.html>`__ API with some syntactic sugar to make it easy to write custom models that work with Composer + TP.
+Composer integrates Pytorch's `Tensor Parallel <https://pytorch.org/docs/stable/distributed.tensor.parallel.html>`__
+API with some syntactic sugar to make it easy to write custom models that work with Composer + TP.
 
-To enable Tensor Parallel, a tensor parallel config must be passed to the Composer Trainer. The full spec and defaults for Composer's tensor parallelism_config is here:
+To enable Tensor Parallel, a tensor parallel config must be passed to the Composer Trainer. The
+full spec and defaults for Composer's tensor parallelism_config is here:
 
 .. code:: python
 
@@ -521,7 +549,11 @@ To enable Tensor Parallel, a tensor parallel config must be passed to the Compos
         pipeline_parallel_degree: int = 1, # Default: None
     }
 
-All values come with defaults and can be optionally defined in the :code:`tp_config`. Most parameters map directly to parameters in the `Tensor Parallel documentation <https://pytorch.org/docs/stable/distributed.tensor.parallel.html#torch.distributed.tensor.parallel.parallelize_module>`__. This config is passed under `parallelism_config['tp']` to the Composer Trainer. An important parameters which do not map include `tensor_parallel_degree`, which dictates the number of devices to shard across.
+All values come with defaults and can be optionally defined in the :code:`tp_config`. Most parameters
+map directly to parameters in the
+`Tensor Parallel documentation <https://pytorch.org/docs/stable/distributed.tensor.parallel.html#torch.distributed.tensor.parallel.parallelize_module>`__.
+This config is passed under `parallelism_config['tp']` to the Composer Trainer. An important parameters
+which do not map include `tensor_parallel_degree`, which dictates the number of devices to shard across.
 
 
 An example code snippet for using FSDP with composer is provided below:
@@ -603,3 +635,7 @@ An example code snippet for using FSDP with composer is provided below:
 
 .. note::
     This is an experimental feature and is subject to change. Many features, such as `load_monolith_rank0_only` or tensor parallelism without FSDP, are not yet supported.
+
+.. _Pytorch DDP: https://pytorch.org/docs/master/generated/torch.nn.parallel.DistributedDataParallel.html
+.. _Deepspeed Zero: https://www.deepspeed.ai/
+.. _Pytorch FSDP: https://pytorch.org/docs/stable/fsdp.html
