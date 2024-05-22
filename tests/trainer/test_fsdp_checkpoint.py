@@ -201,6 +201,7 @@ def _compare_optims_between_state_dicts(state_dict1, state_dict2):
                 state_dict1_moment = state_dict1_moment.to_local()
             if isinstance(state_dict2_moment, DTensor):
                 state_dict2_moment = state_dict2_moment.to_local()
+            print(param_name, state_dict1_moment, state_dict2_moment)
             torch.testing.assert_close(state_dict1_moment, state_dict2_moment)
 
 
@@ -309,7 +310,8 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
         pytest.param(2, 'adamw', False, 'amp_bf16', False, False, False, False, marks=pytest.mark.world_size(2)),
         pytest.param(2, 'adam', True, 'amp_bf16', False, False, False, False, marks=pytest.mark.world_size(2)),
         pytest.param(2, 'adam', False, 'amp_fp16', False, False, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', False, 'amp_bf16', True, True, False, False, marks=pytest.mark.world_size(2)),  # save_weights_only requires load_weights_only
+        pytest.param(2, 'adam', False, 'amp_bf16', True, True, False, False,
+                     marks=pytest.mark.world_size(2)),  # save_weights_only requires load_weights_only
         pytest.param(2, 'adam', False, 'amp_bf16', False, True, False, False, marks=pytest.mark.world_size(2)),
         pytest.param(2, 'adam', False, 'amp_bf16', False, False, True, False, marks=pytest.mark.world_size(2)),
         pytest.param(4, 'adam', False, 'amp_bf16', False, False, False, True, marks=pytest.mark.world_size(4)),
@@ -324,7 +326,7 @@ def test_fsdp_full_state_dict_load(
     save_weights_only: bool,
     load_weights_only: bool,
     load_monolith_rank0_only: bool,
-    use_tp: bool
+    use_tp: bool,
 ):
     if autoresume:
         run_name = 'my-cool-autoresume-run'
