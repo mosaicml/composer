@@ -29,7 +29,6 @@ from composer.distributed.mosaic_fsdp import (
     SHARDING_MAP,
     get_cpu_offload,
     get_mixed_precision,
-    patch_pytorch,
     set_custom_fsdp_module_kwargs,
 )
 from composer.utils import StringEnum, dist, ensure_tuple
@@ -216,8 +215,6 @@ def prepare_fsdp_module(
         auto_microbatching (bool, optional): Whether or not auto microbatching is enabled.
         te_rng_seed(int): The seed to use for the Transformer Engine activation checkpointing RNG. Defaults to 1234.
     """
-    patch_pytorch()
-
     # Check sync_module_states is True for mixed initialization or HSDP
     if fsdp_config['sync_module_states'] == False:
         rank_on_meta = 1 if next(model.parameters()).device.type == 'meta' else 0

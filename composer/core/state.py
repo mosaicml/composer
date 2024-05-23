@@ -539,12 +539,6 @@ class State(Serializable):
         parallelism_config = parallelism_config or {}
         self.fsdp_config = parallelism_config.get('fsdp', None)
         self.tp_config = parallelism_config.get('tp', None)
-        if self.fsdp_config is not None:
-            from composer.distributed import patch_pytorch
-
-            # Add an earlier call to patch_pytorch as we require device_mesh slicing before any
-            # model wrapping.
-            patch_pytorch()
 
         if self.tp_config is not None:
             if version.parse(torch.__version__.split('.dev')[0]) < version.parse('2.3.0'):
@@ -553,7 +547,8 @@ class State(Serializable):
                 raise ValueError(
                     'Tensor parallelism (TP) currently requires FSDP to be enabled. '
                     'An empty `fsdp_config` can be specified to enable FSDP with '
-                    'default settings.',
+                    'default settings. Additionally, PyTorch currently errors if FSDP '
+                    'data_parallel_shard_degree is not at least 2.',
                 )
             if not self.fsdp_config['use_orig_params']:
                 raise ValueError(

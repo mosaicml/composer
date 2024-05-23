@@ -25,6 +25,7 @@ from torch.distributed._tensor import DeviceMesh
 from torch.distributed.checkpoint.metadata import Metadata
 from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
 from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
+from torch.distributed.distributed_c10d import ProcessGroup
 
 from composer.utils import dist, reproducibility
 from composer.utils.compression import get_compressor, is_compressed_pt
@@ -42,8 +43,6 @@ from composer.utils.object_store import ObjectStore
 from composer.utils.retrying import retry
 
 if TYPE_CHECKING:
-    from torch.distributed.distributed_c10d import ProcessGroup
-
     from composer.core import AlgorithmPass, State
     from composer.loggers import Logger, LoggerDestination
 
@@ -1125,7 +1124,7 @@ def _save_checkpoint(
             if version.parse(torch.__version__) >= version.parse('2.3.0'):
                 save_planner = state.fsdp_config['save_planner']
                 if save_planner is None:
-                    from composer.distributed.mosaic_fsdp import SavePlannerWithDedupFix
+                    from composer.trainer._patch_pytorch import SavePlannerWithDedupFix
 
                     save_planner = SavePlannerWithDedupFix()
                 dist_cp.save(

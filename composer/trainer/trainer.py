@@ -103,6 +103,7 @@ from composer.loggers.mosaicml_logger import MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSA
 from composer.models import ComposerModel
 from composer.optim import ComposerScheduler, DecoupledSGDW, compile_composer_scheduler
 from composer.profiler import Profiler
+from composer.trainer._patch_pytorch import patch_pytorch
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.utils import (
@@ -922,7 +923,7 @@ class Trainer:
                 for more details. To use FSDP with default values, set to the empty dictionary ``{}``. To
                 disable FSDP, set to ``None`` or remove the key from the dictionary.
 
-            For `parallelism_config['tp']`, see TODO: ADD DOCS!
+            For `parallelism_config['tp']`, see :doc:`TP Documentation </notes/distributed_training>`
                 for more details. To use Tensor Parallelism with default values, set to the empty dictionary ``{}``. To
                 disable Tensor Parallelism, set to ``None`` or remove the key from the dictionary.
 
@@ -1096,7 +1097,6 @@ class Trainer:
         # compile config for PyTorch 2.0 or higher
         compile_config: Optional[Dict[str, Any]] = None,
     ):
-
         self.auto_log_hparams = auto_log_hparams
         self.python_log_level = python_log_level
         if self.python_log_level is not None:
@@ -1110,6 +1110,10 @@ class Trainer:
             )
             logging.getLogger('composer').setLevel(self.python_log_level.upper())
 
+        # Patch PyTorch
+        patch_pytorch()
+
+        # Algorithms
         algorithms = list(ensure_tuple(algorithms))
 
         # Device
@@ -1122,7 +1126,7 @@ class Trainer:
             precision = Precision(precision)
         _validate_precision(precision, device)
 
-        # check if provided model is compiled or not
+        # Check if provided model is compiled or not
         is_model_compiled = False
         if isinstance(model, OptimizedModule):
             log.warning(
