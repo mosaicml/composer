@@ -318,7 +318,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                     )
                     received_file_object = file_object[0]
                     assert received_file_object is not None
-                    if receiver and not os.path.exists(full_path):
+                    if receiver and not os.path.exists(full_path) and dist.get_local_rank() == 0:
                         with open(full_path, 'wb') as f:
                             f.write(received_file_object['content'])
 
