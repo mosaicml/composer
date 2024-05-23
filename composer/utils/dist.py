@@ -225,7 +225,7 @@ def get_world_size() -> int:
     )
 
 
-def get_global_rank(group: dist.ProcessGroup = None) -> int:
+def get_global_rank(group: Optional[dist.ProcessGroup] = None) -> int:
     """Returns the global rank of the current process in the input PG, which is on ``[0; group.WORLD_SIZE - 1]``.
 
     Args:
