@@ -78,3 +78,4 @@ def world_size(*world_sizes: int, param_name: str = 'world_size'):
         return pytest.mark.parametrize(param_name, parameters)(test)
 
     return decorator
+.
