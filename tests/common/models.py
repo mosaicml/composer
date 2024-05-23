@@ -113,6 +113,33 @@ class SimpleMLP(torch.nn.Module):
         return self.net(x)
 
 
+# We use this Module to test state dict generation because fc1 and fc2
+# are not submodules of EvenSimplerMLP, like they are in SimpleMLP.
+class EvenSimplerMLP(torch.nn.Module):
+
+    def __init__(self, num_features: int, device: str):
+        super().__init__()
+        fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+
+        self.module = torch.nn.Sequential(fc1, torch.nn.ReLU(), fc2)
+
+    def forward(self, x):
+        return self.module(x)
+
+
+# This model is used when you want a SimpleMLP, but you want to explicitly
+# test ComposerModels instead of nn.Module.
+class SimpleComposerMLP(ComposerClassifier):
+
+    def __init__(self, num_features: int, device: str, num_classes: int = 3):
+        fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+
+        net = torch.nn.Sequential(fc1, torch.nn.ReLU(), fc2)
+        super().__init__(num_classes=num_classes, module=net)
+
+
 class SimpleWeightTiedModel(ComposerClassifier):
     """Small classification model with tied weights.
     Typically this model will be used to test weight tying w/ FSDP

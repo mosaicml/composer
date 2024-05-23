@@ -549,11 +549,11 @@ def main():
     if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and str(
         os.environ.get(MOSAICML_LOG_DIR_ENV_VAR, 'false'),
     ).lower() != 'false' and os.environ.get(MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR, 'false').lower() != 'false':
-        log.info('Logging all GPU ranks to Mosaic Platform.')
+        log.info('Logging all GPU ranks to Mosaic AI Training.')
         log_file_format = f'{os.environ.get(MOSAICML_LOG_DIR_ENV_VAR)}/{os.environ.get(MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR)}{{local_rank}}.txt'
         if args.stderr is not None or args.stdout is not None:
             log.info(
-                'Logging to Mosaic Platform. Ignoring provided stdout and stderr args. To use provided stdout and stderr, set MOSAICML_LOG_DIR=false.',
+                'Logging to Mosaic AI Training. Ignoring provided stdout and stderr args. To use provided stdout and stderr, set MOSAICML_LOG_DIR=false.',
             )
         args.stdout = log_file_format
         args.stderr = None

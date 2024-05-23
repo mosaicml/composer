@@ -225,13 +225,23 @@ def get_world_size() -> int:
     )
 
 
-def get_global_rank() -> int:
-    """Returns the global rank of the current process, which is on ``[0; WORLD_SIZE - 1]``.
+def get_global_rank(group: Optional[dist.ProcessGroup] = None) -> int:
+    """Returns the global rank of the current process in the input PG, which is on ``[0; group.WORLD_SIZE - 1]``.
+
+    Args:
+        group (ProcessGroup, optional): The process group. If ``None``, it will return env_var ``RANK``
 
     Returns:
-        int: The global rank.
+        int: The global rank in input process group.
     """
-    return _get_distributed_config_var(env_var='RANK', human_name='global rank', default=0, fetch_fn_name='get_rank')
+    if group is None:
+        return _get_distributed_config_var(
+            env_var='RANK',
+            human_name='global rank',
+            default=0,
+            fetch_fn_name='get_rank',
+        )
+    return dist.get_rank(group)
 
 
 def get_local_world_size() -> int:
