@@ -236,7 +236,10 @@ def get_global_rank(group: Optional[dist.ProcessGroup] = None) -> int:
     """
     if group is None:
         return _get_distributed_config_var(
-            env_var='RANK', human_name='global rank', default=0, fetch_fn_name='get_rank'
+            env_var='RANK',
+            human_name='global rank',
+            default=0,
+            fetch_fn_name='get_rank',
         )
     return dist.get_rank(group)
 
