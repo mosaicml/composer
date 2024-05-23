@@ -302,13 +302,13 @@ def test_comet_ml_log_metrics_and_hyperparameters(monkeypatch, tmp_path):
     comet_logs_path = zf.extract('messages.json', path=offline_directory)
     jd = JSONDecoder()
     created_from_found = False
-    expected_created_from_log = {'key': 'Created from', 'val': 'mosaicml-composer'}
+    expected_created_from_value = 'mosaicml-composer'
     metric_msgs = []
     param_msgs = []
     with open(comet_logs_path) as f:
         for line in f.readlines():
             comet_msg = jd.decode(line)
-            if comet_msg['type'] == 'ws_msg' and comet_msg['payload'].get('log_other', {}) == expected_created_from_log:
+            if comet_msg['type'] == 'log_other' and comet_msg['payload'].get('value', '') == expected_created_from_value:
                 created_from_found = True
             if (comet_msg['type'] == 'metric_msg' and comet_msg['payload']['metric']['metricName'] == 'my_test_metric'):
                 metric_msgs.append(comet_msg['payload']['metric'])
