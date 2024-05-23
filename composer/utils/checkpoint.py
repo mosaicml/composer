@@ -290,7 +290,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         if self.device_mesh is not None and self.device_mesh.ndim == 2:
             # Broadcast file to all replicas
             replicate_process_group = self.device_mesh.get_group(0)
-            hsdp_shard_process_group = self.device_mesh.get_group(1)
+            shard_process_group = self.device_mesh.get_group(1)
             shard_size = self.device_mesh.size(1)
             rank_in_first_replica = dist.get_global_rank() % shard_size
             sender = dist.get_global_rank() == rank_in_first_replica
@@ -307,7 +307,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
             # Send each file to the appropriate rank
             for file_name in file_list:
                 if dist.get_local_rank() == 0 or (
-                    torch_dist.get_rank(hsdp_shard_process_group) == 0
+                    torch_dist.get_rank(shard_process_group) == 0
                 ):  # Only 1 rank per node needs to transfer file
                     full_path = os.path.join(self.destination_path, file_name)
                     log.debug(f'Transferring {full_path=}')
