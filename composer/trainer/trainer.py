@@ -1792,8 +1792,10 @@ class Trainer:
 
         # FSDP wrap if model is not yet wrapped and FSDP is enabled. This can happen if
         # load_monolith_rank0_only=True but no checkpoint was loaded.
-        if not self.state.fsdp_enabled and self.state.fsdp_config is not None and self.state.fsdp_config[
-            'auto_wrap'] and self.state.load_monolith_rank0_only:
+        if (
+            not self.state.fsdp_enabled and self.state.fsdp_config is not None and
+            self.state.fsdp_config['auto_wrap'] and self.state.load_monolith_rank0_only
+        ):
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
 

@@ -540,73 +540,7 @@ class State(Serializable):
         self.fsdp_config = parallelism_config.get('fsdp', None)
         self.tp_config = parallelism_config.get('tp', None)
 
-        if self.tp_config is not None:
-            if version.parse(torch.__version__.split('.dev')[0]) < version.parse('2.3.0'):
-                raise ValueError('Tensor parallelism (TP) requires torch>=2.3.0.')
-            if self.fsdp_config is None:
-                raise ValueError(
-                    'Tensor parallelism (TP) currently requires FSDP to be enabled. '
-                    'An empty `fsdp_config` can be specified to enable FSDP with '
-                    'default settings. Additionally, PyTorch currently errors if FSDP '
-                    'data_parallel_shard_degree is not at least 2.',
-                )
-            if not self.fsdp_config['use_orig_params']:
-                raise ValueError(
-                    'Tensor parallelism (TP) currently requires FSDP with use_orig_params=True, '
-                    'which is the default and recommended setting.',
-                )
-
-        if self.load_monolith_rank0_only:
-            if self.tp_config is not None:
-                raise ValueError('load_fsdp_monolith_rank0_only is not compatible with tensor parallelism (TP).')
-            assert self.fsdp_config is not None
-            error_message = ''
-            if self.fsdp_config['sync_module_states'] == False:
-                error_message += textwrap.dedent(
-                    "load_monolith_rank0_only requires fsdp_config['sync_module_states'] to be True. "
-                    "Either set fsdp_config['sync_module_states'] = True or set load_monolith_rank0_only = False. ",
-                )
-            # Broadcast rank 0 meta check to all ranks so error can be raised on all ranks
-            rank0_on_meta = 0
-            if dist.get_global_rank() == 0 and next(model.parameters()).device.type == 'meta':
-                rank0_on_meta = 1
-            rank0_on_meta_tensor = self.device.tensor_to_device(torch.tensor([rank0_on_meta], dtype=torch.uint8))
-            dist.all_reduce(rank0_on_meta_tensor, reduce_operation='MAX')
-            if rank0_on_meta_tensor.item() == 1:
-                error_message += textwrap.dedent(
-                    'load_monolith_rank0_only requires the rank 0 model to be on cpu or gpu, '
-                    'but detected model device as meta. Either move the model to cpu or gpu, or set '
-                    'load_monolith_rank0_only = False. ',
-                )
-            if error_message != '':
-                raise ValueError(error_message)
-
-        self.sharded_ckpt_prefix_dir: Optional[str] = None
-        if self.fsdp_config is not None:
-            self.sharded_ckpt_prefix_dir = self.fsdp_config['sharded_ckpt_prefix_dir']
-
-        if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
-            if self.fsdp_state_dict_type == 'local':
-                raise ValueError(
-                    'Composer and PyTorch no longer support saving or loading local state dicts. '
-                    'To upgrade an older checkpoint, use Composer version 0.18.1 and export as '
-                    'a monolithic checkpoint using a callback.',
-                )
-            raise ValueError(
-                f'fsdp_state_dict_type must be one of [None, "full", "sharded"], but got '
-                f'{self.fsdp_state_dict_type}',
-            )
-        if self.fsdp_sharded_state_dict_enabled and self.save_metrics:
-            # Sharded state dict breaks in many different ways with torchmetrics, due to both sharding
-            # metric tensors and only sometimes flattening path names in state dict and _computed, so
-            # saving metrics is not allowed with sharded state dict.
-            raise ValueError(
-                textwrap.dedent(
-                    'Saving metrics is not allowed with sharded state dict as metric tensors will '
-                    'be sharded and break on load. If you wish to save metric state, set '
-                    'fsdp_config["state_dict_type"] = "full" to disable sharded checkpoints.',
-                ),
-            )
+        self._validate_parallelism_configs()
 
         self.device_mesh: Optional[DeviceMesh] = _create_device_mesh(self.device, self.fsdp_config, self.tp_config)
         if self.fsdp_config is not None and self.device_mesh is not None:
@@ -650,6 +584,75 @@ class State(Serializable):
         self.total_loss_dict: Dict[str, float] = {}
 
         self.metric_outputs: Dict[str, Any] = {}
+
+    def _validate_parallelism_configs(self):
+        # Validate TP config
+        if self.tp_config is not None:
+            warnings.warn('Tensor parallelism (TP) is experimental and may change in future versions.', FutureWarning)
+            if version.parse(torch.__version__.split('.dev')[0]) < version.parse('2.3.0'):
+                raise ValueError('Tensor parallelism (TP) requires torch>=2.3.0.')
+            if self.fsdp_config is None:
+                raise ValueError(
+                    'Tensor parallelism (TP) currently requires FSDP to be enabled. '
+                    'An empty `fsdp_config` can be specified to enable FSDP with '
+                    'default settings. Additionally, PyTorch currently errors if FSDP '
+                    'data_parallel_shard_degree is not at least 2.',
+                )
+            if not self.fsdp_config['use_orig_params']:
+                raise ValueError(
+                    'Tensor parallelism (TP) currently requires FSDP with use_orig_params=True, '
+                    'which is the default and recommended setting.',
+                )
+
+        # Load monolith rank0 only
+        if self.load_monolith_rank0_only:
+            if self.tp_config is not None:
+                raise ValueError('load_fsdp_monolith_rank0_only is not compatible with tensor parallelism (TP).')
+            assert self.fsdp_config is not None
+            error_message = ''
+            if self.fsdp_config['sync_module_states'] == False:
+                error_message += textwrap.dedent(
+                    "load_monolith_rank0_only requires fsdp_config['sync_module_states'] to be True. "
+                    "Either set fsdp_config['sync_module_states'] = True or set load_monolith_rank0_only = False. ",
+                )
+            # Broadcast rank 0 meta check to all ranks so error can be raised on all ranks
+            rank0_on_meta = 0
+            if dist.get_global_rank() == 0 and next(self.model.parameters()).device.type == 'meta':
+                rank0_on_meta = 1
+            rank0_on_meta_tensor = self.device.tensor_to_device(torch.tensor([rank0_on_meta], dtype=torch.uint8))
+            dist.all_reduce(rank0_on_meta_tensor, reduce_operation='MAX')
+            if rank0_on_meta_tensor.item() == 1:
+                error_message += textwrap.dedent(
+                    'load_monolith_rank0_only requires the rank 0 model to be on cpu or gpu, '
+                    'but detected model device as meta. Either move the model to cpu or gpu, or set '
+                    'load_monolith_rank0_only = False. ',
+                )
+            if error_message != '':
+                raise ValueError(error_message)
+
+        # Validate FSDP state dict type
+        if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
+            if self.fsdp_state_dict_type == 'local':
+                raise ValueError(
+                    'Composer and PyTorch no longer support saving or loading local state dicts. '
+                    'To upgrade an older checkpoint, use Composer version 0.18.1 and export as '
+                    'a monolithic checkpoint using a callback.',
+                )
+            raise ValueError(
+                f'fsdp_state_dict_type must be one of [None, "full", "sharded"], but got '
+                f'{self.fsdp_state_dict_type}',
+            )
+        if self.fsdp_sharded_state_dict_enabled and self.save_metrics:
+            # Sharded state dict breaks in many different ways with torchmetrics, due to both sharding
+            # metric tensors and only sometimes flattening path names in state dict and _computed, so
+            # saving metrics is not allowed with sharded state dict.
+            raise ValueError(
+                textwrap.dedent(
+                    'Saving metrics is not allowed with sharded state dict as metric tensors will '
+                    'be sharded and break on load. If you wish to save metric state, set '
+                    'fsdp_config["state_dict_type"] = "full" to disable sharded checkpoints.',
+                ),
+            )
 
     def _dataset_of(self, dataloader: Optional[Union[Evaluator, DataSpec, DataLoader, Iterable]]) -> Optional[Dataset]:
         """Get the dataset contained by the given dataloader-like object.
