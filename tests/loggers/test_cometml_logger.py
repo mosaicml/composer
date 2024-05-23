@@ -308,7 +308,10 @@ def test_comet_ml_log_metrics_and_hyperparameters(monkeypatch, tmp_path):
     with open(comet_logs_path) as f:
         for line in f.readlines():
             comet_msg = jd.decode(line)
-            if comet_msg['type'] == 'log_other' and comet_msg['payload'].get('value', '') == expected_created_from_value:
+            if comet_msg['type'] == 'log_other' and comet_msg['payload'].get(
+                'value',
+                '',
+            ) == expected_created_from_value:
                 created_from_found = True
             if (comet_msg['type'] == 'metric_msg' and comet_msg['payload']['metric']['metricName'] == 'my_test_metric'):
                 metric_msgs.append(comet_msg['payload']['metric'])
