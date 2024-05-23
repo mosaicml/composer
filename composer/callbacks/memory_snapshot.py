@@ -144,6 +144,7 @@ class MemorySnapshot(Callback):
             'all',  # type: ignore
             max_entries=self.max_entries,
         )
+        
     def stop_record_memory_history(self) -> None:
 
         log.info('Stopping snapshot record_memory_history')
