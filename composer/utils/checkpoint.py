@@ -19,7 +19,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
-import torch.distributed as torch_dist
 from packaging import version
 from torch.distributed import checkpoint as dist_cp
 from torch.distributed._tensor import DeviceMesh
@@ -307,7 +306,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
             # Send each file to the appropriate rank
             for file_name in file_list:
                 if dist.get_local_rank() == 0 or (
-                    torch_dist.get_rank(shard_process_group) == 0
+                    dist.get_global_rank(shard_process_group) == 0
                 ):  # Only 1 rank per node needs to transfer file
                     full_path = os.path.join(self.destination_path, file_name)
                     log.debug(f'Transferring {full_path=}')
