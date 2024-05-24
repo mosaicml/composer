@@ -1630,6 +1630,9 @@ class Trainer:
                 )
 
         # FSDP wrap if not using monolith checkpoint on rank 0 only
+        print(fsdp_config)
+        print(parallelism_config)
+        print(self.state.fsdp_config, self.state.load_monolith_rank0_only)
         if self.state.fsdp_config is not None and self.state.fsdp_config['auto_wrap'
                                                                         ] and not self.state.load_monolith_rank0_only:
             with reproducibility.seed_context(self.state.rank_zero_seed):
