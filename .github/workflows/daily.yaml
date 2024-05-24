@@ -133,6 +133,6 @@ jobs:
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
       python-version: 3.9
-      gha_timeout: 5400
+      gha-timeout: 5400
     secrets:
       mcloud-api-key: ${{ secrets.MCLOUD_DAILY_API_KEY }}
