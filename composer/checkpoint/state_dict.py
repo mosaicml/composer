@@ -5,19 +5,20 @@
 
 import fnmatch
 import logging
-from typing import Any, Dict, Optional, Sequence, Union, Iterable
+from typing import Any, Dict, Iterable, Optional, Sequence, Union
 
 import torch
 from packaging import version
 from torch import nn
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn.parallel import DistributedDataParallel
+from torch.utils.data import DataLoader
 
-from composer.models import ComposerModel
-from composer.utils import STR_TO_DTYPE, dist, _dataset_of
-from torch.utils.data import DataLoader, Dataset
 from composer.core.evaluator import Evaluator
+from composer.core.state import State
 from composer.core.time import Timestamp
+from composer.models import ComposerModel
+from composer.utils import STR_TO_DTYPE, _dataset_of, dist
 
 log = logging.getLogger(__name__)
 
@@ -157,7 +158,7 @@ def _get_model_state_dict_with_fsdp_context_manager(model: nn.Module, sharded_st
     return model_state_dict
 
 
-def get_resumption_state_dict(state: Optional[State]=None) -> Dict[str, Any]:
+def get_resumption_state_dict(state: Optional[State] = None) -> Dict[str, Any]:
     """Generate the state dict for any objects needed for resumption.
 
     This includes:
@@ -166,25 +167,63 @@ def get_resumption_state_dict(state: Optional[State]=None) -> Dict[str, Any]:
         * dataset_state
         * scaler
         * rank_zero_seed
-        * callbacks 
+        * callbacks
         * algorithms?
 
     Returns:
         The state dict containing the objects needed for resumption.
     """
-    
+    resumption_state_dict = {}
+    resumption_state_dict['dataset_state'] = get_dataset_state_dict(
+        state.train_dataloader,
+        state.evaluators,
+        state.timestamp,
+    )
+    resumption_state_dict['timestamp'] = state.timestamp.state_dict()
+
+    scheduler_state_dict = _make_state_dict_for_list_of_objects(state.schedulers)
+    if scheduler_state_dict != {}:
+        resumption_state_dict['schedulers'] = scheduler_state_dict
+
+    callbacks_state_dict = _make_state_dict_for_list_of_objects(state.callbacks)
+    if callbacks_state_dict != {}:
+        resumption_state_dict['callbacks'] = callbacks_state_dict
+
+    algorithms_state_dict = _make_state_dict_for_list_of_objects(state.algorithms)
+    if algorithms_state_dict != {}:
+        resumption_state_dict['algorithms'] = algorithms_state_dict
+
+    if state.scaler is not None:
+        scaler_sd = _make_state_dict_for_list_of_objects(state.scaler)
+        if scaler_sd != {}:
+            resumption_state_dict['scaler'] = state.scaler.state_dict()
+
+    resumption_state_dict['rank_zero_seed'] = state.rank_zero_seed
+    resumption_state_dict['run_name'] = state.run_name
+
+    return resumption_state_dict
+
+
+def _make_state_dict_for_list_of_objects(objects: Sequence[Any]) -> Dict[str, Any]:
+    object_dict = {}
+    for obj in objects:
+        if not hasattr(obj, 'state_dict') or obj.state_dict() == {}:
+            continue
+        object_dict[type(obj).__qualname__] = obj.state_dict()
+    return object_dict
+
 
 def get_dataset_state_dict(
-        train_dataloader: Optional[Union[DataLoader, Iterable]],
-        evaluators: Sequence[Evaluator],
-        timestamp: Timestamp,
- ) -> Dict[str, Any]:
+    train_dataloader: Optional[Union[DataLoader, Iterable]],
+    evaluators: Sequence[Evaluator],
+    timestamp: Timestamp,
+) -> Dict[str, Any]:
     """Collect the state dict(s) of our train and eval dataset(s).
 
     Returns:
         Dict[str, Any]: The state dict(s).
     """
-    get_dataset_state_dict = {
+    dataset_state_dict = {
         'train': None,
         'eval': {},
     }
@@ -200,8 +239,9 @@ def get_dataset_state_dict(
             # Don't save eval sample because we do not checkpoint during eval.
             obj['eval'][evaluator.label] = dataset.state_dict(0, True)  # pyright: ignore
 
-    return get_dataset_state_dict 
-# def _get_timestamp_state_dict
-# def _get_scheduler_state_dict, 
-# def _dataset_state_state_dict
+    return dataset_state_dict
 
+
+# def _get_timestamp_state_dict
+# def _get_scheduler_state_dict,
+# def _dataset_state_state_dict
