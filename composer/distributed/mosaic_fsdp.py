@@ -215,8 +215,8 @@ def _get_process_group(pg, process_group_cache=None):
         current_group,
         _subgroups,
     ) = distributed.distributed_c10d.new_subgroups_by_enumeration(  # type: ignore[reportGeneralTypeIssues]
-        ranks_per_subgroup_list
-    ) 
+        ranks_per_subgroup_list,
+    )
 
     if process_group_cache is not None:
         process_group_cache[ranks] = current_group
