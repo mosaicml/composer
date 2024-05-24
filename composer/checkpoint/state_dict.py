@@ -3,8 +3,10 @@
 
 """Useful functions for generating state dicts and manipulating them."""
 
+import contextlib
 import fnmatch
 import logging
+import sys
 from typing import Any, Dict, Optional, Sequence, Union
 
 import torch
@@ -13,12 +15,9 @@ from torch import nn
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn.parallel import DistributedDataParallel
 
-from composer.models import ComposerModel
-from composer.utils import STR_TO_DTYPE, dist, get_composer_env_dict
-import sys
 from composer.devices import Device
-from composer.models import HuggingFaceModel
-import contextlib
+from composer.models import ComposerModel, HuggingFaceModel
+from composer.utils import STR_TO_DTYPE, dist, get_composer_env_dict
 
 log = logging.getLogger(__name__)
 
@@ -158,13 +157,14 @@ def _get_model_state_dict_with_fsdp_context_manager(model: nn.Module, sharded_st
     return model_state_dict
 
 
-def get_metadata_state_dict(model: Optional[Union[ComposerModel, nn.Module]]=None,
-                            sharded_state_dict: Optional[bool]=None,
-                            precision: Optional[Union[str, torch.dtype]]=None,
-                            device: Optional[Device] = None,
-                            device_train_microbatch_size: Optional[int] = None,
-                            generate_parameter_info: Optional[bool] = False,
-                            ) -> Dict[str, Any]:
+def get_metadata_state_dict(
+    model: Optional[Union[ComposerModel, nn.Module]] = None,
+    sharded_state_dict: Optional[bool] = None,
+    precision: Optional[Union[str, torch.dtype]] = None,
+    device: Optional[Device] = None,
+    device_train_microbatch_size: Optional[int] = None,
+    generate_parameter_info: Optional[bool] = False,
+) -> Dict[str, Any]:
     """Generate the metadata and integrations for a training run.
 
     Args:
@@ -177,11 +177,11 @@ def get_metadata_state_dict(model: Optional[Union[ComposerModel, nn.Module]]=Non
         generate_parameter_info: Whether to generate parameter information for the model. Default is False.
 
     This state dict includes:
-        * composer version 
+        * composer version
         * composer commit hash
         * gpu model
         * num nodes
-        * num gpus 
+        * num gpus
         * num gpus per node
         * cpu core count
         * cpu model
@@ -203,9 +203,9 @@ def get_metadata_state_dict(model: Optional[Union[ComposerModel, nn.Module]]=Non
 
     composer_env_dict = get_composer_env_dict()
     ced = composer_env_dict
-    
+
     python_version = '.'.join([str(getattr(sys.version_info, k)) for k in ['major', 'minor', 'micro']])
-    
+
     metadata_state_dict = {
         'composer_version': ced['composer_version'],
         'composer_commit_hash': ced['composer_commit_hash'],
@@ -214,8 +214,8 @@ def get_metadata_state_dict(model: Optional[Union[ComposerModel, nn.Module]]=Non
         'num_nodes': ced['node_world_size'],
         'num_gpus_per_node': ced['local_world_size'],
         'num_gpus': dist.get_world_size(),
-        'gpu_model':ced['accelerator_model_name'],
-        'cpu_model': ced['host_processor_model_name'], 
+        'gpu_model': ced['accelerator_model_name'],
+        'cpu_model': ced['host_processor_model_name'],
         'cpu_core_count': ced['host_processor_core_count'],
     }
     if sharded_state_dict is not None:
@@ -226,7 +226,7 @@ def get_metadata_state_dict(model: Optional[Union[ComposerModel, nn.Module]]=Non
             metadata_state_dict['huggingface'] = model.get_metadata()
         elif isinstance(model, DistributedDataParallel) and isinstance(model.module, HuggingFaceModel):
             metadata_state_dict['huggingface'] = model.module.get_metadata()
-        
+
         metadata_state_dict['model_name'] = model.__class__.__name__
 
         if generate_parameter_info:
@@ -246,7 +246,7 @@ def get_metadata_state_dict(model: Optional[Union[ComposerModel, nn.Module]]=Non
         if isinstance(precision, str):
             metadata_state_dict['precision'] = precision
         else:
-            dtype_to_str = {v:k for k,v in STR_TO_DTYPE.items()}
+            dtype_to_str = {v: k for k, v in STR_TO_DTYPE.items()}
             metadata_state_dict['precision'] = dtype_to_str[precision]
 
     if generate_parameter_info:
@@ -257,6 +257,8 @@ def get_metadata_state_dict(model: Optional[Union[ComposerModel, nn.Module]]=Non
         else:
             ctxt_manager = contextlib.nullcontext()
         with ctxt_manager:
-            metadata_state_dict['param_info'] = {param_name: param.shape for param_name, param in model.named_parameters()}
-            
+            metadata_state_dict['param_info'] = {
+                param_name: param.shape for param_name, param in model.named_parameters()
+            }
+
     return metadata_state_dict
