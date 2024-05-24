@@ -1047,6 +1047,7 @@ class Trainer:
         save_ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
         save_num_checkpoints_to_keep: int = -1,
         save_metrics: bool = False,
+        use_remote_uploader_v2: bool = False,
 
         # Graceful Resumption
         autoresume: bool = False,
@@ -1375,6 +1376,7 @@ class Trainer:
                 save_interval=save_interval,
                 num_checkpoints_to_keep=save_num_checkpoints_to_keep,
                 save_folder=save_folder,
+                use_remote_uploader_v2=use_remote_uploader_v2,
             )
             self.state.callbacks.append(self._checkpoint_saver)
 

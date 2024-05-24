@@ -580,12 +580,16 @@ class CheckpointSaver(Callback):  # noqa: D101
                     shutil.rmtree(prefix_dir)
     # RemoteUploader v2
     def batch_end(self, state: State, logger: Logger) -> None:
+        # Periodically check to see if any of the upload workers crashed
         del state, logger  # unused
-        raise 
+        if self.use_remote_uploader_v2 and self.remote_uploader is not None:
+            self.remote_uploader.check_workers()
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        raise
+        if self.use_remote_uploader_v2 and self.remote_uploader is not None:
+            self.remote_uploader.check_workers()
 
     def post_close(self):
-        raise
+        if self.use_remote_uploader_v2 and self.remote_uploader is not None:
+            self.remote_uploader.wait_and_close()
