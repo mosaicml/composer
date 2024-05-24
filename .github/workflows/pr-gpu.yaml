@@ -9,51 +9,54 @@ concurrency:
 jobs:
   pytest-gpu-1:
     uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml@4gpu-testing
-    name: Pytest GPU 1 GPU
-    if: github.repository_owner == 'mosaicml'
     with:
-      composer_package_name: mosaicml
       container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
+      gha-timeout: 60
       git_repo: mosaicml/composer
-      mcloud-timeout: 2250
+      name: Pytest GPU 1 GPU
       pip_deps: "[all]"
       pytest-command: coverage run -m pytest
       pytest-markers: not daily and not remote and gpu and (doctest or not doctest)
       python-version: 3.9
+      mcloud-timeout: 2250
+      composer_package_name: mosaicml
+      git-ssh-clone: false
       gpu_num: 1
     secrets:
       mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
 
   pytest-gpu-2:
     uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml@4gpu-testing
-    name: Pytest GPU 2 GPUs
-    if: github.repository_owner == 'mosaicml'
     with:
-      composer_package_name: mosaicml
       container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
+      gha-timeout: 60
       git_repo: mosaicml/composer
-      mcloud-timeout: 2250
+      name: Pytest GPU 2 GPUs
       pip_deps: "[all]"
       pytest-command: coverage run -m pytest
       pytest-markers: not daily and not remote and gpu and (doctest or not doctest)
       python-version: 3.9
+      mcloud-timeout: 2250
+      composer_package_name: mosaicml
+      git-ssh-clone: false
       gpu_num: 2
     secrets:
       mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
 
   pytest-gpu-4:
     uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml@4gpu-testing
-    name: Pytest GPU 4 GPUs
-    if: github.repository_owner == 'mosaicml'
     with:
-      composer_package_name: mosaicml
       container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
+      gha-timeout: 60
       git_repo: mosaicml/composer
-      mcloud-timeout: 2250
+      name: Pytest GPU 4 GPUs
       pip_deps: "[all]"
       pytest-command: coverage run -m pytest
       pytest-markers: not daily and not remote and gpu and (doctest or not doctest)
       python-version: 3.9
+      mcloud-timeout: 2250
+      composer_package_name: mosaicml
+      git-ssh-clone: false
       gpu_num: 4
     secrets:
       mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
