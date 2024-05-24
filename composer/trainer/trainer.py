@@ -1192,7 +1192,7 @@ class Trainer:
                 raise ValueError(
                     'fsdp_config is specified in both fsdp_config and parallelism_config. Please specify it in only in parallelism_config.',
                 )
-            parallelism_config['fsdp_config'] = fsdp_config
+            parallelism_config['fsdp'] = fsdp_config
         if not fsdp_auto_wrap:
             warnings.warn(
                 VersionedDeprecationWarning(
