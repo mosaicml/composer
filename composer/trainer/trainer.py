@@ -1195,7 +1195,7 @@ class Trainer:
                 raise ValueError(
                     'fsdp_config is specified in both fsdp_config and parallelism_config. Please specify it in only in parallelism_config.',
                 )
-            parallelism_config['fsdp_config'] = fsdp_config
+            parallelism_config['fsdp'] = fsdp_config
         if not fsdp_auto_wrap:
             warnings.warn(
                 VersionedDeprecationWarning(
@@ -1578,6 +1578,8 @@ class Trainer:
         # Max Duration
         if max_duration is not None:
             self.state.max_duration = ensure_time(max_duration, TimeUnit.EPOCH)
+            if self.state.max_duration.unit == TimeUnit.SECOND:
+                raise ValueError('Wall clock time not an allowed time unit.')
 
         self.logger.log_hyperparameters({'rank_zero_seed': rank_zero_seed})
 
@@ -2161,6 +2163,8 @@ class Trainer:
         # Max Duration
         if duration is not None:
             duration = ensure_time(duration, TimeUnit.EPOCH)
+            if duration.unit == TimeUnit.SECOND:
+                raise ValueError('Wall clock time not an allowed time unit.')
             # Effectively increment the max duration (if not resetting the Time)
             # or set the max_duration (if resetting the time -- self.state.timestamp.get(duration.unit) will be 0)
             # It is important to set the duration, rather than incrementing it, as ``duration`` could be in

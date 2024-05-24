@@ -27,6 +27,30 @@ from composer.utils import StringEnum
 __all__ = ['TimeUnit', 'Time', 'Timestamp', 'ensure_time']
 
 
+def verify_wct(timestamp: str) -> str:
+    """Return a valid datetime formated wct timestamp if input is a valid wct.
+
+    Args:
+        timestamp (str): A string that represents a timestamp in wct.
+
+    Returns:
+        str: a properly formatted datetime if input is valid else None
+    """
+    if 'h' not in timestamp:
+        timestamp = '0h' + timestamp
+    if 'm' not in timestamp:
+        timestamp = timestamp.replace('h', 'h0m')
+    if 's' not in timestamp:
+        timestamp = timestamp + '0s'
+
+    pattern = r'^(\d+h)?(\d+m)?(\d+s)?$'
+    match = re.match(pattern, timestamp)
+    if bool(match):
+        return timestamp
+    else:
+        raise ValueError(f'{timestamp} was passed in, which does not fit XXhYYmZZs formatting')
+
+
 class TimeUnit(StringEnum):
     """Enum class to represent units of time for the training process.
 
@@ -44,6 +68,7 @@ class TimeUnit(StringEnum):
     SAMPLE = 'sp'
     TOKEN = 'tok'
     DURATION = 'dur'
+    SECOND = 'sec'
 
 
 # regex for parsing time string, matches timeunit and chars prior to unit as value
@@ -211,6 +236,25 @@ class Time(Generic[TValue], Serializable):
             Time: :class:`Time` instance, in duration.
         """
         return cls(duration, TimeUnit.DURATION)
+
+    @classmethod
+    def from_timedelta(cls, timestring: str) -> Time:
+        """Create a :class:`Time` with units of :attr:`TimeUnit.SECOND`.
+
+        Equivalent to ``Time(batch, TimeUnit.SECOND)``.
+
+        Args:
+            timestring (int): timedelta string in _h_m_s.
+
+        Returns:
+            Time: :class:`Time` instance, in seconds.
+        """
+        # Convert timestring to be strptime parsable
+        verified_wct = verify_wct(timestring)
+        time_struct = datetime.datetime.strptime(verified_wct, '%Hh%Mm%Ss')
+        delta = datetime.timedelta(hours=time_struct.hour, minutes=time_struct.minute, seconds=time_struct.second)
+        total_seconds = delta.total_seconds()
+        return cls(int(total_seconds), TimeUnit.SECOND)
 
     @property
     def value(self) -> TValue:
@@ -392,6 +436,12 @@ class Time(Generic[TValue], Serializable):
         Returns:
             Time: An instance of :class:`Time`.
         """
+        # Handle TimeDelta matching first
+        try:
+            return Time.from_timedelta(timestring)
+        except ValueError:
+            pass
+
         match = _TIME_STR_REGEX.findall(timestring)
         if len(match) != 1:
             raise ValueError(f'Invalid time string: {timestring}')
@@ -647,6 +697,8 @@ class Timestamp(Serializable):
             return self.sample
         if unit == TimeUnit.TOKEN:
             return self.token
+        if unit == TimeUnit.SECOND:
+            return Time(int(self._total_wct.total_seconds()) if self._total_wct else 0, TimeUnit.SECOND)
         raise ValueError(f'Invalid unit: {unit}')
 
     def _parse(self, other: Union[int, float, Time, str]) -> Time:
@@ -944,4 +996,5 @@ def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str
     Returns:
         Time: An instance of :class:`.Time`.
     """
-    return Time.from_input(maybe_time, int_unit)
+    time_obj = Time.from_input(maybe_time, int_unit)
+    return time_obj
