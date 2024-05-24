@@ -15,6 +15,8 @@ from torch.nn.parallel import DistributedDataParallel
 from torchvision import transforms
 from torchvision.datasets import VisionDataset
 
+from composer.utils.string_enum import StringEnum
+
 if TYPE_CHECKING:
     from composer.core import Event, State, Time
 
@@ -27,9 +29,29 @@ __all__ = [
     'model_eval_mode',
     'create_interval_scheduler',
     'add_vision_dataset_transform',
+    'STR_TO_DTYPE',
 ]
 
 log = logging.getLogger(__name__)
+
+STR_TO_DTYPE = {
+    'fp32': torch.float32,
+    'fp16': torch.float16,
+    'bf16': torch.bfloat16,
+}
+
+
+class ParallelismType(StringEnum):
+    """Enum class for different parallelism types in the device mesh.
+
+    Attributes:
+        DATA_PARALLEL_SHARD: Data parallel shard dimension.
+        DATA_PARALLEL_REPLICATE: Data parallel replicate dimension.
+        TENSOR_PARALLEL: Tensor parallel dimension.
+    """
+    DATA_PARALLEL_SHARD = 'data_parallel_shard'
+    DATA_PARALLEL_REPLICATE = 'data_parallel_replicate'
+    TENSOR_PARALLEL = 'tensor_parallel'
 
 
 def create_interval_scheduler(
