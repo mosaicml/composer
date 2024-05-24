@@ -503,7 +503,7 @@ def get_lm_trainer(
     load_path: Optional[str] = None,
     is_conditional_generation: bool = False,
     do_eval: bool = False,
-    fsdp_config: Optional[Dict[str, Any]] = None,
+    parallelism_config: Optional[Dict[str, Any]] = None,
     mlm: bool = True,
     add_padding: bool = False,
     device_train_microbatch_size: Optional[int] = None,
@@ -594,7 +594,7 @@ def get_lm_trainer(
         save_interval='1ep',
         save_filename='hf-checkpoint.pt',
         load_path=load_path,
-        parallelism_config={'fsdp': fsdp_config},
+        parallelism_config=parallelism_config,
         loggers=in_memory_logger,
         device_train_microbatch_size=batch_size
         if device_train_microbatch_size is None else device_train_microbatch_size,
@@ -1028,17 +1028,19 @@ def test_hf_fsdp(tiny_bert_config, tiny_bert_tokenizer):
 
     tiny_bert_model = transformers.AutoModelForMaskedLM.from_config(tiny_bert_config)
 
-    fsdp_config = {
-        'sharding_strategy': 'FULL_SHARD',
-        'cpu_offload': False,
-        'mixed_precision': 'PURE',
-        'backward_prefetch': 'BACKWARD_PRE',
-        'activation_checkpointing': False,
-        'activation_cpu_offload': False,
-        'verbose': False,
+    parallelism_config = {
+        'fsdp': {
+            'sharding_strategy': 'FULL_SHARD',
+            'cpu_offload': False,
+            'mixed_precision': 'PURE',
+            'backward_prefetch': 'BACKWARD_PRE',
+            'activation_checkpointing': False,
+            'activation_cpu_offload': False,
+            'verbose': False,
+        },
     }
 
-    trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, None, fsdp_config=fsdp_config)
+    trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, None, parallelism_config=parallelism_config)
 
     assert is_model_fsdp(trainer.state.model)
 
@@ -1486,8 +1488,10 @@ def test_peft_fsdp_trains(
 ):
     pytest.importorskip('peft')
 
-    fsdp_config = {
-        'sharding_strategy': 'FULL_SHARD',
+    parallelism_config = {
+        'fsdp': {
+            'sharding_strategy': 'FULL_SHARD',
+        },
     }
 
     stashed_model = copy.deepcopy(tiny_gpt2_model)
@@ -1499,7 +1503,7 @@ def test_peft_fsdp_trains(
         peft_config=gpt2_peft_config,
         device_train_microbatch_size=1,
         mlm=False,
-        fsdp_config=fsdp_config,
+        parallelism_config=parallelism_config,
         should_save_peft_only=should_save_peft_only,
     )
 
@@ -1520,7 +1524,7 @@ def test_peft_fsdp_trains(
         device_train_microbatch_size=1,
         mlm=False,
         load_path=str(tmp_path / 'trainer1' / 'hf-checkpoint.pt'),
-        fsdp_config=fsdp_config,
+        parallelism_config=parallelism_config,
         should_save_peft_only=should_save_peft_only,
     )
 
