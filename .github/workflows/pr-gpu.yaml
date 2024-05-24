@@ -1,6 +1,6 @@
 name: PR GPU tests
 on:
-  pull_request_target:
+  pull_request:
   workflow_dispatch:
 # Cancel old runs when a new commit is pushed to the same branch if not on main
 # or dev
@@ -13,11 +13,24 @@ jobs:
     strategy:
       matrix:
         include:
-        - name: gpu-3.11-2.3
+        - name: gpu-1gpu
           container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
           markers: not daily and not remote and gpu and (doctest or not doctest)
           pytest_command: coverage run -m pytest
           composer_package_name: mosaicml
+          gpu_num: 1
+        - name: gpu-2gpu
+          container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
+          markers: not daily and not remote and gpu and (doctest or not doctest)
+          pytest_command: coverage run -m pytest
+          composer_package_name: mosaicml
+          gpu_num: 2
+        - name: gpu-4gpu
+          container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
+          markers: not daily and not remote and gpu and (doctest or not doctest)
+          pytest_command: coverage run -m pytest
+          composer_package_name: mosaicml
+          gpu_num: 4
     name: ${{ matrix.name }}
     if: github.repository_owner == 'mosaicml'
     with:
@@ -30,5 +43,9 @@ jobs:
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
       python-version: 3.9
+      gpu_configurations: |
+        1
+        2
+        4
     secrets:
       mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
