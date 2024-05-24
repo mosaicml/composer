@@ -1212,6 +1212,12 @@ class Trainer:
                 parallelism_config['fsdp'] = set_fsdp_default({**parallelism_config['fsdp']})
             if parallelism_config.get('tp', None) is not None:
                 parallelism_config['tp'] = {**parallelism_config['tp']}
+            # Remove empty configs
+            for key in list(parallelism_config.keys()):
+                if parallelism_config[key] == None:
+                    del parallelism_config[key]
+            if len(parallelism_config) == 0:
+                parallelism_config = None
         if deepspeed_config is not None and parallelism_config is not None:
             raise ValueError(
                 'Both deepspeed_config and parallelism_config are specified but incompatible. Please specify only one.',
@@ -1257,7 +1263,7 @@ class Trainer:
 
         # Move the model and optimizers to the device
         if deepspeed_config is None and parallelism_config is None:
-            # check if model is already on tpu
+            # Check if model is already on tpu
             if isinstance(device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
                 raise ValueError(
                     'Use model.to(xm.xla_device()) to set the model to the TPU before providing to the trainer.',
