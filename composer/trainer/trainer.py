@@ -1214,7 +1214,7 @@ class Trainer:
                 parallelism_config['tp'] = {**parallelism_config['tp']}
         if deepspeed_config is not None and parallelism_config is not None:
             raise ValueError(
-                'Both deepspeed_config and parallelism_config are specified but incompatible. Please specify only one.'
+                'Both deepspeed_config and parallelism_config are specified but incompatible. Please specify only one.',
             )
         if deepspeed_config is not None or parallelism_config is not None or dist.get_world_size() > 1:
             # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
