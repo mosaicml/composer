@@ -22,7 +22,7 @@ _NOT_FOUND_ERROR_CODE = 'NOT_FOUND'
 
 
 def _wrap_errors(uri: str, e: Exception):
-    """Wrap an exceptions in ObjectStoreTransientError if it's retryable.
+    """Wrap an exception in ObjectStoreTransientError if it's retryable.
 
     Oherwise, raise the exception.
     """
