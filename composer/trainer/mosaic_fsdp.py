@@ -86,7 +86,7 @@ def patch_pytorch():
         # Issue 2: https://github.com/pytorch/pytorch/issues/122946
         #  - PR 2: https://github.com/pytorch/pytorch/pull/125336
         state_dict._get_fqns = _get_fqns
-        state_dict._verify_options = _verify_options
+        # state_dict._verify_options = _verify_options
         state_dict._get_model_state_dict = _get_model_state_dict
         state_dict._load_model_state_dict = _load_model_state_dict
 
