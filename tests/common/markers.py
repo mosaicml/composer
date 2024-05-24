@@ -67,7 +67,7 @@ def world_size(*world_sizes: int, param_name: str = 'world_size'):
         if world_size == 1:
             parameters.append(pytest.param(1))
         else:
-            parameters.append(pytest.param(2, marks=pytest.mark.world_size(2)))
+            parameters.append(pytest.param(world_size, marks=pytest.mark.world_size(world_size)))
 
     def decorator(test: Callable):
         if len(parameters) == 0:
