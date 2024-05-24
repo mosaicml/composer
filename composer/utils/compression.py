@@ -22,7 +22,7 @@ def is_compressed_pt(filename: str) -> bool:
     of a single pt file without a container (like tar).
     """
     parts = filename.split('.')
-    return len(parts) >= 2 and parts[-2] == 'pt'
+    return len(parts) >= 2 and parts[-2] == 'pt' and parts[-1] != 'symlink'
 
 
 class CliCompressor:
