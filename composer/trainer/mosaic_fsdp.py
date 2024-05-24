@@ -81,14 +81,14 @@ def patch_pytorch():
             set_model_state_dict,
             set_optimizer_state_dict,
         )
-        state_dict.set_model_state_dict = set_model_state_dict
-        state_dict.set_optimizer_state_dict = set_optimizer_state_dict
+        # state_dict.set_model_state_dict = set_model_state_dict
+        # state_dict.set_optimizer_state_dict = set_optimizer_state_dict
         # Issue 2: https://github.com/pytorch/pytorch/issues/122946
         #  - PR 2: https://github.com/pytorch/pytorch/pull/125336
-        state_dict._get_fqns = _get_fqns
+        # state_dict._get_fqns = _get_fqns
         # state_dict._verify_options = _verify_options
-        state_dict._get_model_state_dict = _get_model_state_dict
-        state_dict._load_model_state_dict = _load_model_state_dict
+        # state_dict._get_model_state_dict = _get_model_state_dict
+        # state_dict._load_model_state_dict = _load_model_state_dict
 
         # Monkeypatch for ND child submeshes
         # PR: https://github.com/pytorch/pytorch/pull/119752
