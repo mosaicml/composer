@@ -18,6 +18,7 @@ from composer.utils import STR_TO_DTYPE, dist, get_composer_env_dict
 import sys
 from composer.devices import Device
 from composer.models import HuggingFaceModel
+import contextlib
 
 log = logging.getLogger(__name__)
 
@@ -248,4 +249,14 @@ def get_metadata_state_dict(model: Optional[Union[ComposerModel, nn.Module]]=Non
             dtype_to_str = {v:k for k,v in STR_TO_DTYPE.items()}
             metadata_state_dict['precision'] = dtype_to_str[precision]
 
+    if generate_parameter_info:
+        if model is None:
+            raise ValueError('model must be provided to generate parameter information')
+        if _is_model_fsdp(model):
+            ctxt_manager = FSDP.summon_full_params(model)
+        else:
+            ctxt_manager = contextlib.nullcontext()
+        with ctxt_manager:
+            metadata_state_dict['param_info'] = {param_name: param.shape for param_name, param in model.named_parameters()}
+            
     return metadata_state_dict
