@@ -43,6 +43,6 @@ jobs:
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
       python-version: 3.9
-      gpu_configurations: ${{ matrix.gpu_num }}
+      gpu_num: ${{ matrix.gpu_num }}
     secrets:
       mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
