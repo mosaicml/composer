@@ -181,6 +181,8 @@ def test_simple_nlp_mlm_token_batch(tiny_bert_tokenizer, tiny_bert_model):
         train_dataloader=token_data_spec,
         accumulate_train_batch_on_tokens=False,
     )
+    token_trainer.fit()
+
     # Check that there is some train cross entropy
     assert token_trainer.state.train_metrics is not None
     token_cross_entropy = token_trainer.state.train_metrics['LanguageCrossEntropy'].compute()
