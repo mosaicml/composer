@@ -32,4 +32,3 @@ jobs:
       python-version: 3.9
     secrets:
       mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
-.
