@@ -452,15 +452,22 @@ def _print_process_exit_status(global_rank: int, process: subprocess.Popen):
 
 
 def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
+    all_processes = []
     for global_rank, process in processes.items():
         process.poll()
+        try:
+            proc = psutil.Process(process.pid)
+        except psutil.NoSuchProcess:
+            pass
+        else:
+            all_processes.append(proc)
+            all_processes += proc.children(recursive=True)
         if process.returncode is None:
             log.warning('Killing global rank %s (PID %s) with SIGTERM', global_rank, process.pid)
             # Assuming that child processes correctly handle SIGTERM to cleanup any children
             try:
                 os.kill(process.pid, signal.SIGTERM)
             except ProcessLookupError as e:
-                log.warning(f"bigning debug failed to sigterm, exception : {e}")
                 pass
 
     current_time = datetime.datetime.now()
@@ -479,6 +486,15 @@ def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
     except KeyboardInterrupt:
         pass
 
+    for proc in all_processes:
+        try:
+            os.kill(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        else:
+            log.warning(f"bigning debug sigkill {proc.pid}")
+
+    """
     for global_rank, process in processes.items():
         process.poll()
         if process.returncode is None:
@@ -500,6 +516,7 @@ def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
                         os.kill(psutil_proc.pid, signal.SIGKILL)
                     except ProcessLookupError:
                         pass
+    """
     for global_rank, process in processes.items():
         process.poll()
         if process.returncode is not None and process.returncode != 0:
