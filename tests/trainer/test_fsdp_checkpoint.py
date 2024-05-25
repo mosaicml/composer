@@ -19,7 +19,6 @@ import pytest
 import torch
 from packaging import version
 from torch.distributed._shard.sharded_tensor import ShardedTensor
-from torch.distributed._tensor import DTensor
 from torch.utils.data import DataLoader
 from torchmetrics import Metric, MetricCollection
 from torchmetrics.classification import MulticlassAccuracy
@@ -85,11 +84,10 @@ class FSDPConfig:
     sharding_strategy: str = 'FULL_SHARD'
     sharded_ckpt_prefix_dir: str = 'ba{batch}'
     sync_module_states: bool = True
-    use_orig_params: bool = True
+    use_orig_params: bool = False
     load_monolith_rank0_only: bool = False
     save_planner: Optional[Any] = None
     load_planner: Optional[Any] = None
-    data_parallel_shard_degree: int = -1
 
 
 def get_trainer(
@@ -97,7 +95,7 @@ def get_trainer(
     save_folder: Optional[str] = None,
     save_filename: str = 'ba{batch}-rank{rank}.pt',
     save_overwrite: bool = False,
-    num_features: int = 4,
+    num_features: int = 2,
     num_classes: int = 2,
     load_path: Optional[str] = None,
     autoresume: bool = False,
@@ -114,7 +112,6 @@ def get_trainer(
     train_metrics: Optional[Any] = None,
     val_metrics: Optional[Any] = None,
     fsdp_config: Optional[FSDPConfig] = None,
-    tp_config: Optional[dict[str, Any]] = None,
 ):
     if fsdp_config is None:
         fsdp_config = FSDPConfig()
@@ -125,7 +122,7 @@ def get_trainer(
         val_metrics=val_metrics,
     )
     model.module.to(model_init_device)
-    dataset = RandomClassificationDataset(shape=(num_features,), num_classes=num_classes, size=128)
+    dataset = RandomClassificationDataset(shape=(num_features,), size=128)
     dataloader = DataLoader(
         dataset,
         sampler=dist.get_sampler(dataset),
@@ -138,16 +135,12 @@ def get_trainer(
     else:
         raise ValueError(f'Unsupported optimizer name {optimizer}')
 
-    parallelism_config = {'fsdp': dataclasses.asdict(fsdp_config)}
-    if tp_config is not None:
-        parallelism_config['tp'] = tp_config
-
     trainer = Trainer(
         algorithms=algorithms,
         model=model,
         optimizers=optim,
         train_dataloader=dataloader,
-        parallelism_config=parallelism_config,
+        fsdp_config=dataclasses.asdict(fsdp_config),
         save_folder=save_folder,
         max_duration=max_duration,
         save_interval=save_interval,
@@ -197,11 +190,6 @@ def _compare_optims_between_state_dicts(state_dict1, state_dict2):
                 state_dict1_moment = state_dict1_moment.local_tensor()
             if isinstance(state_dict2_moment, ShardedTensor):
                 state_dict2_moment = state_dict2_moment.local_tensor()
-            if isinstance(state_dict1_moment, DTensor):
-                state_dict1_moment = state_dict1_moment.to_local()
-            if isinstance(state_dict2_moment, DTensor):
-                state_dict2_moment = state_dict2_moment.to_local()
-            print(param_name, state_dict1_moment, state_dict2_moment)
             torch.testing.assert_close(state_dict1_moment, state_dict2_moment)
 
 
@@ -225,11 +213,6 @@ def _compare_model_params_between_state_dicts(state_dict1, state_dict2):
             state_dict1_model_tensor = state_dict1_model_tensor.local_tensor()
         if isinstance(state_dict2_model_tensor, ShardedTensor):
             state_dict2_model_tensor = state_dict2_model_tensor.local_tensor()
-        if isinstance(state_dict1_model_tensor, DTensor):
-            state_dict1_model_tensor = state_dict1_model_tensor.to_local()
-        if isinstance(state_dict2_model_tensor, DTensor):
-            state_dict2_model_tensor = state_dict2_model_tensor.to_local()
-
         torch.testing.assert_close(state_dict1_model_tensor, state_dict2_model_tensor)
 
 
@@ -302,19 +285,18 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
 
 
 @pytest.mark.gpu
+@world_size(2)
 @pytest.mark.filterwarnings(r'ignore:.*scatter_full_optim_state_dict``is being deprecated.*:UserWarning')
 @pytest.mark.parametrize(
-    'world_size,optimizer,autoresume,precision,save_weights_only,load_weights_only,load_monolith_rank0_only,use_tp',
+    'optimizer,autoresume,precision,save_weights_only,load_weights_only,load_monolith_rank0_only',
     [
-        pytest.param(2, 'adam', False, 'amp_bf16', False, False, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adamw', False, 'amp_bf16', False, False, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', True, 'amp_bf16', False, False, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', False, 'amp_fp16', False, False, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', False, 'amp_bf16', True, True, False, False,
-                     marks=pytest.mark.world_size(2)),  # save_weights_only requires load_weights_only
-        pytest.param(2, 'adam', False, 'amp_bf16', False, True, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', False, 'amp_bf16', False, False, True, False, marks=pytest.mark.world_size(2)),
-        pytest.param(4, 'adam', False, 'amp_bf16', False, False, False, True, marks=pytest.mark.world_size(4)),
+        ['adam', False, 'amp_bf16', False, False, False],
+        ['adamw', False, 'amp_bf16', False, False, False],
+        ['adam', True, 'amp_bf16', False, False, False],
+        ['adam', False, 'amp_fp16', False, False, False],
+        ['adam', False, 'amp_bf16', True, True, False],  # save_weights_only requires load_weights_only
+        ['adam', False, 'amp_bf16', False, True, False],
+        ['adam', False, 'amp_bf16', False, False, True],
     ],
 )
 def test_fsdp_full_state_dict_load(
@@ -326,7 +308,6 @@ def test_fsdp_full_state_dict_load(
     save_weights_only: bool,
     load_weights_only: bool,
     load_monolith_rank0_only: bool,
-    use_tp: bool,
 ):
     if autoresume:
         run_name = 'my-cool-autoresume-run'
@@ -336,16 +317,6 @@ def test_fsdp_full_state_dict_load(
     save_filename = 'rank{rank}.pt'
 
     fsdp_config = FSDPConfig(load_monolith_rank0_only=load_monolith_rank0_only)
-    tp_config = None
-    if use_tp:
-        from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
-        tp_config = {
-            'tensor_parallel_degree': 2,
-            'layer_plan': {
-                'module.0': ColwiseParallel(),
-                'module.2': RowwiseParallel(),
-            },
-        }
 
     trainer1 = get_trainer(
         save_folder=str(save_folder),
@@ -355,7 +326,6 @@ def test_fsdp_full_state_dict_load(
         autoresume=autoresume,
         optimizer=optimizer,
         fsdp_config=fsdp_config,
-        tp_config=tp_config,
     )
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
@@ -371,9 +341,7 @@ def test_fsdp_full_state_dict_load(
         max_duration='4ba',
         optimizer=optimizer,
         fsdp_config=fsdp_config,
-        save_weights_only=save_weights_only,
         load_weights_only=load_weights_only,
-        tp_config=tp_config,
     )
     state_dict_from_trainer2 = trainer2.state.state_dict()
 
@@ -481,6 +449,7 @@ def test_fsdp_mixed_with_sync(
 )
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*The CUDA RNG state could not be loaded.*:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:.*ShardedTensor.to only move tensor to its current device.*:UserWarning')
 def test_fsdp_load_old_checkpoint(
     world_size,
     tmp_path: pathlib.Path,
@@ -749,18 +718,18 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
 
 
 @pytest.mark.gpu
+@world_size(2)
 @pytest.mark.parametrize('use_remote', [pytest.param(True, marks=pytest.mark.remote), False])
 @pytest.mark.parametrize(
-    'world_size,weights_only,optimizer,precision,autoresume,load_ignore_keys,use_symlink,use_tp',
+    'weights_only,optimizer,precision,autoresume,load_ignore_keys,use_symlink',
     [
-        pytest.param(2, False, 'adamw', 'amp_bf16', False, None, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, True, 'adamw', 'amp_bf16', False, None, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, False, 'adam', 'amp_bf16', False, None, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, False, 'adamw', 'amp_fp16', False, None, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, False, 'adamw', 'amp_bf16', True, None, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, False, 'adamw', 'amp_bf16', False, ['rng'], False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, False, 'adamw', 'amp_bf16', False, None, True, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, False, 'adamw', 'amp_bf16', False, None, False, True, marks=pytest.mark.world_size(4)),
+        [False, 'adamw', 'amp_bf16', False, None, True],
+        [False, 'adamw', 'amp_bf16', False, None, False],
+        [True, 'adamw', 'amp_bf16', False, None, False],
+        [False, 'adam', 'amp_bf16', False, None, False],
+        [False, 'adamw', 'amp_fp16', False, None, False],
+        [False, 'adamw', 'amp_bf16', True, None, False],
+        [False, 'adamw', 'amp_bf16', False, ['rng'], False],
     ],
 )
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
@@ -775,17 +744,13 @@ def test_fsdp_partitioned_state_dict_load(
     weights_only: bool,
     load_ignore_keys: Union[list[str], None],
     use_symlink: bool,
-    use_tp: bool,
     use_remote,
     s3_bucket,
     s3_ephemeral_prefix,
     request,
 ):
     if weights_only and autoresume:
-        pytest.skip('Weights only with autoresume is not supported')
-    if use_tp and version.parse(torch.__version__) < version.parse('2.3.0'):
-        pytest.skip('TP requires torch 2.3.0 or later')
-
+        pytest.xfail('Weights only with autoresume is not supported')
     load_ignore_keys = [] if load_ignore_keys is None else load_ignore_keys
 
     if autoresume:
@@ -803,17 +768,6 @@ def test_fsdp_partitioned_state_dict_load(
     save_filename = 'ba{batch}-rank{rank}.pt'
 
     fsdp_config = FSDPConfig(state_dict_type='sharded')
-    tp_config = None
-    if use_tp:
-        fsdp_config = FSDPConfig(state_dict_type='sharded')
-        from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
-        tp_config = {
-            'tensor_parallel_degree': 2,
-            'layer_plan': {
-                'module.0': ColwiseParallel(),
-                'module.2': RowwiseParallel(),
-            },
-        }
 
     trainer1 = get_trainer(
         save_folder=str(save_folder),
@@ -826,7 +780,6 @@ def test_fsdp_partitioned_state_dict_load(
         save_interval='2ba',
         save_weights_only=weights_only,
         fsdp_config=fsdp_config,
-        tp_config=tp_config,
     )
     run_name = trainer1.state.run_name
     trainer1.fit()
@@ -862,7 +815,6 @@ def test_fsdp_partitioned_state_dict_load(
         optimizer=optimizer,
         load_weights_only=weights_only,
         fsdp_config=fsdp_config,
-        tp_config=tp_config,
         load_ignore_keys=load_ignore_keys,
     )
     state_dict_from_trainer2 = trainer2.state.state_dict()

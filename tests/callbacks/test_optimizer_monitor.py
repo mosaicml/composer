@@ -75,17 +75,15 @@ def test_fsdp_optimizer_monitor(device, world_size, use_orig_params):
         train_dataloader=DataLoader(dataset, sampler=dist.get_sampler(dataset)),
         optimizers=DecoupledAdamW(model.parameters()),
         max_duration='11ba',
-        parallelism_config={
-            'fsdp': {
-                'sharding_strategy': 'FULL_SHARD' if world_size > 1 else 'NO_SHARD',
-                'cpu_offload': False,
-                'mixed_precision': 'PURE',
-                'backward_prefetch': 'BACKWARD_PRE',
-                'activation_checkpointing': False,
-                'activation_cpu_offload': False,
-                'verbose': False,
-                'use_orig_params': use_orig_params,
-            },
+        fsdp_config={
+            'sharding_strategy': 'FULL_SHARD' if world_size > 1 else 'NO_SHARD',
+            'cpu_offload': False,
+            'mixed_precision': 'PURE',
+            'backward_prefetch': 'BACKWARD_PRE',
+            'activation_checkpointing': False,
+            'activation_cpu_offload': False,
+            'verbose': False,
+            'use_orig_params': use_orig_params,
         },
     )
     trainer.fit()
@@ -149,17 +147,15 @@ def test_fsdp_optimizer_monitor_transformer(device, world_size, tiny_gpt2_model,
         train_dataloader=train_dataloader,
         optimizers=DecoupledAdamW(model.parameters()),
         max_duration='11ba',
-        parallelism_config={
-            'fsdp': {
-                'sharding_strategy': 'FULL_SHARD' if world_size > 1 else 'NO_SHARD',
-                'cpu_offload': False,
-                'mixed_precision': 'PURE',
-                'backward_prefetch': 'BACKWARD_PRE',
-                'activation_checkpointing': False,
-                'activation_cpu_offload': False,
-                'verbose': False,
-                'use_orig_params': use_orig_params,
-            },
+        fsdp_config={
+            'sharding_strategy': 'FULL_SHARD' if world_size > 1 else 'NO_SHARD',
+            'cpu_offload': False,
+            'mixed_precision': 'PURE',
+            'backward_prefetch': 'BACKWARD_PRE',
+            'activation_checkpointing': False,
+            'activation_cpu_offload': False,
+            'verbose': False,
+            'use_orig_params': use_orig_params,
         },
     )
     trainer.fit()
