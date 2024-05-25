@@ -22,7 +22,7 @@ jobs:
       gpu_num: 1
     secrets:
       mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
-.
+
   pytest-gpu-2:
     uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml@4gpu-testing
     with:
