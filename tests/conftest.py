@@ -12,7 +12,7 @@ from composer.utils import reproducibility
 # Important: when updating this list, make sure to also up ./.ci/test.sh
 # (so tests of all world sizes will be executed) and tests/README.md
 # (so the documentation is correct)
-WORLD_SIZE_OPTIONS = (1, 2, 4)
+WORLD_SIZE_OPTIONS = (1, 2)
 
 # Enforce deterministic mode before any tests start.
 reproducibility.configure_deterministic_mode()

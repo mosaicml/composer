@@ -6,93 +6,377 @@
 
 # yapf: disable
 # isort: skip_file
-# pyright: reportGeneralTypeIssues=false
 
-"""PyTorch, especially PyTorch Distributed, monkeypatches."""
+"""Utilities for monkey patching FSDP."""
 
+import functools
 import logging
 import math
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union, no_type_check
+import warnings
+import contextlib
+from dataclasses import asdict
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union, cast, no_type_check
 
 import torch
 import torch.distributed._shard.sharded_tensor.metadata as sharded_tensor_meta
-from torch.distributed._shard.sharding_spec import ChunkShardingSpec
 import torch.nn as nn
 import torch.nn.functional as F
 from packaging import version
+from torch import distributed
+from torch.distributed import ProcessGroup
 from torch.distributed._shard.sharding_spec import ShardMetadata
 from torch.distributed._shard.sharding_spec._internals import get_chunked_dim_size, get_split_size
-from torch.distributed.fsdp import FullyShardedDataParallel, ShardingStrategy
+from torch.distributed.distributed_c10d import get_process_group_ranks
+from torch.distributed.fsdp import (
+    BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
+    ShardingStrategy,
+)
 from torch.distributed.fsdp._fsdp_extensions import _ext_pre_load_state_dict_transform
 from torch.distributed.utils import _replace_by_prefix
 
+from composer.core import Precision
+from composer.utils import dist
+
+if TYPE_CHECKING:
+    if version.parse(torch.__version__) >= version.parse('2.0.1') and version.parse(
+            torch.__version__,
+    ) < version.parse('2.2.0'):
+        from torch.distributed.fsdp._common_utils import _FSDPState
+
+
 log = logging.getLogger(__name__)
 
+SHARDING_MAP = {
+    'NO_SHARD': ShardingStrategy.NO_SHARD,
+    'SHARD_GRAD_OP': ShardingStrategy.SHARD_GRAD_OP,
+    'FULL_SHARD': ShardingStrategy.FULL_SHARD,
+}
 
-def patch_pytorch():
-    """Monkey patches pytorch functions based on pytorch version."""
-    if version.parse(torch.__version__) < version.parse('2.1.1'):
-        # Monkey patch for torch < 2.1.1 ie torch == 2.1.0
+if version.parse(torch.__version__) >= version.parse('2.1.0'):
+    SHARDING_MAP['_HYBRID_SHARD_ZERO2'] = ShardingStrategy._HYBRID_SHARD_ZERO2
+    SHARDING_MAP['HYBRID_SHARD'] = ShardingStrategy.HYBRID_SHARD
 
-        # Monkey patch sharding method
-        ChunkShardingSpec.build_metadata = build_metadata
+BACKWARD_PREFETCH_MAP = {
+    'NONE': None,
+    'BACKWARD_PRE': BackwardPrefetch.BACKWARD_PRE,
+    'BACKWARD_POST': BackwardPrefetch.BACKWARD_POST,
+}
 
-        # Monkey patch partial state dict handling
-        from torch.distributed.fsdp import _state_dict_utils
+logger = logging.getLogger(__name__)
 
-        _state_dict_utils._sharded_pre_load_state_dict_hook = (_sharded_pre_load_state_dict_hook)
 
-        # Allow 2D HSDP
-        from torch.distributed.fsdp import _runtime_utils
-        _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
+def _get_torch_dtype(dtype: Union[Precision, str]):
+    """Convert common string representations of dtypes to torch dtypes."""
+    dtype = dtype.value if isinstance(dtype, Precision) else dtype
+    if dtype in ['float32', 'torch.float32', 'fp32']:
+        return torch.float32
+    elif dtype in ['float16', 'torch.float16', 'half', 'fp16', 'amp', 'amp_fp16']:
+        return torch.float16
+    elif dtype in ['bfloat16', 'bfloat', 'torch.bfloat16', 'bf16', 'amp_bf16']:
+        return torch.bfloat16
+    elif dtype in ['float8', 'torch.float8', 'fp8', 'amp_fp8']:
+        if hasattr(torch, 'float8'):
+            raise NotImplementedError('Torch has enabled float8. This should be updated to `return torch.float8`')
+        else:
+            warnings.warn('We use torch.bfloat16 by default for amp_fp8 as there is no fp8 datatype in PyTorch yet.')
+            return torch.bfloat16
+    else:
+        raise ValueError(f'Not sure how to convert dtype={dtype} to a torch dtype.')
 
-    elif version.parse(torch.__version__) < version.parse('2.1.3'):
-        # Monkey patch for torch < 2.1.3 ie torch == 2.1.1, 2.1.2
 
-        # Allow 2D HSDP
-        from torch.distributed.fsdp import _runtime_utils
-        _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
+def get_mixed_precision(precision, mixed_precision='DEFAULT', keep_low_precision_grads=False):
+    """Helper function for configuring mixed_precision."""
+    param_dtype = None
+    reduce_dtype = None
+    buffer_dtype = None
+    if isinstance(mixed_precision, dict):
+        param_dtype = mixed_precision.get('param_dtype', None)
+        if param_dtype is not None:
+            param_dtype = _get_torch_dtype(param_dtype)
+        reduce_dtype = mixed_precision.get('reduce_dtype', None)
+        if reduce_dtype is not None:
+            reduce_dtype = _get_torch_dtype(reduce_dtype)
+        buffer_dtype = mixed_precision.get('buffer_dtype', None)
+        if buffer_dtype is not None:
+            buffer_dtype = _get_torch_dtype(buffer_dtype)
+    elif isinstance(mixed_precision, str):
+        mixed_precision = mixed_precision.upper()
+        if mixed_precision == 'FULL':
+            pass
+        elif mixed_precision == 'DEFAULT':
+            param_dtype = _get_torch_dtype(precision)
+            reduce_dtype = torch.float32
+            buffer_dtype = _get_torch_dtype(precision)
+        elif mixed_precision == 'PURE':
+            param_dtype = _get_torch_dtype(precision)
+            reduce_dtype = _get_torch_dtype(precision)
+            buffer_dtype = _get_torch_dtype(precision)
+        else:
+            raise ValueError(f'Unable to interpret mixed_precision={mixed_precision}')
+    else:
+        raise ValueError(f'Unable to interpret mixed_precision={mixed_precision}')
 
-    elif version.parse(torch.__version__) < version.parse('2.2.1'):
-        # Monkey patch for torch < 2.2.1 ie torch == 2.2.0
+    mixed_precision = MixedPrecision(
+        param_dtype=param_dtype,
+        reduce_dtype=reduce_dtype,
+        buffer_dtype=buffer_dtype,
+        keep_low_precision_grads=keep_low_precision_grads,
+    )
 
-        # Allow 2D HSDP
-        from torch.distributed.fsdp import _runtime_utils
-        _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
+    return mixed_precision, param_dtype, reduce_dtype, buffer_dtype
 
-    elif version.parse(torch.__version__) < version.parse('2.2.3'):
-        # Monkey patch for torch < 2.2.3 ie torch == 2.2.1/2.2.2 currently
 
-        # Fix memory leak for FSDP.optim_state_dict_to_load
-        # https://github.com/pytorch/pytorch/issues/116553
-        from torch.distributed.fsdp import _optim_utils
+def get_cpu_offload(cpu_offload=False):
+    """Helper function for configuring cpu_offload."""
+    cpu_offload = CPUOffload(offload_params=True) if cpu_offload else None
+    if cpu_offload is not None:
+        raise ValueError('FSDP CPU Offload not supported yet.')
+    return cpu_offload
 
-        _optim_utils._shard_orig_param_state = _shard_orig_param_state
 
-    elif version.parse(torch.__version__) < version.parse('2.3.1'):
-        # Monkey patch for torch < 2.3.1 ie torch == 2.3.0
+def _get_process_group(pg, process_group_cache=None):
+    """Helper function for configuring and/or retrieving process groups."""
+    if pg is None or isinstance(pg, ProcessGroup):  # Return as is, no caching
+        return pg
 
-        # Monkeypatch _flat_param.py to fix 2D with SHARD_GRAD_OP
-        # Issue: https://github.com/pytorch/pytorch/issues/123272
-        from torch.distributed.fsdp import _flat_param
+    world_size = dist.get_world_size()
+    local_world_size = dist.get_local_world_size()
 
-        _flat_param._same_storage = _same_storage
+    # Handle special str process_group cases
+    if pg == 'self':
+        pg = 'set1'
+        log.info(f"Converting process_group='self' to process_group='{pg}'")
+    elif pg == 'node':
+        pg = f'set{local_world_size}'
+        log.info(f"Converting process_group='node' to process_group='{pg}'")
+    elif pg == 'local_rank_across_nodes':
+        pg = f'mod{local_world_size}'
+        log.info(f"Converting process_group='local_rank_across_nodes' to process_group='{pg}'")
 
-        # Monkeypatch state_dict to get FQNs correctly.
-        # Issue: https://github.com/pytorch/pytorch/pull/124698
-        from torch.distributed.checkpoint import state_dict
+    # Handle str and Union[List[int], Tuple[int]] process_group cases
+    if isinstance(pg, str) and pg.startswith('set'):
+        k = int(pg.strip('set'))
+        world_size = dist.get_world_size()
+        if world_size % k != 0:
+            raise RuntimeError(f'{world_size} must be divisible by set size ({k})')
+        start = dist.get_global_rank() // k * k
+        ranks = tuple(range(start, start + k))
+    elif isinstance(pg, str) and pg.startswith('mod'):
+        k = int(pg.strip('mod'))
+        world_size = dist.get_world_size()
+        if world_size % k != 0:
+            raise RuntimeError(f'{world_size} must be divisible by mod ({k})')
+        ranks = tuple(range(dist.get_global_rank() % k, world_size, k))
+    elif isinstance(pg, (list, tuple)):
+        ranks = tuple(pg)
+    else:
+        raise ValueError(f'Unsure how to setup process_group={pg}')
 
-        state_dict.set_model_state_dict = set_model_state_dict
-        state_dict.set_optimizer_state_dict = set_optimizer_state_dict
-        state_dict._get_fqns = _get_fqns
+    if process_group_cache is not None and ranks in process_group_cache:
+        log.info(f'Using cached progress group with {ranks=} on rank={dist.get_global_rank()}.')
+        return process_group_cache[ranks]
 
-        # Monkeypatch for ND child submeshes
-        # PR: https://github.com/pytorch/pytorch/pull/119752
-        from torch.distributed.device_mesh import DeviceMesh, _MeshEnv
+    log.info(f'Instantiating custom process groups with {ranks=} on rank={dist.get_global_rank()}.')
 
-        _MeshEnv.create_child_mesh = create_child_mesh
-        DeviceMesh.__getitem__ = device_mesh__getitem__
-        DeviceMesh.__init__ = device_mesh__init__
+    ranks_per_subgroup_list = list(set(dist.all_gather_object(ranks)))
+    (
+        current_group,
+        _subgroups,
+    ) = distributed.distributed_c10d.new_subgroups_by_enumeration(ranks_per_subgroup_list)
+
+    if process_group_cache is not None:
+        process_group_cache[ranks] = current_group
+    return current_group
+
+
+def _set_custom_fsdp_module_kwargs(module_kwargs: Dict, process_group_cache: Dict[Tuple[int], Any]) -> Dict:
+    """Set custom module_kwargs per fsdp module."""
+    if ('sharding_strategy' in module_kwargs and module_kwargs['sharding_strategy'] not in SHARDING_MAP.values()):
+        module_kwargs['sharding_strategy'] = SHARDING_MAP[module_kwargs['sharding_strategy'].upper()]
+    if 'backward_prefetch' in module_kwargs:
+        if module_kwargs['backward_prefetch'] not in BACKWARD_PREFETCH_MAP.values():
+            module_kwargs['backward_prefetch'] = BACKWARD_PREFETCH_MAP[module_kwargs['backward_prefetch'].upper()]
+    if 'cpu_offload' in module_kwargs and not isinstance(module_kwargs['cpu_offload'], CPUOffload):
+        module_kwargs['cpu_offload'] = get_cpu_offload(cpu_offload=module_kwargs['cpu_offload'].upper())
+    if 'mixed_precision' in module_kwargs and not isinstance(module_kwargs['mixed_precision'], MixedPrecision):
+        # `precision` needs to set `'mixed_precision'`, but `precision` is not part of fsdp kwargs
+        raise NotImplementedError(
+            f"Automated setting of custom per module mixed_precision is not implemented, but it can be set if `isinstance(module_kwargs['mixed_precision'], MixedPrecision)`",
+        )
+    if 'process_group' in module_kwargs:
+        # Call on every process group if it is a tuple/list of non-ints
+        if type(module_kwargs['process_group']) in [
+                list, tuple,
+        ] and not all(isinstance(x, int) for x in module_kwargs['process_group']):
+            module_kwargs['process_group'] = tuple(
+                _get_process_group(pg, process_group_cache) for pg in module_kwargs['process_group']
+            )
+        else:
+            module_kwargs['process_group'] = _get_process_group(module_kwargs['process_group'], process_group_cache)
+
+    return module_kwargs
+
+def _custom_recursive_wrap_t2p0p1(
+    module: nn.Module,
+    auto_wrap_policy: Callable,
+    wrapper_cls: Callable,
+    ignored_modules: Set[nn.Module],
+    ignored_params: Set[nn.Parameter],
+    process_group_cache: Dict[Tuple[int], Any],
+    only_wrap_children: bool = False,
+    **kwargs: Any,
+) -> Tuple[nn.Module, int]:
+    """Updates FSDPs _recursive_wrap to enable module_kwargs and custom process_group cache.
+
+    torch version must be 2.0.1.
+
+    modified version of
+    https://github.com/pytorch/pytorch/blob/96ca226a7332be0d8f3d6159d0c797e032ab0721/torch/distributed/fsdp/wrap.py#L320
+    which recursively wraps modules as FSDP modules for parameter sharding.
+    This modification enables the user to pass custom FSDP arguments for every wrapped module.
+    The added process_group_cache enables different FSDP modules to, when appropriate, use the
+    same process group instead of instantiating a new process group.
+
+    Wraps submodules of ``module`` for which ``auto_wrap_policy`` returns
+    ``True`` with ``wrapper_cls``.
+
+    Args:
+        module (nn.Module): Module to recursively wrap.
+        auto_wrap_policy (Callable): A callable representing a policy that
+            determines which modules to recursively wrap with ``wrapper_cls``.
+        wrapper_cls: wrapper_cls
+        ignored_modules (Set[torch.nn.Module]): Modules to ignore when
+            wrapping.
+        ignored_params (Set[torch.nn.Parameter]): Parameters to ignore when
+            wrapping; these should be the parameters contained in the modules
+            in ``ignored_modules``.
+        process_group_cache (Dict[Tuple[int], Any]): a cache of process_group to
+            use instead of potentially instantiating a new process_group
+        only_wrap_children: warp only children
+    Returns:
+        (nn.Module, int):
+            ``module`` after wrapping and the numel recursively wrapped.
+    """
+    from torch.distributed.fsdp.wrap import _wrap
+
+    assert auto_wrap_policy is not None, 'Must specify auto_wrap_policy.'
+    assert wrapper_cls is not None, 'Must specify wrapper_cls'
+    # Make sure no child is already wrapped.
+    for _, child in module.named_modules():
+        if child in ignored_modules:
+            continue
+        try:
+            assert not isinstance(child, cast(type, wrapper_cls))
+        except TypeError:
+            # wrapper_cls is a function as opposed to a class type, just bypass above check.
+            pass
+
+    # We count all params, assuming none of them are already wrapped.
+    nonwrapped_numel = sum(p.numel() for p in module.parameters() if p not in ignored_params)
+
+    assert auto_wrap_policy is not None
+    if auto_wrap_policy(module=module, recurse=True, nonwrapped_numel=nonwrapped_numel):
+        total_wrapped_numel = 0
+        # Iterate through the children, recursively wrap if necessary
+        for name, child in module.named_children():
+            if child in ignored_modules:
+                continue
+            wrapped_child, num_wrapped_params = _custom_recursive_wrap_t2p0p1(
+                module=child,
+                auto_wrap_policy=auto_wrap_policy,
+                wrapper_cls=wrapper_cls,
+                ignored_modules=ignored_modules,
+                ignored_params=ignored_params,
+                process_group_cache=process_group_cache,
+                **kwargs,
+            )
+            setattr(module, name, wrapped_child)
+            # Keep track of how many parameters have been wrapped
+            total_wrapped_numel += num_wrapped_params
+        # decide if we need to wrap the current module,
+        # since the left over parameters exceed the number of params to wrap
+        remainder = nonwrapped_numel - total_wrapped_numel
+        module_kwargs = auto_wrap_policy(module=module, recurse=False, nonwrapped_numel=remainder)
+        if not only_wrap_children and module_kwargs:
+            # CHANGE: We modify the original code to support custom FSDP kwargs and add
+            # the process_group_cache to avoid instantiating a new process group.
+            module_kwargs = module_kwargs if isinstance(module_kwargs, dict) else {}
+            module_kwargs = _set_custom_fsdp_module_kwargs(module_kwargs, process_group_cache)
+
+            final_kwargs = {**kwargs, **module_kwargs}
+
+            if final_kwargs.get('process_group', None) is not None:
+                _pg_ranks = distributed.get_process_group_ranks(final_kwargs['process_group'])
+                _meta_init = any(p.device.type == 'meta' for p in module.parameters())
+                if (_meta_init and len(_pg_ranks) != dist.get_world_size() and final_kwargs.get('use_orig_params')):
+                    raise NotImplementedError(
+                        f'FSDP with custom process groups cannot use `use_orig_params: True` when using meta init.',
+                    )
+
+            # Leaf node or final wrapping of the remainder both happen here.
+            return _wrap(module, wrapper_cls, **final_kwargs), nonwrapped_numel
+        else:
+            return module, total_wrapped_numel
+    return module, 0
+
+
+def _custom_auto_wrap_t2p0p1(
+        auto_wrap_kwargs: Dict[str, Any],
+        fsdp_kwargs: Dict[str, Any],
+        module_wrapper_cls: Any,  # e.g. `FullyShardedDataParallel`
+) -> None:
+    """Updates _auto_wrap to enable module_kwargs.
+
+    torch version must be 2.0.1.
+
+    modified version of
+    https://github.com/pytorch/pytorch/blob/96ca226a7332be0d8f3d6159d0c797e032ab0721/torch/distributed/fsdp/_wrap_utils.py#L31
+    FSDP's _auto_wrap recursively wraps modules as FSDP modules for parameter sharding.
+    This modification enables the user to pass custom FSDP arguments for every wrapped module.
+    The added process_group_cache enables different FSDP modules to, when appropriate, use the
+    same process group instead of instantiating a new process group.
+
+    Recursively auto wraps the root module given by the key "module" in
+    ``auto_wrap_kwargs`` with the arguments in ``auto_wrap_kwargs`` and
+    ``fsdp_kwargs``.
+
+    Precondition: ``auto_wrap_policy`` contains the arguments expected by
+    ``_recursive_wrap()``, where ``auto_wrap_policy`` is not ``None``.
+    ``fsdp_kwargs`` contains all FSDP arguments except ``module``.
+    """
+    from torch.distributed.fsdp._utils import _contains_batchnorm, _override_batchnorm_mixed_precision
+    from torch.distributed.fsdp.wrap import _FSDPPolicy, _or_policy, _wrap_batchnorm_individually
+
+    auto_wrap_policy = auto_wrap_kwargs['auto_wrap_policy']
+    # Support new way to pass an auto wrap policy
+    if isinstance(auto_wrap_policy, _FSDPPolicy):
+        auto_wrap_policy = auto_wrap_policy.policy
+    root_module = auto_wrap_kwargs['module']
+    assert auto_wrap_policy is not None
+    # For auto wrapping, submodules should not already be wrapped with FSDP
+    # since double wrapping is not supported
+    for module_name, module in root_module.named_modules():
+        if isinstance(module, module_wrapper_cls):
+            raise ValueError(
+                f'Expected {module_name} to NOT be FullyShardedDataParallel '
+                'if using an `auto_wrap_policy`',
+            )
+    mixed_precision = fsdp_kwargs['mixed_precision']
+    if mixed_precision is not None and _contains_batchnorm(root_module):
+        _override_batchnorm_mixed_precision(root_module)
+        auto_wrap_policy = functools.partial(_or_policy, policies=[_wrap_batchnorm_individually, auto_wrap_policy])
+        warnings.warn(
+            'Both mixed precision and an `auto_wrap_policy` were specified '
+            'for FSDP, where the wrapped module has batch norm submodules. '
+            'The batch norm submodules will be wrapped as separate FSDP '
+            'instances with mixed precision disabled since some batch norm '
+            'kernels do not support low precision.',
+        )
+    auto_wrap_kwargs['auto_wrap_policy'] = auto_wrap_policy
+
+    # CHANGE: Add process group cache and call our custom _recursive_wrap
+    auto_wrap_kwargs['process_group_cache'] = {}
+    _custom_recursive_wrap_t2p0p1(**auto_wrap_kwargs, **fsdp_kwargs)
 
 
 def build_metadata(
@@ -135,7 +419,7 @@ def build_metadata(
 @no_type_check
 def _sharded_pre_load_state_dict_hook(
     module: nn.Module,
-    fsdp_state,
+    fsdp_state: '_FSDPState',
     state_dict: Dict[str, Any],
     prefix: str,
 ) -> None:
@@ -159,7 +443,7 @@ def _sharded_pre_load_state_dict_hook(
         return
 
     handle = _module_handle(fsdp_state, module)
-    if not handle.uses_sharded_strategy:  # type: ignore
+    if not handle.uses_sharded_strategy:
         raise RuntimeError(
             'load_sharded_state_dict can only be called when parameters '
             'are flattened and sharded.',
@@ -174,7 +458,7 @@ def _sharded_pre_load_state_dict_hook(
         try:
             param = state_dict.pop(fqn_from_global_root)
         except KeyError:
-            log.warning(
+            logger.warning(
                 f'Did not find param with FQN {fqn_from_global_root}, skipping it. '  # noqa: G004
                 'The weight will not be filled if you expect it to be.',
             )
@@ -220,8 +504,8 @@ def _sharded_pre_load_state_dict_hook(
             tensor = tensor.narrow(0, 0, param_numel).reshape(param.size())
             state_dict[fqn_from_global_root] = tensor
         else:
-            if param.device != fsdp_state._device_mesh.device_type:  # type: ignore
-                param = param.to(fsdp_state._device_mesh.device_type)  # type: ignore
+            if param.device != fsdp_state._device_mesh.device_type:
+                param = param.to(fsdp_state._device_mesh.device_type)
 
             param = param.redistribute(device_mesh=param.device_mesh, placements=[Replicate()])
             state_dict[fqn_from_global_root] = param.to_local()
@@ -443,7 +727,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
     )
     import dataclasses
     from collections import defaultdict, ChainMap
-    from typing import Dict, List, Set
+    from typing import Dict, List, Set, TYPE_CHECKING
 
     from torch.distributed.checkpoint.planner import SavePlan, WriteItem
     from torch.distributed.checkpoint.metadata import MetadataIndex, Metadata
@@ -547,13 +831,13 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
                 )
                 res_sub_mesh = sub_mesh
 
-        res_sub_mesh._dim_group_infos = [  # type: ignore
+        res_sub_mesh._dim_group_infos = [  # type: ignore[possibly-undefined]
             device_mesh._dim_group_infos[mesh_dim] for mesh_dim in mesh_dims
         ]
 
         # Assign the current DeviceMesh as the parent of the child DeviceMesh.
-        self.child_to_parent_mapping[res_sub_mesh] = device_mesh  # type: ignore
-        return res_sub_mesh  # type: ignore
+        self.child_to_parent_mapping[res_sub_mesh] = device_mesh
+        return res_sub_mesh
 
     from torch.distributed.device_mesh import _mesh_resources
 

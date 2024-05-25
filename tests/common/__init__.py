@@ -21,9 +21,7 @@ from tests.common.models import (
     ConvModel,
     EmbeddedWeightTiedModel,
     EmptyModel,
-    EvenSimplerMLP,
     SimpleConvModel,
-    SimpleMLP,
     SimpleModel,
     SimpleModelWithDropout,
     SimpleTransformerClassifier,
@@ -66,6 +64,4 @@ __all__ = [
     'SimpleDataset',
     'InfiniteClassificationDataset',
     'composer_resnet',
-    'SimpleMLP',
-    'EvenSimplerMLP',
 ]

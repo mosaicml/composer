@@ -13,7 +13,7 @@ import torch.utils.data
 from composer.core import Batch, Precision, State
 from composer.utils import dist, map_collection
 
-__all__ = ['fix_batch_precision_for_deepspeed', 'parse_deepspeed_config']
+__all__ = ['_fix_batch_precision_for_deepspeed', '_parse_deepspeed_config']
 
 
 def _add_batch_config(config: Dict[str, Any], state: State):
@@ -105,7 +105,7 @@ def _add_precision_config(config: Dict[str, Any], state: State):
         config['bf16'] = cast(Dict[str, Any], {'enabled': True})
 
 
-def parse_deepspeed_config(
+def _parse_deepspeed_config(
     config: Dict[str, Any],
     state: State,
 ) -> Dict[str, Any]:
@@ -160,7 +160,7 @@ def _convert_fp32_tensor_to_bf16(tensor: torch.Tensor):
     return tensor
 
 
-def fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Batch:
+def _fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Batch:
     """Ensures that a batch is properly formatted for DeepSpeed precisions, if active.
 
     .. note:: Just because the precision is set to FP16 doesn't mean the entire batch can

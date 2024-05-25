@@ -664,16 +664,14 @@ class TestTrainerInitOrFit:
         if precision == Precision.FP32:  # FSDP FULL_SHARD doesn't support FP32
             return
 
-        parallelism_config = {
-            'fsdp': {
-                'sharding_strategy': 'FULL_SHARD',
-                'cpu_offload': False,
-                'mixed_precision': 'PURE',
-                'backward_prefetch': 'BACKWARD_PRE',
-                'activation_checkpointing': False,
-                'activation_cpu_offload': False,
-                'verbose': False,
-            },
+        fsdp_config = {
+            'sharding_strategy': 'FULL_SHARD',
+            'cpu_offload': False,
+            'mixed_precision': 'PURE',
+            'backward_prefetch': 'BACKWARD_PRE',
+            'activation_checkpointing': False,
+            'activation_cpu_offload': False,
+            'verbose': False,
         }
 
         # Need to catch the case where we try to train
@@ -685,7 +683,7 @@ class TestTrainerInitOrFit:
             trainer = Trainer(
                 model=model,
                 precision=precision,
-                parallelism_config=parallelism_config,
+                fsdp_config=fsdp_config,
                 max_duration=max_duration,
                 train_dataloader=train_dataloader,
             )
@@ -708,16 +706,14 @@ class TestTrainerInitOrFit:
         max_duration: Time[int],
         train_dataloader: DataLoader,
     ):
-        parallelism_config = {
-            'fsdp': {
-                'sharding_strategy': 'FULL_SHARD',
-                'cpu_offload': False,
-                'mixed_precision': 'PURE',
-                'backward_prefetch': 'BACKWARD_PRE',
-                'activation_checkpointing': False,
-                'activation_cpu_offload': False,
-                'verbose': False,
-            },
+        fsdp_config = {
+            'sharding_strategy': 'FULL_SHARD',
+            'cpu_offload': False,
+            'mixed_precision': 'PURE',
+            'backward_prefetch': 'BACKWARD_PRE',
+            'activation_checkpointing': False,
+            'activation_cpu_offload': False,
+            'verbose': False,
         }
 
         # Need to catch the case where we try to train
@@ -729,7 +725,7 @@ class TestTrainerInitOrFit:
             trainer = Trainer(
                 model=model,
                 precision=precision,
-                parallelism_config=parallelism_config,
+                fsdp_config=fsdp_config,
                 max_duration=max_duration,
                 train_dataloader=train_dataloader,
                 auto_log_hparams=True,

@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import contextlib
 from unittest.mock import MagicMock
 
 import pytest
@@ -60,12 +61,10 @@ def test_fsdp_device_initialization(
         model=model,
         optimizers=optimizer,
         train_dataloader=dataloader,
-        parallelism_config={
-            'fsdp': {
-                'activation_checkpointing_reentrant': reentrant,
-                'mixed_precision': mixed_precision,
-                'sync_module_states': True if device == 'mixed' else False,
-            },
+        fsdp_config={
+            'activation_checkpointing_reentrant': reentrant,
+            'mixed_precision': mixed_precision,
+            'sync_module_states': True if device == 'mixed' else False,
         },
         max_duration='3ba',
     )
@@ -127,12 +126,10 @@ def test_fsdp_inits_params_once(model: ComposerClassifier, device: str, world_si
         model=model,
         optimizers=optimizer,
         train_dataloader=dataloader,
-        parallelism_config={
-            'fsdp': {
-                'mixed_precision': 'PURE',
-                'sharding_strategy': 'SHARD_GRAD_OP',
-                'sync_module_states': True if device == 'mixed' else False,
-            },
+        fsdp_config={
+            'mixed_precision': 'PURE',
+            'sharding_strategy': 'SHARD_GRAD_OP',
+            'sync_module_states': True if device == 'mixed' else False,
         },
         max_duration='3ba',
     )
@@ -170,10 +167,10 @@ def test_fsdp_meta_initialization_none(model: ComposerClassifier, mixed_precisio
         model=model,
         optimizers=optimizer,
         train_dataloader=dataloader,
-        parallelism_config={'fsdp': {
+        fsdp_config={
             'mixed_precision': mixed_precision,
             'sharding_strategy': 'SHARD_GRAD_OP',
-        }},
+        },
         max_duration='3ba',
     )
 
@@ -194,11 +191,9 @@ def test_fsdp_prefetch_limit(forward_prefetch_limit: int, backward_prefetch_limi
         model=model,
         optimizers=optimizer,
         train_dataloader=dataloader,
-        parallelism_config={
-            'fsdp': {
-                'forward_prefetch_limit': forward_prefetch_limit,
-                'backward_prefetch_limit': backward_prefetch_limit,
-            },
+        fsdp_config={
+            'forward_prefetch_limit': forward_prefetch_limit,
+            'backward_prefetch_limit': backward_prefetch_limit,
         },
         max_duration='3ba',
     )
@@ -210,7 +205,6 @@ def test_fsdp_prefetch_limit(forward_prefetch_limit: int, backward_prefetch_limi
 @world_size(2)
 @pytest.mark.filterwarnings('ignore:Instantiating FSDP with custom process groups.*:UserWarning')
 @pytest.mark.filterwarnings('ignore:Composer is instantiating custom process groups.*:UserWarning')
-@pytest.mark.filterwarnings('ignore:.*process_group and device_mesh are set for FSDP.*.:UserWarning')
 def test_fsdp_process_group(world_size: int):
     model = SimpleModel()
     model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
@@ -223,15 +217,37 @@ def test_fsdp_process_group(world_size: int):
         model=model,
         optimizers=optimizer,
         train_dataloader=dataloader,
-        parallelism_config={
-            'fsdp': {
-                'process_group': 'mod1',  # all ranks
-            },
+        fsdp_config={
+            'process_group': 'mod1',  # all ranks
         },
         max_duration='3ba',
     )
 
     trainer.fit()
+
+
+@pytest.mark.gpu
+@world_size(2)
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.2.0'), reason='Device mesh requires Torch 2.2')
+@pytest.mark.parametrize(
+    'sharding_strategy',
+    ['SHARD_GRAD_OP', 'FULL_SHARD', 'HYBRID_SHARD', '_HYBRID_SHARD_ZERO2'],
+)
+@pytest.mark.parametrize('device_mesh', [[2], [1, 2]])
+def test_wrong_size_device_mesh_error(world_size: int, sharding_strategy: str, device_mesh: list[int]):
+    context = contextlib.nullcontext()
+    if sharding_strategy in ['SHARD_GRAD_OP', 'FULL_SHARD'] and len(device_mesh) != 1:
+        context = pytest.raises(ValueError, match='.*requires a device mesh of size 1.*')
+    if sharding_strategy in ['HYBRID_SHARD', '_HYBRID_SHARD_ZERO2'] and len(device_mesh) != 2:
+        context = pytest.raises(ValueError, match='.*requires a device mesh of size 2.*')
+    with context:
+        Trainer(
+            model=SimpleModel(),
+            fsdp_config={
+                'sharding_strategy': sharding_strategy,
+                'device_mesh': device_mesh,
+            },
+        )
 
 
 class SimpleMLP(ComposerModel):
@@ -263,12 +279,10 @@ def test_fsdp_act_ckpt_offload(
 ):
     model = SimpleMLP()
 
-    parallelism_config = {
-        'fsdp': {
-            'activation_checkpointing': activation_checkpointing,
-            'activation_checkpointing_reentrant': False,
-            'activation_cpu_offload': activation_cpu_offload,
-        },
+    fsdp_config = {
+        'activation_checkpointing': activation_checkpointing,
+        'activation_checkpointing_reentrant': False,
+        'activation_cpu_offload': activation_cpu_offload,
     }
 
     model.fc1._activation_checkpointing = True  # pyright: ignore[reportGeneralTypeIssues]
@@ -276,7 +290,7 @@ def test_fsdp_act_ckpt_offload(
     trainer = Trainer(
         model=model,
         device='gpu',
-        parallelism_config=parallelism_config,
+        fsdp_config=fsdp_config,
     )
 
     assert trainer.state.fsdp_enabled
@@ -310,7 +324,7 @@ def test_fsdp_reshard_after_oom(world_size: int):
 
     trainer = Trainer(
         model=model,
-        parallelism_config={'fsdp': {}},
+        fsdp_config={},
         max_duration='3ba',
     )
     fsdp_model = trainer.state.model
@@ -346,7 +360,7 @@ def test_fsdp_same_state_after_oom_reshard(world_size: int):
 
     trainer = Trainer(
         model=model,
-        parallelism_config={'fsdp': {}},
+        fsdp_config={},
         dist_timeout=20,
         optimizers=optimizer,
         seed=1,
@@ -368,7 +382,7 @@ def test_fsdp_same_state_after_oom_reshard(world_size: int):
     oom_handle = oom_model.fc2.register_full_backward_hook(oom_hook)
     oom_trainer = Trainer(
         model=oom_model,
-        parallelism_config={'fsdp': {}},
+        fsdp_config={},
         dist_timeout=20,
         optimizers=oom_model_optimizer,
         seed=1,
@@ -403,54 +417,3 @@ def test_fsdp_same_state_after_oom_reshard(world_size: int):
     output_2 = fsdp_oom_model(x)
 
     assert torch.equal(output_1, output_2)
-
-
-@pytest.mark.gpu
-@world_size(2)
-def test_fsdp_device_mesh(world_size: int):
-    model = SimpleModel()
-    model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
-    model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
-
-    # Expect warning via pytest
-    with pytest.warns(DeprecationWarning):
-        Trainer(
-            model=model,
-            parallelism_config={'fsdp': {
-                'device_mesh': [2],
-            }},
-            max_duration='3ba',
-        )
-
-
-@pytest.mark.gpu
-@world_size(2)
-def test_fsdp_shard(world_size: int):
-    model = SimpleModel()
-    model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
-    model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
-
-    Trainer(
-        model=model,
-        parallelism_config={'fsdp': {
-            'data_parallel_shard_degree': 2,
-        }},
-        max_duration='3ba',
-    )
-
-
-@pytest.mark.gpu
-@world_size(2)
-def test_fsdp_shard_and_replicate(world_size: int):
-    model = SimpleModel()
-    model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
-    model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
-
-    Trainer(
-        model=model,
-        parallelism_config={'fsdp': {
-            'data_parallel_shard_degree': 2,
-            'data_parallel_replicate_degree': 1,
-        }},
-        max_duration='3ba',
-    )
