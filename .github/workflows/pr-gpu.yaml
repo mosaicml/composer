@@ -22,6 +22,11 @@ jobs:
       gpu_num: 1
     secrets:
       mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
+    steps:
+      - name: Print Git Info
+        run: |
+          echo "Branch: ${{ github.ref }}"
+          echo "SHA: ${{ github.sha }}"
 
   pytest-gpu-2:
     uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml@4gpu-testing
@@ -38,6 +43,11 @@ jobs:
       gpu_num: 2
     secrets:
       mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
+    steps:
+      - name: Print Git Info
+        run: |
+          echo "Branch: ${{ github.ref }}"
+          echo "SHA: ${{ github.sha }}"
 
   pytest-gpu-4:
     uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml@4gpu-testing
@@ -54,3 +64,8 @@ jobs:
       gpu_num: 4
     secrets:
       mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
+    steps:
+      - name: Print Git Info
+        run: |
+          echo "Branch: ${{ github.ref }}"
+          echo "SHA: ${{ github.sha }}"
