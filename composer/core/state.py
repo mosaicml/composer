@@ -200,10 +200,6 @@ def _create_device_mesh(
     fsdp_config: Optional[Dict[str, Any]],
     tp_config: Optional[Dict[str, Any]],
 ) -> Optional[DeviceMesh]:
-    if version.parse(torch.__version__.split('.dev')[0]) < version.parse('2.3.0'):
-        # Device mesh has correctness issues before torch 2.3.0
-        return None
-
     if fsdp_config is None:
         return None
 

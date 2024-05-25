@@ -236,10 +236,9 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
 
     def read_data(self, plan: LoadPlan, planner: LoadPlanner):
         # Download files if not using HSDP or if on first replica with HSDP enabled
-        first_replica = True
-        if self.device_mesh is not None and self.device_mesh.mesh_dim_names is not None and ParallelismType.DATA_PARALLEL_REPLICATE.value in self.device_mesh.mesh_dim_names:
-            hsdp_index = self.device_mesh.mesh_dim_names.index(ParallelismType.DATA_PARALLEL_REPLICATE.value)
-            first_replica = self.device_mesh.get_local_rank(mesh_dim=hsdp_index) == 0
+        first_replica = self.device_mesh is None or self.device_mesh.ndim == 1 or (
+            self.device_mesh.ndim >= 2 and self.device_mesh.get_local_rank(mesh_dim=0) == 0
+        )
 
         # 1. Collect the relative paths to download for all ranks for deduplication
         relative_file_paths = set()
@@ -288,13 +287,11 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         log.debug('Done waiting for all ranks to finish downloading files.')
 
         # 4. Broadcast files to all other replicas if HSDP
-        if self.device_mesh is not None and self.device_mesh.mesh_dim_names is not None and ParallelismType.DATA_PARALLEL_REPLICATE.value in self.device_mesh.mesh_dim_names:
+        if self.device_mesh is not None and self.device_mesh.ndim == 2:
             # Broadcast file to all replicas
-            replicate_index = self.device_mesh.mesh_dim_names.index(ParallelismType.DATA_PARALLEL_REPLICATE.value)
-            shard_index = self.device_mesh.mesh_dim_names.index(ParallelismType.DATA_PARALLEL_SHARD.value)
-            replicate_process_group = self.device_mesh.get_group(replicate_index)
-            shard_process_group = self.device_mesh.get_group(shard_index)
-            shard_size = self.device_mesh.size(shard_index)
+            replicate_process_group = self.device_mesh.get_group(0)
+            shard_process_group = self.device_mesh.get_group(1)
+            shard_size = self.device_mesh.size(1)
             rank_in_first_replica = dist.get_global_rank() % shard_size
             sender = dist.get_global_rank() == rank_in_first_replica
             receiver = dist.get_global_rank() != rank_in_first_replica
