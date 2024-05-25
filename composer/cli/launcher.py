@@ -455,11 +455,12 @@ def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
     for global_rank, process in processes.items():
         process.poll()
         if process.returncode is None:
-            log.info('Killing global rank %s (PID %s) with SIGTERM', global_rank, process.pid)
+            log.warning('Killing global rank %s (PID %s) with SIGTERM', global_rank, process.pid)
             # Assuming that child processes correctly handle SIGTERM to cleanup any children
             try:
                 os.kill(process.pid, signal.SIGTERM)
-            except ProcessLookupError:
+            except ProcessLookupError as e:
+                log.warning(f"bigning debug failed to sigterm, exception : {e}")
                 pass
 
     current_time = datetime.datetime.now()
@@ -495,6 +496,7 @@ def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
                 # likely won't be able to intercept the signal and clean up its children.
                 for psutil_proc in [proc, *proc.children(recursive=True)]:
                     try:
+                        log.warning(f"bigning debug sigkill pid: {psutil_proc.pid}")
                         os.kill(psutil_proc.pid, signal.SIGKILL)
                     except ProcessLookupError:
                         pass
@@ -505,7 +507,9 @@ def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
                 # Negative return codes indicate the process was killed via a signal
                 # If the launcher script killed the training process (which would happen via SIGKILL or SIGTERM),
                 # then do not print the stack trace.
+                log.warning(f"bigning debug knownreturn code rank: {global_rank}, ret code: {process.returncode}")
                 continue
+            log.warning(f"bigning debug unknown return code rank: {global_rank}, ret code: {process.returncode}")
             # only print the processes that have actually crashed,
             # not the ones that were killed
             _print_process_exit_status(global_rank, process)
