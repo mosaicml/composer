@@ -224,17 +224,15 @@ def get_metadata_state_dict(model: Optional[Union[ComposerModel, nn.Module]]=Non
     if model is not None:
         if isinstance(model, HuggingFaceModel):
             metadata_state_dict['huggingface'] = model.get_metadata()
-        elif isinstance(model, DistributedDataParallel) and isinstance(model.module, HuggingFaceModel):
-            metadata_state_dict['huggingface'] = model.module.get_metadata()
+            metadata_state_dict['model_name'] = model.model.__class__.__name__
+        elif isinstance(model, DistributedDataParallel) and isinstance(model.module, HuggingFaceModel): 
+                metadata_state_dict['huggingface'] = model.module.get_metadata()
+                metadata_state_dict['model_name'] = model.module.model.__class__.__name__     
+        else:
+            metadata_state_dict['model_name'] = model.__class__.__name__
         
-        metadata_state_dict['model_name'] = model.__class__.__name__
+        
 
-        if generate_parameter_info:
-            for name, param in model.named_parameters():
-                metadata_state_dict['param_info'][name] = {
-                    'shape': param.shape,
-                    'requires_grad': param.requires_grad,
-                }
 
     if device is not None:
         metadata_state_dict['dist_backend'] = device.dist_backend
@@ -248,15 +246,21 @@ def get_metadata_state_dict(model: Optional[Union[ComposerModel, nn.Module]]=Non
         else:
             dtype_to_str = {v:k for k,v in STR_TO_DTYPE.items()}
             metadata_state_dict['precision'] = dtype_to_str[precision]
+    else:
+        metadata_state_dict['precision'] = 'fp32'
 
     if generate_parameter_info:
         if model is None:
             raise ValueError('model must be provided to generate parameter information')
+        param_info = {param_name: {'shape': tuple(param.shape), 'requires_grad': param.requires_grad} for param_name, param in model.named_parameters()}
+
         if _is_model_fsdp(model):
-            ctxt_manager = FSDP.summon_full_params(model)
+            param_infos = dist.all_gather_object(param_info)
+            keys = [f'rank_{rank}' for rank in range(dist.get_world_size())]
+            param_info_dict = {k: v for k, v in zip(keys, param_infos)}
         else:
-            ctxt_manager = contextlib.nullcontext()
-        with ctxt_manager:
-            metadata_state_dict['param_info'] = {param_name: param.shape for param_name, param in model.named_parameters()}
-            
+            param_info_dict = param_info
+        metadata_state_dict['parameter_info'] = param_info_dict
+
+
     return metadata_state_dict
