@@ -3,8 +3,10 @@
 
 """Useful functions for generating state dicts and manipulating them."""
 
+import contextlib
 import fnmatch
 import logging
+import sys
 from typing import Any, Dict, Optional, Sequence, Union
 
 import torch
@@ -13,12 +15,9 @@ from torch import nn
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn.parallel import DistributedDataParallel
 
-from composer.models import ComposerModel
-from composer.utils import STR_TO_DTYPE, dist, get_composer_env_dict
-import sys
 from composer.devices import Device
-from composer.models import HuggingFaceModel
-import contextlib
+from composer.models import ComposerModel, HuggingFaceModel
+from composer.utils import STR_TO_DTYPE, dist, get_composer_env_dict
 
 log = logging.getLogger(__name__)
 
@@ -36,7 +35,7 @@ def get_model_state_dict(
     Args:
         model: The model to get the state dict from.
         sharded_state_dict: Whether the model state dict should be sharded or not. If True, every rank returns the state dict of its shards.
-            If False, then rank 0 returns the state dict of the entire model and the other ranks return a dict of their shards. Default is False.
+            If False, then rank 0 returns the state dict of the entire model and the other ranks return an empty dict. Default is False.
         precision: The precision of the model. Can be specified as a string ('fp32', 'fp16', 'bf16') or a torch.dtype.
         include_keys: The list of keys to exclusively include in the state dict. If None, all keys are included. Both include_keys and ignore_keys cannot be non-None.
         ignore_keys: The list of keys to ignore in the state dict. If None, no keys are ignored. Both include_keys and ignore_keys cannot be non-None.
@@ -158,13 +157,14 @@ def _get_model_state_dict_with_fsdp_context_manager(model: nn.Module, sharded_st
     return model_state_dict
 
 
-def get_metadata_state_dict(model: Optional[Union[ComposerModel, nn.Module]]=None,
-                            sharded_state_dict: Optional[bool]=None,
-                            precision: Optional[Union[str, torch.dtype]]=None,
-                            device: Optional[Device] = None,
-                            device_train_microbatch_size: Optional[int] = None,
-                            generate_parameter_info: Optional[bool] = False,
-                            ) -> Dict[str, Any]:
+def get_metadata_state_dict(
+    model: Optional[Union[ComposerModel, nn.Module]] = None,
+    sharded_state_dict: Optional[bool] = None,
+    precision: Optional[Union[str, torch.dtype]] = None,
+    device: Optional[Device] = None,
+    device_train_microbatch_size: Optional[int] = None,
+    generate_parameter_info: Optional[bool] = False,
+) -> Dict[str, Any]:
     """Generate the metadata and integrations for a training run.
 
     Args:
@@ -177,11 +177,11 @@ def get_metadata_state_dict(model: Optional[Union[ComposerModel, nn.Module]]=Non
         generate_parameter_info: Whether to generate parameter information for the model. Default is False.
 
     This state dict includes:
-        * composer version 
+        * composer version
         * composer commit hash
         * gpu model
         * num nodes
-        * num gpus 
+        * num gpus
         * num gpus per node
         * cpu core count
         * cpu model
@@ -203,9 +203,9 @@ def get_metadata_state_dict(model: Optional[Union[ComposerModel, nn.Module]]=Non
 
     composer_env_dict = get_composer_env_dict()
     ced = composer_env_dict
-    
+
     python_version = '.'.join([str(getattr(sys.version_info, k)) for k in ['major', 'minor', 'micro']])
-    
+
     metadata_state_dict = {
         'composer_version': ced['composer_version'],
         'composer_commit_hash': ced['composer_commit_hash'],
@@ -214,8 +214,8 @@ def get_metadata_state_dict(model: Optional[Union[ComposerModel, nn.Module]]=Non
         'num_nodes': ced['node_world_size'],
         'num_gpus_per_node': ced['local_world_size'],
         'num_gpus': dist.get_world_size(),
-        'gpu_model':ced['accelerator_model_name'],
-        'cpu_model': ced['host_processor_model_name'], 
+        'gpu_model': ced['accelerator_model_name'],
+        'cpu_model': ced['host_processor_model_name'],
         'cpu_core_count': ced['host_processor_core_count'],
     }
     if sharded_state_dict is not None:
@@ -244,7 +244,7 @@ def get_metadata_state_dict(model: Optional[Union[ComposerModel, nn.Module]]=Non
         if isinstance(precision, str):
             metadata_state_dict['precision'] = precision
         else:
-            dtype_to_str = {v:k for k,v in STR_TO_DTYPE.items()}
+            dtype_to_str = {v: k for k, v in STR_TO_DTYPE.items()}
             metadata_state_dict['precision'] = dtype_to_str[precision]
     else:
         metadata_state_dict['precision'] = 'fp32'
