@@ -50,7 +50,6 @@ from composer.utils.inference import ExportFormat, Transform, export_for_inferen
 from composer.utils.iter_helpers import IteratorFileStream, ensure_tuple, map_collection
 from composer.utils.misc import (
     STR_TO_DTYPE,
-    ParallelismType,
     add_vision_dataset_transform,
     create_interval_scheduler,
     get_free_tcp_port,
@@ -146,5 +145,4 @@ __all__ = [
     'get_compressor',
     'KNOWN_COMPRESSORS',
     'STR_TO_DTYPE',
-    'ParallelismType',
 ]

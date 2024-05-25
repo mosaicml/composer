@@ -46,9 +46,7 @@ class TestGenerate():
             device=device,
             max_duration=max_duration,
             callbacks=generate_cb,
-            parallelism_config={'fsdp': {
-                'sharding_strategy': 'FULL_SHARD',
-            }} if use_fsdp else None,
+            fsdp_config={'sharding_strategy': 'FULL_SHARD'} if use_fsdp else None,
         )
 
     def test_no_effect_on_training(self, device, world_size, use_fsdp):

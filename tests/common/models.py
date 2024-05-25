@@ -55,9 +55,6 @@ class SimpleModel(ComposerClassifier):
     Args:
         num_features (int): number of input features (default: 1)
         num_classes (int): number of classes (default: 2)
-        num_hidden (int): number of hidden units (default: 8)
-        device (str): the device to initialize the model (default: 'cpu')
-        bias (bool): whether or not to include bias in the linear layers (default: True)
     """
 
     def __init__(
@@ -105,7 +102,7 @@ class SimpleModel(ComposerClassifier):
 
 class SimpleMLP(torch.nn.Module):
 
-    def __init__(self, num_features: int, device: str = 'cpu'):
+    def __init__(self, num_features: int, device: str):
         super().__init__()
         self.fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
         self.fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
@@ -120,7 +117,7 @@ class SimpleMLP(torch.nn.Module):
 # are not submodules of EvenSimplerMLP, like they are in SimpleMLP.
 class EvenSimplerMLP(torch.nn.Module):
 
-    def __init__(self, num_features: int, device: str = 'cpu'):
+    def __init__(self, num_features: int, device: str):
         super().__init__()
         fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
         fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)

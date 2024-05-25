@@ -25,7 +25,6 @@ from torch.distributed._tensor import DeviceMesh
 from torch.distributed.checkpoint.metadata import Metadata
 from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
 from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
-from torch.distributed.distributed_c10d import ProcessGroup
 
 from composer.utils import dist, reproducibility
 from composer.utils.compression import get_compressor, is_compressed_pt
@@ -38,7 +37,7 @@ from composer.utils.file_helpers import (
     is_tar,
     parse_uri,
 )
-from composer.utils.misc import ParallelismType, is_model_deepspeed, partial_format
+from composer.utils.misc import is_model_deepspeed, partial_format
 from composer.utils.object_store import ObjectStore
 from composer.utils.retrying import retry
 
@@ -236,10 +235,9 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
 
     def read_data(self, plan: LoadPlan, planner: LoadPlanner):
         # Download files if not using HSDP or if on first replica with HSDP enabled
-        first_replica = True
-        if self.device_mesh is not None and self.device_mesh.mesh_dim_names is not None and ParallelismType.DATA_PARALLEL_REPLICATE.value in self.device_mesh.mesh_dim_names:
-            hsdp_index = self.device_mesh.mesh_dim_names.index(ParallelismType.DATA_PARALLEL_REPLICATE.value)
-            first_replica = self.device_mesh.get_local_rank(mesh_dim=hsdp_index) == 0
+        first_replica = self.device_mesh is None or self.device_mesh.ndim == 1 or (
+            self.device_mesh.ndim >= 2 and self.device_mesh.get_local_rank(mesh_dim=0) == 0
+        )
 
         # 1. Collect the relative paths to download for all ranks for deduplication
         relative_file_paths = set()
@@ -288,13 +286,11 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         log.debug('Done waiting for all ranks to finish downloading files.')
 
         # 4. Broadcast files to all other replicas if HSDP
-        if self.device_mesh is not None and self.device_mesh.mesh_dim_names is not None and ParallelismType.DATA_PARALLEL_REPLICATE.value in self.device_mesh.mesh_dim_names:
+        if self.device_mesh is not None and self.device_mesh.ndim == 2:
             # Broadcast file to all replicas
-            replicate_index = self.device_mesh.mesh_dim_names.index(ParallelismType.DATA_PARALLEL_REPLICATE.value)
-            shard_index = self.device_mesh.mesh_dim_names.index(ParallelismType.DATA_PARALLEL_SHARD.value)
-            replicate_process_group = self.device_mesh.get_group(replicate_index)
-            shard_process_group = self.device_mesh.get_group(shard_index)
-            shard_size = self.device_mesh.size(shard_index)
+            replicate_process_group = self.device_mesh.get_group(0)
+            shard_process_group = self.device_mesh.get_group(1)
+            shard_size = self.device_mesh.size(1)
             rank_in_first_replica = dist.get_global_rank() % shard_size
             sender = dist.get_global_rank() == rank_in_first_replica
             receiver = dist.get_global_rank() != rank_in_first_replica
@@ -618,7 +614,7 @@ def load_sharded_checkpoint(
                 source_path=source_path,
                 destination_path=str(Path(rank0_download_tempdir) / Path('checkpoints')),
                 object_store=object_store,
-                device_mesh=state.device_mesh,
+                device_mesh=state.fsdp_device_mesh,
             )
         else:
             storage_reader = FileSystemReaderWithValidation(source_path)
@@ -1037,10 +1033,8 @@ def get_save_filename(
         return PartialFilePath(filename).format(state, is_deepspeed)
 
     # Sharded checkpoints get their own little folder.
-    assert state.fsdp_config is not None
-    remote_prefix = state.fsdp_config['sharded_ckpt_prefix_dir']
-    assert remote_prefix is not None
-    save_dirpath = Path(Path(filename).parent) / Path(remote_prefix)
+    assert state.sharded_ckpt_prefix_dir is not None
+    save_dirpath = Path(Path(filename).parent) / Path(state.sharded_ckpt_prefix_dir)
     save_dirpath = format_name_with_dist_and_time(str(save_dirpath), state.run_name, state.timestamp)
     # New name is now Trainer.save_folder / sharded_ckpt_prefix_dir / __{dist.get_global_rank()}_0.distcp’
     # e.g. path/to/my/checkpoints/ep1-ba2/__1_0.distcp
@@ -1116,14 +1110,12 @@ def _save_checkpoint(
 
         log.debug(f'Saving sharded checkpoints to {save_filename}...')
         process_group = None
-        device_mesh = state.device_mesh
-        if device_mesh is not None and device_mesh.mesh_dim_names is not None and ParallelismType.DATA_PARALLEL_REPLICATE.value in device_mesh.mesh_dim_names:
+        device_mesh = state.fsdp_device_mesh
+        if device_mesh is not None and device_mesh.ndim == 2:
             # If hybrid shard, only rank in first replica saves
-            hsdp_index = device_mesh.mesh_dim_names.index(ParallelismType.DATA_PARALLEL_REPLICATE.value)
-            expect_file = device_mesh.get_local_rank(mesh_dim=hsdp_index) == 0
+            expect_file = device_mesh.get_local_rank(mesh_dim=0) == 0
             if expect_file:
                 process_group = device_mesh.get_group(1)  # Shard process_group for first replica
-                assert isinstance(process_group, ProcessGroup)  # For type checker
                 log.debug(f'Saving on global_rank={dist.get_global_rank()}, {expect_file=}')
         else:
             expect_file = True
@@ -1132,8 +1124,7 @@ def _save_checkpoint(
             if version.parse(torch.__version__) >= version.parse('2.3.0'):
                 save_planner = state.fsdp_config['save_planner']
                 if save_planner is None:
-                    from composer.trainer._patch_pytorch import SavePlannerWithDedupFix
-
+                    from composer.trainer.mosaic_fsdp_utils import SavePlannerWithDedupFix
                     save_planner = SavePlannerWithDedupFix()
                 dist_cp.save(
                     state_dict=state_dict,

@@ -79,16 +79,6 @@ from composer.core import (
     get_precision_context,
 )
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
-from composer.distributed import (
-    DDPSyncStrategy,
-    ddp_sync_context,
-    fix_batch_precision_for_deepspeed,
-    parse_deepspeed_config,
-    prepare_ddp_module,
-    prepare_fsdp_module,
-    prepare_tp_module,
-    set_fsdp_default,
-)
 from composer.loggers import (
     ConsoleLogger,
     Logger,
@@ -103,15 +93,21 @@ from composer.loggers.mosaicml_logger import MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSA
 from composer.models import ComposerModel
 from composer.optim import ComposerScheduler, DecoupledSGDW, compile_composer_scheduler
 from composer.profiler import Profiler
-from composer.trainer._patch_pytorch import patch_pytorch
+from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
+from composer.trainer.dist_strategy import (
+    DDPSyncStrategy,
+    ddp_sync_context,
+    prepare_ddp_module,
+    prepare_fsdp_module,
+    set_fsdp_default,
+)
 from composer.utils import (
     ExportFormat,
     MissingConditionalImportError,
     ObjectStore,
     Transform,
-    VersionedDeprecationWarning,
     checkpoint,
     dist,
     ensure_tuple,
@@ -915,20 +911,7 @@ class Trainer:
             disable FSDP, set to ``None``. (default: ``None``)
         fsdp_auto_wrap (bool, optional): option to let trainer wrap the module, or if
             the module is already wrapped outside, allow the user to disable auto-wrapping.
-        parallelism_config (Dict[str, Any], optional): Configuration for parallelism options.
-            Currently supports fsdp and tensor parallelism, whose respective configs are specified
-            as the keys ``fsdp`` and ``tp``. (default: ``None``)
 
-            For `parallelism_config['fsdp']`, see :doc:`FSDP Documentation </notes/distributed_training>`
-                for more details. To use FSDP with default values, set to the empty dictionary ``{}``. To
-                disable FSDP, set to ``None`` or remove the key from the dictionary.
-
-            For `parallelism_config['tp']`, see :doc:`TP Documentation </notes/distributed_training>`
-                for more details. To use Tensor Parallelism with default values, set to the empty dictionary ``{}``. To
-                disable Tensor Parallelism, set to ``None`` or remove the key from the dictionary.
-
-            .. note:: This parameter is experimental and subject to change without standard deprecation
-                cycles.
         device (Device | str, optional): The device to use for training, which can be ``'cpu'``, ``'gpu'``,
             ``'tpu'``, or ``'mps'``. (default: ``None``)
 
@@ -1068,11 +1051,10 @@ class Trainer:
         # Graceful Resumption
         autoresume: bool = False,
 
-        # Parallelism
+        # DeepSpeed
         deepspeed_config: Optional[Dict[str, Any]] = None,
         fsdp_config: Optional[Dict[str, Any]] = None,
         fsdp_auto_wrap: bool = True,
-        parallelism_config: Optional[Dict[str, Any]] = None,
 
         # System/Numerics
         device: Optional[Union[str, Device]] = None,
@@ -1097,6 +1079,7 @@ class Trainer:
         # compile config for PyTorch 2.0 or higher
         compile_config: Optional[Dict[str, Any]] = None,
     ):
+
         self.auto_log_hparams = auto_log_hparams
         self.python_log_level = python_log_level
         if self.python_log_level is not None:
@@ -1110,7 +1093,6 @@ class Trainer:
             )
             logging.getLogger('composer').setLevel(self.python_log_level.upper())
 
-        # Algorithms
         algorithms = list(ensure_tuple(algorithms))
 
         # Device
@@ -1123,7 +1105,7 @@ class Trainer:
             precision = Precision(precision)
         _validate_precision(precision, device)
 
-        # Check if provided model is compiled or not
+        # check if provided model is compiled or not
         is_model_compiled = False
         if isinstance(model, OptimizedModule):
             log.warning(
@@ -1179,56 +1161,10 @@ class Trainer:
         assert not isinstance(device_train_microbatch_size, str)
 
         # Distributed
-        if fsdp_config is not None:
-            warnings.warn(
-                VersionedDeprecationWarning(
-                    "fsdp_config is deprecated. Please use parallelism_config['fsdp'] instead.",
-                    remove_version='0.26.0',
-                ),
-            )
-            if parallelism_config is None:
-                parallelism_config = {}
-            if parallelism_config.get('fsdp') is not None:
-                raise ValueError(
-                    'fsdp_config is specified in both fsdp_config and parallelism_config. Please specify it in only in parallelism_config.',
-                )
-            parallelism_config['fsdp'] = fsdp_config
-        if not fsdp_auto_wrap:
-            warnings.warn(
-                VersionedDeprecationWarning(
-                    "fsdp_auto_wrap=False is deprecated. Please use parallelism_config['fsdp']['auto_wrap'] instead.",
-                    remove_version='0.26.0',
-                ),
-            )
-            if parallelism_config is None:
-                parallelism_config = {}
-            if parallelism_config.get('fsdp') is None:
-                parallelism_config['fsdp'] = {}
-            parallelism_config['fsdp']['auto_wrap'] = fsdp_auto_wrap
-        if parallelism_config is not None:
-            # Set defaults and create shallow copies of configs to avoid changing user's config
-            parallelism_config = {**parallelism_config}
-            if parallelism_config.get('fsdp', None) is not None:
-                parallelism_config['fsdp'] = set_fsdp_default({**parallelism_config['fsdp']})
-            if parallelism_config.get('tp', None) is not None:
-                parallelism_config['tp'] = {**parallelism_config['tp']}
-            # Remove empty configs
-            for key in list(parallelism_config.keys()):
-                if parallelism_config[key] == None:
-                    del parallelism_config[key]
-            if len(parallelism_config) == 0:
-                parallelism_config = None
-        if deepspeed_config is not None and parallelism_config is not None:
-            raise ValueError(
-                'Both deepspeed_config and parallelism_config are specified but incompatible. Please specify only one.',
-            )
-        if deepspeed_config is not None or parallelism_config is not None or dist.get_world_size() > 1:
+        if deepspeed_config is not None or fsdp_config is not None or dist.get_world_size() > 1:
             # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
             # And torch.distributed is always required for multi-rank training
             dist.initialize_dist(device, dist_timeout)
-        if parallelism_config is not None or deepspeed_config is not None:
-            # Patch PyTorch to fix distributed bugs
-            patch_pytorch()
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, device)
@@ -1261,8 +1197,8 @@ class Trainer:
                 raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
 
         # Move the model and optimizers to the device
-        if deepspeed_config is None and parallelism_config is None:
-            # Check if model is already on tpu
+        if deepspeed_config is None and fsdp_config is None:
+            # check if model is already on tpu
             if isinstance(device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
                 raise ValueError(
                     'Use model.to(xm.xla_device()) to set the model to the TPU before providing to the trainer.',
@@ -1298,7 +1234,8 @@ class Trainer:
             run_name=run_name,
             save_metrics=save_metrics,
             deepspeed_config=deepspeed_config,
-            parallelism_config=parallelism_config,
+            fsdp_config=set_fsdp_default(fsdp_config) if fsdp_config is not None else None,
+            fsdp_auto_wrap=fsdp_auto_wrap,
         )
 
         # Console Logging
@@ -1473,7 +1410,7 @@ class Trainer:
                 if latest_remote_file_name is not None:
                     latest_remote_file_name = partial_format(latest_remote_file_name, **mlflow_format_kwargs)
 
-        # Log hparams
+        # Log hparams.
         if self.auto_log_hparams:
             locs = locals()
             if 'cb' in locs:
@@ -1486,7 +1423,7 @@ class Trainer:
         self.logger.log_hyperparameters({'composer_version': composer_env_dict['composer_version']})
         self.logger.log_hyperparameters({'composer_commit_hash': str(composer_env_dict['composer_commit_hash'])})
 
-        # Log gpus and nodes
+        # Log gpus and nodes.
         device_name = self.state.device.__class__.__name__.lstrip('Device').lower()
         self.logger.log_hyperparameters({
             'num_nodes': int(dist.get_world_size() / dist.get_local_world_size()),
@@ -1618,22 +1555,12 @@ class Trainer:
         self._original_model = self.state.model
 
         # If using PyTorch DDP, the model must be loaded before it is wrapped with DDP.
-        # If using TP, the model must be wrapped before FSDP.
+        # If using DeepSpeed, the engine must be initialized before the model is loaded.
         # If using FSDP, the model must be wrapped and then loaded unless loading a monolith
         # checkpoint on rank 0 only, in which case the model be loaded before it is wrapped.
-        # If using DeepSpeed, the engine must be initialized before the model is loaded.
-
-        # TP wrap
-        if self.state.tp_config is not None:
-            with reproducibility.seed_context(self.state.rank_zero_seed):
-                prepare_tp_module(
-                    model,
-                    self.state.tp_config,
-                )
 
         # FSDP wrap if not using monolith checkpoint on rank 0 only
-        if self.state.fsdp_config is not None and self.state.fsdp_config['auto_wrap'
-                                                                        ] and not self.state.load_monolith_rank0_only:
+        if self.state.fsdp_config is not None and fsdp_auto_wrap and not self.state.load_monolith_rank0_only:
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 prepare_fsdp_module(
                     model,
@@ -1663,7 +1590,7 @@ class Trainer:
                     conda_package='deepspeed>=0.5.5',
                     conda_channel=None,
                 ) from e
-            self.state.deepspeed_config = parse_deepspeed_config(self.state.deepspeed_config, state=self.state)
+            self.state.deepspeed_config = _parse_deepspeed_config(self.state.deepspeed_config, state=self.state)
             optimizer = ensure_tuple(self.state.optimizers)[0]
             log.debug('Initializing deepspeed')
             (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(
@@ -1787,7 +1714,6 @@ class Trainer:
                 if wandb.run is None:
                     load_object_store.init(self.state, self.logger)
             _, _, parsed_load_path = parse_uri(load_path)
-
             self._rng_state = checkpoint.load_checkpoint(
                 state=self.state,
                 logger=self.logger,
@@ -1804,10 +1730,7 @@ class Trainer:
 
         # FSDP wrap if model is not yet wrapped and FSDP is enabled. This can happen if
         # load_monolith_rank0_only=True but no checkpoint was loaded.
-        if (
-            not self.state.fsdp_enabled and self.state.fsdp_config is not None and
-            self.state.fsdp_config['auto_wrap'] and self.state.load_monolith_rank0_only
-        ):
+        if not self.state.fsdp_enabled and self.state.fsdp_config is not None and self.state.fsdp_auto_wrap and self.state.load_monolith_rank0_only:
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
 
@@ -2497,7 +2420,7 @@ class Trainer:
                 rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
 
                 if self.state.deepspeed_enabled:
-                    self.state.batch = fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
+                    self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
                 self.engine.run_event(Event.AFTER_DATALOADER)
 
@@ -3091,7 +3014,7 @@ class Trainer:
 
                 # Fix the batch if using DeepSpeed
                 if self.state.deepspeed_enabled:
-                    self.state.batch = fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
+                    self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
                 self.engine.run_event(Event.PREDICT_BATCH_START)
 
@@ -3375,7 +3298,7 @@ class Trainer:
                     last_batch = self.state.eval_timestamp.sample + batch_num_samples >= dataset_len
 
                 if self.state.deepspeed_enabled:
-                    self.state.batch = fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
+                    self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
                 self.engine.run_event(Event.EVAL_BATCH_START)
 
