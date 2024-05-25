@@ -227,22 +227,7 @@ def _main():
             entry['AWS_OFI_NCCL_VERSION'] = 'v1.9.1-aws'
 
         pytorch_entries.append(entry)
-    nightly_entry = {
-        'AWS_OFI_NCCL_VERSION': '',
-        'BASE_IMAGE': 'nvidia/cuda:12.1.1-cudnn8-devel-ubuntu20.04',
-        'CUDA_VERSION': '12.1.1',
-        'IMAGE_NAME': 'torch-nightly-2-4-0-20240512-cu121-python3-11',
-        'MOFED_VERSION': '5.5-1.0.3.2',
-        'NVIDIA_REQUIRE_CUDA_OVERRIDE': _get_cuda_override('12.1.1'),
-        'PYTHON_VERSION': '3.11',
-        'PYTORCH_VERSION': '2.4.0',
-        'PYTORCH_NIGHTLY_URL': 'https://download.pytorch.org/whl/nightly/cu121',
-        'PYTORCH_NIGHTLY_VERSION': 'dev20240512+cu121',
-        'TAGS': ['mosaicml/pytorch:2.4.0_cu121-nightly20240512-python3.11-ubuntu20.04'],
-        'TARGET': 'pytorch_stage',
-        'TORCHVISION_VERSION': '0.19.0',
-     }
-    pytorch_entries.append(nightly_entry)
+
     composer_entries = []
 
     # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
