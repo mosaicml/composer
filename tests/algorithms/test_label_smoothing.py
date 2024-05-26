@@ -47,7 +47,7 @@ def generate_tensors():
         _generate_tensors_classification(batch_size=64, num_classes=10),
         # segmentation
         _generate_tensors_segmentation(batch_size=64, num_classes=2, H=5, W=5),
-        _generate_tensors_segmentation(batch_size=64, num_classes=10, H=5, W=5)
+        _generate_tensors_segmentation(batch_size=64, num_classes=10, H=5, W=5),
     ]
 
 

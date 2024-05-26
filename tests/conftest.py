@@ -57,11 +57,13 @@ def _get_option(config: pytest.Config, name: str, default: Optional[str] = None)
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    _add_option(parser,
-                'seed',
-                help="""\
+    _add_option(
+        parser,
+        'seed',
+        help="""\
         Rank zero seed to use. `reproducibility.seed_all(seed + dist.get_global_rank())` will be invoked
-        before each test.""")
+        before each test.""",
+    )
 
 
 def _get_world_size(item: pytest.Item):
@@ -108,13 +110,24 @@ def pytest_configure():
         TRANSFORMERS_INSTALLED = False
 
     if TRANSFORMERS_INSTALLED:
-        from tests.fixtures.fixtures import (tiny_bert_config_helper, tiny_bert_model_helper,
-                                             tiny_bert_tokenizer_helper, tiny_gpt2_config_helper,
-                                             tiny_gpt2_model_helper, tiny_gpt2_tokenizer_helper,
-                                             tiny_llama_tokenizer_helper, tiny_mistral_config_helper,
-                                             tiny_mistral_model_helper, tiny_mistral_tokenizer_helper,
-                                             tiny_opt_config_helper, tiny_opt_model_helper, tiny_opt_tokenizer_helper,
-                                             tiny_t5_config_helper, tiny_t5_model_helper, tiny_t5_tokenizer_helper)
+        from tests.fixtures.fixtures import (
+            tiny_bert_config_helper,
+            tiny_bert_model_helper,
+            tiny_bert_tokenizer_helper,
+            tiny_gpt2_config_helper,
+            tiny_gpt2_model_helper,
+            tiny_gpt2_tokenizer_helper,
+            tiny_llama_tokenizer_helper,
+            tiny_mpt_config_helper,
+            tiny_mpt_model_helper,
+            tiny_mpt_tokenizer_helper,
+            tiny_opt_config_helper,
+            tiny_opt_model_helper,
+            tiny_opt_tokenizer_helper,
+            tiny_t5_config_helper,
+            tiny_t5_model_helper,
+            tiny_t5_tokenizer_helper,
+        )
         pytest.tiny_bert_config = tiny_bert_config_helper()  # type: ignore
         pytest.tiny_bert_model = tiny_bert_model_helper(pytest.tiny_bert_config)  # type: ignore
         pytest.tiny_bert_tokenizer = tiny_bert_tokenizer_helper()  # type: ignore
@@ -128,9 +141,9 @@ def pytest_configure():
         pytest.tiny_t5_config = tiny_t5_config_helper()  # type: ignore
         pytest.tiny_t5_model = tiny_t5_model_helper(pytest.tiny_t5_config)  # type: ignore
         pytest.tiny_t5_tokenizer = tiny_t5_tokenizer_helper()  # type: ignore
-        pytest.tiny_mistral_config = tiny_mistral_config_helper()  # type: ignore
-        pytest.tiny_mistral_model = tiny_mistral_model_helper(pytest.tiny_mistral_config)  # type: ignore
-        pytest.tiny_mistral_tokenizer = tiny_mistral_tokenizer_helper()  # type: ignore
+        pytest.tiny_mpt_config = tiny_mpt_config_helper()  # type: ignore
+        pytest.tiny_mpt_model = tiny_mpt_model_helper(pytest.tiny_mpt_config)  # type: ignore
+        pytest.tiny_mpt_tokenizer = tiny_mpt_tokenizer_helper()  # type: ignore
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int):

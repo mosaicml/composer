@@ -23,9 +23,11 @@ def _reraise_gcs_errors(uri: str, e: Exception):
         from google.api_core.exceptions import GatewayTimeout, NotFound
 
     except ImportError as import_exception:
-        raise MissingConditionalImportError(conda_package='google-cloud-storage',
-                                            extra_deps_group='google-cloud-storage',
-                                            conda_channel='conda-forge') from import_exception
+        raise MissingConditionalImportError(
+            conda_package='google-cloud-storage',
+            extra_deps_group='google-cloud-storage',
+            conda_channel='conda-forge',
+        ) from import_exception
 
     # If it's a google service NotFound error
     if isinstance(e, NotFound):
@@ -59,6 +61,8 @@ class GCSObjectStore(ObjectStore):
         prefix: str = '',
     ) -> None:
         try:
+            from google.auth import default as default_auth
+            from google.auth.exceptions import DefaultCredentialsError
             from google.cloud.storage import Client
         except ImportError as e:
             raise MissingConditionalImportError('gcs', 'google.cloud.storage') from e
@@ -71,32 +75,39 @@ class GCSObjectStore(ObjectStore):
 
         self.s3_object_store = None
 
-        if 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ:
-            service_account_path = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
-            self.client = Client.from_service_account_json(service_account_path)
-            self.use_gcs_sdk = True
-            try:
-                self.bucket = self.client.get_bucket(self.bucket_name, timeout=60)
-            except Exception as e:
-                _reraise_gcs_errors(self.get_uri(object_name=''), e)
-
-        elif 'GCS_KEY' in os.environ and 'GCS_SECRET' in os.environ:
+        if 'GCS_KEY' in os.environ and 'GCS_SECRET' in os.environ:
             # Create a session and use it to make our client. Unlike Resources and Sessions,
             # clients are generally thread-safe.
 
             from composer.utils.object_store.s3_object_store import S3ObjectStore
 
-            self.s3_object_store = S3ObjectStore(bucket=self.bucket_name,
-                                                 prefix=self.prefix,
-                                                 region_name='auto',
-                                                 endpoint_url='https://storage.googleapis.com',
-                                                 aws_access_key_id=os.environ['GCS_KEY'],
-                                                 aws_secret_access_key=os.environ['GCS_SECRET'])
+            self.s3_object_store = S3ObjectStore(
+                bucket=self.bucket_name,
+                prefix=self.prefix,
+                region_name='auto',
+                endpoint_url='https://storage.googleapis.com',
+                aws_access_key_id=os.environ['GCS_KEY'],
+                aws_secret_access_key=os.environ['GCS_SECRET'],
+            )
             self.client = None
             self.use_gcs_sdk = False
         else:
-            raise ValueError(f'GOOGLE_APPLICATION_CREDENTIALS needs to be set for ' +
-                             f'service level accounts or GCS_KEY and GCS_SECRET env variables must be set.')
+            try:
+                credentials, _ = default_auth()
+                self.client = Client(credentials=credentials)
+                self.use_gcs_sdk = True
+                try:
+                    self.bucket = self.client.get_bucket(self.bucket_name, timeout=60)
+                except Exception as e:
+                    _reraise_gcs_errors(self.get_uri(object_name=''), e)
+            except (DefaultCredentialsError, EnvironmentError) as e:
+                raise ValueError(
+                    f'No GCS_KEY/GCS_SECRET found and client construction failed with `{e}`. '
+                    'Either set the environment variables `GCS_KEY` and `GCS_SECRET` or use any of '
+                    'the methods in https://cloud.google.com/docs/authentication/external/set-up-adc '
+                    'to set up Application Default Credentials. '
+                    'See also https://docs.mosaicml.com/projects/mcli/en/latest/resources/secrets/gcp.html.',
+                )
 
     def get_key(self, object_name: str) -> str:
         return f'{self.prefix}{object_name}'
@@ -138,10 +149,12 @@ class GCSObjectStore(ObjectStore):
             return -1
         return blob.size  # size in bytes
 
-    def upload_object(self,
-                      object_name: str,
-                      filename: Union[str, pathlib.Path],
-                      callback: Optional[Callable[[int, int], None]] = None):
+    def upload_object(
+        self,
+        object_name: str,
+        filename: Union[str, pathlib.Path],
+        callback: Optional[Callable[[int, int], None]] = None,
+    ):
         """Uploads a file to the cloud storage bucket.
 
         Args:
@@ -157,11 +170,12 @@ class GCSObjectStore(ObjectStore):
 
         if callback is not None:
             raise ValueError('callback is not supported in gcs upload_object()')
+        from google.cloud.storage.retry import DEFAULT_RETRY
         src = filename
         dest = object_name
         dest = str(src) if dest == '' else dest
         blob = self.bucket.blob(self.get_key(dest))
-        blob.upload_from_filename(src)
+        blob.upload_from_filename(src, retry=DEFAULT_RETRY)  # pyright: ignore[reportGeneralTypeIssues]
 
     def download_object(
         self,

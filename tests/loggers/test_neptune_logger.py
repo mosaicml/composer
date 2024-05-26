@@ -1,11 +1,13 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
+import contextlib
 import os
 import uuid
 from pathlib import Path
-from typing import Sequence
+from typing import Generator, Sequence
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 import torch
 from torch.utils.data import DataLoader
@@ -28,7 +30,7 @@ def test_neptune_logger() -> NeptuneLogger:
         api_token=neptune_api_token,
         rank_zero_only=False,
         mode='debug',
-        upload_artifacts=True,
+        upload_checkpoints=True,
     )
 
     return neptune_logger
@@ -56,21 +58,25 @@ def test_neptune_logging(device, test_neptune_logger):
     num_batches = 4
     eval_interval = '1ba'
 
-    trainer = Trainer(model=SimpleConvModel(),
-                      loggers=test_neptune_logger,
-                      train_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
-                      eval_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
-                      max_duration=f'{num_batches}ba',
-                      eval_interval=eval_interval,
-                      device=device)
+    trainer = Trainer(
+        model=SimpleConvModel(),
+        loggers=test_neptune_logger,
+        train_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
+        eval_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
+        max_duration=f'{num_batches}ba',
+        eval_interval=eval_interval,
+        device=device,
+    )
     trainer.fit()
 
     assert test_neptune_logger.neptune_run is not None
     assert test_neptune_logger.base_handler is not None
 
     for metric_name in [
-            'metrics/train/MulticlassAccuracy', 'metrics/eval/MulticlassAccuracy', 'metrics/eval/CrossEntropy',
-            'loss/train/total'
+        'metrics/train/MulticlassAccuracy',
+        'metrics/eval/MulticlassAccuracy',
+        'metrics/eval/CrossEntropy',
+        'loss/train/total',
     ]:
         path = f'{test_neptune_logger._base_namespace}/{test_neptune_logger.metric_namespace}/{metric_name}'
         assert test_neptune_logger.neptune_run.exists(path)
@@ -95,9 +101,11 @@ def test_upload_and_download_file(test_neptune_logger, tmp_path, dummy_state):
         with open(dummy_neptune_artifact_path, 'w+') as f:
             f.write(file_content)
 
-    test_neptune_logger.upload_file(state=dummy_state,
-                                    file_path=dummy_neptune_artifact_path,
-                                    remote_file_name=neptune_artifact_name)
+    test_neptune_logger.upload_file(
+        state=dummy_state,
+        file_path=dummy_neptune_artifact_path,
+        remote_file_name=neptune_artifact_name,
+    )
 
     dist.barrier()
 
@@ -127,7 +135,7 @@ def test_neptune_log_image(test_neptune_logger):
             (torch.rand(3, 4, 4), False),  # with channels, not channels last
             ([torch.rand(4, 4, 3)], True),  # with channels, channels last
             (torch.rand(2, 4, 4, 3), True),  # multiple images, channels last
-            ([torch.rand(4, 4, 3), torch.rand(4, 4, 3)], True)  # multiple images in list
+            ([torch.rand(4, 4, 3), torch.rand(4, 4, 3)], True),  # multiple images in list
         ]
 
         expected_num_images_total = 0
@@ -147,3 +155,51 @@ def test_neptune_log_image(test_neptune_logger):
 
         test_neptune_logger.post_close()
         assert mock_extend.call_count == 2 * len(image_variants)  # One set of torch tensors, one set of numpy arrays
+
+
+def test_neptune_logger_doesnt_upload_symlinks(test_neptune_logger, dummy_state):
+    with _manage_symlink_creation('test.txt') as symlink_name:
+        test_neptune_logger.upload_file(
+            state=dummy_state,
+            remote_file_name='test_symlink',
+            file_path=Path(symlink_name),
+        )
+    assert not test_neptune_logger.neptune_run.exists(f'{test_neptune_logger._base_namespace}/test_symlink')
+
+
+@contextlib.contextmanager
+def _manage_symlink_creation(file_name: str) -> Generator[str, None, None]:
+    with open(file_name, 'w') as f:
+        f.write('This is a test file.')
+
+    symlink_name = 'test_symlink.txt'
+
+    os.symlink(file_name, symlink_name)
+
+    assert Path(symlink_name).is_symlink()
+
+    yield symlink_name
+
+    os.remove(symlink_name)
+    os.remove(file_name)
+
+
+def test_neptune_log_image_warns_about_improper_value_range(test_neptune_logger):
+    image = np.ones((4, 4)) * 300
+    with pytest.warns() as record:
+        test_neptune_logger.log_images(images=image)
+    assert 'Image value range is not in the expected range of [0.0, 1.0] or [0, 255].' in str(record[0].message)
+
+
+@patch('composer.loggers.neptune_logger._scale_image_to_0_255', return_value=np.ones((4, 4)))
+def test_neptune_log_image_scales_improper_image(mock_scale_img, test_neptune_logger):
+    image_variants = [
+        np.ones((4, 4)) * 300,
+        np.ones((4, 4)) * -1,
+        np.identity(4) * 300 - 1,
+    ]
+
+    for image in image_variants:
+        test_neptune_logger.log_images(images=image)
+        mock_scale_img.assert_called_once()
+        mock_scale_img.reset_mock()

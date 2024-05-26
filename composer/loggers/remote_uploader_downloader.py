@@ -22,11 +22,23 @@ from urllib.parse import urlparse
 
 import torch
 
-from composer.loggers.logger import Logger
+from composer.loggers import Logger, MosaicMLLogger
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import (GCSObjectStore, LibcloudObjectStore, MLFlowObjectStore, ObjectStore,
-                            ObjectStoreTransientError, OCIObjectStore, S3ObjectStore, SFTPObjectStore, UCObjectStore,
-                            dist, format_name_with_dist, get_file, retry)
+from composer.utils import (
+    GCSObjectStore,
+    LibcloudObjectStore,
+    MLFlowObjectStore,
+    ObjectStore,
+    ObjectStoreTransientError,
+    OCIObjectStore,
+    S3ObjectStore,
+    SFTPObjectStore,
+    UCObjectStore,
+    dist,
+    format_name_with_dist,
+    get_file,
+    retry,
+)
 from composer.utils.object_store.mlflow_object_store import MLFLOW_DBFS_PATH_PREFIX
 
 if TYPE_CHECKING:
@@ -63,7 +75,7 @@ def _build_remote_backend(remote_backend_name: str, backend_kwargs: Dict[str, An
         if remote_backend_cls is None:
             supported_remote_backends = list(remote_backend_name_to_cls.keys()) + ['dbfs']
             raise ValueError(
-                f'The remote backend {remote_backend_name} is not supported. Please use one of ({supported_remote_backends})'
+                f'The remote backend {remote_backend_name} is not supported. Please use one of ({supported_remote_backends})',
             )
 
     return remote_backend_cls(**backend_kwargs)
@@ -234,14 +246,16 @@ class RemoteUploaderDownloader(LoggerDestination):
             Defaults to 3.
     """
 
-    def __init__(self,
-                 bucket_uri: str,
-                 backend_kwargs: Optional[Dict[str, Any]] = None,
-                 file_path_format_string: str = '{remote_file_name}',
-                 num_concurrent_uploads: int = 1,
-                 upload_staging_folder: Optional[str] = None,
-                 use_procs: bool = True,
-                 num_attempts: int = 3) -> None:
+    def __init__(
+        self,
+        bucket_uri: str,
+        backend_kwargs: Optional[Dict[str, Any]] = None,
+        file_path_format_string: str = '{remote_file_name}',
+        num_concurrent_uploads: int = 1,
+        upload_staging_folder: Optional[str] = None,
+        use_procs: bool = True,
+        num_attempts: int = 3,
+    ) -> None:
         parsed_remote_bucket = urlparse(bucket_uri)
         self.remote_backend_name, self.remote_bucket_name = parsed_remote_bucket.scheme, parsed_remote_bucket.netloc
         self.backend_kwargs = backend_kwargs if backend_kwargs is not None else {}
@@ -293,14 +307,17 @@ class RemoteUploaderDownloader(LoggerDestination):
         if use_procs:
             mp_ctx = multiprocessing.get_context('spawn')
             self._file_upload_queue: Union[queue.Queue[Tuple[str, str, bool]],
-                                           multiprocessing.JoinableQueue[Tuple[str, str,
-                                                                               bool]],] = mp_ctx.JoinableQueue()
-            self._completed_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str],] = mp_ctx.JoinableQueue()
+                                           multiprocessing.JoinableQueue[Tuple[str, str, bool]],
+                                          ] = mp_ctx.JoinableQueue()
+            self._completed_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str]] = mp_ctx.JoinableQueue()
             self._exception_queue: Union[queue.Queue[Exception],
-                                         multiprocessing.JoinableQueue[Exception],] = mp_ctx.JoinableQueue()
+                                         multiprocessing.JoinableQueue[Exception],
+                                        ] = mp_ctx.JoinableQueue()
             self._finished_cls: Union[Callable[[],
-                                               multiprocessing._EventType],  # pyright: ignore[reportGeneralTypeIssues]
-                                      Type[threading.Event]] = mp_ctx.Event
+                                               multiprocessing._EventType,  # pyright: ignore[reportGeneralTypeIssues]
+                                              ],
+                                      Type[threading.Event],
+                                     ] = mp_ctx.Event
             self._proc_class = mp_ctx.Process
         else:
             self._file_upload_queue = queue.Queue()
@@ -308,8 +325,12 @@ class RemoteUploaderDownloader(LoggerDestination):
             self._exception_queue = queue.Queue()
             self._finished_cls = threading.Event
             self._proc_class = threading.Thread
-        self._worker_flag: Optional[Union[multiprocessing._EventType,  # pyright: ignore[reportGeneralTypeIssues]
-                                          threading.Event]] = None
+        self._worker_flag: Optional[
+            Union[
+                multiprocessing._EventType,  # pyright: ignore[reportGeneralTypeIssues]
+                threading.Event,
+            ]
+        ] = None
         self._workers: List[Union[SpawnProcess, threading.Thread]] = []
         # the object store instance for the main thread. Deferring the construction of the object_store to first use.
         self._remote_backend = None
@@ -322,12 +343,12 @@ class RemoteUploaderDownloader(LoggerDestination):
         return self._remote_backend
 
     def init(self, state: State, logger: Logger) -> None:
-        del logger  # unused
         if self._worker_flag is not None:
             raise RuntimeError('The RemoteUploaderDownloader is already initialized.')
         self._worker_flag = self._finished_cls()
         self._run_name = state.run_name
         file_name_to_test = self._remote_file_name('.credentials_validated_successfully')
+        self._logger = logger
 
         # Create the enqueue thread
         self._enqueue_thread_flag = self._finished_cls()
@@ -335,8 +356,10 @@ class RemoteUploaderDownloader(LoggerDestination):
         self._enqueue_thread.start()
 
         if dist.get_global_rank() == 0:
-            retry(ObjectStoreTransientError,
-                  self.num_attempts)(lambda: _validate_credentials(self.remote_backend, file_name_to_test))()
+            retry(
+                ObjectStoreTransientError,
+                self.num_attempts,
+            )(lambda: _validate_credentials(self.remote_backend, file_name_to_test))()
 
         # If the remote backend is an `MLFlowObjectStore`, the original path kwarg may have placeholders that can be
         # updated with information generated at runtime, i.e., the MLFlow experiment and run IDs. This information
@@ -411,7 +434,8 @@ class RemoteUploaderDownloader(LoggerDestination):
         with self._object_lock:
             if formatted_remote_file_name in self._logged_objects and not overwrite:
                 raise FileExistsError(
-                    f'Object {formatted_remote_file_name} was already enqueued to be uploaded, but overwrite=False.')
+                    f'Object {formatted_remote_file_name} was already enqueued to be uploaded, but overwrite=False.',
+                )
             self._logged_objects[formatted_remote_file_name] = (copied_path, overwrite)
 
     def can_upload_files(self) -> bool:
@@ -437,6 +461,9 @@ class RemoteUploaderDownloader(LoggerDestination):
                         break
                     self._enqueued_objects.remove(object_name)
                     self._completed_queue.task_done()
+                    for destination in self._logger.destinations:
+                        if isinstance(destination, MosaicMLLogger):
+                            destination.log_metadata({'checkpoint_uploaded_time': time.time()}, force_flush=True)
 
                 # Enqueue all objects that are in self._logged_objects but not in self._file_upload_queue
                 objects_to_delete = []
@@ -471,11 +498,13 @@ class RemoteUploaderDownloader(LoggerDestination):
         overwrite: bool = False,
         progress_bar: bool = True,
     ):
-        get_file(path=remote_file_name,
-                 destination=destination,
-                 object_store=self.remote_backend,
-                 overwrite=overwrite,
-                 progress_bar=progress_bar)
+        get_file(
+            path=remote_file_name,
+            destination=destination,
+            object_store=self.remote_backend,
+            overwrite=overwrite,
+            progress_bar=progress_bar,
+        )
 
     def fit_end(self, state: State, logger: Logger):
         self.wait_for_workers(state.device)
@@ -503,15 +532,21 @@ class RemoteUploaderDownloader(LoggerDestination):
 
         # Verify all tasks have been completed unless a worker threw an exception
         all_ranks_upload_done_tensor = device.tensor_to_device(
-            torch.tensor([int(not self._file_upload_queue.empty() and self._exception_queue.empty())],
-                         dtype=torch.uint8))
+            torch.tensor(
+                [int(not self._file_upload_queue.empty() and self._exception_queue.empty())],
+                dtype=torch.uint8,
+            ),
+        )
         dist.all_reduce(all_ranks_upload_done_tensor, reduce_operation='MAX')
         upload_not_done = all_ranks_upload_done_tensor.item() == 1
         while upload_not_done:
             time.sleep(2)
             all_ranks_upload_done_tensor = device.tensor_to_device(
-                torch.tensor([int(not self._file_upload_queue.empty() and self._exception_queue.empty())],
-                             dtype=torch.uint8))
+                torch.tensor(
+                    [int(not self._file_upload_queue.empty() and self._exception_queue.empty())],
+                    dtype=torch.uint8,
+                ),
+            )
             dist.all_reduce(all_ranks_upload_done_tensor, reduce_operation='MAX')
             upload_not_done = all_ranks_upload_done_tensor.item() == 1
 
@@ -559,8 +594,11 @@ class RemoteUploaderDownloader(LoggerDestination):
             object_names = list(self._enqueued_objects)
             object_names.extend(self._logged_objects.keys())
             warnings.warn(
-                RuntimeWarning('The following objects may not have been uploaded, likely due to a worker crash: ' +
-                               ', '.join(self._enqueued_objects)))
+                RuntimeWarning(
+                    'The following objects may not have been uploaded, likely due to a worker crash: ' +
+                    ', '.join(self._enqueued_objects),
+                ),
+            )
 
         # Reset all variables
         self._logged_objects.clear()
@@ -638,8 +676,8 @@ def _upload_worker(
 
         # defining as a function-in-function to use decorator notation with num_attempts as an argument
         @retry(ObjectStoreTransientError, num_attempts=num_attempts)
-        def upload_file():
-            if not overwrite:
+        def upload_file(retry_index: int = 0):
+            if retry_index == 0 and not overwrite:
                 try:
                     remote_backend.get_object_size(remote_file_name)
                 except FileNotFoundError:
@@ -662,5 +700,13 @@ def _upload_worker(
             os.remove(file_path_to_upload)
             file_queue.task_done()
             completed_queue.put_nowait(remote_file_name)
+
+        # When encountering issues with too much concurrency in uploads, staggering the uploads can help.
+        # This stagger is intended for use when uploading model shards from every rank, and will effectively reduce
+        # the concurrency by a factor of num GPUs per node.
+        local_rank = dist.get_local_rank()
+        local_rank_stagger = int(os.environ.get('COMPOSER_LOCAL_RANK_STAGGER_SECONDS', 0))
+        log.debug(f'Staggering uploads by {local_rank * local_rank_stagger} seconds on {local_rank} local rank.')
+        time.sleep(local_rank * local_rank_stagger)
 
         upload_file()

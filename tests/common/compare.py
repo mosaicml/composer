@@ -34,6 +34,9 @@ def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: floa
         return
     if isinstance(item1, torch.Tensor):
         assert isinstance(item2, torch.Tensor)
+        if item1.device != item2.device:
+            item1 = item1.cpu()
+            item2 = item2.cpu()
         assert item1.allclose(item2, rtol=rtol, atol=atol), f'{path} differs'
         return
     if isinstance(item1, np.ndarray):
@@ -56,8 +59,12 @@ def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: floa
         item1_compute = item1.compute()
         item2_compute = item2.compute()
         if isinstance(item1_compute, torch.Tensor) and isinstance(item2_compute, torch.Tensor):
-            assert item1_compute.allclose(item2_compute, atol=atol, rtol=rtol,
-                                          equal_nan=True), f'{path} differs: {item1_compute} != {item2_compute}'
+            assert item1_compute.allclose(
+                item2_compute,
+                atol=atol,
+                rtol=rtol,
+                equal_nan=True,
+            ), f'{path} differs: {item1_compute} != {item2_compute}'
         elif isinstance(item1_compute, dict):
             assert isinstance(item2_compute, dict)
             _check_dict_recursively(item1_compute, item2_compute, path, atol, rtol)

@@ -32,9 +32,21 @@ log = logging.getLogger(__name__)
 
 def _wrap_mlflow_exceptions(uri: str, e: Exception):
     """Wraps retryable MLflow errors in ObjectStoreTransientError for automatic retry handling."""
-    from mlflow.exceptions import (ABORTED, DATA_LOSS, DEADLINE_EXCEEDED, ENDPOINT_NOT_FOUND, INTERNAL_ERROR,
-                                   INVALID_STATE, NOT_FOUND, REQUEST_LIMIT_EXCEEDED, RESOURCE_DOES_NOT_EXIST,
-                                   RESOURCE_EXHAUSTED, TEMPORARILY_UNAVAILABLE, ErrorCode, MlflowException)
+    from mlflow.exceptions import (
+        ABORTED,
+        DATA_LOSS,
+        DEADLINE_EXCEEDED,
+        ENDPOINT_NOT_FOUND,
+        INTERNAL_ERROR,
+        INVALID_STATE,
+        NOT_FOUND,
+        REQUEST_LIMIT_EXCEEDED,
+        RESOURCE_DOES_NOT_EXIST,
+        RESOURCE_EXHAUSTED,
+        TEMPORARILY_UNAVAILABLE,
+        ErrorCode,
+        MlflowException,
+    )
 
     # https://github.com/mlflow/mlflow/blob/39b76b5b05407af5d223e892b03e450b7264576a/mlflow/exceptions.py for used error codes.
     # https://github.com/mlflow/mlflow/blob/39b76b5b05407af5d223e892b03e450b7264576a/mlflow/protos/databricks.proto for code descriptions.
@@ -60,10 +72,101 @@ def _wrap_mlflow_exceptions(uri: str, e: Exception):
     raise e
 
 
+def _get_timeout_and_set_socket_default() -> Optional[int]:
+    timeout = os.environ.get('MLFLOW_PATCHED_FILE_UPLOAD_TIMEOUT', None)
+    if timeout is not None:
+        import socket
+        timeout = int(timeout)
+        socket.setdefaulttimeout(timeout)
+    return timeout
+
+
+# Original source: https://github.com/mlflow/mlflow/blob/a85081631eb665fa25046cb0b7daf0fbbdd5949f/mlflow/azure/client.py#L42
+def _patch_adls_file_upload_with_timeout(sas_url, local_file, start_byte, size, position, headers, is_single):
+    """Performs an ADLS Azure file create `Patch` operation.
+
+    (https://docs.microsoft.com/en-us/rest/api/storageservices/datalakestoragegen2/path/update)
+
+    Args:
+        sas_url: A shared access signature URL referring to the Azure ADLS server
+            to which the file update command should be issued.
+        local_file: The local file to upload
+        start_byte: The starting byte of the local file to upload
+        size: The number of bytes to upload
+        position: Positional offset of the data in the Patch request
+        headers: Additional headers to include in the Patch request body
+        is_single: Whether this is the only patch operation for this file
+    """
+    from mlflow.azure.client import _append_query_parameters, _is_valid_adls_patch_header, _logger
+    from mlflow.utils import rest_utils
+    from mlflow.utils.file_utils import read_chunk
+
+    new_params = {'action': 'append', 'position': str(position)}
+    if is_single:
+        new_params['flush'] = 'true'
+    request_url = _append_query_parameters(sas_url, new_params)
+
+    request_headers = {}
+    for name, value in headers.items():
+        if _is_valid_adls_patch_header(name):
+            request_headers[name] = value
+        else:
+            _logger.debug("Removed unsupported '%s' header for ADLS Gen2 Patch operation", name)
+
+    data = read_chunk(local_file, size, start_byte)
+
+    ### Changed here to pass a timeout along to cloud_storage_http_request
+    ### And to set the socket timeout
+    timeout = _get_timeout_and_set_socket_default()
+    with rest_utils.cloud_storage_http_request(
+        'patch',
+        request_url,
+        data=data,
+        headers=request_headers,
+        timeout=timeout,
+    ) as response:
+        rest_utils.augmented_raise_for_status(response)
+        response.close()
+
+
+def _put_adls_file_creation_with_timeout(sas_url, headers):
+    """Performs an ADLS Azure file create `Put` operation.
+
+    (https://docs.microsoft.com/en-us/rest/api/storageservices/datalakestoragegen2/path/create)
+
+    :param sas_url: A shared access signature URL referring to the Azure ADLS server
+                    to which the file creation command should be issued.
+    :param headers: Additional headers to include in the Put request body
+    """
+    from mlflow.azure.client import _append_query_parameters, _is_valid_adls_put_header, _logger
+    from mlflow.utils import rest_utils
+
+    request_url = _append_query_parameters(sas_url, {'resource': 'file'})
+
+    request_headers = {}
+    for name, value in headers.items():
+        if _is_valid_adls_put_header(name):
+            request_headers[name] = value
+        else:
+            _logger.debug("Removed unsupported '%s' header for ADLS Gen2 Put operation", name)
+
+    ### Changed here to pass a timeout along to cloud_storage_http_request
+    ### And to set the socket timeout
+    timeout = _get_timeout_and_set_socket_default()
+    with rest_utils.cloud_storage_http_request(
+        'put',
+        request_url,
+        headers=request_headers,
+        timeout=timeout,
+    ) as response:
+        rest_utils.augmented_raise_for_status(response)
+        response.close()
+
+
 class MLFlowObjectStore(ObjectStore):
     """Utility class for uploading and downloading artifacts from MLflow.
 
-    It can be initializd for an existing run, a new run in an existing experiment, the active run used by the `mlflow`
+    It can be initialized for an existing run, a new run in an existing experiment, the active run used by the `mlflow`
     module, or a new run in a new experiment. See the documentation for ``path`` for more details.
 
     .. note::
@@ -115,6 +218,12 @@ class MLFlowObjectStore(ObjectStore):
         except ImportError as e:
             raise MissingConditionalImportError('databricks', conda_package='databricks-sdk>=0.15.0,<1.0') from e
 
+        # This is a temporary workaround for an intermittent hang we have encountered when uploading files to ADLS.
+        # MLflow is working on an upstream fix, but in the meantime, patching in timeouts works around the hang.
+        log.debug('Patching MLflow Azure client to include timeout in ADLS file upload')
+        mlflow.store.artifact.databricks_artifact_repo.patch_adls_file_upload = _patch_adls_file_upload_with_timeout  # type: ignore
+        mlflow.store.artifact.databricks_artifact_repo.put_adls_file_creation = _put_adls_file_creation_with_timeout  # type: ignore
+
         tracking_uri = os.getenv(
             mlflow.environment_variables.MLFLOW_TRACKING_URI.name,  # pyright: ignore[reportGeneralTypeIssues]
             MLFLOW_DATABRICKS_TRACKING_URI,
@@ -123,7 +232,8 @@ class MLFlowObjectStore(ObjectStore):
             raise ValueError(
                 'MLFlowObjectStore currently only supports Databricks-hosted MLflow tracking. '
                 f'Environment variable `MLFLOW_TRACKING_URI` is set to a non-Databricks URI {tracking_uri}. '
-                f'Please unset it or set the value to `{MLFLOW_DATABRICKS_TRACKING_URI}`.')
+                f'Please unset it or set the value to `{MLFLOW_DATABRICKS_TRACKING_URI}`.',
+            )
 
         # Use the Databricks WorkspaceClient to check that credentials are set up correctly.
         try:
@@ -132,11 +242,13 @@ class MLFlowObjectStore(ObjectStore):
             raise ValueError(
                 f'Databricks SDK credentials not correctly setup. '
                 'Visit https://databricks-sdk-py.readthedocs.io/en/latest/authentication.html#databricks-native-authentication '
-                'to identify different ways to setup credentials.') from e
+                'to identify different ways to setup credentials.',
+            ) from e
 
         self._mlflow_client = MlflowClient(tracking_uri)
         mlflow.environment_variables.MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.set(  # pyright: ignore[reportGeneralTypeIssues]
-            multipart_upload_chunk_size,)
+            multipart_upload_chunk_size,
+        )
 
         experiment_id, run_id, _ = MLFlowObjectStore.parse_dbfs_path(path)
         if experiment_id == MLFLOW_EXPERIMENT_ID_PLACEHOLDER:
@@ -176,8 +288,10 @@ class MLFlowObjectStore(ObjectStore):
 
                 run_id = self._mlflow_client.create_run(experiment_id).info.run_id
 
-                log.debug(f'MLFlowObjectStore using a new MLflow run {run_id=}'
-                          f'for new experiment "{experiment_name}" {experiment_id=}')
+                log.debug(
+                    f'MLFlowObjectStore using a new MLflow run {run_id=}'
+                    f'for new experiment "{experiment_name}" {experiment_id=}',
+                )
         else:
             if run_id is not None:
                 # If a `run_id` is provided, check that it belongs to the provided experiment.
@@ -185,17 +299,22 @@ class MLFlowObjectStore(ObjectStore):
                 if run.info.experiment_id != experiment_id:
                     raise ValueError(
                         f'Provided `run_id` {run_id} does not belong to provided experiment {experiment_id}. '
-                        f'Found experiment {run.info.experiment_id}.')
+                        f'Found experiment {run.info.experiment_id}.',
+                    )
 
-                log.debug(f'MLFlowObjectStore using provided MLflow run {run_id=} '
-                          f'for provided experiment {experiment_id=}')
+                log.debug(
+                    f'MLFlowObjectStore using provided MLflow run {run_id=} '
+                    f'for provided experiment {experiment_id=}',
+                )
             else:
                 # If no `run_id` is provided, create a new run in the provided experiment.
                 run = self._mlflow_client.create_run(experiment_id)
                 run_id = run.info.run_id
 
-                log.debug(f'MLFlowObjectStore using new MLflow run {run_id=} '
-                          f'for provided experiment {experiment_id=}')
+                log.debug(
+                    f'MLFlowObjectStore using new MLflow run {run_id=} '
+                    f'for provided experiment {experiment_id=}',
+                )
 
         if experiment_id is None or run_id is None:
             raise ValueError('MLFlowObjectStore failed to initialize experiment and run ID.')
@@ -227,9 +346,11 @@ class MLFlowObjectStore(ObjectStore):
         mlflow_parts = subpath.split('/', maxsplit=3)
 
         if len(mlflow_parts) != 4 or mlflow_parts[2] != 'artifacts':
-            raise ValueError(f'Databricks MLflow artifact path expected to be of the format '
-                             f'{MLFLOW_DBFS_PATH_PREFIX}/<experiment_id>/<run_id>/artifacts/<relative_path>. '
-                             f'Found {path=}')
+            raise ValueError(
+                f'Databricks MLflow artifact path expected to be of the format '
+                f'{MLFLOW_DBFS_PATH_PREFIX}/<experiment_id>/<run_id>/artifacts/<relative_path>. '
+                f'Found {path=}',
+            )
 
         return mlflow_parts[0], mlflow_parts[1], mlflow_parts[3]
 
@@ -244,11 +365,15 @@ class MLFlowObjectStore(ObjectStore):
         if object_name.startswith(MLFLOW_DBFS_PATH_PREFIX):
             experiment_id, run_id, object_name = self.parse_dbfs_path(object_name)
             if (experiment_id != self.experiment_id and experiment_id != MLFLOW_EXPERIMENT_ID_PLACEHOLDER):
-                raise ValueError(f'Object {object_name} belongs to experiment ID {experiment_id}, '
-                                 f'but MLFlowObjectStore is associated with experiment ID {self.experiment_id}.')
+                raise ValueError(
+                    f'Object {object_name} belongs to experiment ID {experiment_id}, '
+                    f'but MLFlowObjectStore is associated with experiment ID {self.experiment_id}.',
+                )
             if (run_id != self.run_id and run_id != MLFLOW_RUN_ID_PLACEHOLDER):
-                raise ValueError(f'Object {object_name} belongs to run ID {run_id}, '
-                                 f'but MLFlowObjectStore is associated with run ID {self.run_id}.')
+                raise ValueError(
+                    f'Object {object_name} belongs to run ID {run_id}, '
+                    f'but MLFlowObjectStore is associated with run ID {self.run_id}.',
+                )
         return object_name
 
     def get_dbfs_path(self, object_name: str) -> str:
@@ -259,10 +384,12 @@ class MLFlowObjectStore(ObjectStore):
     def get_uri(self, object_name: str) -> str:
         return 'dbfs:/' + self.get_dbfs_path(object_name)
 
-    def upload_object(self,
-                      object_name: str,
-                      filename: Union[str, pathlib.Path],
-                      callback: Optional[Callable[[int, int], None]] = None):
+    def upload_object(
+        self,
+        object_name: str,
+        filename: Union[str, pathlib.Path],
+        callback: Optional[Callable[[int, int], None]] = None,
+    ):
         del callback  # unused
         from mlflow.exceptions import MlflowException
 

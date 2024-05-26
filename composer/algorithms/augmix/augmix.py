@@ -18,20 +18,22 @@ from torchvision.datasets import VisionDataset
 from composer.algorithms.utils import augmentation_sets
 from composer.algorithms.utils.augmentation_common import map_pillow_function
 from composer.core import Algorithm, Event, State
-from composer.datasets.utils import add_vision_dataset_transform
 from composer.loggers import Logger
+from composer.utils import add_vision_dataset_transform
 
 __all__ = ['AugMix', 'AugmentAndMixTransform', 'augmix_image']
 
 ImgT = TypeVar('ImgT', torch.Tensor, PillowImage)
 
 
-def augmix_image(img: ImgT,
-                 severity: int = 3,
-                 depth: int = -1,
-                 width: int = 3,
-                 alpha: float = 1.0,
-                 augmentation_set: List = augmentation_sets['all']) -> ImgT:
+def augmix_image(
+    img: ImgT,
+    severity: int = 3,
+    depth: int = -1,
+    width: int = 3,
+    alpha: float = 1.0,
+    augmentation_set: List = augmentation_sets['all'],
+) -> ImgT:
     r"""Applies the AugMix (`Hendrycks et al, 2020 <http://arxiv.org/abs/1912.02781>`_) data augmentation.
 
     This function works on a single image or batch of images. See :class:`.AugMix` and
@@ -69,8 +71,14 @@ def augmix_image(img: ImgT,
          PIL.Image: AugMix'd image.
     """
 
-    def _augmix_pil_image(img_pil: PillowImage, severity: int, depth: int, width: int, alpha: float,
-                          augmentation_set: List) -> PillowImage:
+    def _augmix_pil_image(
+        img_pil: PillowImage,
+        severity: int,
+        depth: int,
+        width: int,
+        alpha: float,
+        augmentation_set: List,
+    ) -> PillowImage:
         chain_weights = np.random.dirichlet([alpha] * width).astype(np.float32)
         mixing_weight = np.float32(np.random.beta(alpha, alpha))
         augmented_combination = np.zeros_like(img_pil, dtype=np.float32)
@@ -92,12 +100,14 @@ def augmix_image(img: ImgT,
         mixed = Image.fromarray(np.uint8(mixed))
         return mixed
 
-    f_pil = functools.partial(_augmix_pil_image,
-                              severity=severity,
-                              depth=depth,
-                              width=width,
-                              alpha=alpha,
-                              augmentation_set=augmentation_set)
+    f_pil = functools.partial(
+        _augmix_pil_image,
+        severity=severity,
+        depth=depth,
+        width=width,
+        alpha=alpha,
+        augmentation_set=augmentation_set,
+    )
     return map_pillow_function(f_pil, img)
 
 
@@ -136,12 +146,14 @@ class AugmentAndMixTransform(torch.nn.Module):
             :class:`.AugMix`.
     """
 
-    def __init__(self,
-                 severity: int = 3,
-                 depth: int = -1,
-                 width: int = 3,
-                 alpha: float = 1.0,
-                 augmentation_set: str = 'all'):
+    def __init__(
+        self,
+        severity: int = 3,
+        depth: int = -1,
+        width: int = 3,
+        alpha: float = 1.0,
+        augmentation_set: str = 'all',
+    ):
         super().__init__()
         if severity < 0 or severity > 10:
             raise ValueError('AugMix severity value must satisfy 0 ≤ severity ≤ 10')
@@ -157,12 +169,14 @@ class AugmentAndMixTransform(torch.nn.Module):
 
     def forward(self, img: PillowImage) -> PillowImage:
 
-        return augmix_image(img=img,
-                            severity=self.severity,
-                            depth=self.depth,
-                            width=self.width,
-                            alpha=self.alpha,
-                            augmentation_set=self.augmentation_set)
+        return augmix_image(
+            img=img,
+            severity=self.severity,
+            depth=self.depth,
+            width=self.width,
+            alpha=self.alpha,
+            augmentation_set=self.augmentation_set,
+        )
 
 
 class AugMix(Algorithm):
@@ -239,12 +253,14 @@ class AugMix(Algorithm):
     # TODO document each value of augmentation_set in more detail; i.e.,
     # which augmentations are actually used
 
-    def __init__(self,
-                 severity: int = 3,
-                 depth: int = -1,
-                 width: int = 3,
-                 alpha: float = 1.0,
-                 augmentation_set: str = 'all'):
+    def __init__(
+        self,
+        severity: int = 3,
+        depth: int = -1,
+        width: int = 3,
+        alpha: float = 1.0,
+        augmentation_set: str = 'all',
+    ):
         if severity < 0 or severity > 10:
             raise ValueError('AugMix severity value must satisfy 0 ≤ severity ≤ 10')
         if width < 1:
@@ -267,17 +283,22 @@ class AugMix(Algorithm):
         return state.dataloader.dataset not in self._transformed_datasets
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        am = AugmentAndMixTransform(severity=self.severity,
-                                    depth=self.depth,
-                                    width=self.width,
-                                    alpha=self.alpha,
-                                    augmentation_set=self.augmentation_set)
+        am = AugmentAndMixTransform(
+            severity=self.severity,
+            depth=self.depth,
+            width=self.width,
+            alpha=self.alpha,
+            augmentation_set=self.augmentation_set,
+        )
         assert isinstance(state.dataloader, torch.utils.data.DataLoader), 'dataloader type checked on match()'
         dataset = state.dataloader.dataset
         if not isinstance(dataset, VisionDataset):
             raise TypeError(
-                textwrap.dedent(f"""\
+                textwrap.dedent(
+                    f"""\
                 To use {type(self).__name__}, the dataset must be a
-                {VisionDataset.__qualname__}, not {type(dataset).__name__}"""))
+                {VisionDataset.__qualname__}, not {type(dataset).__name__}""",
+                ),
+            )
         add_vision_dataset_transform(dataset, am, is_tensor_transform=False)
         self._transformed_datasets.add(dataset)

@@ -76,7 +76,7 @@ class MemorySnapshot(Callback):
         max_entries: int = 100000,
         folder: str = '{run_name}/torch_traces',
         filename: str = 'rank{rank}.{batch}.memory_snapshot',
-        remote_file_name: Optional[str] = '{run_name}/torch_memory_traces/rank{rank}.{batch}.memory_snapshot',
+        remote_file_name: Optional[str] = '{run_name}/torch_memory_traces',
         overwrite: bool = False,
     ) -> None:
         self.batches_left_to_skip = skip_batches
@@ -143,7 +143,8 @@ class MemorySnapshot(Callback):
         torch.cuda.memory._record_memory_history(
             True,  # type: ignore
             trace_alloc_max_entries=self.max_entries,
-            trace_alloc_record_context=True)
+            trace_alloc_record_context=True,
+        )
 
     def stop_record_memory_history(self) -> None:
 
@@ -155,7 +156,8 @@ class MemorySnapshot(Callback):
         assert self.folder_name, 'folder_name must be set in init'
         filename = os.path.join(
             self.folder_name,
-            format_name_with_dist_and_time(self.filename, run_name=state.run_name, timestamp=state.timestamp))
+            format_name_with_dist_and_time(self.filename, run_name=state.run_name, timestamp=state.timestamp),
+        )
         try:
             snapshot_file = filename + '.pickle'
             trace_plot_file = filename + '.html'
@@ -177,13 +179,13 @@ class MemorySnapshot(Callback):
 
             if self.remote_path_in_bucket is not None:
                 for f in [snapshot_file, trace_plot_file]:
-                    remote_file_name = (self.remote_path_in_bucket + os.path.basename(f)).lstrip('/')
+                    remote_file_name = os.path.join(self.remote_path_in_bucket, os.path.basename(f)).lstrip('/')
                     log.info(f'Uploading memory snapshot to remote: {remote_file_name} from {f}')
                     try:
                         logger.upload_file(remote_file_name=remote_file_name, file_path=f, overwrite=self.overwrite)
                     except FileExistsError as e:
                         raise FileExistsError(
-                            f'Uploading memory snapshot failed with error: {e}. overwrite was set to {self.overwrite}. To overwrite memory snapshot with Trainer, set `overwrite` to True.'
+                            f'Uploading memory snapshot failed with error: {e}. overwrite was set to {self.overwrite}. To overwrite memory snapshot with Trainer, set `overwrite` to True.',
                         ) from e
         except Exception as e:
             log.error(f'Failed to capture memory snapshot {e}')

@@ -5,8 +5,14 @@ from collections import defaultdict
 from typing import Optional, Union
 
 import torch
-from torch.cuda.amp.grad_scaler import GradScaler, OptState, _refresh_per_optimizer_state
+from packaging import version
+from torch.cuda.amp.grad_scaler import GradScaler, OptState
 from torch.optim import Optimizer
+
+if version.parse(torch.__version__) >= version.parse('2.3.0'):
+    from torch.amp.grad_scaler import _refresh_per_optimizer_state  # type: ignore
+else:
+    from torch.cuda.amp.grad_scaler import _refresh_per_optimizer_state  # type: ignore
 
 from composer.utils import dist
 
@@ -78,7 +84,7 @@ class ClosureGradScaler(GradScaler):
         return optimizer.step(closure=_amp_closure)  # type: ignore
 
     # Mostly copied from original grad_scaler implementation
-    # See: https://pytorch.org/docs/stable/_modules/torch/cuda/amp/grad_scaler.html#GradScaler
+    # See: https://pytorch.org/docs/stable/_modules/torch/amp/grad_scaler.html#GradScaler
     def update(self, new_scale: Optional[Union[float, torch.FloatTensor]] = None):
         """Updates the scale factor.
 
@@ -133,8 +139,14 @@ class ClosureGradScaler(GradScaler):
             # This is the only line changed from original grad_scaler implementation
             dist.all_reduce(found_inf_combined, reduce_operation='SUM')
 
-            torch._amp_update_scale_(_scale, _growth_tracker, found_inf_combined, self._growth_factor,
-                                     self._backoff_factor, self._growth_interval)
+            torch._amp_update_scale_(
+                _scale,
+                _growth_tracker,
+                found_inf_combined,
+                self._growth_factor,
+                self._backoff_factor,
+                self._growth_interval,
+            )
 
         # To prepare for next iteration, clear the data collected from optimizers this iteration.
         self._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)

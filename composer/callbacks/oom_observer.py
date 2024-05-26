@@ -2,17 +2,20 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Generate a memory snapshot during an OutOfMemory exception."""
+from __future__ import annotations
 
+import dataclasses
 import logging
 import os
 import pickle
 import warnings
-from typing import Optional
+from dataclasses import dataclass
+from pathlib import Path
+from typing import List, Optional
 
 import torch.cuda
 from packaging import version
 
-from composer import State
 from composer.core import Callback, State
 from composer.loggers import Logger
 from composer.utils import ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time, parse_uri
@@ -20,6 +23,29 @@ from composer.utils import ensure_folder_is_empty, format_name_with_dist, format
 log = logging.getLogger(__name__)
 
 __all__ = ['OOMObserver']
+
+
+@dataclass(frozen=True)
+class SnapshotFileNameConfig:
+    """Configuration for the file names of the memory snapshot visualizations."""
+    snapshot_file: str
+    trace_plot_file: str
+    segment_plot_file: str
+    segment_flamegraph_file: str
+    memory_flamegraph_file: str
+
+    @classmethod
+    def from_file_name(cls, filename: str) -> 'SnapshotFileNameConfig':
+        return cls(
+            snapshot_file=filename + '_snapshot.pickle',
+            trace_plot_file=filename + '_trace_plot.html',
+            segment_plot_file=filename + '_segment_plot.html',
+            segment_flamegraph_file=filename + '_segment_flamegraph.svg',
+            memory_flamegraph_file=filename + '_memory_flamegraph.svg',
+        )
+
+    def list_filenames(self) -> List[str]:
+        return [getattr(self, field.name) for field in dataclasses.fields(self)]
 
 
 class OOMObserver(Callback):
@@ -94,6 +120,8 @@ class OOMObserver(Callback):
             self._enabled = False
             warnings.warn('OOMObserver is supported after PyTorch 2.1.0. Disabling OOMObserver callback.')
 
+        self.filename_config: Optional[SnapshotFileNameConfig] = None
+
     def init(self, state: State, logger: Logger) -> None:
         if not self._enabled:
             return
@@ -102,7 +130,7 @@ class OOMObserver(Callback):
 
         if model_device.type not in ('cuda', 'meta'):
             warnings.warn(
-                f'OOMObserver only works on CUDA devices, but the model is on {model_device.type}. Disabling OOMObserver.'
+                f'OOMObserver only works on CUDA devices, but the model is on {model_device.type}. Disabling OOMObserver.',
             )
             self._enabled = False
         else:
@@ -117,16 +145,12 @@ class OOMObserver(Callback):
 
             assert self.filename
             assert self.folder_name, 'folder_name must be set in init'
-            filename = os.path.join(
-                self.folder_name,
-                format_name_with_dist_and_time(self.filename, run_name=state.run_name, timestamp=state.timestamp))
+            filename = Path(self.folder_name) / Path(
+                format_name_with_dist_and_time(self.filename, run_name=state.run_name, timestamp=state.timestamp),
+            )
 
             try:
-                snapshot_file = filename + '_snapshot.pickle'
-                trace_plot_file = filename + '_trace_plot.html'
-                segment_plot_file = filename + '_segment_plot.html'
-                segment_flamegraph_file = filename + '_segment_flamegraph.svg'
-                memory_flamegraph_file = filename + '_memory_flamegraph.svg'
+                self.filename_config = SnapshotFileNameConfig.from_file_name(str(filename))
                 log.info(f'Dumping OOMObserver visualizations')
 
                 snapshot = torch.cuda.memory._snapshot()
@@ -135,28 +159,25 @@ class OOMObserver(Callback):
                     log.info(f'No allocation is recorded in memory snapshot)')
                     return
 
-                with open(snapshot_file, 'wb') as fd:
+                with open(self.filename_config.snapshot_file, 'wb') as fd:
                     pickle.dump(snapshot, fd)
 
-                with open(trace_plot_file, 'w+') as fd:
+                with open(self.filename_config.trace_plot_file, 'w+') as fd:
                     fd.write(torch.cuda._memory_viz.trace_plot(snapshot))  # type: ignore
 
-                with open(segment_plot_file, 'w+') as fd:
+                with open(self.filename_config.segment_plot_file, 'w+') as fd:
                     fd.write(torch.cuda._memory_viz.segment_plot(snapshot))  # type: ignore
 
-                with open(segment_flamegraph_file, 'w+') as fd:
+                with open(self.filename_config.segment_flamegraph_file, 'w+') as fd:
                     fd.write(torch.cuda._memory_viz.segments(snapshot))  # type: ignore
 
-                with open(memory_flamegraph_file, 'w+') as fd:
+                with open(self.filename_config.memory_flamegraph_file, 'w+') as fd:
                     fd.write(torch.cuda._memory_viz.memory(snapshot))  # type: ignore
 
                 log.info(f'Saved memory visualizations to local files with prefix = {filename} during OOM')
 
                 if self.remote_path_in_bucket is not None:
-                    for f in [
-                            snapshot_file, trace_plot_file, segment_plot_file, segment_flamegraph_file,
-                            memory_flamegraph_file
-                    ]:
+                    for f in self.filename_config.list_filenames():
                         base_file_name = os.path.basename(f)
                         remote_file_name = os.path.join(self.remote_path_in_bucket, base_file_name)
                         remote_file_name = remote_file_name.lstrip('/')  # remove leading slashes
@@ -165,7 +186,7 @@ class OOMObserver(Callback):
                             logger.upload_file(remote_file_name=remote_file_name, file_path=f, overwrite=self.overwrite)
                         except FileExistsError as e:
                             raise FileExistsError(
-                                f'Uploading memory visualizations failed with error: {e}. overwrite was set to {self.overwrite}. To overwrite memory visualizations with Trainer, set save_overwrite to True.'
+                                f'Uploading memory visualizations failed with error: {e}. overwrite was set to {self.overwrite}. To overwrite memory visualizations with Trainer, set save_overwrite to True.',
                             ) from e
 
             except Exception as e:
@@ -175,6 +196,7 @@ class OOMObserver(Callback):
             torch.cuda.memory._record_memory_history(
                 True,  # type: ignore
                 trace_alloc_max_entries=self.max_entries,
-                trace_alloc_record_context=True)
+                trace_alloc_record_context=True,
+            )
             torch._C._cuda_attach_out_of_memory_observer(oom_observer)  # type: ignore
             log.info('OOMObserver is enabled and registered')

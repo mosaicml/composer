@@ -19,13 +19,36 @@ from __future__ import annotations
 
 import datetime
 import re
-import warnings
 from typing import Any, Dict, Generic, Optional, TypeVar, Union, cast
 
 from composer.core.serializable import Serializable
 from composer.utils import StringEnum
 
 __all__ = ['TimeUnit', 'Time', 'Timestamp', 'ensure_time']
+
+
+def verify_wct(timestamp: str) -> str:
+    """Return a valid datetime formated wct timestamp if input is a valid wct.
+
+    Args:
+        timestamp (str): A string that represents a timestamp in wct.
+
+    Returns:
+        str: a properly formatted datetime if input is valid else None
+    """
+    if 'h' not in timestamp:
+        timestamp = '0h' + timestamp
+    if 'm' not in timestamp:
+        timestamp = timestamp.replace('h', 'h0m')
+    if 's' not in timestamp:
+        timestamp = timestamp + '0s'
+
+    pattern = r'^(\d+h)?(\d+m)?(\d+s)?$'
+    match = re.match(pattern, timestamp)
+    if bool(match):
+        return timestamp
+    else:
+        raise ValueError(f'{timestamp} was passed in, which does not fit XXhYYmZZs formatting')
 
 
 class TimeUnit(StringEnum):
@@ -45,11 +68,14 @@ class TimeUnit(StringEnum):
     SAMPLE = 'sp'
     TOKEN = 'tok'
     DURATION = 'dur'
+    SECOND = 'sec'
 
 
 # regex for parsing time string, matches timeunit and chars prior to unit as value
-_TIME_STR_REGEX = re.compile(r'^(.+)(' + r'|'.join([fr'{time_unit.value}' for time_unit in TimeUnit]) + r')$',
-                             flags=re.IGNORECASE)
+_TIME_STR_REGEX = re.compile(
+    r'^(.+)(' + r'|'.join([fr'{time_unit.value}' for time_unit in TimeUnit]) + r')$',
+    flags=re.IGNORECASE,
+)
 
 TValue = TypeVar('TValue', int, float)
 
@@ -211,6 +237,25 @@ class Time(Generic[TValue], Serializable):
         """
         return cls(duration, TimeUnit.DURATION)
 
+    @classmethod
+    def from_timedelta(cls, timestring: str) -> Time:
+        """Create a :class:`Time` with units of :attr:`TimeUnit.SECOND`.
+
+        Equivalent to ``Time(batch, TimeUnit.SECOND)``.
+
+        Args:
+            timestring (int): timedelta string in _h_m_s.
+
+        Returns:
+            Time: :class:`Time` instance, in seconds.
+        """
+        # Convert timestring to be strptime parsable
+        verified_wct = verify_wct(timestring)
+        time_struct = datetime.datetime.strptime(verified_wct, '%Hh%Mm%Ss')
+        delta = datetime.timedelta(hours=time_struct.hour, minutes=time_struct.minute, seconds=time_struct.second)
+        total_seconds = delta.total_seconds()
+        return cls(int(total_seconds), TimeUnit.SECOND)
+
     @property
     def value(self) -> TValue:
         """The value of the time, as a number."""
@@ -343,9 +388,11 @@ class Time(Generic[TValue], Serializable):
         return hash((self.value, self.unit))
 
     @classmethod
-    def from_input(cls,
-                   i: Union[str, int, float, 'Time'],
-                   default_int_unit: Optional[Union[TimeUnit, str]] = None) -> Time:
+    def from_input(
+        cls,
+        i: Union[str, int, float, 'Time'],
+        default_int_unit: Optional[Union[TimeUnit, str]] = None,
+    ) -> Time:
         """Parse a time input into a :class:`Time` instance.
 
         Args:
@@ -389,6 +436,12 @@ class Time(Generic[TValue], Serializable):
         Returns:
             Time: An instance of :class:`Time`.
         """
+        # Handle TimeDelta matching first
+        try:
+            return Time.from_timedelta(timestring)
+        except ValueError:
+            pass
+
         match = _TIME_STR_REGEX.findall(timestring)
         if len(match) != 1:
             raise ValueError(f'Invalid time string: {timestring}')
@@ -472,26 +525,34 @@ class Timestamp(Serializable):
 
         epoch_in_iteration = Time.from_input(epoch_in_iteration, TimeUnit.EPOCH)
         if epoch_in_iteration.unit != TimeUnit.EPOCH:
-            raise ValueError((f'The `epoch_in_iteration` argument has units of {epoch_in_iteration.unit}; '
-                              f'not {TimeUnit.EPOCH}.'))
+            raise ValueError((
+                f'The `epoch_in_iteration` argument has units of {epoch_in_iteration.unit}; '
+                f'not {TimeUnit.EPOCH}.'
+            ))
         self._epoch_in_iteration = epoch_in_iteration
 
         batch_in_epoch = Time.from_input(batch_in_epoch, TimeUnit.BATCH)
         if batch_in_epoch.unit != TimeUnit.BATCH:
-            raise ValueError((f'The `batch_in_epoch` argument has units of {batch_in_epoch.unit}; '
-                              f'not {TimeUnit.BATCH}.'))
+            raise ValueError(
+                (f'The `batch_in_epoch` argument has units of {batch_in_epoch.unit}; '
+                 f'not {TimeUnit.BATCH}.'),
+            )
         self._batch_in_epoch = batch_in_epoch
 
         sample_in_epoch = Time.from_input(sample_in_epoch, TimeUnit.SAMPLE)
         if sample_in_epoch.unit != TimeUnit.SAMPLE:
-            raise ValueError((f'The `sample_in_epoch` argument has units of {sample_in_epoch.unit}; '
-                              f'not {TimeUnit.SAMPLE}.'))
+            raise ValueError(
+                (f'The `sample_in_epoch` argument has units of {sample_in_epoch.unit}; '
+                 f'not {TimeUnit.SAMPLE}.'),
+            )
         self._sample_in_epoch = sample_in_epoch
 
         token_in_epoch = Time.from_input(token_in_epoch, TimeUnit.TOKEN)
         if token_in_epoch.unit != TimeUnit.TOKEN:
-            raise ValueError((f'The `token_in_epoch` argument has units of {token_in_epoch.unit}; '
-                              f'not {TimeUnit.TOKEN}.'))
+            raise ValueError(
+                (f'The `token_in_epoch` argument has units of {token_in_epoch.unit}; '
+                 f'not {TimeUnit.TOKEN}.'),
+            )
         self._token_in_epoch = token_in_epoch
 
         if total_wct is None:
@@ -526,15 +587,6 @@ class Timestamp(Serializable):
             'epoch_wct': self.epoch_wct,
             'batch_wct': self.batch_wct,
         }
-
-    def get_state(self) -> Dict[str, Union[Time[int], datetime.timedelta]]:
-        """Returns all values of the timestamp object in a dictionary.
-
-        Returns:
-            Dict[str, Union[Time[int], datetime.timedelta]]: All values of the timestamp object.
-        """
-        warnings.warn('core.time.Timestamp.get_state is deprecated and will be removed v0.21.0', DeprecationWarning)
-        return self.state_dict()
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
         self._epoch = Time(state['epoch'], TimeUnit.EPOCH)
@@ -645,6 +697,8 @@ class Timestamp(Serializable):
             return self.sample
         if unit == TimeUnit.TOKEN:
             return self.token
+        if unit == TimeUnit.SECOND:
+            return Time(int(self._total_wct.total_seconds()) if self._total_wct else 0, TimeUnit.SECOND)
         raise ValueError(f'Invalid unit: {unit}')
 
     def _parse(self, other: Union[int, float, Time, str]) -> Time:
@@ -913,21 +967,23 @@ class Timestamp(Serializable):
         )
 
     def __repr__(self) -> str:
-        return (f'Timestamp('
-                f'iteration={int(self.iteration)}, '
-                f'epoch={int(self.epoch)}, '
-                f'batch={int(self.batch)}, '
-                f'sample={int(self.sample)}, '
-                f'token={int(self.token)}, '
-                f'epoch_in_iteration={int(self.epoch_in_iteration)}, '
-                f'batch_in_epoch={int(self.batch_in_epoch)}, '
-                f'sample_in_epoch={int(self.sample_in_epoch)}, '
-                f'token_in_epoch={int(self.token_in_epoch)}, '
-                f'total_wct={repr(self.total_wct)}, '
-                f'iteration_wct={repr(self.iteration_wct)}, '
-                f'epoch_wct={repr(self.epoch_wct)}, '
-                f'batch_wct={repr(self.batch_wct)}'
-                ')')
+        return (
+            f'Timestamp('
+            f'iteration={int(self.iteration)}, '
+            f'epoch={int(self.epoch)}, '
+            f'batch={int(self.batch)}, '
+            f'sample={int(self.sample)}, '
+            f'token={int(self.token)}, '
+            f'epoch_in_iteration={int(self.epoch_in_iteration)}, '
+            f'batch_in_epoch={int(self.batch_in_epoch)}, '
+            f'sample_in_epoch={int(self.sample_in_epoch)}, '
+            f'token_in_epoch={int(self.token_in_epoch)}, '
+            f'total_wct={repr(self.total_wct)}, '
+            f'iteration_wct={repr(self.iteration_wct)}, '
+            f'epoch_wct={repr(self.epoch_wct)}, '
+            f'batch_wct={repr(self.batch_wct)}'
+            ')'
+        )
 
 
 def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str]) -> Time:
@@ -940,4 +996,5 @@ def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str
     Returns:
         Time: An instance of :class:`.Time`.
     """
-    return Time.from_input(maybe_time, int_unit)
+    time_obj = Time.from_input(maybe_time, int_unit)
+    return time_obj

@@ -79,7 +79,8 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
     if notebook_name == 'finetune_huggingface':
         cell_source = cell_source.replace(
             'sst2_dataset = datasets.load_dataset("glue", "sst2")',
-            'sst2_dataset = datasets.load_dataset("glue", "sst2", download_mode="force_redownload")')
+            'sst2_dataset = datasets.load_dataset("glue", "sst2", download_mode="force_redownload")',
+        )
         cell_source = cell_source.replace('batch_size=16', 'batch_size=2')
     if notebook_name == 'pretrain_finetune_huggingface':
         cell_source = cell_source.replace('batch_size=64', 'batch_size=1')
@@ -124,11 +125,16 @@ def test_notebook(notebook: str, device: str, s3_bucket: str):
         pytest.skip('CIFAR10 download is flaky')
     if notebook_name == 'finetune_huggingface':
         pytest.skip(
-            "Error that is unreproducible locally: ModuleNotFoundError: No module named 'transformers.models.ernie_m.configuration_ernie_m'"
+            "Error that is unreproducible locally: ModuleNotFoundError: No module named 'transformers.models.ernie_m.configuration_ernie_m'",
         )
     if notebook_name == 'pretrain_finetune_huggingface':
         pytest.skip(
-            "Error that is unreproducible locally: No module named 'transformers.models.mega.configuration_mega'")
+            "Error that is unreproducible locally: No module named 'transformers.models.mega.configuration_mega'",
+        )
+    if notebook_name == 'checkpoint_autoresume':
+        pytest.skip('MNIST dataset download is flaky')
+    if notebook_name == 'exporting_for_inference':
+        pytest.skip('MNIST dataset download is flaky')
 
     try:
         import boto3
@@ -153,8 +159,10 @@ def test_notebook(notebook: str, device: str, s3_bucket: str):
         for i, cell in enumerate(tb.cells):
             if cell['cell_type'] != 'code':
                 continue
-            cell['source'] = modify_cell_source(tb,
-                                                notebook_name=notebook_name,
-                                                cell_source=cell['source'],
-                                                s3_bucket=s3_bucket)
+            cell['source'] = modify_cell_source(
+                tb,
+                notebook_name=notebook_name,
+                cell_source=cell['source'],
+                s3_bucket=s3_bucket,
+            )
             tb.execute_cell(i)

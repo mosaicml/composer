@@ -13,6 +13,7 @@ import torch
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
+from composer.trainer._scaler import ClosureGradScaler
 from composer.utils import ensure_tuple
 
 log = logging.getLogger(__name__)
@@ -35,12 +36,14 @@ class SAMOptimizer(torch.optim.Optimizer):
             roughly twice as much time to complete. Default: ``1``.
     """
 
-    def __init__(self,
-                 base_optimizer: torch.optim.Optimizer,
-                 rho: float = 0.05,
-                 epsilon: float = 1.0e-12,
-                 interval: int = 1,
-                 **kwargs):
+    def __init__(
+        self,
+        base_optimizer: torch.optim.Optimizer,
+        rho: float = 0.05,
+        epsilon: float = 1.0e-12,
+        interval: int = 1,
+        **kwargs,
+    ):
         if rho < 0:
             raise ValueError(f'Invalid rho, should be non-negative: {rho}')
         self.base_optimizer = base_optimizer
@@ -105,9 +108,12 @@ class SAMOptimizer(torch.optim.Optimizer):
         return loss
 
     def _grad_norm(self):
-        norm = torch.norm(torch.stack(
-            [p.grad.norm(p=2) for group in self.param_groups for p in group['params'] if p.grad is not None]),
-                          p='fro')
+        norm = torch.norm(
+            torch.stack([
+                p.grad.norm(p=2) for group in self.param_groups for p in group['params'] if p.grad is not None
+            ]),
+            p='fro',
+        )
         return norm
 
 
@@ -116,7 +122,7 @@ class SAM(Algorithm):
     by wrapping an existing optimizer with a :class:`.SAMOptimizer`. SAM can improve model generalization
     and provide robustness to label noise.
 
-    Runs on :attr:`.Event.INIT`.
+    Runs on :attr:`.Event.AFTER_LOAD`.
 
     Args:
         rho (float, optional): The neighborhood size parameter of SAM. Must be greater than 0.
@@ -149,14 +155,14 @@ class SAM(Algorithm):
         interval: int = 1,
     ):
         warnings.warn(
-            'SAM has known issues of weight mismatch when loading from a checkpoint, which will cause an error when resuming without `load_weights_only=True`.'
+            'SAM has known issues of weight mismatch when loading from a checkpoint, which will cause an error when resuming without `load_weights_only=True`.',
         )
         self.rho = rho
         self.epsilon = epsilon
         self.interval = interval
 
     def match(self, event: Event, state: State) -> bool:
-        return event == Event.INIT
+        return event == Event.AFTER_LOAD
 
     def apply(self, event: Event, state: State, logger: Optional[Logger]) -> Optional[int]:
         assert state.optimizers is not None
@@ -167,4 +173,8 @@ class SAM(Algorithm):
                 rho=self.rho,
                 epsilon=self.epsilon,
                 interval=self.interval,
-            ) for optimizer in ensure_tuple(state.optimizers))
+            ) for optimizer in ensure_tuple(state.optimizers)
+        )
+
+        # Switch to ClosureGradScaler as SAM supports and requires it
+        state.scaler = ClosureGradScaler()

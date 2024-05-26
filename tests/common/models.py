@@ -113,6 +113,33 @@ class SimpleMLP(torch.nn.Module):
         return self.net(x)
 
 
+# We use this Module to test state dict generation because fc1 and fc2
+# are not submodules of EvenSimplerMLP, like they are in SimpleMLP.
+class EvenSimplerMLP(torch.nn.Module):
+
+    def __init__(self, num_features: int, device: str):
+        super().__init__()
+        fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+
+        self.module = torch.nn.Sequential(fc1, torch.nn.ReLU(), fc2)
+
+    def forward(self, x):
+        return self.module(x)
+
+
+# This model is used when you want a SimpleMLP, but you want to explicitly
+# test ComposerModels instead of nn.Module.
+class SimpleComposerMLP(ComposerClassifier):
+
+    def __init__(self, num_features: int, device: str, num_classes: int = 3):
+        fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+
+        net = torch.nn.Sequential(fc1, torch.nn.ReLU(), fc2)
+        super().__init__(num_classes=num_classes, module=net)
+
+
 class SimpleWeightTiedModel(ComposerClassifier):
     """Small classification model with tied weights.
     Typically this model will be used to test weight tying w/ FSDP
@@ -196,11 +223,13 @@ class SimpleConvModel(ComposerClassifier):
         num_classes (int): number of classes (default: 2)
     """
 
-    def __init__(self,
-                 num_channels: int = 3,
-                 num_classes: int = 2,
-                 norm: Optional[str] = None,
-                 norm_affine: bool = True) -> None:
+    def __init__(
+        self,
+        num_channels: int = 3,
+        num_classes: int = 2,
+        norm: Optional[str] = None,
+        norm_affine: bool = True,
+    ) -> None:
 
         self.num_classes = num_classes
         self.num_channels = num_channels
@@ -288,10 +317,12 @@ class SimpleTransformerBase(torch.nn.Module):
         # necessary to make the model scriptable
         layer.__constants__ = []
 
-        transformer = torch.nn.TransformerEncoder(layer,
-                                                  num_layers=2,
-                                                  norm=torch.nn.LayerNorm(d_model),
-                                                  enable_nested_tensor=False)
+        transformer = torch.nn.TransformerEncoder(
+            layer,
+            num_layers=2,
+            norm=torch.nn.LayerNorm(d_model),
+            enable_nested_tensor=False,
+        )
 
         # necessary to make the model scriptable
         transformer.__constants__ = []
@@ -321,8 +352,13 @@ class SimpleTransformerMaskedLM(ComposerClassifier):
         self.transformer_base = transformer_base
         self.lm_head = lm_head
 
-    def loss(self, outputs: torch.Tensor, batch: Union[Tuple[Any, torch.Tensor], Dict[str, Any]], *args,
-             **kwargs) -> torch.Tensor:
+    def loss(
+        self,
+        outputs: torch.Tensor,
+        batch: Union[Tuple[Any, torch.Tensor], Dict[str, Any]],
+        *args,
+        **kwargs,
+    ) -> torch.Tensor:
         if isinstance(batch, tuple):
             _, targets = batch
         else:
@@ -369,8 +405,13 @@ class ConvModel(ComposerClassifier):
     def __init__(self):
         conv_args = {'kernel_size': (3, 3), 'padding': 1}
         conv1 = torch.nn.Conv2d(in_channels=32, out_channels=8, stride=2, bias=False, **conv_args)  # stride > 1
-        conv2 = torch.nn.Conv2d(in_channels=8, out_channels=32, stride=2, bias=False,
-                                **conv_args)  # stride > 1 but in_channels < 16
+        conv2 = torch.nn.Conv2d(
+            in_channels=8,
+            out_channels=32,
+            stride=2,
+            bias=False,
+            **conv_args,
+        )  # stride > 1 but in_channels < 16
         conv3 = torch.nn.Conv2d(in_channels=32, out_channels=64, stride=1, bias=False, **conv_args)  # stride = 1
         bn = torch.nn.BatchNorm2d(num_features=64)
         pool1 = torch.nn.MaxPool2d(kernel_size=(2, 2), stride=2, padding=1)
@@ -475,8 +516,10 @@ def composer_resnet(
         raise ValueError(f'model_name must be one of {valid_model_names} instead of {model_name}.')
 
     if loss_name not in loss_registry.keys():
-        raise ValueError(f'Unrecognized loss function: {loss_name}. Please ensure the '
-                         'specified loss function is present in composer.loss.loss.py')
+        raise ValueError(
+            f'Unrecognized loss function: {loss_name}. Please ensure the '
+            'specified loss function is present in composer.loss.loss.py',
+        )
 
     if initializers is None:
         initializers = []
@@ -635,32 +678,32 @@ def configure_tiny_t5_hf_model(use_logits: bool = True) -> HuggingFaceModel:
     return HuggingFaceModel(configure_tiny_t5_model(), configure_tiny_t5_tokenizer(), use_logits)
 
 
-def configure_tiny_mistral_model() -> 'PreTrainedModel':
+def configure_tiny_mpt_model() -> 'PreTrainedModel':
     try:
         from transformers import PreTrainedModel
-        assert isinstance(pytest.tiny_mistral_model, PreTrainedModel)
-        return copy.deepcopy(pytest.tiny_mistral_model)
+        assert isinstance(pytest.tiny_mpt_model, PreTrainedModel)
+        return copy.deepcopy(pytest.tiny_mpt_model)
     except AttributeError:
         pytest.skip('Composer installed without NLP support')
 
 
-def configure_tiny_mistral_tokenizer() -> Union['PreTrainedTokenizer', 'PreTrainedTokenizerFast']:
+def configure_tiny_mpt_tokenizer() -> Union['PreTrainedTokenizer', 'PreTrainedTokenizerFast']:
     try:
         from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
-        assert isinstance(pytest.tiny_mistral_tokenizer, (PreTrainedTokenizer, PreTrainedTokenizerFast))
-        return copy.deepcopy(pytest.tiny_mistral_tokenizer)
+        assert isinstance(pytest.tiny_mpt_tokenizer, (PreTrainedTokenizer, PreTrainedTokenizerFast))
+        return copy.deepcopy(pytest.tiny_mpt_tokenizer)
     except AttributeError:
         pytest.skip('Composer installed without NLP support')
 
 
-def configure_tiny_mistral_config() -> 'PretrainedConfig':
+def configure_tiny_mpt_config() -> 'PretrainedConfig':
     try:
         from transformers import PretrainedConfig
-        assert isinstance(pytest.tiny_mistral_config, PretrainedConfig)
-        return copy.deepcopy(pytest.tiny_mistral_config)
+        assert isinstance(pytest.tiny_mpt_config, PretrainedConfig)
+        return copy.deepcopy(pytest.tiny_mpt_config)
     except AttributeError:
         pytest.skip('Composer installed without NLP support')
 
 
-def configure_tiny_mistral_hf_model(use_logits: bool = True) -> HuggingFaceModel:
-    return HuggingFaceModel(configure_tiny_mistral_model(), configure_tiny_mistral_tokenizer(), use_logits)
+def configure_tiny_mpt_hf_model(use_logits: bool = True) -> HuggingFaceModel:
+    return HuggingFaceModel(configure_tiny_mpt_model(), configure_tiny_mpt_tokenizer(), use_logits)

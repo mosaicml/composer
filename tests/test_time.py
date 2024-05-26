@@ -8,31 +8,39 @@ import pytest
 from composer.core.time import Time, Timestamp, TimeUnit
 
 
-@pytest.mark.parametrize('time_string,expected_value,expected_unit', [
-    ['2iter', 2, TimeUnit.ITERATION],
-    ['1ep', 1, TimeUnit.EPOCH],
-    ['2ba', 2, TimeUnit.BATCH],
-    ['3e10sp', 3 * 10**10, TimeUnit.SAMPLE],
-    ['3_0e10sp', 30 * 10**10, TimeUnit.SAMPLE],
-    ['4tok', 4, TimeUnit.TOKEN],
-    ['4_000tok', 4000, TimeUnit.TOKEN],
-    ['4_00_0tok', 4000, TimeUnit.TOKEN],
-    ['0.5dur', 0.5, TimeUnit.DURATION],
-])
+@pytest.mark.parametrize(
+    'time_string,expected_value,expected_unit',
+    [
+        ['2iter', 2, TimeUnit.ITERATION],
+        ['1ep', 1, TimeUnit.EPOCH],
+        ['2ba', 2, TimeUnit.BATCH],
+        ['3e10sp', 3 * 10**10, TimeUnit.SAMPLE],
+        ['3_0e10sp', 30 * 10**10, TimeUnit.SAMPLE],
+        ['4tok', 4, TimeUnit.TOKEN],
+        ['4_000tok', 4000, TimeUnit.TOKEN],
+        ['4_00_0tok', 4000, TimeUnit.TOKEN],
+        ['0.5dur', 0.5, TimeUnit.DURATION],
+        ['1h20m40s', 4840, TimeUnit.SECOND],
+    ],
+)
 def test_time_parse(time_string: str, expected_value: int, expected_unit: TimeUnit):
     time = Time.from_timestring(time_string)
     assert time.value == expected_value
     assert time.unit == expected_unit
 
 
-@pytest.mark.parametrize('expected_timestring,time', [
-    ['2iter', Time(2, TimeUnit.ITERATION)],
-    ['1ep', Time(1, TimeUnit.EPOCH)],
-    ['2ba', Time(2, TimeUnit.BATCH)],
-    ['3sp', Time(3, TimeUnit.SAMPLE)],
-    ['4tok', Time(4, TimeUnit.TOKEN)],
-    ['0.5dur', Time(0.5, TimeUnit.DURATION)],
-])
+@pytest.mark.parametrize(
+    'expected_timestring,time',
+    [
+        ['2iter', Time(2, TimeUnit.ITERATION)],
+        ['1ep', Time(1, TimeUnit.EPOCH)],
+        ['2ba', Time(2, TimeUnit.BATCH)],
+        ['3sp', Time(3, TimeUnit.SAMPLE)],
+        ['4tok', Time(4, TimeUnit.TOKEN)],
+        ['0.5dur', Time(0.5, TimeUnit.DURATION)],
+        ['6sec', Time(6, TimeUnit.SECOND)],
+    ],
+)
 def test_to_timestring(expected_timestring: str, time: Time):
     assert time.to_timestring() == expected_timestring
 
@@ -248,12 +256,12 @@ def test_timestamp_repr():
     assert timestamp == eval(repr(timestamp))
 
 
-@pytest.mark.parametrize('time_string', ['1.1iter', '1.5ep', '2.1ba', '3.2sp', '3.4tok'])
+@pytest.mark.parametrize('time_string', ['1.1iter', '1.5ep', '2.1ba', '3.2sp', '3.4tok', '0.1sec'])
 def test_timestep_bad_strings(time_string: str):
     with pytest.raises(TypeError):
         Time.from_timestring(time_string)
 
 
-@pytest.mark.parametrize('time_string', ['0.5dur', '1.0iter', '2.0ep', '3.000ba', '030.0sp'])
+@pytest.mark.parametrize('time_string', ['0.5dur', '1.0iter', '2.0ep', '3.000ba', '030.0sp', '30sec'])
 def test_timestep_valid_strings(time_string: str):
     Time.from_timestring(time_string)

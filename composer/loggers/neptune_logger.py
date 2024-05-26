@@ -9,24 +9,30 @@ import os
 import pathlib
 import warnings
 from functools import partial
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Set, Union
+from importlib.metadata import version
+from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Sequence, Set, Union
 
 import numpy as np
 import torch
+from packaging.version import Version
 
 from composer._version import __version__
 from composer.loggers import LoggerDestination
-from composer.utils import MissingConditionalImportError, dist
+from composer.utils import MissingConditionalImportError, VersionedDeprecationWarning, dist
 
 if TYPE_CHECKING:
     from composer import Logger
     from composer.core import State
 
+NEPTUNE_MODE_TYPE = Literal['async', 'sync', 'offline', 'read-only', 'debug']
+NEPTUNE_VERSION_WITH_PROGRESS_BAR = Version('1.9.0')
+
 
 class NeptuneLogger(LoggerDestination):
     """Log to `neptune.ai <https://neptune.ai/>`_.
 
-    For more, see the [Neptune-Composer integration guide](https://docs.neptune.ai/integrations/composer/).
+    For instructions, see the
+    `integration guide <https://docs.neptune.ai/integrations/mosaicml_composer/>`_.
 
     Args:
         project (str, optional): The name of your Neptune project,
@@ -36,16 +42,15 @@ class NeptuneLogger(LoggerDestination):
             You can leave out this argument if you save your token to the
             ``NEPTUNE_API_TOKEN`` environment variable (recommended).
             You can find your API token in the user menu of the Neptune web app.
-        rank_zero_only (bool, optional): Whether to log only on the rank-zero process.
-            (default: ``True``).
-        upload_artifacts (bool, optional): Whether the logger should upload artifacts to Neptune.
+        rank_zero_only (bool): Whether to log only on the rank-zero process (default: ``True``).
+        upload_artifacts (bool, optional): Deprecated. See ``upload_checkpoints``.
+        upload_checkpoints (bool): Whether the logger should upload checkpoints to Neptune
             (default: ``False``).
-        base_namespace (str, optional): The name of the base namespace to log the metadata to.
-            (default: "training").
+        base_namespace (str, optional): The name of the base namespace where the metadata
+            is logged (default: "training").
         neptune_kwargs (Dict[str, Any], optional): Any additional keyword arguments to the
             ``neptune.init_run()`` function. For options, see the
-            `Run API reference <https://docs.neptune.ai/api/neptune/#init_run>`_ in the
-            Neptune docs.
+            `Run API reference <https://docs.neptune.ai/api/neptune/#init_run>`_.
     """
     metric_namespace = 'metrics'
     hyperparam_namespace = 'hyperparameters'
@@ -58,21 +63,26 @@ class NeptuneLogger(LoggerDestination):
         project: Optional[str] = None,
         api_token: Optional[str] = None,
         rank_zero_only: bool = True,
-        upload_artifacts: bool = False,
+        upload_artifacts: Optional[bool] = None,
+        upload_checkpoints: bool = False,
         base_namespace: str = 'training',
+        mode: Optional[NEPTUNE_MODE_TYPE] = None,
         **neptune_kwargs,
     ) -> None:
         try:
             from neptune.internal.utils import verify_type
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='neptune',
-                                                conda_package='neptune',
-                                                conda_channel='conda-forge') from e
+            raise MissingConditionalImportError(
+                extra_deps_group='neptune',
+                conda_package='neptune',
+                conda_channel='conda-forge',
+            ) from e
 
         verify_type('project', project, (str, type(None)))
         verify_type('api_token', api_token, (str, type(None)))
         verify_type('rank_zero_only', rank_zero_only, bool)
-        verify_type('upload_artifacts', upload_artifacts, bool)
+        verify_type('upload_artifacts', upload_artifacts, (bool, type(None)))
+        verify_type('upload_checkpoints', upload_checkpoints, bool)
         verify_type('base_namespace', base_namespace, str)
 
         if not base_namespace:
@@ -81,15 +91,19 @@ class NeptuneLogger(LoggerDestination):
         self._project = project
         self._api_token = api_token
         self._rank_zero_only = rank_zero_only
-        self._upload_artifacts = upload_artifacts
+
+        if upload_artifacts is not None:
+            _warn_about_deprecated_upload_artifacts()
+            self._upload_checkpoints = upload_artifacts
+        else:
+            self._upload_checkpoints = upload_checkpoints
+
         self._base_namespace = base_namespace
         self._neptune_kwargs = neptune_kwargs
 
-        mode = self._neptune_kwargs.pop('mode', 'async')
-
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
 
-        self._mode = mode if self._enabled else 'debug'
+        self._mode: Optional[NEPTUNE_MODE_TYPE] = mode if self._enabled else 'debug'
 
         self._neptune_run = None
         self._base_handler = None
@@ -102,17 +116,8 @@ class NeptuneLogger(LoggerDestination):
     def neptune_run(self):
         """Gets the Neptune run object from a NeptuneLogger instance.
 
-        You can log additional metadata to the run by accessing a path inside the run and assigning metadata to it
-        with "=" or [Neptune logging methods](https://docs.neptune.ai/logging/methods/).
-
-        Example:
-                from composer import Trainer
-                from composer.loggers import NeptuneLogger
-                neptune_logger = NeptuneLogger()
-                trainer = Trainer(loggers=neptune_logger, ...)
-                trainer.fit()
-                neptune_logger.neptune_run["some_metric"] = 1
-                trainer.close()
+        To log additional metadata to the run, access a path inside the run and assign metadata
+        with ``=`` or other `Neptune logging methods <https://docs.neptune.ai/logging/methods/>`_.
         """
         from neptune import Run
 
@@ -129,19 +134,10 @@ class NeptuneLogger(LoggerDestination):
     def base_handler(self):
         """Gets a handler for the base logging namespace.
 
-        Use the handler to log extra metadata to the run and organize it under the base namespace (default: "training").
-        You can operate on it like a run object: Access a path inside the handler and assign metadata to it with "=" or
-        other [Neptune logging methods](https://docs.neptune.ai/logging/methods/).
-
-        Example:
-                from composer import Trainer
-                from composer.loggers import NeptuneLogger
-                neptune_logger = NeptuneLogger()
-                trainer = Trainer(loggers=neptune_logger, ...)
-                trainer.fit()
-                neptune_logger.base_handler["some_metric"] = 1
-                trainer.close()
-            Result: The value `1` is organized under "training/some_metric" inside the run.
+        Use the handler to log extra metadata to the run and organize it under the base namespace
+        (default: "training"). You can operate on it like a run object: Access a path inside the
+        handler and assign metadata to it with ``=`` or other
+        `Neptune logging methods <https://docs.neptune.ai/logging/methods/>`_.
         """
         return self.neptune_run[self._base_namespace]
 
@@ -211,7 +207,7 @@ class NeptuneLogger(LoggerDestination):
 
     def can_upload_files(self) -> bool:
         """Whether the logger supports uploading files."""
-        return self._enabled and self._upload_artifacts
+        return self._enabled and self._upload_checkpoints
 
     def upload_file(
         self,
@@ -224,15 +220,24 @@ class NeptuneLogger(LoggerDestination):
         if not self.can_upload_files():
             return
 
+        if file_path.is_symlink() or file_path.suffix.lower() == '.symlink':
+            return  # skip symlinks
+
         neptune_path = f'{self._base_namespace}/{remote_file_name}'
         if self.neptune_run.exists(neptune_path) and not overwrite:
 
-            warnings.warn(f"The file '{neptune_path}' already exists and overwrite is set to False."
-                          'No action will be taken.')
+            warnings.warn(
+                f"The file '{neptune_path}' already exists and overwrite is set to False."
+                'No action will be taken.',
+            )
             return
 
         del state  # unused
-        self.base_handler[remote_file_name].upload(str(file_path))
+
+        from neptune.types import File
+
+        with open(str(file_path), 'rb') as fp:
+            self.base_handler[remote_file_name] = File.from_stream(fp, extension=file_path.suffix)
 
     def download_file(
         self,
@@ -241,24 +246,31 @@ class NeptuneLogger(LoggerDestination):
         overwrite: bool = False,
         progress_bar: bool = True,
     ):
-        del progress_bar  # not supported
 
         if not self._enabled:
             return
 
-        if os.path.exists(os.path.join(
+        if os.path.exists(
+            os.path.join(
                 destination,
                 remote_file_name,
-        )) and not overwrite:
-            warnings.warn(f"Destination '{destination}' already exists and overwrite is set to False."
-                          'No action will be taken.')
+            ),
+        ) and not overwrite:
+            warnings.warn(
+                f"Destination '{destination}' already exists and overwrite is set to False."
+                'No action will be taken.',
+            )
             return
 
         file_path = f'{self._base_namespace}/{remote_file_name}'
         if not self.neptune_run.exists(file_path):
             raise FileNotFoundError(f'File {file_path} not found')
 
-        self.base_handler[remote_file_name].download(destination=destination)
+        if _is_progress_bar_enabled():
+            self.base_handler[remote_file_name].download(destination=destination, progress_bar=progress_bar)
+        else:
+            del progress_bar
+            self.base_handler[remote_file_name].download(destination=destination)
 
     def log_images(
         self,
@@ -304,4 +316,42 @@ def _validate_image(img: Union[np.ndarray, torch.Tensor], channels_last: bool) -
     if not channels_last:
         img_numpy = np.moveaxis(img_numpy, 0, -1)
 
-    return img_numpy
+    return _validate_image_value_range(img_numpy)
+
+
+def _validate_image_value_range(img: np.ndarray) -> np.ndarray:
+    array_min = img.min()
+    array_max = img.max()
+
+    if (array_min >= 0 and 1 < array_max <= 255) or (array_min >= 0 and array_max <= 1):
+        return img
+
+    from neptune.common.warnings import NeptuneWarning, warn_once
+
+    warn_once(
+        'Image value range is not in the expected range of [0.0, 1.0] or [0, 255]. '
+        'This might be due to the presence of `transforms.Normalize` in the data pipeline. '
+        'Logged images may not display correctly in Neptune.',
+        exception=NeptuneWarning,
+    )
+
+    return _scale_image_to_0_255(img, array_min, array_max)
+
+
+def _scale_image_to_0_255(img: np.ndarray, array_min: Union[int, float], array_max: Union[int, float]) -> np.ndarray:
+    scaled_image = 255 * (img - array_min) / (array_max - array_min)
+    return scaled_image.astype(np.uint8)
+
+
+def _warn_about_deprecated_upload_artifacts() -> None:
+    warnings.warn(
+        VersionedDeprecationWarning(
+            'The \'upload_artifacts\' parameter is deprecated and will be removed in the next version. '
+            'Use the \'upload_checkpoints\' parameter instead.',
+            remove_version='0.23',
+        ),
+    )
+
+
+def _is_progress_bar_enabled() -> bool:
+    return Version(version('neptune')) >= NEPTUNE_VERSION_WITH_PROGRESS_BAR

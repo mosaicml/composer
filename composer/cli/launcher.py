@@ -14,16 +14,19 @@ import sys
 import tempfile
 import time
 import traceback
-import warnings
 from argparse import ArgumentParser
 from typing import Any, Dict, List, Union
 
 import psutil
 import torch
+from packaging import version
 
 import composer
-from composer.loggers.mosaicml_logger import (MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR, MOSAICML_LOG_DIR_ENV_VAR,
-                                              MOSAICML_PLATFORM_ENV_VAR)
+from composer.loggers.mosaicml_logger import (
+    MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR,
+    MOSAICML_LOG_DIR_ENV_VAR,
+    MOSAICML_PLATFORM_ENV_VAR,
+)
 from composer.utils import get_free_tcp_port
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
@@ -42,94 +45,133 @@ def _get_parser():
         '-n',
         '--nproc',
         type=int,
-        help=('The number of processes to launch on this node. Overrides env var `LOCAL_WORLD_SIZE` if specified; '
-              'otherwise, defaults to `max(1, torch.cuda.device_count())`.'),
+        help=(
+            'The number of processes to launch on this node. Overrides env var `LOCAL_WORLD_SIZE` if specified; '
+            'otherwise, defaults to `max(1, torch.cuda.device_count())`.'
+        ),
     )
 
     parser.add_argument(
         '--stdout',
         type=str,
         default=None,
-        help=('Format string for a filename to dump the STDOUT from the non-local-rank-zero processes. '
-              'The local rank zero process will be piped through to STDOUT. The available format variables are: '
-              "'{rank}', '{local_rank}', '{world_size}', '{node_rank}', and '{local_world_size}'. If specified, "
-              "it is recommended to include '{rank}' or '{local_rank}' in the filename so each rank will write to its "
-              'own file. By default, the STDOUT of the non-local-rank-zero processes is discarded; instead, use the '
-              'FileLogger within Composer. This logger captures and saves the STDOUT of each process.'),
+        help=(
+            'Format string for a filename to dump the STDOUT from the non-local-rank-zero processes. '
+            'The local rank zero process will be piped through to STDOUT. The available format variables are: '
+            "'{rank}', '{local_rank}', '{world_size}', '{node_rank}', and '{local_world_size}'. If specified, "
+            "it is recommended to include '{rank}' or '{local_rank}' in the filename so each rank will write to its "
+            'own file. By default, the STDOUT of the non-local-rank-zero processes is discarded; instead, use the '
+            'FileLogger within Composer. This logger captures and saves the STDOUT of each process.'
+        ),
     )
     parser.add_argument(
         '--stderr',
         type=str,
         default=None,
-        help=('Format string for a filename to dump the STDERR from the non-local-rank-zero processes. '
-              'The local rank zero process will be piped through to STDERR. The available format variables are: '
-              "'{rank}', '{local_rank}', '{world_size}', '{node_rank}', and '{local_world_size}'. If specified, "
-              "it is recommended to include '{rank}' or '{local_rank}' in the filename so each rank will write to its "
-              'own file. By default, the STDERR of the non-local-rank-zero processes is discarded; instead, use the '
-              'FileLogger within Composer. This logger captures and saves the STDERR of each process.'),
+        help=(
+            'Format string for a filename to dump the STDERR from the non-local-rank-zero processes. '
+            'The local rank zero process will be piped through to STDERR. The available format variables are: '
+            "'{rank}', '{local_rank}', '{world_size}', '{node_rank}', and '{local_world_size}'. If specified, "
+            "it is recommended to include '{rank}' or '{local_rank}' in the filename so each rank will write to its "
+            'own file. By default, the STDERR of the non-local-rank-zero processes is discarded; instead, use the '
+            'FileLogger within Composer. This logger captures and saves the STDERR of each process.'
+        ),
     )
     parser.add_argument('-v', '--verbose', action='store_true', help='If set, print verbose messages')
     parser.add_argument(
         '-m',
         '--module_mode',
         action='store_true',
-        help=('If set, run the training script as a module instead of as a script. '
-              'Cannot be used in conjunction with `command_mode`'),
+        help=(
+            'If set, run the training script as a module instead of as a script. '
+            'Cannot be used in conjunction with `command_mode`'
+        ),
     )
     parser.add_argument(
         '-c',
         '--command_mode',
         action='store_true',
-        help=('If set, run the training script as a command (i.e. without `python`). '
-              'Cannot be used in conjunction with `module_mode`.'),
+        help=(
+            'If set, run the training script as a command (i.e. without `python`). '
+            'Cannot be used in conjunction with `module_mode`.'
+        ),
     )
 
     multinode_args = parser.add_argument_group(
         'multi-node arguments',
-        description=('These arguments generally only need to be set when training in a multi-node '
-                     'environment, i.e. when the world_size is bigger than nproc.'))
-    multinode_args.add_argument('--world_size',
-                                type=int,
-                                help=('The total number of processes to launch across all nodes. '
-                                      'Setting this to a value greater than nproc indicates a multi-node '
-                                      'environment. Overrides env var WORLD_SIZE. Defaults to nproc.'))
-    multinode_args.add_argument('--base_rank',
-                                type=int,
-                                help=('The rank of the lowest ranked process to launch on this node. '
-                                      'Specifying a base_rank B and an nproc N will spawn processes with '
-                                      'global ranks [B, B+1, ... B+N-1]. In a multi-node environment, '
-                                      'at least one of base_rank and node_rank must be specified. '
-                                      'If only one of base_rank and node_rank are provided, it is assumed '
-                                      'that all nodes have the same amount of processes, and that the two '
-                                      'values are related as node_rank * nproc = base_rank. If this is '
-                                      'not the case, both base_rank and node_rank must be provided. '
-                                      'Overrides env var BASE_RANK. Defaults to 0 in a single-node '
-                                      'environment.'))
-    multinode_args.add_argument('--node_rank',
-                                type=int,
-                                help=('The rank of this node. See base_rank for information on when '
-                                      'this must be provided. Overrides env var NODE_RANK. Defaults to 0 '
-                                      'in a single-node environment.'))
-    multinode_args.add_argument('--master_addr',
-                                type=str,
-                                help=('The FQDN of the node hosting the C10d TCP store. For single-node '
-                                      'operation, this can generally be left as 127.0.0.1. Overrides env var '
-                                      'MASTER_ADDR. Defaults to 127.0.0.1 in a single-node environment.'))
-    multinode_args.add_argument('--master_port',
-                                type=int,
-                                help=('The port on the master hosting the C10d TCP store. If you are '
-                                      'running multiple trainers on a single node, this generally needs '
-                                      'to be unique for each one. Overrides env var MASTER_PORT. Defaults '
-                                      'to a random free port in a single-node environment.'))
+        description=(
+            'These arguments generally only need to be set when training in a multi-node '
+            'environment, i.e. when the world_size is bigger than nproc.'
+        ),
+    )
+    multinode_args.add_argument(
+        '--world_size',
+        type=int,
+        help=(
+            'The total number of processes to launch across all nodes. '
+            'Setting this to a value greater than nproc indicates a multi-node '
+            'environment. Overrides env var WORLD_SIZE. Defaults to nproc.'
+        ),
+    )
+    multinode_args.add_argument(
+        '--base_rank',
+        type=int,
+        help=(
+            'The rank of the lowest ranked process to launch on this node. '
+            'Specifying a base_rank B and an nproc N will spawn processes with '
+            'global ranks [B, B+1, ... B+N-1]. In a multi-node environment, '
+            'at least one of base_rank and node_rank must be specified. '
+            'If only one of base_rank and node_rank are provided, it is assumed '
+            'that all nodes have the same amount of processes, and that the two '
+            'values are related as node_rank * nproc = base_rank. If this is '
+            'not the case, both base_rank and node_rank must be provided. '
+            'Overrides env var BASE_RANK. Defaults to 0 in a single-node '
+            'environment.'
+        ),
+    )
+    multinode_args.add_argument(
+        '--node_rank',
+        type=int,
+        help=(
+            'The rank of this node. See base_rank for information on when '
+            'this must be provided. Overrides env var NODE_RANK. Defaults to 0 '
+            'in a single-node environment.'
+        ),
+    )
+    multinode_args.add_argument(
+        '--master_addr',
+        type=str,
+        help=(
+            'The FQDN of the node hosting the C10d TCP store. For single-node '
+            'operation, this can generally be left as 127.0.0.1. Overrides env var '
+            'MASTER_ADDR. Defaults to 127.0.0.1 in a single-node environment.'
+        ),
+    )
+    multinode_args.add_argument(
+        '--master_port',
+        type=int,
+        help=(
+            'The port on the master hosting the C10d TCP store. If you are '
+            'running multiple trainers on a single node, this generally needs '
+            'to be unique for each one. Overrides env var MASTER_PORT. Defaults '
+            'to a random free port in a single-node environment.'
+        ),
+    )
 
-    required_args.add_argument('training_script',
-                               type=str,
-                               help=('The path to the training script used to initialize a single training '
-                                     'process. Should be followed by any command-line arguments the script '
-                                     'should be launched with.'))
-    required_args.add_argument('training_script_args',
-                               nargs='...',
-                               help='Any arguments for the training script, given in the expected order.')
+    required_args.add_argument(
+        'training_script',
+        type=str,
+        help=(
+            'The path to the training script used to initialize a single training '
+            'process. Should be followed by any command-line arguments the script '
+            'should be launched with.'
+        ),
+    )
+    required_args.add_argument(
+        'training_script_args',
+        nargs='...',
+        help='Any arguments for the training script, given in the expected order.',
+    )
 
     return parser
 
@@ -187,21 +229,27 @@ def _parse_args():
 
         if args.node_rank is None:
             if args.world_size % args.nproc != 0 or args.base_rank % args.nproc != 0:
-                raise ValueError('node_rank not provided, but unable to infer from base_rank since nodes appear to '
-                                 'have different amounts of processes. Please also specify node_rank.')
+                raise ValueError(
+                    'node_rank not provided, but unable to infer from base_rank since nodes appear to '
+                    'have different amounts of processes. Please also specify node_rank.',
+                )
             args.node_rank = args.base_rank // args.nproc
 
         if args.base_rank is None:
             if args.world_size % args.nproc != 0:
-                raise ValueError('base_rank not provided, but unable to infer from node_rank since nodes appear to '
-                                 'have different amounts of processes. Please also provide base_rank.')
+                raise ValueError(
+                    'base_rank not provided, but unable to infer from node_rank since nodes appear to '
+                    'have different amounts of processes. Please also provide base_rank.',
+                )
             args.base_rank = args.node_rank * args.nproc
 
         if args.base_rank + args.nproc > args.world_size:
-            raise ValueError(f'Cannot initialize processes for node with base_rank({args.base_rank}) and '
-                             f'nproc({args.nproc}) because this would mean creating a process with '
-                             f'rank({args.base_rank + args.nproc - 1}), and all processes must have smaller rank than '
-                             f'the world_size({args.world_size}).')
+            raise ValueError(
+                f'Cannot initialize processes for node with base_rank({args.base_rank}) and '
+                f'nproc({args.nproc}) because this would mean creating a process with '
+                f'rank({args.base_rank + args.nproc - 1}), and all processes must have smaller rank than '
+                f'the world_size({args.world_size}).',
+            )
 
         if args.master_addr is None:
             raise ValueError('In a multi-node environment, master_addr is required.')
@@ -270,6 +318,13 @@ def _launch_processes(
     log.info('Starting distributed environment on local node for global_rank(%s-%s)', base_rank, base_rank + nproc - 1)
     log.info('Distributed KV store: tcp://%s:%s', master_addr, master_port)
 
+    nccl_env_variable = {
+        (
+            'NCCL_ASYNC_ERROR_HANDLING' if version.parse(torch.__version__) < version.parse('2.2.0') else 'TORCH_NCCL_ASYNC_ERROR_HANDLING'
+        ):
+            '1',
+    }
+
     for local_rank in range(nproc):
         global_rank = base_rank + local_rank
         if command_mode and module_mode:
@@ -284,22 +339,26 @@ def _launch_processes(
 
         # Update the env with the distributed variables
         with _patch_env(
-                RANK=str(global_rank),
-                WORLD_SIZE=str(world_size),
-                LOCAL_RANK=str(local_rank),
-                LOCAL_WORLD_SIZE=str(nproc),
-                NODE_RANK=str(node_rank),
-                MASTER_ADDR=master_addr,
-                MASTER_PORT=str(master_port),
-                PYTHONUNBUFFERED='1',
-                NCCL_ASYNC_ERROR_HANDLING='1',
+            RANK=str(global_rank),
+            WORLD_SIZE=str(world_size),
+            LOCAL_RANK=str(local_rank),
+            LOCAL_WORLD_SIZE=str(nproc),
+            NODE_RANK=str(node_rank),
+            MASTER_ADDR=master_addr,
+            MASTER_PORT=str(master_port),
+            PYTHONUNBUFFERED='1',
+            **nccl_env_variable,
         ):
             # Populate the distributed variables in all launcher args
             for arg in training_script_args:
                 cmd.append(os.path.expandvars(os.path.expanduser(arg)))
 
-            log.info('Launching process for local_rank(%s), global_rank(%s) with command(%s)', local_rank, global_rank,
-                     cmd)
+            log.info(
+                'Launching process for local_rank(%s), global_rank(%s) with command(%s)',
+                local_rank,
+                global_rank,
+                cmd,
+            )
 
             if local_rank == 0:
                 process = subprocess.Popen(
@@ -316,7 +375,7 @@ def _launch_processes(
                         local_world_size=nproc,
                         node_rank=node_rank,
                     )
-                    return open(filename, 'x+')
+                    return open(filename, 'a+')
 
                 stdout_file = _get_file(stdout_file_format)
                 stderr_file = _get_file(stderr_file_format) if stderr_file_format is not None else None
@@ -412,8 +471,10 @@ def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
     current_time = datetime.datetime.now()
 
     try:
-        print((f'Waiting up to {CLEANUP_TIMEOUT.seconds} seconds for all training processes to terminate. '
-               'Press Ctrl-C to exit immediately.'))
+        print((
+            f'Waiting up to {CLEANUP_TIMEOUT.seconds} seconds for all training processes to terminate. '
+            'Press Ctrl-C to exit immediately.'
+        ))
         while datetime.datetime.now() - current_time < CLEANUP_TIMEOUT:
             for process in processes.values():
                 process.poll()
@@ -426,8 +487,11 @@ def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
     for global_rank, process in processes.items():
         process.poll()
         if process.returncode is None:
-            log.warning('Failed to kill global rank %s (PID %s) with SIGTERM; terminating with SIGKILL instead',
-                        global_rank, process.pid)
+            log.warning(
+                'Failed to kill global rank %s (PID %s) with SIGTERM; terminating with SIGKILL instead',
+                global_rank,
+                process.pid,
+            )
             try:
                 proc = psutil.Process(process.pid)
             except psutil.NoSuchProcess:
@@ -483,31 +547,33 @@ def main():
 
     # If running on the Mosaic platform, log all gpu ranks' stderr and stdout to Mosaic platform
     if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and str(
-            os.environ.get(MOSAICML_LOG_DIR_ENV_VAR, 'false')).lower() != 'false' and os.environ.get(
-                MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR, 'false').lower() != 'false':
-        log.info('Logging all GPU ranks to Mosaic Platform.')
+        os.environ.get(MOSAICML_LOG_DIR_ENV_VAR, 'false'),
+    ).lower() != 'false' and os.environ.get(MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR, 'false').lower() != 'false':
+        log.info('Logging all GPU ranks to Mosaic AI Training.')
         log_file_format = f'{os.environ.get(MOSAICML_LOG_DIR_ENV_VAR)}/{os.environ.get(MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR)}{{local_rank}}.txt'
         if args.stderr is not None or args.stdout is not None:
-            warnings.warn(
-                'Logging to Mosaic Platform. Ignoring provided stdout and stderr args. To use provided stdout and stderr, set MOSAICML_LOG_DIR=false.'
+            log.info(
+                'Logging to Mosaic AI Training. Ignoring provided stdout and stderr args. To use provided stdout and stderr, set MOSAICML_LOG_DIR=false.',
             )
         args.stdout = log_file_format
         args.stderr = None
 
     try:
-        _launch_processes(nproc=args.nproc,
-                          world_size=args.world_size,
-                          base_rank=args.base_rank,
-                          node_rank=args.node_rank,
-                          master_addr=args.master_addr,
-                          master_port=args.master_port,
-                          module_mode=args.module_mode,
-                          command_mode=args.command_mode,
-                          stdout_file_format=args.stdout,
-                          stderr_file_format=args.stderr,
-                          training_script=args.training_script,
-                          training_script_args=args.training_script_args,
-                          processes=processes)
+        _launch_processes(
+            nproc=args.nproc,
+            world_size=args.world_size,
+            base_rank=args.base_rank,
+            node_rank=args.node_rank,
+            master_addr=args.master_addr,
+            master_port=args.master_port,
+            module_mode=args.module_mode,
+            command_mode=args.command_mode,
+            stdout_file_format=args.stdout,
+            stderr_file_format=args.stderr,
+            training_script=args.training_script,
+            training_script_args=args.training_script_args,
+            processes=processes,
+        )
         _monitor_processes(processes)
     except:
         # Print the exception first, then kill the training processes, since killing

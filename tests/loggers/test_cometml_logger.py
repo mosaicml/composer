@@ -79,7 +79,7 @@ def test_comet_ml_log_image_saves_images(comet_logger: CometMLLogger, comet_offl
         (torch.rand(4, 4, 3), True),  # with channels, channels last
         (torch.rand(3, 4, 4), False),  # with channels, not channels last
         (torch.rand(2, 4, 4, 3), True),  # multiple images in tensor
-        ([torch.rand(4, 4, 3), torch.rand(4, 4, 3)], True)  # multiple images in list
+        ([torch.rand(4, 4, 3), torch.rand(4, 4, 3)], True),  # multiple images in list
     ]
 
     expected_num_images_total = 0
@@ -123,32 +123,56 @@ def test_comet_ml_log_image_saves_images_with_masks(comet_logger: CometMLLogger,
     image_variants = [
         # channels last
         # single image, single mask
-        (torch.rand(4, 4, 3), {
-            'pred': torch.randint(0, 10, (4, 4))
-        }, True),
+        (
+            torch.rand(4, 4, 3),
+            {
+                'pred': torch.randint(0, 10, (4, 4)),
+            },
+            True,
+        ),
         # multiple images, masks in tensor
-        (torch.rand(2, 4, 4, 3), {
-            'pred': torch.randint(0, 10, (2, 4, 4))
-        }, True),
+        (
+            torch.rand(2, 4, 4, 3),
+            {
+                'pred': torch.randint(0, 10, (2, 4, 4)),
+            },
+            True,
+        ),
         # multiple images, masks in last
-        (torch.rand(2, 4, 4, 3), {
-            'pred': 2 * [torch.randint(0, 10, (4, 4))]
-        }, True),
+        (
+            torch.rand(2, 4, 4, 3),
+            {
+                'pred': 2 * [torch.randint(0, 10, (4, 4))],
+            },
+            True,
+        ),
         # multiple images, multiple masks
-        (torch.rand(2, 4, 4, 3), {
-            'pred': torch.randint(0, 10, (2, 4, 4)),
-            'pred2': torch.randint(0, 10, (2, 4, 4))
-        }, True),
+        (
+            torch.rand(2, 4, 4, 3),
+            {
+                'pred': torch.randint(0, 10, (2, 4, 4)),
+                'pred2': torch.randint(0, 10, (2, 4, 4)),
+            },
+            True,
+        ),
 
         # not channels last
         # single image, single mask
-        (torch.rand(3, 4, 4), {
-            'pred': torch.randint(0, 10, (4, 4))
-        }, False),
+        (
+            torch.rand(3, 4, 4),
+            {
+                'pred': torch.randint(0, 10, (4, 4)),
+            },
+            False,
+        ),
         # multiple images, masks in tensor
-        (torch.rand(2, 3, 4, 4), {
-            'pred': torch.randint(0, 10, (2, 4, 4))
-        }, False)
+        (
+            torch.rand(2, 3, 4, 4),
+            {
+                'pred': torch.randint(0, 10, (2, 4, 4)),
+            },
+            False,
+        ),
     ]
 
     expected_num_masks_and_images_total = 0
@@ -278,19 +302,22 @@ def test_comet_ml_log_metrics_and_hyperparameters(monkeypatch, tmp_path):
     comet_logs_path = zf.extract('messages.json', path=offline_directory)
     jd = JSONDecoder()
     created_from_found = False
-    expected_created_from_log = {'key': 'Created from', 'val': 'mosaicml-composer'}
+    expected_created_from_value = 'mosaicml-composer'
     metric_msgs = []
     param_msgs = []
     with open(comet_logs_path) as f:
         for line in f.readlines():
             comet_msg = jd.decode(line)
-            if comet_msg['type'] == 'ws_msg' and comet_msg['payload'].get('log_other', {}) == expected_created_from_log:
+            if comet_msg['type'] == 'log_other' and comet_msg['payload'].get(
+                'value',
+                '',
+            ) == expected_created_from_value:
                 created_from_found = True
-            if (comet_msg['type'] == 'metric_msg') and (comet_msg['payload']['metric']['metricName']
-                                                        == 'my_test_metric'):
+            if (comet_msg['type'] == 'metric_msg' and comet_msg['payload']['metric']['metricName'] == 'my_test_metric'):
                 metric_msgs.append(comet_msg['payload']['metric'])
             if comet_msg['type'] == 'parameter_msg' and (
-                    comet_msg['payload']['param']['paramName'].startswith('my_cool')):
+                comet_msg['payload']['param']['paramName'].startswith('my_cool')
+            ):
                 param_msgs.append(comet_msg['payload']['param'])
 
     # Check that the "Created from key was properly set"
