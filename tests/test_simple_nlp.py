@@ -6,7 +6,8 @@ from torch.utils.data import DataLoader
 
 from composer.core import DataSpec
 from composer.trainer import Trainer
-from composer.utils import dist, reproducibility
+from composer.utils import dist, get_device, reproducibility
+from tests.common import device
 from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset
 from tests.common.models import SimpleTransformerClassifier, SimpleTransformerMaskedLM
 
@@ -127,14 +128,15 @@ def test_simple_nlp_mlm(tiny_bert_tokenizer, tiny_bert_model):
     assert len(predictions) == num_predict_batches_expected
     assert predictions[0].shape == (batch_size, sequence_length, vocab_size)
 
-
-def test_simple_nlp_mlm_token_batch(tiny_bert_tokenizer):
+@device('gpu')
+def test_simple_nlp_mlm_token_batch(tiny_bert_tokenizer, device):
     transformers = pytest.importorskip('transformers')
 
     vocab_size = tiny_bert_tokenizer.vocab_size
     sequence_length = 32
     size = 96
     batch_size = 8
+    device = get_device(device)
 
     train_dataset = RandomTextLMDataset(
         size=size,
@@ -169,6 +171,7 @@ def test_simple_nlp_mlm_token_batch(tiny_bert_tokenizer):
         max_duration='2ep',
         device_train_microbatch_size=batch_size // 2,
         accumulate_train_batch_on_tokens=False,
+        device=device,
     )
     reproducibility.seed_all(42)
     trainer.fit()
@@ -186,6 +189,7 @@ def test_simple_nlp_mlm_token_batch(tiny_bert_tokenizer):
         max_duration='2ep',
         device_train_microbatch_size=batch_size // 2,
         accumulate_train_batch_on_tokens=True,
+        device=device,
     )
     reproducibility.seed_all(42)
     token_trainer.fit()
@@ -206,6 +210,7 @@ def test_simple_nlp_mlm_token_batch(tiny_bert_tokenizer):
         max_duration='2ep',
         device_train_microbatch_size=batch_size // 2,
         accumulate_train_batch_on_tokens=False,
+        device=device,
     )
     reproducibility.seed_all(42)
     trainer2.fit()
