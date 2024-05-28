@@ -4,7 +4,10 @@
 """Log to `Tensorboard <https://www.tensorflow.org/tensorboard/>`_."""
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Sequence, Union
+
+import numpy as np
+import torch
 
 from composer.core.state import State
 from composer.loggers.logger import Logger, format_log_data_value
@@ -50,9 +53,11 @@ class TensorboardLogger(LoggerDestination):
         try:
             from torch.utils.tensorboard import SummaryWriter
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='tensorboard',
-                                                conda_package='tensorboard',
-                                                conda_channel='conda-forge') from e
+            raise MissingConditionalImportError(
+                extra_deps_group='tensorboard',
+                conda_package='tensorboard',
+                conda_channel='conda-forge',
+            ) from e
 
         self.client_id = client_id
         self.log_dir = log_dir
@@ -135,13 +140,39 @@ class TensorboardLogger(LoggerDestination):
             if 'metric' in name or 'loss' in name
         }
         assert self.writer is not None
-        self.writer.add_hparams(hparam_dict=self.hyperparameters,
-                                metric_dict=metrics_for_hparams,
-                                run_name=self.run_name)
+        self.writer.add_hparams(
+            hparam_dict=self.hyperparameters,
+            metric_dict=metrics_for_hparams,
+            run_name=self.run_name,
+        )
         self._flush(logger)
 
     def fit_end(self, state: State, logger: Logger) -> None:
         self._flush(logger)
+
+    def log_images(
+        self,
+        images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
+        name: str = 'Images',
+        channels_last: bool = False,
+        step: Optional[int] = None,
+        masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
+        mask_class_labels: Optional[Dict[int, str]] = None,
+        use_table: bool = False,
+    ):
+        images = _convert_to_tensorboard_image(images)
+
+        assert self.writer is not None
+        if images.ndim <= 3:
+            assert images.ndim > 1
+            if images.ndim == 2:  # Assume 2D image
+                data_format = 'HW'
+            else:  # Assume 2D image with channels?
+                data_format = 'HWC' if channels_last else 'CHW'
+            self.writer.add_image(name, images, global_step=step, dataformats=data_format)
+            return
+
+        self.writer.add_images(name, images, global_step=step, dataformats='NHWC' if channels_last else 'NCHW')
 
     def _flush(self, logger: Logger):
         # To avoid empty files uploaded for each rank.
@@ -164,10 +195,11 @@ class TensorboardLogger(LoggerDestination):
             remote_file_path += f'client_{self.client_id}/'
                                              
 
-        logger.upload_file(remote_file_name=(remote_file_path +
-                                             f'{event_file_name}-{dist.get_global_rank()}'),
-                           file_path=file_path,
-                           overwrite=True)
+        logger.upload_file(
+            remote_file_name=(remote_file_path + f'{event_file_name}-{dist.get_global_rank()}'),
+            file_path=file_path,
+            overwrite=True,
+        )
 
         # Close writer, which creates new log file.
         self.writer.close()
@@ -176,3 +208,14 @@ class TensorboardLogger(LoggerDestination):
         del state  # unused
         self._flush(logger)
         self.writer = None
+
+
+def _convert_to_tensorboard_image(
+    t: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
+) -> np.ndarray:
+    if isinstance(t, torch.Tensor):
+        return t.to(torch.float16).cpu().numpy()
+    if isinstance(t, list):
+        return np.array([_convert_to_tensorboard_image(image) for image in t])
+    assert isinstance(t, np.ndarray)
+    return t

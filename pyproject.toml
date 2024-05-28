@@ -9,13 +9,18 @@ multi_line_output = 0
 line_length = 120
 skip = [ "env", "wandb", "runs", "build", "node_modules" ]
 known_third_party = ["wandb"]
+include_trailing_comma = true
+split_on_trailing_comma = true
 
-[tool.ruff]
+[tool.ruff.lint]
 select = [
     "C4",
     # TODO port pydocstyle
     # "D", # pydocstyle
+    "LOG",
     "PERF",
+    "PLE",
+    "COM812",
 ]
 
 ignore = [
@@ -23,6 +28,7 @@ ignore = [
     "PERF2",
     "PERF4",
 ]
+[tool.ruff]
 exclude = [
     "build/**",
     "docs/**",
@@ -151,7 +157,9 @@ filterwarnings = [
     # Ignore torch pytree deprecated warnings
     '''ignore:torch.utils._pytree._register_pytree_node is deprecated.*:UserWarning''',
     # Ignore autograd kernel warning inside DeepSpeed
-    '''ignore:.*an autograd kernel was not registered to the Autograd key.*:UserWarning'''
+    '''ignore:.*an autograd kernel was not registered to the Autograd key.*:UserWarning''',
+    # Ignore save_state_dict / load_state_dict deprecation warnings
+    '''ignore:'.*_state_dict' is deprecated and will be removed in future versions.*:UserWarning'''
 ]
 
 # Coverage
@@ -242,7 +250,7 @@ blank_line_before_nested_class_or_def = true
 #        'key1': 'value1',
 #        'key2': 'value2',
 #    })
-coalesce_brackets = false
+coalesce_brackets = true
 
 # The column limit.
 column_limit = 120
@@ -277,7 +285,7 @@ continuation_indent_width = 4
 #       start_ts=now()-timedelta(days=3),
 #       end_ts=now(),
 #   )        # <--- this bracket is dedented and on a separate line
-dedent_closing_brackets = false
+dedent_closing_brackets = true
 
 # Disable the heuristic which places each list element on a separate line
 # if the list is comma-terminated.
@@ -448,7 +456,7 @@ split_all_top_level_comma_separated_values = false
 
 # Split before arguments if the argument list is terminated by a
 # comma.
-split_arguments_when_comma_terminated = false
+split_arguments_when_comma_terminated = true
 
 # Set to True to prefer splitting before '+', '-', '*', '/', '//', or '@'
 # rather than after.

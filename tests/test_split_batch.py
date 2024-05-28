@@ -6,7 +6,7 @@ from typing import Dict, List, Mapping, Tuple, Union
 import pytest
 import torch
 
-from composer.core.data_spec import _default_split_batch, _split_list, _split_tensor
+from composer.core.data_spec import _split_list, _split_tensor, default_split_batch
 
 
 def dummy_tensor_batch(batch_size=12) -> torch.Tensor:
@@ -57,16 +57,20 @@ def dummy_dict_batch_with_common_metadata(batch_size=12) -> Dict[str, Union[List
     return {'image': image, 'target': target, 'meta': meta, 'index': index}
 
 
-def dummy_maskrcnn_batch(batch_size=12,
-                         image_height=12,
-                         image_width=12,
-                         num_classes=80,
-                         max_detections=5) -> List[Tuple[torch.Tensor, Dict[str, torch.Tensor]]]:
+def dummy_maskrcnn_batch(
+    batch_size=12,
+    image_height=12,
+    image_width=12,
+    num_classes=80,
+    max_detections=5,
+) -> List[Tuple[torch.Tensor, Dict[str, torch.Tensor]]]:
 
-    def generate_maskrcnn_sample(num_detections,
-                                 image_height=image_height,
-                                 image_width=image_width,
-                                 num_classes=num_classes):
+    def generate_maskrcnn_sample(
+        num_detections,
+        image_height=image_height,
+        image_width=image_width,
+        num_classes=num_classes,
+    ):
         """Generates a maskrcnn style sample: (Tensor, Dict[Tensor])."""
         image = torch.randn(size=(3, image_height, image_width)).type(torch.float)
         target = {
@@ -75,7 +79,7 @@ def dummy_maskrcnn_batch(batch_size=12,
             'labels':
                 torch.randint(size=(num_detections,), low=0, high=num_classes + 1),
             'masks':
-                torch.randint(size=(num_detections, image_height, image_width), low=0, high=2).type(torch.uint8)
+                torch.randint(size=(num_detections, image_height, image_width), low=0, high=2).type(torch.uint8),
         }
         return image, target
 
@@ -99,7 +103,7 @@ def dummy_batches(batch_size=12):
 
 @pytest.mark.parametrize('batch', dummy_batches(12))
 def test_split_without_error(batch):
-    microbatches = _default_split_batch(batch, microbatch_size=3)
+    microbatches = default_split_batch(batch, microbatch_size=3)
     assert len(microbatches) == 4
 
 
@@ -114,7 +118,7 @@ def test_tensor_vs_list_chunking(batch):
 
 @pytest.mark.parametrize('batch', [dummy_tuple_batch(12)])
 def test_split_tuple(batch):
-    microbatches = _default_split_batch(batch, microbatch_size=4)
+    microbatches = default_split_batch(batch, microbatch_size=4)
     # should be 3 microbatches of size 4 tensors pairs
     # should split into [(x, y), (x, y), (x, y)]
     assert len(microbatches[0]) == 2
@@ -122,13 +126,13 @@ def test_split_tuple(batch):
 
 @pytest.mark.parametrize('batch', [dummy_tuple_batch_long(12)])
 def test_split_tuple_long(batch):
-    microbatches = _default_split_batch(batch, microbatch_size=4)
+    microbatches = default_split_batch(batch, microbatch_size=4)
     assert len(microbatches[0]) == 4
 
 
 @pytest.mark.parametrize('batch', dummy_batches(6))
 def test_batch_sizes(batch):
-    microbatches = _default_split_batch(batch, microbatch_size=2)
+    microbatches = default_split_batch(batch, microbatch_size=2)
     # should split into [len(2), len(2), len(1)]
     assert len(microbatches) == 3
     for microbatch in microbatches:
@@ -143,7 +147,7 @@ def test_batch_sizes(batch):
 
 @pytest.mark.parametrize('batch', dummy_batches(5))
 def test_odd_batch_sizes(batch):
-    microbatches = _default_split_batch(batch, microbatch_size=2)
+    microbatches = default_split_batch(batch, microbatch_size=2)
     # should split into [len(2), len(2), len(1)]
     assert len(microbatches) == 3
     last_microbatch = microbatches[-1]
@@ -159,7 +163,7 @@ def test_odd_batch_sizes(batch):
 @pytest.mark.parametrize('batch', dummy_batches(2))
 def test_microbatch_size_greater_than_batch_size(batch):
     with pytest.warns(UserWarning):
-        microbatches = _default_split_batch(batch, microbatch_size=3)
+        microbatches = default_split_batch(batch, microbatch_size=3)
         assert len(microbatches) == 1
 
 
@@ -171,7 +175,7 @@ def test_microbatch_size_split_maskrcnn(batch):
 
 @pytest.mark.parametrize('batch', [dummy_dict_batch_with_common_metadata(12)])
 def test_primitive_broadcast(batch):
-    microbatches = _default_split_batch(batch, microbatch_size=3)
+    microbatches = default_split_batch(batch, microbatch_size=3)
     assert len(microbatches) == 4
     for mb in microbatches:
         assert mb['meta'] == 'this is a string'

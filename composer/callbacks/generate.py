@@ -29,17 +29,21 @@ class Generate(Callback):
         kwargs: All kwargs will be passed along to the call to generate. This is for things like `do_sample`, `top_p`, etc
     """
 
-    def __init__(self,
-                 prompts: List[str],
-                 interval: Union[str, int, Time],
-                 batch_size: Optional[int] = None,
-                 **kwargs: Any):
+    def __init__(
+        self,
+        prompts: List[str],
+        interval: Union[str, int, Time],
+        batch_size: Optional[int] = None,
+        **kwargs: Any,
+    ):
         try:
             import transformers
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='nlp',
-                                                conda_package='transformers',
-                                                conda_channel='conda-forge') from e
+            raise MissingConditionalImportError(
+                extra_deps_group='nlp',
+                conda_package='transformers',
+                conda_channel='conda-forge',
+            ) from e
         del transformers
         self.prompts = prompts
         self.generate_kwargs = kwargs
@@ -48,8 +52,8 @@ class Generate(Callback):
         self.last_generate_batch: Optional[Time] = None
 
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
-        if state.get_elapsed_duration() is not None and self.check_interval(
-                state, event) and self.last_generate_batch != state.timestamp.batch:
+        if state.get_elapsed_duration(
+        ) is not None and self.check_interval(state, event) and self.last_generate_batch != state.timestamp.batch:
             start = time.time()
             self.generate(state, logger)
             diff = time.time() - start
@@ -64,7 +68,8 @@ class Generate(Callback):
 
         if not hasattr(model, 'tokenizer') or model.tokenizer is None:
             raise ValueError(
-                f'Model {model.__class__.__name__} does not have a tokenizer which is required for generation.')
+                f'Model {model.__class__.__name__} does not have a tokenizer which is required for generation.',
+            )
         tokenizer = model.tokenizer
 
         from transformers import PreTrainedTokenizerBase
@@ -105,7 +110,8 @@ class Generate(Callback):
                         attention_mask=attn_mask,
                         synced_gpus=dist.get_world_size() > 1,
                         **self.generate_kwargs,
-                    ))
+                    ),
+                )
 
         if dist.get_global_rank() == 0:
             # Process prompts and outputs into a table.

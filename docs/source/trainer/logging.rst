@@ -24,39 +24,45 @@ arguments in :class:`.Trainer`, like the following code, which will log metrics 
 
 To attach other loggers, use the ``loggers`` argument. For example, the
 below logs the results to `Weights and
-Biases <https://www.wandb.com/>`__, `MLflow <https://www.mlflow.org/docs/latest/index.html>`__, and `CometML <https://www.comet.com/?utm_source=mosaicml&utm_medium=partner&utm_campaign=mosaicml_comet_integration>`__,
+Biases <https://www.wandb.com/>`__, `MLflow <https://www.mlflow.org/docs/latest/index.html>`__, `CometML <https://www.comet.com/?utm_source=mosaicml&utm_medium=partner&utm_campaign=mosaicml_comet_integration>`__, and `neptune.ai <https://neptune.ai/>`__,
 and also saves them to the file
 ``log.txt``.
 
 .. testsetup::
-    :skipif: not _WANDB_INSTALLED or not _COMETML_INSTALLED
+    :skipif: not _WANDB_INSTALLED or not _COMETML_INSTALLED or not _NEPTUNE_INSTALLED
 
     import os
+    import logging
 
+    logging.getLogger("neptune").setLevel(logging.CRITICAL)
+
+    os.environ["NEPTUNE_MODE"] = "debug"
     os.environ["WANDB_MODE"] = "disabled"
     os.environ["COMET_API_KEY"] = "<comet_api_key>"
     os.environ["MLFLOW_TRACKING_URI"] = ""
 
 .. testcode::
-    :skipif: not _WANDB_INSTALLED or not _COMETML_INSTALLED
+    :skipif: not _WANDB_INSTALLED or not _COMETML_INSTALLED or not _NEPTUNE_INSTALLED
 
     from composer import Trainer
-    from composer.loggers import WandBLogger, CometMLLogger, MLFlowLogger, FileLogger
+    from composer.loggers import WandBLogger, CometMLLogger, MLFlowLogger, NeptuneLogger, FileLogger
+
 
     wandb_logger = WandBLogger()
     cometml_logger = CometMLLogger()
     mlflow_logger = MLFlowLogger()
+    neptune_logger = NeptuneLogger()
     file_logger = FileLogger(filename="log.txt")
 
     trainer = Trainer(
         model=model,
         train_dataloader=train_dataloader,
         eval_dataloader=eval_dataloader,
-        loggers=[wandb_logger, cometml_logger, mlflow_logger, file_logger],
+        loggers=[wandb_logger, cometml_logger, mlflow_logger, neptune_logger, file_logger],
     )
 
 .. testcleanup::
-    :skipif: not _WANDB_INSTALLED or not _COMETML_INSTALLED
+    :skipif: not _WANDB_INSTALLED or not _COMETML_INSTALLED or not _NEPTUNE_INSTALLED
 
     trainer.engine.close()
     os.remove("log.txt")
@@ -73,6 +79,7 @@ Available Loggers
     ~wandb_logger.WandBLogger
     ~mlflow_logger.MLFlowLogger
     ~cometml_logger.CometMLLogger
+    ~neptune_logger.NeptuneLogger
     ~progress_bar_logger.ProgressBarLogger
     ~tensorboard_logger.TensorboardLogger
     ~in_memory_logger.InMemoryLogger

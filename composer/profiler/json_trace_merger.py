@@ -130,8 +130,10 @@ def merge_traces(output_file: Union[str, pathlib.Path], *trace_files: Union[str,
                                 'tid': event['tid'],
                                 'args': {
                                     'sort_index': 99999,
-                                }
-                            }, output_f)
+                                },
+                            },
+                            output_f,
+                        )
                         rank_to_seen_threads[rank].add(event['tid'])
                         is_first_line = False
                     if event['name'] == 'MulBackward0':
@@ -143,15 +145,18 @@ def merge_traces(output_file: Union[str, pathlib.Path], *trace_files: Union[str,
                     json.dump(event, output_f)
         for pid, tid in rank_to_backwards_thread.items():
             output_f.write(',\n    ')
-            json.dump({
-                'name': 'thread_sort_index',
-                'ph': 'M',
-                'pid': pid,
-                'tid': tid,
-                'args': {
-                    'sort_index': 1
-                }
-            }, output_f)
+            json.dump(
+                {
+                    'name': 'thread_sort_index',
+                    'ph': 'M',
+                    'pid': pid,
+                    'tid': tid,
+                    'args': {
+                        'sort_index': 1,
+                    },
+                },
+                output_f,
+            )
 
         output_f.write('\n]\n')
 

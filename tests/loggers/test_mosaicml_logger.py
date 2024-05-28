@@ -13,8 +13,13 @@ from torch.utils.data import DataLoader
 
 from composer.core import Callback, Time, TimeUnit
 from composer.loggers import WandBLogger
-from composer.loggers.mosaicml_logger import (MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR, MosaicMLLogger,
-                                              format_data_to_json_serializable)
+from composer.loggers.mosaicml_logger import (
+    MOSAICML_ACCESS_TOKEN_ENV_VAR,
+    MOSAICML_PLATFORM_ENV_VAR,
+    MosaicMLLogger,
+    exception_to_json_serializable_dict,
+    format_data_to_json_serializable,
+)
 from composer.trainer import Trainer
 from composer.utils import dist, get_composer_env_dict
 from tests.callbacks.callback_settings import get_cb_kwargs, get_cb_model_and_datasets, get_cbs_and_marks
@@ -61,7 +66,7 @@ def test_format_data_to_json_serializable():
         'key5': torch.tensor([1, 2, 3]),
         'key6': torch.tensor([42]),
         'key7': {
-            'inner_key': 'inner_value'
+            'inner_key': 'inner_value',
         },
         'key8': [1, 2, 3],
     }
@@ -75,7 +80,7 @@ def test_format_data_to_json_serializable():
         'key5': 'Tensor of shape torch.Size([3])',
         'key6': 42,
         'key7': {
-            'inner_key': 'inner_value'
+            'inner_key': 'inner_value',
         },
         'key8': [1, 2, 3],
     }
@@ -83,8 +88,27 @@ def test_format_data_to_json_serializable():
     assert formatted_data == expected_formatted_data
 
 
+def test_exception_to_json():
+
+    class TestException(ValueError):
+
+        def __init__(self, test_var: str) -> None:
+            self.test_var = test_var
+            message = 'This is a test exception'
+            super().__init__(message)
+
+    try:
+        raise TestException('Test var')
+    except Exception as e:
+        json_exception = exception_to_json_serializable_dict(e)
+        assert json_exception['class'] == 'TestException'
+        assert json_exception['message'] == 'This is a test exception'
+        assert json_exception['attributes'] == {'test_var': 'Test var'}
+
+
 @pytest.mark.parametrize('callback_cls', get_cbs_and_marks(callbacks=True))
 @world_size(1, 2)
+@pytest.mark.filterwarnings('ignore::UserWarning')
 def test_logged_data_is_json_serializable(monkeypatch, callback_cls: Type[Callback], world_size):
     """Test that all logged data is json serializable, which is a requirement to use MAPI."""
 
@@ -222,12 +246,16 @@ def test_wandb_run_url(monkeypatch):
     run_url = 'my_run_url'
     monkeypatch.setenv('WANDB_MODE', 'offline')
 
-    Trainer(model=SimpleModel(), loggers=[
-        MosaicMLLogger(),
-        WandBLogger(),
-    ], callbacks=[
-        SetWandBRunURL(run_url),
-    ])
+    Trainer(
+        model=SimpleModel(),
+        loggers=[
+            MosaicMLLogger(),
+            WandBLogger(),
+        ],
+        callbacks=[
+            SetWandBRunURL(run_url),
+        ],
+    )
 
     assert mock_mapi.run_metadata[run_name]['mosaicml/wandb/run_url'] == run_url
 
@@ -279,11 +307,13 @@ def test_run_events_logged(monkeypatch):
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
     run_name = 'test-run-name'
     monkeypatch.setenv('RUN_NAME', run_name)
-    trainer = Trainer(model=SimpleModel(),
-                      train_dataloader=DataLoader(RandomClassificationDataset()),
-                      train_subset_num_batches=1,
-                      max_duration='4ba',
-                      loggers=[MosaicMLLogger()])
+    trainer = Trainer(
+        model=SimpleModel(),
+        train_dataloader=DataLoader(RandomClassificationDataset()),
+        train_subset_num_batches=1,
+        max_duration='4ba',
+        loggers=[MosaicMLLogger()],
+    )
     trainer.fit()
     metadata = mock_mapi.run_metadata[run_name]
     assert isinstance(metadata['mosaicml/model_initialized_time'], float)

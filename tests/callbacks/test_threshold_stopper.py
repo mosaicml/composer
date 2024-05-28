@@ -47,7 +47,7 @@ def test_threshold_stopper_eval(metric_sequence: List[float], unit: TimeUnit, de
         test_device,
         metric_args={
             'num_classes': 2,
-            'average': 'micro'
+            'average': 'micro',
         },
     )
 

@@ -9,12 +9,12 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 jobs:
   pytest-gpu:
-    uses: ./.github/workflows/pytest-gpu.yaml
+    uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml@v0.0.5
     strategy:
       matrix:
         include:
-        - name: gpu-3.10-2.1
-          container: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
+        - name: gpu-3.11-2.3
+          container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
           markers: not daily and not remote and gpu and (doctest or not doctest)
           pytest_command: coverage run -m pytest
           composer_package_name: mosaicml
@@ -23,8 +23,10 @@ jobs:
     with:
       composer_package_name: ${{ matrix.composer_package_name }}
       container: ${{ matrix.container }}
-      mcloud-timeout: 1500
+      git_repo: mosaicml/composer
+      mcloud-timeout: 2250
       name: ${{ matrix.name }}
+      pip_deps: "[all]"
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
       python-version: 3.9

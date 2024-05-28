@@ -17,18 +17,24 @@ def test_simple_nlp_classification():
     size = 96
     batch_size = 8
 
-    train_dataset = RandomTextClassificationDataset(size=size,
-                                                    vocab_size=vocab_size,
-                                                    sequence_length=sequence_length,
-                                                    num_classes=num_classes)
-    eval_dataset = RandomTextClassificationDataset(size=size,
-                                                   vocab_size=vocab_size,
-                                                   sequence_length=sequence_length,
-                                                   num_classes=num_classes)
-    predict_dataset = RandomTextClassificationDataset(size=size,
-                                                      vocab_size=vocab_size,
-                                                      sequence_length=sequence_length,
-                                                      num_classes=num_classes)
+    train_dataset = RandomTextClassificationDataset(
+        size=size,
+        vocab_size=vocab_size,
+        sequence_length=sequence_length,
+        num_classes=num_classes,
+    )
+    eval_dataset = RandomTextClassificationDataset(
+        size=size,
+        vocab_size=vocab_size,
+        sequence_length=sequence_length,
+        num_classes=num_classes,
+    )
+    predict_dataset = RandomTextClassificationDataset(
+        size=size,
+        vocab_size=vocab_size,
+        sequence_length=sequence_length,
+        num_classes=num_classes,
+    )
 
     model = SimpleTransformerClassifier(vocab_size=vocab_size, num_classes=num_classes)
 
@@ -67,27 +73,35 @@ def test_simple_nlp_mlm(tiny_bert_tokenizer, tiny_bert_model):
     size = 96
     batch_size = 8
 
-    train_dataset = RandomTextLMDataset(size=size,
-                                        vocab_size=vocab_size,
-                                        sequence_length=sequence_length,
-                                        use_keys=True)
+    train_dataset = RandomTextLMDataset(
+        size=size,
+        vocab_size=vocab_size,
+        sequence_length=sequence_length,
+        use_keys=True,
+    )
     eval_dataset = RandomTextLMDataset(size=size, vocab_size=vocab_size, sequence_length=sequence_length, use_keys=True)
-    predict_dataset = RandomTextLMDataset(size=size,
-                                          vocab_size=vocab_size,
-                                          sequence_length=sequence_length,
-                                          use_keys=True)
+    predict_dataset = RandomTextLMDataset(
+        size=size,
+        vocab_size=vocab_size,
+        sequence_length=sequence_length,
+        use_keys=True,
+    )
     collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer, mlm_probability=0.15)
 
     model = SimpleTransformerMaskedLM(vocab_size=vocab_size)
 
-    train_dataloader = DataLoader(train_dataset,
-                                  batch_size=batch_size,
-                                  sampler=dist.get_sampler(train_dataset),
-                                  collate_fn=collator)
-    eval_dataloader = DataLoader(eval_dataset,
-                                 batch_size=batch_size,
-                                 sampler=dist.get_sampler(eval_dataset),
-                                 collate_fn=collator)
+    train_dataloader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        sampler=dist.get_sampler(train_dataset),
+        collate_fn=collator,
+    )
+    eval_dataloader = DataLoader(
+        eval_dataset,
+        batch_size=batch_size,
+        sampler=dist.get_sampler(eval_dataset),
+        collate_fn=collator,
+    )
     predict_dataloader = DataLoader(predict_dataset, batch_size=8)
 
     trainer = Trainer(

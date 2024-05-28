@@ -146,10 +146,13 @@ def replace_module_classes(
     """
     if isinstance(module, torch.nn.parallel.DistributedDataParallel):
         raise TypeError(
-            textwrap.dedent("""\
+            textwrap.dedent(
+                """\
                 Surgery is not supported after a module is wrapped with
                 `torch.nn.parallel.DistributedDataParallel` Instead, please preform surgery on the underlying
-                `module.module` and re-wrap the `module.module` with `torch.nn.parallel.DistributedDataParallel`"""))
+                `module.module` and re-wrap the `module.module` with `torch.nn.parallel.DistributedDataParallel`""",
+            ),
+        )
     try:
         import deepspeed
     except ImportError:
@@ -157,13 +160,17 @@ def replace_module_classes(
     else:
         if isinstance(module, deepspeed.DeepSpeedEngine):
             raise TypeError(
-                textwrap.dedent("""\
+                textwrap.dedent(
+                    """\
                     Surgery is not supported after a module is wrapped with
                     `deepspeed.DeepSpeedEngine` Instead, please perform surgery on the underlying module`,
-                    and re-wrap it with `deepspeed.DeepSpeedEngine`"""))
+                    and re-wrap it with `deepspeed.DeepSpeedEngine`""",
+                ),
+            )
     replaced_pairs = {}
-    children_to_parents_and_names: OrderedDict[torch.nn.Module, List[Tuple[torch.nn.Module,
-                                                                           str]]] = collections.OrderedDict()
+    children_to_parents_and_names: OrderedDict[torch.nn.Module,
+                                               List[Tuple[torch.nn.Module, str]],
+                                              ] = collections.OrderedDict()
     _add_children_recursive(module, children_to_parents_and_names)
     indices = indices if indices is not None else {c: 0 for c in policies}
 
@@ -203,14 +210,19 @@ def replace_module_classes(
                     _add_children_recursive(replacement, children_to_parents_and_names)
     if optimizers:
         for old_module, new_module in replaced_pairs.items():
-            update_params_in_optimizer(old_params=old_module.parameters(),
-                                       new_params=new_module.parameters(),
-                                       optimizers=optimizers)
+            update_params_in_optimizer(
+                old_params=old_module.parameters(),
+                new_params=new_module.parameters(),
+                optimizers=optimizers,
+            )
     elif len(replaced_pairs) > 0:
         log.info(
-            textwrap.dedent("""\
+            textwrap.dedent(
+                """\
             optimizers was not provided. Be sure to either create the optimizer after
-            invoking this method, or manually add new parameters to the existing optimizer."""))
+            invoking this method, or manually add new parameters to the existing optimizer.""",
+            ),
+        )
 
     return replaced_pairs
 
@@ -225,8 +237,10 @@ def _infer_device(module: torch.nn.Module) -> Optional[torch.device]:
         return p.device
 
 
-def count_module_instances(module: torch.nn.Module, module_class: Union[Type[torch.nn.Module],
-                                                                        Tuple[Type[torch.nn.Module], ...]]) -> int:
+def count_module_instances(
+    module: torch.nn.Module,
+    module_class: Union[Type[torch.nn.Module], Tuple[Type[torch.nn.Module], ...]],
+) -> int:
     """Counts the number of instances of ``module_class`` in ``module``, recursively.
 
     .. rubric:: Example
@@ -319,9 +333,11 @@ def _ordered_diff(first: List, second: List) -> List:
     return [item for item in first if item not in second_list]
 
 
-def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter],
-                               new_params: Iterable[torch.nn.parameter.Parameter],
-                               optimizers: Union[Optimizer, Sequence[Optimizer]]) -> None:
+def update_params_in_optimizer(
+    old_params: Iterable[torch.nn.parameter.Parameter],
+    new_params: Iterable[torch.nn.parameter.Parameter],
+    optimizers: Union[Optimizer, Sequence[Optimizer]],
+) -> None:
     r"""Remove ``old_params`` from the ``optimizers`` and insert ``new_params``.
 
     Newly added parameters will be added to the same :attr:`~torch.optim.Optimizer.param_group` as the removed
@@ -392,9 +408,12 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
 
         if min(old_group_idxs) != max(old_group_idxs) and len(added_params):
             raise RuntimeError(
-                textwrap.dedent("""\
+                textwrap.dedent(
+                    """\
                     Not all removed parameters are in the same parameter group.
-                    This makes it unclear where to add the new parameters."""))
+                    This makes it unclear where to add the new parameters.""",
+                ),
+            )
         group_idx = old_group_idxs[0]
 
     param_group = opt.param_groups[group_idx]

@@ -12,21 +12,12 @@ jobs:
     steps:
     - name: Checkout Repo
       uses: actions/checkout@v3
-    - name: Setup
-      run: |
-        set -ex
-        python -m pip install --upgrade 'pip<23' wheel
-        pip install coverage[toml]==6.5.0
-    - name: Download artifacts
-      uses: actions/download-artifact@v3
+    - name: Get composite run steps repository
+      uses: actions/checkout@v3
       with:
-        path: ${{ inputs.download-path }}
-    - name: Generate coverage report
-      run: |
-        set -ex
-
-        # Flatten the coverage files
-        ls ${{ inputs.download-path }} | while read x; do mv ${{ inputs.download-path }}/$x/.coverage .coverage.$x; done
-
-        python -m coverage combine
-        python -m coverage report
+        repository: mosaicml/ci-testing
+        ref: v0.0.5
+        path: ./ci-testing
+    - uses: ./ci-testing/.github/actions/coverage
+      with:
+        download-path: ${{ inputs.download-path }}

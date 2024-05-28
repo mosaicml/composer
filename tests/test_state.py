@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader
 
 import composer
 from composer.core import Batch, Precision, State
+from composer.core.time import TimeUnit
 from composer.devices import DeviceCPU, DeviceGPU
 from composer.loggers import Logger
 from tests.common import SimpleModel, assert_state_equivalent
@@ -31,15 +32,17 @@ def get_dummy_state(request: pytest.FixtureRequest):
         device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
         break
     assert device != None
-    state = State(model=model,
-                  device=device,
-                  train_dataloader=dataloader,
-                  run_name=f'{random.randint(0, 100)}',
-                  rank_zero_seed=random.randint(0, 100),
-                  precision=Precision.AMP_FP16,
-                  max_duration=f'{random.randint(0, 100)}ep',
-                  optimizers=optimizers,
-                  device_train_microbatch_size=2)
+    state = State(
+        model=model,
+        device=device,
+        train_dataloader=dataloader,
+        run_name=f'{random.randint(0, 100)}',
+        rank_zero_seed=random.randint(0, 100),
+        precision=Precision.AMP_FP16,
+        max_duration=f'{random.randint(0, 100)}ep',
+        optimizers=optimizers,
+        device_train_microbatch_size=2,
+    )
     state.schedulers = torch.optim.lr_scheduler.StepLR(optimizers, step_size=3)
     state.loss = random_tensor()
     state.batch = (random_tensor(), random_tensor())
@@ -104,13 +107,15 @@ def test_state_serialize(tmp_path: pathlib.Path, empty_logger: Logger, request: 
 
 
 # yapf: disable
-@pytest.mark.parametrize('batch,key,val', [
-    ([1234, 5678], 0, 1234),
-    ([1234, 5678], 1, 5678),
-    ({'a': 1, 'b': 2}, 'a', 1),
-    ({'a': 1, 'b': 2}, 'b', 2),
-    (({'a': 1, 'b': 7}, {'c': 5}), lambda x: x[1]['c'], 5),
-])
+@pytest.mark.parametrize(
+    'batch,key,val', [
+        ([1234, 5678], 0, 1234),
+        ([1234, 5678], 1, 5678),
+        ({'a': 1, 'b': 2}, 'a', 1),
+        ({'a': 1, 'b': 2}, 'b', 2),
+        (({'a': 1, 'b': 7}, {'c': 5}), lambda x: x[1]['c'], 5),
+    ],
+)
 # yapf: enable
 def test_state_batch_get_item(batch, key, val, request: pytest.FixtureRequest):
     state = get_dummy_state(request)
@@ -120,12 +125,14 @@ def test_state_batch_get_item(batch, key, val, request: pytest.FixtureRequest):
 
 
 # yapf: disable
-@pytest.mark.parametrize('batch,key,val', [
-    ([1234, 5678], 0, 1111),
-    ([1234, 5678], 1, 1111),
-    ({'a': 1, 'b': 2}, 'a', 9),
-    ({'a': 1, 'b': 2}, 'b', 9),
-])
+@pytest.mark.parametrize(
+    'batch,key,val', [
+        ([1234, 5678], 0, 1111),
+        ([1234, 5678], 1, 1111),
+        ({'a': 1, 'b': 2}, 'a', 9),
+        ({'a': 1, 'b': 2}, 'b', 9),
+    ],
+)
 # yapf: enable
 def test_state_batch_set_item(batch, key, val, request: pytest.FixtureRequest):
     state = get_dummy_state(request)
@@ -133,6 +140,22 @@ def test_state_batch_set_item(batch, key, val, request: pytest.FixtureRequest):
 
     state.batch_set_item(key=key, value=val)
     assert state.batch_get_item(key) == val
+
+
+@pytest.mark.parametrize('time_unit', [ # Does not test for TimeUnit.DURATION because max_duration cannot have TimeUnit.DURATION as its unit: https://github.com/mosaicml/composer/blob/1b9c6d3c0592183b947fd89890de0832366e33a7/composer/core/state.py#L628
+    TimeUnit.EPOCH,
+    TimeUnit.BATCH,
+    TimeUnit.SAMPLE,
+    TimeUnit.TOKEN,
+])
+def test_stop_training(time_unit: TimeUnit, request: pytest.FixtureRequest):
+    state = get_dummy_state(request)
+    state.max_duration = '10' + time_unit.value
+    state.stop_training()
+    if time_unit == TimeUnit.EPOCH:
+        assert state.max_duration == '0' + TimeUnit.BATCH.value
+    else:
+        assert state.max_duration == '0' + time_unit.value
 
 
 def test_composer_metadata_in_state_dict(tmp_path, request: pytest.FixtureRequest):
@@ -143,8 +166,14 @@ def test_composer_metadata_in_state_dict(tmp_path, request: pytest.FixtureReques
 
     loaded_state_dict = torch.load(save_path)
     expected_env_info_keys = {
-        'composer_version', 'composer_commit_hash', 'node_world_size', 'host_processor_model_name',
-        'host_processor_core_count', 'local_world_size', 'accelerator_model_name', 'cuda_device_count'
+        'composer_version',
+        'composer_commit_hash',
+        'node_world_size',
+        'host_processor_model_name',
+        'host_processor_core_count',
+        'local_world_size',
+        'accelerator_model_name',
+        'cuda_device_count',
     }
     actual_env_info_keys = set(loaded_state_dict['metadata']['composer_env_info'].keys())
     assert expected_env_info_keys == actual_env_info_keys

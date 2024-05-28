@@ -14,12 +14,23 @@ configuration in writing schedulers.
 """
 
 from composer.optim.decoupled_weight_decay import DecoupledAdamW, DecoupledSGDW
-from composer.optim.scheduler import (ComposerScheduler, ConstantScheduler, ConstantWithWarmupScheduler,
-                                      CosineAnnealingScheduler, CosineAnnealingWarmRestartsScheduler,
-                                      CosineAnnealingWithWarmupScheduler, ExponentialScheduler, LinearScheduler,
-                                      LinearWithWarmupScheduler, MultiStepScheduler, MultiStepWithWarmupScheduler,
-                                      PolynomialScheduler, PolynomialWithWarmupScheduler, StepScheduler,
-                                      compile_composer_scheduler)
+from composer.optim.scheduler import (
+    ComposerScheduler,
+    ConstantScheduler,
+    ConstantWithWarmupScheduler,
+    CosineAnnealingScheduler,
+    CosineAnnealingWarmRestartsScheduler,
+    CosineAnnealingWithWarmupScheduler,
+    ExponentialScheduler,
+    LinearScheduler,
+    LinearWithWarmupScheduler,
+    MultiStepScheduler,
+    MultiStepWithWarmupScheduler,
+    PolynomialScheduler,
+    PolynomialWithWarmupScheduler,
+    StepScheduler,
+    compile_composer_scheduler,
+)
 
 __all__ = [
     'DecoupledAdamW',

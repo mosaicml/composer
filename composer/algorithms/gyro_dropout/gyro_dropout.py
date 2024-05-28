@@ -60,15 +60,28 @@ class GyroDropoutLayer(torch.nn.Module):
             return x
 
 
-def from_Dropout(iters_per_epoch: int, epoch: int, p: float, sigma: int, tau: int, layer: torch.nn.Module,
-                 module_index: int):
+def from_Dropout(
+    iters_per_epoch: int,
+    epoch: int,
+    p: float,
+    sigma: int,
+    tau: int,
+    layer: torch.nn.Module,
+    module_index: int,
+):
     """Defines a replacement policy from a `torch.nn.Dropout` to a 'GyroDropout`"""
 
     return GyroDropoutLayer(iters_per_epoch, epoch, p, sigma, tau)
 
 
-def apply_gyro_dropout(model: torch.nn.Module, iters_per_epoch: int, max_epoch: int, p: float, sigma: int,
-                       tau: int) -> None:
+def apply_gyro_dropout(
+    model: torch.nn.Module,
+    iters_per_epoch: int,
+    max_epoch: int,
+    p: float,
+    sigma: int,
+    tau: int,
+) -> None:
     """Replaces all instances of `torch.nn.Dropout` with a `GyroDropout`.
 
     By masking Dropout layer, this usually improves accuracy.
@@ -77,13 +90,15 @@ def apply_gyro_dropout(model: torch.nn.Module, iters_per_epoch: int, max_epoch: 
     # prepare the replacement policy and perform replacement
     from functools import partial
     policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
-        torch.nn.Dropout: partial(from_Dropout, iters_per_epoch, max_epoch, p, sigma, tau)
+        torch.nn.Dropout: partial(from_Dropout, iters_per_epoch, max_epoch, p, sigma, tau),
     }
     replaced_instances = module_surgery.replace_module_classes(module=model, policies=policy)
     if len(replaced_instances) == 0:
         warnings.warn(
             NoEffectWarning(
-                'No instances of `torch.nn.Dropout` were found, and therefore, there were no modules to replace.'))
+                'No instances of `torch.nn.Dropout` were found, and therefore, there were no modules to replace.',
+            ),
+        )
     log.info(f'Successfully replaced {len(replaced_instances)} of dropout with a Gyro dropout.')
 
 
@@ -122,7 +137,7 @@ class GyroDropout(Algorithm):
         self.tau = tau
 
         warnings.warn(
-            'GyroDropout is not implemented in a way that allows correct resumption from checkpoint, which may lead to incorrect behavior.'
+            'GyroDropout is not implemented in a way that allows correct resumption from checkpoint, which may lead to incorrect behavior.',
         )
 
     def __repr__(self) -> str:

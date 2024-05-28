@@ -58,15 +58,25 @@ class LoggerDestination(Callback, ABC):
         del hyperparameters  # unused
         pass
 
-    def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
+    def log_table(
+        self,
+        columns: List[str],
+        rows: List[List[Any]],
+        name: str = 'Table',
+        step: Optional[int] = None,
+    ) -> None:
         """Log a table.
 
         Args:
             columns (List[str]): Names of the columns in the table.
             rows (List[List[Any]]): 2D row-oriented array of values.
             name (str): Name of table. (Default: ``'Table'``)
+            step (Optional[int], optional): The current step or batch of training at the
+                time of logging. Defaults to None. If not specified the specific
+                LoggerDestination implementation will choose a step (usually a running
+                counter).
         """
-        del columns, rows, name
+        del columns, rows, name, step
         pass
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:

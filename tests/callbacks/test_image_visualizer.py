@@ -62,12 +62,14 @@ def test_image_visualizer_with_wandb(test_wandb_logger, interval):
     images_per_table = batch_size if batch_size < image_visualizer.num_images else image_visualizer.num_images
     max_duration = 9
 
-    trainer = Trainer(model=SimpleConvModel(),
-                      callbacks=image_visualizer,
-                      loggers=test_wandb_logger,
-                      train_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
-                      eval_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
-                      max_duration=f'{max_duration}ep')
+    trainer = Trainer(
+        model=SimpleConvModel(),
+        callbacks=image_visualizer,
+        loggers=test_wandb_logger,
+        train_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
+        eval_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
+        max_duration=f'{max_duration}ep',
+    )
 
     trainer.fit()
 
@@ -91,10 +93,10 @@ def test_image_visualizer_with_wandb(test_wandb_logger, interval):
             eval_image_count += num_images
 
     num_train_epochs = max_duration
-    expected_number_train_tables = (math.ceil(num_train_steps /
-                                              image_visualizer.interval.value) if image_visualizer.interval.unit
-                                    == TimeUnit.BATCH else math.ceil(num_train_epochs /
-                                                                     image_visualizer.interval.value))
+    expected_number_train_tables = (
+        math.ceil(num_train_steps / image_visualizer.interval.value) if image_visualizer.interval.unit == TimeUnit.BATCH
+        else math.ceil(num_train_epochs / image_visualizer.interval.value)
+    )
 
     expected_number_eval_tables = max_duration
     expected_number_train_images = expected_number_train_tables * images_per_table
@@ -115,13 +117,15 @@ def test_image_visualizer_with_comet(comet_offline_directory, comet_logger):
     max_duration = 6
     eval_interval = 6
 
-    trainer = Trainer(model=SimpleConvModel(),
-                      callbacks=image_visualizer,
-                      loggers=comet_logger,
-                      train_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
-                      eval_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
-                      eval_interval=f'{eval_interval}ba',
-                      max_duration=f'{max_duration}ba')
+    trainer = Trainer(
+        model=SimpleConvModel(),
+        callbacks=image_visualizer,
+        loggers=comet_logger,
+        train_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
+        eval_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
+        eval_interval=f'{eval_interval}ba',
+        max_duration=f'{max_duration}ba',
+    )
 
     trainer.fit()
 
@@ -159,17 +163,21 @@ def test_image_visualizer_segmentation_with_wandb(test_wandb_logger):
     num_classes = 2
     num_channels = 3
 
-    trainer = Trainer(model=SimpleSegmentationModel(num_channels=num_channels, num_classes=num_classes),
-                      callbacks=image_visualizer,
-                      loggers=test_wandb_logger,
-                      train_dataloader=DataLoader(
-                          RandomSegmentationDataset(size=dataset_size, shape=(3, 8, 8), num_classes=num_classes),
-                          batch_size),
-                      eval_dataloader=DataLoader(
-                          RandomSegmentationDataset(size=dataset_size, shape=(3, 8, 8), num_classes=num_classes),
-                          batch_size),
-                      eval_interval=f'{eval_interval}ba',
-                      max_duration=f'{max_duration}ba')
+    trainer = Trainer(
+        model=SimpleSegmentationModel(num_channels=num_channels, num_classes=num_classes),
+        callbacks=image_visualizer,
+        loggers=test_wandb_logger,
+        train_dataloader=DataLoader(
+            RandomSegmentationDataset(size=dataset_size, shape=(3, 8, 8), num_classes=num_classes),
+            batch_size,
+        ),
+        eval_dataloader=DataLoader(
+            RandomSegmentationDataset(size=dataset_size, shape=(3, 8, 8), num_classes=num_classes),
+            batch_size,
+        ),
+        eval_interval=f'{eval_interval}ba',
+        max_duration=f'{max_duration}ba',
+    )
 
     trainer.fit()
 
@@ -212,17 +220,21 @@ def test_image_visualizer_segmentation_with_comet(comet_offline_directory, comet
     num_channels = 3
     num_masks = 2
 
-    trainer = Trainer(model=SimpleSegmentationModel(num_channels=num_channels, num_classes=num_classes),
-                      callbacks=image_visualizer,
-                      loggers=comet_logger,
-                      train_dataloader=DataLoader(
-                          RandomSegmentationDataset(size=dataset_size, shape=(3, 32, 32), num_classes=num_classes),
-                          batch_size),
-                      eval_dataloader=DataLoader(
-                          RandomSegmentationDataset(size=dataset_size, shape=(3, 32, 32), num_classes=num_classes),
-                          batch_size),
-                      eval_interval=f'{eval_interval}ba',
-                      max_duration=f'{max_duration}ba')
+    trainer = Trainer(
+        model=SimpleSegmentationModel(num_channels=num_channels, num_classes=num_classes),
+        callbacks=image_visualizer,
+        loggers=comet_logger,
+        train_dataloader=DataLoader(
+            RandomSegmentationDataset(size=dataset_size, shape=(3, 32, 32), num_classes=num_classes),
+            batch_size,
+        ),
+        eval_dataloader=DataLoader(
+            RandomSegmentationDataset(size=dataset_size, shape=(3, 32, 32), num_classes=num_classes),
+            batch_size,
+        ),
+        eval_interval=f'{eval_interval}ba',
+        max_duration=f'{max_duration}ba',
+    )
 
     trainer.fit()
 
@@ -232,8 +244,9 @@ def test_image_visualizer_segmentation_with_comet(comet_offline_directory, comet
     expected_number_train_images = (batch_size * max_duration) / image_interval
     expected_number_eval_images = (max_duration / eval_interval) * batch_size
     num_additional_images_per_mask = 2  # Mask overlaid on image + mask by itself.
-    expected_num_masks = num_masks * num_additional_images_per_mask * (expected_number_train_images +
-                                                                       expected_number_eval_images)
+    expected_num_masks = num_masks * num_additional_images_per_mask * (
+        expected_number_train_images + expected_number_eval_images
+    )
 
     # Extract all files saved to comet offline directory.
     assert comet_logger.experiment is not None

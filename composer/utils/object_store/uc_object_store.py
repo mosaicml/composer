@@ -24,8 +24,9 @@ _NOT_FOUND_ERROR_CODE = 'NOT_FOUND'
 
 def _wrap_errors(uri: str, e: Exception):
     from databricks.sdk.core import DatabricksError
+    from databricks.sdk.errors.platform import NotFound
     if isinstance(e, DatabricksError):
-        if e.error_code == _NOT_FOUND_ERROR_CODE:  # type: ignore
+        if isinstance(e, NotFound) or e.error_code == _NOT_FOUND_ERROR_CODE:  # type: ignore
             raise FileNotFoundError(f'Object {uri} not found') from e
     raise ObjectStoreTransientError from e
 
@@ -48,6 +49,7 @@ class UCObjectStore(ObjectStore):
     """
 
     _UC_VOLUME_LIST_API_ENDPOINT = '/api/2.0/fs/list'
+    _UC_VOLUME_FILES_API_ENDPOINT = '/api/2.0/fs/files'
 
     def __init__(self, path: str) -> None:
         try:
@@ -61,7 +63,8 @@ class UCObjectStore(ObjectStore):
             raise ValueError(
                 f'Databricks SDK credentials not correctly setup. '
                 'Visit https://databricks-sdk-py.readthedocs.io/en/latest/authentication.html#databricks-native-authentication '
-                'to identify different ways to setup credentials.') from e
+                'to identify different ways to setup credentials.',
+            ) from e
         self.prefix = self.validate_path(path)
         self.client = WorkspaceClient()
 
@@ -84,9 +87,11 @@ class UCObjectStore(ObjectStore):
 
         dirs = path.split(os.sep)
         if len(dirs) < 4:
-            raise ValueError(f'Databricks Unity Catalog Volumes path expected to be of the format '
-                             '`Volumes/<catalog-name>/<schema-name>/<volume-name>/<optional-path>`. '
-                             f'Found path={path}')
+            raise ValueError(
+                f'Databricks Unity Catalog Volumes path expected to be of the format '
+                '`Volumes/<catalog-name>/<schema-name>/<volume-name>/<optional-path>`. '
+                f'Found path={path}',
+            )
 
         # The first 4 dirs form the prefix
         return os.path.join(*dirs[:4])
@@ -119,10 +124,12 @@ class UCObjectStore(ObjectStore):
         """
         return f'dbfs:{self._get_object_path(object_name)}'
 
-    def upload_object(self,
-                      object_name: str,
-                      filename: str | pathlib.Path,
-                      callback: Callable[[int, int], None] | None = None) -> None:
+    def upload_object(
+        self,
+        object_name: str,
+        filename: str | pathlib.Path,
+        callback: Callable[[int, int], None] | None = None,
+    ) -> None:
         """Upload a file from local to UC volumes.
 
         Args:
@@ -135,11 +142,13 @@ class UCObjectStore(ObjectStore):
         with open(filename, 'rb') as f:
             self.client.files.upload(self._get_object_path(object_name), f)
 
-    def download_object(self,
-                        object_name: str,
-                        filename: str | pathlib.Path,
-                        overwrite: bool = False,
-                        callback: Callable[[int, int], None] | None = None) -> None:
+    def download_object(
+        self,
+        object_name: str,
+        filename: str | pathlib.Path,
+        overwrite: bool = False,
+        callback: Callable[[int, int], None] | None = None,
+    ) -> None:
         """Download the given object from UC Volumes to the specified filename.
 
         Args:
@@ -206,22 +215,20 @@ class UCObjectStore(ObjectStore):
         """
         from databricks.sdk.core import DatabricksError
         try:
-            file_info = self.client.files.get_status(self._get_object_path(object_name))
-            if file_info.is_dir:
-                raise IsADirectoryError(f'{object_name} is a UC directory, not a file.')
-
-            assert file_info.file_size is not None
-            return file_info.file_size
+            # Note: The UC team is working on changes to fix the files.get_status API, but it currently
+            # does not work. Once fixed, we will call the files API endpoint. We currently only use this
+            # function in Composer and LLM-foundry to check the UC object's existence.
+            object_path = self._get_object_path(object_name).lstrip('/')
+            path = os.path.join(self._UC_VOLUME_FILES_API_ENDPOINT, object_path)
+            self.client.api_client.do(method='HEAD', path=path, headers={'Source': 'mosaicml/composer'})
+            return 1000000  # Dummy value, as we don't have a way to get the size of the file
         except DatabricksError as e:
+            # If the code reaches here, the file was not found
             _wrap_errors(self.get_uri(object_name), e)
         return -1
 
     def list_objects(self, prefix: Optional[str]) -> List[str]:
         """List all objects in the object store with the given prefix.
-
-         .. note::
-
-            This function removes the directories from the returned list.
 
         Args:
             prefix (str): The prefix to search for.
@@ -234,14 +241,37 @@ class UCObjectStore(ObjectStore):
 
         from databricks.sdk.core import DatabricksError
         try:
-            data = json.dumps({'path': self._get_object_path(prefix)})
             # NOTE: This API is in preview and should not be directly used outside of this instance
-            resp = self.client.api_client.do(method='GET',
-                                             path=self._UC_VOLUME_LIST_API_ENDPOINT,
-                                             data=data,
-                                             headers={'Source': 'mosaicml/composer'})
-            assert isinstance(resp, dict)
-            return [f['path'] for f in resp.get('files', []) if not f['is_dir']]
+            logging.warn('UCObjectStore.list_objects is experimental.')
+
+            # Iteratively get all UC Volume files with `prefix`.
+            stack = [prefix]
+            all_files = []
+
+            while len(stack) > 0:
+                current_path = stack.pop()
+
+                # Note: Databricks SDK handles HTTP errors and retries.
+                # See https://github.com/databricks/databricks-sdk-py/blob/v0.18.0/databricks/sdk/core.py#L125 and
+                # https://github.com/databricks/databricks-sdk-py/blob/v0.18.0/databricks/sdk/retries.py#L33 .
+                resp = self.client.api_client.do(
+                    method='GET',
+                    path=self._UC_VOLUME_LIST_API_ENDPOINT,
+                    data=json.dumps({'path': self._get_object_path(current_path)}),
+                    headers={'Source': 'mosaicml/composer'},
+                )
+
+                assert isinstance(resp, dict), 'Response is not a dictionary'
+
+                for f in resp.get('files', []):
+                    fpath = f['path']
+                    if f['is_dir']:
+                        stack.append(fpath)
+                    else:
+                        all_files.append(fpath)
+
+            return all_files
+
         except DatabricksError as e:
             _wrap_errors(self.get_uri(prefix), e)
         return []

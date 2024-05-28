@@ -19,16 +19,16 @@ import tabulate
 import yaml
 
 PRODUCTION_PYTHON_VERSION = '3.10'
-PRODUCTION_PYTORCH_VERSION = '2.1.2'
+PRODUCTION_PYTORCH_VERSION = '2.2.1'
 
 
 def _get_torchvision_version(pytorch_version: str):
-    if pytorch_version == '2.2.0':
-        return '0.17.0'
+    if pytorch_version == '2.3.0':
+        return '0.18.0'
+    if pytorch_version == '2.2.1':
+        return '0.17.1'
     if pytorch_version == '2.1.2':
         return '0.16.2'
-    if pytorch_version == '2.0.1':
-        return '0.15.2'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
@@ -42,12 +42,12 @@ def _get_cuda_version(pytorch_version: str, use_cuda: bool):
     # From https://docs.nvidia.com/deeplearning/frameworks/pytorch-release-notes/
     if not use_cuda:
         return ''
-    if pytorch_version == '2.2.0':
-        return '12.1.0'
+    if pytorch_version == '2.3.0':
+        return '12.1.1'
+    if pytorch_version == '2.2.1':
+        return '12.1.1'
     if pytorch_version == '2.1.2':
-        return '12.1.0'
-    if pytorch_version == '2.0.1':
-        return '11.8.0'
+        return '12.1.1'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
@@ -58,40 +58,44 @@ def _get_cuda_version_tag(cuda_version: str):
 
 
 def _get_cuda_override(cuda_version: str):
-    if cuda_version == '12.1.0':
-        cuda_121_override_string = ('cuda>=12.1 brand=tesla,driver>=450,driver<451 '
-                                    'brand=tesla,driver>=470,driver<471 brand=unknown,driver>=470,driver<471 '
-                                    'brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471 '
-                                    'brand=geforce,driver>=470,driver<471 brand=geforcertx,driver>=470,driver<471 '
-                                    'brand=quadro,driver>=470,driver<471 brand=quadrortx,driver>=470,driver<471 '
-                                    'brand=titan,driver>=470,driver<471 brand=titanrtx,driver>=470,driver<471 '
-                                    'brand=tesla,driver>=510,driver<511 brand=unknown,driver>=510,driver<511 '
-                                    'brand=nvidia,driver>=510,driver<511 brand=nvidiartx,driver>=510,driver<511 '
-                                    'brand=geforce,driver>=510,driver<511 brand=geforcertx,driver>=510,driver<511 '
-                                    'brand=quadro,driver>=510,driver<511 brand=quadrortx,driver>=510,driver<511 '
-                                    'brand=titan,driver>=510,driver<511 brand=titanrtx,driver>=510,driver<511 '
-                                    'brand=tesla,driver>=515,driver<516 brand=unknown,driver>=515,driver<516 '
-                                    'brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=515,driver<516 '
-                                    'brand=geforce,driver>=515,driver<516 brand=geforcertx,driver>=515,driver<516 '
-                                    'brand=quadro,driver>=515,driver<516 brand=quadrortx,driver>=515,driver<516 '
-                                    'brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=515,driver<516 '
-                                    'brand=tesla,driver>=525,driver<526 brand=unknown,driver>=525,driver<526 '
-                                    'brand=nvidia,driver>=525,driver<526 brand=nvidiartx,driver>=525,driver<526 '
-                                    'brand=geforce,driver>=525,driver<526 brand=geforcertx,driver>=525,driver<526 '
-                                    'brand=quadro,driver>=525,driver<526 brand=quadrortx,driver>=525,driver<526 '
-                                    'brand=titan,driver>=525,driver<526 brand=titanrtx,driver>=525,driver<526')
+    if cuda_version == '12.1.1':
+        cuda_121_override_string = (
+            'cuda>=12.1 brand=tesla,driver>=450,driver<451 '
+            'brand=tesla,driver>=470,driver<471 brand=unknown,driver>=470,driver<471 '
+            'brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471 '
+            'brand=geforce,driver>=470,driver<471 brand=geforcertx,driver>=470,driver<471 '
+            'brand=quadro,driver>=470,driver<471 brand=quadrortx,driver>=470,driver<471 '
+            'brand=titan,driver>=470,driver<471 brand=titanrtx,driver>=470,driver<471 '
+            'brand=tesla,driver>=510,driver<511 brand=unknown,driver>=510,driver<511 '
+            'brand=nvidia,driver>=510,driver<511 brand=nvidiartx,driver>=510,driver<511 '
+            'brand=geforce,driver>=510,driver<511 brand=geforcertx,driver>=510,driver<511 '
+            'brand=quadro,driver>=510,driver<511 brand=quadrortx,driver>=510,driver<511 '
+            'brand=titan,driver>=510,driver<511 brand=titanrtx,driver>=510,driver<511 '
+            'brand=tesla,driver>=515,driver<516 brand=unknown,driver>=515,driver<516 '
+            'brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=515,driver<516 '
+            'brand=geforce,driver>=515,driver<516 brand=geforcertx,driver>=515,driver<516 '
+            'brand=quadro,driver>=515,driver<516 brand=quadrortx,driver>=515,driver<516 '
+            'brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=515,driver<516 '
+            'brand=tesla,driver>=525,driver<526 brand=unknown,driver>=525,driver<526 '
+            'brand=nvidia,driver>=525,driver<526 brand=nvidiartx,driver>=525,driver<526 '
+            'brand=geforce,driver>=525,driver<526 brand=geforcertx,driver>=525,driver<526 '
+            'brand=quadro,driver>=525,driver<526 brand=quadrortx,driver>=525,driver<526 '
+            'brand=titan,driver>=525,driver<526 brand=titanrtx,driver>=525,driver<526'
+        )
 
         return cuda_121_override_string
     elif cuda_version == '11.8.0':
-        cuda_118_override_string = ('cuda>=11.8 brand=tesla,driver>=470,driver<471 '
-                                    'brand=tesla,driver>=515,driver<516 brand=unknown,driver>=470,driver<471 '
-                                    'brand=unknown,driver>=515,driver<516 brand=nvidia,driver>=470,driver<471 '
-                                    'brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=470,driver<471 '
-                                    'brand=nvidiartx,driver>=515,driver<516 brand=geforce,driver>=470,driver<471 '
-                                    'brand=geforce,driver>=515,driver<516 brand=quadro,driver>=470,driver<471 '
-                                    'brand=quadro,driver>=515,driver<516 brand=titan,driver>=470,driver<471 '
-                                    'brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=470,driver<471 '
-                                    'brand=titanrtx,driver>=515,driver<516')
+        cuda_118_override_string = (
+            'cuda>=11.8 brand=tesla,driver>=470,driver<471 '
+            'brand=tesla,driver>=515,driver<516 brand=unknown,driver>=470,driver<471 '
+            'brand=unknown,driver>=515,driver<516 brand=nvidia,driver>=470,driver<471 '
+            'brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=470,driver<471 '
+            'brand=nvidiartx,driver>=515,driver<516 brand=geforce,driver>=470,driver<471 '
+            'brand=geforce,driver>=515,driver<516 brand=quadro,driver>=470,driver<471 '
+            'brand=quadro,driver>=515,driver<516 brand=titan,driver>=470,driver<471 '
+            'brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=470,driver<471 '
+            'brand=titanrtx,driver>=515,driver<516'
+        )
         return cuda_118_override_string
     return ''
 
@@ -163,7 +167,7 @@ def _write_table(table_tag: str, table_contents: str):
 
 
 def _main():
-    python_pytorch_versions = [('3.11', '2.2.0'), ('3.10', '2.1.2'), ('3.10', '2.0.1')]
+    python_pytorch_versions = [('3.11', '2.3.0'), ('3.11', '2.2.1'), ('3.10', '2.1.2')]
     cuda_options = [True, False]
     stages = ['pytorch_stage']
     interconnects = ['mellanox', 'EFA']  # mellanox is default, EFA needed for AWS
@@ -224,44 +228,10 @@ def _main():
 
         pytorch_entries.append(entry)
 
-    nightly_entry_310 = {
-        'AWS_OFI_NCCL_VERSION': '',
-        'BASE_IMAGE': 'nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04',
-        'CUDA_VERSION': '12.1.0',
-        'IMAGE_NAME': 'torch-nightly-2-3-0-20240110-cu121-python3-10',
-        'MOFED_VERSION': '5.5-1.0.3.2',
-        'NVIDIA_REQUIRE_CUDA_OVERRIDE': _get_cuda_override('12.1.0'),
-        'PYTHON_VERSION': '3.10',
-        'PYTORCH_VERSION': '2.3.0',
-        'PYTORCH_NIGHTLY_URL': 'https://download.pytorch.org/whl/nightly/cu121',
-        'PYTORCH_NIGHTLY_VERSION': 'dev20240110+cu121',
-        'TAGS': ['mosaicml/pytorch:2.3.0_cu121-nightly20240110-python3.10-ubuntu20.04'],
-        'TARGET': 'pytorch_stage',
-        'TORCHVISION_VERSION': '0.18.0'
-    }
-    pytorch_entries.append(nightly_entry_310)
-
-    nightly_entry_311 = {
-        'AWS_OFI_NCCL_VERSION': '',
-        'BASE_IMAGE': 'nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04',
-        'CUDA_VERSION': '12.1.0',
-        'IMAGE_NAME': 'torch-nightly-2-3-0-20240110-cu121-python3-11',
-        'MOFED_VERSION': '5.5-1.0.3.2',
-        'NVIDIA_REQUIRE_CUDA_OVERRIDE': _get_cuda_override('12.1.0'),
-        'PYTHON_VERSION': '3.11',
-        'PYTORCH_VERSION': '2.3.0',
-        'PYTORCH_NIGHTLY_URL': 'https://download.pytorch.org/whl/nightly/cu121',
-        'PYTORCH_NIGHTLY_VERSION': 'dev20240110+cu121',
-        'TAGS': ['mosaicml/pytorch:2.3.0_cu121-nightly20240110-python3.11-ubuntu20.04'],
-        'TARGET': 'pytorch_stage',
-        'TORCHVISION_VERSION': '0.18.0'
-    }
-    pytorch_entries.append(nightly_entry_311)
-
     composer_entries = []
 
     # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
-    composer_versions = ['0.19.0']  # Only build images for the latest composer version
+    composer_versions = ['0.22.0']  # Only build images for the latest composer version
     composer_python_versions = [PRODUCTION_PYTHON_VERSION]  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):
@@ -319,7 +289,8 @@ def _main():
             ', '.join(reversed([f'`{x}`' for x in entry['TAGS']])),  # Docker tags
         ])
     table.sort(
-        key=lambda x: x[3].replace('Infiniband', '1').replace('EFA', '2'))  # cuda version, put infiniband ahead of EFA
+        key=lambda x: x[3].replace('Infiniband', '1').replace('EFA', '2'),
+    )  # cuda version, put infiniband ahead of EFA
     table.sort(key=lambda x: packaging.version.parse(x[4]), reverse=True)  # python version
     table.sort(key=lambda x: packaging.version.parse(x[2]), reverse=True)  # pytorch version
     table.sort(key=lambda x: x[1])  # flavor
@@ -341,8 +312,10 @@ def _main():
             ', '.join(reversed([f'`{x}`' for x in entry['TAGS']])),  # Docker tags
         ])
     table.sort(key=lambda x: x[1], reverse=True)  # cuda support
-    table.sort(key=lambda x: packaging.version.parse('9999999999999'
-                                                     if x[0] == 'latest' else x[0]), reverse=True)  # Composer version
+    table.sort(
+        key=lambda x: packaging.version.parse('9999999999999' if x[0] == 'latest' else x[0]),
+        reverse=True,
+    )  # Composer version
     table_contents = tabulate.tabulate(table, headers, tablefmt='github', floatfmt='', disable_numparse=True)
     _write_table('COMPOSER_BUILD_MATRIX', table_contents)
 

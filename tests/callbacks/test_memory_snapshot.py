@@ -12,17 +12,15 @@ from composer import State, Trainer
 from composer.callbacks import MemorySnapshot
 from composer.loggers import LoggerDestination
 from composer.trainer import Trainer
-from tests.common import RandomClassificationDataset, SimpleModel, device
+from tests.common import RandomClassificationDataset, SimpleModel
 
 
-@device('cpu', 'gpu')
-def test_memory_snapshot_warnings_on_cpu_models(device: str):
-    if version.parse(torch.__version__) <= version.parse('2.1.0.dev'):
-        # memory snapshot is supported after PyTorch 2.1.0.
-        return
-    # Error if the user sets device=cpu even when cuda is available
-    del device  # unused. always using cpu
-    with pytest.warns(UserWarning, match='The memory snapshot only works on CUDA devices'):
+@pytest.mark.skipif(
+    version.parse(torch.__version__) < version.parse('2.1.0'),
+    reason='OOM Observer requires PyTorch 2.1 or higher',
+)
+def test_memory_snapshot_warnings_on_cpu_models():
+    with pytest.warns(UserWarning):
         Trainer(
             model=SimpleModel(),
             callbacks=MemorySnapshot(),
@@ -44,16 +42,15 @@ class FileUploaderTracker(LoggerDestination):
 
 @pytest.mark.gpu
 @pytest.mark.parametrize('interval', ['1ba'])
+@pytest.mark.skipif(
+    version.parse(torch.__version__) < version.parse('2.1.0'),
+    reason='OOM Observer requires PyTorch 2.1 or higher',
+)
 def test_memory_snapshot(interval: str):
-    if version.parse(torch.__version__) <= version.parse('2.1.0.dev'):
-        # memory snapshot is supported after PyTorch 2.1.0.
-        return
     # Construct the callbacks
     skip_batches = 0
     memory_snapshot = MemorySnapshot(skip_batches=skip_batches, interval=interval)
-
     simple_model = SimpleModel()
-
     file_tracker_destination = FileUploaderTracker()
 
     # Construct the trainer and train
@@ -65,5 +62,5 @@ def test_memory_snapshot(interval: str):
         max_duration='2ba',
     )
     trainer.fit()
-    assert len(file_tracker_destination.uploaded_files) == 1
+    assert len(file_tracker_destination.uploaded_files) == 2
     trainer.close()

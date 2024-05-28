@@ -48,8 +48,10 @@ def _local_rank_zero() -> bool:
 
 def _require_mlperf_logging():
     if not mlperf_available:
-        raise ImportError("""Please install with `pip install 'mosaicml[mlperf]'` and also
-                          install the logging library from: https://github.com/mlcommons/logging""")
+        raise ImportError(
+            """Please install with `pip install 'mosaicml[mlperf]'` and also
+                          install the logging library from: https://github.com/mlcommons/logging""",
+        )
 
 
 class MLPerfCallback(Callback):
@@ -263,22 +265,8 @@ class MLPerfCallback(Callback):
             if isinstance(dataloader.dataset, IterableDataset):
                 num_samples *= dist.get_world_size()
             return (dataloader.batch_size, num_samples)
-        try:
-            # attempt to import ffcv and test if its an ffcv loader.
-            import ffcv  # type: ignore
 
-            warnings.warn(DeprecationWarning('ffcv is deprecated and will be removed in v0.18'))
-
-            if isinstance(dataloader, ffcv.loader.Loader):
-                # Use the cached attribute ffcv.init_traversal_order to compute number of samples
-                return (
-                    dataloader.batch_size,  # type: ignore
-                    len(dataloader.next_traversal_order()) * dist.get_world_size()  # type: ignore
-                )
-        except ImportError:
-            pass
-
-        raise TypeError(f'torch dataloader or ffcv dataloader required (and ffcv installed)')
+        raise TypeError(f'torch dataloader required')
 
     def fit_start(self, state: State, logger: Logger) -> None:
         if _global_rank_zero():
@@ -313,11 +301,13 @@ class MLPerfCallback(Callback):
     def epoch_start(self, state: State, logger: Logger) -> None:
         if _global_rank_zero():
             self.mllogger.event(key=constants.EPOCH_START, metadata={'epoch_num': self._get_time(state)})
-            self.mllogger.event(key=constants.BLOCK_START,
-                                metadata={
-                                    'first_epoch_num': self._get_time(state),
-                                    'epoch_count': 1
-                                })
+            self.mllogger.event(
+                key=constants.BLOCK_START,
+                metadata={
+                    'first_epoch_num': self._get_time(state),
+                    'epoch_count': 1,
+                },
+            )
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         if _global_rank_zero():
@@ -333,9 +323,11 @@ class MLPerfCallback(Callback):
 
         if _global_rank_zero():
             self.mllogger.event(key=constants.EVAL_STOP, metadata={'epoch_num': self._get_time(state)})
-            self.mllogger.event(key=constants.EVAL_ACCURACY,
-                                value=accuracy,
-                                metadata={'epoch_num': self._get_time(state)})
+            self.mllogger.event(
+                key=constants.EVAL_ACCURACY,
+                value=accuracy,
+                metadata={'epoch_num': self._get_time(state)},
+            )
             self.mllogger.event(key=constants.BLOCK_STOP, metadata={'first_epoch_num': self._get_time(state)})
 
             if accuracy > self.target and not self.success:

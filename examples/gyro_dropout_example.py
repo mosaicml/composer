@@ -73,15 +73,17 @@ class VGG13Model(composer.models.ComposerClassifier):
 
 # Your custom train dataloader
 train_dataloader = torch.utils.data.DataLoader(
-    dataset=datasets.CIFAR10('/datasets/',
-                             train=True,
-                             transform=transforms.Compose([
-                                 transforms.RandomCrop(32, padding=4),
-                                 transforms.RandomHorizontalFlip(),
-                                 transforms.ToTensor(),
-                                 transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-                             ]),
-                             download=True),
+    dataset=datasets.CIFAR10(
+        '/datasets/',
+        train=True,
+        transform=transforms.Compose([
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        ]),
+        download=True,
+    ),
     drop_last=False,
     shuffle=True,
     batch_size=256,
@@ -89,12 +91,14 @@ train_dataloader = torch.utils.data.DataLoader(
 
 # Your custom eval dataloader
 eval_dataloader = torch.utils.data.DataLoader(
-    dataset=datasets.CIFAR10('/datasets/',
-                             train=False,
-                             transform=transforms.Compose([
-                                 transforms.ToTensor(),
-                                 transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-                             ])),
+    dataset=datasets.CIFAR10(
+        '/datasets/',
+        train=False,
+        transform=transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        ]),
+    ),
     drop_last=False,
     shuffle=False,
     batch_size=256,
@@ -110,11 +114,13 @@ optimizer = composer.optim.DecoupledSGDW(
 )
 
 # Initialize Trainer with custom model, custom train and eval datasets, and algorithms to train with
-trainer = Trainer(model=model,
-                  train_dataloader=train_dataloader,
-                  eval_dataloader=eval_dataloader,
-                  max_duration='100ep',
-                  optimizers=optimizer,
-                  algorithms=[GyroDropout()])
+trainer = Trainer(
+    model=model,
+    train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
+    max_duration='100ep',
+    optimizers=optimizer,
+    algorithms=[GyroDropout()],
+)
 
 trainer.fit()

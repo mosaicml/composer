@@ -43,19 +43,23 @@ class TestCallbacks:
     def setup_class(cls):
         pytest.importorskip('wandb', reason='WandB is optional.')
 
+    @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_callback_is_constructable(self, cb_cls: Type[Callback]):
         cb_kwargs = get_cb_kwargs(cb_cls)
         cb = cb_cls(**cb_kwargs)
         assert isinstance(cb_cls, type)
         assert isinstance(cb, cb_cls)
 
+    @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_multiple_fit_start_and_end(self, cb_cls: Type[Callback], dummy_state: State):
         """Test that callbacks do not crash when Event.FIT_START and Event.FIT_END is called multiple times."""
         cb_kwargs = get_cb_kwargs(cb_cls)
         dummy_state.callbacks.append(cb_cls(**cb_kwargs))
-        dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP,
-                                        trace_handlers=[],
-                                        torch_prof_memory_filename=None)
+        dummy_state.profiler = Profiler(
+            schedule=lambda _: ProfilerAction.SKIP,
+            trace_handlers=[],
+            torch_prof_memory_filename=None,
+        )
         dummy_state.profiler.bind_to_state(dummy_state)
 
         logger = Logger(dummy_state)
@@ -69,13 +73,16 @@ class TestCallbacks:
         engine.run_event(Event.FIT_START)
         engine.run_event(Event.FIT_END)
 
+    @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_idempotent_close(self, cb_cls: Type[Callback], dummy_state: State):
         """Test that callbacks do not crash when .close() and .post_close() are called multiple times."""
         cb_kwargs = get_cb_kwargs(cb_cls)
         dummy_state.callbacks.append(cb_cls(**cb_kwargs))
-        dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP,
-                                        trace_handlers=[],
-                                        torch_prof_memory_filename=None)
+        dummy_state.profiler = Profiler(
+            schedule=lambda _: ProfilerAction.SKIP,
+            trace_handlers=[],
+            torch_prof_memory_filename=None,
+        )
         dummy_state.profiler.bind_to_state(dummy_state)
 
         logger = Logger(dummy_state)
@@ -85,13 +92,16 @@ class TestCallbacks:
         engine.close()
         engine.close()
 
+    @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_multiple_init_and_close(self, cb_cls: Type[Callback], dummy_state: State):
         """Test that callbacks do not crash when INIT/.close()/.post_close() are called multiple times in that order."""
         cb_kwargs = get_cb_kwargs(cb_cls)
         dummy_state.callbacks.append(cb_cls(**cb_kwargs))
-        dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP,
-                                        trace_handlers=[],
-                                        torch_prof_memory_filename=None)
+        dummy_state.profiler = Profiler(
+            schedule=lambda _: ProfilerAction.SKIP,
+            trace_handlers=[],
+            torch_prof_memory_filename=None,
+        )
         dummy_state.profiler.bind_to_state(dummy_state)
 
         logger = Logger(dummy_state)
@@ -111,9 +121,10 @@ class TestCallbacks:
 
 @pytest.mark.parametrize('cb_cls', get_cbs_and_marks(callbacks=True, loggers=True, profilers=True))
 # Parameterized across @pytest.mark.remote as some loggers (e.g. wandb) support integration testing
-@pytest.mark.parametrize('device_train_microbatch_size,_remote',
-                         [(1, False),
-                          (2, False), pytest.param(1, True, marks=pytest.mark.remote)])
+@pytest.mark.parametrize(
+    'device_train_microbatch_size,_remote',
+    [(1, False), (2, False), pytest.param(1, True, marks=pytest.mark.remote)],
+)
 @pytest.mark.filterwarnings(r'ignore:The profiler is enabled:UserWarning')
 class TestCallbackTrains:
 
@@ -131,11 +142,14 @@ class TestCallbackTrains:
             device_train_microbatch_size=device_train_microbatch_size,
             callbacks=callbacks,
             loggers=loggers,
-            profiler=Profiler(schedule=lambda _: ProfilerAction.SKIP,
-                              trace_handlers=[],
-                              torch_prof_memory_filename=None),
+            profiler=Profiler(
+                schedule=lambda _: ProfilerAction.SKIP,
+                trace_handlers=[],
+                torch_prof_memory_filename=None,
+            ),
         )
 
+    @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_trains(self, cb_cls: Type[Callback], device_train_microbatch_size: int, _remote: bool):
         del _remote  # unused. `_remote` must be passed through to parameterize the test markers.
         cb_kwargs = get_cb_kwargs(cb_cls)
@@ -143,6 +157,7 @@ class TestCallbackTrains:
         trainer = self._get_trainer(cb, device_train_microbatch_size)
         trainer.fit()
 
+    @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_trains_multiple_calls(self, cb_cls: Type[Callback], device_train_microbatch_size: int, _remote: bool):
         """
         Tests that training with multiple fits complete.

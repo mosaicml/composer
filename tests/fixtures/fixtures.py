@@ -3,6 +3,7 @@
 
 """These fixtures are shared globally across the test suite."""
 import copy
+import os
 import time
 
 import coolname
@@ -112,7 +113,7 @@ def s3_bucket(request: pytest.FixtureRequest):
     if request.node.get_closest_marker('remote') is None:
         return 'my-bucket'
     else:
-        return _get_option(request.config, 's3_bucket')
+        return os.environ.get('S3_BUCKET', 'mosaicml-internal-integration-testing')
 
 
 @pytest.fixture
@@ -226,7 +227,7 @@ def tiny_gpt2_config_helper():
         'n_embd': 2,
         'n_head': 2,
         'n_layer': 2,
-        'vocab_size': 50258  # 50257 + 1 for pad token
+        'vocab_size': 50258,  # 50257 + 1 for pad token
     }
     return transformers.AutoConfig.from_pretrained('gpt2', **tiny_overrides)
 
@@ -332,45 +333,44 @@ def _session_tiny_t5_model(_session_tiny_t5_config):  # type: ignore
     return tiny_t5_model_helper(_session_tiny_t5_config)
 
 
-def tiny_mistral_config_helper():
+def tiny_mpt_config_helper():
     transformers = pytest.importorskip('transformers')
 
     tiny_overrides = {
-        'hidden_size': 128,
-        'intermediate_size': 256,
-        'num_attention_heads': 8,
-        'num_hidden_layers': 2,
-        'num_kv_heads': 4
+        'd_model': 128,
+        'expansion_ratio': 1,
+        'n_heads': 8,
+        'n_layers': 2,
     }
-    return transformers.AutoConfig.from_pretrained('mistralai/Mistral-7B-v0.1', **tiny_overrides)
+    return transformers.AutoConfig.from_pretrained('mosaicml/mpt-7b', **tiny_overrides)
 
 
 @pytest.fixture(scope='session')
-def _session_tiny_mistral_config():  # type: ignore
-    return tiny_mistral_config_helper()
+def _session_tiny_mpt_config():  # type: ignore
+    return tiny_mpt_config_helper()
 
 
-def tiny_mistral_tokenizer_helper():
+def tiny_mpt_tokenizer_helper():
     transformers = pytest.importorskip('transformers')
 
-    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('mistralai/Mistral-7B-v0.1', model_max_length=512)
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('mosaicml/mpt-7b', model_max_length=512)
     return hf_tokenizer
 
 
 @pytest.fixture(scope='session')
-def _session_tiny_mistral_tokenizer():  # type: ignore
-    return tiny_mistral_tokenizer_helper()
+def _session_tiny_mpt_tokenizer():  # type: ignore
+    return tiny_mpt_tokenizer_helper()
 
 
-def tiny_mistral_model_helper(config):
+def tiny_mpt_model_helper(config):
     transformers = pytest.importorskip('transformers')
 
     return transformers.AutoModelForCausalLM.from_config(config)
 
 
 @pytest.fixture(scope='session')
-def _session_tiny_mistral_model(_session_tiny_mistral_config):  # type: ignore
-    return tiny_mistral_model_helper(_session_tiny_mistral_config)
+def _session_tiny_mpt_model(_session_tiny_mpt_config):  # type: ignore
+    return tiny_mpt_model_helper(_session_tiny_mpt_config)
 
 
 @pytest.fixture
@@ -454,15 +454,15 @@ def tiny_t5_model(_session_tiny_t5_model):
 
 
 @pytest.fixture
-def tiny_mistral_config(_session_tiny_mistral_config):
-    return copy.deepcopy(_session_tiny_mistral_config)
+def tiny_mpt_config(_session_tiny_mpt_config):
+    return copy.deepcopy(_session_tiny_mpt_config)
 
 
 @pytest.fixture
-def tiny_mistral_tokenizer(_session_tiny_mistral_tokenizer):
-    return copy.deepcopy(_session_tiny_mistral_tokenizer)
+def tiny_mpt_tokenizer(_session_tiny_mpt_tokenizer):
+    return copy.deepcopy(_session_tiny_mpt_tokenizer)
 
 
 @pytest.fixture
-def tiny_mistral_model(_session_tiny_mistral_model):
-    return copy.deepcopy(_session_tiny_mistral_model)
+def tiny_mpt_model(_session_tiny_mpt_model):
+    return copy.deepcopy(_session_tiny_mpt_model)

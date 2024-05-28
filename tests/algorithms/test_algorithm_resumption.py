@@ -19,8 +19,10 @@ from tests.common.markers import world_size
 
 @pytest.mark.gpu
 @pytest.mark.parametrize('alg_cls', get_algs_with_marks())
-@pytest.mark.filterwarnings('ignore:Detected call of `lr_scheduler.step()'
-                           )  # optimizer.step() sometimes skipped when NaN/inf on low batch size
+@pytest.mark.filterwarnings(
+    'ignore:Detected call of `lr_scheduler.step()',
+)  # optimizer.step() sometimes skipped when NaN/inf on low batch size
+@pytest.mark.filterwarnings(r'ignore:.*Plan failed with a cudnnException.*:UserWarning')  # Torch 2.3 regression
 @world_size(1, 2)
 def test_algorithm_resumption(
     tmp_path: pathlib.Path,
@@ -127,9 +129,11 @@ def _assert_checkpoints_equal(file1, file2):
     # compare state
     # remove the wall clock time fields since they will always differ
     del checkpoint1['state']['timestamp']['Timestamp']['total_wct']
+    del checkpoint1['state']['timestamp']['Timestamp']['iteration_wct']
     del checkpoint1['state']['timestamp']['Timestamp']['epoch_wct']
     del checkpoint1['state']['timestamp']['Timestamp']['batch_wct']
     del checkpoint2['state']['timestamp']['Timestamp']['total_wct']
+    del checkpoint2['state']['timestamp']['Timestamp']['iteration_wct']
     del checkpoint2['state']['timestamp']['Timestamp']['epoch_wct']
     del checkpoint2['state']['timestamp']['Timestamp']['batch_wct']
 

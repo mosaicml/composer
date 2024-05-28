@@ -126,11 +126,13 @@ class S3ObjectStore(ObjectStore):
             _ensure_not_found_errors_are_wrapped(self.get_uri(object_name), e)
         return obj['ContentLength']
 
-    def upload_object(self,
-                      object_name: str,
-                      filename: Union[str, pathlib.Path],
-                      callback: Optional[Callable[[int, int], None]] = None,
-                      **kwargs):
+    def upload_object(
+        self,
+        object_name: str,
+        filename: Union[str, pathlib.Path],
+        callback: Optional[Callable[[int, int], None]] = None,
+        **kwargs,
+    ):
         try:
             from boto3.s3.transfer import S3Transfer
         except ImportError as e:
@@ -152,16 +154,18 @@ class S3ObjectStore(ObjectStore):
             if 'S3_CANNED_ACL' in os.environ and 'ACL' not in kwargs['ExtraArgs']:
                 kwargs['ExtraArgs']['ACL'] = os.environ['S3_CANNED_ACL']
         
-        # NOTE: The following is very unsafe but I'm pissed off at the moment and don't care.
+        # NOTE: The following is very unsafe but I am pissed off at the moment and don't care.
         success = False
         while not success:
             try:
-                self.client.upload_file(Bucket=self.bucket,
-                                        Key=self.get_key(object_name),
-                                        Filename=filename,
-                                        Callback=cb_wrapper,
-                                        Config=self.transfer_config,
-                                        **kwargs)
+                self.client.upload_file(
+                    Bucket=self.bucket,
+                    Key=self.get_key(object_name),
+                    Filename=filename,
+                    Callback=cb_wrapper,
+                    Config=self.transfer_config,
+                    **kwargs,
+                )
                 success = True
             except Exception as e:
                 log.error(f'Error uploading {filename} to {self.get_uri(object_name)}. Retrying...', exc_info=e)
@@ -189,11 +193,13 @@ class S3ObjectStore(ObjectStore):
 
         try:
             try:
-                self.client.download_file(Bucket=self.bucket,
-                                          Key=self.get_key(object_name),
-                                          Filename=tmp_path,
-                                          Callback=cb_wrapper,
-                                          Config=self.transfer_config)
+                self.client.download_file(
+                    Bucket=self.bucket,
+                    Key=self.get_key(object_name),
+                    Filename=tmp_path,
+                    Callback=cb_wrapper,
+                    Config=self.transfer_config,
+                )
             except Exception as e:
                 _ensure_not_found_errors_are_wrapped(self.get_uri(object_name), e)
         except:

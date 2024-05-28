@@ -32,19 +32,22 @@ class TestGenerate():
                 'but its data is not allocated yet. Caffe2 uses a lazy allocation, '
                 'so you will need to call mutable_data() or raw_mutable_data() to actually allocate memory.` '
                 'This issue is resolved with world size > 1 by a dummy call to forward (see HuggingFaceModel.dummy_forward_called), '
-                'but for some reason fails with world size 1.'))
+                'but for some reason fails with world size 1.'
+            ))
         if device == 'cpu' and world_size > 1:
             pytest.xfail(
-                'GPT2 is not currently supported with DDP. See https://github.com/huggingface/transformers/issues/22482 for more details.'
+                'GPT2 is not currently supported with DDP. See https://github.com/huggingface/transformers/issues/22482 for more details.',
             )
 
     def _create_trainer(self, device, max_duration, use_fsdp, generate_cb: Optional[Generate] = None) -> Trainer:
-        return Trainer(model=configure_tiny_gpt2_hf_model(),
-                       train_dataloader=dummy_gpt_lm_dataloader(),
-                       device=device,
-                       max_duration=max_duration,
-                       callbacks=generate_cb,
-                       fsdp_config={'sharding_strategy': 'FULL_SHARD'} if use_fsdp else None)
+        return Trainer(
+            model=configure_tiny_gpt2_hf_model(),
+            train_dataloader=dummy_gpt_lm_dataloader(),
+            device=device,
+            max_duration=max_duration,
+            callbacks=generate_cb,
+            fsdp_config={'sharding_strategy': 'FULL_SHARD'} if use_fsdp else None,
+        )
 
     def test_no_effect_on_training(self, device, world_size, use_fsdp):
         torch.manual_seed(0)
@@ -56,13 +59,12 @@ class TestGenerate():
         trainer_ref = self._create_trainer(device, max_duration, use_fsdp)
         trainer_ref.fit()
 
-        trainer_generate = self._create_trainer(device,
-                                                max_duration,
-                                                use_fsdp,
-                                                generate_cb=Generate(prompts=['a', 'bc', 'defg'],
-                                                                     interval=f'2ba',
-                                                                     batch_size=2,
-                                                                     max_new_tokens=5))
+        trainer_generate = self._create_trainer(
+            device,
+            max_duration,
+            use_fsdp,
+            generate_cb=Generate(prompts=['a', 'bc', 'defg'], interval=f'2ba', batch_size=2, max_new_tokens=5),
+        )
         trainer_generate.fit()
 
         model_ref = trainer_ref.state.model
@@ -102,7 +104,8 @@ class TestGenerate():
 
         # Assert that model.generate has been called the correct number of times to ensure that prompt batching is correct.
         assert model.generate.call_count == math.ceil(  # type: ignore
-            len(prompts) / prompt_batch_size) * expected_cb_call_count
+            len(prompts) / prompt_batch_size,
+        ) * expected_cb_call_count
 
         # Assert that log_table is called on the 0th rank only.
         if dist.get_global_rank() == 0:
