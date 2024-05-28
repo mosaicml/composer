@@ -314,6 +314,7 @@ class StragglerDetector:
         """
         # Not reentrant
         # First check if this start is for data
+        log.info("start method called")
         if self.bdata:
             self.start_batch.append(time.perf_counter_ns())
             self.stop_batch.append(0)  # this indicate we need to add timer
@@ -333,7 +334,8 @@ class StragglerDetector:
         self.start_time[self.idx] = time.perf_counter_ns()
         self.start_events[self.idx].record()
         self.idx += 1
-
+        log.info("start method finished")
+        
     def stop_method(self) -> None:
         """This method adds the stop timers.
         Both cuda event and perf_counter are added. If bdata is set to
