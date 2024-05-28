@@ -411,6 +411,7 @@ class StragglerDetector:
         ret = False
         if not self._off and total_flops > 0.0 and log_interval > 0:
             elapsed, btime_us, temp, power, util, clock = self.elapsed()  # get raw time
+            log.info("elapsed: " + str(elapsed))
             ptime = elapsed / (log_interval * 1.0)  # avg per iteration elapsed time, ms
             btime = btime_us / (log_interval * 1.0)  # avg per iteration get_batch time, us
             api_flops = total_flops / (log_interval * 1.0)  # avg per iteration flops, ms
@@ -761,6 +762,7 @@ class GlobalStragglerDetector(Callback):
         batch_time = (time.time() - self.start_time) * 1000
         self.log_interval = int(batch_time)
 
+        log.info("log_interval:" + str(self.log_interval))
         # Compute flops stats if model has flops_per_batch
         composer_model = state.model
         if not isinstance(composer_model, ComposerModel):
