@@ -537,6 +537,7 @@ def prepare_fsdp_module(
                     if ret and auto_microbatching:
                         module.register_forward_hook(sync_hook)
                         module.register_full_backward_hook(sync_hook)
+                    print('CustomPolicy', ret)
                     return ret
 
                 _auto_wrap_policy = CustomPolicy(lambda_fn)
