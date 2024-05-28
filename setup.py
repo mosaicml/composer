@@ -91,6 +91,7 @@ install_requires = [
     'packaging>=21.3.0,<24.1',
     'importlib-metadata>=5.0.0,<7',
     'mosaicml-cli>=0.5.25,<0.7',
+    'megatron-core',
 ]
 extra_deps = {}
 
@@ -230,7 +231,7 @@ extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
 extra_deps['databricks'] = ['databricks-sdk==0.28.0']
 
-extra_deps['megatron'] = ['megatron-core']
+#extra_deps['megatron'] = ['megatron-core']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 

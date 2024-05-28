@@ -1,6 +1,6 @@
 #from megatron_core.megatron.core.utils import StragglerDetector
-#from megatron_core.megatron.core.utils import *
-from mosaicml.composer.megatron import *
+from megatron_core.megatron.core.utils import *
+#from mosaicml.composer.megatron import *
 
 
 from composer.core import Callback, State, Event, Time
