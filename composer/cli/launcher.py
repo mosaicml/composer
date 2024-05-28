@@ -472,6 +472,7 @@ def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
 
     current_time = datetime.datetime.now()
 
+    """
     for proc in all_processes:
         try:
             os.kill(proc.pid, signal.SIGTERM)
@@ -479,6 +480,7 @@ def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
             pass
         else:
             log.warning(f"bigning debug sigkill {proc.pid}")
+    """
 
     try:
         print((
@@ -494,6 +496,8 @@ def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
     except KeyboardInterrupt:
         pass
 
+    """
+
     for proc in all_processes:
         try:
             os.kill(proc.pid, signal.SIGKILL)
@@ -501,9 +505,9 @@ def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
             pass
         else:
             log.warning(f"bigning debug sigkill {proc.pid}")
-
-
     """
+
+
     for global_rank, process in processes.items():
         process.poll()
         if process.returncode is None:
@@ -525,7 +529,7 @@ def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
                         os.kill(psutil_proc.pid, signal.SIGKILL)
                     except ProcessLookupError:
                         pass
-    """
+
     for global_rank, process in processes.items():
         process.poll()
         if process.returncode is not None and process.returncode != 0:
