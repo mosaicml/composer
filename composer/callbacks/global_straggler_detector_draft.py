@@ -10,7 +10,7 @@ import os
 __all__ = ["globalStragglerDetector"]
 
 
-class globalStragglerDetector(Callback):
+class GlobalStragglerDetector(Callback):
 
     def __init__(self) -> None:
         self.stimer = None
