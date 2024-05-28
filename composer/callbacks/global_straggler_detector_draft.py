@@ -7,7 +7,7 @@ import time
 from composer.models.base import ComposerModel
 import os
 
-__all__ = ["globalStragglerDetector"]
+__all__ = ["GlobalStragglerDetector"]
 
 
 class GlobalStragglerDetector(Callback):
