@@ -4,6 +4,7 @@
 from megatron.core.utils import *
 
 from composer.core import Callback, State, Event, Time
+from composer.loggers import Logger
 from composer.utils import dist
 from typing import List, Union
 from dataclasses import dataclass
