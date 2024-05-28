@@ -3,7 +3,7 @@
   BASE_IMAGE: nvidia/cuda:12.1.1-cudnn8-devel-ubuntu20.04
   CUDA_VERSION: 12.1.1
   IMAGE_NAME: torch-2-3-0-cu121
-  MOFED_VERSION: 5.5-1.0.3.2
+  MOFED_VERSION: 23.10-2.1.3.1
   NVIDIA_REQUIRE_CUDA_OVERRIDE: cuda>=12.1 brand=tesla,driver>=450,driver<451 brand=tesla,driver>=470,driver<471
     brand=unknown,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471
     brand=geforce,driver>=470,driver<471 brand=geforcertx,driver>=470,driver<471 brand=quadro,driver>=470,driver<471
@@ -74,7 +74,7 @@
   BASE_IMAGE: nvidia/cuda:12.1.1-cudnn8-devel-ubuntu20.04
   CUDA_VERSION: 12.1.1
   IMAGE_NAME: torch-2-2-2-cu121
-  MOFED_VERSION: 5.5-1.0.3.2
+  MOFED_VERSION: 23.10-2.1.3.1
   NVIDIA_REQUIRE_CUDA_OVERRIDE: cuda>=12.1 brand=tesla,driver>=450,driver<451 brand=tesla,driver>=470,driver<471
     brand=unknown,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471
     brand=geforce,driver>=470,driver<471 brand=geforcertx,driver>=470,driver<471 brand=quadro,driver>=470,driver<471
@@ -142,7 +142,7 @@
   BASE_IMAGE: nvidia/cuda:12.1.1-cudnn8-devel-ubuntu20.04
   CUDA_VERSION: 12.1.1
   IMAGE_NAME: torch-2-1-2-cu121
-  MOFED_VERSION: 5.5-1.0.3.2
+  MOFED_VERSION: 23.10-2.1.3.1
   NVIDIA_REQUIRE_CUDA_OVERRIDE: cuda>=12.1 brand=tesla,driver>=450,driver<451 brand=tesla,driver>=470,driver<471
     brand=unknown,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471
     brand=geforce,driver>=470,driver<471 brand=geforcertx,driver>=470,driver<471 brand=quadro,driver>=470,driver<471

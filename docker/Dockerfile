@@ -34,7 +34,7 @@ ARG PILLOW_SIMD_VERSION=9.0.0.post1
 
 # Version of the Mellanox Drivers to install (for InfiniBand support)
 # Leave blank for no Mellanox Drivers
-ARG MOFED_VERSION=5.5-1.0.3.2
+ARG MOFED_VERSION=23.10-2.1.3.1
 
 # Version of EFA Drivers to install (for AWS Elastic Fabric Adapter support)
 # Leave blank for no EFA Drivers
