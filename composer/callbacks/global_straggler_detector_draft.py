@@ -283,7 +283,7 @@ class StragglerDetector:
                 # Start the controller
                 self._controller()
             if not self._off:
-                 log.info("successfully defined self.start")
+                log.info("successfully defined self.start")
                 self.start = self.start_method
                 self.stop = self.stop_method
 
