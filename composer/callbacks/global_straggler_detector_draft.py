@@ -246,6 +246,7 @@ class StragglerDetector:
         if StragglerDetector._configured:
             # don't throw
             return
+        log.info("successfully entered intstantiation of Straggler Detectior")
         StragglerDetector._configured = True
         self.bdata = False
         self.start = self.null_method
@@ -282,6 +283,7 @@ class StragglerDetector:
                 # Start the controller
                 self._controller()
             if not self._off:
+                 log.info("successfully defined self.start")
                 self.start = self.start_method
                 self.stop = self.stop_method
 
@@ -335,7 +337,7 @@ class StragglerDetector:
         self.start_events[self.idx].record()
         self.idx += 1
         log.info("start method finished")
-        
+
     def stop_method(self) -> None:
         """This method adds the stop timers.
         Both cuda event and perf_counter are added. If bdata is set to
@@ -764,6 +766,7 @@ class GlobalStragglerDetector(Callback):
 
     def before_train_batch(self, state: State, logger: Logger):
         self.start_time = time.time()
+        self.stimer.start()
 
     def after_train_batch(self, state: State, logger: Logger):
         # Calculate duration of the current batch
@@ -784,6 +787,7 @@ class GlobalStragglerDetector(Callback):
                 )
             device_flops_per_batch = model_flops_per_batch(state.batch)
             self.stimer.report(total_flops=device_flops_per_batch, log_interval=self.log_interval)
+            self.stimer.stop()
             self.total_flops = 0.0
 
         else:
