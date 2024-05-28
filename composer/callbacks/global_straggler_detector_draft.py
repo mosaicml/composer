@@ -196,7 +196,7 @@ class StragglerDetector:
         self.rank = 0
         self.mmcnt = 1
         self.port = 0
-        #self.amp = 3.0
+        self.amp = 3.0
         self.amp = 1.0
         self.toggle = False
         self.bdata = False
@@ -764,9 +764,9 @@ class GlobalStragglerDetector(Callback):
         rank = dist.get_global_rank()
         world_size = dist.get_world_size()
         if rank == 0:
-            self.stimer.configure(world_size, rank, enabled=True, port=port)
+            self.stimer.configure(world_size, rank, enabled=True, port=port, amp=1.0)
         else:
-            self.stimer.configure(world_size, rank, enabled=True)
+            self.stimer.configure(world_size, rank, enabled=True, amp=1.0)
         
 
     def batch_start(self, state: State, logger: Logger):
