@@ -1,4 +1,4 @@
-from megatron_core.utils import StragglerDetector
+from megatron_core.megatron.core.utils import StragglerDetector
 from composer.core import Callback, State, Event, Time
 from composer.utils import dist
 from typing import List, Union

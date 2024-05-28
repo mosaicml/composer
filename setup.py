@@ -91,7 +91,6 @@ install_requires = [
     'packaging>=21.3.0,<24.1',
     'importlib-metadata>=5.0.0,<7',
     'mosaicml-cli>=0.5.25,<0.7',
-    'megatron-core==0.6.0',
 ]
 extra_deps = {}
 
