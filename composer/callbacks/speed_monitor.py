@@ -6,7 +6,8 @@ from __future__ import annotations
 
 import warnings
 from collections import deque
-from typing import  
+from typing import Any, Callable, Deque, Dict, Optional, Union
+
 import torch
 
 from composer.core import Callback, State
