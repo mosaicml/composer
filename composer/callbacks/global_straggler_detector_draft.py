@@ -365,12 +365,14 @@ class StragglerDetector:
         """
         if self._off:
             # match with return below
-            log.info("elapsed is off")
+            #log.info("elapsed is off")
             return 0, 0, 0, 0, 0, 0
         ls_ev = len(self.start_events)
         le_ev = len(self.stop_events)
         ls_bs = len(self.start_batch)
         ls_be = len(self.stop_batch)
+
+        log.info("length of start events: " + str(ls_ev))
         delta = 0.0
         batch_delta = 0.0
         temp = 0
