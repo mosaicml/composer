@@ -62,9 +62,15 @@ def set_fsdp_default(fsdp_config: Dict[str, Any]):
                 'Cannot specify both `device_mesh` and `data_parallel_shard_degree` or `data_parallel_replicate_degree`. Please remove `device_mesh`.',
             )
         device_mesh = fsdp_config.pop('device_mesh')
-        fsdp_config['data_parallel_shard_degree'] = device_mesh[0]
-        if len(device_mesh) > 1:
-            fsdp_config['data_parallel_replicate_degree'] = device_mesh[1]
+        if len(device_mesh) == 1:
+            fsdp_config['data_parallel_shard_degree'] = device_mesh[0]
+        if len(device_mesh) == 2:
+            fsdp_config['data_parallel_replicate_degree'] = device_mesh[0]
+            fsdp_config['data_parallel_shard_degree'] = device_mesh[1]
+        else:
+            raise ValueError(
+                f'device_mesh must be of length 1 or 2 but received length {len(device_mesh)} with device mesh {device_mesh}.'
+            )
 
     fsdp_config.setdefault('activation_checkpointing', False)
     fsdp_config.setdefault('activation_checkpointing_reentrant', True)
