@@ -82,7 +82,7 @@ def set_fsdp_default(fsdp_config: Dict[str, Any]):
     fsdp_config.setdefault('backward_prefetch_limit', 1)
     fsdp_config.setdefault('cpu_offload', False)
     fsdp_config.setdefault('data_parallel_shard_degree', -1)
-    fsdp_config.setdefault('data_parallel_replicate_degree', 1)
+    fsdp_config.setdefault('data_parallel_replicate_degree', None)
     fsdp_config.setdefault('forward_prefetch', False)
     fsdp_config.setdefault('forward_prefetch_limit', 1)
     fsdp_config.setdefault('ignored_modules', None)
