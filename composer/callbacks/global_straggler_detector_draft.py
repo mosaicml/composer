@@ -750,7 +750,7 @@ class GlobalStragglerDetector(Callback):
     def __init__(self) -> None:
         self.stimer = None
         self.log_interval = 0
-        self.start_time = None
+        #self.start_time = None
 
     def init(self, state: State, logger: Logger) -> None:
         self.stimer = StragglerDetector()
@@ -764,15 +764,15 @@ class GlobalStragglerDetector(Callback):
         
 
     def batch_start(self, state: State, logger: Logger):
-        self.start_time = time.time()
+        #self.start_time = time.time()
         self.stimer.start()
 
     def batch_end(self, state: State, logger: Logger):
         # Calculate duration of the current batch
-        batch_time = (time.time() - self.start_time) * 1000
-        self.log_interval = int(batch_time)
+        #batch_time = (time.time() - self.start_time) * 1000
+        #self.log_interval = int(batch_time)
 
-        log.info("log_interval:" + str(self.log_interval))
+        #log.info("log_interval:" + str(self.log_interval))
         # Compute flops stats if model has flops_per_batch
         composer_model = state.model
         if not isinstance(composer_model, ComposerModel):
@@ -787,7 +787,8 @@ class GlobalStragglerDetector(Callback):
             device_flops_per_batch = model_flops_per_batch(state.batch)
             log.info("StragglerDetector Flops: " + str(device_flops_per_batch))
             self.stimer.stop()
-            self.stimer.report(total_flops=device_flops_per_batch, log_interval=self.log_interval)
+            #self.stimer.report(total_flops=device_flops_per_batch, log_interval=self.log_interval)
+            self.stimer.report(total_flops=device_flops_per_batch, log_interval=1)
             
            
 
