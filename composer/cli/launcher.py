@@ -318,6 +318,13 @@ def _launch_processes(
     log.info('Starting distributed environment on local node for global_rank(%s-%s)', base_rank, base_rank + nproc - 1)
     log.info('Distributed KV store: tcp://%s:%s', master_addr, master_port)
 
+    nccl_env_variable = {
+        (
+            'NCCL_ASYNC_ERROR_HANDLING' if version.parse(torch.__version__) < version.parse('2.2.0') else 'TORCH_NCCL_ASYNC_ERROR_HANDLING'
+        ):
+            '1',
+    }
+
     for local_rank in range(nproc):
         global_rank = base_rank + local_rank
         if command_mode and module_mode:
@@ -340,8 +347,7 @@ def _launch_processes(
             MASTER_ADDR=master_addr,
             MASTER_PORT=str(master_port),
             PYTHONUNBUFFERED='1',
-            NCCL_ASYNC_ERROR_HANDLING='1',
-            TORCH_NCCL_ASYNC_ERROR_HANDLING='1',
+            **nccl_env_variable,
         ):
             # Populate the distributed variables in all launcher args
             for arg in training_script_args:
@@ -452,35 +458,17 @@ def _print_process_exit_status(global_rank: int, process: subprocess.Popen):
 
 
 def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
-    all_processes = []
     for global_rank, process in processes.items():
         process.poll()
-        try:
-            proc = psutil.Process(process.pid)
-        except psutil.NoSuchProcess:
-            pass
-        else:
-            all_processes.append(proc)
-            all_processes += proc.children(recursive=True)
         if process.returncode is None:
-            log.warning('Killing global rank %s (PID %s) with SIGTERM', global_rank, process.pid)
+            log.info('Killing global rank %s (PID %s) with SIGTERM', global_rank, process.pid)
             # Assuming that child processes correctly handle SIGTERM to cleanup any children
             try:
                 os.kill(process.pid, signal.SIGTERM)
-            except ProcessLookupError as e:
+            except ProcessLookupError:
                 pass
 
     current_time = datetime.datetime.now()
-
-    """
-    for proc in all_processes:
-        try:
-            os.kill(proc.pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-        else:
-            log.warning(f"bigning debug sigkill {proc.pid}")
-    """
 
     try:
         print((
@@ -495,18 +483,6 @@ def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
             time.sleep(0.1)
     except KeyboardInterrupt:
         pass
-
-    """
-
-    for proc in all_processes:
-        try:
-            os.kill(proc.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        else:
-            log.warning(f"bigning debug sigkill {proc.pid}")
-    """
-
 
     for global_rank, process in processes.items():
         process.poll()
@@ -525,11 +501,9 @@ def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
                 # likely won't be able to intercept the signal and clean up its children.
                 for psutil_proc in [proc, *proc.children(recursive=True)]:
                     try:
-                        log.warning(f"bigning debug sigkill pid: {psutil_proc.pid}")
                         os.kill(psutil_proc.pid, signal.SIGKILL)
                     except ProcessLookupError:
                         pass
-
     for global_rank, process in processes.items():
         process.poll()
         if process.returncode is not None and process.returncode != 0:
@@ -537,9 +511,7 @@ def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
                 # Negative return codes indicate the process was killed via a signal
                 # If the launcher script killed the training process (which would happen via SIGKILL or SIGTERM),
                 # then do not print the stack trace.
-                log.warning(f"bigning debug knownreturn code rank: {global_rank}, ret code: {process.returncode}")
                 continue
-            log.warning(f"bigning debug unknown return code rank: {global_rank}, ret code: {process.returncode}")
             # only print the processes that have actually crashed,
             # not the ones that were killed
             _print_process_exit_status(global_rank, process)
