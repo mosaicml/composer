@@ -401,6 +401,7 @@ class StragglerDetector:
                 delta += max(e_ev, e_tm)
             # Process get_batch
             for i in range(ls_bs):
+                log.info("getting batch")
                 batch_delta = (self.stop_batch[i] - self.start_batch[i]) / 1e3  # us
         self.reset()  # Prepare for next round
         # time in ms, batch_delta in us, check return above
