@@ -189,7 +189,7 @@ extra_deps['peft'] = [
 ]
 
 extra_deps['sentencepiece'] = [
-    'protobuf<5.27',
+    'protobuf<5.28',
     'sentencepiece==0.2.0',
 ]
 
