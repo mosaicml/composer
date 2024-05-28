@@ -9,7 +9,7 @@ from collections import deque
 from typing import Any, Callable, Deque, Dict, Optional, Union
 
 import torch
-
+import logging
 from composer.core import Callback, State
 from composer.loggers import Logger
 from composer.models.base import ComposerModel
