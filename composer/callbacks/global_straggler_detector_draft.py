@@ -786,8 +786,9 @@ class GlobalStragglerDetector(Callback):
                     f'returning an int or float. Instead, got {type(model_flops_per_batch)}.',
                 )
             device_flops_per_batch = model_flops_per_batch(state.batch)
-            self.stimer.report(total_flops=device_flops_per_batch, log_interval=self.log_interval)
             self.stimer.stop()
+            self.stimer.report(total_flops=device_flops_per_batch, log_interval=self.log_interval)
+            
             self.total_flops = 0.0
 
         else:
