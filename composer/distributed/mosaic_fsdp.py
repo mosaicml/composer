@@ -64,7 +64,7 @@ def set_fsdp_default(fsdp_config: Dict[str, Any]):
         device_mesh = fsdp_config.pop('device_mesh')
         if len(device_mesh) == 1:
             fsdp_config['data_parallel_shard_degree'] = device_mesh[0]
-        if len(device_mesh) == 2:
+        elif len(device_mesh) == 2:
             fsdp_config['data_parallel_replicate_degree'] = device_mesh[0]
             fsdp_config['data_parallel_shard_degree'] = device_mesh[1]
         else:
