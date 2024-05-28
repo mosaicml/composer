@@ -547,6 +547,7 @@ class State(Serializable):
         self._validate_parallelism_configs()
 
         self.device_mesh: Optional[DeviceMesh] = _create_device_mesh(self.device, self.fsdp_config, self.tp_config)
+        print('state', self.device_mesh)
         if self.fsdp_config is not None and self.device_mesh is not None:
             fsdp_mesh_dim_names = []
             if self.device_mesh.mesh_dim_names is not None and ParallelismType.DATA_PARALLEL_REPLICATE.value in self.device_mesh.mesh_dim_names:
