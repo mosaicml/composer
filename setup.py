@@ -185,7 +185,7 @@ extra_deps['nlp'] = [
 ]
 
 extra_deps['peft'] = [
-    'peft>=0.10.0,<0.11',
+    'peft>=0.10.0,<0.12',
 ]
 
 extra_deps['sentencepiece'] = [
