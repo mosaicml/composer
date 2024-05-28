@@ -764,11 +764,11 @@ class GlobalStragglerDetector(Callback):
             self.stimer.configure(world_size, rank, enabled=True)
         
 
-    def before_train_batch(self, state: State, logger: Logger):
+    def batch_start(self, state: State, logger: Logger):
         self.start_time = time.time()
         self.stimer.start()
 
-    def after_train_batch(self, state: State, logger: Logger):
+    def batch_end(self, state: State, logger: Logger):
         # Calculate duration of the current batch
         batch_time = (time.time() - self.start_time) * 1000
         self.log_interval = int(batch_time)

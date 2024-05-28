@@ -343,6 +343,7 @@ class SpeedMonitor(Callback):
 
         # Log the flops throughput
         if len(self.history_flops) == self.history_flops.maxlen:
+            log.info("Logging throughput")
             world_size = dist.get_world_size()
             elapsed_flops = sum(self.history_flops) - self.history_flops[0]
             elapsed_wct = self.history_wct[-1] - self.history_wct[0]
