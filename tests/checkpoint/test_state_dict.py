@@ -8,7 +8,7 @@ import torch
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
-from composer.checkpoint import get_model_state_dict, get_metadata_state_dict
+from composer.checkpoint import get_metadata_state_dict, get_model_state_dict
 from composer.utils import dist
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
@@ -231,11 +231,13 @@ def test_get_model_state_dict_precision_unsharded_model(precision: str, use_comp
     for tens in model_state_dict.values():
         assert tens.dtype == precision
 
+
 @pytest.mark.gpu
 @world_size(1, 2)
 def test_get_metadata_empty_call(world_size):
     metadata_sd = get_metadata_state_dict()
-    for key in  ['composer_version',
+    for key in [
+        'composer_version',
         'composer_commit_hash',
         'torch_version',
         'python_version',
@@ -243,12 +245,14 @@ def test_get_metadata_empty_call(world_size):
         'num_gpus_per_node',
         'num_gpus',
         'gpu_model',
-        'cpu_model', 
-        'cpu_core_count']:
+        'cpu_model',
+        'cpu_core_count',
+    ]:
         assert key in metadata_sd
 
     assert metadata_sd['num_nodes'] == 1
     assert metadata_sd['num_gpus'] == world_size
+
 
 @pytest.mark.gpu
 @pytest.mark.parametrize('model_type', ['composer', 'hf', 'nn.module'])
@@ -262,7 +266,7 @@ def test_get_metadata_unsharded_model(model_type: str):
     else:
         model = configure_tiny_gpt2_hf_model()
         expected_model_name = 'GPT2LMHeadModel'
-    
+
     generate_parameter_info = False if model_type == 'hf' else True
     metadata_sd = get_metadata_state_dict(model, generate_parameter_info=generate_parameter_info)
     assert metadata_sd['model_name'] == expected_model_name
@@ -273,6 +277,5 @@ def test_get_metadata_unsharded_model(model_type: str):
         assert 'model_name' in metadata_sd
     else:
         assert 'parameter_info' in metadata_sd
-        assert metadata_sd['parameter_info']['module.0.weight'] == {'shape': (8,8), 'requires_grad': True}
-        assert metadata_sd['parameter_info']['module.2.weight'] == {'shape': (8,8), 'requires_grad': True}
-    
+        assert metadata_sd['parameter_info']['module.0.weight'] == {'shape': (8, 8), 'requires_grad': True}
+        assert metadata_sd['parameter_info']['module.2.weight'] == {'shape': (8, 8), 'requires_grad': True}

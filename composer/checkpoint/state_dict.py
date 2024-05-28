@@ -3,7 +3,6 @@
 
 """Useful functions for generating state dicts and manipulating them."""
 
-import contextlib
 import fnmatch
 import logging
 import sys
@@ -200,7 +199,6 @@ def get_metadata_state_dict(
     Returns:
         The state dict containing the metadata and any integrations for a training run.
     """
-
     composer_env_dict = get_composer_env_dict()
     ced = composer_env_dict
 
@@ -225,14 +223,11 @@ def get_metadata_state_dict(
         if isinstance(model, HuggingFaceModel):
             metadata_state_dict['huggingface'] = model.get_metadata()
             metadata_state_dict['model_name'] = model.model.__class__.__name__
-        elif isinstance(model, DistributedDataParallel) and isinstance(model.module, HuggingFaceModel): 
-                metadata_state_dict['huggingface'] = model.module.get_metadata()
-                metadata_state_dict['model_name'] = model.module.model.__class__.__name__     
+        elif isinstance(model, DistributedDataParallel) and isinstance(model.module, HuggingFaceModel):
+            metadata_state_dict['huggingface'] = model.module.get_metadata()
+            metadata_state_dict['model_name'] = model.module.model.__class__.__name__
         else:
             metadata_state_dict['model_name'] = model.__class__.__name__
-        
-        
-
 
     if device is not None:
         metadata_state_dict['dist_backend'] = device.dist_backend
@@ -252,15 +247,19 @@ def get_metadata_state_dict(
     if generate_parameter_info:
         if model is None:
             raise ValueError('model must be provided to generate parameter information')
-        param_info = {param_name: {'shape': tuple(param.shape), 'requires_grad': param.requires_grad} for param_name, param in model.named_parameters()}
+        param_info = {
+            param_name: {
+                'shape': tuple(param.shape),
+                'requires_grad': param.requires_grad,
+            } for param_name, param in model.named_parameters()
+        }
 
         if _is_model_fsdp(model):
             param_infos = dist.all_gather_object(param_info)
             keys = [f'rank_{rank}' for rank in range(dist.get_world_size())]
-            param_info_dict = {k: v for k, v in zip(keys, param_infos)}
+            param_info_dict = dict(zip(keys, param_infos))
         else:
             param_info_dict = param_info
         metadata_state_dict['parameter_info'] = param_info_dict
-
 
     return metadata_state_dict
