@@ -293,7 +293,7 @@ class SpeedMonitor(Callback):
     def batch_end(self, state: State, logger: Logger):
 
         log.info("Len history: " + str(len(self.history_wct)))
-        log.info("Max Len history: " + str(len(self.history_wct.maxlen)))
+        log.info("Max Len history: " + str(self.history_wct.maxlen))
         
 
 
