@@ -472,6 +472,14 @@ def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
 
     current_time = datetime.datetime.now()
 
+    for proc in all_processes:
+        try:
+            os.kill(proc.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        else:
+            log.warning(f"bigning debug sigkill {proc.pid}")
+
     try:
         print((
             f'Waiting up to {CLEANUP_TIMEOUT.seconds} seconds for all training processes to terminate. '
@@ -493,6 +501,7 @@ def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
             pass
         else:
             log.warning(f"bigning debug sigkill {proc.pid}")
+
 
     """
     for global_rank, process in processes.items():
