@@ -69,7 +69,7 @@ def set_fsdp_default(fsdp_config: Dict[str, Any]):
             fsdp_config['data_parallel_shard_degree'] = device_mesh[1]
         else:
             raise ValueError(
-                f'device_mesh must be of length 1 or 2 but received length {len(device_mesh)} with device mesh {device_mesh}.'
+                f'device_mesh must be of length 1 or 2 but received length {len(device_mesh)} with device mesh {device_mesh}.',
             )
 
     fsdp_config.setdefault('activation_checkpointing', False)
