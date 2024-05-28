@@ -289,6 +289,12 @@ class SpeedMonitor(Callback):
             self.gpu_flops_available = get_gpu_flops_available(state)
 
     def batch_end(self, state: State, logger: Logger):
+
+        log.info("Len history: " + str(len(self.history_wct)))
+        log.info("Max Len history: " + str(len(self.history_wct.maxlen)))
+        
+
+
         # Add the new element
         self.history_samples.append(state.timestamp.sample.value)
         self.history_tokens.append(state.timestamp.token.value)
@@ -343,7 +349,6 @@ class SpeedMonitor(Callback):
 
         # Log the flops throughput
         if len(self.history_flops) == self.history_flops.maxlen:
-            log.info("Logging throughput")
             world_size = dist.get_world_size()
             elapsed_flops = sum(self.history_flops) - self.history_flops[0]
             elapsed_wct = self.history_wct[-1] - self.history_wct[0]
