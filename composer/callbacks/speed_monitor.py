@@ -18,6 +18,8 @@ from composer.utils import dist, is_xla_installed
 if is_xla_installed():
     import torch_xla.core.xla_model as xm
 
+log = logging.getLogger(__name__)
+
 __all__ = ['SpeedMonitor']
 
 GPU_AVAILABLE_FLOPS = {
