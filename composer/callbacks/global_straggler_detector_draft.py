@@ -425,6 +425,8 @@ class StragglerDetector:
             log.info("elapsed: " + str(elapsed))
             ptime = elapsed / (log_interval * 1.0)  # avg per iteration elapsed time, ms
             btime = btime_us / (log_interval * 1.0)  # avg per iteration get_batch time, us
+            if btime < 1e-8:
+                log.info("BATCH TIME IS GENUINELY 0")
             api_flops = total_flops / (log_interval * 1.0)  # avg per iteration flops, ms
             """
             apir_flops = api_flops / (
