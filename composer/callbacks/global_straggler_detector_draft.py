@@ -196,7 +196,8 @@ class StragglerDetector:
         self.rank = 0
         self.mmcnt = 1
         self.port = 0
-        self.amp = 3.0
+        #self.amp = 3.0
+        self.amp = 1.0
         self.toggle = False
         self.bdata = False
         self.dev = None
@@ -425,9 +426,14 @@ class StragglerDetector:
             ptime = elapsed / (log_interval * 1.0)  # avg per iteration elapsed time, ms
             btime = btime_us / (log_interval * 1.0)  # avg per iteration get_batch time, us
             api_flops = total_flops / (log_interval * 1.0)  # avg per iteration flops, ms
+            """
             apir_flops = api_flops / (
                 ptime * 10 ** 9 * self.world
             )  # this is avg per iteration this rank's thruput, TFLOP/s (note 10**9),
+            """
+            apir_flops = api_flops / (
+                ptime * 10 ** 9
+            )
             et_flops = apir_flops / self.amp  # Estimated TFLOPs, not tracing backward
 
             o_dt = self._min_max(
