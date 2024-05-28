@@ -30,6 +30,9 @@ from typing import List, Optional, Tuple, Type, Union, Any, Callable, Deque, Dic
 
 import torch
 
+
+log = logging.getLogger(__name__)
+
 __all__ = ["GlobalStragglerDetector"]
 
 class _ValueWithRank:
