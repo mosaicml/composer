@@ -2752,7 +2752,7 @@ class Trainer:
                 current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(b) for b in microbatches])
             # Average the current batch size across ranks, to ensure each rank contributes appropriately
             current_batch_size = self.state.device.tensor_to_device(torch.tensor(current_batch_size))
-            dist.all_reduce(current_batch_size, reduce_operation="MEAN")
+            dist.all_reduce(current_batch_size, reduce_operation="AVG")
             current_batch_size = current_batch_size.item()
 
             # Cache batch, which will be overwritten by microbatches. Restore after microbatches complete
