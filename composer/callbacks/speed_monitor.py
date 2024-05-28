@@ -339,7 +339,7 @@ class SpeedMonitor(Callback):
                     f'returning an int or float. Instead, got {type(model_flops_per_batch)}.',
                 )
             device_flops_per_batch = model_flops_per_batch(state.batch)
-
+            log.info("SpeedMonitor Flops: " + str(device_flops_per_batch))
             # Sum flops across all ranks since each rank computes the flops for its own batch
             flops_per_batch_tensor = state.device.tensor_to_device(
                 torch.tensor(device_flops_per_batch, dtype=torch.float),

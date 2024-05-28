@@ -749,7 +749,6 @@ class GlobalStragglerDetector(Callback):
 
     def __init__(self) -> None:
         self.stimer = None
-        self.total_flops = 0.0
         self.log_interval = 0
         self.start_time = None
 
@@ -786,10 +785,11 @@ class GlobalStragglerDetector(Callback):
                     f'returning an int or float. Instead, got {type(model_flops_per_batch)}.',
                 )
             device_flops_per_batch = model_flops_per_batch(state.batch)
+            log.info("StragglerDetector Flops: " + str(device_flops_per_batch))
             self.stimer.stop()
             self.stimer.report(total_flops=device_flops_per_batch, log_interval=self.log_interval)
             
-            self.total_flops = 0.0
+           
 
         else:
             raise ValueError("The 'flops_per_batch' attribute is not present in this model; StragglerDetector requires tracking flops per batch.")
