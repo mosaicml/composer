@@ -365,6 +365,7 @@ class StragglerDetector:
         """
         if self._off:
             # match with return below
+            log.info("elapsed is off")
             return 0, 0, 0, 0, 0, 0
         ls_ev = len(self.start_events)
         le_ev = len(self.stop_events)
