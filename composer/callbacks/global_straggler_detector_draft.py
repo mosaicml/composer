@@ -6,7 +6,6 @@ from megatron.core.utils import *
 from composer.core import Callback, State, Event, Time
 from composer.loggers import Logger
 from composer.utils import dist
-from typing import List, Union
 from dataclasses import dataclass
 import time
 from composer.models.base import ComposerModel
@@ -26,7 +25,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from functools import reduce
 from types import TracebackType
-from typing import List, Optional, Tuple, Type, Union
+from typing import List, Optional, Tuple, Type, Union, Any, Callable, Deque, Dict
+
 
 import torch
 
