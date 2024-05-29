@@ -261,7 +261,7 @@ def get_optim_state_dict(
 
     # For sharded models with non-sharded state dicts, only rank 0 has the full state dict including all the keys
     target_state_dict_on_this_rank = (not sharded_state_dict and dist.get_global_rank() == 0) or sharded_state_dict
-    
+
     if target_state_dict_on_this_rank:
         if ignore_keys is not None:
             optim_state_dict = _remove_keys_from_optim_state_dict(optim_state_dict, model, ignore_keys)
@@ -289,8 +289,10 @@ def _remove_keys_from_optim_state_dict(
     # but for unsharded models the param_key is an index (0,1,2,..., len(model.parameters())-1)
     if _is_model_fsdp(model):
         for param_fqn in optim_state_dict['state'].keys():
-            if any([fnmatch.fnmatch(param_fqn, ignore_key) for ignore_key in ignore_keys]):
-                optim_state_dict['state'].pop(param_fqn)
+            for ignore_key in ignore_keys:
+                if fnmatch.fnmatch(param_fqn, ignore_key):
+                    optim_state_dict['state'].pop(param_fqn)
+                    continue
 
     # The param index ordering is determined by passing model.parameters()
     # to the optimizer. The underlying generator for model.parameters() is model.named_parameters()
@@ -298,9 +300,10 @@ def _remove_keys_from_optim_state_dict(
     else:
         param_inds = list(optim_state_dict['state'].keys())
         for param_ind, (param_fqn, _) in zip(param_inds, model.named_parameters()):
-            if any([fnmatch.fnmatch(param_fqn, ignore_key) for ignore_key in ignore_keys]):
-                optim_state_dict['state'].pop(param_ind)
- 
+            for ignore_key in ignore_keys:
+                if fnmatch.fnmatch(param_fqn, ignore_key):
+                    optim_state_dict['state'].pop(param_ind)
+                    continue
 
     return optim_state_dict
 
@@ -315,7 +318,9 @@ def _extract_keys_from_optim_state_dict(
     param_inds = list(optim_state_dict['state'].keys())
     # See comment in _remove_keys_from_optim_state_dict.
     for param_ind, (param_fqn, _) in zip(param_inds, model.named_parameters()):
-        if not any([fnmatch.fnmatch(param_fqn, include_key) for include_key in include_keys]):
-            optim_state_dict['state'].pop(param_ind)
+        for include_key in include_keys:
+            if not fnmatch.fnmatch(param_fqn, include_key):
+                optim_state_dict['state'].pop(param_ind)
+                continue
 
     return optim_state_dict

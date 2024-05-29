@@ -15,7 +15,6 @@ from composer.utils import dist
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
 from tests.common.models import EvenSimplerMLP, SimpleComposerMLP
-from composer.models import ComposerModel
 
 
 @pytest.mark.gpu
@@ -235,18 +234,45 @@ def test_get_model_state_dict_precision_unsharded_model(precision: str, use_comp
         assert tens.dtype == precision
 
 
-def _init_model_and_optimizer(use_composer_model: bool, num_classes=3, batch_size=5, num_features=8, take_step=True,
-                            use_fsdp=False, tensor_type='sharded_tensor'):
-    model, loss_fn = _init_model(use_composer_model, num_classes=num_classes,
-                                 batch_size=batch_size, num_features=num_features,
-                                 use_fsdp=use_fsdp, tensor_type=tensor_type)
+def _init_model_and_optimizer(
+    use_composer_model: bool,
+    num_classes=3,
+    batch_size=5,
+    num_features=8,
+    take_step=True,
+    use_fsdp=False,
+    tensor_type='sharded_tensor',
+):
+    model, loss_fn = _init_model(
+        use_composer_model,
+        num_classes=num_classes,
+        batch_size=batch_size,
+        num_features=num_features,
+        use_fsdp=use_fsdp,
+        tensor_type=tensor_type,
+    )
 
-    optimizer = _init_optimizer(model, loss_fn, use_composer_model=use_composer_model, num_classes=num_classes, batch_size=batch_size, num_features=num_features, take_step=take_step)
-
+    optimizer = _init_optimizer(
+        model,
+        loss_fn,
+        use_composer_model=use_composer_model,
+        num_classes=num_classes,
+        batch_size=batch_size,
+        num_features=num_features,
+        take_step=take_step,
+    )
 
     return model, optimizer
 
-def _init_model(use_composer_model: bool=False, num_classes=3, batch_size=5, num_features=8, use_fsdp=False, tensor_type='sharded_tensor'):
+
+def _init_model(
+    use_composer_model: bool = False,
+    num_classes=3,
+    batch_size=5,
+    num_features=8,
+    use_fsdp=False,
+    tensor_type='sharded_tensor',
+):
     if use_composer_model:
         model = SimpleComposerMLP(num_features=num_features, num_classes=num_classes, device='cuda')
         loss_fn = model._loss_fn
@@ -256,9 +282,9 @@ def _init_model(use_composer_model: bool=False, num_classes=3, batch_size=5, num
 
     if use_fsdp:
         fsdp_kwargs: Dict[str, Any] = dict(
-        use_orig_params=True,
-        sync_module_states=True,  # To enable easy comparison between rank 0 unsharded model and full state dict
-    )
+            use_orig_params=True,
+            sync_module_states=True,  # To enable easy comparison between rank 0 unsharded model and full state dict
+        )
 
         if tensor_type == 'dtensor':
             from torch.distributed.device_mesh import init_device_mesh
@@ -272,8 +298,16 @@ def _init_model(use_composer_model: bool=False, num_classes=3, batch_size=5, num
 
     return model, loss_fn
 
-def _init_optimizer(model, loss_fn, use_composer_model: bool=False, num_classes=3, 
-                    batch_size=5, num_features=8, take_step=True):
+
+def _init_optimizer(
+    model,
+    loss_fn,
+    use_composer_model: bool = False,
+    num_classes=3,
+    batch_size=5,
+    num_features=8,
+    take_step=True,
+):
     inputs = torch.randn(batch_size, num_features, device='cuda')
     targets = torch.randint(low=0, high=num_classes, size=(batch_size,), device='cuda', dtype=torch.long)
     batch = (inputs, targets) if use_composer_model else inputs
@@ -333,16 +367,20 @@ def test_get_optim_state_dict_include(use_composer_model: bool):
     optim_state_dict = get_optim_state_dict(model, optimizer, include_keys=include_keys)
     expected_optim_state_keys = []
     for fqn in fqns:
-        if any([fnmatch.fnmatch(fqn, include_key) for include_key in include_keys]):
-            expected_optim_state_keys.append(fqns.index(fqn))
+        for include_key in include_keys:
+            if fnmatch.fnmatch(fqn, include_key):
+                expected_optim_state_keys.append(fqns.index(fqn))
+                continue
     assert set(optim_state_dict['state'].keys()) == set(expected_optim_state_keys)
 
     include_keys = ['module.2*']
     optim_state_dict = get_optim_state_dict(model, optimizer, include_keys=include_keys)
     expected_optim_state_keys = []
     for fqn in fqns:
-        if any([fnmatch.fnmatch(fqn, include_key) for include_key in include_keys]):
-            expected_optim_state_keys.append(fqns.index(fqn))
+        for include_key in include_keys:
+            if fnmatch.fnmatch(fqn, include_key):
+                expected_optim_state_keys.append(fqns.index(fqn))
+                continue
     assert set(optim_state_dict['state'].keys()) == set(expected_optim_state_keys)
 
 
@@ -353,18 +391,24 @@ def test_get_optim_state_dict_ignore(use_composer_model: bool):
     fqns = [param_fqn for param_fqn, _ in model.named_parameters()]
     ignore_keys = ['module.0*']
     optim_state_dict = get_optim_state_dict(model, optimizer, ignore_keys=ignore_keys)
-    expected_optim_state_keys = []
+    expected_optim_state_keys = [*fqns]
     for fqn in fqns:
-        if not any([fnmatch.fnmatch(fqn, ignore_key) for ignore_key in ignore_keys]):
-            expected_optim_state_keys.append(fqns.index(fqn))
+        for ignore_key in ignore_keys:
+            if fnmatch.fnmatch(fqn, ignore_key):
+                expected_optim_state_keys.remove(fqn)
+                continue
+
     assert set(optim_state_dict['state'].keys()) == set(expected_optim_state_keys)
 
     ignore_keys = ['module.2.weight']
     optim_state_dict = get_optim_state_dict(model, optimizer, ignore_keys=ignore_keys)
-    expected_optim_state_keys = []
+    expected_optim_state_keys = [*fqns]
     for fqn in fqns:
-        if not any([fnmatch.fnmatch(fqn, ignore_key) for ignore_key in ignore_keys]):
-            expected_optim_state_keys.append(fqns.index(fqn))
+        for ignore_key in ignore_keys:
+            if fnmatch.fnmatch(fqn, ignore_key):
+                expected_optim_state_keys.remove(fqn)
+                continue
+
     assert set(optim_state_dict['state'].keys()) == set(expected_optim_state_keys)
 
 
@@ -393,11 +437,14 @@ def test_get_optim_state_dict_precision_unsharded_model(precision: str, use_comp
 def test_get_optim_dict_full_for_sharded_model(world_size, tensor_type, use_composer_model: bool):
     if tensor_type == 'dtensor' and version.parse(torch.__version__) < version.parse('2.2.0'):
         pytest.skip('DTensor is only supported in PyTorch >= 2.2.0')
-    
-    
-    model, optimizer = _init_model_and_optimizer(use_composer_model=use_composer_model, take_step=True, use_fsdp=True, tensor_type=tensor_type)
-    optim_state_dict = get_optim_state_dict(model, optimizer, sharded_state_dict=False)
 
+    model, optimizer = _init_model_and_optimizer(
+        use_composer_model=use_composer_model,
+        take_step=True,
+        use_fsdp=True,
+        tensor_type=tensor_type,
+    )
+    optim_state_dict = get_optim_state_dict(model, optimizer, sharded_state_dict=False)
 
     with FSDP.summon_full_params(model):
         # Make sure the optimizer state in the state dict is the same shape as the parameter it corresponds to.
@@ -417,9 +464,13 @@ def test_get_optim_dict_full_for_sharded_model(world_size, tensor_type, use_comp
 def test_get_optim_dict_sharded_for_sharded_model(world_size, tensor_type, use_composer_model: bool):
     if tensor_type == 'dtensor' and version.parse(torch.__version__) < version.parse('2.2.0'):
         pytest.skip('DTensor is only supported in PyTorch >= 2.2.0')
-    
-    
-    model, optimizer = _init_model_and_optimizer(use_composer_model=use_composer_model, take_step=True, use_fsdp=True, tensor_type=tensor_type)
+
+    model, optimizer = _init_model_and_optimizer(
+        use_composer_model=use_composer_model,
+        take_step=True,
+        use_fsdp=True,
+        tensor_type=tensor_type,
+    )
     model_state_dict = get_model_state_dict(model, sharded_state_dict=True)
     optim_state_dict = get_optim_state_dict(model, optimizer, sharded_state_dict=True)
 
