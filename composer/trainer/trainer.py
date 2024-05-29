@@ -1226,7 +1226,7 @@ class Trainer:
             # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
             # And torch.distributed is always required for multi-rank training
             dist.initialize_dist(device, dist_timeout)
-        if parallelism_config is not None or deepspeed_config is not None:
+        if parallelism_config is not None:
             # Patch PyTorch to fix distributed bugs
             patch_pytorch()
 
