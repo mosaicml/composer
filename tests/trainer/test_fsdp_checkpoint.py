@@ -90,6 +90,7 @@ class FSDPConfig:
     save_planner: Optional[Any] = None
     load_planner: Optional[Any] = None
     data_parallel_shard_degree: int = -1
+    process_group: Optional[str] = None
 
 
 def get_trainer(
@@ -435,28 +436,46 @@ def test_fsdp_mixed_with_sync(
                     r'ignore:MosaicMLLogger is not in the state_dict. Its state '
                     r'will not be restored.:UserWarning'
                 )),
+                pytest.mark.filterwarnings(
+                    (r'ignore:.*process_group is deprecated.*:UserWarning'),
+                ),
             ],
         ),
         pytest.param(
             '0.14.0',
-            marks=pytest.mark.filterwarnings(
-                (r'ignore:MosaicMLLogger is not in the state_dict. Its '
-                 r'state will not be restored.:UserWarning'),
-            ),
+            marks=[
+                pytest.mark.filterwarnings(
+                    (r'ignore:MosaicMLLogger is not in the state_dict. Its '
+                    r'state will not be restored.:UserWarning'),
+                ),
+                pytest.mark.filterwarnings(
+                    (r'ignore:.*process_group is deprecated.*:UserWarning'),
+                ),
+            ],
         ),
         pytest.param(
             '0.14.1',
-            marks=pytest.mark.filterwarnings(
-                (r'ignore:MosaicMLLogger is not in the state_dict. Its '
-                 r'state will not be restored.:UserWarning'),
-            ),
+            marks=[
+                pytest.mark.filterwarnings(
+                    (r'ignore:MosaicMLLogger is not in the state_dict. Its '
+                    r'state will not be restored.:UserWarning'),
+                ),
+                pytest.mark.filterwarnings(
+                    (r'ignore:.*process_group is deprecated.*:UserWarning'),
+                ),
+            ],
         ),
         pytest.param(
             '0.15.1',
-            marks=pytest.mark.filterwarnings(
-                (r'ignore:MosaicMLLogger is not in the state_dict. Its '
-                 r'state will not be restored.:UserWarning'),
-            ),
+            marks=[
+                pytest.mark.filterwarnings(
+                    (r'ignore:MosaicMLLogger is not in the state_dict. Its '
+                    r'state will not be restored.:UserWarning'),
+                ),
+                pytest.mark.filterwarnings(
+                    (r'ignore:.*process_group is deprecated.*:UserWarning'),
+                ),
+            ],
         ),
         pytest.param(
             '0.16.0',
@@ -537,9 +556,13 @@ def test_fsdp_load_old_checkpoint(
         train_metrics = None
         val_metrics = None
 
+    # PyTorch >=2.3 defaults to DTensor, which breaks backwards compatibility. We explicitly set it to
+    # ShardedTensor by passing in process groups.
+    requires_pgs = composer_version in ['0.13.5', '0.14.0', '0.14.1', '0.15.1']
     fsdp_config = FSDPConfig(
         state_dict_type=state_dict_type,
         sharding_strategy=sharding_strategy,
+        process_group='mod1' if requires_pgs else None, 
     )
 
     trainer = get_trainer(

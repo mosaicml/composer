@@ -1343,15 +1343,30 @@ class State(Serializable):
         if model_on_rank:
             if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
                 from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
-                set_model_state_dict(
-                    model=self.model,
-                    model_state_dict=state_dict['model'],
-                    options=StateDictOptions(
-                        full_state_dict=self.fsdp_state_dict_type == 'full',
-                        strict=strict,
-                        cpu_offload=self.fsdp_enabled,
-                    ),
-                )
+                try:
+                    set_model_state_dict(
+                        model=self.model,
+                        model_state_dict=state_dict['model'],
+                        options=StateDictOptions(
+                            full_state_dict=self.fsdp_state_dict_type == 'full',
+                            strict=strict,
+                            cpu_offload=self.fsdp_enabled,
+                        ),
+                    )
+                except AttributeError as e:
+                    if "ShardedTensor' object has no attribute 'placements'" in str(e):
+                        raise RuntimeError(
+                            textwrap.dedent(
+                                'PyTorch DTensor broke backwards compatibility in older checkpoints '
+                                'with ShardedTensor, which is now deprecated. To load old checkpoints, '
+                                'either downgrade to PyTorch <2.3.0 or explicitly pass process groups '
+                                'in the Trainer constructor via '
+                                "`parallelism_config = {'fsdp': {'process_group': 'mod1'}}`. We can "
+                                'provide assistance at https://github.com/mosaicml/composer/issues.',
+                            ),
+                        ) from e
+                    else:
+                        raise e
             else:
                 missing_keys, unexpected_keys = [], []
                 try:
