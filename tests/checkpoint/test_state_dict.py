@@ -391,22 +391,22 @@ def test_get_optim_state_dict_ignore(use_composer_model: bool):
     fqns = [param_fqn for param_fqn, _ in model.named_parameters()]
     ignore_keys = ['module.0*']
     optim_state_dict = get_optim_state_dict(model, optimizer, ignore_keys=ignore_keys)
-    expected_optim_state_keys = [*fqns]
+    expected_optim_state_keys = list(range(len(fqns)))
     for fqn in fqns:
         for ignore_key in ignore_keys:
             if fnmatch.fnmatch(fqn, ignore_key):
-                expected_optim_state_keys.remove(fqn)
+                expected_optim_state_keys.remove(fqns.index(fqn))
                 continue
 
     assert set(optim_state_dict['state'].keys()) == set(expected_optim_state_keys)
 
     ignore_keys = ['module.2.weight']
     optim_state_dict = get_optim_state_dict(model, optimizer, ignore_keys=ignore_keys)
-    expected_optim_state_keys = [*fqns]
+    expected_optim_state_keys = list(range(len(fqns)))
     for fqn in fqns:
         for ignore_key in ignore_keys:
             if fnmatch.fnmatch(fqn, ignore_key):
-                expected_optim_state_keys.remove(fqn)
+                expected_optim_state_keys.remove(fqns.index(fqn))
                 continue
 
     assert set(optim_state_dict['state'].keys()) == set(expected_optim_state_keys)
