@@ -6,7 +6,7 @@
 import fnmatch
 import logging
 import sys
-from typing import Any, Dict, Optional, Sequence, Union
+from typing import Any, Dict, Optional, Sequence, Union, TYPE_CHECKING
 
 import torch
 from packaging import version
@@ -17,6 +17,7 @@ from torch.nn.parallel import DistributedDataParallel
 from composer.devices import Device
 from composer.models import ComposerModel, HuggingFaceModel
 from composer.utils import STR_TO_DTYPE, dist, get_composer_env_dict
+
 
 log = logging.getLogger(__name__)
 
@@ -162,7 +163,6 @@ def get_metadata_state_dict(
     precision: Optional[Union[str, torch.dtype]] = None,
     device: Optional[Device] = None,
     device_train_microbatch_size: Optional[int] = None,
-    generate_parameter_info: Optional[bool] = False,
 ) -> Dict[str, Any]:
     """Generate the metadata and integrations for a training run.
 
@@ -173,7 +173,6 @@ def get_metadata_state_dict(
         precision: The precision of the model. Can be specified as a string ('fp32', 'fp16', 'bf16') or a torch.dtype.
         device: The device the model is on.
         device_train_microbatch_size: The microbatch size used for training on the device.
-        generate_parameter_info: Whether to generate parameter information for the model. Default is False.
 
     This state dict includes:
         * composer version
@@ -223,9 +222,11 @@ def get_metadata_state_dict(
         if isinstance(model, HuggingFaceModel):
             metadata_state_dict['huggingface'] = model.get_metadata()
             metadata_state_dict['model_name'] = model.model.__class__.__name__
-        elif isinstance(model, DistributedDataParallel) and isinstance(model.module, HuggingFaceModel):
+        elif (isinstance(model, DistributedDataParallel) or isinstance(model, FSDP)) and isinstance(model.module, HuggingFaceModel):
             metadata_state_dict['huggingface'] = model.module.get_metadata()
             metadata_state_dict['model_name'] = model.module.model.__class__.__name__
+        elif isinstance(model, FSDP) or isinstance(model, DistributedDataParallel):
+            metadata_state_dict['model_name'] = model.module.__class__.__name__
         else:
             metadata_state_dict['model_name'] = model.__class__.__name__
 
@@ -244,22 +245,4 @@ def get_metadata_state_dict(
     else:
         metadata_state_dict['precision'] = 'fp32'
 
-    if generate_parameter_info:
-        if model is None:
-            raise ValueError('model must be provided to generate parameter information')
-        param_info = {
-            param_name: {
-                'shape': tuple(param.shape),
-                'requires_grad': param.requires_grad,
-            } for param_name, param in model.named_parameters()
-        }
-
-        if _is_model_fsdp(model):
-            param_infos = dist.all_gather_object(param_info)
-            keys = [f'rank_{rank}' for rank in range(dist.get_world_size())]
-            param_info_dict = dict(zip(keys, param_infos))
-        else:
-            param_info_dict = param_info
-        metadata_state_dict['parameter_info'] = param_info_dict
-
-    return metadata_state_dict
+    

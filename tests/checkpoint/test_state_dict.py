@@ -13,7 +13,7 @@ from composer.utils import dist
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
 from tests.common.models import EvenSimplerMLP, SimpleComposerMLP, configure_tiny_gpt2_hf_model
-
+from composer.devices import DeviceGPU
 
 @pytest.mark.gpu
 @pytest.mark.parametrize('use_composer_model', [True, False])
@@ -267,24 +267,21 @@ def test_get_metadata_unsharded_model(model_type: str):
         model = configure_tiny_gpt2_hf_model()
         expected_model_name = 'GPT2LMHeadModel'
 
-    generate_parameter_info = False if model_type == 'hf' else True
-    metadata_sd = get_metadata_state_dict(model, generate_parameter_info=generate_parameter_info)
+    metadata_sd = get_metadata_state_dict(model)
     assert metadata_sd['model_name'] == expected_model_name
     if model_type == 'hf':
         assert 'huggingface' in metadata_sd
         assert 'model' in metadata_sd['huggingface']
         assert 'tokenizer' in metadata_sd['huggingface']
         assert 'model_name' in metadata_sd
-    else:
-        assert 'parameter_info' in metadata_sd
-        assert metadata_sd['parameter_info']['module.0.weight'] == {'shape': (8, 8), 'requires_grad': True}
-        assert metadata_sd['parameter_info']['module.2.weight'] == {'shape': (8, 8), 'requires_grad': True}
 
 @world_size(2)
 @pytest.mark.gpu
 @pytest.mark.parametrize('tensor_type', ['sharded_tensor', 'dtensor'])
 @pytest.mark.parametrize('model_type', ['composer', 'hf', 'nn.module'])
-def test_get_metadata_sharded_model(model_type: str, tensor_type: str):
+def test_get_metadata_sharded_model(model_type: str, tensor_type: str, world_size: int):
+    if tensor_type == 'dtensor' and version.parse(torch.__version__) < version.parse('2.2.0'):
+        pytest.skip('DTensor is only supported in PyTorch >= 2.2.0')
     if model_type == 'composer':
         model = SimpleComposerMLP(num_features=8, device='cuda')
         expected_model_name = 'SimpleComposerMLP'
@@ -292,7 +289,7 @@ def test_get_metadata_sharded_model(model_type: str, tensor_type: str):
         model = EvenSimplerMLP(num_features=8, device='cuda')
         expected_model_name = 'EvenSimplerMLP'
     else:
-        model = configure_tiny_gpt2_hf_model()
+        model = configure_tiny_gpt2_hf_model().cuda()
         expected_model_name = 'GPT2LMHeadModel'
 
     
@@ -310,11 +307,9 @@ def test_get_metadata_sharded_model(model_type: str, tensor_type: str):
         **fsdp_kwargs,
     )
 
-    generate_parameter_info = False if model_type == 'hf' else True
     metadata_sd = get_metadata_state_dict(sharded_model,
-                                          generate_parameter_info=generate_parameter_info,
                                           sharded_state_dict=True,
-                                          device=)
+                                          device=DeviceGPU())
     assert 'sharded_state_dict' in metadata_sd
     assert metadata_sd['sharded_state_dict'] == True
     assert metadata_sd['model_name'] == expected_model_name
