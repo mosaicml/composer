@@ -801,7 +801,7 @@ class GlobalStragglerDetector(Callback):
         else:
             raise ValueError("The 'flops_per_batch' attribute is not present in this model; StragglerDetector requires tracking flops per batch.")
 
-    """
+    
     def before_dataloader(self, state: State, logger: Logger):
         self.stimer.bdata = True
         self.stimer.start()
@@ -813,7 +813,7 @@ class GlobalStragglerDetector(Callback):
         self.stimer.report()
         self.stimer.bdata = False
         log.info("Logging for after dataloader")
-    """
+    
 
     
 
