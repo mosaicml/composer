@@ -808,16 +808,17 @@ class GlobalStragglerDetector(Callback):
     def epoch_start(self, state: State, logger: Logger):
         self.stimer.bdata = True
         self.stimer.start()
-    
+        log.info("Logging for epoch start")
+
     def epoch_end(self, state: State, logger: Logger):
         self.stimer.stop()
         self.stimer.bdata = False
     
     def after_dataloader(self, state: State, logger: Logger):
-        log.info("Logging for after dataloader")
         self.stimer.stop()
         self.stimer.report()
         self.stimer.bdata = False
+        log.info("Logging for after dataloader")
 
 
 
