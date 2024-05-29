@@ -442,7 +442,8 @@ class StragglerDetector:
                 ptime, btime, float(temp), float(power), float(util), float(clock), et_flops,
             )
             if self.rank == 0:
-                now = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]"
+                #now = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]"
+                now = "[{}]".format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
                 min_flops, min_frank, _ = o_dt.aflops[0]()
                 max_flops, max_frank, _ = o_dt.aflops[-1]()
                 min_max_data = {
@@ -459,8 +460,8 @@ class StragglerDetector:
                     "MxClk/Rnk": o_dt.max_clock,
                     "MnDRtt/Rnk": o_dt.min_btime,
                     "MxDRtt/Rnk": o_dt.max_btime,
-                    "MnEtpt/Rnk": f"{min_flops:.2f}TF/{min_frank}",
-                    "MxEtpt/Rnk": f"{max_flops:.2f}TF/{max_frank}"
+                    "MnEtpt/Rnk": "{:.2f}TF/{}".format(min_flops, min_frank),
+                    "MxEtpt/Rnk": "{:.2f}TF/{}".format(max_flops, max_frank)
                 }
                 if self.mmcnt > 1 and self.mmcnt < self.world:
                     line = f"^^^^ Bottom {self.mmcnt} Ranks with lowest  Etpt(TF):"
