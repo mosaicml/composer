@@ -184,7 +184,7 @@ class StragglerDetector:
         """Initializer
         The inital state of the StragglerDetector instance is disabled.
         The enabled state is indicated using self._off member variable
-        and the proerty enabled.
+        and the property enabled.
         """
         self._off = True
         self.start = self.null_method
@@ -209,7 +209,7 @@ class StragglerDetector:
         self.stop_batch = None
         self.sock = None
         self.ctrlr = None
-        self.logger = logging.getLogger(__name__)
+        self.logger = None
 
     def configure(
         self,
@@ -220,6 +220,7 @@ class StragglerDetector:
         port: int = 65535,
         prefill: int = 1024,
         enabled: bool = False,
+        logger: Logger,
     ) -> None:
         """This method is called to configure the Singleton instance
         It should be called once per instantiation per process.
@@ -244,7 +245,6 @@ class StragglerDetector:
         if StragglerDetector._configured:
             # don't throw
             return
-        log.info("successfully entered intstantiation of Straggler Detectior")
         StragglerDetector._configured = True
         self.bdata = False
         self.start = self.null_method
@@ -253,6 +253,7 @@ class StragglerDetector:
         # No CUDA, No Support
         if torch.cuda.is_available():
             self._off = not enabled
+            self.logger = logger
             self.world = world
             self.rank = rank
             self.mmcnt = mmcnt if mmcnt > 1 else 1
@@ -444,22 +445,24 @@ class StragglerDetector:
                 now = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]"
                 min_flops, min_frank, _ = o_dt.aflops[0]()
                 max_flops, max_frank, _ = o_dt.aflops[-1]()
-                self.logger.info(
-                    f"{now}\n"
-                    f"MnRtt/Rnk: {o_dt.min_elapsed}\n"
-                    f"MxRtt/Rnk: {o_dt.max_elapsed}\n"
-                    f"MnPwr/Rnk: {o_dt.min_power}\n"
-                    f"MxPwr/Rnk: {o_dt.max_power}\n"
-                    f"MnTmp/Rnk: {o_dt.min_temp}\n"
-                    f"MxTmp/Rnk: {o_dt.max_temp}\n"
-                    f"MnUtl/Rnk: {o_dt.min_util}\n"
-                    f"MxUtl/Rnk: {o_dt.max_util}\n"
-                    f"MnClk/Rnk: {o_dt.min_clock}\n"
-                    f"MxClk/Rnk: {o_dt.max_clock}\n"
-                    f"MnDRtt/Rnk: {o_dt.min_btime}\n"
-                    f"MxDRtt/Rnk: {o_dt.max_btime}\n"
-                    f"MnEtpt/Rnk: {min_flops:.2f}TF/{min_frank}\n"
-                    f"MxEtpt/Rnk: {max_flops:.2f}TF/{max_frank}"
+                self.logger.log_metrics(
+                    {
+                        "Timestamp": now,
+                        "MnRtt/Rnk": o_dt.min_elapsed,
+                        "MxRtt/Rnk": o_dt.max_elapsed,
+                        "MnPwr/Rnk": o_dt.min_power,
+                        "MxPwr/Rnk": o_dt.max_power,
+                        "MnTmp/Rnk": o_dt.min_temp,
+                        "MxTmp/Rnk": o_dt.max_temp,
+                        "MnUtl/Rnk": o_dt.min_util,
+                        "MxUtl/Rnk": o_dt.max_util,
+                        "MnClk/Rnk": o_dt.min_clock,
+                        "MxClk/Rnk": o_dt.max_clock,
+                        "MnDRtt/Rnk": o_dt.min_btime,
+                        "MxDRtt/Rnk": o_dt.max_btime,
+                        "MnEtpt/Rnk": f"{min_flops:.2f}TF/{min_frank}",
+                        "MxEtpt/Rnk": f"{max_flops:.2f}TF/{max_frank}"
+                    }
                 )
                 if self.mmcnt > 1 and self.mmcnt < self.world:
                     line = f"^^^^ Bottom {self.mmcnt} Ranks with lowest  Etpt(TF):"
@@ -756,8 +759,6 @@ class GlobalStragglerDetector(Callback):
 
     def __init__(self) -> None:
         self.stimer = None
-        self.log_interval = 0
-        #self.start_time = None
 
     def init(self, state: State, logger: Logger) -> None:
         self.stimer = StragglerDetector()
@@ -765,21 +766,15 @@ class GlobalStragglerDetector(Callback):
         rank = dist.get_global_rank()
         world_size = dist.get_world_size()
         if rank == 0:
-            self.stimer.configure(world_size, rank, enabled=True, port=port, amp=1.0)
+            self.stimer.configure(world_size, rank, enabled=True, port=port, amp=1.0, logger=logger)
         else:
-            self.stimer.configure(world_size, rank, enabled=True, amp=1.0)
+            self.stimer.configure(world_size, rank, enabled=True, amp=1.0, logger=logger)
         
 
     def batch_start(self, state: State, logger: Logger):
-        #self.start_time = time.time()
         self.stimer.start()
 
     def batch_end(self, state: State, logger: Logger):
-        # Calculate duration of the current batch
-        #batch_time = (time.time() - self.start_time) * 1000
-        #self.log_interval = int(batch_time)
-
-        #log.info("log_interval:" + str(self.log_interval))
         # Compute flops stats if model has flops_per_batch
         composer_model = state.model
         if not isinstance(composer_model, ComposerModel):
@@ -794,7 +789,6 @@ class GlobalStragglerDetector(Callback):
             device_flops_per_batch = model_flops_per_batch(state.batch)
             log.info("StragglerDetector Flops: " + str(device_flops_per_batch))
             self.stimer.stop()
-            #self.stimer.report(total_flops=device_flops_per_batch, log_interval=self.log_interval)
             self.stimer.report(total_flops=device_flops_per_batch, log_interval=1)
            
 
