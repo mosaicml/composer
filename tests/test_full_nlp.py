@@ -256,6 +256,10 @@ def test_full_nlp_pipeline(
     pytest.importorskip('libcloud')
     pytest.importorskip('transformers')
 
+    # Skip torch distributed process groups as that messes up the monkeypatches somehow.
+    if torch.distributed.is_initialized():
+        torch.distributed.destroy_process_group()
+
     if onnx_opset_version == None and version.parse(torch.__version__) < version.parse('1.13'):
         pytest.skip("Don't test prior PyTorch version's default Opset version.")
 

@@ -29,6 +29,8 @@ def test_algorithm_resumption(
     alg_cls: Type[Algorithm],
     world_size,
 ):
+    if torch.distributed.is_initialized() and world_size == 1:
+        torch.distributed.destroy_process_group()
     folder1 = os.path.join(tmp_path, 'folder1')
     folder2 = os.path.join(tmp_path, 'folder2')
     os.makedirs(folder1, exist_ok=True)
