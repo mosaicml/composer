@@ -220,7 +220,7 @@ class StragglerDetector:
         port: int = 65535,
         prefill: int = 1024,
         enabled: bool = False,
-        logger: Logger,
+        logger: Logger = logging.getLogger(__name__),
     ) -> None:
         """This method is called to configure the Singleton instance
         It should be called once per instantiation per process.
