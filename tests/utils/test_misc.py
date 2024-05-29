@@ -1,5 +1,7 @@
-# Copyright 2022 MosaicML Composer authors
+# Copyright 2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
+
+import datetime
 
 import pytest
 
@@ -9,14 +11,22 @@ from composer.utils.misc import create_interval_scheduler, partial_format
 
 class DummyState:
 
-    def __init__(self, current_batches: int, max_duration: str, dataloader_len: str):
-        self.previous_timestamp = Timestamp(batch=current_batches - 1)
-        self.timestamp = Timestamp(batch=current_batches)
+    def __init__(self, current_batches: int, max_duration: str, dataloader_len: str, seconds_per_batch: int):
+        self.previous_timestamp = Timestamp(
+            batch=current_batches - 1,
+            total_wct=datetime.timedelta(seconds=(current_batches - 1) * seconds_per_batch),
+        )
+        self.timestamp = Timestamp(
+            batch=current_batches - 1,
+            total_wct=datetime.timedelta(seconds=current_batches * seconds_per_batch),
+        )
         self.max_duration = Time.from_timestring(max_duration)
         self.dataloader_len = Time.from_timestring(dataloader_len)
+        self.seconds_per_batch = seconds_per_batch
+        self.total_elapsed_time = datetime.timedelta(seconds=current_batches * seconds_per_batch)
 
     def get_elapsed_duration(self):
-        return 0
+        return self.total_elapsed_time.total_seconds() / self.max_duration.value
 
 
 def test_partial_format():
@@ -38,16 +48,20 @@ def test_partial_format():
 
 
 @pytest.mark.parametrize(
-    'interval,current_batches,max_duration,dataloader_len,expected',
+    'interval,current_batches,max_duration,dataloader_len,seconds_per_batch,expected',
     [
-        ('0.25dur', 1, '1ep', '1ba', True),
-        ('0.25dur', 1, '1ep', '4ba', True),
-        ('0.25dur', 2, '1ep', '5ba', True),
-        ('0.25dur', 1, '1ep', '5ba', False),
-        ('0.25dur', 1, '1ba', '1ba', True),
-        ('0.25dur', 1, '4ba', '4ba', True),
-        ('0.25dur', 2, '5ba', '5ba', True),
-        ('0.25dur', 1, '5ba', '5ba', False),
+        ('0.25dur', 1, '1ep', '1ba', 10, True),
+        ('0.25dur', 1, '1ep', '4ba', 10, True),
+        ('0.25dur', 2, '1ep', '5ba', 10, True),
+        ('0.25dur', 1, '1ep', '5ba', 10, True),
+        ('0.25dur', 1, '1ba', '1ba', 10, True),
+        ('0.25dur', 1, '4ba', '4ba', 10, True),
+        ('0.25dur', 2, '5ba', '5ba', 10, True),
+        ('0.25dur', 1, '5ba', '5ba', 10, True),
+        ('10sec', 1, '6ba', '1ba', 10, True),
+        ('10sec', 5, '6ba', '1ba', 10, True),
+        ('10sec', 6, '6ba', '1ba', 10, True),
+        ('20sec', 2, '6ba', '1ba', 1, False),
     ],
 )
 def test_interval_scheduler(
@@ -55,10 +69,11 @@ def test_interval_scheduler(
     current_batches: int,
     max_duration: str,
     dataloader_len: str,
+    seconds_per_batch: int,
     expected: bool,
 ):
     interval_scheduler = create_interval_scheduler(interval)
-    dummy_state = DummyState(current_batches, max_duration, dataloader_len)
+    dummy_state = DummyState(current_batches, max_duration, dataloader_len, seconds_per_batch)
 
     event = Event.BATCH_CHECKPOINT
 
