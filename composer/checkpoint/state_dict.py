@@ -245,4 +245,4 @@ def get_metadata_state_dict(
     else:
         metadata_state_dict['precision'] = 'fp32'
 
-    
+    return metadata_state_dict
