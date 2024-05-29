@@ -6,7 +6,7 @@
 import fnmatch
 import logging
 import sys
-from typing import Any, Dict, Optional, Sequence, Union, TYPE_CHECKING
+from typing import Any, Dict, Optional, Sequence, Union
 
 import torch
 from packaging import version
@@ -17,7 +17,6 @@ from torch.nn.parallel import DistributedDataParallel
 from composer.devices import Device
 from composer.models import ComposerModel, HuggingFaceModel
 from composer.utils import STR_TO_DTYPE, dist, get_composer_env_dict
-
 
 log = logging.getLogger(__name__)
 
@@ -222,7 +221,8 @@ def get_metadata_state_dict(
         if isinstance(model, HuggingFaceModel):
             metadata_state_dict['huggingface'] = model.get_metadata()
             metadata_state_dict['model_name'] = model.model.__class__.__name__
-        elif (isinstance(model, DistributedDataParallel) or isinstance(model, FSDP)) and isinstance(model.module, HuggingFaceModel):
+        elif (isinstance(model, DistributedDataParallel) or
+              isinstance(model, FSDP)) and isinstance(model.module, HuggingFaceModel):
             metadata_state_dict['huggingface'] = model.module.get_metadata()
             metadata_state_dict['model_name'] = model.module.model.__class__.__name__
         elif isinstance(model, FSDP) or isinstance(model, DistributedDataParallel):

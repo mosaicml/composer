@@ -9,11 +9,12 @@ from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 from composer.checkpoint import get_metadata_state_dict, get_model_state_dict
+from composer.devices import DeviceGPU
 from composer.utils import dist
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
 from tests.common.models import EvenSimplerMLP, SimpleComposerMLP, configure_tiny_gpt2_hf_model
-from composer.devices import DeviceGPU
+
 
 @pytest.mark.gpu
 @pytest.mark.parametrize('use_composer_model', [True, False])
@@ -275,6 +276,7 @@ def test_get_metadata_unsharded_model(model_type: str):
         assert 'tokenizer' in metadata_sd['huggingface']
         assert 'model_name' in metadata_sd
 
+
 @world_size(2)
 @pytest.mark.gpu
 @pytest.mark.parametrize('tensor_type', ['sharded_tensor', 'dtensor'])
@@ -292,7 +294,6 @@ def test_get_metadata_sharded_model(model_type: str, tensor_type: str, world_siz
         model = configure_tiny_gpt2_hf_model().cuda()
         expected_model_name = 'GPT2LMHeadModel'
 
-    
     fsdp_kwargs: Dict[str, Any] = dict(
         use_orig_params=True,
         sync_module_states=True,  # To enable easy comparison between rank 0 unsharded model and full state dict
@@ -307,9 +308,7 @@ def test_get_metadata_sharded_model(model_type: str, tensor_type: str, world_siz
         **fsdp_kwargs,
     )
 
-    metadata_sd = get_metadata_state_dict(sharded_model,
-                                          sharded_state_dict=True,
-                                          device=DeviceGPU())
+    metadata_sd = get_metadata_state_dict(sharded_model, sharded_state_dict=True, device=DeviceGPU())
     assert 'sharded_state_dict' in metadata_sd
     assert metadata_sd['sharded_state_dict'] == True
     assert metadata_sd['model_name'] == expected_model_name
@@ -319,6 +318,6 @@ def test_get_metadata_sharded_model(model_type: str, tensor_type: str, world_siz
         assert 'model' in metadata_sd['huggingface']
         assert 'tokenizer' in metadata_sd['huggingface']
         assert 'model_name' in metadata_sd
-    
+
     assert 'dist_backend' in metadata_sd
     assert metadata_sd['dist_backend'] == 'nccl'
