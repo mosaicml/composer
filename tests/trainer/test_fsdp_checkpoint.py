@@ -436,45 +436,37 @@ def test_fsdp_mixed_with_sync(
                     r'ignore:MosaicMLLogger is not in the state_dict. Its state '
                     r'will not be restored.:UserWarning'
                 )),
-                pytest.mark.filterwarnings(
-                    (r'ignore:.*process_group is deprecated.*:UserWarning'),
-                ),
+                pytest.mark.filterwarnings((r'ignore:.*process_group is deprecated.*:UserWarning'),),
             ],
         ),
         pytest.param(
             '0.14.0',
             marks=[
-                pytest.mark.filterwarnings(
-                    (r'ignore:MosaicMLLogger is not in the state_dict. Its '
-                    r'state will not be restored.:UserWarning'),
-                ),
-                pytest.mark.filterwarnings(
-                    (r'ignore:.*process_group is deprecated.*:UserWarning'),
-                ),
+                pytest.mark.filterwarnings((
+                    r'ignore:MosaicMLLogger is not in the state_dict. Its '
+                    r'state will not be restored.:UserWarning'
+                ),),
+                pytest.mark.filterwarnings((r'ignore:.*process_group is deprecated.*:UserWarning'),),
             ],
         ),
         pytest.param(
             '0.14.1',
             marks=[
-                pytest.mark.filterwarnings(
-                    (r'ignore:MosaicMLLogger is not in the state_dict. Its '
-                    r'state will not be restored.:UserWarning'),
-                ),
-                pytest.mark.filterwarnings(
-                    (r'ignore:.*process_group is deprecated.*:UserWarning'),
-                ),
+                pytest.mark.filterwarnings((
+                    r'ignore:MosaicMLLogger is not in the state_dict. Its '
+                    r'state will not be restored.:UserWarning'
+                ),),
+                pytest.mark.filterwarnings((r'ignore:.*process_group is deprecated.*:UserWarning'),),
             ],
         ),
         pytest.param(
             '0.15.1',
             marks=[
-                pytest.mark.filterwarnings(
-                    (r'ignore:MosaicMLLogger is not in the state_dict. Its '
-                    r'state will not be restored.:UserWarning'),
-                ),
-                pytest.mark.filterwarnings(
-                    (r'ignore:.*process_group is deprecated.*:UserWarning'),
-                ),
+                pytest.mark.filterwarnings((
+                    r'ignore:MosaicMLLogger is not in the state_dict. Its '
+                    r'state will not be restored.:UserWarning'
+                ),),
+                pytest.mark.filterwarnings((r'ignore:.*process_group is deprecated.*:UserWarning'),),
             ],
         ),
         pytest.param(
@@ -562,7 +554,7 @@ def test_fsdp_load_old_checkpoint(
     fsdp_config = FSDPConfig(
         state_dict_type=state_dict_type,
         sharding_strategy=sharding_strategy,
-        process_group='mod1' if requires_pgs else None, 
+        process_group='mod1' if requires_pgs else None,
     )
 
     trainer = get_trainer(
