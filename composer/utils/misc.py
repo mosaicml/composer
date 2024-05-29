@@ -72,11 +72,18 @@ def create_interval_scheduler(
         interval_event = Event.EPOCH_CHECKPOINT if checkpoint_events else Event.EPOCH_END
     elif time_interval.unit == TimeUnit.ITERATION:
         interval_event = Event.ITERATION_CHECKPOINT if checkpoint_events else Event.ITERATION_END
-    elif time_interval.unit in {TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE, TimeUnit.DURATION}:
+    elif time_interval.unit in {
+        TimeUnit.BATCH,
+        TimeUnit.TOKEN,
+        TimeUnit.SAMPLE,
+        TimeUnit.DURATION,
+        TimeUnit.SECOND,
+    }:
         interval_event = Event.BATCH_CHECKPOINT if checkpoint_events else Event.BATCH_END
     else:
         raise NotImplementedError(
-            f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.',
+            f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, ' +\
+            'TimeUnit.SAMPLE, TimeUnit.SECOND',
         )
 
     last_batch_seen = -1
@@ -98,7 +105,14 @@ def create_interval_scheduler(
         if include_end_of_training and event in final_events and elapsed_duration >= 1.0 and state.timestamp.batch != last_batch_seen:
             return True
 
-        if time_interval.unit in {TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE}:
+        if time_interval.unit in {
+            TimeUnit.ITERATION,
+            TimeUnit.EPOCH,
+            TimeUnit.BATCH,
+            TimeUnit.TOKEN,
+            TimeUnit.SAMPLE,
+            TimeUnit.SECOND,
+        }:
             previous_count = state.previous_timestamp.get(time_interval.unit)
             count = state.timestamp.get(time_interval.unit)
         # If the eval_interval is a duration, we will track progress in terms of the unit of max_duration
@@ -108,7 +122,8 @@ def create_interval_scheduler(
             count = state.timestamp.get(state.max_duration.unit)
         else:
             raise NotImplementedError(
-                f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.',
+                f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, ' +\
+                'TimeUnit.SAMPLE, TimeUnit.SECOND',
             )
 
         threshold_passed = math.floor(previous_count / time_interval.value) != math.floor(count / time_interval.value)
