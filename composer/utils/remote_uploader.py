@@ -101,7 +101,8 @@ class RemoteUploader:
         num_concurrent_uploads: int = 1,
         num_attempts: int = 3,
     ):
-        assert num_concurrent_uploads >= 1, f'num_concurrent_uploads must be >= 1, got {num_concurrent_uploads}'
+        if num_concurrent_uploads < 1:
+            raise ValueError(f'num_concurrent_uploads must be >=1, but got {num_concurrent_uploads}')
 
         # A folder to use for staging uploads
         self._tempdir = tempfile.TemporaryDirectory()
