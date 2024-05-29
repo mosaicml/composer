@@ -796,23 +796,16 @@ class GlobalStragglerDetector(Callback):
             self.stimer.stop()
             #self.stimer.report(total_flops=device_flops_per_batch, log_interval=self.log_interval)
             self.stimer.report(total_flops=device_flops_per_batch, log_interval=1)
-            
-            self.stimer.bdata = True
-            self.stimer.start()
            
 
         else:
             raise ValueError("The 'flops_per_batch' attribute is not present in this model; StragglerDetector requires tracking flops per batch.")
 
-        
-    def epoch_start(self, state: State, logger: Logger):
+    def before_dataloader(self, state: State, logger: Logger):
         self.stimer.bdata = True
         self.stimer.start()
-        log.info("Logging for epoch start")
-
-    def epoch_end(self, state: State, logger: Logger):
-        self.stimer.stop()
-        self.stimer.bdata = False
+        log.info("Logging for before dataloader")
+  
     
     def after_dataloader(self, state: State, logger: Logger):
         self.stimer.stop()
@@ -821,7 +814,7 @@ class GlobalStragglerDetector(Callback):
         log.info("Logging for after dataloader")
 
 
-
+    
 
 
 
