@@ -3,12 +3,10 @@ from megatron.core.utils import *
 from composer.core import Callback, State, Event, Time
 from composer.loggers import Logger
 from composer.utils import dist
+from composer.models.base import ComposerModel
 from dataclasses import dataclass
 import time
-from composer.models.base import ComposerModel
 import os
-
-
 import logging
 import math
 import operator
@@ -16,19 +14,13 @@ import queue
 import socket
 import sys
 import threading
-import time
 import traceback
-from dataclasses import dataclass
 from datetime import datetime
 from functools import reduce
 from types import TracebackType
 from typing import List, Optional, Tuple, Type, Union, Any, Callable, Deque, Dict
-
-
 import torch
 
-
-log = logging.getLogger(__name__)
 
 __all__ = ["GlobalStragglerDetector"]
 
@@ -281,7 +273,6 @@ class StragglerDetector:
                 # Start the controller
                 self._controller()
             if not self._off:
-                log.info("successfully defined self.start")
                 self.start = self.start_method
                 self.stop = self.stop_method
 
@@ -314,7 +305,6 @@ class StragglerDetector:
         """
         # Not reentrant
         # First check if this start is for data
-        log.info("start method called")
         if self.bdata:
             self.start_batch.append(time.perf_counter_ns())
             self.stop_batch.append(0)  # this indicate we need to add timer
@@ -334,7 +324,6 @@ class StragglerDetector:
         self.start_time[self.idx] = time.perf_counter_ns()
         self.start_events[self.idx].record()
         self.idx += 1
-        log.info("start method finished")
 
     def stop_method(self) -> None:
         """This method adds the stop timers.
@@ -367,15 +356,12 @@ class StragglerDetector:
         """
         if self._off:
             # match with return below
-            #log.info("elapsed is off")
             return 0, 0, 0, 0, 0, 0
         ls_ev = len(self.start_events)
         le_ev = len(self.stop_events)
         ls_bs = len(self.start_batch)
         ls_be = len(self.stop_batch)
 
-        log.info("length of start events: " + str(ls_ev))
-        log.info("length of start batch events: " + str(ls_bs))
         delta = 0.0
         batch_delta = 0.0
         temp = 0
@@ -399,7 +385,6 @@ class StragglerDetector:
                 delta += max(e_ev, e_tm)
             # Process get_batch
             for i in range(ls_bs):
-                log.info("getting batch")
                 batch_delta = (self.stop_batch[i] - self.start_batch[i]) / 1e3  # us
         self.reset()  # Prepare for next round
         # time in ms, batch_delta in us, check return above
@@ -417,22 +402,16 @@ class StragglerDetector:
                                           Defaults to 0.
         Returns:
             bool: True if reported, else False
+            dict: Dict of min/max metrics and their associated ranks, empty if not rank-0
         """
         ret = False
         min_max_data = {}
         if not self._off and total_flops > 0.0 and log_interval > 0:
             elapsed, btime_us, temp, power, util, clock = self.elapsed()  # get raw time
-            log.info("elapsed: " + str(elapsed))
             ptime = elapsed / (log_interval * 1.0)  # avg per iteration elapsed time, ms
             btime = btime_us / (log_interval * 1.0)  # avg per iteration get_batch time, us
-            if btime < 1e-8:
-                log.info("BATCH TIME IS GENUINELY 0")
             api_flops = total_flops / (log_interval * 1.0)  # avg per iteration flops, ms
-            """
-            apir_flops = api_flops / (
-                ptime * 10 ** 9 * self.world
-            )  # this is avg per iteration this rank's thruput, TFLOP/s (note 10**9),
-            """
+            
             apir_flops = api_flops / (
                 ptime * 10 ** 9
             )
@@ -442,8 +421,6 @@ class StragglerDetector:
                 ptime, btime, float(temp), float(power), float(util), float(clock), et_flops,
             )
             if self.rank == 0:
-                #now = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]"
-                #now = "[{}]".format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
                 min_flops, min_frank, _ = o_dt.aflops[0]()
                 max_flops, max_frank, _ = o_dt.aflops[-1]()
                 
@@ -758,6 +735,85 @@ class StragglerDetector:
 
 
 class GlobalStragglerDetector(Callback):
+    """Logs the minimum and maximum training values across all ranks for the following metrics:
+
+        Rtt : RoundTrip Time (time spent in all the traced ops in the current batch)
+        Pwr : GPU Power
+        Tmp : GPU Temperature
+        Utl : GPU Utilization
+        Clk : GPU Clock
+        DRtt: Batch loading latency (time spent loading the current batch from the dataset)
+        Etpt: Estimated throughput for the current batch
+
+    The maximum and minimum values for these metrics, alongside their respective ranks, are logged 
+    on the :attr:`.Event.BATCH_END` event for every batch. 
+
+    To compute `flops_per_sec`, the model attribute `flops_per_batch` should be set to a callable
+    which accepts a batch and returns the number of flops for that batch. Typically, this should
+    be flops per sample times the batch size unless pad tokens are used.
+
+    The wall clock time is logged on every :attr:`.Event.BATCH_END` event.
+
+    Example:
+        .. doctest::
+
+            >>> from composer import Trainer
+            >>> from composer.callbacks import GlobalStragglerDetector
+            >>> # constructing trainer object with this callback
+            >>> trainer = Trainer(
+            ...     model=model,
+            ...     train_dataloader=train_dataloader,
+            ...     eval_dataloader=eval_dataloader,
+            ...     optimizers=optimizer,
+            ...     max_duration='1ep',
+            ...     callbacks=[GlobalStragglerDetector()],
+            ... )
+
+    The metrics are logged by the :class:`.Logger` to the following keys as
+    described below.
+
+    +-------------------------------------+-----------------------------------------------------------+
+    | Key                                 | Logged data                                               |
+    +=====================================+===========================================================+
+    |                                     | Minimum time spent in all the traced ops in the           |
+    | `MnRtt/Rnk`                         | current batch across all ranks/corresponding rank         |
+    |                                     |                                                           |
+    +-------------------------------------+-----------------------------------------------------------+
+    |                                     | Maximum time spent in all the traced ops in the           |
+    | `MxRtt/Rnk`                         | current batch across all ranks/corresponding rank         |
+    |                                     |                                                           |
+    +-------------------------------------+-----------------------------------------------------------+
+    | `MnPwr/Rnk`                         | Minimum GPU Power consumed/corresponding rank             |
+    +-------------------------------------+-----------------------------------------------------------+
+    | `MxPwr/Rnk`                         | Maximum GPU Power consumed/corresponding rank             |
+    +-------------------------------------+-----------------------------------------------------------+
+    | `MnTmp/Rnk`                         | Minimum GPU Temperature/corresponding rank                |
+    +-------------------------------------+-----------------------------------------------------------+
+    | `MxTmp/Rnk`                         | Maximum GPU Temperature/corresponding rank                |    
+    +-------------------------------------+-----------------------------------------------------------+
+    | `MnUtl/Rnk`                         | Minimum GPU Utilization/corresponding rank                |
+    +-------------------------------------+-----------------------------------------------------------+
+    | `MxUtl/Rnk`                         | Maximum GPU Utilization/corresponding rank                |  
+    +-------------------------------------+-----------------------------------------------------------+
+    | `MnClk/Rnk`                         | Minimum GPU Clock/corresponding rank                      |  
+    +-------------------------------------+-----------------------------------------------------------+
+    | `MxClk/Rnk`                         | Maximum GPU Clock/corresponding rank                      |  
+    +-------------------------------------+-----------------------------------------------------------+
+    |                                     | Minimum time spent loading the current batch from the     |
+    | `MnDRtt/Rnk`                        | dataset across all ranks/corresponding rank               |
+    |                                     |                                                           |
+    +-------------------------------------+-----------------------------------------------------------+
+    |                                     | Maximum time spent loading the current batch from the     |
+    | `MxDRtt/Rnk`                        | dataset across all ranks/corresponding rank               |
+    |                                     |                                                           |
+    +-------------------------------------+-----------------------------------------------------------+
+    | `MnEtpt/Rnk`                         | Minimum estimated throughput/corresponding rank           |  
+    +-------------------------------------+-----------------------------------------------------------+
+    | `MxEtpt/Rnk`                         | Maximum estimated throughput/corresponding rank           |  
+    +-------------------------------------+-----------------------------------------------------------+
+    Args:
+        None
+    """
 
     def __init__(self) -> None:
         self.stimer = None
@@ -768,9 +824,9 @@ class GlobalStragglerDetector(Callback):
         rank = dist.get_global_rank()
         world_size = dist.get_world_size()
         if rank == 0:
-            self.stimer.configure(world_size, rank, mmcnt=2, enabled=True, port=port, amp=1.0)
+            self.stimer.configure(world_size, rank, enabled=True, port=port, amp=1.0)
         else:
-            self.stimer.configure(world_size, rank, mmcnt=2, enabled=True, amp=1.0)
+            self.stimer.configure(world_size, rank, enabled=True, amp=1.0)
         
 
     def batch_start(self, state: State, logger: Logger):
@@ -789,7 +845,6 @@ class GlobalStragglerDetector(Callback):
                     f'returning an int or float. Instead, got {type(model_flops_per_batch)}.',
                 )
             device_flops_per_batch = model_flops_per_batch(state.batch)
-            log.info("StragglerDetector Flops: " + str(device_flops_per_batch))
             self.stimer.stop()
             ok, min_max_data = self.stimer.report(total_flops=device_flops_per_batch, log_interval=1)
             if ok:
@@ -802,14 +857,12 @@ class GlobalStragglerDetector(Callback):
     def before_dataloader(self, state: State, logger: Logger):
         self.stimer.bdata = True
         self.stimer.start()
-        log.info("Logging for before dataloader")
   
     
     def after_dataloader(self, state: State, logger: Logger):
         self.stimer.stop()
         self.stimer.report()
         self.stimer.bdata = False
-        log.info("Logging for after dataloader")
     
 
     
