@@ -138,7 +138,8 @@ class ComposerScheduler(Protocol):
 def _convert_time(time: Union[str, Time[int], Time[float]], state: State, ssr: float = 1.0) -> Time[int]:
     if isinstance(time, str):
         time = Time.from_timestring(time)
-
+    if time.unit == TimeUnit.SECOND:
+        raise ValueError('Wall clock time not an allowed time unit.')
     assert state.max_duration is not None, 'max_duration should be set whenever schedulers are invoked'
 
     if time.unit == TimeUnit.DURATION:

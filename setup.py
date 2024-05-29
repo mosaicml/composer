@@ -102,7 +102,7 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
     'junitparser==3.1.2',
-    'coverage[toml]==7.4.4',
+    'coverage[toml]==7.5.2',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
     'ipython==8.11.0',
@@ -117,7 +117,7 @@ extra_deps['dev'] = [
     'docutils==0.17.1',
     'sphinx_markdown_tables==0.0.17',
     'sphinx-argparse==0.4.0',
-    'sphinxcontrib.katex==0.9.6',
+    'sphinxcontrib.katex==0.9.10',
     'sphinxcontrib-applehelp==1.0.0',
     'sphinxcontrib-devhelp==1.0.0',
     'sphinxcontrib-htmlhelp==2.0.0',
@@ -179,17 +179,17 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,!=4.34.0,<4.41',
+    'transformers>=4.11,!=4.34.0,<4.42',
     'datasets>=2.4,<3',
     'huggingface-hub>=0.21.2,<0.23',
 ]
 
 extra_deps['peft'] = [
-    'peft>=0.10.0,<0.11',
+    'peft>=0.10.0,<0.12',
 ]
 
 extra_deps['sentencepiece'] = [
-    'protobuf<5.27',
+    'protobuf<5.28',
     'sentencepiece==0.2.0',
 ]
 
@@ -228,7 +228,7 @@ extra_deps['mlflow'] = [
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk==0.27.0']
+extra_deps['databricks'] = ['databricks-sdk==0.28.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 

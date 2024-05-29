@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Log to the MosaicML platform."""
+"""Log to Mosaic AI Training."""
 
 from __future__ import annotations
 
@@ -42,12 +42,12 @@ MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR = 'MOSAICML_GPU_LOG_FILE_PREFIX'
 
 
 class MosaicMLLogger(LoggerDestination):
-    """Log to the MosaicML platform.
+    """Log to Mosaic AI Training.
 
-    Logs metrics to the MosaicML platform. Logging only happens on rank 0 every ``log_interval``
+    Logs metrics to Mosaic AI Training. Logging only happens on rank 0 every ``log_interval``
     seconds to avoid performance issues.
 
-    When running on the MosaicML platform, the logger is automatically enabled by Trainer. To disable,
+    When running on Mosaic AI Training, the logger is automatically enabled by Trainer. To disable,
     the environment variable 'MOSAICML_PLATFORM' can be set to False.
 
     Args:
@@ -92,30 +92,30 @@ class MosaicMLLogger(LoggerDestination):
                 self._enabled = False
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
-        self._log_metadata(hyperparameters)
+        self.log_metadata(hyperparameters)
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
-        self._log_metadata(metrics)
+        self.log_metadata(metrics)
 
     def log_exception(self, exception: Exception):
-        self._log_metadata({'exception': exception_to_json_serializable_dict(exception)})
+        self.log_metadata({'exception': exception_to_json_serializable_dict(exception)})
         self._flush_metadata(force_flush=True)
 
     def after_load(self, state: State, logger: Logger) -> None:
         # Log model data downloaded and initialized for run events
         log.debug(f'Logging model initialized time to metadata')
-        self._log_metadata({'model_initialized_time': time.time()})
+        self.log_metadata({'model_initialized_time': time.time()})
         # Log WandB run URL if it exists. Must run on after_load as WandB is setup on event init
         for callback in state.callbacks:
             if isinstance(callback, WandBLogger):
                 run_url = callback.run_url
                 if run_url is not None:
-                    self._log_metadata({'wandb/run_url': run_url})
+                    self.log_metadata({'wandb/run_url': run_url})
                     log.debug(f'Logging WandB run URL to metadata: {run_url}')
                 else:
                     log.debug('WandB run URL not found, not logging to metadata')
             if isinstance(callback, MLFlowLogger) and callback._enabled:
-                self._log_metadata({'mlflow/run_url': callback.run_url})
+                self.log_metadata({'mlflow/run_url': callback.run_url})
                 log.debug(f'Logging MLFlow run URL to metadata: {callback.run_url}')
         self._flush_metadata(force_flush=True)
 
@@ -125,7 +125,7 @@ class MosaicMLLogger(LoggerDestination):
 
     def batch_end(self, state: State, logger: Logger) -> None:
         training_progress_data = self._get_training_progress_metrics(state)
-        self._log_metadata(training_progress_data)
+        self.log_metadata(training_progress_data)
         self._flush_metadata()
 
     def epoch_end(self, state: State, logger: Logger) -> None:
@@ -133,10 +133,10 @@ class MosaicMLLogger(LoggerDestination):
 
     def fit_end(self, state: State, logger: Logger) -> None:
         # Log model training finished time for run events
-        self._log_metadata({'train_finished_time': time.time()})
+        self.log_metadata({'train_finished_time': time.time()})
         training_progress_data = self._get_training_progress_metrics(state)
         log.debug(f'\nLogging FINAL training progress data to metadata:\n{dict_to_str(training_progress_data)}')
-        self._log_metadata(training_progress_data)
+        self.log_metadata(training_progress_data)
         self._flush_metadata(force_flush=True)
 
     def eval_end(self, state: State, logger: Logger) -> None:
@@ -150,14 +150,14 @@ class MosaicMLLogger(LoggerDestination):
         if self._enabled:
             wait(self._futures)  # Ignore raised errors on close
 
-    def _log_metadata(self, metadata: Dict[str, Any]) -> None:
+    def log_metadata(self, metadata: Dict[str, Any], force_flush: bool = False) -> None:
         """Buffer metadata and prefix keys with mosaicml."""
         if self._enabled:
             for key, val in metadata.items():
                 if self.ignore_keys and any(fnmatch.fnmatch(key, pattern) for pattern in self.ignore_keys):
                     continue
                 self.buffered_metadata[f'mosaicml/{key}'] = format_data_to_json_serializable(val)
-            self._flush_metadata()
+            self._flush_metadata(force_flush=force_flush)
 
     def _flush_metadata(self, force_flush: bool = False, future: bool = True) -> None:
         """Flush buffered metadata to MosaicML if enough time has passed since last flush."""

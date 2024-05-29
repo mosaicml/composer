@@ -141,9 +141,8 @@ class MemorySnapshot(Callback):
 
         log.info('Starting snapshot record_memory_history')
         torch.cuda.memory._record_memory_history(
-            True,  # type: ignore
-            trace_alloc_max_entries=self.max_entries,
-            trace_alloc_record_context=True,
+            'all',  # type: ignore
+            max_entries=self.max_entries,
         )
 
     def stop_record_memory_history(self) -> None:
