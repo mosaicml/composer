@@ -443,11 +443,14 @@ class StragglerDetector:
             )
             if self.rank == 0:
                 #now = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]"
-                now = "[{}]".format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                #now = "[{}]".format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
                 min_flops, min_frank, _ = o_dt.aflops[0]()
                 max_flops, max_frank, _ = o_dt.aflops[-1]()
+                
+                min_throughput = _ValueWithRank(min_flops, min_frank, "TF")
+                max_throughput = _ValueWithRank(max_flops, max_frank, "TF")
+
                 min_max_data = {
-                    "Timestamp": now,
                     "MnRtt/Rnk": o_dt.min_elapsed,
                     "MxRtt/Rnk": o_dt.max_elapsed,
                     "MnPwr/Rnk": o_dt.min_power,
@@ -460,8 +463,8 @@ class StragglerDetector:
                     "MxClk/Rnk": o_dt.max_clock,
                     "MnDRtt/Rnk": o_dt.min_btime,
                     "MxDRtt/Rnk": o_dt.max_btime,
-                    "MnEtpt/Rnk": "{:.2f}TF/{}".format(min_flops, min_frank),
-                    "MxEtpt/Rnk": "{:.2f}TF/{}".format(max_flops, max_frank)
+                    "MnEtpt/Rnk": min_throughput,
+                    "MxEtpt/Rnk": max_throughput
                 }
                 if self.mmcnt > 1 and self.mmcnt < self.world:
                     line = f"^^^^ Bottom {self.mmcnt} Ranks with lowest  Etpt(TF):"
@@ -765,9 +768,9 @@ class GlobalStragglerDetector(Callback):
         rank = dist.get_global_rank()
         world_size = dist.get_world_size()
         if rank == 0:
-            self.stimer.configure(world_size, rank, enabled=True, port=port, amp=1.0)
+            self.stimer.configure(world_size, rank, mmcnt=2, enabled=True, port=port, amp=1.0)
         else:
-            self.stimer.configure(world_size, rank, enabled=True, amp=1.0)
+            self.stimer.configure(world_size, rank, mmcnt=2, enabled=True, amp=1.0)
         
 
     def batch_start(self, state: State, logger: Logger):
