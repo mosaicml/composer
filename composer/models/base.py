@@ -90,14 +90,14 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         return state
 
     @abc.abstractmethod
-    def forward(self, batch: Batch) -> Union[Tensor, Sequence[Tensor]]:
+    def forward(self, batch: Batch) -> Any:
         """Compute model output given a batch from the dataloader.
 
         Args:
             batch (~composer.core.types.Batch): The output batch from dataloader.
 
         Returns:
-            Tensor | Sequence[Tensor]:
+            Any:
                 The result that is passed to :meth:`loss` as the parameter :attr:`outputs`.
 
         .. warning:: This method is different from vanilla PyTorch ``model.forward(x)`` or ``model(x)`` as it takes a
