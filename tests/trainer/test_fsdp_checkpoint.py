@@ -437,6 +437,7 @@ def test_fsdp_mixed_with_sync(
                     r'will not be restored.:UserWarning'
                 )),
                 pytest.mark.filterwarnings((r'ignore:.*process_group is deprecated.*:UserWarning'),),
+                pytest.mark.filterwarnings((r'ignore:.*process_group and device_mesh are set for FSDP, so ignoring device_mesh.*:UserWarning')),
             ],
         ),
         pytest.param(
@@ -447,6 +448,7 @@ def test_fsdp_mixed_with_sync(
                     r'state will not be restored.:UserWarning'
                 ),),
                 pytest.mark.filterwarnings((r'ignore:.*process_group is deprecated.*:UserWarning'),),
+                pytest.mark.filterwarnings((r'ignore:.*process_group and device_mesh are set for FSDP, so ignoring device_mesh.*:UserWarning')),
             ],
         ),
         pytest.param(
@@ -457,6 +459,7 @@ def test_fsdp_mixed_with_sync(
                     r'state will not be restored.:UserWarning'
                 ),),
                 pytest.mark.filterwarnings((r'ignore:.*process_group is deprecated.*:UserWarning'),),
+                pytest.mark.filterwarnings((r'ignore:.*process_group and device_mesh are set for FSDP, so ignoring device_mesh.*:UserWarning')),
             ],
         ),
         pytest.param(
@@ -467,6 +470,7 @@ def test_fsdp_mixed_with_sync(
                     r'state will not be restored.:UserWarning'
                 ),),
                 pytest.mark.filterwarnings((r'ignore:.*process_group is deprecated.*:UserWarning'),),
+                pytest.mark.filterwarnings((r'ignore:.*process_group and device_mesh are set for FSDP, so ignoring device_mesh.*:UserWarning')),
             ],
         ),
         pytest.param(
