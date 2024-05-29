@@ -9,7 +9,7 @@ from collections import deque
 from typing import Any, Callable, Deque, Dict, Optional, Union
 
 import torch
-import logging
+
 from composer.core import Callback, State
 from composer.loggers import Logger
 from composer.models.base import ComposerModel
@@ -17,8 +17,6 @@ from composer.utils import dist, is_xla_installed
 
 if is_xla_installed():
     import torch_xla.core.xla_model as xm
-
-log = logging.getLogger(__name__)
 
 __all__ = ['SpeedMonitor']
 
@@ -291,12 +289,6 @@ class SpeedMonitor(Callback):
             self.gpu_flops_available = get_gpu_flops_available(state)
 
     def batch_end(self, state: State, logger: Logger):
-
-        log.info("Len history: " + str(len(self.history_wct)))
-        log.info("Max Len history: " + str(self.history_wct.maxlen))
-        
-
-
         # Add the new element
         self.history_samples.append(state.timestamp.sample.value)
         self.history_tokens.append(state.timestamp.token.value)
@@ -339,7 +331,7 @@ class SpeedMonitor(Callback):
                     f'returning an int or float. Instead, got {type(model_flops_per_batch)}.',
                 )
             device_flops_per_batch = model_flops_per_batch(state.batch)
-            log.info("SpeedMonitor Flops: " + str(device_flops_per_batch))
+
             # Sum flops across all ranks since each rank computes the flops for its own batch
             flops_per_batch_tensor = state.device.tensor_to_device(
                 torch.tensor(device_flops_per_batch, dtype=torch.float),
