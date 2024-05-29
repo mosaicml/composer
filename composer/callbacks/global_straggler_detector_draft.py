@@ -444,24 +444,22 @@ class StragglerDetector:
                 now = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]"
                 min_flops, min_frank, _ = o_dt.aflops[0]()
                 max_flops, max_frank, _ = o_dt.aflops[-1]()
-                self.logger.log_metrics(
-                    {
-                        'timestamp': now,
-                        'MnRtt/Rnk': o_dt.min_elapsed,
-                        'MxRtt/Rnk': o_dt.max_elapsed,
-                        'MnPwr/Rnk': o_dt.min_power,
-                        'MxPwr/Rnk': o_dt.max_power,
-                        'MnTmp/Rnk': o_dt.min_temp,
-                        'MxTmp/Rnk': o_dt.max_temp,
-                        'MnUtl/Rnk': o_dt.min_util,
-                        'MxUtl/Rnk': o_dt.max_util,
-                        'MnClk/Rnk': o_dt.min_clock,
-                        'MxClk/Rnk': o_dt.max_clock,
-                        'MnDRtt/Rnk': o_dt.min_btime,
-                        'MxDRtt/Rnk': o_dt.max_btime,
-                        'MnEtpt/Rnk': f"{min_flops:.2f}TF/{min_frank}",
-                        'MxEtpt/Rnk': f"{max_flops:.2f}TF/{max_frank}"
-                    }
+                self.logger.info(
+                    f"{now}\n"
+                    f"MnRtt/Rnk: {o_dt.min_elapsed}\n"
+                    f"MxRtt/Rnk: {o_dt.max_elapsed}\n"
+                    f"MnPwr/Rnk: {o_dt.min_power}\n"
+                    f"MxPwr/Rnk: {o_dt.max_power}\n"
+                    f"MnTmp/Rnk: {o_dt.min_temp}\n"
+                    f"MxTmp/Rnk: {o_dt.max_temp}\n"
+                    f"MnUtl/Rnk: {o_dt.min_util}\n"
+                    f"MxUtl/Rnk: {o_dt.max_util}\n"
+                    f"MnClk/Rnk: {o_dt.min_clock}\n"
+                    f"MxClk/Rnk: {o_dt.max_clock}\n"
+                    f"MnDRtt/Rnk: {o_dt.min_btime}\n"
+                    f"MxDRtt/Rnk: {o_dt.max_btime}\n"
+                    f"MnEtpt/Rnk: {min_flops:.2f}TF/{min_frank}\n"
+                    f"MxEtpt/Rnk: {max_flops:.2f}TF/{max_frank}"
                 )
                 if self.mmcnt > 1 and self.mmcnt < self.world:
                     line = f"^^^^ Bottom {self.mmcnt} Ranks with lowest  Etpt(TF):"
