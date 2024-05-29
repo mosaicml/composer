@@ -758,14 +758,6 @@ class State(Serializable):
     @evaluators.setter
     def evaluators(self, evaluators: Union[Evaluator, Sequence[Evaluator]]):
         self._evaluators[:] = list(ensure_tuple(evaluators))
-        # Load dataset state from checkpoint when evaluators are set
-        if self.dataset_state:
-            state = self.dataset_state['eval']
-            for evaluator in self._evaluators:
-                dataset = self._dataset_of(evaluator)
-                if hasattr(dataset, 'load_state_dict') and evaluator.label in state:
-                    dataset.load_state_dict(state[evaluator.label])  # pyright: ignore
-            del self.dataset_state['eval']
 
     @property
     def deepspeed_enabled(self):
@@ -866,12 +858,6 @@ class State(Serializable):
         if hasattr(dataset, 'state_dict'):
             num_samples = int(self.timestamp.sample_in_epoch.value)
             obj['train'] = dataset.state_dict(num_samples, True)  # pyright: ignore
-
-        for evaluator in self.evaluators:
-            dataset = self._dataset_of(evaluator)
-            if hasattr(dataset, 'state_dict'):
-                # Don't save eval sample because we do not checkpoint during eval.
-                obj['eval'][evaluator.label] = dataset.state_dict(0, True)  # pyright: ignore
 
         return obj
 
@@ -1197,18 +1183,6 @@ class State(Serializable):
             dataset.load_state_dict(obj['train'])  # pyright: ignore
             obj['train'] = None
             self.dataset_resumption['train'] = True
-
-        for evaluator in self.evaluators:
-            dataset = self._dataset_of(evaluator)
-            if hasattr(dataset, 'load_state_dict') and evaluator.label in obj['eval']:
-                dataset.load_state_dict(obj['eval'][evaluator.label])  # pyright: ignore
-                del obj['eval'][evaluator.label]
-                if 'eval' not in self.dataset_resumption:
-                    self.dataset_resumption['eval'] = {}
-                # Note: We currently disable setting dataset_resumption for eval datasets,
-                # which means they have one sample fetched in _spin_dataloaders before training
-                # starts. This avoids "CUDA error: initialization error" -- its not clear why.
-                # self.dataset_resumption['eval'][evaluator.label] = True
 
     def load_model_state(
         self,
