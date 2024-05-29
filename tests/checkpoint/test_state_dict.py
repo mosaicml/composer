@@ -420,4 +420,12 @@ def test_get_optim_dict_sharded_for_sharded_model(world_size, tensor_type, use_c
     
     
     model, optimizer = _init_model_and_optimizer(use_composer_model=use_composer_model, take_step=True, use_fsdp=True, tensor_type=tensor_type)
+    model_state_dict = get_model_state_dict(model, sharded_state_dict=True)
     optim_state_dict = get_optim_state_dict(model, optimizer, sharded_state_dict=True)
+
+    # Check to make sure on every rank optimizer state name and shape matches model's
+    fqn_to_shape_map = {fqn: param.shape for fqn, param in model_state_dict.items()}
+    for fqn, param_state in optim_state_dict['state'].items():
+        model_param_shape = fqn_to_shape_map[fqn]
+        assert model_param_shape == param_state['exp_avg'].shape
+        assert model_param_shape == param_state['exp_avg_sq'].shape
