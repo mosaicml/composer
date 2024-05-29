@@ -1354,6 +1354,7 @@ class State(Serializable):
                         ),
                     )
                 except AttributeError as e:
+                    # Issue: https://github.com/pytorch/pytorch/issues/127351
                     if "ShardedTensor' object has no attribute 'placements'" in str(e):
                         raise RuntimeError(
                             textwrap.dedent(
