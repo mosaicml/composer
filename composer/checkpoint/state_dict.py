@@ -5,6 +5,7 @@
 
 import fnmatch
 import logging
+import sys
 from typing import Any, Dict, Optional, Sequence, Union
 
 import torch
@@ -13,8 +14,9 @@ from torch import nn
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn.parallel import DistributedDataParallel
 
-from composer.models import ComposerModel
-from composer.utils import STR_TO_DTYPE, dist
+from composer.devices import Device
+from composer.models import ComposerModel, HuggingFaceModel
+from composer.utils import STR_TO_DTYPE, dist, get_composer_env_dict
 
 log = logging.getLogger(__name__)
 
@@ -152,3 +154,94 @@ def _get_model_state_dict_with_fsdp_context_manager(model: nn.Module, sharded_st
     with FSDP.state_dict_type(model, state_dict_type=state_dict_type, state_dict_config=state_dict_config):
         model_state_dict = model.state_dict()
     return model_state_dict
+
+
+def get_metadata_state_dict(
+    model: Optional[Union[ComposerModel, nn.Module]] = None,
+    sharded_state_dict: Optional[bool] = None,
+    precision: Optional[Union[str, torch.dtype]] = None,
+    device: Optional[Device] = None,
+    device_train_microbatch_size: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Generate the metadata and integrations for a training run.
+
+    Args:
+        model: The model to get the metadata state dict from. Only applicable if model is HuggingFaceModel
+        sharded_state_dict: Whether the checkpoint this metadata state dict is associated with is sharded or not.
+            Optional argument because this function may not be called in the context of making a full checkpoint.
+        precision: The precision of the model. Can be specified as a string ('fp32', 'fp16', 'bf16') or a torch.dtype.
+        device: The device the model is on.
+        device_train_microbatch_size: The microbatch size used for training on the device.
+
+    This state dict includes:
+        * composer version
+        * composer commit hash
+        * gpu model
+        * num nodes
+        * num gpus
+        * num gpus per node
+        * cpu core count
+        * cpu model
+        * torch version
+        * python version
+        * optionally
+            * dist/communication backend
+            * precision
+            * hf model metadata
+            * device_train_microbatch_size
+            * sharded vs unsharded state dict
+            * model name
+            * param fqns, shapes, and requires_grad
+            * huggingface metadata
+
+    Returns:
+        The state dict containing the metadata and any integrations for a training run.
+    """
+    ced = get_composer_env_dict()
+
+    python_version = '.'.join([str(getattr(sys.version_info, k)) for k in ['major', 'minor', 'micro']])
+
+    metadata_state_dict = {
+        'composer_version': ced['composer_version'],
+        'composer_commit_hash': ced['composer_commit_hash'],
+        'torch_version': torch.__version__,
+        'python_version': python_version,
+        'num_nodes': ced['node_world_size'],
+        'num_gpus_per_node': ced['local_world_size'],
+        'num_gpus': dist.get_world_size(),
+        'gpu_model': ced['accelerator_model_name'],
+        'cpu_model': ced['host_processor_model_name'],
+        'cpu_core_count': ced['host_processor_core_count'],
+    }
+    if sharded_state_dict is not None:
+        metadata_state_dict['sharded_state_dict'] = sharded_state_dict
+
+    if model is not None:
+        if isinstance(model, HuggingFaceModel):
+            metadata_state_dict['huggingface'] = model.get_metadata()
+            metadata_state_dict['model_name'] = model.model.__class__.__name__
+        elif (isinstance(model, DistributedDataParallel) or
+              isinstance(model, FSDP)) and isinstance(model.module, HuggingFaceModel):
+            metadata_state_dict['huggingface'] = model.module.get_metadata()
+            metadata_state_dict['model_name'] = model.module.model.__class__.__name__
+        elif isinstance(model, FSDP) or isinstance(model, DistributedDataParallel):
+            metadata_state_dict['model_name'] = model.module.__class__.__name__
+        else:
+            metadata_state_dict['model_name'] = model.__class__.__name__
+
+    if device is not None:
+        metadata_state_dict['dist_backend'] = device.dist_backend
+
+    if device_train_microbatch_size:
+        metadata_state_dict['device_train_microbatch_size'] = device_train_microbatch_size
+
+    if precision is not None:
+        if isinstance(precision, str):
+            metadata_state_dict['precision'] = precision
+        else:
+            dtype_to_str = {v: k for k, v in STR_TO_DTYPE.items()}
+            metadata_state_dict['precision'] = dtype_to_str[precision]
+    else:
+        metadata_state_dict['precision'] = 'fp32'
+
+    return metadata_state_dict

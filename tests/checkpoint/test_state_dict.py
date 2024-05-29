@@ -8,11 +8,12 @@ import torch
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
-from composer.checkpoint import get_model_state_dict
+from composer.checkpoint import get_metadata_state_dict, get_model_state_dict
+from composer.devices import DeviceGPU
 from composer.utils import dist
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
-from tests.common.models import EvenSimplerMLP, SimpleComposerMLP
+from tests.common.models import EvenSimplerMLP, SimpleComposerMLP, configure_tiny_gpt2_hf_model
 
 
 @pytest.mark.gpu
@@ -230,3 +231,93 @@ def test_get_model_state_dict_precision_unsharded_model(precision: str, use_comp
     )
     for tens in model_state_dict.values():
         assert tens.dtype == precision
+
+
+@pytest.mark.gpu
+@world_size(1, 2)
+def test_get_metadata_empty_call(world_size):
+    metadata_sd = get_metadata_state_dict()
+    for key in [
+        'composer_version',
+        'composer_commit_hash',
+        'torch_version',
+        'python_version',
+        'num_nodes',
+        'num_gpus_per_node',
+        'num_gpus',
+        'gpu_model',
+        'cpu_model',
+        'cpu_core_count',
+    ]:
+        assert key in metadata_sd
+
+    assert metadata_sd['num_nodes'] == 1
+    assert metadata_sd['num_gpus'] == world_size
+
+
+@pytest.mark.gpu
+@pytest.mark.parametrize('model_type', ['composer', 'hf', 'nn.module'])
+def test_get_metadata_unsharded_model(model_type: str):
+    if model_type == 'composer':
+        model = SimpleComposerMLP(num_features=8, device='cuda')
+        expected_model_name = 'SimpleComposerMLP'
+    elif model_type == 'nn.module':
+        model = EvenSimplerMLP(num_features=8, device='cuda')
+        expected_model_name = 'EvenSimplerMLP'
+    else:
+        model = configure_tiny_gpt2_hf_model()
+        expected_model_name = 'GPT2LMHeadModel'
+
+    metadata_sd = get_metadata_state_dict(model)
+    assert metadata_sd['model_name'] == expected_model_name
+    if model_type == 'hf':
+        assert 'huggingface' in metadata_sd
+        assert 'model' in metadata_sd['huggingface']
+        assert 'tokenizer' in metadata_sd['huggingface']
+        assert 'model_name' in metadata_sd
+
+
+@world_size(2)
+@pytest.mark.gpu
+@pytest.mark.parametrize('tensor_type', ['sharded_tensor', 'dtensor'])
+@pytest.mark.parametrize('model_type', ['composer', 'hf', 'nn.module'])
+def test_get_metadata_sharded_model(model_type: str, tensor_type: str, world_size: int):
+    if tensor_type == 'dtensor' and version.parse(torch.__version__) < version.parse('2.2.0'):
+        pytest.skip('DTensor is only supported in PyTorch >= 2.2.0')
+    if model_type == 'composer':
+        model = SimpleComposerMLP(num_features=8, device='cuda')
+        expected_model_name = 'SimpleComposerMLP'
+    elif model_type == 'nn.module':
+        model = EvenSimplerMLP(num_features=8, device='cuda')
+        expected_model_name = 'EvenSimplerMLP'
+    else:
+        model = configure_tiny_gpt2_hf_model().cuda()
+        expected_model_name = 'GPT2LMHeadModel'
+
+    fsdp_kwargs: Dict[str, Any] = dict(
+        use_orig_params=True,
+        sync_module_states=True,  # To enable easy comparison between rank 0 unsharded model and full state dict
+    )
+    if tensor_type == 'dtensor':
+        from torch.distributed.device_mesh import init_device_mesh
+        device_mesh = init_device_mesh('cuda', (2,))
+        fsdp_kwargs.update(device_mesh=device_mesh)
+
+    sharded_model = FSDP(
+        model,
+        **fsdp_kwargs,
+    )
+
+    metadata_sd = get_metadata_state_dict(sharded_model, sharded_state_dict=True, device=DeviceGPU())
+    assert 'sharded_state_dict' in metadata_sd
+    assert metadata_sd['sharded_state_dict'] == True
+    assert metadata_sd['model_name'] == expected_model_name
+
+    if model_type == 'hf':
+        assert 'huggingface' in metadata_sd
+        assert 'model' in metadata_sd['huggingface']
+        assert 'tokenizer' in metadata_sd['huggingface']
+        assert 'model_name' in metadata_sd
+
+    assert 'dist_backend' in metadata_sd
+    assert metadata_sd['dist_backend'] == 'nccl'
