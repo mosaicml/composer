@@ -8,7 +8,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 jobs:
   pytest-gpu-1:
-    uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml@4gpu-testing
+    uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml
     with:
       container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
       git_repo: mosaicml/composer
@@ -24,7 +24,7 @@ jobs:
       mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
 
   pytest-gpu-2:
-    uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml@4gpu-testing
+    uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml
     with:
       container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
       git_repo: mosaicml/composer
@@ -40,7 +40,7 @@ jobs:
       mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
 
   pytest-gpu-4:
-    uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml@4gpu-testing
+    uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml
     with:
       container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
       git_repo: mosaicml/composer

@@ -349,7 +349,7 @@ def test_fsdp_reshard_after_oom(world_size: int):
 
 
 @pytest.mark.gpu
-@world_size(4)
+@world_size(2)
 def test_fsdp_same_state_after_oom_reshard(world_size: int):
     # Test numerical correctness after continuing to train with smaller batch size after OOM.
     model = SimpleMLP(num_features=2)
