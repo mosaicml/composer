@@ -16,6 +16,7 @@ import textwrap
 import warnings
 from importlib import import_module
 from pathlib import Path
+import signal
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
@@ -276,9 +277,9 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                 # PyTorch will capture any exception of this function,
                 # and dist.all_gather_objects(exception) before raising it.
                 # If that all_gather_objects fails, the exception is never visible to user.
-                # We immediately print the exception to avoid that situation.
-                log.error(f'Exception {type(e)} raised during downloading: {str(e)}')
-                raise e
+                # We immediately kill the process and print the exception 
+                log.error(f'Exception {type(e)} raised during downloading: {str(e)}, terminating the process')
+                os.kill(os.getpid(), signal.SIGTERM)
 
         # 3. Wait for all ranks to finish.
         log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
