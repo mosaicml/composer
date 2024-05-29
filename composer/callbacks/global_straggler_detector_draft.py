@@ -814,6 +814,7 @@ class GlobalStragglerDetector(Callback):
         self.stimer.bdata = False
     
     def after_dataloader(self, state: State, logger: Logger):
+        log.info("Logging for after dataloader")
         self.stimer.stop()
         self.stimer.report()
         self.stimer.bdata = False
