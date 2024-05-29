@@ -197,8 +197,7 @@ def get_metadata_state_dict(
     Returns:
         The state dict containing the metadata and any integrations for a training run.
     """
-    composer_env_dict = get_composer_env_dict()
-    ced = composer_env_dict
+    ced = get_composer_env_dict()
 
     python_version = '.'.join([str(getattr(sys.version_info, k)) for k in ['major', 'minor', 'micro']])
 
