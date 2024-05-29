@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 jobs:
   daily-pytest-cpu:
-    uses: mosaicml/ci-testing/.github/workflows/pytest-cpu.yaml@v0.0.5
+    uses: mosaicml/ci-testing/.github/workflows/pytest-cpu.yaml@v0.0.6
     strategy:
       matrix:
         include:
@@ -100,7 +100,7 @@ jobs:
       download-path: artifacts
 
   daily-pytest-gpu:
-    uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml@v0.0.5
+    uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml@v0.0.6
     strategy:
       matrix:
         # Unlike CPU tests, we run daily tests together with GPU tests to minimize launch time
@@ -133,5 +133,6 @@ jobs:
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
       python-version: 3.9
+      gha-timeout: 5400
     secrets:
       mcloud-api-key: ${{ secrets.MCLOUD_DAILY_API_KEY }}
