@@ -438,7 +438,7 @@ def test_fsdp_mixed_with_sync(
                 )),
                 pytest.mark.filterwarnings((r'ignore:.*process_group is deprecated.*:UserWarning'),),
                 pytest.mark.filterwarnings(
-                    (r'ignore:.*process_group and device_mesh are set for FSDP, so ignoring device_mesh.*:UserWarning')
+                    (r'ignore:.*process_group and device_mesh are set for FSDP, so ignoring device_mesh.*:UserWarning'),
                 ),
             ],
         ),
@@ -451,7 +451,7 @@ def test_fsdp_mixed_with_sync(
                 ),),
                 pytest.mark.filterwarnings((r'ignore:.*process_group is deprecated.*:UserWarning'),),
                 pytest.mark.filterwarnings(
-                    (r'ignore:.*process_group and device_mesh are set for FSDP, so ignoring device_mesh.*:UserWarning')
+                    (r'ignore:.*process_group and device_mesh are set for FSDP, so ignoring device_mesh.*:UserWarning'),
                 ),
             ],
         ),
@@ -464,7 +464,7 @@ def test_fsdp_mixed_with_sync(
                 ),),
                 pytest.mark.filterwarnings((r'ignore:.*process_group is deprecated.*:UserWarning'),),
                 pytest.mark.filterwarnings(
-                    (r'ignore:.*process_group and device_mesh are set for FSDP, so ignoring device_mesh.*:UserWarning')
+                    (r'ignore:.*process_group and device_mesh are set for FSDP, so ignoring device_mesh.*:UserWarning'),
                 ),
             ],
         ),
@@ -477,7 +477,7 @@ def test_fsdp_mixed_with_sync(
                 ),),
                 pytest.mark.filterwarnings((r'ignore:.*process_group is deprecated.*:UserWarning'),),
                 pytest.mark.filterwarnings(
-                    (r'ignore:.*process_group and device_mesh are set for FSDP, so ignoring device_mesh.*:UserWarning')
+                    (r'ignore:.*process_group and device_mesh are set for FSDP, so ignoring device_mesh.*:UserWarning'),
                 ),
             ],
         ),
