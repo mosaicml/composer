@@ -173,7 +173,7 @@ class ActivationMonitor(Callback):
                 if val is None or isinstance(val, dict):
                     continue
                 if isinstance(val, str) and isinstance(input, dict):
-                    self.recursively_add_metrics(metrics, module_name, f'_input.{i}', output[val])  # type: ignore
+                    self.recursively_add_metrics(metrics, module_name, f'_input.{i}', input[val])  # type: ignore
                 else:
                     self.recursively_add_metrics(metrics, module_name, f'_input.{i}', val)
 
