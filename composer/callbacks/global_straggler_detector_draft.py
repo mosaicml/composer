@@ -1,6 +1,3 @@
-#from megatron_core.megatron.core.utils import StragglerDetector
-#from megatron_core.megatron.core.utils import *
-#from mosaicml.composer.megatron import *
 from megatron.core.utils import *
 
 from composer.core import Callback, State, Event, Time
@@ -378,6 +375,7 @@ class StragglerDetector:
         ls_be = len(self.stop_batch)
 
         log.info("length of start events: " + str(ls_ev))
+        log.info("length of start batch events: " + str(ls_bs))
         delta = 0.0
         batch_delta = 0.0
         temp = 0
@@ -799,13 +797,26 @@ class GlobalStragglerDetector(Callback):
             #self.stimer.report(total_flops=device_flops_per_batch, log_interval=self.log_interval)
             self.stimer.report(total_flops=device_flops_per_batch, log_interval=1)
             
+            self.stimer.bdata = True
+            self.stimer.start()
            
 
         else:
             raise ValueError("The 'flops_per_batch' attribute is not present in this model; StragglerDetector requires tracking flops per batch.")
 
         
-
+    def epoch_start(self, state: State, logger: Logger):
+        self.stimer.bdata = True
+        self.stimer.start()
+    
+    def epoch_end(self, state: State, logger: Logger):
+        self.stimer.stop()
+        self.stimer.bdata = False
+    
+    def after_dataloader(self, state: State, logger: Logger):
+        self.stimer.stop()
+        self.stimer.report()
+        self.stimer.bdata = False
 
 
 
