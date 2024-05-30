@@ -5,7 +5,7 @@
 import logging
 import math
 import warnings
-from typing import Dict, Optional, Union
+from typing import Optional, Union
 
 import torch
 import torch.cuda
@@ -113,7 +113,7 @@ class MemoryMonitor(Callback):
         Memory usage monitoring is only supported for GPU devices.
 
     Args:
-        memory_keys (Dict[str, str], optional): A dict specifying memory statistics to log. Keys
+        memory_keys (dict[str, str], optional): A dict specifying memory statistics to log. Keys
             are the names of memory statistics to log from `torch.cuda.memory_stats()`, and values
             are the names they will be logged under. If not provided, the above statistics are
             logged. Defaults to None.
@@ -123,7 +123,7 @@ class MemoryMonitor(Callback):
 
     def __init__(
         self,
-        memory_keys: Optional[Dict[str, str]] = None,
+        memory_keys: Optional[dict[str, str]] = None,
         dist_aggregate_batch_interval: Optional[int] = None,
     ) -> None:
         self.memory_keys = memory_keys
@@ -168,7 +168,7 @@ _MEMORY_KEYS = {
 }
 
 
-def _get_memory_report(memory_keys: Optional[Dict[str, str]] = None) -> Dict[str, Union[int, float]]:
+def _get_memory_report(memory_keys: Optional[dict[str, str]] = None) -> dict[str, Union[int, float]]:
     memory_stats = torch.cuda.memory_stats()
     memory_keys = memory_keys or _MEMORY_KEYS
 

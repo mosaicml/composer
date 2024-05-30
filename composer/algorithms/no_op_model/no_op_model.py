@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import torch
 import torch.nn.functional as F
@@ -57,7 +57,7 @@ class NoOpModelClass(ComposerModel):
         assert isinstance(y, torch.Tensor)
         return y * self.weights
 
-    def get_metrics(self, is_train: bool) -> Dict[str, Metric]:
+    def get_metrics(self, is_train: bool) -> dict[str, Metric]:
         return {'BinaryAccuracy': BinaryAccuracy()}
 
     def eval_forward(self, batch: Batch, outputs: Optional[Any] = None):

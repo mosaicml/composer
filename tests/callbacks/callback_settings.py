@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from typing import Any, Dict, List, Tuple, Type
+from typing import Any, Type
 from unittest.mock import MagicMock
 
 import pytest
@@ -104,7 +104,7 @@ try:
 except ImportError:
     _NEPTUNE_INSTALLED = False
 
-_callback_kwargs: Dict[Type[Callback], Dict[str, Any]] = {
+_callback_kwargs: dict[Type[Callback], dict[str, Any]] = {
     Generate: {
         'prompts': ['a', 'b', 'c'],
         'interval': '1ba',
@@ -152,9 +152,9 @@ _callback_kwargs: Dict[Type[Callback], Dict[str, Any]] = {
     },
 }
 
-_callback_marks: Dict[
+_callback_marks: dict[
     Type[Callback],
-    List[pytest.MarkDecorator],
+    list[pytest.MarkDecorator],
 ] = {
     RemoteUploaderDownloader: [
         pytest.mark.filterwarnings(
@@ -252,7 +252,7 @@ def get_cb_hparams_and_marks():
         from tests.callbacks.callback_settings import get_cb_hparams_and_marks, get_cb_kwargs
 
         @pytest.mark.parametrize("constructor",get_cb_hparams_and_marks())
-        def test_something(constructor: Callable, yaml_dict: Dict[str, Any]):
+        def test_something(constructor: Callable, yaml_dict: dict[str, Any]):
             yaml_dict = get_cb_kwargs(constructor)
             construct_from_yaml(constructor, yaml_dict=yaml_dict)
     """
@@ -266,7 +266,7 @@ def get_cb_model_and_datasets(
     cb: Callback,
     dl_size=100,
     **default_dl_kwargs,
-) -> Tuple[ComposerModel, DataLoader, DataLoader]:
+) -> tuple[ComposerModel, DataLoader, DataLoader]:
     if isinstance(cb, Generate):
         if get_device(None).name == 'cpu' and dist.get_world_size() > 1:
             pytest.xfail(
