@@ -562,11 +562,9 @@ def test_fsdp_load_old_checkpoint(
 
     # PyTorch >=2.3 defaults to DTensor, which breaks backwards compatibility. We explicitly set it to
     # ShardedTensor by passing in process groups.
-    requires_pgs = composer_version in ['0.13.5', '0.14.0', '0.14.1', '0.15.1']
     fsdp_config = FSDPConfig(
         state_dict_type=state_dict_type,
         sharding_strategy=sharding_strategy,
-        process_group='mod1' if requires_pgs else None,
     )
 
     trainer = get_trainer(

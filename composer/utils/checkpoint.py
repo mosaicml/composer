@@ -674,6 +674,8 @@ def load_sharded_checkpoint(
                 no_dist=(not dist.is_initialized()),
             )
 
+            print('Dist CP loaded state_dict', state_dict)
+
             log.info(f'Loaded state dict')
             state.load_state_dict(
                 state_dict['state'],
@@ -975,6 +977,7 @@ def _restore_checkpoint(
         composer_states_filepath=composer_states_filepath,
         load_monolith_rank0_only=state.load_monolith_rank0_only,
     )
+    print('Loaded state dict', state_dict)
     if ignore_keys:
         # Filter provided list of key paths
         if not callable(ignore_keys):
