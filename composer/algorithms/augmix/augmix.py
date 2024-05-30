@@ -272,7 +272,7 @@ class AugMix(Algorithm):
         self.width = width
         self.alpha = alpha
         self.augmentation_set = augmentation_set
-        self._transformed_datasets = weakref.Weakset()
+        self._transformed_datasets = weakref.WeakSet()
 
     def match(self, event: Event, state: State) -> bool:
         if event != Event.FIT_START:

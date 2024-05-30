@@ -228,7 +228,7 @@ class BlurConv2d(nn.Module):
     stride is greater than one. In the former case, the only overhead is the
     cost of doing the anti-aliasing operation. In the latter case, the ``Conv2d``
     is applied with a stride of one to the input, and then the
-    anti-aliasing is applied with the provided stride to the result. setting
+    anti-aliasing is applied with the provided stride to the result. Setting
     the stride of the convolution to ``1`` can greatly increase the computational
     cost. E.g., replacing a stride of ``(2, 2)`` with a stride of ``1`` increases
     the number of operations by a factor of ``(2/1) * (2/1) = 4``. However,

@@ -114,8 +114,8 @@ Zhang (2019) showed that BlurPool improves accuracy by 0.5-1% on ImageNet for va
 [Lee et al.](https://arxiv.org/abs/2001.06268) also reproduced ImageNet accuracy improvements, especially when applying BlurPool only to strided convolutions.
 
 Depending on the value of the `blur_first` parameter, the strided low-pass filtering can happen either before or after the convolution.
-setting `blur_first=True` (i.e., performing low-pass filtering before the convolution) keeps the number of multiply-add operations in the convolution itself constant, adding only the overhead of the low-pass filtering.
-setting `blur_first=False` (i.e., performing low-pass filtering after the convolution) increases the number of multiply-add operations by a factor of `np.prod(conv.stride)` (e.g., 4 for a stride of `(2, 2)`). This more closely matches the approach used in the paper. Anecdotally, we’ve observed this version yielding a roughly 0.1% larger accuracy gain on ResNet-50 + ImageNet in exchange for a ~10% slowdown. Having `blur_first=False` is not as well characterized in our experiments as `blur_first=True`.
+Setting `blur_first=True` (i.e., performing low-pass filtering before the convolution) keeps the number of multiply-add operations in the convolution itself constant, adding only the overhead of the low-pass filtering.
+Setting `blur_first=False` (i.e., performing low-pass filtering after the convolution) increases the number of multiply-add operations by a factor of `np.prod(conv.stride)` (e.g., 4 for a stride of `(2, 2)`). This more closely matches the approach used in the paper. Anecdotally, we’ve observed this version yielding a roughly 0.1% larger accuracy gain on ResNet-50 + ImageNet in exchange for a ~10% slowdown. Having `blur_first=False` is not as well characterized in our experiments as `blur_first=True`.
 
 > 🚧 Quality/Speed Tradeoff
 >

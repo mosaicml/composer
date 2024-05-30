@@ -228,7 +228,7 @@ class ColOut(Algorithm):
         self.p_col = p_col
         self.batch = batch
         self.resize_target = resize_target
-        self._transformed_datasets = weakref.Weakset()
+        self._transformed_datasets = weakref.WeakSet()
         self.input_key, self.target_key = input_key, target_key
 
     def match(self, event: Event, state: State) -> bool:

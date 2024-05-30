@@ -73,7 +73,7 @@ import signal
 import sys
 import textwrap
 import weakref
-from collections import Ordereddict
+from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Callable, ContextManager, dict, list, Optional, Sequence, tuple, TypeVar, Union, cast
 
@@ -94,7 +94,7 @@ T = TypeVar('T')
 
 _ALWAYS_RECORD_EVENTS = [Event.INIT, Event.FIT_START, Event.EPOCH_START, Event.EPOCH_END]
 
-#: The default traces of an entire run is an Ordereddict.
+#: The default traces of an entire run is an OrderedDict.
 #: The keys are of format ``<algorithm_name>/<event>`` (e.g.,  ``Blurpool/INIT``) and values are an instance of
 #: :class:`Trace`.
 Traces = dict[str, 'Trace']
@@ -159,17 +159,17 @@ class Trace():
 
 
 def _setup_trace(algorithms: Sequence[Algorithm], event: Event) -> Traces:
-    """The default traces of an entire run is an Ordereddict.
+    """The default traces of an entire run is an OrderedDict.
 
     The keys are of format ``<algorithm_name>/<event>`` (e.g.,  ``Blurpool/INIT``) and values are an instance of
     :class:`Trace`.
     """
-    return Ordereddict([(f'{algo}/{event}', Trace(name=algo.__class__.__name__)) for algo in algorithms])
+    return OrderedDict([(f'{algo}/{event}', Trace(name=algo.__class__.__name__)) for algo in algorithms])
 
 
 # Track which callbacks are already open, so it is possible to error and instruct the user to call
 # previous_trainer.close() if necessary before attempting to reuse a callback
-_OPEN_CALLBACKS = weakref.Weakset()
+_OPEN_CALLBACKS = weakref.WeakSet()
 
 
 class Engine():
@@ -246,10 +246,10 @@ class Engine():
         Examples:
             >>> engine = Engine(state, logger)
             >>> engine.run_event(Event.BEFORE_LOSS)
-            Ordereddict()
+            OrderedDict()
             >>> # calling with a string of the event name also works
             >>> engine.run_event('before_loss')
-            Ordereddict()
+            OrderedDict()
 
 
         Args:

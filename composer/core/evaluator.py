@@ -50,7 +50,7 @@ class Evaluator:
             By default, if left blank, then all metrics returned by ``model.get_metrics()`` will be used.
         subset_num_batches (int, optional): The maximum number of batches to use for each evaluation. Defaults to ``None``,
             which means that the ``eval_subset_num_batches`` parameter from the :class:`.Trainer` will be used.
-            set to ``-1`` to evaluate the entire ``dataloader``.
+            Set to ``-1`` to evaluate the entire ``dataloader``.
         eval_interval (Time | int | str | (State, Event) -> bool, optional): An integer,
             which will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time` object, or a callable.
             Defaults to ``None``, which means that the ``eval_interval`` parameter from the :class:`.Trainer` will be used.
@@ -59,7 +59,7 @@ class Evaluator:
             with this frequency. :class:`.Time` strings or :class:`.Time` instances must have units of
             :attr:`.TimeUnit.BATCH` or :attr:`.TimeUnit.EPOCH`.
 
-            set to ``0`` to disable evaluation.
+            Set to ``0`` to disable evaluation.
 
             If a callable, it should take two arguments (:class:`.State`, :class:`.Event`) and return a bool
             representing whether the evaluator should be invoked. The event will be either :attr:`.Event.BATCH_END`
@@ -145,7 +145,7 @@ def ensure_evaluator(evaluator: Union[Evaluator, DataSpec, Iterable, dict[str, A
 def _is_auto_microbatching(device_eval_microbatch_size: Optional[Union[int, str]]):
     if device_eval_microbatch_size == 'auto':
         warnings.warn((
-            "setting `device_eval_microbatch_size='auto'` is an experimental feature which may cause "
+            "Setting `device_eval_microbatch_size='auto'` is an experimental feature which may cause "
             'uncaught Cuda Out of Memory errors. In this case, please manually '
             'set device_eval_microbatch_size explicitly to an integer instead.'
         ))
@@ -159,7 +159,7 @@ def _get_initial_device_eval_microbatch_size(
     auto_microbatching: bool,
     dataloader: Iterable,
 ) -> int:
-    """sets initial value of device_eval_microbatch_size.
+    """Sets initial value of device_eval_microbatch_size.
 
     If auto_microbatching, sets initial `device_eval_microbatch_size` to per rank batch size.
     """

@@ -23,7 +23,7 @@ def _parse_args() -> Namespace:
         '--build_args',
         action='append',
         required=False,
-        help='list of build args to override globally',
+        help='List of build args to override globally',
     )
 
     return args.parse_args()

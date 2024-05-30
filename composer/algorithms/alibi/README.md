@@ -156,7 +156,7 @@ We conducted experiments on the GPT-2 model family trained on OpenWebText on 8x 
 |GPT2-125M|24.11||30176||95.96||
 |GPT2-125M ALiBi 0.25x|23.49|-0.63|25280|1.19x|74.83|1.28x|
 
-> ❗ Don't set the Sequence Length Too Short
+> ❗ Don't Set the Sequence Length Too Short
 >
 >We observed that performance significantly degraded for ALiBi models trained on sequence lengths ≤128, implying that very short sequences (≤128 tokens) may be irreconcilably out-of-distribution with regard to longer sequences. Considering our results together with those of Press et al. leads us to suggest that models with ALiBi should not be trained on sequences ≤256 or `train_sequence_length_scaling≤0.03125`, whichever is larger.
 

@@ -54,7 +54,7 @@ def get_model_state_dict(
     log.debug('Extracting model state dict')
     if version.parse(torch.__version__) >= version.parse('2.2.0') and dist.is_initialized():
         from torch.distributed.checkpoint import state_dict as DCPSD  # Distributed Checkpoint State dict
-        from torch.distributed.checkpoint.state_dict import StatedictOptions
+        from torch.distributed.checkpoint.state_dict import StateDictOptions
 
         use_unsharded_state_dict = not sharded_state_dict
 
@@ -62,7 +62,7 @@ def get_model_state_dict(
         model_state_dict = DCPSD.get_model_state_dict(
             model=model,
             submodules=None,  # We extract submodules below
-            options=StatedictOptions(
+            options=StateDictOptions(
                 full_state_dict=use_unsharded_state_dict,
                 cpu_offload=cpu_offload,
             ),
@@ -141,13 +141,13 @@ def _get_model_state_dict_with_fsdp_context_manager(model: nn.Module, sharded_st
         The state dict of the model.
     """
     from torch.distributed.fsdp.fully_sharded_data_parallel import (
-        FullStatedictConfig,
-        ShardedStatedictConfig,
-        StatedictType,
+        FullStateDictConfig,
+        ShardedStateDictConfig,
+        StateDictType,
     )
-    state_dict_type = StatedictType.SHARDED_STATE_DICT if sharded_state_dict else StatedictType.FULL_STATE_DICT
-    state_dict_config = ShardedStatedictConfig(offload_to_cpu=cpu_offload,
-                                              ) if sharded_state_dict else FullStatedictConfig(
+    state_dict_type = StateDictType.SHARDED_STATE_DICT if sharded_state_dict else StateDictType.FULL_STATE_DICT
+    state_dict_config = ShardedStateDictConfig(offload_to_cpu=cpu_offload,
+                                              ) if sharded_state_dict else FullStateDictConfig(
                                                   rank0_only=True,
                                                   offload_to_cpu=cpu_offload,
                                               )

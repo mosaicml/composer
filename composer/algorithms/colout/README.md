@@ -96,7 +96,7 @@ A second implementation, accessed by passing `batch=True`, runs immediately befo
 
 ## Suggested Hyperparameters
 
-We found that setting `p_row = 0.15` and `p_col = 0.15` strike a good balance between improving training throughput and limiting the negative impact on model accuracy. setting `batch = True` also yields slightly lower accuracy, but we found that - in contexts that were CPU-bottlenecked - this reduction was offset by a large increase in throughput (~11% for ResNet-50 on ImageNet) because ColOut is only called once per batch and its operations are offloaded onto the GPU.
+We found that setting `p_row = 0.15` and `p_col = 0.15` strike a good balance between improving training throughput and limiting the negative impact on model accuracy. Setting `batch = True` also yields slightly lower accuracy, but we found that - in contexts that were CPU-bottlenecked - this reduction was offset by a large increase in throughput (~11% for ResNet-50 on ImageNet) because ColOut is only called once per batch and its operations are offloaded onto the GPU.
 
 ## Technical Details
 

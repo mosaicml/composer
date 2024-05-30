@@ -153,7 +153,7 @@ def get_gpu_flops_available(state: State):
             f'be added to GPU_AVAILABLE_FLOPS in composer/callbacks/speed_monitor.py',
             stacklevel=2,
         )
-        # setting to 0 will disable MFU computation and prevent
+        # Setting to 0 will disable MFU computation and prevent
         # the speed monitor from running this helper every batch
         gpu_flops_available = 0
 

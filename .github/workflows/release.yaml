@@ -40,7 +40,7 @@ jobs:
     - name: Checkout source
       uses: actions/checkout@v3
 
-    - name: set up Python
+    - name: Set up Python
       uses: actions/setup-python@v3
       with:
         python-version: "3.9"
@@ -82,7 +82,7 @@ jobs:
     - name: Checkout source
       uses: actions/checkout@v3
 
-    - name: set up Python
+    - name: Set up Python
       uses: actions/setup-python@v3
       with:
         python-version: "3.9"

@@ -8,7 +8,7 @@ import collections.abc
 import logging
 import textwrap
 import warnings
-from collections import Ordereddict
+from collections import OrderedDict
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable, dict, Iterable, list, Optional, Sequence, Union, cast
 from unittest.mock import MagicMock
@@ -20,10 +20,10 @@ from packaging import version
 from torch.distributed._tensor.device_mesh import DeviceMesh, init_device_mesh
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.fully_sharded_data_parallel import (
-    FullOptimStatedictConfig,
-    FullStatedictConfig,
-    ShardedOptimStatedictConfig,
-    StatedictType,
+    FullOptimStateDictConfig,
+    FullStateDictConfig,
+    ShardedOptimStateDictConfig,
+    StateDictType,
 )
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
@@ -80,7 +80,7 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
             choices are ['full', 'sharded']. Defaults to 'full'.
             * 'full': the full, unsharded state dict materialized only on rank 0 with cpu_offload if necessary
             * 'sharded': the sharded, unflattened state_dict, where each rank only gets a single shard.
-            See torch.distributed.fsdp.StatedictType for more info.
+            See torch.distributed.fsdp.StateDictType for more info.
 
     Raises:
         NotImplementedError: if you specify a state_dict_type not in ['full', 'sharded'].
@@ -95,17 +95,17 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
     # Full is the full monolithic state dict materialized in memory on just rank 0
     # with offloading to cpu if necessary
     if state_dict_type == 'full':
-        fsdp_state_dict_type = StatedictType.FULL_STATE_DICT
-        state_dict_config = FullStatedictConfig(offload_to_cpu=True, rank0_only=True)
-        optim_state_dict_config = FullOptimStatedictConfig(offload_to_cpu=True, rank0_only=True)
+        fsdp_state_dict_type = StateDictType.FULL_STATE_DICT
+        state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
+        optim_state_dict_config = FullOptimStateDictConfig(offload_to_cpu=True, rank0_only=True)
 
     # Sharded is sharded state dict, but unflattened parameters (not useful for FSDP, but
     # useful if you plan to use the state dict outside of FSDP).
     elif state_dict_type == 'sharded':
-        fsdp_state_dict_type = StatedictType.SHARDED_STATE_DICT
+        fsdp_state_dict_type = StateDictType.SHARDED_STATE_DICT
         state_dict_config = ShardedStatedictConfig()
         state_dict_config = ShardedStatedictConfig(offload_to_cpu=True)
-        optim_state_dict_config = ShardedOptimStatedictConfig()
+        optim_state_dict_config = ShardedOptimStateDictConfig()
 
     else:
         raise NotImplementedError(f'No valid FSDP state_dict_type for {state_dict_type}')
@@ -753,7 +753,7 @@ class State(Serializable):
 
     @_iteration_length.setter
     def _iteration_length(self, iteration_length: Optional[Union[str, Time[int]]]):
-        """sets the length of an iteration.
+        """Sets the length of an iteration.
 
         An iteration must be defined as multiple epochs. See composer/core/event.py.
         """
@@ -772,7 +772,7 @@ class State(Serializable):
         The current batch of training will finish, and any scheduled evaluation,
         logging, and evaluation for that batch, as well as any epoch end events.
         """
-        # set the max_duration to the current time in its unit, except if the unit is TimeUnit.EPOCH. This is because TimeUnit.EPOCH is a very crude way to measure max duration. For example, it will result in division by zero error while computing get_elapsed_duration: https://github.com/mosaicml/composer/blob/1b9c6d3c0592183b947fd89890de0832366e33a7/composer/core/state.py#L641
+        # Set the max_duration to the current time in its unit, except if the unit is TimeUnit.EPOCH. This is because TimeUnit.EPOCH is a very crude way to measure max duration. For example, it will result in division by zero error while computing get_elapsed_duration: https://github.com/mosaicml/composer/blob/1b9c6d3c0592183b947fd89890de0832366e33a7/composer/core/state.py#L641
         if self.max_duration is not None and Time.from_input(self.max_duration,).unit != TimeUnit.EPOCH:
             max_duration_unit = Time.from_input(self.max_duration).unit
             self.max_duration = self.timestamp.get(max_duration_unit)
@@ -816,7 +816,7 @@ class State(Serializable):
         return batch_get(self.batch, key)
 
     def batch_set_item(self, key: Union[str, int, Callable, Any], value: Any):
-        """sets the element specified by the key of the set_fn to the specified value.
+        """Sets the element specified by the key of the set_fn to the specified value.
 
         This is not an in-place operation, as for tuple-typed batches, a new batch object
         must be created to modify them.
@@ -968,7 +968,7 @@ class State(Serializable):
             dict[str, Any]: The state dict for the model.
         """
         if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
-            from torch.distributed.checkpoint.state_dict import StatedictOptions, get_model_state_dict
+            from torch.distributed.checkpoint.state_dict import StateDictOptions, get_model_state_dict
             if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
                 raise NotImplementedError(
                     textwrap.dedent(
@@ -981,7 +981,7 @@ class State(Serializable):
             model_state_dict = get_model_state_dict(
                 model=self.model,
                 submodules=None,
-                options=StatedictOptions(
+                options=StateDictOptions(
                     full_state_dict=self.fsdp_state_dict_type == 'full',
                     cpu_offload=self.fsdp_enabled,
                 ),
@@ -1006,7 +1006,7 @@ class State(Serializable):
             dict[str, Any]: The state dict for the optimizer.
         """
         if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
-            from torch.distributed.checkpoint.state_dict import StatedictOptions, get_optimizer_state_dict
+            from torch.distributed.checkpoint.state_dict import StateDictOptions, get_optimizer_state_dict
             if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
                 raise NotImplementedError(
                     textwrap.dedent(
@@ -1021,7 +1021,7 @@ class State(Serializable):
                 model=self.model,
                 optimizers=optimizer,
                 submodules=None,
-                options=StatedictOptions(
+                options=StateDictOptions(
                     full_state_dict=self.fsdp_state_dict_type == 'full',
                     cpu_offload=self.fsdp_enabled,
                 ),
@@ -1316,12 +1316,12 @@ class State(Serializable):
 
         if model_on_rank:
             if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
-                from torch.distributed.checkpoint.state_dict import StatedictOptions, set_model_state_dict
+                from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
                 try:
                     set_model_state_dict(
                         model=self.model,
                         model_state_dict=state_dict['model'],
-                        options=StatedictOptions(
+                        options=StateDictOptions(
                             full_state_dict=self.fsdp_state_dict_type == 'full',
                             strict=strict,
                             cpu_offload=self.fsdp_enabled,
@@ -1419,7 +1419,7 @@ class State(Serializable):
 
             optim_state_dict = serialized_value[type(optimizer).__qualname__] if serialized_value is not None else None
             if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
-                from torch.distributed.checkpoint.state_dict import StatedictOptions, set_optimizer_state_dict
+                from torch.distributed.checkpoint.state_dict import StateDictOptions, set_optimizer_state_dict
 
                 # optim_state_dict is `None` on non-zero ranks when loading FSDP monolith
                 # checkpoint on rank 0 only. However, PyTorch modifies the state_dict (producing
@@ -1430,7 +1430,7 @@ class State(Serializable):
                     model=self.model,
                     optimizers=optimizer,
                     optim_state_dict=optim_state_dict,
-                    options=StatedictOptions(
+                    options=StateDictOptions(
                         full_state_dict=self.fsdp_state_dict_type == 'full',
                         strict=strict,
                         cpu_offload=self.fsdp_enabled,
@@ -1527,7 +1527,7 @@ class State(Serializable):
                         # For checkpoints saved using Composer <= 0.13.5
                         serialized_value[metric_name].persistent(mode=True)
                         # Add new attr in torch2
-                        serialized_value[metric_name]._state_dict_pre_hooks = Ordereddict()
+                        serialized_value[metric_name]._state_dict_pre_hooks = OrderedDict()
                         metric_state_dict = serialized_value[metric_name].state_dict()
                         metric_computed_field = serialized_value[metric_name]._computed
                     elif isinstance(serialized_value[metric_name], dict):
@@ -1577,7 +1577,7 @@ class State(Serializable):
                             # For checkpoints saved using Composer <= 0.13.5
                             serialized_value[eval_key][metric_name].persistent(mode=True)
                             # Add new attr in torch2
-                            serialized_value[eval_key][metric_name]._state_dict_pre_hooks = Ordereddict()
+                            serialized_value[eval_key][metric_name]._state_dict_pre_hooks = OrderedDict()
                             eval_metric_state_dict = serialized_value[eval_key][metric_name].state_dict()
                             eval_metric_computed_field = serialized_value[eval_key][metric_name]._computed
                         elif isinstance(serialized_value[eval_key][metric_name], dict):
@@ -1668,7 +1668,7 @@ class State(Serializable):
             dataloader_label (str, optional): The dataloader label. Must be ``None`` if and only if
                 ``dataloader`` is None. Defaults to None.
             dataloader_len (int, int): The number of batches per dataloader iteration (e.g. epoch), as used by the trainer.
-                set to ``-1`` to iterate over the entire dataset. (Default: ``-1``.)
+                Set to ``-1`` to iterate over the entire dataset. (Default: ``-1``.)
         """
         if dataloader is None:
             dataloader_label = None

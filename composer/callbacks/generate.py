@@ -75,7 +75,7 @@ class Generate(Callback):
         from transformers import PreTrainedTokenizerBase
         tokenizer = cast(PreTrainedTokenizerBase, tokenizer)
 
-        # set to evaluation mode and stash the original mode.
+        # Set to evaluation mode and stash the original mode.
         original_mode = model.training
         model.eval()
         device = state.device

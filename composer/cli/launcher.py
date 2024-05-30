@@ -109,7 +109,7 @@ def _get_parser():
         type=int,
         help=(
             'The total number of processes to launch across all nodes. '
-            'setting this to a value greater than nproc indicates a multi-node '
+            'Setting this to a value greater than nproc indicates a multi-node '
             'environment. Overrides env var WORLD_SIZE. Defaults to nproc.'
         ),
     )
