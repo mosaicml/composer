@@ -8,7 +8,7 @@ from typing import Any, Optional
 import warnings
 from torch.distributed._tensor.device_mesh import DeviceMesh
 
-from composer.utils import VersionedDeprecationWarning
+from composer.utils.warnings import VersionedDeprecationWarning
 
 @dataclass
 class FSDPConfig:
