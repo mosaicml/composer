@@ -5,7 +5,6 @@
 
 Primitives are tested in test_blurpool.py
 """
-from typing import list
 from unittest.mock import Mock
 
 import pytest

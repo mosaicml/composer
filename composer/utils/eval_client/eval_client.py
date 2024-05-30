@@ -7,7 +7,6 @@
 """Abstract class for utilities that access and run code on serverless eval clients."""
 
 import abc
-from typing import dict, list
 
 __all__ = ['EvalClient']
 

@@ -9,8 +9,6 @@
 
 """Helper function to safely call .apply for initializing meta tensors in PyTorch."""
 
-from typing import set
-
 import torch
 from torch.nn.parameter import Parameter
 

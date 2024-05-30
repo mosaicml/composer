@@ -8,7 +8,6 @@ import os
 import subprocess
 import textwrap
 import types
-from typing import dict, list
 
 from composer.utils import dist
 from composer.utils.eval_client.eval_client import EvalClient

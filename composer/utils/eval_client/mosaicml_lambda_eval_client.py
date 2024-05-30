@@ -6,7 +6,6 @@ import logging
 import os
 import time
 from http import HTTPStatus
-from typing import dict, list
 
 import mcli
 import numpy as np

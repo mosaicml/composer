@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from types import MethodType
-from typing import tuple
 
 import torch
 from transformers.models.gpt2.modeling_gpt2 import GPT2Attention, GPT2Model

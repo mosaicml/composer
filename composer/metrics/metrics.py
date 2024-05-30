@@ -4,7 +4,7 @@
 """A collection of common torchmetrics."""
 from __future__ import annotations
 
-from typing import Callable, tuple
+from typing import Callable
 
 import torch
 from torch import Tensor

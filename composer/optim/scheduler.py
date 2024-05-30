@@ -16,7 +16,7 @@ import logging
 import math
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Union, list
+from typing import TYPE_CHECKING, Union
 
 from torch.optim.lr_scheduler import LambdaLR, LRScheduler
 
