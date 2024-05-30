@@ -12,6 +12,7 @@ from composer.utils.warnings import VersionedDeprecationWarning
 
 @dataclass
 class FSDPConfig:
+    """Configuration for Fully Sharded Data Parallelism (FSDP)."""
     activation_checkpointing: bool = False
     activation_checkpointing_reentrant: bool = True
     activation_cpu_offload: bool = False
@@ -80,6 +81,7 @@ def create_fsdp_config(fsdp_config: dict[str, Any]):
 
 @dataclass
 class TPConfig:
+    """Configuration for tensor parallelism (TP)."""
     device_mesh: Optional[DeviceMesh] = None
     tensor_parallel_degree: int = 1
     layer_plan: Any = None
@@ -87,5 +89,6 @@ class TPConfig:
 
 @dataclass
 class ParallelismConfig:
+    """Configuration for parallelism."""
     fsdp_config: Optional[FSDPConfig] = None
     tp_config: Optional[TPConfig] = None
