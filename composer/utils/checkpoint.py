@@ -285,8 +285,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                 proc = psutil.Process(pid)
                 for child_process in proc.children(recursive=True):
                     os.kill(child_process.pid, signal.SIGKILL)
-                os.kill(pid, signal.SIGTERM)
-                #os.kill(pid, signal.SIGTERM)
+                os.kill(pid, signal.SIGKILL)
 
         # 3. Wait for all ranks to finish.
         log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
