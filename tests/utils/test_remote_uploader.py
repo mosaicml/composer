@@ -1,11 +1,11 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-import multiprocessing
 import os
 import pathlib
 import shutil
 import tempfile
+import multiprocessing
 import time
 from typing import Any, Callable, Dict, Optional, Union
 from unittest.mock import patch
@@ -48,19 +48,16 @@ class DummyObjectStore(ObjectStore):
 
 
 def test_upload_mutliple_files():
+    fork_context = multiprocessing.get_context('fork')
     tmp_dir = tempfile.TemporaryDirectory()
-
     def _get_tmp_dir():
         return tmp_dir
-
-    fork_context = multiprocessing.get_context('fork')
     with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
         with patch('tempfile.TemporaryDirectory', _get_tmp_dir):
             with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
-                num_processes = 3
                 remote_uploader = RemoteUploader(
                     remote_folder='S3://whatever/path',
-                    num_concurrent_uploads=num_processes,
+                    num_concurrent_uploads=3,
                 )
 
                 tmp_dir = tempfile.TemporaryDirectory()
@@ -81,7 +78,7 @@ def test_upload_mutliple_files():
                 remote_uploader.wait_and_close()
 
                 # Check if the files exists in remote object store
-                remote_path = tmp_dir.name  # pyright: ignore
+                remote_path = tmp_dir.name 
                 for i in range(5):
                     remote_file_path = os.path.join(remote_path, str(i))
                     with open(remote_file_path, 'r') as f:
@@ -114,24 +111,22 @@ def test_overwrite(overwrite: bool):
                     file_path=pathlib.Path(file_path),
                     overwrite=True,
                 )
-                remote_uploader.wait_and_close()
+                remote_uploader.wait()
                 remote_root_path = remote_tmp_dir.name
                 if overwrite:
                     with open(file_path, 'w') as f:
                         f.write('2')
-                    remote_uploader = RemoteUploader(remote_folder='S3://whatever/path',)
                     remote_uploader.upload_file_async(
                         remote_file_name='a',
                         file_path=pathlib.Path(file_path),
                         overwrite=True,
                     )
-                    remote_uploader.wait_and_close()
+                    remote_uploader.wait()
                     remote_file_path = os.path.join(remote_root_path, 'a')
                     with open(remote_file_path, 'r') as f:
                         assert f.read() == '2'
                 else:
                     with pytest.raises(FileExistsError):
-                        remote_uploader = RemoteUploader(remote_folder='S3://whatever/path',)
                         remote_uploader.upload_file_async(
                             remote_file_name='a',
                             file_path=pathlib.Path(file_path),
@@ -141,12 +136,9 @@ def test_overwrite(overwrite: bool):
 
 
 def test_check_workers():
-
     class AlwaysFailDummyObjectStore(DummyObjectStore):
-
         def raise_error(self):
             return True
-
     fork_context = multiprocessing.get_context('fork')
     with patch('composer.utils.file_helpers.S3ObjectStore', AlwaysFailDummyObjectStore):
         with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
@@ -157,47 +149,71 @@ def test_check_workers():
             with open(file_path, 'w') as f:
                 f.write('1')
 
-            remote_uploader.upload_file_async(
+            future = remote_uploader.upload_file_async(
                 remote_file_name='a',
                 file_path=pathlib.Path(os.path.join(tmp_path, 'a')),
                 overwrite=True,
             )
 
             with pytest.raises(RuntimeError, match='Raise Error intentionally'):
-                for worker in remote_uploader.workers:
-                    while not worker.done():
-                        time.sleep(0.1)
+                while not future.done():
+                    time.sleep(0.5)
                 remote_uploader.check_workers()
+
+
+def test_wait():
+    fork_context = multiprocessing.get_context('fork')
+    with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
+        with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
+            remote_uploader = RemoteUploader(
+                remote_folder='S3://whatever/path',
+                num_concurrent_uploads=3,
+            )
+            tmp_dir = tempfile.TemporaryDirectory()
+            tmp_path = tmp_dir.name
+            file_path = os.path.join(tmp_path, 'a')
+            with open(file_path, 'w') as f:
+                f.write('1')
+
+            futures = []
+            for _ in range(5):
+                futures.append(
+                    remote_uploader.upload_file_async(
+                        remote_file_name='a',
+                        file_path=pathlib.Path(os.path.join(tmp_path, 'a')),
+                        overwrite=True,
+                    ),
+                )
+            remote_uploader.wait()
+            assert len(remote_uploader.futures) == 0
+            for future in futures:
+                assert future.done() == True
 
 
 def test_wait_and_close():
     fork_context = multiprocessing.get_context('fork')
-    tmp_dir = tempfile.TemporaryDirectory()
-
-    def _get_tmp_dir():
-        return tmp_dir
-
     with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
-        with patch('tempfile.TemporaryDirectory', _get_tmp_dir):
-            with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
-                num_processes = 3
-                remote_uploader = RemoteUploader(
-                    remote_folder='S3://whatever/path',
-                    num_concurrent_uploads=num_processes,
-                )
-                tmp_dir = tempfile.TemporaryDirectory()
-                tmp_path = tmp_dir.name
-                file_path = os.path.join(tmp_path, 'a')
-                with open(file_path, 'w') as f:
-                    f.write('1')
+        with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
+            remote_uploader = RemoteUploader(
+                remote_folder='S3://whatever/path',
+                num_concurrent_uploads=3,
+            )
+            tmp_dir = tempfile.TemporaryDirectory()
+            tmp_path = tmp_dir.name
+            file_path = os.path.join(tmp_path, 'a')
+            with open(file_path, 'w') as f:
+                f.write('1')
 
-                for i in range(5):
+            futures = []
+            for _ in range(5):
+                futures.append(
                     remote_uploader.upload_file_async(
-                        remote_file_name=f'{i}',
+                        remote_file_name='a',
                         file_path=pathlib.Path(os.path.join(tmp_path, 'a')),
-                        overwrite=False,
-                    )
-                assert len(remote_uploader.workers) == num_processes
-                remote_uploader.wait_and_close()
-                for worker in remote_uploader.workers:
-                    assert worker.done() == True
+                        overwrite=True,
+                    ),
+                )
+            remote_uploader.wait_and_close()
+            for future in futures:
+                assert future.done() == True
+            assert len(remote_uploader.futures) == 0
