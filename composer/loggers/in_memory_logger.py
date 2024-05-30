@@ -55,7 +55,7 @@ class InMemoryLogger(LoggerDestination):
         most_recent_values (dict[str, Any]): Mapping of a key to the most recent value for that key.
         most_recent_timestamps (dict[str, Timestamp]): Mapping of a key to the
             :class:`~.time.Timestamp` of the last logging call for that key.
-        hyperparameters (dict[str, Any]): dictionary of all hyperparameters.
+        hyperparameters (dict[str, Any]): Dictionary of all hyperparameters.
         tables (dict[str, str]): dictionary of table name to json table.
 
     """

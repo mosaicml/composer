@@ -174,7 +174,7 @@ def _batch_set_multiple(batch: Any, key: Any, value: Any) -> Any:
 
 
 def _batch_set_tuple(batch: Any, key: Union[int, str], value: Any) -> Any:
-    """Sets key value pairs in tuples and Namedtuples."""
+    """Sets key value pairs in tuples and NamedTuples."""
     if hasattr(batch, '_fields'):  # Namedtuple
         if isinstance(key, str):
             batch = batch._replace(**{key: value})

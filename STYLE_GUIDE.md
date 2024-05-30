@@ -281,7 +281,7 @@ For example, from [composer/callbacks/memory_monitor.py](composer/callbacks/memo
 ```python
 """Log memory usage during training."""
 import logging
-from typing import dict, Union
+from typing import Union
 
 import torch.cuda
 
