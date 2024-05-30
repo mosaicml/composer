@@ -13,7 +13,7 @@ import tempfile
 import time
 import uuid
 from concurrent.futures import Future, ProcessPoolExecutor
-from typing import Any, List, Tuple
+from typing import List
 
 from composer.utils.dist import get_local_rank
 from composer.utils.file_helpers import (
@@ -29,8 +29,8 @@ __all__ = ['RemoteUploader']
 
 def _upload_worker(
     remote_folder: str,
-    file_queue: multiprocessing.Queue,
-    is_closed_event: multiprocessing.Event,
+    file_queue: queue.Queue,
+    is_closed_event: multiprocessing.Event,  # pyright: ignore[reportGeneralTypeIssues]
     num_attempts: int,
     parent_process_id: int,
 ) -> None:
@@ -101,7 +101,8 @@ class RemoteUploader:
         num_concurrent_uploads: int = 1,
         num_attempts: int = 3,
     ):
-        assert num_concurrent_uploads >= 1, f'num_concurrent_uploads must be >= 1, got {num_concurrent_uploads}'
+        if num_concurrent_uploads < 1:
+            raise ValueError(f'num_concurrent_uploads must be >=1, but got {num_concurrent_uploads}')
 
         # A folder to use for staging uploads
         self._tempdir = tempfile.TemporaryDirectory()
@@ -111,7 +112,7 @@ class RemoteUploader:
 
         mp_ctx = multiprocessing.get_context('spawn')
         manager = mp_ctx.Manager()
-        self.file_queue: multiprocessing.Queue[Any] = manager.Queue()
+        self.file_queue: queue.Queue = manager.Queue()
         self.executor = ProcessPoolExecutor(
             max_workers=num_concurrent_uploads,
             mp_context=mp_ctx,
@@ -137,7 +138,6 @@ class RemoteUploader:
         overwrite: bool,
     ):
         """Async call to submit a job for uploading."""
-
         # Copy file to staging folder
         copied_path = os.path.join(self._upload_staging_folder, str(uuid.uuid4()))
         os.makedirs(self._upload_staging_folder, exist_ok=True)
