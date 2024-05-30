@@ -188,7 +188,7 @@ The following rules apply to public APIs:
 
     ```python
     from torch import Tensor
-    from typing import Optional, Sequence, tuple, Union
+    from typing import Optional, Sequence, Union
     from composer.utils import ensure_tuple
 
     def foo(x: Optional[Union[Tensor, Sequence[Tensor]]]) -> tuple[Tensor, ...]:
@@ -339,7 +339,7 @@ The following guidelines apply to documentation.
     specify "optional", and the docstring should say the default value. Some examples:
 
     ```python
-    from typing import Optional, tuple, Union
+    from typing import Optional, Union
 
     def foo(bar: int):
         """Foo.

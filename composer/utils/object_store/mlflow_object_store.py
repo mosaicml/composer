@@ -9,7 +9,7 @@ import logging
 import os
 import pathlib
 import tempfile
-from typing import Callable, Optional, Union, list, tuple
+from typing import Callable, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError

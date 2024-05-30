@@ -10,7 +10,7 @@ classification training loop with :func:`.soft_cross_entropy` loss and accuracy 
 import logging
 import textwrap
 import warnings
-from typing import Any, Callable, Optional, Union, dict, tuple
+from typing import Any, Callable, Optional, Union
 
 import torch
 from torch import Tensor

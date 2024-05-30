@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Optional, dict
+from typing import TYPE_CHECKING, Any, Optional
 
 from composer.core.serializable import Serializable
 

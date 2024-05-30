@@ -3,7 +3,7 @@
 
 """Callback for catching loss NaNs."""
 
-from typing import Sequence, dict
+from typing import Sequence
 
 import torch
 

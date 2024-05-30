@@ -4,7 +4,7 @@
 import contextlib
 import copy
 import pathlib
-from typing import Any, dict, tuple
+from typing import Any
 from urllib.parse import urlparse
 
 import pytest

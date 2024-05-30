@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import warnings
 from collections import deque
-from typing import Any, Callable, Deque, Optional, Union, dict
+from typing import Any, Callable, Deque, Optional, Union
 
 import torch
 

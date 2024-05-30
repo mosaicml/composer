@@ -13,7 +13,7 @@ import queue
 import tempfile
 import textwrap
 import time
-from typing import TYPE_CHECKING, Optional, Union, dict, list, tuple
+from typing import TYPE_CHECKING, Optional, Union
 
 from composer.loggers import Logger
 from composer.profiler.json_trace_merger import merge_traces

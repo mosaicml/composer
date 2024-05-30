@@ -7,7 +7,7 @@ from __future__ import annotations
 import collections.abc
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Sequence, Union, list, tuple
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Sequence, Union
 
 import torch
 import torch.utils.data

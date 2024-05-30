@@ -4,7 +4,7 @@
 import copy
 import math
 from types import MethodType
-from typing import Optional, tuple
+from typing import Optional
 
 import torch
 from torch import nn

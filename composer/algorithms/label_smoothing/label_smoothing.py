@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Optional, Union, tuple
+from typing import Any, Callable, Optional, Union
 
 import torch
 

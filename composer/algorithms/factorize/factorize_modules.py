@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import abc
 import math
-from typing import Optional, Union, cast, tuple
+from typing import Optional, Union, cast
 
 import numpy as np
 import torch

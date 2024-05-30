@@ -8,7 +8,7 @@ from __future__ import annotations
 import functools
 import time
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, Type, Union, dict, list, tuple
+from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, Type, Union
 
 from composer.profiler.trace_handler import TraceHandler
 

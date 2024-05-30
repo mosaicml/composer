@@ -8,7 +8,7 @@ import pathlib
 import random
 import shutil
 import time
-from typing import Any, Callable, Optional, Union, dict
+from typing import Any, Callable, Optional, Union
 from unittest.mock import patch
 
 import pytest

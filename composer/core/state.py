@@ -10,7 +10,7 @@ import textwrap
 import warnings
 from collections import OrderedDict
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional, Sequence, Union, cast, dict, list
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional, Sequence, Union, cast
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -556,7 +556,7 @@ class State(Serializable):
         if self.tp_config is not None and self.device_mesh is not None:
             self.tp_config['device_mesh'] = self.device_mesh[ParallelismType.TENSOR_PARALLEL.value]
 
-        # set defaults for transient variables (to make pyright happy)
+        # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None
         self.loss: Union[torch.Tensor, Sequence[torch.Tensor], dict[Any, torch.Tensor]] = torch.Tensor()
         self.outputs: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
@@ -699,7 +699,7 @@ class State(Serializable):
 
     @train_dataloader.setter
     def train_dataloader(self, train_dataloader: Optional[Union[Iterable, DataLoader]]):
-        """set the train dataloader.
+        """Set the train dataloader.
 
         Args:
             train_dataloader (Iterable | DataLoader, optional): The dataloader.

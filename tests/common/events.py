@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, dict
+from typing import Any
 
 from composer.core import Callback, Event, State
 from composer.loggers import Logger

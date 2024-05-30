@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import Iterable, Optional, Union, list, tuple
+from typing import Iterable, Optional, Union
 
 import torch
 from torch.optim import SGD, AdamW

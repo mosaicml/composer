@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import dataclasses
-from typing import Optional, Union, tuple
+from typing import Optional, Union
 
 import numpy as np
 import torch

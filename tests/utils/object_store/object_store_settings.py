@@ -4,7 +4,7 @@
 import contextlib
 import os
 import pathlib
-from typing import Any, Type, dict
+from typing import Any, Type
 
 import mockssh
 import moto

@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING, Any, Optional, Sequence, TextIO, Union, dict, list
+from typing import TYPE_CHECKING, Any, Optional, Sequence, TextIO, Union
 
 import numpy as np
 import yaml

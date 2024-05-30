@@ -15,7 +15,7 @@ to visualize the trace.
 import argparse
 import json
 import pathlib
-from typing import Union, dict, list, tuple
+from typing import Union
 
 __all__ = ['merge_traces']
 

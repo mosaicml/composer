@@ -1,6 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-from typing import Any, Optional, dict
+from typing import Any, Optional
 
 import pytest
 import torch

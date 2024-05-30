@@ -4,7 +4,7 @@
 """Contains commonly used models that are shared across the test suite."""
 import copy
 from functools import partial
-from typing import TYPE_CHECKING, Any, Optional, Union, dict, list, tuple
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import pytest
 import torch

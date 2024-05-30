@@ -5,7 +5,7 @@
 
 import logging
 import warnings
-from typing import Any, Union, dict, tuple
+from typing import Any, Union
 
 import torch
 from packaging import version

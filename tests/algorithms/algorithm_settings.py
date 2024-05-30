@@ -8,7 +8,7 @@ functional tests, serialization tests, etc.
 Each algorithm is keyed based on its name in the algorithm registry.
 """
 
-from typing import Any, Optional, Type, dict
+from typing import Any, Optional, Type
 
 import pytest
 from torch.utils.data import DataLoader

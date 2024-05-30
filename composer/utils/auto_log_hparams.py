@@ -4,7 +4,7 @@
 """Contains helper functions for auto-logging hparams."""
 
 from enum import Enum
-from typing import Any, dict, list, tuple
+from typing import Any
 
 __all__ = ['extract_hparams', 'convert_nested_dict_to_flat_dict', 'convert_flat_dict_to_nested_dict']
 

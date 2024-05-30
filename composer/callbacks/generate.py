@@ -5,7 +5,7 @@
 
 import logging
 import time
-from typing import Any, Optional, Union, cast, list
+from typing import Any, Optional, Union, cast
 
 from composer.core import Callback, Event, State, Time, get_precision_context
 from composer.loggers import Logger

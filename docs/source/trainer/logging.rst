@@ -138,7 +138,7 @@ into a dictionary:
 
 .. testcode::
 
-    from typing import Any, dict, Optional
+    from typing import Any, Optional
 
     from composer.loggers.logger_destination import LoggerDestination
     from composer.core.time import Timestamp

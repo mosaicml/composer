@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Monitor train and eval images."""
-from typing import Any, Callable, Sequence, Union, tuple
+from typing import Any, Callable, Sequence, Union
 
 import torch
 

@@ -11,7 +11,7 @@ import pickle
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, list
+from typing import Optional
 
 import torch.cuda
 from packaging import version

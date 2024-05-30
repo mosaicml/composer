@@ -12,7 +12,7 @@
 
 import logging
 import math
-from typing import Any, dict, Iterable, list, Optional, set, tuple, Union, no_type_check
+from typing import Any, Iterable, list, Optional, Union, no_type_check
 
 import torch
 import torch.distributed._shard.sharded_tensor.metadata as sharded_tensor_meta

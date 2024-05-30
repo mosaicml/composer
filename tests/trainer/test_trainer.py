@@ -10,7 +10,7 @@ import math
 import os
 import pathlib
 import time
-from typing import Any, Optional, Union, dict, list
+from typing import Any, Optional, Union
 
 import pytest
 import torch

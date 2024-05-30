@@ -13,7 +13,7 @@ import posixpath
 import textwrap
 import time
 import warnings
-from typing import TYPE_CHECKING, Any, Literal, Optional, Sequence, Union, dict, list
+from typing import TYPE_CHECKING, Any, Literal, Optional, Sequence, Union
 
 import numpy as np
 import torch

@@ -5,7 +5,7 @@
 
 import contextlib
 import textwrap
-from typing import Any, Generator, Optional, Union, dict
+from typing import Any, Generator, Optional, Union
 
 import torch
 

@@ -6,7 +6,7 @@
 import fnmatch
 import logging
 import sys
-from typing import Any, Optional, Sequence, Union, dict
+from typing import Any, Optional, Sequence, Union
 
 import torch
 from packaging import version

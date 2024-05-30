@@ -5,7 +5,7 @@
 import logging
 import math
 import warnings
-from typing import Optional, Union, dict
+from typing import Optional, Union
 
 import torch
 import torch.cuda

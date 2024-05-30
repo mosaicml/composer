@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, Callable, Optional, Sequence, Union, tuple
+from typing import Any, Callable, Optional, Sequence, Union
 
 import numpy as np
 import torch

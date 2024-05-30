@@ -5,7 +5,7 @@
 
 import copy
 import warnings
-from typing import Any, cast, dict
+from typing import Any, cast
 
 import torch
 import torch.utils.data

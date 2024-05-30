@@ -12,7 +12,7 @@ import shutil
 import tempfile
 import textwrap
 from pathlib import Path
-from typing import Any, Callable, Optional, Union, dict, list
+from typing import Any, Callable, Optional, Union
 
 from composer.core import Callback, Event, State, Time, Timestamp
 from composer.loggers import Logger, MLFlowLogger

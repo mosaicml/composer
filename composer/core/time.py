@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import datetime
 import re
-from typing import Any, Generic, Optional, TypeVar, Union, cast, dict
+from typing import Any, Generic, Optional, TypeVar, Union, cast
 
 from composer.core.serializable import Serializable
 from composer.utils import StringEnum

@@ -5,7 +5,7 @@
 
 import logging
 import warnings
-from typing import Optional, Type, dict
+from typing import Optional, Type
 
 import numpy as np
 import torch

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from collections import ChainMap, Counter, OrderedDict, defaultdict, deque
-from typing import Namedtuple
+from typing import NamedTuple
 
 import numpy as np
 import pytest
@@ -23,7 +23,7 @@ class MyClass(object):
 
 
 list_types = [type(element) for element in my_list]
-my_named_tuple = Namedtuple('nt', **dict(zip(keys, list_types)))
+my_named_tuple = NamedTuple('nt', **dict(zip(keys, list_types)))
 counter_list = []
 for char, num in zip(keys, my_list):
     counter_list.extend(num * [char])
