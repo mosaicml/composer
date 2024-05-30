@@ -1,11 +1,11 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import multiprocessing
 import os
 import pathlib
 import shutil
 import tempfile
-import multiprocessing
 import time
 from typing import Any, Callable, Dict, Optional, Union
 from unittest.mock import patch
@@ -50,8 +50,10 @@ class DummyObjectStore(ObjectStore):
 def test_upload_mutliple_files():
     fork_context = multiprocessing.get_context('fork')
     tmp_dir = tempfile.TemporaryDirectory()
+
     def _get_tmp_dir():
         return tmp_dir
+
     with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
         with patch('tempfile.TemporaryDirectory', _get_tmp_dir):
             with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
@@ -78,7 +80,7 @@ def test_upload_mutliple_files():
                 remote_uploader.wait_and_close()
 
                 # Check if the files exists in remote object store
-                remote_path = tmp_dir.name 
+                remote_path = tmp_dir.name
                 for i in range(5):
                     remote_file_path = os.path.join(remote_path, str(i))
                     with open(remote_file_path, 'r') as f:
@@ -136,9 +138,12 @@ def test_overwrite(overwrite: bool):
 
 
 def test_check_workers():
+
     class AlwaysFailDummyObjectStore(DummyObjectStore):
+
         def raise_error(self):
             return True
+
     fork_context = multiprocessing.get_context('fork')
     with patch('composer.utils.file_helpers.S3ObjectStore', AlwaysFailDummyObjectStore):
         with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
