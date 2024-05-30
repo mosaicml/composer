@@ -26,7 +26,7 @@ def set_batch_sequence_length(
     truncate: bool = True,
     preserve_end_of_sequence: bool = False,
 ) -> Batch:
-    """set the sequence length of a batch.
+    """Set the sequence length of a batch.
 
     Changes the sequence length of all tensors in the provided dictionary
     to ``curr_seq_len`` by either truncating the tensors (``truncate=True``)

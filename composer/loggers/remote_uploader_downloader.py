@@ -156,7 +156,7 @@ class RemoteUploaderDownloader(LoggerDestination):
         This callback blocks the training loop to upload each file, as
         the uploading happens in the background. Here are some additional tips for minimizing the performance impact:
 
-        *   set ``use_procs=True`` (the default) to use background processes, instead of threads, to perform the file
+        *   Set ``use_procs=True`` (the default) to use background processes, instead of threads, to perform the file
             uploads. Processes are recommended to ensure that the GIL is not blocking the training loop when
             performing CPU operations on uploaded files (e.g. computing and comparing checksums). Network I/O happens
             always occurs in the background.
@@ -296,7 +296,7 @@ class RemoteUploaderDownloader(LoggerDestination):
         # Files that were logged but yet to be enqueued. Mapping of the object name to the (tempfile path, overwrite) for that object
         self._logged_objects: dict[str, tuple[str, bool]] = {}
 
-        # set of enqueued objects. This should keep track of everything in self._file_upload_queue with O(1) lookup
+        # Set of enqueued objects. This should keep track of everything in self._file_upload_queue with O(1) lookup
         self._enqueued_objects: set[str] = set()
 
         # Thread that runs `self._enqueue_uploads`

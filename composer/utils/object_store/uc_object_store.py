@@ -9,7 +9,7 @@ import logging
 import os
 import pathlib
 import uuid
-from typing import Callable, Optional, list
+from typing import Callable, Optional
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError

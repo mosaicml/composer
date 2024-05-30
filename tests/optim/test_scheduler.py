@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import contextlib
-from typing import Optional, Type, list
+from typing import Optional, Type
 
 import pytest
 from torch.utils.data import DataLoader

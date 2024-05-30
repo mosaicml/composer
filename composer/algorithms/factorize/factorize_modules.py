@@ -265,7 +265,7 @@ class FactorizedConv2d(_FactorizedModule):
             If ``latent_channels`` is not small enough for factorization
             to reduce the number of multiply-add operations. In this regime,
             factorization is both slower and less expressive than a
-            non-factorized operation. setting
+            non-factorized operation. Setting
             ``latent_features`` to  :meth:`.max_allowed_latent_channels`
             or a smaller value is sufficient to avoid this.
     """
@@ -412,7 +412,7 @@ class FactorizedLinear(_FactorizedModule):
             If ``latent_features`` is not small enough for factorization
             to reduce the number of multiply-add operations. In this regime,
             factorization is both slower and less expressive than a
-            non-factorized operation. setting
+            non-factorized operation. Setting
             ``latent_features < min(in_features, out_features) / 2`` or
             using :meth:`.max_allowed_latent_features` is sufficient to avoid
             this.

@@ -224,7 +224,7 @@ def test_metric_full_filtering(monkeypatch):
     assert run_name not in mock_mapi.run_metadata
 
 
-class setWandBRunURL(Callback):
+class SetWandBRunURL(Callback):
     """Sets run_url attribute on WandB for offline unit testing."""
 
     def __init__(self, run_url) -> None:
@@ -253,7 +253,7 @@ def test_wandb_run_url(monkeypatch):
             WandBLogger(),
         ],
         callbacks=[
-            setWandBRunURL(run_url),
+            SetWandBRunURL(run_url),
         ],
     )
 

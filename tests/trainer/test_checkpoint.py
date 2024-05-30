@@ -174,7 +174,7 @@ def _assert_checkpoints_equivalent(file1, file2, atol=0.0, rtol=0.0):
     ],
 )
 def test_ignore_params(remove_field_paths: list[list[str]], filter_params: list[str]):
-    # set up base dictionary
+    # Set up base dictionary
     base_dict = {
         'state': {
             'run_name': 'my_first_run',

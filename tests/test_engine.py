@@ -9,7 +9,6 @@ import sys
 import textwrap
 import threading
 from pathlib import Path
-from typing import list
 from unittest.mock import Mock
 
 import pytest

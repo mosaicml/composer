@@ -6,7 +6,7 @@
 import shutil
 import subprocess
 from contextlib import contextmanager
-from typing import IO, Iterator, Optional, list
+from typing import IO, Iterator, Optional
 
 __all__ = ['is_compressed_pt', 'CliCompressor', 'get_compressor', 'KNOWN_COMPRESSORS']
 

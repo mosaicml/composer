@@ -105,7 +105,7 @@ class SWA(Algorithm):
             the SWA LR will be annealed once every 8 batches over the course of 160
             batches (20 steps * 8 batches/step). Default: ``10``.
         swa_lr (float, optional): The final learning rate to anneal towards with the SWA
-            LR scheduler. set to ``None`` for no annealing. Default: ``None``.
+            LR scheduler. Set to ``None`` for no annealing. Default: ``None``.
     """
 
     def __init__(
@@ -270,7 +270,7 @@ class SWA(Algorithm):
                 ))
 
             state.model.load_state_dict(self.swa_model.module.state_dict())  # type: ignore
-            log.info('set model to the averaged model')
+            log.info('Set model to the averaged model')
 
     def state_dict(self) -> dict[str, Any]:
         state_dict = super().state_dict()

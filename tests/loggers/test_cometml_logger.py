@@ -274,7 +274,7 @@ def test_comet_ml_log_metrics_and_hyperparameters(monkeypatch, tmp_path):
     param_names = ['my_cool_parameter1', 'my_cool_parameter2']
     param_values = [10, 3]
 
-    # Set offline directory.
+    # Set offline directory
     offline_directory = str(tmp_path / Path('.my_cometml_runs'))
     os.environ['COMET_OFFLINE_DIRECTORY'] = offline_directory
 

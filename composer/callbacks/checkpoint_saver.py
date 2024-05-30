@@ -222,7 +222,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             event.
 
         num_checkpoints_to_keep (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
-            are removed first. set to ``-1`` to keep all checkpoints locally. Default: ``-1``.
+            are removed first. Set to ``-1`` to keep all checkpoints locally. Default: ``-1``.
 
             Checkpoints will be removed after they have been uploaded. For example, when this callback
             is used in conjunction with the :class:`.RemoteUploaderDownloader`, set this

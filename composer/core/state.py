@@ -85,9 +85,9 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
     Raises:
         NotImplementedError: if you specify a state_dict_type not in ['full', 'sharded'].
     """
-    # Torch forgot to put ShardedStatedictConfig in torch/distributed/fsdp/__init__.py, so we
+    # Torch forgot to put ShardedStateDictConfig in torch/distributed/fsdp/__init__.py, so we
     # have to import it this way.
-    from torch.distributed.fsdp.fully_sharded_data_parallel import ShardedStatedictConfig
+    from torch.distributed.fsdp.fully_sharded_data_parallel import ShardedStateDictConfig
 
     fsdp_state_dict_type = None
     state_dict_config = None
@@ -103,8 +103,8 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
     # useful if you plan to use the state dict outside of FSDP).
     elif state_dict_type == 'sharded':
         fsdp_state_dict_type = StateDictType.SHARDED_STATE_DICT
-        state_dict_config = ShardedStatedictConfig()
-        state_dict_config = ShardedStatedictConfig(offload_to_cpu=True)
+        state_dict_config = ShardedStateDictConfig()
+        state_dict_config = ShardedStateDictConfig(offload_to_cpu=True)
         optim_state_dict_config = ShardedOptimStateDictConfig()
 
     else:
@@ -269,7 +269,7 @@ def _create_device_mesh(
 
 
 _STATE_DICT_SERIALIZED_ATTRIBUTES = [
-    # list of attributes that are serialized with state_dict
+    # List of attributes that are serialized with state_dict
     # Only the attributes listed in state.serialized_attributes will actually be saved.
     'model',
     'optimizers',

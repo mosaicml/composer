@@ -52,7 +52,7 @@ from torchmetrics import Metric, MetricCollection
 
 from composer.models import ComposerClassifier
 
-from typing import Any, Callableonal
+from typing import Any, Callable
 
 
 class SimpleDataset(Dataset):

@@ -146,7 +146,7 @@ into a dictionary:
 
     class DictionaryLogger(LoggerDestination):
         def __init__(self):
-            # dictionary to store logged data
+            # Dictionary to store logged data
             self.data = {}
 
         def log_metrics(self, metrics: dict[str, float], step: Optional[int] = None):

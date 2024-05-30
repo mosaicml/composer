@@ -8,7 +8,7 @@ import math
 import socket
 import textwrap
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Callable, Optional, Type, Union, set
+from typing import TYPE_CHECKING, Callable, Optional, Type, Union
 
 import torch
 from torch.nn.parallel import DistributedDataParallel

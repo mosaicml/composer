@@ -404,7 +404,7 @@ spaces_around_tuple_delimiters = false
 # before each trailing comment) or list of values (representing
 # alignment column values; trailing comments within a block will
 # be aligned to the first column value that is greater than the maximum
-# Line length within the block). For example:
+# line length within the block). For example:
 #
 # With spaces_before_comment=5:
 #
@@ -624,7 +624,7 @@ limit-inference-results=100
 
 # List of plugins (as comma separated values of python module names) to load,
 # usually to register additional checkers.
-# Load-plugins=
+# load-plugins=
 
 # Pickle collected data for later comparisons.
 # persistent=yes

@@ -6,7 +6,7 @@
 import abc
 import pathlib
 from types import TracebackType
-from typing import Callable, Optional, Type, Union, list
+from typing import Callable, Optional, Type, Union
 
 __all__ = ['ObjectStore', 'ObjectStoreTransientError']
 

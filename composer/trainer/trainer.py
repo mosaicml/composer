@@ -31,9 +31,6 @@ from typing import (
     TextIO,
     Union,
     cast,
-    dict,
-    list,
-    tuple,
 )
 
 import coolname
