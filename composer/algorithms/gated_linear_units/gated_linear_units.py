@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import Callable, Dict, Optional, Sequence, Type, Union
+from typing import Callable, Optional, Sequence, Type, Union
 
 import torch
 
@@ -152,7 +152,7 @@ def apply_gated_linear_units(
         )
 
     # prepare the replacement policy and perform replacement
-    policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
+    policy: dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
         BertIntermediate: from_BertIntermediate,  # pyright: ignore[reportUnboundVariable]
         BertOutput: from_bound_BertOutput,  # pyright: ignore[reportUnboundVariable]
     }

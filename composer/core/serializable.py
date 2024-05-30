@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 __all__ = ['Serializable']
 
@@ -13,20 +13,20 @@ __all__ = ['Serializable']
 class Serializable:
     """Interface for serialization; used by checkpointing."""
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         """Returns a dictionary representing the internal state.
 
         The returned dictionary must be pickale-able via :func:`torch.save`.
 
         Returns:
-            Dict[str, Any]: The state of the object.
+            dict[str, Any]: The state of the object.
         """
         return {}
 
-    def load_state_dict(self, state: Dict[str, Any]) -> None:
+    def load_state_dict(self, state: dict[str, Any]) -> None:
         """Restores the state of the object.
 
         Args:
-            state (Dict[str, Any]): The state of the object, as previously returned by :meth:`.state_dict`.
+            state (dict[str, Any]): The state of the object, as previously returned by :meth:`.state_dict`.
         """
         pass

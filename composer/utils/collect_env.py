@@ -89,7 +89,7 @@ _EXCEPTHOOK_REGISTERED = False
 _ENV_EXCEPTION_REPORT = True
 
 
-# Same convention as Torch collect_env, create a namedtuple to track collected fields
+# Same convention as Torch collect_env, create a NamedTuple to track collected fields
 class ComposerEnv(NamedTuple):
     composer_version: str
     composer_commit_hash: Optional[str]

@@ -1,7 +1,7 @@
 # Copyright 2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 import torch
@@ -77,7 +77,7 @@ def test_get_model_state_dict_full_for_sharded_model(world_size, tensor_type, us
         model,
         sharded_state_dict=False,
     )
-    fsdp_kwargs: Dict[str, Any] = dict(
+    fsdp_kwargs: dict[str, Any] = dict(
         use_orig_params=True,
         sync_module_states=True,  # To enable easy comparison between rank 0 unsharded model and full state dict
     )
@@ -118,7 +118,7 @@ def test_get_model_state_dict_sharded(world_size, tensor_type, use_composer_mode
         sharded_state_dict=False,
     )
 
-    fsdp_kwargs: Dict[str, Any] = dict(
+    fsdp_kwargs: dict[str, Any] = dict(
         use_orig_params=True,
         sync_module_states=True,  # To enable easy comparison between rank 0 unsharded model and full state dict
     )
@@ -180,7 +180,7 @@ def test_get_model_state_dict_precision_sharded_model(
     else:
         model = EvenSimplerMLP(num_features=8, device='cuda')
 
-    fsdp_kwargs: Dict[str, Any] = dict(
+    fsdp_kwargs: dict[str, Any] = dict(
         use_orig_params=True,
         sync_module_states=True,  # To enable easy comparison between rank 0 unsharded model and full state dict
     )
@@ -294,7 +294,7 @@ def test_get_metadata_sharded_model(model_type: str, tensor_type: str, world_siz
         model = configure_tiny_gpt2_hf_model().cuda()
         expected_model_name = 'GPT2LMHeadModel'
 
-    fsdp_kwargs: Dict[str, Any] = dict(
+    fsdp_kwargs: dict[str, Any] = dict(
         use_orig_params=True,
         sync_module_states=True,  # To enable easy comparison between rank 0 unsharded model and full state dict
     )

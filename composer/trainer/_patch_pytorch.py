@@ -12,7 +12,7 @@
 
 import logging
 import math
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union, no_type_check
+from typing import Any, Iterable, Optional, Union, no_type_check
 
 import torch
 import torch.distributed._shard.sharded_tensor.metadata as sharded_tensor_meta
@@ -136,7 +136,7 @@ def build_metadata(
 def _sharded_pre_load_state_dict_hook(
     module: nn.Module,
     fsdp_state,
-    state_dict: Dict[str, Any],
+    state_dict: dict[str, Any],
     prefix: str,
 ) -> None:
     """Adds nightly change for partial state dict error handling.
@@ -239,8 +239,8 @@ if version.parse(torch.__version__) >= version.parse('2.2.1') and version.parse(
     def _shard_orig_param_state(
         fsdp_param_info: FSDPParamInfo,
         fqn: str,
-        optim_state: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        optim_state: dict[str, Any],
+    ) -> dict[str, Any]:
         if not optim_state:
             return {}
         fsdp_state = fsdp_param_info.state
@@ -253,7 +253,7 @@ if version.parse(torch.__version__) >= version.parse('2.2.1') and version.parse(
         if not shard_param_info.in_shard:
             return {}
         # Flatten and shard the state.
-        new_optim_state: Dict[str, Any] = {}
+        new_optim_state: dict[str, Any] = {}
         intra_param_start_idx = shard_param_info.intra_param_start_idx
         intra_param_end_idx = shard_param_info.intra_param_end_idx
         for state_name, value in optim_state.items():
@@ -298,7 +298,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
 
         For FSDP without `use_orig_params`, the name of FlatParameter can be mapped to
         multiple original parameters. As a result, the return type of this function
-        is `Set[str]`.
+        is `set[str]`.
 
         Args:
             module (nn.Module): the root model.
@@ -363,7 +363,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
 
         Args:
             model (nn.Module): the nn.Module to the model.
-            model_state_dict: (Dict[str, ValueType]):
+            model_state_dict: (dict[str, ValueType]):
             the model state_dict to load. If the key of the ``model_state_dict``
             is nn.Module, the key is a submodule of ``model`` and the value should
             be the state_dict of the submodule. When loading the state_dict,
@@ -377,7 +377,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
                 * **missing_keys** is a list of str containing the missing keys
                 * **unexpected_keys** is a list of str containing the unexpected keys
 
-        :type model_state_dict: typing.Dict[str, ValueType]
+        :type model_state_dict: typing.dict[str, ValueType]
         """
         from torch.distributed.fsdp._runtime_utils import _lazy_init
         for module in model.modules():
@@ -443,14 +443,13 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
     )
     import dataclasses
     from collections import defaultdict, ChainMap
-    from typing import Dict, List, Set
 
     from torch.distributed.checkpoint.planner import SavePlan, WriteItem
     from torch.distributed.checkpoint.metadata import MetadataIndex, Metadata
 
-    def dedup_save_plans(all_plans: List[SavePlan]) -> List[SavePlan]:  # noqa: D103
-        write_item_to_plan_indices: Dict[MetadataIndex, Set[int]] = defaultdict(set)
-        write_item_idx_to_write_item: Dict[MetadataIndex, WriteItem] = {}
+    def dedup_save_plans(all_plans: list[SavePlan]) -> list[SavePlan]:  # noqa: D103
+        write_item_to_plan_indices: dict[MetadataIndex, set[int]] = defaultdict(set)
+        write_item_idx_to_write_item: dict[MetadataIndex, WriteItem] = {}
         for plan_idx, plan in enumerate(all_plans):
             for write_item in plan.items:
                 # map each write item to its plan
@@ -458,7 +457,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
                 write_item_idx_to_write_item[write_item.index] = write_item
 
         # put item in the plan with the smallest size and remove it from the other plan_indices
-        to_remove: List[Set] = [set() for _ in range(len(all_plans))]
+        to_remove: list[set] = [set() for _ in range(len(all_plans))]
         plan_to_size = [0] * len(all_plans)
         for write_item_idx, plan_indices in write_item_to_plan_indices.items():
             # this line is the fix, to keep the duplicated tensors on the same rank
@@ -486,8 +485,8 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
 
     class SavePlannerWithDedupFix(DefaultSavePlanner):  # noqa: D101
         def create_global_plan(
-            self, all_plans: List[SavePlan],
-        ) -> Tuple[List[SavePlan], Metadata]:
+            self, all_plans: list[SavePlan],
+        ) -> tuple[list[SavePlan], Metadata]:
             all_plans = dedup_save_plans(all_plans)
 
             global_plan, metadata = create_default_global_save_plan(all_plans)
@@ -515,7 +514,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
     def create_child_mesh(
         self,
         device_mesh,
-        mesh_dim_names: Tuple[str],
+        mesh_dim_names: tuple[str],
     ):
         """Monkeypatch create_child_mesh to nightly version."""
         # swap the current dim to the last dim then reshape to flatten out other
@@ -562,7 +561,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
         device_type: str,
         mesh,
         *,
-        mesh_dim_names: Optional[Tuple[str, ...]] = None,
+        mesh_dim_names: Optional[tuple[str, ...]] = None,
     ) -> None:
         """Monkeypatch device mesh __init__ to nightly version."""
         self.device_type = device_type
@@ -590,7 +589,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             if not self._parent_mesh:
                 self._init_process_groups()
 
-    def device_mesh__getitem__(self, mesh_dim_names: Union[str, Tuple[str]]) -> 'DeviceMesh':
+    def device_mesh__getitem__(self, mesh_dim_names: Union[str, tuple[str]]) -> 'DeviceMesh':
         """Monkeypatch device_mesh __getitem__ to nightly version.
 
         Slice the current DeviceMesh based on the mesh_dim_name given to create a child

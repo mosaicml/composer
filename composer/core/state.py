@@ -10,7 +10,7 @@ import textwrap
 import warnings
 from collections import OrderedDict
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional, Sequence, Union, cast
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -123,7 +123,7 @@ def fsdp_get_optim_state_dict(
     model: torch.nn.Module,
     optim: torch.optim.Optimizer,
     state_dict_type: str = 'full',
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Materializes a given model's optimizer's state_dict.
 
     Args:
@@ -138,14 +138,14 @@ def fsdp_get_optim_state_dict(
         NotImplementedError: if you specify a state_dict_type not in ['full', 'sharded'].
 
     Returns:
-        Dict[str, Any]: The state_dict for the given optimizer.
+        dict[str, Any]: The state_dict for the given optimizer.
     """
     with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
         return FSDP.optim_state_dict(model, optim)  # type: ignore
 
 
 def _legacy_optim_state_dict_to_load(
-    optim_state_dict: Optional[Dict[str, Any]],
+    optim_state_dict: Optional[dict[str, Any]],
     model: torch.nn.Module,
     optim: torch.optim.Optimizer,
     state_dict_type: str = 'full',
@@ -170,7 +170,7 @@ def _legacy_optim_state_dict_to_load(
         return sharded_optim_state_dict
 
 
-def get_fsdp_sharded_optim_state_dict(full_optim_state_dict: Dict[str, Any], model: torch.nn.Module):
+def get_fsdp_sharded_optim_state_dict(full_optim_state_dict: dict[str, Any], model: torch.nn.Module):
     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
     log.debug(
         f'Scattering optimizer state dict with keys {full_optim_state_dict.keys()} and model of type {type(model)}',
@@ -182,7 +182,7 @@ def get_fsdp_full_optim_state_dict(model: torch.nn.Module, optim: torch.optim.Op
     return FSDP.full_optim_state_dict(model=model, optim=optim, rank0_only=rank0_only)
 
 
-def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
+def _ensure_backwards_compatible_checkpointing(state_dict: dict[str, Any]):
     # v0.4.1 removed the leading underscores for the keys in the state_dict
     # It also renamed _is_model_ddp_wrapped to is_model_ddp
     state = {}
@@ -197,8 +197,8 @@ def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
 
 def _create_device_mesh(
     device: Device,
-    fsdp_config: Optional[Dict[str, Any]],
-    tp_config: Optional[Dict[str, Any]],
+    fsdp_config: Optional[dict[str, Any]],
+    tp_config: Optional[dict[str, Any]],
 ) -> Optional[DeviceMesh]:
     if version.parse(torch.__version__.split('.dev')[0]) < version.parse('2.3.0'):
         # Device mesh has correctness issues before torch 2.3.0
@@ -208,8 +208,8 @@ def _create_device_mesh(
         return None
 
     # Gather dimensions and names for the device mesh
-    dims: List[int] = []
-    names: List[str] = []
+    dims: list[int] = []
+    names: list[str] = []
     if fsdp_config['data_parallel_replicate_degree'] is not None:
         dims.append(fsdp_config['data_parallel_replicate_degree'])
         names.append(ParallelismType.DATA_PARALLEL_REPLICATE.value)
@@ -313,12 +313,12 @@ class State(Serializable):
 
             By convention, the training dataloader is called ``'train'``. The evaluator dataloader is called
             ``'eval'``, or when multiple evaluators are used, the name of the evaluator.
-        dataset_state (Dict[str, Any], optional): Mapping of dataset split to its iteration state for resumption.
-        dataset_resumption (Dict[str, Any], optional): Mapping of dataset split to whether resumption is used.
+        dataset_state (dict[str, Any], optional): Mapping of dataset split to its iteration state for resumption.
+        dataset_resumption (dict[str, Any], optional): Mapping of dataset split to whether resumption is used.
         max_duration (str | Time, optional): The maximum duration to train for. (default: ``None``)
         precision (str | Precision): The numerical precision to use for training. See :class:`~.Precision` for
             the supported precisions.
-        precision_config (Optional[Dict[str, Any]]): The config for FP8 scaling strategy. See parameters for
+        precision_config (Optional[dict[str, Any]]): The config for FP8 scaling strategy. See parameters for
             `DelayedScaling <https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/common.html?highlight=delayedscaling#transformer_engine.common.recipe.DelayedScaling>`_.
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer being used to
             train the model. Multiple optimizers are not currently supported.
@@ -328,15 +328,15 @@ class State(Serializable):
         save_metrics (bool, optional): Whether to save metrics in state_dict.
         algorithms (Algorithm | Sequence[Algorithm], optional): The algorithms used for training.
         callbacks (Callback | Sequence[Callback], optional): The callbacks used for training.
-        deepspeed_config (Dict[str, Any], optional): The configuration dictionary for deepspeed.
-        parallelism_config (Dict[str, Any], optional): The configuration dictionary for parallelism.
+        deepspeed_config (dict[str, Any], optional): The configuration dictionary for deepspeed.
+        parallelism_config (dict[str, Any], optional): The configuration dictionary for parallelism.
 
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
             microbatch between :attr:`.Event.BATCH_START` and :attr:`.Event.BATCH_END`.
         device (Device): The device used by this process. The trainer moves the model and loaded data to this device. This
             can be used in callbacks and algorithms to move data onto the correct device.
-        train_metrics (Dict[str, Metric]): The current train metrics, organized by metric name. ``train_metrics`` will be deep-copied to
+        train_metrics (dict[str, Metric]): The current train metrics, organized by metric name. ``train_metrics`` will be deep-copied to
             ensure that each evaluator updates only its ``train_metrics``.
 
             For example:
@@ -350,7 +350,7 @@ class State(Serializable):
             >>> trainer.state.train_metrics
             {'MulticlassAccuracy': MulticlassAccuracy()}
 
-        eval_metrics (Dict[str, Dict[str, Metric]]): The current evaluation metrics, organized
+        eval_metrics (dict[str, dict[str, Metric]]): The current evaluation metrics, organized
             by dataloader label and then by metric name. If not using an :class:`.Evaluator`,
             the eval dataloader is labeled ``'eval'``. Otherwise, in the case of having multiple evaluation datasets,
             the evaluator label is used. See the `Multiple Datasets Documentation <https://docs.mosaicml.com/projects/composer/en/stable/trainer/evaluation.html#multiple-datasets>`_
@@ -390,7 +390,7 @@ class State(Serializable):
             before the dataloader is evaluated. The :attr:`~Timestamp.epoch` attribute for this timestamp is always
             ``0``.
         device_train_microbatch_size (int | float): The size of each train microbatch per device.
-        loss (torch.Tensor | Sequence[torch.Tensor] | Dict[Any, torch.Tensor]): The most recently computed loss.
+        loss (torch.Tensor | Sequence[torch.Tensor] | dict[Any, torch.Tensor]): The most recently computed loss.
         model (torch.nn.Module): The training model.
 
             .. note::
@@ -409,7 +409,7 @@ class State(Serializable):
         run_name (str): The name for this training run.
         scaler (torch.amp.GradScaler): The gradient scaler if using mixed-precision training, or
             ``None`` if not using mixed-precision training.
-        serialized_attributes (List[str]): The names of the attribute which are serialized in a checkpoint.
+        serialized_attributes (list[str]): The names of the attribute which are serialized in a checkpoint.
 
             By default, the following attributes are serialized:
 
@@ -474,12 +474,12 @@ class State(Serializable):
         dataloader: Optional[Iterable] = None,
         dataloader_label: Optional[str] = None,
         dataloader_len: Union[int, Time[int]] = -1,
-        dataset_state: Optional[Dict[str, Any]] = None,
-        dataset_resumption: Optional[Dict[str, Any]] = None,
+        dataset_state: Optional[dict[str, Any]] = None,
+        dataset_resumption: Optional[dict[str, Any]] = None,
 
         # precision
         precision: Union[str, Precision] = Precision.FP32,
-        precision_config: Optional[Dict[str, Any]] = None,
+        precision_config: Optional[dict[str, Any]] = None,
 
         # optimizers
         optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
@@ -495,8 +495,8 @@ class State(Serializable):
         callbacks: Optional[Union[Callback, Sequence[Callback]]] = None,
 
         # Distributed training configs
-        deepspeed_config: Optional[Dict[str, Any]] = None,
-        parallelism_config: Optional[Dict[str, Any]] = None,
+        deepspeed_config: Optional[dict[str, Any]] = None,
+        parallelism_config: Optional[dict[str, Any]] = None,
     ):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
@@ -558,7 +558,7 @@ class State(Serializable):
 
         # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None
-        self.loss: Union[torch.Tensor, Sequence[torch.Tensor], Dict[Any, torch.Tensor]] = torch.Tensor()
+        self.loss: Union[torch.Tensor, Sequence[torch.Tensor], dict[Any, torch.Tensor]] = torch.Tensor()
         self.outputs: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
 
         # These attributes will be serialized using .state_dict(), and loaded with .load_state_dict()
@@ -581,13 +581,13 @@ class State(Serializable):
             'dataset_state',
         ]
 
-        self.train_metrics: Optional[Dict[str, Metric]] = {}
-        self.eval_metrics: Dict[str, Dict[str, Metric]] = {}
-        self.train_metric_values: Dict[str, float] = {}
-        self.eval_metric_values: Dict[str, float] = {}
-        self.total_loss_dict: Dict[str, float] = {}
+        self.train_metrics: Optional[dict[str, Metric]] = {}
+        self.eval_metrics: dict[str, dict[str, Metric]] = {}
+        self.train_metric_values: dict[str, float] = {}
+        self.eval_metric_values: dict[str, float] = {}
+        self.total_loss_dict: dict[str, float] = {}
 
-        self.metric_outputs: Dict[str, Any] = {}
+        self.metric_outputs: dict[str, Any] = {}
 
     def _validate_parallelism_configs(self):
         # Validate TP config
@@ -803,7 +803,7 @@ class State(Serializable):
         See batch_get in `utils/batch_helpers.py` for examples.
 
         Args:
-            key (str | int | Tuple[Callable, Callable] | Any, optional): A key to index into the batch or a
+            key (str | int | tuple[Callable, Callable] | Any, optional): A key to index into the batch or a
                 user-specified function to do the extracting. A pair of callables is also
                 supported for cases where a get and set function pair are both passed
                 (like in Algorithms). The getter is assumed to be the first of the pair.
@@ -824,7 +824,7 @@ class State(Serializable):
         See batch_set in `utils/batch_helpers.py` for examples.
 
         Args:
-            key (str | int | Tuple[Callable, Callable] | Any, optional): A key to index into the batch or a user-specified
+            key (str | int | tuple[Callable, Callable] | Any, optional): A key to index into the batch or a user-specified
                 function to do the setting. A pair of callables is also supported for
                 cases where a get and set function pair are both passed (like in
                 Algorithms). The setter is assumed to be the second of the pair.
@@ -910,7 +910,7 @@ class State(Serializable):
             self.fsdp_config['state_dict_type'] == 'full' and self.fsdp_config['load_monolith_rank0_only'] == True
         )
 
-    def _get_integrations_state_dict(self) -> Dict[str, Any]:
+    def _get_integrations_state_dict(self) -> dict[str, Any]:
         """Gets a dictionary of information about integrations to store in the state dict.
 
         This metadata is used for loading things from state dict that need to be done outside
@@ -924,7 +924,7 @@ class State(Serializable):
             integrations['huggingface'] = self.model.module.get_metadata()
         return integrations
 
-    def _get_state_metadata(self) -> Dict[str, Any]:
+    def _get_state_metadata(self) -> dict[str, Any]:
         """Gets a dictionary of metadata to store in the state dict.
 
         This metadata is used for checking compatibility between the current environment/setup
@@ -943,11 +943,11 @@ class State(Serializable):
 
         return metadata_dict
 
-    def _dataset_state_dict(self) -> Dict[str, Any]:
+    def _dataset_state_dict(self) -> dict[str, Any]:
         """Collect the state dict(s) of our train and eval dataset(s).
 
         Returns:
-            Dict[str, Any]: The state dict(s).
+            dict[str, Any]: The state dict(s).
         """
         obj = {
             'train': None,
@@ -961,11 +961,11 @@ class State(Serializable):
 
         return obj
 
-    def get_model_state_dict(self) -> Dict[str, Any]:
+    def get_model_state_dict(self) -> dict[str, Any]:
         """Collect the state dict for the model.
 
         Returns:
-            Dict[str, Any]: The state dict for the model.
+            dict[str, Any]: The state dict for the model.
         """
         if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
             from torch.distributed.checkpoint.state_dict import StateDictOptions, get_model_state_dict
@@ -999,11 +999,11 @@ class State(Serializable):
 
         return model_state_dict
 
-    def get_optim_state_dict(self) -> Dict[str, Any]:
+    def get_optim_state_dict(self) -> dict[str, Any]:
         """Collect the state dict for the optimizer.
 
         Returns:
-            Dict[str, Any]: The state dict for the optimizer.
+            dict[str, Any]: The state dict for the optimizer.
         """
         if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
             from torch.distributed.checkpoint.state_dict import StateDictOptions, get_optimizer_state_dict
@@ -1038,11 +1038,11 @@ class State(Serializable):
                 optim_state_dict = {type(optimizer).__qualname__: optimizer.state_dict()}
             return optim_state_dict
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         """Collect the state dicts of our serializable attributes.
 
         Returns:
-            Dict[str, Any]: The state dict.
+            dict[str, Any]: The state dict.
         """
         state_dict = {}
         for attribute_name in self.serialized_attributes:
@@ -1104,18 +1104,18 @@ class State(Serializable):
 
     def _apply_required_algorithms(
         self,
-        state_dict: Dict[str, Any],
+        state_dict: dict[str, Any],
         logger: Logger,
-        exclude_algorithms: Optional[List[str]] = None,
-        algorithm_passes: Optional[List[AlgorithmPass]] = None,
+        exclude_algorithms: Optional[list[str]] = None,
+        algorithm_passes: Optional[list[AlgorithmPass]] = None,
     ):
         """Applies required algorithms which haven't been specified and aren't in the exclude list.
 
         Args:
-            state_dict (Dict[str, Any]): State from checkpoint.
+            state_dict (dict[str, Any]): State from checkpoint.
             logger (Logger): Logger to use.
-            exclude_algorithms (List[str], optional): List of algorithm names to exclude. (default: ``None``)
-            algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
+            exclude_algorithms (list[str], optional): list of algorithm names to exclude. (default: ``None``)
+            algorithm_passes (list[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
                 to sort them into the correct order. (default: ``None``)
         """
         # Don't try to autoload on old checkpoints
@@ -1221,11 +1221,11 @@ class State(Serializable):
                 ),
             ) from e
 
-    def _legacy_load_optim_state(self, state_dict: Dict[str, Any]):
+    def _legacy_load_optim_state(self, state_dict: dict[str, Any]):
         """Load the optimizer state.
 
         Args:
-            state_dict (Dict[str, Any]): The state to load.
+            state_dict (dict[str, Any]): The state to load.
         """
         serialized_value = state_dict['optimizers']
         for optimizer in ensure_tuple(self.optimizers):
@@ -1270,11 +1270,11 @@ class State(Serializable):
                 log.debug(f'Loading optimizer state dict')
                 optimizer.load_state_dict(optim_state_dict)
 
-    def _load_dataset_state(self, obj: Dict[str, Any]) -> None:
+    def _load_dataset_state(self, obj: dict[str, Any]) -> None:
         """Load the dataset state.
 
         Args:
-            obj (Dict[str, Any]): The state to load.
+            obj (dict[str, Any]): The state to load.
         """
         self.dataset_state = obj
 
@@ -1286,21 +1286,21 @@ class State(Serializable):
 
     def load_model_state(
         self,
-        state_dict: Dict[str, Any],
+        state_dict: dict[str, Any],
         logger: Logger,
         strict: bool,
-        exclude_algorithms: Optional[List[str]] = None,
-        algorithm_passes: Optional[List[AlgorithmPass]] = None,
+        exclude_algorithms: Optional[list[str]] = None,
+        algorithm_passes: Optional[list[AlgorithmPass]] = None,
     ):
         """Loads the model's state from a ``state_dict``.
 
         Args:
-            state_dict (Dict[str, Any]): The state dict, generated from a previous call to :meth:`state_dict`.
+            state_dict (dict[str, Any]): The state dict, generated from a previous call to :meth:`state_dict`.
             logger (Logger): The logger.
             strict (bool): Whether the keys (i.e., model parameter names) in the model state dict should
                 perfectly match the keys in the model instance.
-            exclude_algorithms (List[str], optional): List of algorithm names to exclude from autoloading. (default: ``None``)
-            algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
+            exclude_algorithms (list[str], optional): list of algorithm names to exclude from autoloading. (default: ``None``)
+            algorithm_passes (list[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
                 to sort them into the correct order. (default: ``None``)
         """
         if 'algorithms' in state_dict:
@@ -1392,11 +1392,11 @@ class State(Serializable):
                 )
             log.debug('Finished wrapping model with FSDP.')
 
-    def load_optim_state(self, state_dict: Dict[str, Any], strict: bool = True):
+    def load_optim_state(self, state_dict: dict[str, Any], strict: bool = True):
         """Load the optimizer state.
 
         Args:
-            state_dict (Dict[str, Any]): The state to load.
+            state_dict (dict[str, Any]): The state to load.
             strict (bool): Whether the keys (i.e., optimizer parameter names) in the optimizer
                 state dict should perfectly match the keys in the optimizer instance.
         """
@@ -1464,21 +1464,21 @@ class State(Serializable):
 
     def load_state_dict(
         self,
-        state: Dict[str, Any],
+        state: dict[str, Any],
         logger: Logger,
         strict: bool = False,
-        exclude_algorithms: Optional[List[str]] = None,
-        algorithm_passes: Optional[List[AlgorithmPass]] = None,
+        exclude_algorithms: Optional[list[str]] = None,
+        algorithm_passes: Optional[list[AlgorithmPass]] = None,
     ):
         """Loads the state.
 
         Args:
-            state (Dict[str, Any]): object returned from call to :meth:`state_dict`.
+            state (dict[str, Any]): object returned from call to :meth:`state_dict`.
             logger (Logger): The logger.
             strict (bool): whether the keys in the ``state["model"]`` should perfectly match the keys in the
                 ``self.model``. Defaults to False.
-            exclude_algorithms (List[str], optional): List of algorithm names to exclude from autoloading. (default: ``None``)
-            algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
+            exclude_algorithms (list[str], optional): list of algorithm names to exclude from autoloading. (default: ``None``)
+            algorithm_passes (list[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
                 to sort them into the correct order. (default: ``None``)
         """
         state = _ensure_backwards_compatible_checkpointing(state)

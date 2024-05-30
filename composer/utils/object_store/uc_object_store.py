@@ -9,7 +9,7 @@ import logging
 import os
 import pathlib
 import uuid
-from typing import Callable, List, Optional
+from typing import Callable, Optional
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError
@@ -243,7 +243,7 @@ class UCObjectStore(ObjectStore):
             _wrap_errors(self.get_uri(object_name), e)
         return -1
 
-    def list_objects(self, prefix: Optional[str]) -> List[str]:
+    def list_objects(self, prefix: Optional[str]) -> list[str]:
         """List all objects in the object store with the given prefix.
 
         Args:

@@ -4,7 +4,7 @@
 """Contains commonly used models that are shared across the test suite."""
 import copy
 from functools import partial
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import pytest
 import torch
@@ -358,7 +358,7 @@ class SimpleTransformerMaskedLM(ComposerClassifier):
     def loss(
         self,
         outputs: torch.Tensor,
-        batch: Union[Tuple[Any, torch.Tensor], Dict[str, Any]],
+        batch: Union[tuple[Any, torch.Tensor], dict[str, Any]],
         *args,
         **kwargs,
     ) -> torch.Tensor:
@@ -368,7 +368,7 @@ class SimpleTransformerMaskedLM(ComposerClassifier):
             targets = batch['labels']
         return self._loss_fn(outputs.view(-1, self.vocab_size), targets.view(-1), *args, **kwargs)
 
-    def forward(self, batch: Union[Tuple[torch.Tensor, Any], Dict[str, Any]]) -> torch.Tensor:
+    def forward(self, batch: Union[tuple[torch.Tensor, Any], dict[str, Any]]) -> torch.Tensor:
         if isinstance(batch, tuple):
             inputs, _ = batch
         else:
@@ -471,7 +471,7 @@ class SimpleModelWithDropout(ComposerClassifier):
         self.fc2 = fc2
         self.dropout = dropout
 
-    def loss(self, outputs: torch.Tensor, batch: Tuple[Any, torch.Tensor], *args, **kwargs) -> torch.Tensor:
+    def loss(self, outputs: torch.Tensor, batch: tuple[Any, torch.Tensor], *args, **kwargs) -> torch.Tensor:
         _, targets = batch
         targets = targets.squeeze(dim=0)
         return self._loss_fn(outputs, targets, *args, **kwargs)
@@ -480,7 +480,7 @@ class SimpleModelWithDropout(ComposerClassifier):
         _, targets = batch
         metric.update(outputs.squeeze(dim=0), targets.squeeze(dim=0))
 
-    def forward(self, batch: Tuple[torch.Tensor, Any]) -> torch.Tensor:
+    def forward(self, batch: tuple[torch.Tensor, Any]) -> torch.Tensor:
         inputs, _ = batch
         inputs = inputs.squeeze(dim=0)
         outputs = self.module(inputs)
@@ -493,7 +493,7 @@ def composer_resnet(
     weights: Optional[str] = None,
     groups: int = 1,
     width_per_group: int = 64,
-    initializers: Optional[List[Initializer]] = None,
+    initializers: Optional[list[Initializer]] = None,
     loss_name: str = 'soft_cross_entropy',
 ) -> ComposerClassifier:
     """Helper function to create a :class:`.ComposerClassifier` with a torchvision ResNet model.
@@ -506,7 +506,7 @@ def composer_resnet(
         groups (int, optional): Number of filter groups for the 3x3 convolution layer in bottleneck blocks. Default: ``1``.
         width_per_group (int, optional): Initial width for each convolution group. Width doubles after each stage.
             Default: ``64``.
-        initializers (List[Initializer], optional): Initializers for the model. ``None`` for no initialization.
+        initializers (list[Initializer], optional): Initializers for the model. ``None`` for no initialization.
             Default: ``None``.
         loss_name (str, optional): Loss function to use. E.g. 'soft_cross_entropy' or
             'binary_cross_entropy_with_logits'. Loss function must be in

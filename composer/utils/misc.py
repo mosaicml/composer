@@ -8,7 +8,7 @@ import math
 import socket
 import textwrap
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Callable, Optional, Set, Type, Union
+from typing import TYPE_CHECKING, Callable, Optional, Type, Union
 
 import torch
 from torch.nn.parallel import DistributedDataParallel
@@ -58,7 +58,7 @@ def create_interval_scheduler(
     interval: Union[str, int, 'Time'],
     include_end_of_training: bool = True,
     checkpoint_events: bool = True,
-    final_events: Optional[Set['Event']] = None,
+    final_events: Optional[set['Event']] = None,
 ) -> Callable[['State', 'Event'], bool]:
     """Helper function to create a scheduler according to a specified interval.
 
@@ -70,7 +70,7 @@ def create_interval_scheduler(
             Otherwise, the returned callable will return true at intervals only.
         checkpoint_events (bool): If true, will use the EPOCH_CHECKPOINT and BATCH_CHECKPOINT events. If False, will use
             the EPOCH_END and BATCH_END events.
-        final_events (Optional[Set[Event]]): The set of events to trigger on at the end of training.
+        final_events (Optional[set[Event]]): The set of events to trigger on at the end of training.
 
     Returns:
         Callable[[State, Event], bool]: A function that returns true at interval and at the end of training if specified.
