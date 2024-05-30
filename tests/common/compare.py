@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import datetime
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import torch
@@ -85,8 +85,8 @@ def _check_item(
 
 
 def _check_list_recursively(
-    list1: Union[Tuple[Any], List[Any]],
-    list2: Union[Tuple[Any], List[Any]],
+    list1: Union[tuple[Any], list[Any]],
+    list2: Union[tuple[Any], list[Any]],
     path: str,
     atol: float,
     rtol: float,

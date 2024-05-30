@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Optional, Tuple, Union
+from typing import Any, Callable, Optional, Union
 
 import numpy as np
 import torch
@@ -26,7 +26,7 @@ def mixup_batch(
     mixing: Optional[float] = None,
     alpha: float = 0.2,
     indices: Optional[torch.Tensor] = None,
-) -> Tuple[torch.Tensor, torch.Tensor, float]:
+) -> tuple[torch.Tensor, torch.Tensor, float]:
     """Create new samples using convex combinations of pairs of samples.
 
     This is done by taking a convex combination of ``input`` with a randomly
@@ -107,11 +107,11 @@ class MixUp(Algorithm):
         interpolate_loss (bool, optional): Interpolates the loss rather than the labels.
             A useful trick when using a cross entropy loss. Will produce incorrect behavior
             if the loss is not a linear function of the targets. Default: ``False``
-        input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input
+        input_key (str | int | tuple[Callable, Callable] | Any, optional): A key that indexes to the input
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair.  The default is 0, which corresponds to any sequence, where the first element
             is the input. Default: ``0``.
-        target_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the target
+        target_key (str | int | tuple[Callable, Callable] | Any, optional): A key that indexes to the target
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair. The default is 1, which corresponds to any sequence, where the second element
             is the target. Default: ``1``.
@@ -135,8 +135,8 @@ class MixUp(Algorithm):
         self,
         alpha: float = 0.2,
         interpolate_loss: bool = False,
-        input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
-        target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
+        input_key: Union[str, int, tuple[Callable, Callable], Any] = 0,
+        target_key: Union[str, int, tuple[Callable, Callable], Any] = 1,
     ):
         self.alpha = alpha
         self.interpolate_loss = interpolate_loss

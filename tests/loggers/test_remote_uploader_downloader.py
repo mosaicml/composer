@@ -8,7 +8,7 @@ import pathlib
 import random
 import shutil
 import time
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Optional, Union
 from unittest.mock import patch
 
 import pytest
@@ -21,7 +21,7 @@ from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTra
 class DummyObjectStore(ObjectStore):
     """Dummy ObjectStore implementation that is backed by a local directory."""
 
-    def __init__(self, dir: Optional[pathlib.Path] = None, always_fail: bool = False, **kwargs: Dict[str, Any]) -> None:
+    def __init__(self, dir: Optional[pathlib.Path] = None, always_fail: bool = False, **kwargs: dict[str, Any]) -> None:
         self.dir = str(dir) if dir is not None else kwargs['bucket']
         self.always_fail = always_fail
         assert isinstance(self.dir, str)
@@ -204,7 +204,7 @@ def test_allow_overwrite_on_retry(tmp_path: pathlib.Path, dummy_state: State):
             self,
             dir: Optional[pathlib.Path] = None,
             always_fail: bool = False,
-            **kwargs: Dict[str, Any],
+            **kwargs: dict[str, Any],
         ) -> None:
             self._retry = 0
             super().__init__(dir, always_fail, **kwargs)

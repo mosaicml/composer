@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import warnings
 from collections import deque
-from typing import Any, Callable, Deque, Dict, Optional, Union
+from typing import Any, Callable, Deque, Optional, Union
 
 import torch
 
@@ -275,12 +275,12 @@ class SpeedMonitor(Callback):
         # Keep track of time spent evaluating
         self.total_eval_wct = 0.0
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         return {
             'total_eval_wct': self.total_eval_wct,
         }
 
-    def load_state_dict(self, state: Dict[str, Any]) -> None:
+    def load_state_dict(self, state: dict[str, Any]) -> None:
         self.total_eval_wct = state['total_eval_wct']
 
     def init(self, state: State, logger: Logger) -> None:

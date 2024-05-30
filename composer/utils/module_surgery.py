@@ -24,7 +24,7 @@ import collections
 import itertools
 import logging
 import textwrap
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, OrderedDict, Sequence, Tuple, Type, Union
+from typing import Any, Callable, Iterable, Mapping, Optional, OrderedDict, Sequence, Type, Union
 
 import torch
 import torch.distributed
@@ -46,7 +46,7 @@ ReplacementFunction = Callable[[torch.nn.Module, int], Optional[torch.nn.Module]
 
 def _add_children_recursive(
     module: torch.nn.Module,
-    children_to_parents_and_names: OrderedDict[torch.nn.Module, List[Tuple[torch.nn.Module, str]]],
+    children_to_parents_and_names: OrderedDict[torch.nn.Module, list[tuple[torch.nn.Module, str]]],
 ) -> None:
     # recursively build up children_to_parents_and_names so it maps a module to the list of
     # (parent_module, attribute name)
@@ -63,8 +63,8 @@ def replace_module_classes(
     policies: Mapping[Type[torch.nn.Module], ReplacementFunction],
     optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
     recurse_on_replacements: bool = False,
-    indices: Optional[Dict[Any, int]] = None,
-) -> Dict[torch.nn.Module, torch.nn.Module]:
+    indices: Optional[dict[Any, int]] = None,
+) -> dict[torch.nn.Module, torch.nn.Module]:
     """Modify model in-place by recursively applying replacement policies.
 
     .. rubric:: Example
@@ -124,7 +124,7 @@ def replace_module_classes(
             be invoked with this new child :class:`~torch.nn.Conv2d` instance. If the replacement policies
             are not conditioned on module properties that change during replacement, infinite recursion is
             possible.
-        indices (Dict[Any, int], optional): A dictionary mapping module types to the number of times
+        indices (dict[Any, int], optional): A dictionary mapping module types to the number of times
             they've occurred so far in the recursive traversal of
             ``module`` and its child modules. The value is provided to replacement functions, so they
             may switch behaviors depending on the number of replacements that occurred for a given module type.
@@ -140,7 +140,7 @@ def replace_module_classes(
             modules. See :func:`update_params_in_optimizer` for more information.
 
     Returns:
-        Dict[torch.nn.Module, torch.nn.Module]:
+        dict[torch.nn.Module, torch.nn.Module]:
             A dictionary of ``{original_module: replacement_module}``
             reflecting the replacements applied to ``module`` and its children.
     """
@@ -169,7 +169,7 @@ def replace_module_classes(
             )
     replaced_pairs = {}
     children_to_parents_and_names: OrderedDict[torch.nn.Module,
-                                               List[Tuple[torch.nn.Module, str]],
+                                               list[tuple[torch.nn.Module, str]],
                                               ] = collections.OrderedDict()
     _add_children_recursive(module, children_to_parents_and_names)
     indices = indices if indices is not None else {c: 0 for c in policies}
@@ -239,7 +239,7 @@ def _infer_device(module: torch.nn.Module) -> Optional[torch.device]:
 
 def count_module_instances(
     module: torch.nn.Module,
-    module_class: Union[Type[torch.nn.Module], Tuple[Type[torch.nn.Module], ...]],
+    module_class: Union[Type[torch.nn.Module], tuple[Type[torch.nn.Module], ...]],
 ) -> int:
     """Counts the number of instances of ``module_class`` in ``module``, recursively.
 
@@ -260,7 +260,7 @@ def count_module_instances(
 
     Args:
         module (torch.nn.Module): The source module.
-        module_class (Type[torch.nn.Module] | Tuple[Type[torch.nn.Module], ...]):
+        module_class (Type[torch.nn.Module] | tuple[Type[torch.nn.Module], ...]):
             The module type (or tuple of module types) to count.
 
     Returns:
@@ -273,7 +273,7 @@ def count_module_instances(
 
 def _recur_count_module_instances(
     module: torch.nn.Module,
-    module_class: Union[Type[torch.nn.Module], Tuple[Type[torch.nn.Module], ...]],
+    module_class: Union[Type[torch.nn.Module], tuple[Type[torch.nn.Module], ...]],
     found_instances: set,
 ):
     """Counts instances of ``module_class`` in ``module``, recursively, using a set to deduplicate.
@@ -320,14 +320,14 @@ def _find_param_in_optimizer(param: torch.nn.parameter.Parameter, optimizer: Opt
         or `-1` if ``param`` is not in the ``opt`.
     """
     for i, group in enumerate(optimizer.param_groups):
-        param_list: List[torch.nn.parameter.Parameter] = group['params']
+        param_list: list[torch.nn.parameter.Parameter] = group['params']
         if _tensor_in(param, param_list):
             return i
 
     return -1
 
 
-def _ordered_diff(first: List, second: List) -> List:
+def _ordered_diff(first: list, second: list) -> list:
     """Returns first - second while maintaining the order in first."""
     second_list = set(second)
     return [item for item in first if item not in second_list]

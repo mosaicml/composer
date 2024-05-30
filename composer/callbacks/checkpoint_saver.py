@@ -12,7 +12,7 @@ import shutil
 import tempfile
 import textwrap
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 from composer.core import Callback, Event, State, Time, Timestamp
 from composer.loggers import Logger, MLFlowLogger
@@ -235,7 +235,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         weights_only (bool): If ``True``, save only the model weights instead of the entire training state.
             This parameter must be ``False`` when using DeepSpeed. Default: ``False``.
 
-        ignore_keys (List[str] | (Dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
+        ignore_keys (list[str] | (dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
             which, when provided, will be ignored from the state_dict before a checkpoint is saved. Each path is a list
             of strings specifying the keys to index into ``state_dict`` joined together with `/` as a separator (as PyTorch
             uses `.` in parameter names). If a prefix is provided, all children are also ignored (see Example 2).
@@ -258,7 +258,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             (default: ``None``)
 
     Attributes:
-        saved_checkpoints (List[Tuple[Timestamp, List[pathlib.Path]]]): The checkpoint timestamps and filepaths.
+        saved_checkpoints (list[tuple[Timestamp, list[pathlib.Path]]]): The checkpoint timestamps and filepaths.
 
             This list contains tuples of the save timestamp and the checkpoint filepaths.
             This list will have at most ``num_checkpoints_to_keep`` entries. The latest checkpoint
@@ -287,7 +287,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         overwrite: bool = False,
         num_checkpoints_to_keep: int = -1,
         weights_only: bool = False,
-        ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
+        ignore_keys: Optional[Union[list[str], Callable[[dict], None]]] = None,
     ):
         folder = str(folder)
         filename = str(filename)
@@ -313,8 +313,8 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.latest_remote_file_name = PartialFilePath(latest_remote_file_name) if latest_remote_file_name else None
 
         self.overwrite = overwrite
-        self.saved_checkpoints: List[str] = []
-        self.all_saved_checkpoints_to_timestamp: Dict[str, Timestamp] = {}
+        self.saved_checkpoints: list[str] = []
+        self.all_saved_checkpoints_to_timestamp: dict[str, Timestamp] = {}
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
         self.weights_only = weights_only
         self.ignore_keys = ignore_keys
@@ -394,7 +394,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                 logger,
             )
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         state_dict = {}
 
         all_checkpoints = []
@@ -404,7 +404,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         state_dict['all_saved_checkpoints_to_timestamp'] = all_checkpoints
         return state_dict
 
-    def load_state_dict(self, state: Dict[str, Any]):
+    def load_state_dict(self, state: dict[str, Any]):
         if 'all_saved_checkpoints_to_timestamp' in state:
             for (save_filename, timestamp_state) in state['all_saved_checkpoints_to_timestamp']:
                 load_timestamp = Timestamp()
@@ -468,8 +468,9 @@ class CheckpointSaver(Callback):  # noqa: D101
                     is_deepspeed,
                     keep_placeholders=True,
                 ).lstrip('/')
-                assert state.sharded_ckpt_prefix_dir is not None
-                remote_prefix = state.sharded_ckpt_prefix_dir
+                assert state.fsdp_config is not None
+                remote_prefix = state.fsdp_config['sharded_ckpt_prefix_dir']
+                assert remote_prefix is not None
                 ckpt_filename = checkpoint._TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
                 remote_file_name = os.path.join(pathlib.Path(remote_file_name).parent, remote_prefix, ckpt_filename)
                 remote_file_name = format_name_with_dist_and_time(remote_file_name, state.run_name, state.timestamp)

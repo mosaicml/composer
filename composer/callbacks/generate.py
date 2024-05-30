@@ -5,7 +5,7 @@
 
 import logging
 import time
-from typing import Any, List, Optional, Union, cast
+from typing import Any, Optional, Union, cast
 
 from composer.core import Callback, Event, State, Time, get_precision_context
 from composer.loggers import Logger
@@ -20,7 +20,7 @@ class Generate(Callback):
     """Periodically log generations from a set of prompts.
 
     Args:
-        prompts (List[str]): The list of prompts you would like to produce generations for
+        prompts (list[str]): The list of prompts you would like to produce generations for
         interval (Union[str, int, :class:`.Time`]): The interval describing how often checkpoints should be
             saved. If an integer, it will be assumed to be in :attr:`.TimeUnit.EPOCH`.
             Otherwise, the unit must be either :attr:`.TimeUnit.EPOCH`, :attr:`.TimeUnit.BATCH`,
@@ -31,7 +31,7 @@ class Generate(Callback):
 
     def __init__(
         self,
-        prompts: List[str],
+        prompts: list[str],
         interval: Union[str, int, Time],
         batch_size: Optional[int] = None,
         **kwargs: Any,

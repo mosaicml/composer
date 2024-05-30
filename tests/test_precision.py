@@ -1,6 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import pytest
 import torch
@@ -18,7 +18,7 @@ except ImportError:
     te_installed = False
 
 
-def get_trainer(precision: Precision, precision_config: Optional[Dict[str, Any]] = None) -> Trainer:
+def get_trainer(precision: Precision, precision_config: Optional[dict[str, Any]] = None) -> Trainer:
 
     return Trainer(
         model=composer_resnet('resnet18'),
