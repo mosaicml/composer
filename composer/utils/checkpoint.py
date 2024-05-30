@@ -260,6 +260,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         all_file_paths = dist.all_gather_object(relative_file_paths)
 
         # 2. Download to the destination all files this rank needs if on first replica
+        download_error = False
         if first_replica:
             log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
 
@@ -291,8 +292,16 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                 # and dist.all_gather_objects(exception) before raising it.
                 # If that all_gather_objects fails, the exception is never visible to user.
                 # We immediately kill the process and print the exception
-                log.error(f'Exception {type(e)} raised during downloading: {str(e)}, terminating the process')
-                self.terminate_all_processes()
+                log.error(f'Exception {type(e)} raised during downloading: {str(e)}')
+                download_error = True
+
+        download_error_tensor = torch.tensor(1 if download_error else 0)
+        dist.all_reduce(download_error_tensor, reduce_operation='SUM')
+        if download_error_tensor.item() > 0:
+            self.terminate_all_processes()
+            log.error(
+                f'{download_error_tensor.item()} downloads failed across all nodes. Terminating all processes due to download error.'
+            )
 
         # 3. Wait for all ranks to finish.
         log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
