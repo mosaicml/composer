@@ -290,20 +290,24 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                         download_object_or_file(object_name, file_destination, self.object_store)
                         log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
             except Exception as e:
-                # PyTorch will capture any exception of this function,
-                # and dist.all_gather_objects(exception) before raising it.
-                # If that all_gather_objects fails, the exception is never visible to user.
-                # We immediately kill the process and print the exception
                 log.error(f'Exception {type(e)} raised during downloading: {str(e)}')
                 download_error = True
 
+        # PyTorch will capture any exception of this function,
+        # and dist.all_gather_objects(exception) before raising it.
+        # If that all_gather_objects fails, the exception is never visible to user.
+        # We immediately kill the process and print the exception
         download_error_tensor = torch.tensor(1 if download_error else 0)
-        dist.all_reduce(download_error_tensor, reduce_operation='SUM')
-        if download_error_tensor.item() > 0:
+        error_by_rank = dist.all_gather(download_error_tensor)
+        failed_ranks = []
+        for rank, error in enumerate(error_by_rank):
+            if error.item() > 0:
+                failed_ranks.append(rank)
+                download_error = True
+
+        if download_error:
             self.terminate_all_processes()
-            log.error(
-                f'{download_error_tensor.item()} downloads failed across all nodes. Terminating all processes due to download error.'
-            )
+            log.error(f'Ranks {failed_ranks} failed to download. Terminating all processes to end the run.',)
 
         # 3. Wait for all ranks to finish.
         log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
