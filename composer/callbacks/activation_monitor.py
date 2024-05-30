@@ -212,7 +212,7 @@ class ActivationMonitor(Callback):
 
     def add_metrics(self, metrics: dict, name: str, suffix: str, value: torch.Tensor):
         # We shouldn't log booleans
-        if value.dtype == torch.bool:
+        if isinstance(value, bool) or value.dtype == torch.bool:
             return
         if value.is_floating_point() or value.is_complex():
             metrics[f'activations/l2_norm/{name}{suffix}'] = torch.linalg.vector_norm(value, dim=-1).mean().item()
