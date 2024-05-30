@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import datetime
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, dict, list, tuple, Union
 
 import numpy as np
 import torch
@@ -78,8 +78,8 @@ def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: floa
 
 
 def _check_list_recursively(
-    list1: Union[Tuple[Any], List[Any]],
-    list2: Union[Tuple[Any], List[Any]],
+    list1: Union[tuple[Any], list[Any]],
+    list2: Union[tuple[Any], list[Any]],
     path: str,
     atol: float,
     rtol: float,
@@ -89,7 +89,7 @@ def _check_list_recursively(
         _check_item(item1, item2, path=f'{path}/{i}', atol=atol, rtol=rtol)
 
 
-def _check_dict_recursively(dict1: Dict[str, Any], dict2: Dict[str, Any], path: str, atol: float, rtol: float):
+def _check_dict_recursively(dict1: dict[str, Any], dict2: dict[str, Any], path: str, atol: float, rtol: float):
     assert len(dict1) == len(dict2), f'{path} differs: {dict1} != {dict2}'
     for k, val1 in dict1.items():
         val2 = dict2[k]

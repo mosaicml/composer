@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import textwrap
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, dict, list, Optional, Sequence, Union
 
 import numpy as np
 import torch
@@ -39,7 +39,7 @@ class CometMLLogger(LoggerDestination):
             to :attr:`.State.run_name`.
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process.
             (default: ``True``).
-        exp_kwargs (Dict[str, Any], optional): Any additional kwargs to
+        exp_kwargs (dict[str, Any], optional): Any additional kwargs to
             comet_ml.Experiment(see
             `Comet documentation <https://www.comet.com/docs/v2/api-and-sdk/python-sdk/reference/Experiment/?utm_source=mosaicml&utm_medium=partner&utm_campaign=mosaicml_comet_integration>`_).
     """
@@ -52,7 +52,7 @@ class CometMLLogger(LoggerDestination):
         log_graph: bool = False,
         name: Optional[str] = None,
         rank_zero_only: bool = True,
-        exp_kwargs: Optional[Dict[str, Any]] = None,
+        exp_kwargs: Optional[dict[str, Any]] = None,
     ) -> None:
         try:
             from comet_ml import Experiment
@@ -102,8 +102,8 @@ class CometMLLogger(LoggerDestination):
 
     def log_table(
         self,
-        columns: List[str],
-        rows: List[List[Any]],
+        columns: list[str],
+        rows: list[list[Any]],
         name: str = 'Table',
         step: Optional[int] = None,
     ) -> None:
@@ -128,12 +128,12 @@ class CometMLLogger(LoggerDestination):
                 index=False,  # pyright: ignore[reportGeneralTypeIssues] cometml has incorrect type hints for kwargs
             )
 
-    def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
+    def log_metrics(self, metrics: dict[str, Any], step: Optional[int] = None) -> None:
         if self._enabled:
             assert self.experiment is not None
             self.experiment.log_metrics(dic=metrics, step=step)
 
-    def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
+    def log_hyperparameters(self, hyperparameters: dict[str, Any]):
         if self._enabled:
             assert self.experiment is not None
             self.experiment.log_parameters(hyperparameters)
@@ -144,8 +144,8 @@ class CometMLLogger(LoggerDestination):
         name: str = 'Image',
         channels_last: bool = False,
         step: Optional[int] = None,
-        masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
-        mask_class_labels: Optional[Dict[int, str]] = None,
+        masks: Optional[dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
+        mask_class_labels: Optional[dict[int, str]] = None,
         use_table: bool = True,
     ):
 

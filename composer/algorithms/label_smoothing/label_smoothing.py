@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Optional, Tuple, Union
+from typing import Any, Callable, Optional, tuple, Union
 
 import torch
 
@@ -69,7 +69,7 @@ class LabelSmoothing(Algorithm):
             ``smoothing=0`` means no label smoothing, and
             ``smoothing=1`` means maximal smoothing (targets are ignored).
             Default: ``0.1``.
-        target_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the target
+        target_key (str | int | tuple[Callable, Callable] | Any, optional): A key that indexes to the target
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair. The default is 1, which corresponds to any sequence, where the second element
             is the target. Default: ``1``.
@@ -92,7 +92,7 @@ class LabelSmoothing(Algorithm):
     def __init__(
         self,
         smoothing: float = 0.1,
-        target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
+        target_key: Union[str, int, tuple[Callable, Callable], Any] = 1,
     ):
         self.smoothing = smoothing
         self.original_labels = torch.Tensor()

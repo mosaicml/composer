@@ -15,7 +15,7 @@ class MissingConditionalImportError(ImportError):
     Args:
         extra_deps_group (str): the pip package group, found in setup.py. For example, nlp for `mosaicml[nlp]`.
         conda_package (str, optional): The package(s) to install if using conda.
-        conda_channel (str, optional): The conda channel to install packages from. Set to ``None`` if the
+        conda_channel (str, optional): The conda channel to install packages from. set to ``None`` if the
             package is not published on conda and must be installed via pip.
     """
 

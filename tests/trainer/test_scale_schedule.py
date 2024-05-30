@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import List
+from typing import list
 
 import numpy as np
 import pytest
@@ -33,7 +33,7 @@ def flatten(lst: list):
 class TestScaleSchedule():
 
     @staticmethod
-    def _test(targets: List[float], scheduler: LRScheduler, epochs: int, optimizer: Optimizer, ssr: float):
+    def _test(targets: list[float], scheduler: LRScheduler, epochs: int, optimizer: Optimizer, ssr: float):
         scale_pytorch_scheduler(scheduler, ssr)
         for epoch in range(epochs):
             for param_group in optimizer.param_groups:

@@ -5,7 +5,7 @@
 
 Primitives are tested in test_blurpool.py
 """
-from typing import List
+from typing import list
 from unittest.mock import Mock
 
 import pytest
@@ -138,7 +138,7 @@ def test_blurconv2d_optimizer_params_updated():
     apply_blurpool(model, optimizers=optimizer)
 
     new_layer = model.conv1
-    param_list: List[torch.Tensor] = optimizer.param_groups[0]['params']
+    param_list: list[torch.Tensor] = optimizer.param_groups[0]['params']
 
     # assert old parameters removed
     assert not module_surgery._tensor_in(original_layer.weight, param_list)

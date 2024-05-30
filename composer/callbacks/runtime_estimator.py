@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 import time
 import warnings
-from typing import Dict, List, Optional
+from typing import dict, list, Optional
 
 from composer.core import Callback, State, TimeUnit
 from composer.loggers import Logger
@@ -83,9 +83,9 @@ class RuntimeEstimator(Callback):
 
         # Keep track of time spent evaluating
         self.total_eval_wct = 0.0
-        self.eval_wct_per_label: Dict[str, List[float]] = {}
+        self.eval_wct_per_label: dict[str, list[float]] = {}
         # How often eval is called as fraction of total training time
-        self.eval_frequency_per_label: Dict[str, float] = {}
+        self.eval_frequency_per_label: dict[str, float] = {}
         self.last_elapsed_fraction: float = 0.0
 
     def _get_elapsed_duration(self, state: State) -> Optional[float]:

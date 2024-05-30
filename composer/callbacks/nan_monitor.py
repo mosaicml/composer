@@ -3,7 +3,7 @@
 
 """Callback for catching loss NaNs."""
 
-from typing import Dict, Sequence
+from typing import dict, Sequence
 
 import torch
 
@@ -24,7 +24,7 @@ class NaNMonitor(Callback):
             for loss in state.loss:
                 if torch.isnan(loss).any():
                     raise RuntimeError('Train loss contains a NaN.')
-        elif isinstance(state.loss, Dict):
+        elif isinstance(state.loss, dict):
             for k, v in state.loss.items():
                 if torch.isnan(v).any():
                     raise RuntimeError(f'Train loss {k} contains a NaN.')

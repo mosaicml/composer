@@ -101,7 +101,7 @@ To compute metrics during training, implement the following methods:
    def eval_forward(self, batch, outputs) -> outputs:
        ...
 
-   def get_metrics(self, is_train=False) -> Dict[str, Metric]:
+   def get_metrics(self, is_train=False) -> dict[str, Metric]:
        ...
 
    def update_metric(self, batch, outputs, metric) -> None:
@@ -228,7 +228,7 @@ and make it compatible with our trainer.
 .. code:: python
 
     from mmdet.models import build_detector
-    from mmcv import ConfigDict
+    from mmcv import Configdict
     from composer.models import MMDetModel
 
     # yolox config from https://github.com/open-mmlab/mmdetection/blob/master/configs/yolox/yolox_s_8x8_300e_coco.py
@@ -243,7 +243,7 @@ and make it compatible with our trainer.
         train_cfg=dict(assigner=dict(type='SimOTAAssigner', center_radius=2.5)),
         test_cfg=dict(score_thr=0.01, nms=dict(type='nms', iou_threshold=0.65)))
 
-    yolox = build_detector(ConfigDict(yolox_s_config))
+    yolox = build_detector(Configdict(yolox_s_config))
     yolox.init_weights()
     model = MMDetModel(yolox)
 

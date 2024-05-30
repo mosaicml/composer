@@ -52,7 +52,7 @@ from torchmetrics import Metric, MetricCollection
 
 from composer.models import ComposerClassifier
 
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from typing import Any, Callable, dict, Optional, tuple, Union
 
 
 class SimpleDataset(Dataset):
@@ -91,7 +91,7 @@ class SimpleModelWithDropout(ComposerClassifier):
         self.fc1 = fc1
         self.fc2 = fc2
 
-    def loss(self, outputs: torch.Tensor, batch: Tuple[Any, torch.Tensor], *args, **kwargs) -> torch.Tensor:
+    def loss(self, outputs: torch.Tensor, batch: tuple[Any, torch.Tensor], *args, **kwargs) -> torch.Tensor:
         _, targets = batch
         targets = targets.squeeze(dim=0)
         # import sys
@@ -103,7 +103,7 @@ class SimpleModelWithDropout(ComposerClassifier):
         _, targets = batch
         metric.update(outputs.squeeze(dim=0), targets.squeeze(dim=0))
 
-    def forward(self, batch: Tuple[torch.Tensor, Any]) -> torch.Tensor:
+    def forward(self, batch: tuple[torch.Tensor, Any]) -> torch.Tensor:
         inputs, _ = batch
         inputs = inputs.squeeze(dim=0)
         outputs = self.module(inputs)

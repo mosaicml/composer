@@ -8,7 +8,7 @@ from __future__ import annotations
 import functools
 import time
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Callable, dict, list, Optional, Sequence, tuple, Type, Union
 
 from composer.profiler.trace_handler import TraceHandler
 
@@ -78,7 +78,7 @@ class Marker:
         name: str,
         record_instant_on_start: bool,
         record_instant_on_finish: bool,
-        categories: Union[List[str], Tuple[str, ...]],
+        categories: Union[list[str], tuple[str, ...]],
     ) -> None:
         self.state = state
         self.trace_handlers = trace_handlers
@@ -115,7 +115,7 @@ class Marker:
         self,
         wall_clock_time_ns: int,
         timestamp: Timestamp,
-        values: Dict[str, Union[int, float]],
+        values: dict[str, Union[int, float]],
     ) -> None:
         """Record a counter invent."""
         for handler in self.trace_handlers:
@@ -218,7 +218,7 @@ class Marker:
                 timestamp=self.state.timestamp,
             )
 
-    def counter(self, values: Dict[str, Union[float, int]]) -> None:
+    def counter(self, values: dict[str, Union[float, int]]) -> None:
         """Record a counter event.
 
         To record a counter event:

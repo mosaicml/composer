@@ -1,14 +1,14 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, Protocol
+from typing import Any, dict, Protocol
 
 # Putting the typing annotation for Serializable here to avoid
 # https://bugs.python.org/issue45121
 class Serializable(Protocol):
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         pass
 
-    def load_state_dict(self, state: Dict[str, Any]) -> None:
+    def load_state_dict(self, state: dict[str, Any]) -> None:
         pass

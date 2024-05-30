@@ -188,10 +188,10 @@ The following rules apply to public APIs:
 
     ```python
     from torch import Tensor
-    from typing import Optional, Sequence, Tuple, Union
+    from typing import Optional, Sequence, tuple, Union
     from composer.utils import ensure_tuple
 
-    def foo(x: Optional[Union[Tensor, Sequence[Tensor]]]) -> Tuple[Tensor, ...]:
+    def foo(x: Optional[Union[Tensor, Sequence[Tensor]]]) -> tuple[Tensor, ...]:
         return ensure_tuple(x)  # ensures that the result is always a (potentially empty) tuple of tensors
     ```
 
@@ -281,7 +281,7 @@ For example, from [composer/callbacks/memory_monitor.py](composer/callbacks/memo
 ```python
 """Log memory usage during training."""
 import logging
-from typing import Dict, Union
+from typing import dict, Union
 
 import torch.cuda
 
@@ -339,7 +339,7 @@ The following guidelines apply to documentation.
     specify "optional", and the docstring should say the default value. Some examples:
 
     ```python
-    from typing import Optional, Tuple, Union
+    from typing import Optional, tuple, Union
 
     def foo(bar: int):
         """Foo.
@@ -384,7 +384,7 @@ The following guidelines apply to documentation.
         """
         ...
 
-    def foo6(bar: int) -> Tuple[int, str]:
+    def foo6(bar: int) -> tuple[int, str]:
         """Foo6.
 
         Args:

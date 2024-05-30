@@ -10,7 +10,7 @@ import logging
 import os
 import re
 import time
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Callable, dict, list, Optional, Sequence, Union
 
 from composer.core.time import Time, TimeUnit
 from composer.loggers.logger import Logger
@@ -73,7 +73,7 @@ class SlackLogger(LoggerDestination):
     def __init__(
         self,
         include_keys: Sequence[str] = (),
-        formatter_func: Optional[Callable[..., List[Dict[str, Any]]]] = None,
+        formatter_func: Optional[Callable[..., list[dict[str, Any]]]] = None,
         log_interval: Union[int, str, Time] = '1ba',
         max_logs_per_message: int = 50,
         slack_logging_api_key: Optional[str] = None,
@@ -113,7 +113,7 @@ class SlackLogger(LoggerDestination):
 
     def _log_to_buffer(
         self,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         **kwargs,  # can be used to pass additional arguments to the formatter function (eg for headers)
     ):
         """Flush the buffer to slack if the buffer size exceeds max_logs_per_message.
@@ -131,9 +131,9 @@ class SlackLogger(LoggerDestination):
 
     def _default_log_bold_key_normal_value_pair_with_header(
         self,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         **kwargs,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Default formatter function if no formatter func is specified.
 
         This function will:
@@ -141,12 +141,12 @@ class SlackLogger(LoggerDestination):
         2. When logging metrics, set the step number as the header of the section.
 
         Args:
-            data (Dict[str, Any]): Data to be logged.
+            data (dict[str, Any]): Data to be logged.
             **kwargs: Additional arguments to be passed to the formatter function
             (Only supports "header" argument now)
 
         Returns:
-            List[Dict[str, str]]: List of blocks to be sent to Slack.
+            list[dict[str, str]]: list of blocks to be sent to Slack.
         """
         blocks = [{'type': 'section', 'text': {'type': 'mrkdwn', 'text': f'*{k}:* {v}'}} for k, v in data.items()]
         if len(blocks) > 0 and 'header' in kwargs:
@@ -155,13 +155,13 @@ class SlackLogger(LoggerDestination):
 
         return blocks
 
-    def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
+    def log_metrics(self, metrics: dict[str, Any], step: Optional[int] = None) -> None:
         self._log_to_buffer(data=metrics, header=step)
 
-    def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
+    def log_hyperparameters(self, hyperparameters: dict[str, Any]):
         self._log_to_buffer(data=hyperparameters)
 
-    def log_traces(self, traces: Dict[str, Any]):
+    def log_traces(self, traces: dict[str, Any]):
         self._log_to_buffer(data=traces)
 
     def epoch_end(self, state: State, logger: Logger) -> None:
@@ -196,7 +196,7 @@ class SlackLogger(LoggerDestination):
 
     def _format_and_send_blocks_to_slack(
         self,
-        log_entries: Dict[str, Any],
+        log_entries: dict[str, Any],
         **kwargs,
     ):
         blocks = self.formatter_func(

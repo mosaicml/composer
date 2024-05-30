@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import List, Optional, Type
+from typing import list, Optional, Type
 from unittest.mock import Mock
 
 import pytest
@@ -151,7 +151,7 @@ class TestStochasticDepthDropRate:
             drop_warmup,
         )
 
-    def get_drop_rate_list(self, module: torch.nn.Module, drop_rates: Optional[List] = None):
+    def get_drop_rate_list(self, module: torch.nn.Module, drop_rates: Optional[list] = None):
         if drop_rates is None:
             drop_rates = []
         if (len(list(module.children())) == 0 and len(list(module.parameters())) > 0):

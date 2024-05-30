@@ -5,7 +5,7 @@
 
 import logging
 import warnings
-from typing import Any, Dict, Tuple, Union
+from typing import Any, dict, tuple, Union
 
 import torch
 from packaging import version
@@ -40,7 +40,7 @@ BACKWARD_PREFETCH_MAP = {
 }
 
 
-def set_fsdp_default(fsdp_config: Dict[str, Any]):
+def set_fsdp_default(fsdp_config: dict[str, Any]):
     """Modify fsdp_config to set default values for missing keys."""
     if 'process_group' in fsdp_config:
         warnings.warn(
@@ -191,7 +191,7 @@ def _get_process_group(pg, process_group_cache=None):
         pg = f'mod{local_world_size}'
         log.info(f"Converting process_group='local_rank_across_nodes' to process_group='{pg}'")
 
-    # Handle str and Union[List[int], Tuple[int]] process_group cases
+    # Handle str and Union[list[int], tuple[int]] process_group cases
     if isinstance(pg, str) and pg.startswith('set'):
         k = int(pg.strip('set'))
         world_size = dist.get_world_size()
@@ -229,8 +229,8 @@ def _get_process_group(pg, process_group_cache=None):
     return current_group
 
 
-def set_custom_fsdp_module_kwargs(module_kwargs: Dict, process_group_cache: Dict[Tuple[int], Any]) -> Dict:
-    """Set custom module_kwargs per fsdp module."""
+def set_custom_fsdp_module_kwargs(module_kwargs: dict, process_group_cache: dict[tuple[int], Any]) -> dict:
+    """set custom module_kwargs per fsdp module."""
     if ('sharding_strategy' in module_kwargs and module_kwargs['sharding_strategy'] not in SHARDING_MAP.values()):
         module_kwargs['sharding_strategy'] = SHARDING_MAP[module_kwargs['sharding_strategy'].upper()]
     if 'backward_prefetch' in module_kwargs:

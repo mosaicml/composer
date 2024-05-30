@@ -67,7 +67,7 @@ FROM ${BASE_IMAGE} AS pytorch_stage
 ARG DEBIAN_FRONTEND=noninteractive
 
 #######################
-# Set the shell to bash
+# set the shell to bash
 #######################
 SHELL ["/bin/bash", "-c"]
 
@@ -203,7 +203,7 @@ ARG PYTORCH_NIGHTLY_URL
 ARG PYTORCH_NIGHTLY_VERSION
 ARG TORCHVISION_VERSION
 
-# Set so supporting PyTorch packages such as Torchvision pin PyTorch version
+# set so supporting PyTorch packages such as Torchvision pin PyTorch version
 ENV PYTORCH_VERSION=${PYTORCH_VERSION}
 ENV PYTORCH_NIGHTLY_URL=${PYTORCH_NIGHTLY_URL}
 ENV PYTORCH_NIGHTLY_VERSION=${PYTORCH_NIGHTLY_VERSION}
@@ -301,7 +301,7 @@ RUN pip${PYTHON_VERSION} install --no-cache-dir pandoc==2.3
 # Use the correct python version
 ################################
 
-# Set the default python by creating our own folder and hacking the path
+# set the default python by creating our own folder and hacking the path
 # We don't want to use upgrade-alternatives as that will break system packages
 
 ARG COMPOSER_PYTHON_BIN=/composer-python

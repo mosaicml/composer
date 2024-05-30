@@ -16,7 +16,7 @@ import tempfile
 import textwrap
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Set, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, dict, list, Mapping, Optional, set, tuple, Type, Union
 
 import torch
 from torchmetrics import Metric
@@ -81,8 +81,8 @@ class HuggingFaceModel(ComposerModel):
         model: Union[transformers.PreTrainedModel, 'PeftModel'],
         tokenizer: Optional[Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]] = None,
         use_logits: Optional[bool] = False,
-        metrics: Optional[List[Metric]] = None,
-        eval_metrics: Optional[List[Metric]] = None,
+        metrics: Optional[list[Metric]] = None,
+        eval_metrics: Optional[list[Metric]] = None,
         shift_labels: Optional[bool] = None,
         allow_embedding_resizing: bool = False,
         peft_config: Optional['PeftConfig'] = None,
@@ -128,8 +128,8 @@ class HuggingFaceModel(ComposerModel):
         self.use_logits = use_logits
         self.labels: Optional[torch.Tensor] = None  # set in eval_forward() if exists
         self.dummy_forward_called = False  # Used to make FSDP generate work, see generate function for more details
-        self.train_metrics: Optional[Dict] = self._get_metric_dict(metrics) if metrics is not None else None
-        self.val_metrics: Optional[Dict] = self._get_metric_dict(
+        self.train_metrics: Optional[dict] = self._get_metric_dict(metrics) if metrics is not None else None
+        self.val_metrics: Optional[dict] = self._get_metric_dict(
             eval_metrics,
         ) if eval_metrics is not None else copy.deepcopy(
             self.train_metrics,
@@ -188,11 +188,11 @@ class HuggingFaceModel(ComposerModel):
                 f' performance.',
             )
 
-    def _get_metric_dict(self, metrics: List[Metric]) -> Dict[str, Metric]:
+    def _get_metric_dict(self, metrics: list[Metric]) -> dict[str, Metric]:
         """Returns a dictionary of metrics keyed by their class name."""
         return {metric.__class__.__name__: metric for metric in metrics}
 
-    def _get_model_forward_args(self) -> Set[str]:
+    def _get_model_forward_args(self) -> set[str]:
         """Returns the arguments to the model's forward function."""
         model_forward_args = inspect.signature(maybe_get_underlying_model(self.model).forward).parameters.keys()
 
@@ -203,7 +203,7 @@ class HuggingFaceModel(ComposerModel):
 
         return model_forward_args
 
-    def state_dict(self, *args, **kwargs) -> Dict[str, Any]:
+    def state_dict(self, *args, **kwargs) -> dict[str, Any]:
         """Returns the state dict of the model."""
         full_state_dict = super().state_dict(*args, **kwargs)
 
@@ -221,14 +221,14 @@ class HuggingFaceModel(ComposerModel):
 
     @staticmethod
     def load_huggingface_tokenizer_from_saved_state(
-        hf_state: Dict[str, Any],
+        hf_state: dict[str, Any],
         trust_remote_code: bool = False,
         tokenizer_save_dir: Optional[str] = None,
     ) -> Optional[transformers.PreTrainedTokenizer | transformers.PreTrainedTokenizerFast]:
         """A helper function that loads a HuggingFace tokenizer from a loaded in hf state.
 
         Args:
-            hf_state (Dict[str, Any]): HF state loaded from a Composer checkpoint.
+            hf_state (dict[str, Any]): HF state loaded from a Composer checkpoint.
             trust_remote_code (bool, optional): Whether to trust the remote code when loading the tokenizer. Defaults to False.
             tokenizer_save_dir (Optional[str], optional): If specified, where to save the tokenizer files to locally. If not specified,
                 a folder with a unique suffix will be saved in the current working directory. Defaults to None.
@@ -305,21 +305,21 @@ class HuggingFaceModel(ComposerModel):
 
     @staticmethod
     def load_huggingface_model_from_saved_state(
-        hf_state: Dict[str, Any],
-        loaded_state_dict: Dict[str, Dict[str, Dict[str, Dict[str, Any]]]],
+        hf_state: dict[str, Any],
+        loaded_state_dict: dict[str, dict[str, dict[str, dict[str, Any]]]],
         model_instantiation_class: type | str | None,
-        model_config_kwargs: Dict[str, Any] | None,
+        model_config_kwargs: dict[str, Any] | None,
     ) -> transformers.PreTrainedModel:
         """A helper function that loads a HuggingFace model class from a loaded in hf state.
 
         Args:
-            hf_state (Dict[str, Any]): HF state loaded from a Composer checkpoint.
+            hf_state (dict[str, Any]): HF state loaded from a Composer checkpoint.
             model_instantiation_class (Union[Type[:class:`transformers.PreTrainedModel`], Type[:class:`transformers.AutoModel`], str]), optional):
                 Class to use to create the HuggingFace model. Defaults to the model class used in the original checkpoint. If this argument is
                 a HuggingFace auto class (e.g. :class:`transformers.AutoModel` or :class:`transformers.AutoModelForSequenceClassification`), the ``from_config`` method will be used,
                 while if it is of type :class:`transformers.PreTrainedModel`, the constructor will be called. This argument can also be a string,
                 which will attempt to be imported as the class to use.
-            model_config_kwargs: Dict[str, Any]: Extra arguments to pass in for the model config creation (e.g. ``num_labels`` for creating a sequence classification model)
+            model_config_kwargs: dict[str, Any]: Extra arguments to pass in for the model config creation (e.g. ``num_labels`` for creating a sequence classification model)
         Returns:
             transformers.PreTrainedModel: The loaded HuggingFace model
         """
@@ -387,7 +387,7 @@ class HuggingFaceModel(ComposerModel):
         model_config_kwargs: Optional[dict] = None,
         local_checkpoint_save_location: Optional[Union[Path, str]] = None,
         trust_remote_code: bool = False,
-    ) -> Tuple[transformers.PreTrainedModel,
+    ) -> tuple[transformers.PreTrainedModel,
                Optional[Union[transformers.PreTrainedTokenizer,
                               transformers.PreTrainedTokenizerFast,
                              ]],
@@ -443,7 +443,7 @@ class HuggingFaceModel(ComposerModel):
                 a HuggingFace auto class (e.g. :class:`transformers.AutoModel` or :class:`transformers.AutoModelForSequenceClassification`), the ``from_config`` method will be used,
                 while if it is of type :class:`transformers.PreTrainedModel`, the constructor will be called. This argument can also be a string,
                 which will attempt to be imported as the class to use.
-            model_config_kwargs: Dict[str, Any]: Extra arguments to pass in for the model config creation (e.g. ``num_labels`` for creating a sequence classification model)
+            model_config_kwargs: dict[str, Any]: Extra arguments to pass in for the model config creation (e.g. ``num_labels`` for creating a sequence classification model)
             local_checkpoint_save_location (Optional[Union[Path, str]], optional): If specified, where to save the checkpoint file to locally.
                                                                                    If the input ``checkpoint_path`` is already a local path, this will be a symlink.
                                                                                    Defaults to None, which will use a temporary file.
@@ -453,7 +453,7 @@ class HuggingFaceModel(ComposerModel):
             ValueError: If the ``model_instantiation_class``, or the model class saved in the checkpoint, is not able to be imported
 
         Returns:
-            Tuple[transformers.PreTrainedModel, Optional[Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]]]: The loaded HuggingFace model and (if present) tokenizer
+            tuple[transformers.PreTrainedModel, Optional[Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]]]: The loaded HuggingFace model and (if present) tokenizer
         """
 
         # default local path to a tempfile if path is not provided
@@ -569,7 +569,7 @@ class HuggingFaceModel(ComposerModel):
 
         return output
 
-    def get_metrics(self, is_train: bool = False) -> Dict[str, Metric]:
+    def get_metrics(self, is_train: bool = False) -> dict[str, Metric]:
         if is_train:
             metrics = self.train_metrics
         else:
@@ -577,7 +577,7 @@ class HuggingFaceModel(ComposerModel):
 
         return metrics if metrics else {}
 
-    def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> Dict:
+    def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> dict:
         if metric.device.type == 'cpu':
             self.labels = DeviceCPU().batch_to_device(self.labels)
 
@@ -761,14 +761,14 @@ def _is_registered_causal_lm(model: Union[transformers.PreTrainedModel, 'PeftMod
 
 
 def get_hf_config_from_composer_state_dict(
-    state_dict: Dict[str, Any],
-    config_overrides: Optional[Dict[str, Any]] = None,
+    state_dict: dict[str, Any],
+    config_overrides: Optional[dict[str, Any]] = None,
 ) -> 'PretrainedConfig':
     """Get a HuggingFace config from a composer state dict with overrides applied
 
     Args:
-        state_dict (Dict[str, Any]): The state dict to get the config from
-        config_overrides (Dict[str, Any], optional): Any overrides to apply to the config
+        state_dict (dict[str, Any]): The state dict to get the config from
+        config_overrides (dict[str, Any], optional): Any overrides to apply to the config
 
     Returns:
         transformers.PretrainedConfig: The HuggingFace config
@@ -805,11 +805,11 @@ def get_hf_config_from_composer_state_dict(
             )
 
 
-def get_peft_config_from_composer_state_dict(state_dict: Dict[str, Any]) -> Optional['PeftConfig']:
+def get_peft_config_from_composer_state_dict(state_dict: dict[str, Any]) -> Optional['PeftConfig']:
     """Get a PEFT config from a composer state dict
 
     Args:
-        state_dict (Dict[str, Any]): The state dict to get the config from
+        state_dict (dict[str, Any]): The state dict to get the config from
 
     Returns:
         Optional[peft.PeftConfig]: The PEFT config. Will be ``None`` if the model is not a PEFT model.
@@ -928,23 +928,23 @@ def write_huggingface_pretrained_from_composer_checkpoint(
 
 
 def filter_state_dict_peft(
-    state_dict: Dict[str, Any],
+    state_dict: dict[str, Any],
     peft_config: 'PeftConfig',
     adapter_name: str = 'default',
     remove_adapter_names: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Filter a state dict to only include the weights needed for a PEFT model
 
     Note: This function only works with LORA PEFT models right now.
 
     Args:
-        state_dict (Dict[str, Any]): The state dict to filter
+        state_dict (dict[str, Any]): The state dict to filter
         peft_config (PeftConfig): The PEFT config to use to filter the state dict
         adapter_name (str, optional): The name of the adapter to filter for. Defaults to 'default'.
         remove_adapter_names (bool, optional): Whether to remove the adapter names from the state dict keys. Defaults to True.
 
     Returns:
-        Dict[str, Any]: The filtered state dict
+        dict[str, Any]: The filtered state dict
     """
 
     if peft_config.peft_type != 'LORA':

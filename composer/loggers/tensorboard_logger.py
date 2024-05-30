@@ -4,7 +4,7 @@
 """Log to `Tensorboard <https://www.tensorflow.org/tensorboard/>`_."""
 
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence, Union
+from typing import Any, dict, Optional, Sequence, Union
 
 import numpy as np
 import torch
@@ -60,10 +60,10 @@ class TensorboardLogger(LoggerDestination):
         self.rank_zero_only = rank_zero_only
         self.writer: Optional[SummaryWriter] = None
         self.run_name: Optional[str] = None
-        self.hyperparameters: Dict[str, Any] = {}
-        self.current_metrics: Dict[str, Any] = {}
+        self.hyperparameters: dict[str, Any] = {}
+        self.current_metrics: dict[str, Any] = {}
 
-    def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
+    def log_hyperparameters(self, hyperparameters: dict[str, Any]):
 
         if self.rank_zero_only and dist.get_global_rank() != 0:
             return
@@ -74,7 +74,7 @@ class TensorboardLogger(LoggerDestination):
         }
         self.hyperparameters.update(formatted_hparams)
 
-    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None):
+    def log_metrics(self, metrics: dict[str, float], step: Optional[int] = None):
         if self.rank_zero_only and dist.get_global_rank() != 0:
             return
 
@@ -149,8 +149,8 @@ class TensorboardLogger(LoggerDestination):
         name: str = 'Images',
         channels_last: bool = False,
         step: Optional[int] = None,
-        masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
-        mask_class_labels: Optional[Dict[int, str]] = None,
+        masks: Optional[dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
+        mask_class_labels: Optional[dict[int, str]] = None,
         use_table: bool = False,
     ):
         images = _convert_to_tensorboard_image(images)

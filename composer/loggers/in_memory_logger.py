@@ -9,7 +9,7 @@ Useful for collecting and plotting data inside notebooks.
 from __future__ import annotations
 
 import copy
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, dict, list, Optional, tuple
 
 import numpy as np
 from torch import Tensor
@@ -49,32 +49,32 @@ class InMemoryLogger(LoggerDestination):
             logged_data = trainer.logger.destinations[0].data
 
     Attributes:
-        data (Dict[str, List[Tuple[Timestamp, Any]]]): Mapping of a logged key to
+        data (dict[str, list[tuple[Timestamp, Any]]]): Mapping of a logged key to
             a (:class:`~.time.Timestamp`, logged value) tuple.
             This dictionary contains all logged data.
-        most_recent_values (Dict[str, Any]): Mapping of a key to the most recent value for that key.
-        most_recent_timestamps (Dict[str, Timestamp]): Mapping of a key to the
+        most_recent_values (dict[str, Any]): Mapping of a key to the most recent value for that key.
+        most_recent_timestamps (dict[str, Timestamp]): Mapping of a key to the
             :class:`~.time.Timestamp` of the last logging call for that key.
-        hyperparameters (Dict[str, Any]): Dictionary of all hyperparameters.
-        tables (Dict[str, str]): Dictionary of table name to json table.
+        hyperparameters (dict[str, Any]): dictionary of all hyperparameters.
+        tables (dict[str, str]): dictionary of table name to json table.
 
     """
 
     def __init__(self) -> None:
-        self.data: Dict[str, List[Tuple[Timestamp, Any]]] = {}
+        self.data: dict[str, list[tuple[Timestamp, Any]]] = {}
         self.most_recent_values = {}
-        self.most_recent_timestamps: Dict[str, Timestamp] = {}
+        self.most_recent_timestamps: dict[str, Timestamp] = {}
         self.state: Optional[State] = None
-        self.hyperparameters: Dict[str, Any] = {}
-        self.tables: Dict[str, str] = {}
+        self.hyperparameters: dict[str, Any] = {}
+        self.tables: dict[str, str] = {}
 
-    def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
+    def log_hyperparameters(self, hyperparameters: dict[str, Any]):
         self.hyperparameters.update(hyperparameters)
 
     def log_table(
         self,
-        columns: List[str],
-        rows: List[List[Any]],
+        columns: list[str],
+        rows: list[list[Any]],
         name: str = 'Table',
         step: Optional[int] = None,
     ) -> None:
@@ -94,7 +94,7 @@ class InMemoryLogger(LoggerDestination):
         # assert isinstance(table, str)
         self.tables[name] = table
 
-    def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
+    def log_metrics(self, metrics: dict[str, Any], step: Optional[int] = None) -> None:
         assert self.state is not None
         timestamp = self.state.timestamp
         copied_metrics = copy.deepcopy(metrics)
@@ -108,14 +108,14 @@ class InMemoryLogger(LoggerDestination):
     def init(self, state: State, logger: Logger) -> None:
         self.state = state
 
-    def get_timeseries(self, metric: str) -> Dict[str, Any]:
+    def get_timeseries(self, metric: str) -> dict[str, Any]:
         """Returns logged data as dict containing values of a desired metric over time.
 
         Args:
             metric (str): Metric of interest. Must be present in self.data.keys().
 
         Returns:
-            timeseries (Dict[str, Any]): Dictionary in which one key is ``metric``,
+            timeseries (dict[str, Any]): dictionary in which one key is ``metric``,
                 and the associated value is a list of values of that metric. The remaining
                 keys are each a unit of time, and the associated values are each a list of
                 values of that time unit for the corresponding index of the metric. For

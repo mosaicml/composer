@@ -6,13 +6,13 @@
 Attributes:
     Batch (Any): Alias to type Any.
         A batch of data can be represented in several formats, depending on the application.
-    JSON (str | float | int | None | List['JSON'] | Dict[str, 'JSON']): JSON Data.
+    JSON (str | float | int | None | list['JSON'] | dict[str, 'JSON']): JSON Data.
     Dataset (torch.utils.data.Dataset[Batch]): Alias for :class:`torch.utils.data.Dataset`.
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Union
+from typing import Any, dict, list, Union
 
 import torch
 import torch.utils.data
@@ -25,7 +25,7 @@ Batch = Any
 
 Dataset = torch.utils.data.Dataset[Batch]
 
-JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
+JSON = Union[str, float, int, None, list['JSON'], dict[str, 'JSON']]
 
 
 class TrainerMode(StringEnum):

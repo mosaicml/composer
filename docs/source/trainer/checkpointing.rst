@@ -440,7 +440,7 @@ to the environment variables ``GCS_KEY`` and ``GCS_SECRET`` respectively or the 
 
 There are a few additional trainer arguments which can be helpful to configure:
 
-*   ``save_num_checkpoints_to_keep``: Set this parameter to remove checkpoints from the local disk after they have been
+*   ``save_num_checkpoints_to_keep``: set this parameter to remove checkpoints from the local disk after they have been
     uploaded. For example, setting this parameter to 1 will only keep the latest checkpoint locally; setting it to 0
     will remove each checkpoint after it has been uploaded. Checkpoints are never deleted from object stores.
 *   ``save_remote_file_name``: To customize how checkpoints are named in the cloud bucket, modify this parameter. By

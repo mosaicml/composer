@@ -1,14 +1,14 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict
+from typing import Any, dict
 
 from composer.core import State
 from composer.utils import is_model_deepspeed
 from tests.common.compare import deep_compare
 
 
-def _del_wct_timestamp_fields(timestamp_state_dict: Dict[str, Any]):
+def _del_wct_timestamp_fields(timestamp_state_dict: dict[str, Any]):
     del timestamp_state_dict['Timestamp']['total_wct']
     del timestamp_state_dict['Timestamp']['iteration_wct']
     del timestamp_state_dict['Timestamp']['epoch_wct']

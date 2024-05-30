@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Dict, List, Tuple, Union
+from typing import dict, list, tuple, Union
 
 import pytest
 import torch
@@ -15,13 +15,13 @@ def dummy_tensor_batch() -> torch.Tensor:
     return torch.randn(size=(1, 1, 1, 1))
 
 
-def dummy_tuple_batch() -> Tuple[torch.Tensor, torch.Tensor]:
+def dummy_tuple_batch() -> tuple[torch.Tensor, torch.Tensor]:
     image = torch.randn(size=(1, 1, 1, 1))
     target = torch.randint(size=(1,), high=10)
     return image, target
 
 
-def dummy_tuple_batch_long() -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+def dummy_tuple_batch_long() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     image_1 = torch.randn(size=(1, 1, 1, 1))
     image_2 = torch.randn(size=(1, 1, 1, 1))
     image_3 = torch.randn(size=(1, 1, 1, 1))
@@ -29,13 +29,13 @@ def dummy_tuple_batch_long() -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, 
     return image_1, image_2, image_3, target
 
 
-def dummy_dict_batch() -> Dict[str, torch.Tensor]:
+def dummy_dict_batch() -> dict[str, torch.Tensor]:
     image = torch.randn(size=(1, 1, 1, 1))
     target = torch.randint(size=(1,), high=10)
     return {'image': image, 'target': target}
 
 
-def dummy_dict_batch_with_metadata(batch_size=1) -> Dict[str, Union[List, torch.Tensor, str]]:
+def dummy_dict_batch_with_metadata(batch_size=1) -> dict[str, Union[list, torch.Tensor, str]]:
     # sometimes metadata is included with a batch that isn't taken by the model.
     image = torch.randn(size=(batch_size, 1, 1, 1))
     target = torch.randint(size=(batch_size,), high=10)
@@ -44,10 +44,10 @@ def dummy_dict_batch_with_metadata(batch_size=1) -> Dict[str, Union[List, torch.
     return {'image': image, 'target': target, 'meta': meta, 'index': index}
 
 
-def dummy_maskrcnn_batch() -> List[Tuple[torch.Tensor, Dict[str, torch.Tensor]]]:
+def dummy_maskrcnn_batch() -> list[tuple[torch.Tensor, dict[str, torch.Tensor]]]:
 
     def generate_maskrcnn_sample(num_detections, image_height=1, image_width=1, num_classes=1):
-        """Generates a maskrcnn style sample: (Tensor, Dict[Tensor])."""
+        """Generates a maskrcnn style sample: (Tensor, dict[Tensor])."""
         image = torch.randn(size=(3, image_height, image_width)).type(torch.float)
         target = {
             'boxes':

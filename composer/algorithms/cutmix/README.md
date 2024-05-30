@@ -79,7 +79,7 @@ The construction of the bounding box for the mixed region follows the [paper's i
 
 ## Suggested Hyperparameters
 
-Setting `alpha=1` is a standard choice. This produces a uniform distribution, meaning the interpolation between the labels of the two sets of examples is selected uniformly between 0 and 1.
+setting `alpha=1` is a standard choice. This produces a uniform distribution, meaning the interpolation between the labels of the two sets of examples is selected uniformly between 0 and 1.
 
 ## Technical Details
 

@@ -6,7 +6,7 @@ import os
 import tempfile
 from contextlib import nullcontext
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, dict, list, Optional
 from unittest.mock import patch
 from urllib.parse import urlparse
 
@@ -503,7 +503,7 @@ def get_lm_trainer(
     load_path: Optional[str] = None,
     is_conditional_generation: bool = False,
     do_eval: bool = False,
-    parallelism_config: Optional[Dict[str, Any]] = None,
+    parallelism_config: Optional[dict[str, Any]] = None,
     mlm: bool = True,
     add_padding: bool = False,
     device_train_microbatch_size: Optional[int] = None,
@@ -515,7 +515,7 @@ def get_lm_trainer(
 ):
     transformers = pytest.importorskip('transformers')
 
-    metrics: List[Metric] = [LanguageCrossEntropy(ignore_index=-100)]
+    metrics: list[Metric] = [LanguageCrossEntropy(ignore_index=-100)]
     if not is_conditional_generation:
         metrics.append(MaskedAccuracy(ignore_index=-100))
 

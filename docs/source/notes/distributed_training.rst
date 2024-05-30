@@ -273,7 +273,7 @@ An example code snippet for using FSDP with composer is provided below:
     class Model(nn.Module):
         def __init__(self, n_layers):
             super().__init__()
-            self.blocks = nn.ModuleList([
+            self.blocks = nn.Modulelist([
                 Block(...) for _ in range(n_layers)
             ]),
             self.head = nn.Linear(...)
@@ -365,10 +365,10 @@ A very similar auto wrap policy is provided for activation checkpointing, with a
     class Model(nn.Module):
         def __init__(self, n_layers):
             super().__init__()
-            self.blocks = nn.ModuleList([
+            self.blocks = nn.Modulelist([
                 Block(...) for _ in range(n_layers)
             ])
-            self.custom_arg_blocks = nn.ModuleList([
+            self.custom_arg_blocks = nn.Modulelist([
                 BlockRequiringCustomArgs(...) for _ in range(n_layers)
             ]),
             self.head = nn.Linear(...)
@@ -448,7 +448,7 @@ For example, to save sharded checkpoints to disk locally (`state_dict_type='shar
     class Model(nn.Module):
         def __init__(self, n_layers):
             super().__init__()
-            self.blocks = nn.ModuleList([
+            self.blocks = nn.Modulelist([
                 Block(...) for _ in range(n_layers)
             ]),
             self.head = nn.Linear(...)
@@ -570,7 +570,7 @@ An example code snippet for using FSDP with composer is provided below:
     class Model(nn.Module):
         def __init__(self, n_layers):
             super().__init__()
-            self.blocks = nn.ModuleList([
+            self.blocks = nn.Modulelist([
                 Block(...) for _ in range(n_layers)
             ]),
             self.head = nn.Linear(...)

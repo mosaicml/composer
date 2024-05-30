@@ -16,7 +16,7 @@ import logging
 import math
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, List, Union
+from typing import TYPE_CHECKING, list, Union
 
 from torch.optim.lr_scheduler import LambdaLR, LRScheduler
 
@@ -254,11 +254,11 @@ class MultiStepScheduler(ComposerScheduler):
     multiplicative decay factor.
 
     Args:
-        milestones (List[str | Time]): Times at which the learning rate should change.
+        milestones (list[str | Time]): Times at which the learning rate should change.
         gamma (float): Multiplicative decay factor. Default = ``0.1``.
     """
 
-    def __init__(self, milestones: List[Union[str, Time]], gamma: float = 0.1):
+    def __init__(self, milestones: list[Union[str, Time]], gamma: float = 0.1):
         self.milestones = milestones
         self.gamma = gamma
 
@@ -491,7 +491,7 @@ class CosineAnnealingWarmRestartsScheduler(ComposerScheduler):
 
 
 class PolynomialScheduler(ComposerScheduler):
-    r"""Sets the learning rate to be proportional to a power of the fraction of training time left.
+    r"""sets the learning rate to be proportional to a power of the fraction of training time left.
 
     Specifically, the learning rate multiplier :math:`\alpha` can be expressed as:
 
@@ -621,7 +621,7 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
 
     Args:
         t_warmup (str | Time): Warmup time.
-        milestones (List[str | Time]): Times at which the learning rate should change.
+        milestones (list[str | Time]): Times at which the learning rate should change.
         gamma (float): Multiplicative decay factor. Default = ``0.1``.
         scale_warmup (float): SSR also scales the warmup period. Default = ``False``.
     """
@@ -629,7 +629,7 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
     def __init__(
         self,
         t_warmup: Union[str, Time],
-        milestones: List[Union[str, Time]],
+        milestones: list[Union[str, Time]],
         gamma: float = 0.1,
         scale_warmup: bool = False,
     ):

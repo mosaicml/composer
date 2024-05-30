@@ -9,7 +9,7 @@ Provides utilities to do FX-based model transformations.
 import logging
 import operator
 import re
-from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Union
+from typing import Any, Callable, dict, list, Mapping, Optional, tuple, Union
 
 import torch
 import torch.nn as nn
@@ -24,7 +24,7 @@ log = logging.getLogger(__name__)
 __all__ = ['count_op_instances', 'replace_op', 'fuse_parallel_linears', 'apply_stochastic_residual']
 
 
-def count_op_instances(gm: GraphModule, ops: Union[Callable, str, List[Union[Callable, str]]]) -> int:
+def count_op_instances(gm: GraphModule, ops: Union[Callable, str, list[Union[Callable, str]]]) -> int:
     """Counts the number of instances of ``op`` in ``gm``.
 
     .. rubric:: Example
@@ -50,7 +50,7 @@ def count_op_instances(gm: GraphModule, ops: Union[Callable, str, List[Union[Cal
 
     Arguments:
         module (GraphModule): The source FX-traced graph.
-        op (Union[Callable, str, List[Union[Callable, str]]]):
+        op (Union[Callable, str, list[Union[Callable, str]]]):
             The operations to count.
 
     Returns:
@@ -73,7 +73,7 @@ def count_op_instances(gm: GraphModule, ops: Union[Callable, str, List[Union[Cal
 
 def replace_op(
     gm: GraphModule,
-    src_ops: Union[Callable, str, List[Union[Callable, str]]],
+    src_ops: Union[Callable, str, list[Union[Callable, str]]],
     tgt_op: Callable[..., Any],
 ) -> GraphModule:
     """Replace a single operator, torch method or function with another.
@@ -100,7 +100,7 @@ def replace_op(
 
     Arguments:
         module (GraphModule): The source FX-traced graph.
-        src_ops (Union[Callable, str, List[Union[Callable, str]]):
+        src_ops (Union[Callable, str, list[Union[Callable, str]]):
             Replace these operations.
         tgt_op (Callable): Replacement for the operations
 
@@ -119,7 +119,7 @@ def replace_op(
     return gm
 
 
-def _get_ancestors(node: Node) -> List[Node]:
+def _get_ancestors(node: Node) -> list[Node]:
     ancestorNodes = []
     while node.op != 'placeholder':
         ancestorNodes.append(node)
@@ -127,7 +127,7 @@ def _get_ancestors(node: Node) -> List[Node]:
     return ancestorNodes
 
 
-def _get_residual_block_nodes(nodeLHS: Node, nodeRHS: Node) -> Tuple[List[Node], List[Node]]:
+def _get_residual_block_nodes(nodeLHS: Node, nodeRHS: Node) -> tuple[list[Node], list[Node]]:
     """Walk backwards from nodeLHS and nodeRSH to the root and construct lists of their parents.
 
     Arguments:
@@ -150,13 +150,13 @@ def _get_residual_block_nodes(nodeLHS: Node, nodeRHS: Node) -> Tuple[List[Node],
     return lhsAncestors, rhsAncestors
 
 
-def _attach_tag(nodes: List[Node], tag: str):
+def _attach_tag(nodes: list[Node], tag: str):
     """Attach tag to the given nodes for the splitter."""
     for node in nodes:
         node.tag = tag  # type: ignore[attr-defined]
 
 
-def _tag_residual_nodes(gm: GraphModule) -> Tuple[List[str], int]:
+def _tag_residual_nodes(gm: GraphModule) -> tuple[list[str], int]:
     """Tag nodes for splitting."""
     # all nodes that are not a part of the residual blocks are tagged with "mainN_{count}".
     # a tag is required for all nodes by split_by_tags
@@ -188,7 +188,7 @@ def _tag_residual_nodes(gm: GraphModule) -> Tuple[List[str], int]:
     return all_tags, count
 
 
-def _get_residual_modules(gm: GraphModule, node: Node) -> Tuple[Optional[GraphModule], Optional[GraphModule], int]:
+def _get_residual_modules(gm: GraphModule, node: Node) -> tuple[Optional[GraphModule], Optional[GraphModule], int]:
     """Returns GraphModules for the main and residual branches.
 
     node.op is assumed to be a call_module
@@ -228,7 +228,7 @@ def _replace_residual_pattern(
     gm.graph.lint()
 
 
-def apply_stochastic_residual(gm: GraphModule, drop_rate: float = 0.2) -> Tuple[GraphModule, int]:
+def apply_stochastic_residual(gm: GraphModule, drop_rate: float = 0.2) -> tuple[GraphModule, int]:
     """Detect and replace residual pattern with their stochastic equivalent.
 
     Arguments:
@@ -257,7 +257,7 @@ def apply_stochastic_residual(gm: GraphModule, drop_rate: float = 0.2) -> Tuple[
     return split_gm, count
 
 
-def _can_linears_be_fused(linear_nodes: List[Node], all_modules: Mapping[str, nn.Module]) -> bool:
+def _can_linears_be_fused(linear_nodes: list[Node], all_modules: Mapping[str, nn.Module]) -> bool:
     """Check if all the linears have bias."""
     # Forcing node.target to str is fine here as we are dealing with nn.Modules
     # and their target is a str.
@@ -267,10 +267,10 @@ def _can_linears_be_fused(linear_nodes: List[Node], all_modules: Mapping[str, nn
 
 
 def _create_fused_linear(
-    linear_nodes: List[Node],
+    linear_nodes: list[Node],
     all_modules: Mapping[str, nn.Module],
     keep_weights: bool = False,
-) -> Tuple[nn.Module, List[int]]:
+) -> tuple[nn.Module, list[int]]:
     """Check if the linears can be fused.
 
     If the linears can be fused, create a fused nn.Linear instance and return it.
@@ -328,7 +328,7 @@ def fuse_parallel_linears(gm: GraphModule, keep_weights: bool = False) -> GraphM
     Returns:
         GraphModule: Modified GraphModule with parallel linears fused.
     """
-    all_modules: Dict[str, nn.Module] = dict(gm.named_modules())
+    all_modules: dict[str, nn.Module] = dict(gm.named_modules())
     fused_count = 0
     for node in gm.graph.nodes:
         # There could be more than two parallel linears

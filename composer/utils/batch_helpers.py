@@ -28,7 +28,7 @@ def batch_get(batch: Any, key: Union[str, int, tuple[Callable, Callable], Callab
             Can be any abritrary type that user creates, but we assume some sort of
             sequence (list, tuple, tensor, array), mapping (dictionary),
             or attribute store (object with data members, namedtuple).
-        key (str | int | Tuple[Callable, Callable] | Callable | Any, optional): A key to index into the batch or a
+        key (str | int | tuple[Callable, Callable] | Callable | Any, optional): A key to index into the batch or a
                 user-specified function to do the extracting. A pair of callables is also
                 supported for cases where a get and set function pair are both passed
                 (like in Algorithms). The getter is assumed to be the first of the pair.
@@ -84,7 +84,7 @@ def batch_set(batch: Any, key: Union[str, int, tuple[Callable, Callable], Callab
             Can be any abritrary type that user creates, but we assume some sort of
             sequence (list, tuple, tensor, array), mapping (dictionary),
             or attribute store (object with data members, namedtuple).
-        key (str | int | Tuple[Callable, Callable] | Callable | Any, optional): A key to index into the batch or a user-specified function
+        key (str | int | tuple[Callable, Callable] | Callable | Any, optional): A key to index into the batch or a user-specified function
             to do the setting. A pair of callables is also supported for cases where a get
             and set function pair are both passed (like in Algorithms). The setter is
             assumed to be the second of the pair.
@@ -113,7 +113,7 @@ def batch_set(batch: Any, key: Union[str, int, tuple[Callable, Callable], Callab
 
 
 def _batch_set(batch: Any, key: Any, value: Any) -> Any:
-    """Sets a key value pair in a non-tuple batch."""
+    """sets a key value pair in a non-tuple batch."""
     if isinstance(batch, tuple):
         return _batch_set_tuple(batch, key, value)
 
@@ -150,7 +150,7 @@ def _batch_set(batch: Any, key: Any, value: Any) -> Any:
 
 
 def _batch_set_multiple(batch: Any, key: Any, value: Any) -> Any:
-    """Sets multiple key value pairs in a non-tuple batch."""
+    """sets multiple key value pairs in a non-tuple batch."""
     # Numpy arrays and Torch tensors can take tuples and lists as keys, so try to do a normal
     # __getitem__ call before resulting to list comprehension.
     try:
@@ -174,8 +174,8 @@ def _batch_set_multiple(batch: Any, key: Any, value: Any) -> Any:
 
 
 def _batch_set_tuple(batch: Any, key: Union[int, str], value: Any) -> Any:
-    """Sets key value pairs in tuples and NamedTuples."""
-    if hasattr(batch, '_fields'):  # NamedTuple
+    """sets key value pairs in tuples and Namedtuples."""
+    if hasattr(batch, '_fields'):  # Namedtuple
         if isinstance(key, str):
             batch = batch._replace(**{key: value})
         else:

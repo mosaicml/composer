@@ -54,7 +54,7 @@ import textwrap
 import time
 import warnings
 from contextlib import contextmanager
-from typing import Any, Dict, List
+from typing import Any, dict, list
 
 import numpy as np
 import torch
@@ -167,7 +167,7 @@ def seed_all(seed: int):
     """
     if seed < 0 or seed > MAX_SEED:
         raise ValueError(f'Seed {seed} is invalid. It must be on [0; 2^32 - 1]')
-    log.info('Setting seed to %d', seed)
+    log.info('setting seed to %d', seed)
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -176,11 +176,11 @@ def seed_all(seed: int):
     torch.cuda.manual_seed_all(seed)
 
 
-def get_rng_state() -> List[Dict[str, Any]]:
+def get_rng_state() -> list[dict[str, Any]]:
     """The state of the RNG objects.
 
     Returns:
-        List[Dict[str, Any]]: A list of RNG State Dicts, indexed by global rank.
+        list[dict[str, Any]]: A list of RNG State dicts, indexed by global rank.
     """
     rng_state = {
         'python': random.getstate(),
@@ -194,11 +194,11 @@ def get_rng_state() -> List[Dict[str, Any]]:
     return dist.all_gather_object(rng_state)
 
 
-def load_rng_state(rng_state_dicts: List[Dict[str, Any]]):
+def load_rng_state(rng_state_dicts: list[dict[str, Any]]):
     """Restore the RNG state.
 
     Args:
-        rng_state_dicts (List[Dict[str, Any]]): The list of RNG state dicts to restore,
+        rng_state_dicts (list[dict[str, Any]]): The list of RNG state dicts to restore,
             as returned by :func:`get_rng_state`.
     """
     if dist.get_world_size() > len(rng_state_dicts):

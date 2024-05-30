@@ -138,25 +138,25 @@ into a dictionary:
 
 .. testcode::
 
-    from typing import Any, Dict, Optional
+    from typing import Any, dict, Optional
 
     from composer.loggers.logger_destination import LoggerDestination
     from composer.core.time import Timestamp
     from composer.core.state import State
 
-    class DictionaryLogger(LoggerDestination):
+    class dictionaryLogger(LoggerDestination):
         def __init__(self):
-            # Dictionary to store logged data
+            # dictionary to store logged data
             self.data = {}
 
-        def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None):
+        def log_metrics(self, metrics: dict[str, float], step: Optional[int] = None):
             for k, v in self.data.items():
                 if k not in self.data:
                     self.data[k] = []
                 self.data[k].append((state.timestamp, v))
 
     # Construct a trainer using this logger
-    trainer = Trainer(..., loggers=[DictionaryLogger()])
+    trainer = Trainer(..., loggers=[dictionaryLogger()])
 
     # Train!
     trainer.fit()

@@ -379,7 +379,7 @@ def test_mlflow_log_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
     check_hf_tokenizer_equivalence(loaded_model['tokenizer'], tiny_gpt2_tokenizer)
 
 
-@pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
+@pytest.mark.filterwarnings('ignore:.*setuptools is replacing distutils.*:UserWarning')
 @pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
 def test_mlflow_save_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
     mlflow = pytest.importorskip('mlflow')
@@ -414,7 +414,7 @@ def test_mlflow_save_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
     check_hf_tokenizer_equivalence(loaded_model['tokenizer'], tiny_gpt2_tokenizer)
 
 
-@pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
+@pytest.mark.filterwarnings('ignore:.*setuptools is replacing distutils.*:UserWarning')
 @pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
 @pytest.mark.filterwarnings('ignore:.*Could not find a config file.*:UserWarning')
 def test_mlflow_save_peft_model(tmp_path, tiny_mpt_model, tiny_mpt_tokenizer):
@@ -457,7 +457,7 @@ def test_mlflow_save_peft_model(tmp_path, tiny_mpt_model, tiny_mpt_tokenizer):
     check_hf_tokenizer_equivalence(loaded_model.tokenizer, tiny_mpt_tokenizer)
 
 
-@pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
+@pytest.mark.filterwarnings('ignore:.*setuptools is replacing distutils.*:UserWarning')
 @pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
 def test_mlflow_register_model(tmp_path, monkeypatch):
     mlflow = pytest.importorskip('mlflow')
@@ -496,7 +496,7 @@ def test_mlflow_register_model(tmp_path, monkeypatch):
     test_mlflow_logger.post_close()
 
 
-@pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
+@pytest.mark.filterwarnings('ignore:.*setuptools is replacing distutils.*:UserWarning')
 @pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
 def test_mlflow_register_model_with_run_id(tmp_path, monkeypatch):
     mlflow = pytest.importorskip('mlflow')
@@ -541,7 +541,7 @@ def test_mlflow_register_model_with_run_id(tmp_path, monkeypatch):
     test_mlflow_logger.post_close()
 
 
-@pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
+@pytest.mark.filterwarnings('ignore:.*setuptools is replacing distutils.*:UserWarning')
 @pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
 def test_mlflow_register_model_non_databricks(tmp_path, monkeypatch):
     mlflow = pytest.importorskip('mlflow')
@@ -581,7 +581,7 @@ def test_mlflow_register_model_non_databricks(tmp_path, monkeypatch):
     test_mlflow_logger.post_close()
 
 
-@pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
+@pytest.mark.filterwarnings('ignore:.*setuptools is replacing distutils.*:UserWarning')
 @pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
 def test_mlflow_register_uc_error(tmp_path, monkeypatch):
     mlflow = pytest.importorskip('mlflow')

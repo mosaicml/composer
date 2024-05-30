@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Monitor train and eval images."""
-from typing import Any, Callable, Sequence, Tuple, Union
+from typing import Any, Callable, Sequence, tuple, Union
 
 import torch
 
@@ -58,11 +58,11 @@ class ImageVisualizer(Callback):
             If there are not enough images in the microbatch, all the images in the microbatch will be logged.
             Default: ``8``.
         channels_last (bool, optional): Whether the image channel dimension is the last dimension. Default: ``False``.
-        input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input
+        input_key (str | int | tuple[Callable, Callable] | Any, optional): A key that indexes to the input
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair.  The default is 0, which corresponds to any sequence, where the first
             element is the input. Default: ``0``.
-        target_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the target
+        target_key (str | int | tuple[Callable, Callable] | Any, optional): A key that indexes to the target
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair. The default is 1, which corresponds to any sequence, where the second
             element is the target. Default: ``1``.
@@ -74,8 +74,8 @@ class ImageVisualizer(Callback):
         mode: str = 'input',
         num_images: int = 8,
         channels_last: bool = False,
-        input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
-        target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
+        input_key: Union[str, int, tuple[Callable, Callable], Any] = 0,
+        target_key: Union[str, int, tuple[Callable, Callable], Any] = 1,
     ):
         self.mode = mode
         self.num_images = num_images

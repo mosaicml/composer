@@ -10,7 +10,7 @@ classification training loop with :func:`.soft_cross_entropy` loss and accuracy 
 import logging
 import textwrap
 import warnings
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from typing import Any, Callable, dict, Optional, tuple, Union
 
 import torch
 from torch import Tensor
@@ -106,11 +106,11 @@ class ComposerClassifier(ComposerModel):
             ])
         self.val_metrics = val_metrics
 
-    def loss(self, outputs: Tensor, batch: Tuple[Any, Tensor], *args, **kwargs) -> Tensor:
+    def loss(self, outputs: Tensor, batch: tuple[Any, Tensor], *args, **kwargs) -> Tensor:
         _, targets = batch
         return self._loss_fn(outputs, targets, *args, **kwargs)
 
-    def get_metrics(self, is_train: bool = False) -> Dict[str, Metric]:
+    def get_metrics(self, is_train: bool = False) -> dict[str, Metric]:
         if is_train:
             metrics = self.train_metrics
         else:
@@ -130,7 +130,7 @@ class ComposerClassifier(ComposerModel):
         _, targets = batch
         metric.update(outputs, targets)
 
-    def forward(self, batch: Tuple[Tensor, Any]) -> Tensor:
+    def forward(self, batch: tuple[Tensor, Any]) -> Tensor:
         inputs, _ = batch
         outputs = self.module(inputs)
         return outputs

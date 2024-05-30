@@ -7,7 +7,7 @@
 """Abstract class for utilities that access and run code on serverless eval clients."""
 
 import abc
-from typing import Dict, List
+from typing import dict, list
 
 __all__ = ['EvalClient']
 
@@ -15,7 +15,7 @@ __all__ = ['EvalClient']
 class EvalClient(abc.ABC):
     """Abstract class for implementing eval clients, such as LambdaEvalClient."""
 
-    def invoke(self, payload: List[List[List[Dict[str, str]]]]) -> List[List[List[bool]]]:
+    def invoke(self, payload: list[list[list[dict[str, str]]]]) -> list[list[list[bool]]]:
         """Invoke a provided batch of dictionary payload to the client.
 
         For code generation, the payload is a list of list of lists of JSONs. The lists are organized in a nested structure, with the outer list

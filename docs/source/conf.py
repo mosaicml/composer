@@ -22,7 +22,7 @@ import sys
 import tempfile
 import types
 import warnings
-from typing import Any, Dict, List, Tuple, Type
+from typing import Any, dict, list, tuple, Type
 
 import sphinx.application
 import sphinx.ext.autodoc
@@ -133,7 +133,7 @@ nbsphinx_prolog = f"""
 templates_path = ['_templates']
 source_suffix = ['.rst', '.md']
 
-# List of patterns, relative to source directory, that match files and
+# list of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = [
@@ -278,7 +278,7 @@ def rstjinja(app, docname, source):
     source[0] = rendered
 
 
-def get_algorithms_metadata() -> Dict[str, Dict[str, str]]:
+def get_algorithms_metadata() -> dict[str, dict[str, str]]:
     """Get the metadata for algorithms from the ``metadata.json`` files."""
     EXCLUDE = ['no_op_model']
 
@@ -317,7 +317,7 @@ add_line = ClassDocumenter.add_line
 line_to_delete = _('Bases: %s') % u':py:class:`object`'
 
 
-def _auto_rst_for_module(module: types.ModuleType, exclude_members: List[Any]) -> str:
+def _auto_rst_for_module(module: types.ModuleType, exclude_members: list[Any]) -> str:
     """Generate the content of an rst file documenting a module.
 
     Includes the module docstring, followed by tables for the functions,
@@ -335,11 +335,11 @@ def _auto_rst_for_module(module: types.ModuleType, exclude_members: List[Any]) -
     name = module.__name__
     lines = []
 
-    functions: List[Tuple[str, types.FunctionType]] = []
-    exceptions: List[Tuple[str, Type[BaseException]]] = []
-    classes: List[Tuple[str, Type[object]]] = []
-    methods: List[Tuple[str, types.MethodType]] = []
-    attributes: List[Tuple[str, object]] = []
+    functions: list[tuple[str, types.FunctionType]] = []
+    exceptions: list[tuple[str, Type[BaseException]]] = []
+    classes: list[tuple[str, Type[object]]] = []
+    methods: list[tuple[str, types.MethodType]] = []
+    attributes: list[tuple[str, object]] = []
 
     # add title and module docstring
     lines.append(f'{name}')
@@ -411,20 +411,20 @@ def _auto_rst_for_module(module: types.ModuleType, exclude_members: List[Any]) -
     return '\n'.join(lines)
 
 
-def _modules_to_rst() -> List[types.ModuleType]:
+def _modules_to_rst() -> list[types.ModuleType]:
     """Return the list of modules for which to generate API reference rst files."""
     # adding composer.functional to the below list yields:
     #   AttributeError: module 'composer' has no attribute 'functional'
     import composer.functional as cf
 
-    document_modules: List[types.Module] = [
+    document_modules: list[types.Module] = [
         composer,
         cf,
         composer.utils.dist,
         composer.utils.reproducibility,
         composer.core.types,
     ]
-    exclude_modules: List[types.Module] = [composer.trainer, composer._version]
+    exclude_modules: list[types.Module] = [composer.trainer, composer._version]
     for name in composer.__dict__:
         obj = composer.__dict__[name]
         if isinstance(obj, types.ModuleType) and obj not in exclude_modules:
@@ -567,7 +567,7 @@ class PatchedHTMLTranslator(HTML5Translator):
 
 
 def setup(app: sphinx.application.Sphinx):
-    """Setup hook."""
+    """setup hook."""
     _generate_rst_files_for_modules()
     app.connect('autodoc-skip-member', skip_redundant_namedtuple_attributes)
     app.connect('source-read', rstjinja)

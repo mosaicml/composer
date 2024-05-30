@@ -9,7 +9,7 @@ import json
 import logging
 import os
 import textwrap
-from typing import TYPE_CHECKING, Optional, OrderedDict
+from typing import TYPE_CHECKING, Optional, Ordereddict
 
 import torch.cuda
 import torch.profiler
@@ -176,7 +176,7 @@ class TorchProfiler(Callback):  # noqa: D101
             disk usage by deleting trace files immediately after they have been uploaded to the object store.
 
     Attributes:
-        saved_traces (List[Tuple[Timestamp, List[pathlib.Path]]]): The trace timestamps and filepaths.
+        saved_traces (list[tuple[Timestamp, list[pathlib.Path]]]): The trace timestamps and filepaths.
 
             This list contains tuples of the save timestamp and the trace filepaths.
             This list will have at most ``num_traces_to_keep`` entries. The latest trace
@@ -232,7 +232,7 @@ class TorchProfiler(Callback):  # noqa: D101
         self.with_stack = with_stack
         self.with_flops = with_flops
         self.num_traces_to_keep = num_traces_to_keep
-        self.saved_traces = OrderedDict()
+        self.saved_traces = Ordereddict()
         self.profiler: Optional[torch.profiler.profile] = None
 
     def init(self, state: State, logger: Logger) -> None:

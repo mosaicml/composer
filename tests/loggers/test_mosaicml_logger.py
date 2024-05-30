@@ -39,9 +39,9 @@ class MockMAPI:
             future_obj = Future()
             try:
                 self._update_metadata(run_name, new_metadata)
-                future_obj.set_result(None)  # Set a result to indicate completion
+                future_obj.set_result(None)  # set a result to indicate completion
             except Exception as e:
-                future_obj.set_exception(e)  # Set an exception if something goes wrong
+                future_obj.set_exception(e)  # set an exception if something goes wrong
             return future_obj
         else:
             self._update_metadata(run_name, new_metadata)
@@ -224,8 +224,8 @@ def test_metric_full_filtering(monkeypatch):
     assert run_name not in mock_mapi.run_metadata
 
 
-class SetWandBRunURL(Callback):
-    """Sets run_url attribute on WandB for offline unit testing."""
+class setWandBRunURL(Callback):
+    """sets run_url attribute on WandB for offline unit testing."""
 
     def __init__(self, run_url) -> None:
         self.run_url = run_url
@@ -253,7 +253,7 @@ def test_wandb_run_url(monkeypatch):
             WandBLogger(),
         ],
         callbacks=[
-            SetWandBRunURL(run_url),
+            setWandBRunURL(run_url),
         ],
     )
 

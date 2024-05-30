@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Callable, Tuple, Union, cast
+from typing import Callable, tuple, Union, cast
 
 import numpy as np
 import pytest
@@ -36,7 +36,7 @@ def _input_image(img_type: str, dtype: torch.dtype) -> AnyImage:
         raise ValueError(f'Invalid dtype: {dtype}')
 
 
-def _input_output_pair(img_type: str, img_dtype: torch.dtype, f_aug: InputAugFunction) -> Tuple[AnyImage, AnyImage]:
+def _input_output_pair(img_type: str, img_dtype: torch.dtype, f_aug: InputAugFunction) -> tuple[AnyImage, AnyImage]:
     img = _input_image(img_type, dtype=img_dtype)
     return img, f_aug(img)
 

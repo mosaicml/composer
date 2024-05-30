@@ -9,7 +9,7 @@ import logging
 import os
 import pathlib
 import tempfile
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Callable, list, Optional, tuple, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError
@@ -259,7 +259,7 @@ class MLFlowObjectStore(ObjectStore):
         # Construct the `experiment_id` and `run_id` depending on whether format placeholders were provided.
         self.experiment_id, self.run_id = self._init_run_info(experiment_id, run_id)
 
-    def _init_run_info(self, experiment_id: Optional[str], run_id: Optional[str]) -> Tuple[str, str]:
+    def _init_run_info(self, experiment_id: Optional[str], run_id: Optional[str]) -> tuple[str, str]:
         """Returns the experiment ID and run ID for the MLflow run backing this object store.
 
         In a distributed setting, this should only be called on the rank 0 process.
@@ -322,7 +322,7 @@ class MLFlowObjectStore(ObjectStore):
         return experiment_id, run_id
 
     @staticmethod
-    def parse_dbfs_path(path: str) -> Tuple[str, str, str]:
+    def parse_dbfs_path(path: str) -> tuple[str, str, str]:
         """Parses a DBFS path to extract the MLflow experiment ID, run ID, and relative artifact path.
 
         The path is expected to be of the format
@@ -465,7 +465,7 @@ class MLFlowObjectStore(ObjectStore):
             except MlflowException as e:
                 _wrap_mlflow_exceptions(self.get_uri(artifact_path), e)
 
-    def list_objects(self, prefix: Optional[str] = None) -> List[str]:
+    def list_objects(self, prefix: Optional[str] = None) -> list[str]:
         """See :meth:`~composer.utils.ObjectStore.list_objects`.
 
         MLFlowObjectStore does not support listing objects with a prefix, so the ``prefix`` argument is ignored.
@@ -476,7 +476,7 @@ class MLFlowObjectStore(ObjectStore):
         self._list_objects_helper(None, objects)
         return objects
 
-    def _list_objects_helper(self, prefix: Optional[str], objects: List[str]) -> None:
+    def _list_objects_helper(self, prefix: Optional[str], objects: list[str]) -> None:
         """Helper to recursively populate the full list of objects for ``list_objects``.
 
         Args:

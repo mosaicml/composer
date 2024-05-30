@@ -10,7 +10,7 @@ import platform
 import subprocess
 import sys
 import warnings
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, dict, Iterable, Optional
 
 import torch
 from torch.utils.data import DataLoader, IterableDataset
@@ -239,7 +239,7 @@ class MLPerfCallback(Callback):
         os.makedirs(benchmark_folder, exist_ok=True)
         os.makedirs(systems_folder, exist_ok=True)
 
-    def _log_dict(self, data: Dict[str, Any]):
+    def _log_dict(self, data: dict[str, Any]):
         for key, value in data.items():
             self.mllogger.event(key=key, value=value)
 
@@ -353,7 +353,7 @@ def get_system_description(
     status: str,
     system_name: Optional[str] = None,
     host_processors_per_node: Optional[int] = None,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Generates a valid system description.
 
     Makes a best effort to auto-populate some of the fields, but should

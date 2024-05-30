@@ -5,7 +5,7 @@
 
 import contextlib
 import textwrap
-from typing import Any, Dict, Generator, Optional, Union
+from typing import Any, dict, Generator, Optional, Union
 
 import torch
 
@@ -39,13 +39,13 @@ class Precision(StringEnum):
 @contextlib.contextmanager
 def get_precision_context(
     precision: Union[str, Precision],
-    precision_config: Optional[Dict[str, Any]] = None,
+    precision_config: Optional[dict[str, Any]] = None,
 ) -> Generator[None, None, None]:
     """Returns a context manager to automatically cast to a specific precision.
 
     Args:
         precision (str | Precision): Precision for the context
-        precision_config (Optional[Dict[str, Any]]): Config for FP8 scaling strategy. See parameters for
+        precision_config (Optional[dict[str, Any]]): Config for FP8 scaling strategy. See parameters for
             `DelayedScaling <https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/common.html?highlight=delayedscaling#transformer_engine.common.recipe.DelayedScaling>`_.
     """
     precision = Precision(precision)

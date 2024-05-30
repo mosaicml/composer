@@ -12,7 +12,7 @@
 import logging
 import sys
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Sequence, Union
+from typing import Any, Callable, dict, list, Optional, Sequence, Union
 
 import torch
 from torch import Tensor
@@ -44,7 +44,7 @@ class MAPMetricResults:
     map_per_class: Tensor
     mar_100_per_class: Tensor
 
-    def __getitem__(self, key: str) -> Union[Tensor, List[Tensor]]:
+    def __getitem__(self, key: str) -> Union[Tensor, list[Tensor]]:
         return getattr(self, key)
 
 
@@ -80,12 +80,12 @@ class _hide_prints:
         sys.stdout = self._original_stdout  # type: ignore
 
 
-def _input_validator(preds: List[Dict[str, torch.Tensor]], targets: List[Dict[str, torch.Tensor]]) -> None:
+def _input_validator(preds: list[dict[str, torch.Tensor]], targets: list[dict[str, torch.Tensor]]) -> None:
     """Ensure the correct input format of `preds` and `targets`."""
     if not isinstance(preds, Sequence):
-        raise ValueError('Expected argument `preds` to be of type List')
+        raise ValueError('Expected argument `preds` to be of type list')
     if not isinstance(targets, Sequence):
-        raise ValueError('Expected argument `target` to be of type List')
+        raise ValueError('Expected argument `target` to be of type list')
     if len(preds) != len(targets):
         raise ValueError('Expected argument `preds` and `target` to have the same length')
 
@@ -184,11 +184,11 @@ class MAP(Metric):
         self.add_state('groundtruth_boxes', default=[], dist_reduce_fx=None)
         self.add_state('groundtruth_labels', default=[], dist_reduce_fx=None)
 
-    def update(self, preds: List[Dict[str, Tensor]], target: List[Dict[str, Tensor]]) -> None:  # type: ignore
+    def update(self, preds: list[dict[str, Tensor]], target: list[dict[str, Tensor]]) -> None:  # type: ignore
         """Add detections and groundtruth to the metric.
 
         Args:
-            preds (list[Dict[str, ~torch.Tensor]]): A list of dictionaries containing the key-values:
+            preds (list[dict[str, ~torch.Tensor]]): A list of dictionaries containing the key-values:
 
                     ``boxes`` (torch.FloatTensor): [num_boxes, 4] predicted boxes of the format [xmin, ymin, xmax, ymax] in absolute image coordinates.
 
@@ -196,7 +196,7 @@ class MAP(Metric):
 
                     ``labels`` (torch.IntTensor): of shape [num_boxes] containing 0-indexed detection classes for the boxes.
 
-            target (list[Dict[str, ~torch.Tensor]]): A list of dictionaries containing the key-values:
+            target (list[dict[str, ~torch.Tensor]]): A list of dictionaries containing the key-values:
 
                     ``boxes`` (torch.FloatTensor): [num_boxes, 4] ground truth boxes of the format [xmin, ymin, xmax, ymax] in absolute image coordinates.
 
@@ -318,10 +318,10 @@ class MAP(Metric):
 
     def _get_coco_format(
         self,
-        boxes: List[torch.Tensor],
-        labels: List[torch.Tensor],
-        scores: Optional[List[torch.Tensor]] = None,
-    ) -> Dict:
+        boxes: list[torch.Tensor],
+        labels: list[torch.Tensor],
+        scores: Optional[list[torch.Tensor]] = None,
+    ) -> dict:
         """Transforms and returns all cached targets or predictions in COCO format.
 
         Format is defined at https://cocodataset.org/#format-data.

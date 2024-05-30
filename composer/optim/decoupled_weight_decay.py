@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Iterable, list, Optional, tuple, Union
 
 import torch
 from torch.optim import SGD, AdamW
@@ -75,9 +75,9 @@ class DecoupledSGDW(SGD):
 
     @staticmethod
     def sgdw(
-        params: List[torch.Tensor],
-        d_p_list: List[torch.Tensor],
-        momentum_buffer_list: List[Optional[torch.Tensor]],
+        params: list[torch.Tensor],
+        d_p_list: list[torch.Tensor],
+        momentum_buffer_list: list[Optional[torch.Tensor]],
         *,
         weight_decay: float,
         momentum: float,
@@ -89,9 +89,9 @@ class DecoupledSGDW(SGD):
         r"""Functional API that performs SGDW algorithm computation.
 
         Args:
-            params (list): List of parameters to update
-            d_p_list (list): List of parameter gradients
-            momentum_buffer_list (list): List of momentum buffers
+            params (list): list of parameters to update
+            d_p_list (list): list of parameter gradients
+            momentum_buffer_list (list): list of momentum buffers
             weight_decay (float): Decoupled weight decay factor
             momentum (float): Momentum factor
             lr (float): Learning rate
@@ -216,7 +216,7 @@ class DecoupledAdamW(AdamW):
         self,
         params: Union[Iterable[torch.Tensor], Iterable[dict]],
         lr: float = 1e-3,
-        betas: Tuple[float, float] = (0.9, 0.95),
+        betas: tuple[float, float] = (0.9, 0.95),
         eps: float = 1e-8,
         weight_decay: float = 1e-5,
         amsgrad: bool = False,
@@ -233,12 +233,12 @@ class DecoupledAdamW(AdamW):
 
     @staticmethod
     def adamw(
-        params: List[torch.Tensor],
-        grads: List[torch.Tensor],
-        exp_avgs: List[torch.Tensor],
-        exp_avg_sqs: List[torch.Tensor],
-        max_exp_avg_sqs: List[torch.Tensor],
-        state_steps: List[torch.Tensor],
+        params: list[torch.Tensor],
+        grads: list[torch.Tensor],
+        exp_avgs: list[torch.Tensor],
+        exp_avg_sqs: list[torch.Tensor],
+        max_exp_avg_sqs: list[torch.Tensor],
+        state_steps: list[torch.Tensor],
         *,
         amsgrad: bool,
         beta1: float,
@@ -251,12 +251,12 @@ class DecoupledAdamW(AdamW):
         r"""Functional API that performs AdamW algorithm computation with decoupled weight decay.
 
         Args:
-            params (list): List of parameters to update.
-            grads (list): List of parameter gradients.
-            exp_avgs (list): List of average gradients.
-            exp_avg_sqs (list): List of average squared gradients.
-            max_exp_avg_sqs (list): List of max average squared gradients for amsgrad updates.
-            state_steps (list): List of steps taken for all parameters.
+            params (list): list of parameters to update.
+            grads (list): list of parameter gradients.
+            exp_avgs (list): list of average gradients.
+            exp_avg_sqs (list): list of average squared gradients.
+            max_exp_avg_sqs (list): list of max average squared gradients for amsgrad updates.
+            state_steps (list): list of steps taken for all parameters.
             amsgrad (bool): Enables amsgrad variant of Adam.
             beta1 (float): Coefficient for computing the moving average of gradient values.
             beta2 (float): Coefficient for computing the moving average of squared gradient values.

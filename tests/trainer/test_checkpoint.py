@@ -12,7 +12,7 @@ import tarfile
 import tempfile
 import time
 from glob import glob
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, dict, list, Optional, tuple, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -59,16 +59,16 @@ class DummyStatefulCallback(Callback):
         super().__init__()
         self.random_value = time.time_ns()
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         return {
             'random_value': self.random_value,
         }
 
-    def load_state_dict(self, state: Dict[str, Any]) -> None:
+    def load_state_dict(self, state: dict[str, Any]) -> None:
         self.random_value = state['random_value']
 
 
-def _load_checkpoint(filename: Union[str, pathlib.Path]) -> Dict[str, Any]:
+def _load_checkpoint(filename: Union[str, pathlib.Path]) -> dict[str, Any]:
     filename = str(filename).format(rank=0)
     if is_tar(filename):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -173,8 +173,8 @@ def _assert_checkpoints_equivalent(file1, file2, atol=0.0, rtol=0.0):
         ],
     ],
 )
-def test_ignore_params(remove_field_paths: List[List[str]], filter_params: List[str]):
-    # Set up base dictionary
+def test_ignore_params(remove_field_paths: list[list[str]], filter_params: list[str]):
+    # set up base dictionary
     base_dict = {
         'state': {
             'run_name': 'my_first_run',
@@ -1666,7 +1666,7 @@ def test_rotate_checkpoints(
     dist.barrier()  # all ranks finish before cleaning up tmpdir
 
 
-def simple_validate(filepath: str, specs: Optional[List[Tuple[int, int]]] = None) -> bool:
+def simple_validate(filepath: str, specs: Optional[list[tuple[int, int]]] = None) -> bool:
     if specs is not None:
         with open(filepath, 'r') as f:
             for offset, length in specs:

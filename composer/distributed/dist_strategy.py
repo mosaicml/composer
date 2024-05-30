@@ -7,7 +7,7 @@ import collections
 import logging
 import warnings
 from contextlib import contextmanager, nullcontext
-from typing import Any, Callable, ContextManager, Dict, Iterator, List, Optional, Sequence, Tuple, Union, cast
+from typing import Any, Callable, ContextManager, dict, Iterator, list, Optional, Sequence, tuple, Union, cast
 
 import torch
 from packaging import version
@@ -142,10 +142,10 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) ->
 
 
 def _recreate_fsdp_param_groups_from_unwrapped_opt_info(
-    fsdp_wrapped_named_params: Iterator[Tuple[str, torch.nn.Parameter]],
-    non_wrapped_param_names_to_group_num: Dict[str, int],
-    group_num_to_optimizer_info: Dict[int, Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    fsdp_wrapped_named_params: Iterator[tuple[str, torch.nn.Parameter]],
+    non_wrapped_param_names_to_group_num: dict[str, int],
+    group_num_to_optimizer_info: dict[int, dict[str, Any]],
+) -> list[dict[str, Any]]:
     """Helper function to recreate optimizer groups for FSDP wrapped modules.
 
     Optimizer param groups are formatted as:
@@ -158,7 +158,7 @@ def _recreate_fsdp_param_groups_from_unwrapped_opt_info(
 
     Args:
         fsdp_wrapped_named_params: output of model.named_parameters() of an FSDP wrapped model
-        non_wrapped_param_names_to_group_num: a Dict mapping from the original model param names
+        non_wrapped_param_names_to_group_num: a dict mapping from the original model param names
                                             to the param group number
         group_num_to_optimizer_info: stores info like lr, eps for each group
 
@@ -181,7 +181,7 @@ def _recreate_fsdp_param_groups_from_unwrapped_opt_info(
 
 def prepare_tp_module(
     model: torch.nn.Module,
-    tp_config: Dict[str, Any],
+    tp_config: dict[str, Any],
 ) -> None:
     """Prepare a module (assumed ComposerModel) for use with tensor parallel."""
     from torch.distributed.tensor.parallel import parallelize_module
@@ -198,7 +198,7 @@ def prepare_tp_module(
 def prepare_fsdp_module(
     model: torch.nn.Module,
     optimizers: Optional[Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]]],
-    fsdp_config: Dict[str, Any],
+    fsdp_config: dict[str, Any],
     precision: Precision,
     device: Device,
     auto_microbatching: bool,
@@ -209,7 +209,7 @@ def prepare_fsdp_module(
     Args:
         model (torch.nn.Module): The model to wrap.
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer for `model`, assumed to have a single param group := model.parameters().
-        fsdp_config (Dict[str, Any]): The FSDP config.
+        fsdp_config (dict[str, Any]): The FSDP config.
         precision: (Precision): The precision being used by the Trainer, used to fill in defaults for FSDP `mixed_precision` settings.
         device (Device): The device being used by the Trainer.
         auto_microbatching (bool, optional): Whether or not auto microbatching is enabled.
@@ -398,7 +398,7 @@ def prepare_fsdp_module(
                         mod_attr_list.append((mod, attr_name))
                         tied_pointers[ptr] = mod_attr_list
 
-                # Dictionary mapping the source module to a list of (target module, source attr, target attr) tuples
+                # dictionary mapping the source module to a list of (target module, source attr, target attr) tuples
                 source_mod_to_mod_attr = {}
                 for mod_attr_list in tied_pointers.values():
                     # If there is only one module for this pointer, then there is no weight tying

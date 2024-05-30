@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, TextIO, Union
+from typing import TYPE_CHECKING, Any, dict, list, Optional, TextIO, Union
 
 import tqdm.auto
 import yaml
@@ -36,8 +36,8 @@ class _ProgressBar:
         position: Optional[int],
         bar_format: str,
         file: TextIO,
-        metrics: Dict[str, Any],
-        keys_to_log: List[str],
+        metrics: dict[str, Any],
+        keys_to_log: list[str],
         timestamp_key: str,
         unit: str = 'it',
     ) -> None:
@@ -63,7 +63,7 @@ class _ProgressBar:
             unit=unit,
         )
 
-    def log_data(self, data: Dict[str, Any]):
+    def log_data(self, data: dict[str, Any]):
         formatted_data = {}
         for (k, v) in data.items():
             # Check if any substring of the key matches the keys to log
@@ -97,7 +97,7 @@ class _ProgressBar:
                 print('', file=self.file, flush=True)
             self.pbar.close()
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         pbar_state = self.pbar.format_dict
 
         return {
@@ -160,14 +160,14 @@ class ProgressBarLogger(LoggerDestination):
         self.should_log_traces = log_traces
         self.stream = stream
         self.state: Optional[State] = None
-        self.hparams: Dict[str, Any] = {}
+        self.hparams: dict[str, Any] = {}
         self.hparams_already_logged_to_console: bool = False
 
     @property
     def show_pbar(self) -> bool:
         return dist.get_local_rank() == 0
 
-    def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
+    def log_hyperparameters(self, hyperparameters: dict[str, Any]):
         # Lazy logging of hyperparameters.
         self.hparams.update(hyperparameters)
 
@@ -179,19 +179,19 @@ class ProgressBarLogger(LoggerDestination):
             self._log_to_console('*' * 30)
         self.hparams_already_logged_to_console = True
 
-    def log_traces(self, traces: Dict[str, Any]):
+    def log_traces(self, traces: dict[str, Any]):
         if self.should_log_traces:
             for trace_name, trace in traces.items():
                 trace_str = format_log_data_value(trace)
                 self._log_to_console(f'[trace]: {trace_name}:' + trace_str + '\n')
 
-    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
+    def log_metrics(self, metrics: dict[str, float], step: Optional[int] = None) -> None:
         for metric_name, metric_value in metrics.items():
             # Only log metrics and losses to pbar.
             if 'metric' in metric_name or 'loss' in metric_name:
                 self.log_to_pbar(data={metric_name: metric_value})
 
-    def log_to_pbar(self, data: Dict[str, Any]):
+    def log_to_pbar(self, data: dict[str, Any]):
         # log to progress bar
         current_pbar = self.eval_pbar if self.eval_pbar is not None else self.train_pbar
         if current_pbar:
@@ -335,13 +335,13 @@ class ProgressBarLogger(LoggerDestination):
             self.eval_pbar.close()
             self.eval_pbar = None
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         return {
             'train_pbar': self.train_pbar.state_dict() if self.train_pbar else None,
             'eval_pbar': self.eval_pbar.state_dict() if self.eval_pbar else None,
         }
 
-    def load_state_dict(self, state: Dict[str, Any]) -> None:
+    def load_state_dict(self, state: dict[str, Any]) -> None:
         if state['train_pbar']:
             n = state['train_pbar'].pop('n')
             train_pbar = self._ensure_backwards_compatibility(state['train_pbar'])
@@ -353,7 +353,7 @@ class ProgressBarLogger(LoggerDestination):
             self.eval_pbar = _ProgressBar(file=self.stream, **eval_pbar)
             self.eval_pbar.update(n=n)
 
-    def _ensure_backwards_compatibility(self, state: Dict[str, Any]) -> Dict[str, Any]:
+    def _ensure_backwards_compatibility(self, state: dict[str, Any]) -> dict[str, Any]:
         # ensure backwards compatible with mosaicml<=v0.8.0 checkpoints
 
         state.pop('epoch_style', None)

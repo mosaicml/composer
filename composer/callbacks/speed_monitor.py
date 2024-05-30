@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import warnings
 from collections import deque
-from typing import Any, Callable, Deque, Dict, Optional, Union
+from typing import Any, Callable, Deque, dict, Optional, Union
 
 import torch
 
@@ -153,7 +153,7 @@ def get_gpu_flops_available(state: State):
             f'be added to GPU_AVAILABLE_FLOPS in composer/callbacks/speed_monitor.py',
             stacklevel=2,
         )
-        # Setting to 0 will disable MFU computation and prevent
+        # setting to 0 will disable MFU computation and prevent
         # the speed monitor from running this helper every batch
         gpu_flops_available = 0
 
@@ -275,12 +275,12 @@ class SpeedMonitor(Callback):
         # Keep track of time spent evaluating
         self.total_eval_wct = 0.0
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         return {
             'total_eval_wct': self.total_eval_wct,
         }
 
-    def load_state_dict(self, state: Dict[str, Any]) -> None:
+    def load_state_dict(self, state: dict[str, Any]) -> None:
         self.total_eval_wct = state['total_eval_wct']
 
     def init(self, state: State, logger: Logger) -> None:

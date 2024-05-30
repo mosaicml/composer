@@ -6,7 +6,7 @@
 import fnmatch
 import logging
 import sys
-from typing import Any, Dict, Optional, Sequence, Union
+from typing import Any, dict, Optional, Sequence, Union
 
 import torch
 from packaging import version
@@ -28,7 +28,7 @@ def get_model_state_dict(
     include_keys: Optional[Union[str, Sequence[str]]] = None,
     ignore_keys: Optional[Union[str, Sequence[str]]] = None,
     cpu_offload: Optional[bool] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Generate the state dict of the model.
 
     Args:
@@ -53,8 +53,8 @@ def get_model_state_dict(
 
     log.debug('Extracting model state dict')
     if version.parse(torch.__version__) >= version.parse('2.2.0') and dist.is_initialized():
-        from torch.distributed.checkpoint import state_dict as DCPSD  # Distributed Checkpoint State Dict
-        from torch.distributed.checkpoint.state_dict import StateDictOptions
+        from torch.distributed.checkpoint import state_dict as DCPSD  # Distributed Checkpoint State dict
+        from torch.distributed.checkpoint.state_dict import StatedictOptions
 
         use_unsharded_state_dict = not sharded_state_dict
 
@@ -62,7 +62,7 @@ def get_model_state_dict(
         model_state_dict = DCPSD.get_model_state_dict(
             model=model,
             submodules=None,  # We extract submodules below
-            options=StateDictOptions(
+            options=StatedictOptions(
                 full_state_dict=use_unsharded_state_dict,
                 cpu_offload=cpu_offload,
             ),
@@ -89,7 +89,7 @@ def get_model_state_dict(
     return model_state_dict
 
 
-def _cast_state_dict_to_precision(state_dict: Dict[str, Any], precision: Union[str, torch.dtype]):
+def _cast_state_dict_to_precision(state_dict: dict[str, Any], precision: Union[str, torch.dtype]):
     if isinstance(precision, str):
         precision = STR_TO_DTYPE[precision]
 
@@ -97,7 +97,7 @@ def _cast_state_dict_to_precision(state_dict: Dict[str, Any], precision: Union[s
     return new_state_dict
 
 
-def _extract_keys_from_state_dict(state_dict: Dict[str, Any], include_keys: Union[str, Sequence[str]]):
+def _extract_keys_from_state_dict(state_dict: dict[str, Any], include_keys: Union[str, Sequence[str]]):
     if isinstance(include_keys, str):
         include_keys = [include_keys]
     new_state_dict = {k: v for k, v in state_dict.items() if any(fnmatch.fnmatch(k, key) for key in include_keys)}
@@ -105,7 +105,7 @@ def _extract_keys_from_state_dict(state_dict: Dict[str, Any], include_keys: Unio
     return new_state_dict
 
 
-def _remove_keys_from_state_dict(state_dict: Dict[str, Any], ignore_keys: Union[str, Sequence[str]]):
+def _remove_keys_from_state_dict(state_dict: dict[str, Any], ignore_keys: Union[str, Sequence[str]]):
     if isinstance(ignore_keys, str):
         ignore_keys = [ignore_keys]
     new_state_dict = {k: v for k, v in state_dict.items() if not any(fnmatch.fnmatch(k, key) for key in ignore_keys)}
@@ -129,7 +129,7 @@ def _is_model_fsdp(model) -> bool:
 
 
 def _get_model_state_dict_with_fsdp_context_manager(model: nn.Module, sharded_state_dict: bool,
-                                                    cpu_offload: bool) -> Dict[str, Any]:
+                                                    cpu_offload: bool) -> dict[str, Any]:
     """Get the model state dict with the FSDP context manager.
 
     Args:
@@ -141,13 +141,13 @@ def _get_model_state_dict_with_fsdp_context_manager(model: nn.Module, sharded_st
         The state dict of the model.
     """
     from torch.distributed.fsdp.fully_sharded_data_parallel import (
-        FullStateDictConfig,
-        ShardedStateDictConfig,
-        StateDictType,
+        FullStatedictConfig,
+        ShardedStatedictConfig,
+        StatedictType,
     )
-    state_dict_type = StateDictType.SHARDED_STATE_DICT if sharded_state_dict else StateDictType.FULL_STATE_DICT
-    state_dict_config = ShardedStateDictConfig(offload_to_cpu=cpu_offload,
-                                              ) if sharded_state_dict else FullStateDictConfig(
+    state_dict_type = StatedictType.SHARDED_STATE_DICT if sharded_state_dict else StatedictType.FULL_STATE_DICT
+    state_dict_config = ShardedStatedictConfig(offload_to_cpu=cpu_offload,
+                                              ) if sharded_state_dict else FullStatedictConfig(
                                                   rank0_only=True,
                                                   offload_to_cpu=cpu_offload,
                                               )
@@ -162,7 +162,7 @@ def get_metadata_state_dict(
     precision: Optional[Union[str, torch.dtype]] = None,
     device: Optional[Device] = None,
     device_train_microbatch_size: Optional[int] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Generate the metadata and integrations for a training run.
 
     Args:

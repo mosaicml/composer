@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from types import MethodType
-from typing import Tuple
+from typing import tuple
 
 import torch
 from transformers.models.gpt2.modeling_gpt2 import GPT2Attention, GPT2Model
@@ -42,7 +42,7 @@ def gpt2_attention_converter(module: torch.nn.Module, module_index: int, max_seq
     return module
 
 
-def _attn(self, query, key, value, attention_mask=None, head_mask=None) -> Tuple[torch.Tensor, torch.Tensor]:
+def _attn(self, query, key, value, attention_mask=None, head_mask=None) -> tuple[torch.Tensor, torch.Tensor]:
     """Replication of identically-named attention function function ("_attn") in Composer/HuggingFace GPT2 model's
     GPT2Attention (:func:`transformers.models.gpt2.modeling_gpt2.GPT2Attention._attn`; `GitHub link <https://\\
     github.com/huggingface/transformers/blob/2e11a043374a6229ec129a4765ee4ba7517832b9/src/transformers/models/\\

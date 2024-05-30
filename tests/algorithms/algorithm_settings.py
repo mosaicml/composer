@@ -8,7 +8,7 @@ functional tests, serialization tests, etc.
 Each algorithm is keyed based on its name in the algorithm registry.
 """
 
-from typing import Any, Dict, Optional, Type
+from typing import Any, dict, Optional, Type
 
 import pytest
 from torch.utils.data import DataLoader
@@ -97,7 +97,7 @@ simple_vision_pil_settings = {
     'kwargs': {},
 }
 
-_settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
+_settings: dict[Type[Algorithm], Optional[dict[str, Any]]] = {
     GradientClipping: {
         'model': SimpleConvModel,
         'dataset': RandomImageDataset,
@@ -261,7 +261,7 @@ def _get_alg_settings(alg_cls: Type[Algorithm]):
     return settings
 
 
-def get_alg_kwargs(alg_cls: Type[Algorithm]) -> Dict[str, Any]:
+def get_alg_kwargs(alg_cls: Type[Algorithm]) -> dict[str, Any]:
     """Return the kwargs for an algorithm."""
     return _get_alg_settings(alg_cls)['kwargs']
 

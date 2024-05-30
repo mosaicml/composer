@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import textwrap
 import weakref
-from typing import Any, Callable, Tuple, TypeVar, Union
+from typing import Any, Callable, tuple, TypeVar, Union
 
 import torch
 import torch.utils.data
@@ -29,11 +29,11 @@ __all__ = ['ColOut', 'ColOutTransform', 'colout_batch']
 
 
 def colout_batch(
-    sample: Union[ImgT, Tuple[ImgT, ImgT]],
+    sample: Union[ImgT, tuple[ImgT, ImgT]],
     p_row: float = 0.15,
     p_col: float = 0.15,
     resize_target: Union[bool, str] = 'auto',
-) -> Union[torch.Tensor, ImgT, Tuple[Tensor, Tensor], Tuple[ImgT, ImgT]]:
+) -> Union[torch.Tensor, ImgT, tuple[Tensor, Tensor], tuple[ImgT, ImgT]]:
     """Applies ColOut augmentation to a batch of images and (optionally) targets,
     dropping the same random rows and columns from all images and targets in a batch.
 
@@ -46,7 +46,7 @@ def colout_batch(
             new_X = colout_batch(X_example, p_row=0.15, p_col=0.15)
 
     Args:
-        sample (torch.Tensor | PIL.Image | Tuple[torch.Tensor, torch.Tensor] | Tuple[PIL.Image, PIL.Image]):
+        sample (torch.Tensor | PIL.Image | tuple[torch.Tensor, torch.Tensor] | tuple[PIL.Image, PIL.Image]):
             Either a single tensor or image or a 2-tuple of tensors or images. When tensor(s), the tensor must be of shape
             ``CHW`` for a single image or ``NCHW`` for a batch of images of shape.
         p_row (float, optional): Fraction of rows to drop (drop along H). Default: ``0.15``.
@@ -56,7 +56,7 @@ def colout_batch(
             Otherwise, only the first object is resized. Default: ``'auto'``.
 
     Returns:
-        torch.Tensor | PIL.Image | Tuple[torch.Tensor, torch.Tensor] | Tuple[PIL.Image, PIL.Image]:
+        torch.Tensor | PIL.Image | tuple[torch.Tensor, torch.Tensor] | tuple[PIL.Image, PIL.Image]:
                 A smaller image or 2-tuple of images with random rows and columns dropped.
     """
 
@@ -139,16 +139,16 @@ class ColOutTransform:
 
     def __call__(
         self,
-        sample: Union[ImgT, Tuple[ImgT, ImgT]],
-    ) -> Union[torch.Tensor, ImgT, Tuple[Tensor, Tensor], Tuple[ImgT, ImgT]]:
+        sample: Union[ImgT, tuple[ImgT, ImgT]],
+    ) -> Union[torch.Tensor, ImgT, tuple[Tensor, Tensor], tuple[ImgT, ImgT]]:
         """Drops random rows and columns from up to two images.
 
         Args:
-            sample (torch.Tensor | PIL.Image | Tuple[torch.Tensor, torch.Tensor] | Tuple[PIL.Image, PIL.Image]):
+            sample (torch.Tensor | PIL.Image | tuple[torch.Tensor, torch.Tensor] | tuple[PIL.Image, PIL.Image]):
                 A single image or a 2-tuple of images as either :class:`torch.Tensor` or :class:`PIL.Image`.
 
         Returns:
-            torch.Tensor | PIL.Image | Tuple[torch.Tensor, torch.Tensor] | Tuple[PIL.Image, PIL.Image]:
+            torch.Tensor | PIL.Image | tuple[torch.Tensor, torch.Tensor] | tuple[PIL.Image, PIL.Image]:
                 A smaller image or 2-tuple of images with random rows and columns dropped.
         """
 
@@ -193,11 +193,11 @@ class ColOut(Algorithm):
         batch (bool, optional): Run ColOut at the batch level. Default: ``True``.
         resize_target (bool | str, optional): Whether to resize the target in addition to the input. If set to ``'auto'``, resizing
             the target will be based on if the target has the same spatial dimensions as the input. Default: ``auto``.
-        input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input
+        input_key (str | int | tuple[Callable, Callable] | Any, optional): A key that indexes to the input
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair.  The default is 0, which corresponds to any sequence, where the first element
             is the input. Default: ``0``.
-        target_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the target
+        target_key (str | int | tuple[Callable, Callable] | Any, optional): A key that indexes to the target
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair. The default is 1, which corresponds to any sequence, where the second element
             is the target. Default: ``1``.
@@ -209,8 +209,8 @@ class ColOut(Algorithm):
         p_col: float = 0.15,
         batch: bool = True,
         resize_target: Union[bool, str] = 'auto',
-        input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
-        target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
+        input_key: Union[str, int, tuple[Callable, Callable], Any] = 0,
+        target_key: Union[str, int, tuple[Callable, Callable], Any] = 1,
     ):
         if not (0 <= p_col <= 1):
             raise ValueError('p_col must be between 0 and 1')
@@ -228,7 +228,7 @@ class ColOut(Algorithm):
         self.p_col = p_col
         self.batch = batch
         self.resize_target = resize_target
-        self._transformed_datasets = weakref.WeakSet()
+        self._transformed_datasets = weakref.Weakset()
         self.input_key, self.target_key = input_key, target_key
 
     def match(self, event: Event, state: State) -> bool:
@@ -286,7 +286,7 @@ class ColOut(Algorithm):
             self._apply_sample(state)
 
 
-def _should_resize_target(sample: Union[ImgT, Tuple[ImgT, ImgT]], resize_target: Union[bool, str]) -> bool:
+def _should_resize_target(sample: Union[ImgT, tuple[ImgT, ImgT]], resize_target: Union[bool, str]) -> bool:
     """Helper function to determine if both objects in the tuple should be resized.
 
     Decision is based on ``resize_target`` and if both objects in the tuple have the same spatial size.

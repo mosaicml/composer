@@ -6,7 +6,7 @@ import io
 import os
 import pathlib
 import uuid
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, dict, list, Optional, Union
 
 from requests.exceptions import ConnectionError
 from urllib3.exceptions import ProtocolError
@@ -59,7 +59,7 @@ class LibcloudObjectStore(ObjectStore):
             .. seealso:: :doc:`Full list of libcloud providers <libcloud:storage/supported_providers>`
 
         container (str): The name of the container (i.e. bucket) to use.
-        provider_kwargs (Dict[str, Any], optional):  Keyword arguments to pass into the constructor
+        provider_kwargs (dict[str, Any], optional):  Keyword arguments to pass into the constructor
             for the specified provider. These arguments would usually include the cloud region
             and credentials.
 
@@ -88,7 +88,7 @@ class LibcloudObjectStore(ObjectStore):
         chunk_size: int = 1_024 * 1_024,
         key_environ: Optional[str] = None,
         secret_environ: Optional[str] = None,
-        provider_kwargs: Optional[Dict[str, Any]] = None,
+        provider_kwargs: Optional[dict[str, Any]] = None,
     ) -> None:
         try:
             from libcloud.storage.providers import get_driver
@@ -203,7 +203,7 @@ class LibcloudObjectStore(ObjectStore):
         else:
             os.rename(tmp_filepath, filename)
 
-    def list_objects(self, prefix: Optional[str] = None) -> List[str]:
+    def list_objects(self, prefix: Optional[str] = None) -> list[str]:
         if prefix is None:
             prefix = ''
 

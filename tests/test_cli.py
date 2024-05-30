@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import subprocess
-from typing import List
+from typing import list
 
 import pytest
 
@@ -18,6 +18,6 @@ import composer
         ['python', '-m', 'composer.cli.launcher', '--version'],
     ],
 )
-def test_cli_version(args: List[str]):
+def test_cli_version(args: list[str]):
     version_str = subprocess.check_output(args, text=True)
     assert version_str == f'MosaicML Composer {composer.__version__}\n'

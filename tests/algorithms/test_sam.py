@@ -16,7 +16,7 @@ from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel, world_size
 
 
-class TestSAMLossDict():
+class TestSAMLossdict():
 
     @pytest.fixture
     def config(self):

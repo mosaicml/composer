@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import datetime
 import re
-from typing import Any, Dict, Generic, Optional, TypeVar, Union, cast
+from typing import Any, dict, Generic, Optional, TypeVar, Union, cast
 
 from composer.core.serializable import Serializable
 from composer.utils import StringEnum
@@ -571,7 +571,7 @@ class Timestamp(Serializable):
             batch_wct = datetime.timedelta(seconds=0)
         self._batch_wct = batch_wct
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         return {
             'iteration': self.iteration.value,
             'epoch': self.epoch.value,
@@ -588,7 +588,7 @@ class Timestamp(Serializable):
             'batch_wct': self.batch_wct,
         }
 
-    def load_state_dict(self, state: Dict[str, Any]) -> None:
+    def load_state_dict(self, state: dict[str, Any]) -> None:
         self._epoch = Time(state['epoch'], TimeUnit.EPOCH)
         self._batch = Time(state['batch'], TimeUnit.BATCH)
         self._sample = Time(state['sample'], TimeUnit.SAMPLE)

@@ -36,7 +36,7 @@ def cyclic_schedule(
         warmup (int, optional): For each profiling cycle, number of batches to be in the warmup state after skipping
             ``wait`` batches. Defaults to ``1``.
         active (int, optional): For each profiling cycle, number of batches to record after warming up.  Defaults to ``4``.
-        repeat (int, optional): Number of profiling cycles to perform per epoch. Set to ``0`` to record the entire epoch.
+        repeat (int, optional): Number of profiling cycles to perform per epoch. set to ``0`` to record the entire epoch.
             Defaults to ``1``.
 
     Returns:

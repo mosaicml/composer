@@ -6,7 +6,7 @@
 import functools
 import textwrap
 import weakref
-from typing import List, TypeVar
+from typing import list, TypeVar
 
 import numpy as np
 import torch
@@ -29,7 +29,7 @@ def randaugment_image(
     img: ImgT,
     severity: int = 9,
     depth: int = 2,
-    augmentation_set: List = augmentation_sets['all'],
+    augmentation_set: list = augmentation_sets['all'],
 ) -> ImgT:
     """Randomly applies a sequence of image data augmentations  to an image or batch of images.
 
@@ -64,7 +64,7 @@ def randaugment_image(
         PIL.Image: RandAugmented image.
     """
 
-    def _randaugment_pil_image(img: PillowImage, severity: int, depth: int, augmentation_set: List) -> PillowImage:
+    def _randaugment_pil_image(img: PillowImage, severity: int, depth: int, augmentation_set: list) -> PillowImage:
         # Iterate over augmentations
         for _ in range(depth):
             aug = np.random.choice(augmentation_set)
@@ -193,7 +193,7 @@ class RandAugment(Algorithm):
         self.severity = severity
         self.depth = depth
         self.augmentation_set = augmentation_set
-        self._transformed_datasets = weakref.WeakSet()
+        self._transformed_datasets = weakref.Weakset()
 
     def match(self, event: Event, state: State) -> bool:
         if event != Event.FIT_START:

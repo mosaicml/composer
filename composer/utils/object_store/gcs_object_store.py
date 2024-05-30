@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import pathlib
 import uuid
-from typing import Callable, List, Optional, Union
+from typing import Callable, list, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
@@ -232,7 +232,7 @@ class GCSObjectStore(ObjectStore):
             else:
                 os.rename(tmp_path, dest)
 
-    def list_objects(self, prefix: Optional[str] = None) -> List[str]:
+    def list_objects(self, prefix: Optional[str] = None) -> list[str]:
         if not self.use_gcs_sdk:
             assert self.s3_object_store is not None
             return self.s3_object_store.list_objects(prefix)

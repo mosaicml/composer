@@ -49,10 +49,10 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
 
-    - name: Setup QEMU
+    - name: setup QEMU
       uses: docker/setup-qemu-action@v2
 
-    - name: Setup Docker Buildx
+    - name: setup Docker Buildx
       uses: docker/setup-buildx-action@v2
 
     - name: Login to DockerHub

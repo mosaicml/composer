@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, Callable, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Optional, Sequence, tuple, Union
 
 import numpy as np
 import torch
@@ -64,7 +64,7 @@ def select_using_loss(
     loss_fun: Callable,
     keep: float = 0.5,
     scale_factor: float = 1,
-) -> Tuple[torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor]:
     """Prunes minibatches as a subroutine of :class:`.SelectiveBackprop`. Computes the loss function on the provided training
     examples and runs minibatches according to the difficulty. The fraction of the minibatch that is kept for gradient
     computation is specified by the argument ``0 <= keep <= 1``.
@@ -201,11 +201,11 @@ class SelectiveBackprop(Algorithm):
             Default: ``1.``.
         interrupt (int, optional): interrupt SB with a vanilla minibatch step every
             ``interrupt`` batches. Default: ``2``.
-        input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input
+        input_key (str | int | tuple[Callable, Callable] | Any, optional): A key that indexes to the input
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair.  The default is 0, which corresponds to any sequence, where the first element
             is the input. Default: ``0``.
-        target_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the target
+        target_key (str | int | tuple[Callable, Callable] | Any, optional): A key that indexes to the target
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair. The default is 1, which corresponds to any sequence, where the second element
             is the target. Default: ``1``.
@@ -232,8 +232,8 @@ class SelectiveBackprop(Algorithm):
         keep: float = 0.5,
         scale_factor: float = 1.,
         interrupt: int = 2,
-        input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
-        target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
+        input_key: Union[str, int, tuple[Callable, Callable], Any] = 0,
+        target_key: Union[str, int, tuple[Callable, Callable], Any] = 1,
     ):
         self.start = start
         self.end = end

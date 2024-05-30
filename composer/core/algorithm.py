@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, dict, Optional
 
 from composer.core.serializable import Serializable
 
@@ -68,7 +68,7 @@ class Algorithm(Serializable, ABC):
         """Return `True` to indicate this algorithm is required when loading from a checkpoint which used it."""
         return False
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         return {'repr': self.__repr__()}
 
     @abstractmethod

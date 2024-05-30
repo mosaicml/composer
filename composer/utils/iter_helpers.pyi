@@ -1,6 +1,6 @@
 import collections.abc
 import io
-from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple, TypeVar, Union, overload
+from typing import Any, Callable, dict, Iterator, list, Optional, Sequence, tuple, TypeVar, Union, overload
 
 T = TypeVar("T")
 V = TypeVar("V")
@@ -11,17 +11,17 @@ TSized = TypeVar("TSized", bound=collections.abc.Sized)
 
 
 @overload
-def map_collection(tuple_of_elements: Tuple[T, ...], map_fn: Callable[[T], V], /) -> Tuple[V, ...]:
+def map_collection(tuple_of_elements: tuple[T, ...], map_fn: Callable[[T], V], /) -> tuple[V, ...]:
     ...
 
 
 @overload
-def map_collection(list_of_elements: List[T], map_fn: Callable[[T], V], /) -> List[V]:
+def map_collection(list_of_elements: list[T], map_fn: Callable[[T], V], /) -> list[V]:
     ...
 
 
 @overload
-def map_collection(dict_of_elements: Dict[KT, T], map_fn: Callable[[T], V], /) -> Dict[KT, V]:
+def map_collection(dict_of_elements: dict[KT, T], map_fn: Callable[[T], V], /) -> dict[KT, V]:
     ...
 
 
@@ -35,7 +35,7 @@ def map_collection(singleton: T, map_fn: Callable[[T], V], /) -> V:
     ...
 
 
-def ensure_tuple(union_of_all_types: Union[T, Sequence[T], Dict[Any, T], None]) -> Tuple[T, ...]:
+def ensure_tuple(union_of_all_types: Union[T, Sequence[T], dict[Any, T], None]) -> tuple[T, ...]:
     ...
 
 

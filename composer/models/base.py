@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import abc
 import copy
-from typing import Any, Dict, Optional, Sequence, Union
+from typing import Any, dict, Optional, Sequence, Union
 
 import torch
 from torch import Tensor
@@ -185,7 +185,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         batch: Any,
         outputs: Any,
         metric: Metric,
-    ) -> Optional[Dict]:
+    ) -> Optional[dict]:
         """Update the given metric.
 
 		Args:
@@ -194,11 +194,11 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 			metric (Metric): The metric to update.
 
         Returns:
-            Optional[Dict]: Optionally return metric results to be stored in state.
+            Optional[dict]: Optionally return metric results to be stored in state.
 		"""
         raise NotImplementedError()
 
-    def get_metrics(self, is_train: bool) -> Dict[str, Metric]:
+    def get_metrics(self, is_train: bool) -> dict[str, Metric]:
         """Get the metrics.
 
         This method will be called by the trainer immediately after :attr:`.Event.INIT`.
@@ -214,6 +214,6 @@ class ComposerModel(torch.nn.Module, abc.ABC):
             is_train (bool): Whether the training metrics or evaluation metrics should be returned.
 
         Returns:
-            Dict[str, Metric]: A mapping of the metric name to a Metric.
+            dict[str, Metric]: A mapping of the metric name to a Metric.
         """
         return {}

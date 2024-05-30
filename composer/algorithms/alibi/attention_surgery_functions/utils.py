@@ -5,7 +5,7 @@ import inspect
 import logging
 import math
 from operator import attrgetter
-from typing import Callable, Dict, Optional, Type
+from typing import Callable, dict, Optional, Type
 
 import torch
 
@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 AlibiReplacementFunction = Callable[[torch.nn.Module, int, int], Optional[torch.nn.Module]]
 
 
-class PolicyRegistry(Dict[Type[torch.nn.Module], AlibiReplacementFunction]):
+class PolicyRegistry(dict[Type[torch.nn.Module], AlibiReplacementFunction]):
     """A registry mapping for ALiBi surgery."""
 
     def register(

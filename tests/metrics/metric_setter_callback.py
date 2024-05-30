@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Callable, Dict, Optional, Sequence, Tuple
+from typing import Callable, dict, Optional, Sequence, tuple
 
 import torch
 
@@ -10,7 +10,7 @@ from composer.devices import Device
 from composer.loggers import Logger
 
 
-class MetricSetterCallback(Callback):
+class MetricsetterCallback(Callback):
 
     def __init__(
         self,
@@ -20,7 +20,7 @@ class MetricSetterCallback(Callback):
         metric_sequence: Sequence,
         unit: TimeUnit,
         device: Optional[Device] = None,
-        metric_args: Optional[Dict] = None,
+        metric_args: Optional[dict] = None,
     ):
         self.monitor = monitor
         self.dataloader_label = dataloader_label
@@ -32,7 +32,7 @@ class MetricSetterCallback(Callback):
         if self.metric_args is None:
             self.metric_args = {}
 
-    def _generate_dummy_metric_inputs(self, target_val) -> Tuple[torch.Tensor, torch.Tensor]:
+    def _generate_dummy_metric_inputs(self, target_val) -> tuple[torch.Tensor, torch.Tensor]:
         """Generate fake set of predictions and target values to satisfy the given target accuracy value."""
         # predictions is a tensor with a ratio of target_val 1s to sub_target 0s
         preds_ones = torch.ones(int(target_val * 10), dtype=torch.uint8)

@@ -13,7 +13,7 @@ import queue
 import tempfile
 import textwrap
 import time
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, dict, list, Optional, tuple, Union
 
 from composer.loggers import Logger
 from composer.profiler.json_trace_merger import merge_traces
@@ -128,7 +128,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
             must be empty when training starts.
 
         num_traces_to_keep (int, optional): The number of traces to keep locally. The oldest traces
-            are removed first. Set to ``-1`` to keep all traces locally. (default: ``-1``)
+            are removed first. set to ``-1`` to keep all traces locally. (default: ``-1``)
 
             Traces will be removed after they have been uploaded. For example, when this handler
             is used in conjunction with the :class:`.RemoteUploaderDownloader`, set this
@@ -139,7 +139,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
             remote file systems.
 
     Attributes:
-        saved_traces (List[Tuple[Timestamp, List[pathlib.Path]]]): The trace timestamps and filepaths.
+        saved_traces (list[tuple[Timestamp, list[pathlib.Path]]]): The trace timestamps and filepaths.
 
             This list contains tuples of the save timestamp and the trace filepaths.
             This list will have at most ``save_num_traces_to_keep`` entries. The latest trace
@@ -166,7 +166,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
         self.remote_file_name = remote_file_name
         self.merged_trace_filename = merged_trace_filename
         self.merged_trace_remote_file_name = merged_trace_remote_file_name
-        self.saved_traces: List[Tuple[Timestamp, List[pathlib.Path]]] = []
+        self.saved_traces: list[tuple[Timestamp, list[pathlib.Path]]] = []
         self.num_traces_to_keep = num_traces_to_keep
 
         self._queue: queue.Queue[str] = queue.Queue()
@@ -368,7 +368,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
     def process_duration_event(
         self,
         name: str,
-        categories: Union[List[str], Tuple[str, ...]],
+        categories: Union[list[str], tuple[str, ...]],
         is_start: bool,
         timestamp: Timestamp,
         wall_clock_time_ns: int,
@@ -390,7 +390,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
     def process_instant_event(
         self,
         name: str,
-        categories: Union[List[str], Tuple[str, ...]],
+        categories: Union[list[str], tuple[str, ...]],
         timestamp: Timestamp,
         wall_clock_time_ns: int,
     ) -> None:
@@ -411,10 +411,10 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
     def process_counter_event(
         self,
         name: str,
-        categories: Union[List[str], Tuple[str, ...]],
+        categories: Union[list[str], tuple[str, ...]],
         timestamp: Timestamp,
         wall_clock_time_ns: int,
-        values: Dict[str, Union[int, float]],
+        values: dict[str, Union[int, float]],
     ) -> None:
         self._record_event(
             name=name,

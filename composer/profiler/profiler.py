@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import pathlib
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Callable, dict, list, Optional, Sequence, tuple, Union
 
 from composer.core import Callback
 from composer.loggers import Logger
@@ -95,7 +95,7 @@ class Profiler(Callback):
     def __init__(
         self,
         schedule: Callable[[State], ProfilerAction],
-        trace_handlers: List[TraceHandler],
+        trace_handlers: list[TraceHandler],
         sys_prof_cpu: bool = True,
         sys_prof_memory: bool = False,
         sys_prof_disk: bool = False,
@@ -117,14 +117,14 @@ class Profiler(Callback):
         torch_prof_with_flops: bool = True,
         torch_prof_num_traces_to_keep: int = -1,
     ) -> None:
-        self._names_to_markers: Dict[str, Marker] = {}
+        self._names_to_markers: dict[str, Marker] = {}
         self._trace_handlers = list(ensure_tuple(trace_handlers))
         self.schedule = schedule
         self.state = None
-        self._callbacks: List[Callback] = []
+        self._callbacks: list[Callback] = []
         # Used to count skip_first starting from resumption timestamp
         self.resumption_batch_idx: int = 0
-        self.remote_filenames: List[str] = []
+        self.remote_filenames: list[str] = []
         # First, add each remote file name to self.remote_filenames to create RemoteUploaderDownloader logger in trainer. [s3://bucket/path/to/file]
         # Then modify remote file name to be a local path to pass into torch_profiler and system_profiler. e.g: path/to/file
         if torch_prof_remote_file_name:
@@ -241,7 +241,7 @@ class Profiler(Callback):
         ),
         record_instant_on_start: bool = False,
         record_instant_on_finish: bool = False,
-        categories: Union[List[str], Tuple[str, ...]] = (),
+        categories: Union[list[str], tuple[str, ...]] = (),
     ) -> Marker:
         """Create and get an instance of a :class:`.Marker`.
 
@@ -282,7 +282,7 @@ class Profiler(Callback):
                 Defaults to ``False``.
             record_instant_on_finish (bool, optional): Whether to record an instant event whenever the marker is finished.
                 Defaults to ``False``.
-            categories (Union[List[str], Tuple[str, ...]], optional): Categories for this marker. Defaults to ``None``.
+            categories (Union[list[str], tuple[str, ...]], optional): Categories for this marker. Defaults to ``None``.
 
         Returns:
             Marker: Marker instance.

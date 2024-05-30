@@ -4,7 +4,7 @@
 """A collection of common torchmetrics."""
 from __future__ import annotations
 
-from typing import Callable, Tuple
+from typing import Callable, tuple
 
 import torch
 from torch import Tensor
@@ -116,7 +116,7 @@ def _stat_scores(
     targets: Tensor,
     class_index: int,
     argmax_dim: int = 1,
-) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
 
     if preds.ndim == targets.ndim + 1:
         preds = to_categorical(preds, argmax_dim=argmax_dim)
