@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Dict, TypeVar
+from typing import Any, TypeVar
 
 import torch
 
@@ -44,9 +44,9 @@ class DeviceNeuron(Device):
     def tensor_to_device(self, tensor: torch.Tensor) -> torch.Tensor:
         return tensor.to(self._device)
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         return {}
 
-    def load_state_dict(self, state: Dict[str, Any]) -> None:
+    def load_state_dict(self, state: dict[str, Any]) -> None:
         if len(state) != 0:
             raise ValueError('Neuron device has no state.')

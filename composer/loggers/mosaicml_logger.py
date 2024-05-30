@@ -15,7 +15,7 @@ import time
 import warnings
 from concurrent.futures import wait
 from functools import reduce
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import mcli
 import torch
@@ -53,7 +53,7 @@ class MosaicMLLogger(LoggerDestination):
     Args:
         log_interval (int, optional): Buffer log calls more frequent than ``log_interval`` seconds
             to avoid performance issues. Defaults to 60.
-        ignore_keys (List[str], optional): A list of keys to ignore when logging. The keys support
+        ignore_keys (list[str], optional): A list of keys to ignore when logging. The keys support
             Unix shell-style wildcards with fnmatch. Defaults to ``None``.
 
             Example 1: ``ignore_keys = ["wall_clock/train", "wall_clock/val", "wall_clock/total"]``
@@ -68,7 +68,7 @@ class MosaicMLLogger(LoggerDestination):
     def __init__(
         self,
         log_interval: int = 60,
-        ignore_keys: Optional[List[str]] = None,
+        ignore_keys: Optional[list[str]] = None,
         ignore_exceptions: bool = False,
     ) -> None:
         self.log_interval = log_interval
@@ -78,7 +78,7 @@ class MosaicMLLogger(LoggerDestination):
         if self._enabled:
             self.time_last_logged = 0
             self.train_dataloader_len = None
-            self.buffered_metadata: Dict[str, Any] = {}
+            self.buffered_metadata: dict[str, Any] = {}
             self._futures = []
 
             self.run_name = os.environ.get(RUN_NAME_ENV_VAR)
@@ -91,10 +91,10 @@ class MosaicMLLogger(LoggerDestination):
                 )
                 self._enabled = False
 
-    def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
+    def log_hyperparameters(self, hyperparameters: dict[str, Any]):
         self.log_metadata(hyperparameters)
 
-    def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
+    def log_metrics(self, metrics: dict[str, Any], step: Optional[int] = None) -> None:
         self.log_metadata(metrics)
 
     def log_exception(self, exception: Exception):
@@ -150,7 +150,7 @@ class MosaicMLLogger(LoggerDestination):
         if self._enabled:
             wait(self._futures)  # Ignore raised errors on close
 
-    def log_metadata(self, metadata: Dict[str, Any], force_flush: bool = False) -> None:
+    def log_metadata(self, metadata: dict[str, Any], force_flush: bool = False) -> None:
         """Buffer metadata and prefix keys with mosaicml."""
         if self._enabled:
             for key, val in metadata.items():
@@ -188,7 +188,7 @@ class MosaicMLLogger(LoggerDestination):
                     log.info('Raising exception. To ignore exceptions, set ignore_exceptions=True.')
                     raise
 
-    def _get_training_progress_metrics(self, state: State) -> Dict[str, Any]:
+    def _get_training_progress_metrics(self, state: State) -> dict[str, Any]:
         """Calculates training progress metrics.
 
         If user submits max duration:
@@ -269,7 +269,7 @@ def format_data_to_json_serializable(data: Any):
         return ''
 
 
-def dict_to_str(data: Dict[str, Any]):
+def dict_to_str(data: dict[str, Any]):
     return '\n'.join([f'\t{k}: {v}' for k, v in data.items()])
 
 

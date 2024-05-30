@@ -15,12 +15,12 @@ to visualize the trace.
 import argparse
 import json
 import pathlib
-from typing import Dict, List, Tuple, Union
+from typing import Union
 
 __all__ = ['merge_traces']
 
 
-def _load_trace(file: Union[str, pathlib.Path]) -> Union[Dict, List]:
+def _load_trace(file: Union[str, pathlib.Path]) -> Union[dict, list]:
     with open(file, 'r') as f:
         trace_str = f.read().strip()
         if trace_str.startswith('['):
@@ -43,8 +43,8 @@ def _get_global_rank_from_file(file: Union[str, pathlib.Path]) -> int:
     raise RuntimeError('global rank not found in file')
 
 
-def _get_rank_to_clock_syncs(trace_files: Tuple[Union[str, pathlib.Path], ...]) -> Dict[int, int]:
-    rank_to_clock_sync: Dict[int, int] = {}
+def _get_rank_to_clock_syncs(trace_files: tuple[Union[str, pathlib.Path], ...]) -> dict[int, int]:
+    rank_to_clock_sync: dict[int, int] = {}
     for filename in trace_files:
         rank = _get_global_rank_from_file(filename)
         trace_json = _load_trace(filename)

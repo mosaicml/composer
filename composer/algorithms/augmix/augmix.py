@@ -6,7 +6,7 @@
 import functools
 import textwrap
 import weakref
-from typing import List, TypeVar
+from typing import TypeVar
 
 import numpy as np
 import torch
@@ -32,7 +32,7 @@ def augmix_image(
     depth: int = -1,
     width: int = 3,
     alpha: float = 1.0,
-    augmentation_set: List = augmentation_sets['all'],
+    augmentation_set: list = augmentation_sets['all'],
 ) -> ImgT:
     r"""Applies the AugMix (`Hendrycks et al, 2020 <http://arxiv.org/abs/1912.02781>`_) data augmentation.
 
@@ -77,7 +77,7 @@ def augmix_image(
         depth: int,
         width: int,
         alpha: float,
-        augmentation_set: List,
+        augmentation_set: list,
     ) -> PillowImage:
         chain_weights = np.random.dirichlet([alpha] * width).astype(np.float32)
         mixing_weight = np.float32(np.random.beta(alpha, alpha))
