@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 import time
 import warnings
-from typing import dict, list, Optional
+from typing import Optional, dict, list
 
 from composer.core import Callback, State, TimeUnit
 from composer.loggers import Logger

@@ -10,7 +10,7 @@ import platform
 import subprocess
 import sys
 import warnings
-from typing import Any, dict, Iterable, Optional
+from typing import Any, Iterable, Optional, dict
 
 import torch
 from torch.utils.data import DataLoader, IterableDataset

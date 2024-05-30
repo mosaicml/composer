@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import pathlib
-from typing import TYPE_CHECKING, Callable, dict, list, Optional, Sequence, tuple, Union
+from typing import TYPE_CHECKING, Callable, Optional, Sequence, Union, dict, list, tuple
 
 from composer.core import Callback
 from composer.loggers import Logger

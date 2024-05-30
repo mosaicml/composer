@@ -10,7 +10,7 @@ import os
 import pathlib
 import uuid
 from tempfile import TemporaryDirectory
-from typing import Callable, list, Optional, Union
+from typing import Callable, Optional, Union, list
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore

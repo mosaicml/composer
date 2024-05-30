@@ -12,7 +12,7 @@ import re
 import tempfile
 import uuid
 import warnings
-from typing import TYPE_CHECKING, Any, dict, list, Optional, tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Union, dict, list, tuple
 from urllib.parse import urlparse
 
 import requests

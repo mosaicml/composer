@@ -10,7 +10,7 @@ import logging
 import os
 import re
 import time
-from typing import TYPE_CHECKING, Any, Callable, dict, list, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, Union, dict, list
 
 from composer.core.time import Time, TimeUnit
 from composer.loggers.logger import Logger

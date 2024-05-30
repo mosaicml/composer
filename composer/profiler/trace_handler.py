@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import abc
 import pathlib
-from typing import TYPE_CHECKING, dict, list, tuple, Union
+from typing import TYPE_CHECKING, Union, dict, list, tuple
 
 from composer.core.callback import Callback
 

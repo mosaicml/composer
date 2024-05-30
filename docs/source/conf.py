@@ -22,7 +22,7 @@ import sys
 import tempfile
 import types
 import warnings
-from typing import Any, dict, list, tuple, Type
+from typing import Any, Type, dict, list, tuple
 
 import sphinx.application
 import sphinx.ext.autodoc

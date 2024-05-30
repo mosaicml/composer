@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import Callable, dict, Optional, Sequence, Type, Union
+from typing import Callable, Optional, Sequence, Type, Union, dict
 
 import torch
 

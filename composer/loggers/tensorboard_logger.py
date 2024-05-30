@@ -4,7 +4,7 @@
 """Log to `Tensorboard <https://www.tensorflow.org/tensorboard/>`_."""
 
 from pathlib import Path
-from typing import Any, dict, Optional, Sequence, Union
+from typing import Any, Optional, Sequence, Union, dict
 
 import numpy as np
 import torch

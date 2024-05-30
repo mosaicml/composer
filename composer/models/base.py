@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import abc
 import copy
-from typing import Any, dict, Optional, Sequence, Union
+from typing import Any, Optional, Sequence, Union, dict
 
 import torch
 from torch import Tensor

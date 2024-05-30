@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import textwrap
 import weakref
-from typing import Any, Callable, tuple, TypeVar, Union
+from typing import Any, Callable, TypeVar, Union, tuple
 
 import torch
 import torch.utils.data

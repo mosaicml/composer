@@ -14,7 +14,7 @@ import sys
 import tempfile
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Any, dict, list, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Union, dict, list
 
 import numpy as np
 import torch

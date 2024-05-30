@@ -24,7 +24,7 @@ import collections
 import itertools
 import logging
 import textwrap
-from typing import Any, Callable, dict, Iterable, list, Mapping, Optional, OrderedDict, Sequence, tuple, Type, Union
+from typing import Any, Callable, Iterable, Mapping, Optional, OrderedDict, Sequence, Type, Union, dict, list, tuple
 
 import torch
 import torch.distributed

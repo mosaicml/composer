@@ -10,7 +10,7 @@ import textwrap
 import warnings
 from collections import OrderedDict
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable, dict, Iterable, list, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional, Sequence, Union, cast, dict, list
 from unittest.mock import MagicMock
 
 import numpy as np

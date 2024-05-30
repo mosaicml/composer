@@ -5,7 +5,7 @@
 
 import contextlib
 import math
-from typing import Any, dict, Optional, Sequence, Union, cast
+from typing import Any, Optional, Sequence, Union, cast, dict
 from unittest.mock import MagicMock, Mock
 
 import pytest

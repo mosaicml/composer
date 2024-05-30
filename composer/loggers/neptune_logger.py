@@ -10,7 +10,7 @@ import pathlib
 import warnings
 from functools import partial
 from importlib.metadata import version
-from typing import TYPE_CHECKING, Any, dict, Literal, Optional, Sequence, set, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, Sequence, Union, dict, set
 
 import numpy as np
 import torch

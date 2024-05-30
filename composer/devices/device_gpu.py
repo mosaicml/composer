@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Any, dict, Optional, TypeVar
+from typing import Any, Optional, TypeVar, dict
 
 import torch
 import torch.backends.cuda

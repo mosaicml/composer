@@ -5,7 +5,7 @@ import inspect
 import logging
 import math
 from operator import attrgetter
-from typing import Callable, dict, Optional, Type
+from typing import Callable, Optional, Type, dict
 
 import torch
 

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import TYPE_CHECKING, Any, dict, list, Optional, TextIO, Union
+from typing import TYPE_CHECKING, Any, Optional, TextIO, Union, dict, list
 
 import tqdm.auto
 import yaml

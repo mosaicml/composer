@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import types
-from typing import list, Type
+from typing import Type, list
 
 from tests.common.compare import deep_compare
 from tests.common.datasets import (

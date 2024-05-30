@@ -10,7 +10,7 @@ import os
 import pathlib
 import urllib.parse
 import uuid
-from typing import Any, Callable, dict, Optional, Union
+from typing import Any, Callable, Optional, Union, dict
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError

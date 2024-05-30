@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Callable, tuple, Union, cast
+from typing import Callable, Union, cast, tuple
 
 import numpy as np
 import pytest

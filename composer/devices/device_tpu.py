@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, dict, TypeVar
+from typing import Any, TypeVar, dict
 
 import torch
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 import contextlib
 import itertools
 import logging
-from typing import Any, dict, Optional, Union
+from typing import Any, Optional, Union, dict
 
 import torch
 

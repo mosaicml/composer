@@ -40,7 +40,7 @@ import pickle
 import sys
 import time
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, list, Optional, Sequence, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Optional, Sequence, TypeVar, Union, cast, list
 
 import torch
 import torch.distributed as dist

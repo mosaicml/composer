@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import textwrap
 from functools import partial
-from typing import Any, Callable, Optional, tuple, Union
+from typing import Any, Callable, Optional, Union, tuple
 
 import torch
 import torch.nn.functional as F

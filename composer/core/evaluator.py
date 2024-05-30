@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import textwrap
 import warnings
-from typing import Any, Callable, dict, Iterable, list, Optional, Union
+from typing import Any, Callable, Iterable, Optional, Union, dict, list
 
 from composer.core.data_spec import DataSpec, ensure_data_spec
 from composer.core.event import Event

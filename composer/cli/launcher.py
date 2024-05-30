@@ -15,7 +15,7 @@ import tempfile
 import time
 import traceback
 from argparse import ArgumentParser
-from typing import Any, dict, list, Union
+from typing import Any, Union, dict, list
 
 import psutil
 import torch

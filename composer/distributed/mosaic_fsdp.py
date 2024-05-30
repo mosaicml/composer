@@ -5,7 +5,7 @@
 
 import logging
 import warnings
-from typing import Any, dict, tuple, Union
+from typing import Any, Union, dict, tuple
 
 import torch
 from packaging import version
@@ -230,7 +230,7 @@ def _get_process_group(pg, process_group_cache=None):
 
 
 def set_custom_fsdp_module_kwargs(module_kwargs: dict, process_group_cache: dict[tuple[int], Any]) -> dict:
-    """set custom module_kwargs per fsdp module."""
+    """Set custom module_kwargs per fsdp module."""
     if ('sharding_strategy' in module_kwargs and module_kwargs['sharding_strategy'] not in SHARDING_MAP.values()):
         module_kwargs['sharding_strategy'] = SHARDING_MAP[module_kwargs['sharding_strategy'].upper()]
     if 'backward_prefetch' in module_kwargs:

@@ -9,7 +9,7 @@ Provides utilities to do FX-based model transformations.
 import logging
 import operator
 import re
-from typing import Any, Callable, dict, list, Mapping, Optional, tuple, Union
+from typing import Any, Callable, Mapping, Optional, Union, dict, list, tuple
 
 import torch
 import torch.nn as nn

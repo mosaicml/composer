@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import textwrap
-from typing import Any, dict, list, Optional, Sequence, Union
+from typing import Any, Optional, Sequence, Union, dict, list
 
 import numpy as np
 import torch

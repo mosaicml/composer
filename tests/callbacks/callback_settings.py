@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from typing import Any, dict, list, tuple, Type
+from typing import Any, Type, dict, list, tuple
 from unittest.mock import MagicMock
 
 import pytest

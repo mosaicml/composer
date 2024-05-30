@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from typing import list, Optional
+from typing import Optional, list
 
 import pytest
 

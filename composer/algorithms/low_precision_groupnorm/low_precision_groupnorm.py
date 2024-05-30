@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import dict, Optional, Sequence, Type, Union
+from typing import Optional, Sequence, Type, Union, dict
 
 import torch
 import torch.nn.functional as F

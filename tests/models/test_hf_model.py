@@ -6,7 +6,7 @@ import os
 import tempfile
 from contextlib import nullcontext
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, dict, list, Optional
+from typing import TYPE_CHECKING, Any, Optional, dict, list
 from unittest.mock import patch
 from urllib.parse import urlparse
 

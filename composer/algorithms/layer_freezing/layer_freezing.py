@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import textwrap
 import warnings
-from typing import Any, dict, list, Optional, Sequence, tuple, Union
+from typing import Any, Optional, Sequence, Union, dict, list, tuple
 
 import torch
 from torch.optim import Optimizer

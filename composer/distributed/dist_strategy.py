@@ -7,7 +7,7 @@ import collections
 import logging
 import warnings
 from contextlib import contextmanager, nullcontext
-from typing import Any, Callable, ContextManager, dict, Iterator, list, Optional, Sequence, tuple, Union, cast
+from typing import Any, Callable, ContextManager, Iterator, Optional, Sequence, Union, cast, dict, list, tuple
 
 import torch
 from packaging import version

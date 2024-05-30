@@ -75,7 +75,7 @@ import textwrap
 import weakref
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Callable, ContextManager, dict, list, Optional, Sequence, tuple, TypeVar, Union, cast
+from typing import Callable, ContextManager, Optional, Sequence, TypeVar, Union, cast, dict, list, tuple
 
 from composer.core import passes
 from composer.core.algorithm import Algorithm

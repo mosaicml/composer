@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import list, Sequence, Type
+from typing import Sequence, Type, list
 from unittest.mock import Mock
 
 import pytest

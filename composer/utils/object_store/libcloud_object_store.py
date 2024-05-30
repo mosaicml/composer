@@ -6,7 +6,7 @@ import io
 import os
 import pathlib
 import uuid
-from typing import Any, Callable, dict, list, Optional, Union
+from typing import Any, Callable, Optional, Union, dict, list
 
 from requests.exceptions import ConnectionError
 from urllib3.exceptions import ProtocolError

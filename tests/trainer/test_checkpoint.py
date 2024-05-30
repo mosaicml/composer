@@ -12,7 +12,7 @@ import tarfile
 import tempfile
 import time
 from glob import glob
-from typing import Any, dict, list, Optional, tuple, Union
+from typing import Any, Optional, Union, dict, list, tuple
 from unittest.mock import MagicMock, patch
 
 import pytest

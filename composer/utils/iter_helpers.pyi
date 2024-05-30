@@ -1,6 +1,6 @@
 import collections.abc
 import io
-from typing import Any, Callable, dict, Iterator, list, Optional, Sequence, tuple, TypeVar, Union, overload
+from typing import Any, Callable, Iterator, Optional, Sequence, TypeVar, Union, dict, list, overload, tuple
 
 T = TypeVar("T")
 V = TypeVar("V")

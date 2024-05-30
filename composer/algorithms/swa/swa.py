@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import Any, dict, list, Optional
+from typing import Any, Optional, dict, list
 
 import torch
 from torch.optim.lr_scheduler import LRScheduler

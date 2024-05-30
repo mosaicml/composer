@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import datetime
-from typing import Any, dict, list, tuple, Union
+from typing import Any, Union, dict, list, tuple
 
 import numpy as np
 import torch

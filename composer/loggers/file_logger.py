@@ -9,7 +9,7 @@ import os
 import queue
 import sys
 import textwrap
-from typing import TYPE_CHECKING, Any, Callable, dict, list, Optional, TextIO
+from typing import TYPE_CHECKING, Any, Callable, Optional, TextIO, dict, list
 
 from composer.loggers.logger import Logger, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination

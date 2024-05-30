@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, dict, Protocol
+from typing import Any, Protocol, dict
 
 # Putting the typing annotation for Serializable here to avoid
 # https://bugs.python.org/issue45121

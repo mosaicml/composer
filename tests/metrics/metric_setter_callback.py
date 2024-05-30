@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Callable, dict, Optional, Sequence, tuple
+from typing import Callable, Optional, Sequence, dict, tuple
 
 import torch
 

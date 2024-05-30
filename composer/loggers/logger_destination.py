@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pathlib
 from abc import ABC
-from typing import TYPE_CHECKING, Any, dict, list, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Union, dict, list
 
 import numpy as np
 import torch

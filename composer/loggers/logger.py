@@ -9,7 +9,7 @@ import collections.abc
 import operator
 import pathlib
 from functools import reduce
-from typing import TYPE_CHECKING, Any, dict, list, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Union, dict, list
 
 import numpy as np
 import torch

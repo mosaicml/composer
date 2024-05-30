@@ -15,7 +15,7 @@ import time
 import warnings
 from concurrent.futures import wait
 from functools import reduce
-from typing import TYPE_CHECKING, Any, dict, list, Optional
+from typing import TYPE_CHECKING, Any, Optional, dict, list
 
 import mcli
 import torch

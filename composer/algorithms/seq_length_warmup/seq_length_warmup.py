@@ -5,7 +5,7 @@
 
 import logging
 import textwrap
-from typing import dict, Mapping, Optional
+from typing import Mapping, Optional, dict
 
 import torch
 import torch.utils.data

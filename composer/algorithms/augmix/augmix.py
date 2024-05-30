@@ -6,7 +6,7 @@
 import functools
 import textwrap
 import weakref
-from typing import list, TypeVar
+from typing import TypeVar, list
 
 import numpy as np
 import torch

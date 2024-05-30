@@ -9,7 +9,7 @@ Useful for collecting and plotting data inside notebooks.
 from __future__ import annotations
 
 import copy
-from typing import TYPE_CHECKING, Any, dict, list, Optional, tuple
+from typing import TYPE_CHECKING, Any, Optional, dict, list, tuple
 
 import numpy as np
 from torch import Tensor

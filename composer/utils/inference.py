@@ -13,7 +13,7 @@ import functools
 import logging
 import os
 import tempfile
-from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, Union, tuple
 
 import torch
 import torch.nn as nn

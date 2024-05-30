@@ -12,7 +12,7 @@
 import logging
 import sys
 from dataclasses import dataclass
-from typing import Any, Callable, dict, list, Optional, Sequence, Union
+from typing import Any, Callable, Optional, Sequence, Union, dict, list
 
 import torch
 from torch import Tensor

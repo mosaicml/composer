@@ -150,7 +150,7 @@ def _batch_set(batch: Any, key: Any, value: Any) -> Any:
 
 
 def _batch_set_multiple(batch: Any, key: Any, value: Any) -> Any:
-    """sets multiple key value pairs in a non-tuple batch."""
+    """Sets multiple key value pairs in a non-tuple batch."""
     # Numpy arrays and Torch tensors can take tuples and lists as keys, so try to do a normal
     # __getitem__ call before resulting to list comprehension.
     try:

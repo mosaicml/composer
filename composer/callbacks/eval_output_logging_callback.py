@@ -5,7 +5,7 @@
 
 import warnings
 from copy import deepcopy
-from typing import Any, dict, list, Sequence, Union
+from typing import Any, Sequence, Union, dict, list
 
 import torch
 

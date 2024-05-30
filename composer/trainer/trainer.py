@@ -24,16 +24,16 @@ from typing import (
     Any,
     Callable,
     ContextManager,
-    dict,
     Iterable,
-    list,
     Mapping,
     Optional,
     Sequence,
     TextIO,
-    tuple,
     Union,
     cast,
+    dict,
+    list,
+    tuple,
 )
 
 import coolname

@@ -12,7 +12,7 @@ Attributes:
 
 from __future__ import annotations
 
-from typing import Any, dict, list, Union
+from typing import Any, Union, dict, list
 
 import torch
 import torch.utils.data

@@ -5,7 +5,7 @@
 
 import warnings
 from functools import partial
-from typing import Any, list, Optional, Sequence, Union
+from typing import Any, Optional, Sequence, Union, list
 
 import torch
 

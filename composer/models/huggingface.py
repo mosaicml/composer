@@ -16,7 +16,7 @@ import tempfile
 import textwrap
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, dict, list, Mapping, Optional, set, tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Type, Union, dict, list, set, tuple
 
 import torch
 from torchmetrics import Metric
