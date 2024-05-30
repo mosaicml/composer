@@ -62,7 +62,7 @@ class ActivationMonitor(Callback):
         |                                                       |                                                     |
         +-------------------------------------------------------+-----------------------------------------------------+
         |                                                       | The average max value of the `hid_dim` of the       |
-        | ``activations/max/MODULE_NAME/output_{n}``            | nth ouput activations of the current module.        |
+        | ``activations/max/MODULE_NAME/output_{n}``            | nth output activations of the current module.       |
         |                                                       |                                                     |
         +-------------------------------------------------------+-----------------------------------------------------+
         |                                                       | The average value of the `hid_dim` of the output    |
@@ -85,7 +85,7 @@ class ActivationMonitor(Callback):
             For example passing in the list ['dropout', 'ln'] will cause the class attributes that contain
             'dropout' or 'ln' to not be logged. Default: 'None'.
         only_log_wandb (bool, optional): A bool that determines if we should only log to Weights and Biases. This is recommended
-            in partcular for larger models as this callback logs a lot. Default: 'True'.
+            in particular for larger models as this callback logs a lot. Default: 'True'.
     """
 
     def __init__(
@@ -199,7 +199,7 @@ class ActivationMonitor(Callback):
             logger.log_metrics(metrics)
 
     def recursively_add_metrics(self, metrics: dict, name: str, suffix: str, values: Any):
-        # Becuase of the recursive diving, we need this call to prevent infinite recursion.
+        # Because of the recursive diving, we need this call to prevent infinite recursion.
         if isinstance(values, str):
             return
         # Keep recursively diving if the value is a sequence
