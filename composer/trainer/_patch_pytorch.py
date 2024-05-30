@@ -443,7 +443,6 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
     )
     import dataclasses
     from collections import defaultdict, ChainMap
-    from typing import dict, list, set
 
     from torch.distributed.checkpoint.planner import SavePlan, WriteItem
     from torch.distributed.checkpoint.metadata import MetadataIndex, Metadata
