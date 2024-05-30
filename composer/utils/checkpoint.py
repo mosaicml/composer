@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Un
 
 import torch
 from packaging import version
+import sys
 from torch.distributed import checkpoint as dist_cp
 from torch.distributed._tensor import DeviceMesh
 from torch.distributed.checkpoint.metadata import Metadata
@@ -278,8 +279,14 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                 # and dist.all_gather_objects(exception) before raising it.
                 # If that all_gather_objects fails, the exception is never visible to user.
                 # We immediately kill the process and print the exception 
-                log.error(f'Exception {type(e)} raised during downloading: {str(e)}, terminating the process')
-                os.kill(os.getpid(), signal.SIGTERM)
+                import psutil
+                log.warning(f'Exception {type(e)} raised during downloading: {str(e)}, terminating the process')
+                pid = os.getpid()
+                proc = psutil.Process(pid)
+                for child_process in proc.children(recursive=True):
+                    os.kill(child_process.pid, signal.SIGKILL)
+                os.kill(pid, signal.SIGTERM)
+                #os.kill(pid, signal.SIGTERM)
 
         # 3. Wait for all ranks to finish.
         log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
