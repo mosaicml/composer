@@ -46,7 +46,7 @@ def set_fsdp_default(fsdp_config: Dict[str, Any]):
         warnings.warn(
             VersionedDeprecationWarning(
                 'process_group is deprecated. Please specify `data_parallel_shard_degree` and `data_parallel_replicate_degree` instead.',
-                remove_version='0.24.0',
+                remove_version='0.24',
             ),
         )
 
@@ -54,7 +54,7 @@ def set_fsdp_default(fsdp_config: Dict[str, Any]):
         warnings.warn(
             VersionedDeprecationWarning(
                 'device_mesh is deprecated. Please specify `data_parallel_shard_degree` and `data_parallel_replicate_degree` instead.',
-                remove_version='0.24.0',
+                remove_version='0.24',
             ),
         )
         if 'data_parallel_shard_degree' in fsdp_config or 'data_parallel_replicate_degree' in fsdp_config:
