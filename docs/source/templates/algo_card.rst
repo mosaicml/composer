@@ -40,7 +40,7 @@ Tags for Method
 ================
 .. We'll have to create high-level tags like "speedup," "regularization," "curriculum," "augmentation," etc.
 
-Applicable settings
+Applicable Settings
 ====================
 .. Models, tasks, and settings (e.g., ResNet-50 on ImageNet, computer vision, language modeling) where this is applicable.
 
@@ -75,7 +75,7 @@ Can also just do a math directive like this:
 Suggested Hyperparameters
 ==========================
 .. Details on hyperparameters that work well.  Here are some table examples if you want to use that here:
-.. list-table:: list Table Example
+.. list-table:: List Table Example
         :widths: 20 20 20
         :header-rows: 1
 

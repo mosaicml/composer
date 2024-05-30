@@ -24,7 +24,7 @@ import collections
 import itertools
 import logging
 import textwrap
-from typing import Any, Callable, dict, Iterable, list, Mapping, Optional, Ordereddict, Sequence, tuple, Type, Union
+from typing import Any, Callable, dict, Iterable, list, Mapping, Optional, OrderedDict, Sequence, tuple, Type, Union
 
 import torch
 import torch.distributed
@@ -46,7 +46,7 @@ ReplacementFunction = Callable[[torch.nn.Module, int], Optional[torch.nn.Module]
 
 def _add_children_recursive(
     module: torch.nn.Module,
-    children_to_parents_and_names: Ordereddict[torch.nn.Module, list[tuple[torch.nn.Module, str]]],
+    children_to_parents_and_names: OrderedDict[torch.nn.Module, list[tuple[torch.nn.Module, str]]],
 ) -> None:
     # recursively build up children_to_parents_and_names so it maps a module to the list of
     # (parent_module, attribute name)
@@ -115,7 +115,7 @@ def replace_module_classes(
         module (torch.nn.Module): Model to modify.
         policies (Mapping[torch.nn.Module, ReplacementFunction]): Mapping of source module class to
             a replacement function. Matching policies are applied in the iteration order of the dictionary, so
-            if order is important, an :class:`Ordereddict` should be used. The replacement function may
+            if order is important, an :class:`OrderedDict` should be used. The replacement function may
             return either another :class:`~torch.nn.Module` or ``None``. If the latter, the source module
             is not replaced.
         recurse_on_replacements (bool): If true, policies will be applied to any module returned
@@ -168,9 +168,9 @@ def replace_module_classes(
                 ),
             )
     replaced_pairs = {}
-    children_to_parents_and_names: Ordereddict[torch.nn.Module,
+    children_to_parents_and_names: OrderedDict[torch.nn.Module,
                                                list[tuple[torch.nn.Module, str]],
-                                              ] = collections.Ordereddict()
+                                              ] = collections.OrderedDict()
     _add_children_recursive(module, children_to_parents_and_names)
     indices = indices if indices is not None else {c: 0 for c in policies}
 

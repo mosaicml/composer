@@ -44,7 +44,7 @@ def comet_logger(monkeypatch, comet_offline_directory):
     monkeypatch.setattr(comet_ml, 'Experiment', comet_ml.OfflineExperiment)
     from composer.loggers import CometMLLogger
 
-    # set offline directory.
+    # Set offline directory.
     os.environ['COMET_OFFLINE_DIRECTORY'] = comet_offline_directory
 
     comet_logger = CometMLLogger()

@@ -19,7 +19,7 @@ This tutorial will demonstrate how to to setup and configure profiling, as well 
 In this tutorial, we will build a simple training application called `profiler_demo.py` using the MNIST dataset and
 Classifier model with the Composer Trainer.
 
-### setup
+### Setup
 
 Install Composer, if it is not yet already installed.
 
@@ -66,9 +66,9 @@ The `trace_handlers` and `schedule` are the only required arguments; all others 
 
 Here, we configure following profiling options:
 
-- set the `trace_handlers` to store Composer Profiler traces in the `'composer_profiler'` folder
-- set the profiling window via `schedule`
-- set the `torch_prof_folder` to store Torch Profiler traces in the `'torch_profiler'` folder
+- Set the `trace_handlers` to store Composer Profiler traces in the `'composer_profiler'` folder
+- Set the profiling window via `schedule`
+- Set the `torch_prof_folder` to store Torch Profiler traces in the `'torch_profiler'` folder
 - Limit the duration of the training run to keep the size of the `profiler_trace_file` manageable
 
 ```{literalinclude} ../../../../examples/profiler_demo.py

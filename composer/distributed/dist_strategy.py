@@ -398,7 +398,7 @@ def prepare_fsdp_module(
                         mod_attr_list.append((mod, attr_name))
                         tied_pointers[ptr] = mod_attr_list
 
-                # dictionary mapping the source module to a list of (target module, source attr, target attr) tuples
+                # Dictionary mapping the source module to a list of (target module, source attr, target attr) tuples
                 source_mod_to_mod_attr = {}
                 for mod_attr_list in tied_pointers.values():
                     # If there is only one module for this pointer, then there is no weight tying

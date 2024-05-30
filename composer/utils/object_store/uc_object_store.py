@@ -244,7 +244,7 @@ class UCObjectStore(ObjectStore):
         return -1
 
     def list_objects(self, prefix: Optional[str]) -> list[str]:
-        """list all objects in the object store with the given prefix.
+        """List all objects in the object store with the given prefix.
 
         Args:
             prefix (str): The prefix to search for.

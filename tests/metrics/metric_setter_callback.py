@@ -10,7 +10,7 @@ from composer.devices import Device
 from composer.loggers import Logger
 
 
-class MetricsetterCallback(Callback):
+class MetricSetterCallback(Callback):
 
     def __init__(
         self,

@@ -91,7 +91,7 @@ class Logger:
         """Log images. Logs any tensors or arrays as images.
 
         Args:
-            images (np.ndarray | torch.Tensor | Sequence[np.ndarray | torch.Tensor]): dictionary mapping
+            images (np.ndarray | torch.Tensor | Sequence[np.ndarray | torch.Tensor]): Dictionary mapping
                 image(s)' names (str) to an image of array of images.
             name (str): The name of the image(s). (Default: ``'Images'``)
             channels_last (bool): Whether the channel dimension is first or last.
@@ -102,7 +102,7 @@ class Logger:
                 counter).
             masks (dict[str, np.ndarray | torch.Tensor | Sequence[np.ndarray | torch.Tensor]], optional): A dictionary
                 mapping the mask name (e.g. predictions or ground truth) to a sequence of masks.
-            mask_class_labels (dict[int, str], optional): dictionary mapping label id to its name. Used for labelling
+            mask_class_labels (dict[int, str], optional): Dictionary mapping label id to its name. Used for labelling
                 each color in the mask.
             use_table (bool): Whether to make a table of the images or not. (default: ``True``). Only for use
                 with WandB.

@@ -441,7 +441,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
 
     Args:
         uri (str):The path to (maybe) create a :class:`composer.loggers.RemoteUploaderDownloader` from
-        loggers (list[:class:`composer.loggers.LoggerDestination`]): list of the existing :class:`composer.loggers.LoggerDestination` s so as to not create a duplicate
+        loggers (list[:class:`composer.loggers.LoggerDestination`]): List of the existing :class:`composer.loggers.LoggerDestination` s so as to not create a duplicate
 
     Raises:
         NotImplementedError: Raises when the URI format is not supported.
@@ -488,7 +488,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
 
 
 def list_remote_objects(remote_path: str) -> list[str]:
-    """list objects at the remote path.
+    """List objects at the remote path.
 
     Args:
         remote_path (str): Remote object store path.
@@ -560,7 +560,7 @@ def get_file(
             This :class:`~.ObjectStore` instance will be used to retrieve the file. The ``path`` parameter
             should be set to the object name within the object store.
 
-            set this parameter to ``None`` (the default) if ``path`` is a URL or a local file.
+            Set this parameter to ``None`` (the default) if ``path`` is a URL or a local file.
 
         overwrite (bool): Whether to overwrite an existing file at ``destination``. (default: ``False``)
 

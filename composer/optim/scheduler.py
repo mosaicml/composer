@@ -491,7 +491,7 @@ class CosineAnnealingWarmRestartsScheduler(ComposerScheduler):
 
 
 class PolynomialScheduler(ComposerScheduler):
-    r"""sets the learning rate to be proportional to a power of the fraction of training time left.
+    r"""Sets the learning rate to be proportional to a power of the fraction of training time left.
 
     Specifically, the learning rate multiplier :math:`\alpha` can be expressed as:
 

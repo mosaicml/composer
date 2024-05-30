@@ -112,12 +112,12 @@ def export_for_inference(
         save_object_store (ObjectStore, optional): If the ``save_path`` is in an object name in a cloud bucket
             (i.e. AWS S3 or Google Cloud Storage), an instance of
             :class:`~.ObjectStore` which will be used
-            to store the exported model. set this to ``None`` if ``save_path`` is a local filepath.
+            to store the exported model. Set this to ``None`` if ``save_path`` is a local filepath.
             (default: ``None``)
         sample_input (Any, optional): Example model inputs used for tracing. This is needed for "onnx" export.
             The ``sample_input`` need not match the batch size you intend to use for inference. However, the model
             should accept the ``sample_input`` as is. (default: ``None``)
-        dynamic_axes (Any, optional): dictionary specifying the axes of input/output tensors as dynamic. May be required
+        dynamic_axes (Any, optional): Dictionary specifying the axes of input/output tensors as dynamic. May be required
             for exporting models using older versions of PyTorch when types cannot be inferred.
         surgery_algs (Union[Callable, Sequence[Callable]], optional): Algorithms that should be applied to the model
             before loading a checkpoint. Each should be callable that takes a model and returns None.
@@ -300,7 +300,7 @@ def export_with_logger(
         save_object_store (ObjectStore, optional): If the ``save_path`` is in an object name in a cloud bucket
             (i.e. AWS S3 or Google Cloud Storage), an instance of
             :class:`~.ObjectStore` which will be used
-            to store the exported model. set this to ``None`` if the logger should be used to export the model or
+            to store the exported model. Set this to ``None`` if the logger should be used to export the model or
             if ``save_path`` is a local filepath.
             (default: ``None``)
         sample_input (Any, optional): Example model inputs used for tracing. This is needed for "onnx" export.

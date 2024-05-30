@@ -30,7 +30,7 @@ def comet_logger(monkeypatch, comet_offline_directory):
     monkeypatch.setattr(comet_ml, 'Experiment', comet_ml.OfflineExperiment)
     from composer.loggers import CometMLLogger
 
-    # set offline directory.
+    # Set offline directory.
     os.environ['COMET_OFFLINE_DIRECTORY'] = comet_offline_directory
 
     comet_logger = CometMLLogger()
@@ -267,14 +267,14 @@ def test_comet_ml_log_metrics_and_hyperparameters(monkeypatch, tmp_path):
     pytest.importorskip('comet_ml', reason='comet_ml is optional')
     import comet_ml
 
-    # set some dummy log values.
+    # Set some dummy log values.
     steps = [0, 1, 2]
     metric_values = [0.1, 0.4, 0.7]
     metric_name = 'my_test_metric'
     param_names = ['my_cool_parameter1', 'my_cool_parameter2']
     param_values = [10, 3]
 
-    # set offline directory.
+    # Set offline directory.
     offline_directory = str(tmp_path / Path('.my_cometml_runs'))
     os.environ['COMET_OFFLINE_DIRECTORY'] = offline_directory
 

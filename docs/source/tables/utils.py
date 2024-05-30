@@ -9,7 +9,7 @@ import tempfile
 
 
 def list_dirs(folder):
-    """lists all dirs for a given folder.
+    """Lists all dirs for a given folder.
 
     Args:
         folder (str): The folder to list dirs for.

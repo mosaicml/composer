@@ -130,7 +130,7 @@ class MLFlowLogger(LoggerDestination):
 
             if self.model_registry_uri is not None:
                 mlflow.set_registry_uri(self.model_registry_uri)
-            # set up MLflow state
+            # Set up MLflow state
             self._run_id = None
             if self.experiment_name is None:
                 self.experiment_name = os.getenv(
@@ -138,7 +138,7 @@ class MLFlowLogger(LoggerDestination):
                     DEFAULT_MLFLOW_EXPERIMENT_NAME,
                 )
             self._mlflow_client = MlflowClient(self.tracking_uri)
-            # set experiment.
+            # Set experiment
             env_exp_id = os.getenv(
                 mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name,  # pyright: ignore[reportGeneralTypeIssues]
                 None,

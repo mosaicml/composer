@@ -387,8 +387,8 @@ class RemoteUploaderDownloader(LoggerDestination):
                     'completed_queue': self._completed_queue,
                     'exception_queue': self._exception_queue,
                 },
-                # The worker threads are joined in the shutdown procedure, so it is OK to set the daemon status
-                # setting daemon status prevents the process from hanging if close was never called (e.g. in doctests)
+                # The worker threads are joined in the shutdown procedure, so it is OK to set the daemon status.
+                # Setting daemon status prevents the process from hanging if close was never called (e.g. in doctests)
                 daemon=True,
             )
             worker.start()

@@ -143,7 +143,7 @@ class ObjectStore(abc.ABC):
         raise NotImplementedError(f'{type(self).__name__}.download_object is not implemented')
 
     def list_objects(self, prefix: Optional[str]) -> list[str]:
-        """list all objects in the object store with the given prefix.
+        """List all objects in the object store with the given prefix.
 
         Args:
             prefix (str): The prefix to search for.

@@ -9,7 +9,7 @@ import json
 import logging
 import os
 import textwrap
-from typing import TYPE_CHECKING, Optional, Ordereddict
+from typing import TYPE_CHECKING, Optional, OrderedDict
 
 import torch.cuda
 import torch.profiler
@@ -232,7 +232,7 @@ class TorchProfiler(Callback):  # noqa: D101
         self.with_stack = with_stack
         self.with_flops = with_flops
         self.num_traces_to_keep = num_traces_to_keep
-        self.saved_traces = Ordereddict()
+        self.saved_traces = OrderedDict()
         self.profiler: Optional[torch.profiler.profile] = None
 
     def init(self, state: State, logger: Logger) -> None:

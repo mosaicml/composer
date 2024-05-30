@@ -128,7 +128,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
             must be empty when training starts.
 
         num_traces_to_keep (int, optional): The number of traces to keep locally. The oldest traces
-            are removed first. set to ``-1`` to keep all traces locally. (default: ``-1``)
+            are removed first. Set to ``-1`` to keep all traces locally. (default: ``-1``)
 
             Traces will be removed after they have been uploaded. For example, when this handler
             is used in conjunction with the :class:`.RemoteUploaderDownloader`, set this

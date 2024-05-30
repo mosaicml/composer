@@ -18,7 +18,7 @@ from tests.common.models import SimpleTransformerClassifier, configure_tiny_bert
 
 
 def simple_model_with_grads():
-    # set up small NN with one linear layer with no bias + softmax, so only
+    # Set up small NN with one linear layer with no bias + softmax, so only
     # one set of params and get some gradients.
     N, hin, num_classes = 8, 4, 3
     x = torch.rand((N, hin))
@@ -179,7 +179,7 @@ def test_gradient_clipping_algorithm_with_deepspeed_enabled(
     monkeypatch.setattr(gc_module, 'apply_gradient_clipping', apply_gc_fn)
     state = dummy_state
 
-    # set clipping_type to norm to ensure that apply_gradient_clipping
+    # Set clipping_type to norm to ensure that apply_gradient_clipping
     # is not called.
     state.algorithms = [GradientClipping(clipping_type='norm', clipping_threshold=clipping_threshold)]
 

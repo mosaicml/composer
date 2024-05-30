@@ -12,7 +12,7 @@ from composer.callbacks import ThresholdStopper
 from composer.core.time import TimeUnit
 from composer.devices import DeviceCPU, DeviceGPU
 from tests.common import RandomClassificationDataset, SimpleModel, device
-from tests.metrics import MetricsetterCallback
+from tests.metrics import MetricSetterCallback
 
 
 @device('cpu', 'gpu')
@@ -38,7 +38,7 @@ def test_threshold_stopper_eval(metric_sequence: list[float], unit: TimeUnit, de
         stop_on_batch=stop_on_batch,
     )
 
-    test_metric_setter = MetricsetterCallback(
+    test_metric_setter = MetricSetterCallback(
         'MulticlassAccuracy',
         dataloader_label,
         MulticlassAccuracy,

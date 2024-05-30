@@ -368,12 +368,12 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             is nn.Module, the key is a submodule of ``model`` and the value should
             be the state_dict of the submodule. When loading the state_dict,
             the prefix of the submodule will be append to the state_dict.
-            options (StatedictOptions): the options to control how
+            options (StateDictOptions): the options to control how
                 model state_dict and optimizer state_dict should be loaded. See
-                `StatedictOptions` for the details.
+                `StateDictOptions` for the details.
 
         Returns:
-            ``Namedtuple`` with ``missing_keys`` and ``unexpected_keys`` fields:
+            ``NamedTuple`` with ``missing_keys`` and ``unexpected_keys`` fields:
                 * **missing_keys** is a list of str containing the missing keys
                 * **unexpected_keys** is a list of str containing the unexpected keys
 
@@ -410,9 +410,9 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
                 The optimizers that are used to optimize ``model``.
             optim_state_dict: OptimizerStateType:
                 the optimizer state_dict to load.
-            options (StatedictOptions): the options to control how
+            options (StateDictOptions): the options to control how
                 model state_dict and optimizer state_dict should be loaded. See
-                `StatedictOptions` for the details.
+                `StateDictOptions` for the details.
 
         Returns:
             None

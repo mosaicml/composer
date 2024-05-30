@@ -113,7 +113,7 @@ def batch_set(batch: Any, key: Union[str, int, tuple[Callable, Callable], Callab
 
 
 def _batch_set(batch: Any, key: Any, value: Any) -> Any:
-    """sets a key value pair in a non-tuple batch."""
+    """Sets a key value pair in a non-tuple batch."""
     if isinstance(batch, tuple):
         return _batch_set_tuple(batch, key, value)
 

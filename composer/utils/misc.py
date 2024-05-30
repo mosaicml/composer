@@ -251,7 +251,7 @@ def get_free_tcp_port() -> int:
 
 @contextmanager
 def model_eval_mode(model: torch.nn.Module):
-    """set model.eval() for context duration, restoring model status at end."""
+    """Set model.eval() for context duration, restoring model status at end."""
     is_training = model.training
     try:
         model.eval()

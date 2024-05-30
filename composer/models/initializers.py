@@ -12,7 +12,7 @@ from composer.utils import StringEnum
 
 
 class Initializer(StringEnum):
-    """sets the initialization scheme for different layers of a PyTorch model."""
+    """Sets the initialization scheme for different layers of a PyTorch model."""
     KAIMING_NORMAL = 'kaiming_normal'
     KAIMING_UNIFORM = 'kaiming_uniform'
     BN_UNIFORM = 'bn_uniform'

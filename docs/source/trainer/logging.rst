@@ -144,7 +144,7 @@ into a dictionary:
     from composer.core.time import Timestamp
     from composer.core.state import State
 
-    class dictionaryLogger(LoggerDestination):
+    class DictionaryLogger(LoggerDestination):
         def __init__(self):
             # dictionary to store logged data
             self.data = {}
@@ -156,7 +156,7 @@ into a dictionary:
                 self.data[k].append((state.timestamp, v))
 
     # Construct a trainer using this logger
-    trainer = Trainer(..., loggers=[dictionaryLogger()])
+    trainer = Trainer(..., loggers=[DictionaryLogger()])
 
     # Train!
     trainer.fit()

@@ -68,7 +68,7 @@ reportPrivateImportUsage = "none"
 reportUndefinedVariable = "error"
 strictParameterNoneValue = true
 reportPropertyTypeMismatch = "error"
-reportUntypedNamedtuple = "error"
+reportUntypedNamedTuple = "error"
 reportUnnecessaryCast = "error"
 reportInvalidTypeVarUse = "error"
 reportOverlappingOverload = "error"
@@ -404,7 +404,7 @@ spaces_around_tuple_delimiters = false
 # before each trailing comment) or list of values (representing
 # alignment column values; trailing comments within a block will
 # be aligned to the first column value that is greater than the maximum
-# line length within the block). For example:
+# Line length within the block). For example:
 #
 # With spaces_before_comment=5:
 #
@@ -460,11 +460,11 @@ split_all_top_level_comma_separated_values = false
 # comma.
 split_arguments_when_comma_terminated = true
 
-# set to True to prefer splitting before '+', '-', '*', '/', '//', or '@'
+# Set to True to prefer splitting before '+', '-', '*', '/', '//', or '@'
 # rather than after.
 split_before_arithmetic_operator = false
 
-# set to True to prefer splitting before '&', '|' or '^' rather than
+# Set to True to prefer splitting before '&', '|' or '^' rather than
 # after.
 split_before_bitwise_operator = false
 
@@ -499,14 +499,14 @@ split_before_expression_after_opening_paren = false
 # the first argument.
 split_before_first_argument = false
 
-# set to True to prefer splitting before 'and' or 'or' rather than
+# Set to True to prefer splitting before 'and' or 'or' rather than
 # after.
 split_before_logical_operator = false
 
 # Split named assignments onto individual lines.
 split_before_named_assigns = true
 
-# set to True to split list comprehensions and generators that have
+# Set to True to split list comprehensions and generators that have
 # non-trivial expressions and multiple clauses before each of these
 # clauses. For example:
 #
@@ -622,9 +622,9 @@ jobs=4
 # complex, nested conditions.
 limit-inference-results=100
 
-# list of plugins (as comma separated values of python module names) to load,
+# List of plugins (as comma separated values of python module names) to load,
 # usually to register additional checkers.
-# load-plugins=
+# Load-plugins=
 
 # Pickle collected data for later comparisons.
 # persistent=yes
@@ -696,7 +696,7 @@ enable="c-extension-no-member"
 # used to format the message information. See doc for all details.
 #msg-template=
 
-# set the output format. Available formats are text, parseable, colorized, json
+# Set the output format. Available formats are text, parseable, colorized, json
 # and msvs (visual studio). You can also give a reporter class, e.g.
 # mypackage.mymodule.MyReporterClass.
 output-format="colorized"
@@ -744,17 +744,17 @@ logging-modules="logging"
 
 [tool.pylint.VARIABLES]
 
-# list of additional names supposed to be defined in builtins. Remember that
+# List of additional names supposed to be defined in builtins. Remember that
 # you should avoid defining new builtins when possible.
 additional-builtins=""
 
 # Tells whether unused global variables should be treated as a violation.
 allow-global-unused-variables="yes"
 
-# list of names allowed to shadow builtins
+# List of names allowed to shadow builtins
 allowed-redefined-builtins=""
 
-# list of strings which can identify a callback function by name. A callback
+# List of strings which can identify a callback function by name. A callback
 # name must start or end with one of those strings.
 callbacks="cb_,_cb"
 
@@ -769,14 +769,14 @@ ignored-argument-names="_.*|^ignored_|^unused_"
 # Tells whether we should check for unused import in __init__ files.
 init-import="no"
 
-# list of qualified module names which can have objects that can redefine
+# List of qualified module names which can have objects that can redefine
 # builtins.
 redefining-builtins-modules="six.moves,past.builtins,future.builtins,builtins,io"
 
 
 [tool.pylint.MISCELLANEOUS]
 
-# list of note tags to take in consideration, separated by a comma.
+# List of note tags to take in consideration, separated by a comma.
 notes=""
 
 # Regular expression of note tags to take in consideration.
@@ -792,11 +792,11 @@ max-spelling-suggestions=4
 # install the 'python-enchant' package.
 spelling-dict=""
 
-# list of comma separated words that should be considered directives if they
+# List of comma separated words that should be considered directives if they
 # appear and the beginning of a comment and should not be checked.
 spelling-ignore-comment-directives="fmt: on,fmt: off,noqa:,noqa,nosec,isort:skip,mypy:,pyright:,type:"
 
-# list of comma separated words that should not be checked.
+# List of comma separated words that should not be checked.
 spelling-ignore-words=""
 
 # A path to a file that contains the private dictionary; one word per line.
@@ -908,7 +908,7 @@ name-group=""
 # not require a docstring.
 no-docstring-rgx="^_"
 
-# list of decorators that produce properties, such as abc.abstractproperty. Add
+# List of decorators that produce properties, such as abc.abstractproperty. Add
 # to this list to register other decorators that produce valid properties.
 # These decorators are taken in consideration only for invalid-name.
 property-classes="abc.abstractproperty"
@@ -971,7 +971,7 @@ single-line-if-stmt="no"
 
 [tool.pylint.IMPORTS]
 
-# list of modules that can be imported at any level, not just the top level
+# List of modules that can be imported at any level, not just the top level
 # one.
 allow-any-import-level=""
 
@@ -1015,27 +1015,27 @@ preferred-modules=""
 # Warn about protected attribute access inside special methods
 check-protected-access-in-special-methods="no"
 
-# list of method names used to declare (i.e. assign) instance attributes.
+# List of method names used to declare (i.e. assign) instance attributes.
 defining-attr-methods="__init__,__new__,setUp,__post_init__"
 
-# list of member names, which should be excluded from the protected access
+# List of member names, which should be excluded from the protected access
 # warning.
 exclude-protected="_asdict,_fields,_replace,_source,_make"
 
-# list of valid names for the first argument in a class method.
+# List of valid names for the first argument in a class method.
 valid-classmethod-first-arg="cls"
 
-# list of valid names for the first argument in a metaclass class method.
+# List of valid names for the first argument in a metaclass class method.
 valid-metaclass-classmethod-first-arg="cls"
 
 
 [tool.pylint.DESIGN]
 
-# list of regular expressions of class ancestor names to ignore when counting
+# List of regular expressions of class ancestor names to ignore when counting
 # public methods (see R0903)
 exclude-too-few-public-methods=""
 
-# list of qualified class names to ignore when counting class parents (see
+# List of qualified class names to ignore when counting class parents (see
 # R0901)
 ignored-parents=""
 

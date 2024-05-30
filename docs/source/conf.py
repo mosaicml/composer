@@ -133,7 +133,7 @@ nbsphinx_prolog = f"""
 templates_path = ['_templates']
 source_suffix = ['.rst', '.md']
 
-# list of patterns, relative to source directory, that match files and
+# List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = [
@@ -567,7 +567,7 @@ class PatchedHTMLTranslator(HTML5Translator):
 
 
 def setup(app: sphinx.application.Sphinx):
-    """setup hook."""
+    """Setup hook."""
     _generate_rst_files_for_modules()
     app.connect('autodoc-skip-member', skip_redundant_namedtuple_attributes)
     app.connect('source-read', rstjinja)

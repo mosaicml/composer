@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from collections import ChainMap, Counter, Ordereddict, defaultdict, deque
+from collections import ChainMap, Counter, OrderedDict, defaultdict, deque
 from typing import Namedtuple
 
 import numpy as np
@@ -55,7 +55,7 @@ def example_dequeless_sequence(request):
         defaultdict(list, **dict(zip(keys, my_list))),
         ChainMap(dict(zip(keys, my_list)), dict(a=7, j=3)),
         Counter(counter_list),
-        Ordereddict(**dict(zip(keys, my_list))),
+        OrderedDict(**dict(zip(keys, my_list))),
     ],
 )
 def example_map(request):
@@ -469,7 +469,7 @@ def test_set_with_mismatched_key_values(example_list):
         MyClass(**dict(zip(keys, my_list))),
         my_named_tuple(*my_list),
         ChainMap(dict(zip(keys, my_list)), dict(a=7, j=3)),
-        Ordereddict(**dict(zip(keys, my_list))),
+        OrderedDict(**dict(zip(keys, my_list))),
     ],
 )
 def test_batch_set_with_new_key_fails(batch):

@@ -44,7 +44,7 @@ import functools
 import json
 import sys
 import time
-from typing import Namedtuple, Optional, TextIO
+from typing import NamedTuple, Optional, TextIO
 
 import cpuinfo
 import importlib_metadata
@@ -89,8 +89,8 @@ _EXCEPTHOOK_REGISTERED = False
 _ENV_EXCEPTION_REPORT = True
 
 
-# Same convention as Torch collect_env, create a namedtuple to track collected fields
-class ComposerEnv(Namedtuple):
+# Same convention as Torch collect_env, create a NamedTuple to track collected fields
+class ComposerEnv(NamedTuple):
     composer_version: str
     composer_commit_hash: Optional[str]
     node_world_size: int
@@ -263,7 +263,7 @@ def configure_excepthook() -> None:
     if not _EXCEPTHOOK_REGISTERED:
         # Custom exceptions work differntly in notebooks
         if IPYTHON_AVAILABLE:
-            # set custom handler on Exception base class to apply to all exceptions
+            # Set custom handler on Exception base class to apply to all exceptions
             nb.set_custom_exc((Exception,), _nb_custom_exception_handler)
         else:
             # Save original excepthook and override
@@ -396,7 +396,7 @@ def print_env(file: Optional[TextIO] = None) -> None:
     Args:
         file (TextIO, optional): File handle, `sys.stdout` or `sys.stderr`. Defaults to `sys.stdout`.
     """
-    # set stdout during runtime if no output file is specified
+    # Set stdout during runtime if no output file is specified
     if file is None:
         file = sys.stdout
 

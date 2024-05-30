@@ -115,7 +115,7 @@ class InMemoryLogger(LoggerDestination):
             metric (str): Metric of interest. Must be present in self.data.keys().
 
         Returns:
-            timeseries (dict[str, Any]): dictionary in which one key is ``metric``,
+            timeseries (dict[str, Any]): Dictionary in which one key is ``metric``,
                 and the associated value is a list of values of that metric. The remaining
                 keys are each a unit of time, and the associated values are each a list of
                 values of that time unit for the corresponding index of the metric. For

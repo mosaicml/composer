@@ -83,7 +83,7 @@ class LoggerDestination(Callback, ABC):
         """Log metrics or parameters that vary during training.
 
         Args:
-            metrics (dict[str, float]): dictionary mapping metric name (str) to metric
+            metrics (dict[str, float]): Dictionary mapping metric name (str) to metric
                 scalar value (float)
             step (Optional[int], optional): The current step or batch of training at the
                 time of logging. Defaults to None. If not specified the specific
@@ -97,7 +97,7 @@ class LoggerDestination(Callback, ABC):
         """Log traces. Logs any debug-related data like algorithm traces.
 
         Args:
-            traces (dict[str, float]): dictionary mapping trace names (str) to trace
+            traces (dict[str, float]): Dictionary mapping trace names (str) to trace
                 (Any).
         """
         del traces
@@ -116,7 +116,7 @@ class LoggerDestination(Callback, ABC):
         """Log images. Logs any tensors or arrays as images.
 
         Args:
-            images (np.ndarray | torch.Tensor | Sequence[np.ndarray | torch.Tensor]): dictionary mapping
+            images (np.ndarray | torch.Tensor | Sequence[np.ndarray | torch.Tensor]): Dictionary mapping
                 image(s)' names (str) to an image of array of images.
             name (str): The name of the image(s). (Default: ``'Images'``)
             channels_last (bool): Whether the channel dimension is first or last.
@@ -127,7 +127,7 @@ class LoggerDestination(Callback, ABC):
                 counter).
             masks (dict[str, np.ndarray | torch.Tensor | Sequence[np.ndarray | torch.Tensor]], optional): A dictionary
                 mapping the mask name (e.g. predictions or ground truth) to a sequence of masks.
-            mask_class_labels (dict[int, str], optional): dictionary mapping label id to its name. Used for labelling
+            mask_class_labels (dict[int, str], optional): Dictionary mapping label id to its name. Used for labelling
                 each color in the mask.
             use_table (bool): Whether to make a table of the images or not. (default: ``True``). Only for use
                 with WandB.

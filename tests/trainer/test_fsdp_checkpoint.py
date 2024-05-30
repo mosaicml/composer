@@ -739,7 +739,7 @@ def test_fsdp_full_state_dict_load_with_ema(
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning')
 def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_checkpoint: bool, state_dict_type: str):
-    # set the error expectations.
+    # Set the error expectations.
     expectation = does_not_raise()
     if not is_valid_checkpoint:
         expectation = pytest.raises(ValueError)

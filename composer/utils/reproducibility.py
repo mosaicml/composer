@@ -167,7 +167,7 @@ def seed_all(seed: int):
     """
     if seed < 0 or seed > MAX_SEED:
         raise ValueError(f'Seed {seed} is invalid. It must be on [0; 2^32 - 1]')
-    log.info('setting seed to %d', seed)
+    log.info('Setting seed to %d', seed)
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -180,7 +180,7 @@ def get_rng_state() -> list[dict[str, Any]]:
     """The state of the RNG objects.
 
     Returns:
-        list[dict[str, Any]]: A list of RNG State dicts, indexed by global rank.
+        list[dict[str, Any]]: A list of RNG State Dicts, indexed by global rank.
     """
     rng_state = {
         'python': random.getstate(),

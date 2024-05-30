@@ -88,7 +88,7 @@ class FileLogger(LoggerDestination):  # noqa: D101
 
             .. seealso:: :doc:`Uploading Files</trainer/file_uploading>` for notes for file uploading.
 
-            The same format variables for ``filename`` are available. setting this parameter to ``None``
+            The same format variables for ``filename`` are available. Setting this parameter to ``None``
             (the default) will use the same format string as ``filename``. It is sometimes helpful to deviate
             from this default. For example, when ``filename`` contains an absolute path, it is recommended to
             set this parameter explicitely, so the absolute path does not appear in any remote file stores.

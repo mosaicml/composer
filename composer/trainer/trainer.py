@@ -163,7 +163,7 @@ def _scale_max_duration_by_ssr(
     max_duration = cast(Time[int], orig_max_duration * scale_schedule_ratio)
     log.info(f'max_duration changed from {orig_max_duration} to {max_duration}')
     if max_duration.value == 0:
-        raise ValueError('Scale schedule has reduced the max_duration to 0. set a higher ratio or use more epochs.')
+        raise ValueError('Scale schedule has reduced the max_duration to 0. Set a higher ratio or use more epochs.')
     return max_duration
 
 
@@ -274,7 +274,7 @@ def _get_initial_device_train_microbatch_size(
     auto_microbatching: bool,
     train_dataloader: Optional[Iterable],
 ) -> Optional[Union[int, float]]:
-    """sets initial value of device_train_microbatch_size.
+    """Sets initial value of device_train_microbatch_size.
 
     If auto_microbatching, sets initial `device_train_microbatch_size` to per rank batch size. If
     `train_dataloader` is not set yet, returns None and this function will be called again when
@@ -639,7 +639,7 @@ class Trainer:
         step_schedulers_every_batch (bool, optional): By default, native
             `PyTorch schedulers <https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate>`_
             are updated every epoch, while :doc:`Composer Schedulers</trainer/schedulers>` are updated every step.
-            setting this to ``True`` will force schedulers to be stepped every batch,
+            Setting this to ``True`` will force schedulers to be stepped every batch,
             while ``False`` means schedulers stepped every epoch. ``None`` indicates the default behavior.
             (default: ``None``)
         eval_dataloader (Iterable | DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): The :class:`.Iterable`,
@@ -659,7 +659,7 @@ class Trainer:
             with this frequency. :class:`.Time` strings or :class:`.Time` instances must have units of
             :attr:`.TimeUnit.BATCH` or :attr:`.TimeUnit.EPOCH`.
 
-            set to ``0`` to disable evaluation.
+            Set to ``0`` to disable evaluation.
 
             If a callable, it should take two arguments (:class:`.State`, :class:`.Event`) and return a bool
             representing whether the evaluator should be invoked. The event will be either :attr:`.Event.BATCH_END`
@@ -701,7 +701,7 @@ class Trainer:
             with this frequency. :class:`.Time` strings or :class:`.Time` instances must have units of
             :attr:`.TimeUnit.BATCH` or :attr:`.TimeUnit.EPOCH`.
 
-            set to ``0`` to disable metrics logging to console.
+            Set to ``0`` to disable metrics logging to console.
         log_traces (bool): Whether to log traces or not. (default: ``False``)
         auto_log_hparams (bool): Whether to automatically extract hyperparameters. (default: ``False``)
         load_path (str, optional):  The path format string to an existing checkpoint file.
@@ -877,7 +877,7 @@ class Trainer:
 
             (default: ``None``)
         save_num_checkpoints_to_keep (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
-            are removed first. set to ``-1`` to keep all checkpoints locally. (default: ``-1``)
+            are removed first. Set to ``-1`` to keep all checkpoints locally. (default: ``-1``)
 
             Checkpoints will be removed after they have been uploaded. For example, when this callback
             is used in conjunction with the :class:`.RemoteUploaderDownloader`, set this
@@ -1206,7 +1206,7 @@ class Trainer:
                 parallelism_config['fsdp'] = {}
             parallelism_config['fsdp']['auto_wrap'] = fsdp_auto_wrap
         if parallelism_config is not None:
-            # set defaults and create shallow copies of configs to avoid changing user's config
+            # Set defaults and create shallow copies of configs to avoid changing user's config
             parallelism_config = {**parallelism_config}
             if parallelism_config.get('fsdp', None) is not None:
                 parallelism_config['fsdp'] = set_fsdp_default({**parallelism_config['fsdp']})
@@ -1327,7 +1327,7 @@ class Trainer:
 
         if progress_bar and log_to_console:
             warnings.warn(
-                'setting both `progress_bar` and `log_to_console` both to True is not recommended and will'
+                'Setting both `progress_bar` and `log_to_console` both to True is not recommended and will'
                 'lead to duplicate logs and weird formatting issues. Please set one of them to False for a better logging experience.',
             )
 
@@ -1443,7 +1443,7 @@ class Trainer:
         # The Engine
         self.engine = Engine(state=self.state, logger=self.logger, algorithm_passes=algorithm_passes)
 
-        # set the logger
+        # Set the logger
         self.state.model.logger = self.logger  # pyright: ignore[reportGeneralTypeIssues]
 
         # Run Event.INIT
@@ -1497,11 +1497,11 @@ class Trainer:
         if not isinstance(self.state.model, ComposerModel):
             raise ValueError('Provided model must be a subclass of ComposerModel.')
 
-        # After running Event.INIT, then set the "optional" elements of state that could be passed in on FIT instead of INIT
-        # setting these attributes here ensures that algorithms do not depend on unavailable attributes during Event.INIT
+        # After running Event.INIT, then set the "optional" elements of state that could be passed in on FIT instead of INIT.
+        # Setting these attributes here ensures that algorithms do not depend on unavailable attributes during Event.INIT
 
         # Metrics and Evaluators
-        # set state.train_metrics and state.eval_metrics here to allow callbacks / algs to potentially
+        # Set state.train_metrics and state.eval_metrics here to allow callbacks / algs to potentially
         # change the model, which could change what metrics are computed
         self.state.train_metrics = deepcopy(self.state.model.get_metrics(is_train=True))
         self.state.eval_metrics = {}
@@ -1770,7 +1770,7 @@ class Trainer:
                 # Disable object_store since _get_autoresume_checkpoint will download the checkpoint
                 # To the save folder, if needed.
                 load_object_store = None
-                # set load arguments to defaults as this applies only to the initial non-autoresume
+                # Set load arguments to defaults as this applies only to the initial non-autoresume
                 # load. We do not reset `load_strict_model_weights` for models with frozen layers.
                 load_weights_only = False
                 load_ignore_keys = None
@@ -1820,7 +1820,7 @@ class Trainer:
         # 2. While resuming from a checkpoint, we want to spin dataloader and bring it back to the
         # same state as at the time of the checkpoint. Therefore, spinning needs to start from the
         # same rng state as in the original run.
-        log.info(f'setting seed to {self.state.seed}')
+        log.info(f'Setting seed to {self.state.seed}')
         reproducibility.seed_all(self.state.seed)
 
         # DDP wrap if required
@@ -1917,7 +1917,7 @@ class Trainer:
                     load_progress_bar,
                 )
 
-            # list of whether the checkpoint exists on each rank
+            # List of whether the checkpoint exists on each rank
             latest_checkpoint_exists = dist.all_gather_object(os.path.exists(latest_checkpoint_path))
 
             if all(latest_checkpoint_exists):  # All paths exist, so return the path.
@@ -2771,8 +2771,8 @@ class Trainer:
 
         Args:
             microbatches (Sequence[Batch]): The microbatches which make up the batch.
-            total_loss_dict (dict[str, torch.tensor]): dictionary containing individual losses and their sum aggregated across all
-                microbatches.
+            total_loss_dict (dict[str, torch.tensor]): Dictionary containing individual losses
+                and their sum aggregated across all microbatches.
             ddp_sync (bool): True to sync gradients between devices on every backwards
                 pass and False to only sync gradients after each device has finished
                 computing a gradient on it's entire set of microbatches. (default: ``True``)
@@ -3296,7 +3296,7 @@ class Trainer:
 
         Args:
             evaluator (Evaluator): The evaluator to use for evaluation.
-            metrics (dict[str, Metric]): dictionary mapping metric names to metrics to evaluate against.
+            metrics (dict[str, Metric]): Dictionary mapping metric names to metrics to evaluate against.
             subset_num_batches (int, optional): If specified, evaluate on this many batches. Defaults to ``-1``,
                 which means to iterate over the entire dataloader.
         """
