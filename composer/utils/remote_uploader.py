@@ -33,7 +33,10 @@ def _upload_file_to_object_store(
     overwrite: bool,
     num_attempts: int,
 ) -> int:
-    object_store = maybe_create_object_store_from_uri(remote_folder)
+    object_store: ObjectStore = maybe_create_object_store_from_uri(
+        remote_folder
+    )  # pyright: ignore[reportGeneralTypeIssues]
+
     @retry(ObjectStoreTransientError, num_attempts=num_attempts)
     def upload_file(retry_index: int = 0):
         if retry_index == 0 and not overwrite:
@@ -72,6 +75,11 @@ class RemoteUploader:
         num_concurrent_uploads: int = 2,
         num_attempts: int = 3,
     ):
+        if num_concurrent_uploads < 1 or num_attempts < 1:
+            raise ValueError(
+                f'num_concurrent_uploads and num_attempts must be >= 1, but got {num_concurrent_uploads} and {num_attempts}'
+            )
+
         self.remote_folder = remote_folder
         # A folder to use for staging uploads
         self._tempdir = tempfile.TemporaryDirectory()
