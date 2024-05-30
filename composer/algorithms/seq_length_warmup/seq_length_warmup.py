@@ -5,7 +5,7 @@
 
 import logging
 import textwrap
-from typing import Dict, Mapping, Optional
+from typing import Mapping, Optional
 
 import torch
 import torch.utils.data
@@ -21,7 +21,7 @@ __all__ = ['SeqLengthWarmup', 'set_batch_sequence_length']
 
 
 def set_batch_sequence_length(
-    batch: Dict[str, torch.Tensor],
+    batch: dict[str, torch.Tensor],
     curr_seq_len: int,
     truncate: bool = True,
     preserve_end_of_sequence: bool = False,
@@ -45,7 +45,7 @@ def set_batch_sequence_length(
         and pre-allocate the memory with a blank forward and backward pass.
 
     Args:
-        batch (Dict[str, Tensor]): The input batch to the model, must be a dictionary.
+        batch (dict[str, Tensor]): The input batch to the model, must be a dictionary.
         curr_seq_length (int): The desired sequence length to apply.
         truncate (bool, optional): Truncate sequences early, or reshape tensors to create
             new examples out of the extra tokens. Default: ``True``.
@@ -59,7 +59,7 @@ def set_batch_sequence_length(
             batch tensor with 2 or more dimensions.
 
     Returns:
-        Dict[str, Tensor]: a Mapping of input tensors to the model,
+        dict[str, Tensor]: a Mapping of input tensors to the model,
             where all tensors have curr_seq_len in the second dimension.
 
     Example:

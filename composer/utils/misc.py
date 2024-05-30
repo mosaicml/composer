@@ -8,12 +8,14 @@ import math
 import socket
 import textwrap
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Callable, Optional, Set, Type, Union
+from typing import TYPE_CHECKING, Callable, Optional, Type, Union
 
 import torch
 from torch.nn.parallel import DistributedDataParallel
 from torchvision import transforms
 from torchvision.datasets import VisionDataset
+
+from composer.utils.string_enum import StringEnum
 
 if TYPE_CHECKING:
     from composer.core import Event, State, Time
@@ -39,11 +41,24 @@ STR_TO_DTYPE = {
 }
 
 
+class ParallelismType(StringEnum):
+    """Enum class for different parallelism types in the device mesh.
+
+    Attributes:
+        DATA_PARALLEL_SHARD: Data parallel shard dimension.
+        DATA_PARALLEL_REPLICATE: Data parallel replicate dimension.
+        TENSOR_PARALLEL: Tensor parallel dimension.
+    """
+    DATA_PARALLEL_SHARD = 'data_parallel_shard'
+    DATA_PARALLEL_REPLICATE = 'data_parallel_replicate'
+    TENSOR_PARALLEL = 'tensor_parallel'
+
+
 def create_interval_scheduler(
     interval: Union[str, int, 'Time'],
     include_end_of_training: bool = True,
     checkpoint_events: bool = True,
-    final_events: Optional[Set['Event']] = None,
+    final_events: Optional[set['Event']] = None,
 ) -> Callable[['State', 'Event'], bool]:
     """Helper function to create a scheduler according to a specified interval.
 
@@ -55,7 +70,7 @@ def create_interval_scheduler(
             Otherwise, the returned callable will return true at intervals only.
         checkpoint_events (bool): If true, will use the EPOCH_CHECKPOINT and BATCH_CHECKPOINT events. If False, will use
             the EPOCH_END and BATCH_END events.
-        final_events (Optional[Set[Event]]): The set of events to trigger on at the end of training.
+        final_events (Optional[set[Event]]): The set of events to trigger on at the end of training.
 
     Returns:
         Callable[[State, Event], bool]: A function that returns true at interval and at the end of training if specified.
