@@ -34,7 +34,7 @@ def _upload_file_to_object_store(
     num_attempts: int,
 ) -> int:
     object_store: ObjectStore = maybe_create_object_store_from_uri(
-        remote_folder
+        remote_folder,
     )  # pyright: ignore[reportGeneralTypeIssues]
 
     @retry(ObjectStoreTransientError, num_attempts=num_attempts)
@@ -77,7 +77,7 @@ class RemoteUploader:
     ):
         if num_concurrent_uploads < 1 or num_attempts < 1:
             raise ValueError(
-                f'num_concurrent_uploads and num_attempts must be >= 1, but got {num_concurrent_uploads} and {num_attempts}'
+                f'num_concurrent_uploads and num_attempts must be >= 1, but got {num_concurrent_uploads} and {num_attempts}',
             )
 
         self.remote_folder = remote_folder
