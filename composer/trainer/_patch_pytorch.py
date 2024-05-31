@@ -12,7 +12,11 @@
 
 import logging
 import math
-from typing import Any, Iterable, Optional, Union, no_type_check
+import warnings
+import contextlib
+from dataclasses import asdict
+from itertools import chain
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Generator, Optional, Set, Tuple, Union, cast, no_type_check
 
 import torch
 import torch.distributed._shard.sharded_tensor.metadata as sharded_tensor_meta
@@ -282,10 +286,251 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             b = b._local_tensor
         return a.untyped_storage().data_ptr() == b.untyped_storage().data_ptr()
 
-    from torch.distributed.checkpoint.state_dict import (_unflatten_model_state_dict, _verify_options,
-                                                         _load_model_state_dict, gc_context,
-                                                         _verify_state_dict, _load_optim_state_dict,
-                                                         FQNS_T)
+    from torch.distributed.checkpoint.state_dict import (_unflatten_model_state_dict,
+                                                         gc_context,
+                                                         _load_optim_state_dict,
+                                                         _state_dict_fn,
+                                                        _offload_state_dict_to_cpu,
+                                                        _verify_state_dict,
+                                                         StateDictOptions, _StateDictInfo,
+                                                         FLAT_PARAM, FQNS_T)
+    from torch.distributed._state_dict_utils import _gather_state_dict
+    from torch.nn.modules.module import _IncompatibleKeys
+    from torch.distributed.fsdp import (
+        FullOptimStateDictConfig,
+        FullStateDictConfig,
+        FullyShardedDataParallel as FSDP,
+        OptimStateDictConfig,
+        ShardedOptimStateDictConfig,
+        ShardedStateDictConfig,
+        StateDictConfig,
+        StateDictType,
+    )
+
+    from torch.distributed._shard.sharded_tensor import ShardedTensor
+
+    PrimitiveType = Union[DTensor, ShardedTensor, torch.Tensor, int, float, str]
+    ValueType = Union[
+        PrimitiveType, List[PrimitiveType], Tuple[PrimitiveType], Dict[str, 'ValueType'],
+    ]
+    DictValueType = Dict[str, ValueType]
+    ListDictValueType = List[DictValueType]
+    OptimizerStateType = Dict[str, Union[DictValueType, ListDictValueType]]
+
+    class _EXTRA_STATE:
+        pass
+
+    def _iterate_valid_model_state(model):
+        visited_modules: Set[nn.Module] = set()
+
+        def recurse(module: nn.Module, curr_fqn: str) -> Generator:
+            visited_modules.add(module)
+
+            curr_fqn = f'{curr_fqn}.' if curr_fqn else ''
+            for name, submodule in module.named_children():
+                if submodule in visited_modules:
+                    continue
+                new_fqn = f'{curr_fqn}{name}'
+                yield from recurse(submodule, new_fqn)
+
+            for name, obj in chain(
+                module.named_buffers(recurse=False), module.named_parameters(recurse=False),
+            ):
+                new_fqn = f'{curr_fqn}{name}'
+                yield new_fqn, obj
+
+            if (
+                getattr(module.__class__, 'get_extra_state', nn.Module.get_extra_state)
+                != nn.Module.get_extra_state
+            ):
+                new_fqn = f'{curr_fqn}{nn.modules.module._EXTRA_STATE_KEY_SUFFIX}'
+                yield new_fqn, _EXTRA_STATE()
+
+        yield from recurse(model, '')
+
+    def _verify_options(
+        model: nn.Module,
+        optims: Tuple[torch.optim.Optimizer, ...],
+        optim_only: bool,
+        *,
+        submodules: Optional[Set[nn.Module]] = None,
+        options: Optional[StateDictOptions] = None,
+    ) -> _StateDictInfo:
+        """Verify the model and options passed by the user and generates _StateDictInfo."""
+        if optim_only and not optims:
+            raise RuntimeError(
+                'Optimizers are not passed in but optim_only is set to True.',
+            )
+
+        options = options or StateDictOptions()
+
+        fqn_param_mapping: Dict[
+            Union[str, torch.Tensor], Union[Set[str], torch.Tensor],
+        ] = {}
+        all_fqns = set()
+        for name, param in _iterate_valid_model_state(model):
+            fqns = _get_fqns(model, name)
+            if not isinstance(param, _EXTRA_STATE):
+                fqn_param_mapping[param] = fqns
+            for fqn in fqns:
+                if not isinstance(param, _EXTRA_STATE):
+                    fqn_param_mapping[fqn] = param
+                all_fqns.add(fqn)
+
+        submodule_prefixes: Set[str] = set()
+        if submodules:
+            submodules = set(submodules)
+            for name, module in model.named_modules():
+                if module not in submodules:
+                    continue
+                fqns = _get_fqns(model, name)
+                assert len(fqns) == 1, 'Submodule FQN should only have 1 instance'
+                submodule_prefixes.update(f'{fqn}.' for fqn in fqns)
+
+        fsdp_modules = FSDP.fsdp_modules(model)
+        state_dict_config: StateDictConfig
+        optim_state_dict_config: OptimStateDictConfig
+        fsdp_context: Callable
+        if fsdp_modules:
+            # FSDP API only work if at least one FSDP instance exists.
+            if options.full_state_dict:
+                state_dict_config = FullStateDictConfig(
+                    offload_to_cpu=options.cpu_offload, rank0_only=options.cpu_offload,
+                )
+                optim_state_dict_config = FullOptimStateDictConfig(
+                    offload_to_cpu=options.cpu_offload, rank0_only=options.cpu_offload,
+                )
+                state_dict_type = StateDictType.FULL_STATE_DICT
+            else:
+                state_dict_config = ShardedStateDictConfig(
+                    offload_to_cpu=options.cpu_offload,
+                )
+                optim_state_dict_config = ShardedOptimStateDictConfig(
+                    offload_to_cpu=options.cpu_offload,
+                )
+                state_dict_type = StateDictType.SHARDED_STATE_DICT
+
+            fsdp_context = functools.partial(
+                FSDP.state_dict_type,
+                module=model,
+                state_dict_type=state_dict_type,
+                state_dict_config=state_dict_config,
+                optim_state_dict_config=optim_state_dict_config,
+            )
+        else:
+            fsdp_context = contextlib.nullcontext
+
+        return _StateDictInfo(
+            **asdict(options),
+            fqn_param_mapping=fqn_param_mapping,
+            all_fqns=all_fqns,
+            submodule_prefixes=submodule_prefixes,
+            fsdp_context=fsdp_context,
+            fsdp_modules=cast(List[nn.Module], fsdp_modules),
+            handle_model=not optim_only,
+            handle_optim=(len(optims) > 0),
+        )
+
+
+    def _get_model_state_dict(
+        model: nn.Module, info: _StateDictInfo,
+    ) -> Dict[str, ValueType]:
+        if not info.handle_model:
+            return {}
+
+        with info.fsdp_context():
+            state_dict = _state_dict_fn(model, 'state_dict')()
+
+        for key in list(state_dict.keys()):
+            fqns = _get_fqns(model, key)
+            assert len(fqns) == 1
+            fqn = next(iter(fqns))
+            if fqn != key:
+                # As we only support FSDP, DDP, and TP, the only cases are
+                # wrapper-based DDP and compiler. Verify if the assumption
+                # is correct.
+                def verify(key, fqn) -> bool:
+                    if len(fqn) >= len(key):
+                        return False
+                    fqn_split = fqn.split('.')
+                    key_split = key.split('.')
+                    fqn_idx = 0
+                    for key_idx, key_name in enumerate(key_split):
+                        if key_name == fqn_split[fqn_idx]:
+                            fqn_idx += 1
+                            if fqn_idx == len(fqn_split):
+                                return key_idx == len(key_split) - 1
+                        elif key_name in ('module', '_orig_mod'):
+                            continue
+                        else:
+                            return False
+                    return True
+
+                if not verify(key, fqn):
+                    raise RuntimeError(f'An unexpected key, {key}, exists. FQN is {fqn}')
+                state_dict[fqn] = state_dict.pop(key)
+
+        if info.submodule_prefixes:
+            new_state_dict: Dict[str, ValueType] = {}
+            # TODO: make this faster.
+            for fqn in state_dict.keys():
+                for prefix in info.submodule_prefixes:
+                    if not fqn.startswith(prefix):
+                        continue
+                    if info.keep_submodule_prefixes:
+                        new_state_dict[fqn] = state_dict[fqn]
+                    else:
+                        new_fqn = fqn[len(prefix) :]
+                        new_state_dict[new_fqn] = state_dict[fqn]
+            state_dict = new_state_dict
+
+        if info.ignore_frozen_params:
+            for key, param in model.named_parameters():
+                if param.requires_grad:
+                    continue
+                fqns = _get_fqns(model, key)
+                for fqn in fqns:
+                    state_dict.pop(fqn)
+
+        for key, p in list(state_dict.items()):
+            if torch.is_tensor(p) and p.is_meta:
+                state_dict.pop(key)
+
+        if info.full_state_dict:
+            ranks_only = tuple() if not info.cpu_offload else (0,)
+            return _gather_state_dict(
+                state_dict, cpu_offload=info.cpu_offload, ranks_only=ranks_only,
+            )
+        elif info.cpu_offload:
+            return _offload_state_dict_to_cpu(state_dict)
+        else:
+            return state_dict
+
+    def _load_model_state_dict(
+        model: nn.Module,
+        state_dict: Dict[str, ValueType],
+        info: _StateDictInfo,
+    ) -> _IncompatibleKeys:
+        if not info.handle_model or not state_dict:
+            return _IncompatibleKeys({}, {})
+
+        for key, _ in _iterate_valid_model_state(model):
+            fqns = _get_fqns(model, key)
+            fqns_with_prefix = _get_fqns(
+                model, key, skip_ddp_prefix=False, skip_compiler_prefix=False,
+            )
+            for fqn, fqn_with_prefix in zip(fqns, fqns_with_prefix):
+                if fqn != fqn_with_prefix:
+                    state_dict[fqn_with_prefix] = state_dict.pop(fqn)
+
+        with info.fsdp_context():
+            return cast(
+                _IncompatibleKeys,
+                _state_dict_fn(model, 'load_state_dict')(
+                    state_dict=state_dict, strict=info.strict,
+                ),
+            )
+
 
     @no_type_check
     def _get_fqns(
@@ -311,7 +556,6 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
         from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import _CHECKPOINT_PREFIX
         from torch.nn.parallel import DistributedDataParallel as DDP
         from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-        from torch.distributed.checkpoint.state_dict import FLAT_PARAM
         from torch.distributed.fsdp._common_utils import FSDP_WRAPPED_MODULE
 
         # Remove the checkpoint prefix, if it exists.
@@ -345,8 +589,13 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
                 if not skip_compiler_prefix:
                     fqn_obj_names.append(curr_obj_name)
             else:
+                # This part is monkey-patched from https://github.com/pytorch/pytorch/pull/125336
                 fqn_obj_names.append(curr_obj_name)
-                curr_obj = getattr(curr_obj, curr_obj_name)
+                if curr_obj_name == nn.modules.module._EXTRA_STATE_KEY_SUFFIX:
+                    if i != len(obj_names) - 1:
+                        raise RuntimeError('Expect `_extra_state` to be the last obj name')
+                else:
+                    curr_obj = getattr(curr_obj, curr_obj_name)
 
         return {'.'.join(fqn_obj_names).replace(_CHECKPOINT_PREFIX, '')}
 
