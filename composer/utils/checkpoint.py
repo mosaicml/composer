@@ -10,7 +10,6 @@ import fnmatch
 import logging
 import os
 import shutil
-import signal
 import tarfile
 import tempfile
 import textwrap
@@ -19,7 +18,6 @@ from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
-import psutil
 import torch
 from packaging import version
 from torch.distributed import checkpoint as dist_cp
@@ -288,7 +286,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         download_error_tensor = dist.get_device(None).tensor_to_device(torch.tensor(1 if download_error else 0))
         error_by_rank = dist.all_gather(download_error_tensor)
         failed_ranks = []
-        for rank, error in enumerate(error_by_rank.tolist()):
+        for rank, error in enumerate(list(error_by_rank)):
             if error > 0:
                 failed_ranks.append(rank)
                 download_error = True
