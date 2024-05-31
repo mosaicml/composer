@@ -337,9 +337,6 @@ class WandBLogger(LoggerDestination):
 
         log.info('ANNADEBUG Closing WandbLogger, run: %s enabled: %s', wandb.run, self._enabled)
 
-        import time
-        time.sleep(10)  # to let mlflow call it first
-
         # Cleaning up on post_close so all artifacts are uploaded
         if not self._enabled or wandb.run is None or self._is_in_atexit:
             # Don't call wandb.finish if there is no run, or
