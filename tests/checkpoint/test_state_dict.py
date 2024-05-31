@@ -568,6 +568,7 @@ def test_get_resumption_state_dict():
         'sample': 0,
         'token': 0,
         'epoch_in_iteration': 0,
+        'token_in_iteration': 0,
         'batch_in_epoch': 0,
         'sample_in_epoch': 0,
         'token_in_epoch': 0,

@@ -764,7 +764,7 @@ class State(Serializable):
             return
         if isinstance(iteration_length, str):
             iteration_length = ensure_time(iteration_length, TimeUnit.EPOCH)
-        if iteration_length.unit != TimeUnit.EPOCH:
+        if iteration_length.unit != TimeUnit.EPOCH and iteration_length.unit != TimeUnit.TOKEN:
             raise NotImplementedError(f'{iteration_length.unit} is not allowed as a unit for iteration_length.')
         self.__iteration_length = iteration_length
 

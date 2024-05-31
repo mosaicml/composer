@@ -273,19 +273,21 @@ class Callback(Serializable, abc.ABC):
            The following :attr:`.State.timestamp` member variables are
            incremented immediately before the :attr:`.Event.BATCH_END` event.
 
-           +------------------------------------+
-           | :attr:`.Timestamp.batch`           |
-           +------------------------------------+
-           | :attr:`.Timestamp.batch_in_epoch`  |
-           +------------------------------------+
-           | :attr:`.Timestamp.sample`          |
-           +------------------------------------+
-           | :attr:`.Timestamp.sample_in_epoch` |
-           +------------------------------------+
-           | :attr:`.Timestamp.token`           |
-           +------------------------------------+
-           | :attr:`.Timestamp.token_in_epoch`  |
-           +------------------------------------+
+           +--------------------------------------+
+           | :attr:`.Timestamp.batch`             |
+           +--------------------------------------+
+           | :attr:`.Timestamp.batch_in_epoch`    |
+           +--------------------------------------+
+           | :attr:`.Timestamp.sample`            |
+           +--------------------------------------+
+           | :attr:`.Timestamp.sample_in_epoch`   |
+           +--------------------------------------+
+           | :attr:`.Timestamp.token`             |
+           +--------------------------------------+
+           | :attr:`.Timestamp.token_in_epoch`    |
+           +--------------------------------------+
+           | :attr:`.Timestamp.token_in_iteration`|
+           +--------------------------------------+
 
         Args:
             state (State): The training state.

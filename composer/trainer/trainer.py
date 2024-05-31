@@ -2610,10 +2610,24 @@ class Trainer:
 
                 self.engine.run_event(Event.BATCH_CHECKPOINT)
 
-                if self.state.timestamp >= self.state.max_duration:
+                if (
+                    self.state.timestamp >= self.state.max_duration or (
+                        self.state._iteration_length is not None and
+                        self.state.timestamp.token_in_iteration.unit == self.state._iteration_length.unit and
+                        self.state.timestamp.token_in_iteration >= self.state._iteration_length
+                    )
+                ):
                     # If max_duration is specified in batches, samples, or tokens, and
                     # and the max_duration is reached mid-epoch, then break out of the dataloader
                     # to finish the epoch early and finish training.
+
+                    # Increment iteration
+                    if (
+                        self.state._iteration_length is not None and
+                        self.state.timestamp.token_in_iteration.unit == self.state._iteration_length.unit and
+                        self.state.timestamp.token_in_iteration >= self.state._iteration_length
+                    ):
+                        self._increment_iteration()
                     finished_epoch_early = True
                     break
 
@@ -2649,12 +2663,10 @@ class Trainer:
                 # Increment iteration
                 if (
                     self.state._iteration_length is not None and
-                    self.state.timestamp.epoch_in_iteration == self.state._iteration_length
+                    self.state.timestamp.epoch_in_iteration.unit == self.state._iteration_length.unit and
+                    self.state.timestamp.epoch_in_iteration >= self.state._iteration_length
                 ):
-                    self.state.previous_timestamp = self.state.timestamp
-                    self.state.timestamp = self.state.timestamp.to_next_iteration()
-                    self.engine.run_event(Event.ITERATION_END)
-                    self.engine.run_event(Event.ITERATION_CHECKPOINT)
+                    self._increment_iteration()
 
         # Log final time values
         self.logger.log_metrics({
@@ -3038,6 +3050,12 @@ class Trainer:
             self.state.deepspeed_model.step()
 
         return microbatch_loss_dict
+
+    def _increment_iteration(self):
+        self.state.previous_timestamp = self.state.timestamp
+        self.state.timestamp = self.state.timestamp.to_next_iteration()
+        self.engine.run_event(Event.ITERATION_END)
+        self.engine.run_event(Event.ITERATION_CHECKPOINT)
 
     def predict(
         self,
@@ -3506,7 +3524,7 @@ class Trainer:
                                                 outputs.append(v)
                                     else:
                                         outputs = self.state.outputs.cpu()
-                                    batch = DeviceCPU().batch_to_device(self.state.batch,)
+                                    batch = DeviceCPU().batch_to_device(self.state.batch)
                                 else:
                                     outputs = self.state.outputs
                                     batch = self.state.batch
