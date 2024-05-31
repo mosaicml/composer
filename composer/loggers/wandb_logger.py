@@ -117,6 +117,7 @@ class WandBLogger(LoggerDestination):
         self.table_dict = {}
 
     def _set_is_in_atexit(self):
+        log.info('ANNADEBUG Setting is in atexit')
         self._is_in_atexit = True
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
@@ -335,7 +336,10 @@ class WandBLogger(LoggerDestination):
 
         import wandb
 
-        log.info('ANNADEBUG Closing WandbLogger, run: %s enabled: %s', wandb.run, self._enabled)
+        log.info(
+            'ANNADEBUG Closing WandbLogger, run: %s enabled: %s, is in atexit %s', wandb.run, self._enabled,
+            self._is_in_atexit
+        )
 
         # Cleaning up on post_close so all artifacts are uploaded
         if not self._enabled or wandb.run is None or self._is_in_atexit:
