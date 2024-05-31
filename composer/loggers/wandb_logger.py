@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import atexit
 import copy
 import os
 import pathlib
@@ -104,7 +103,6 @@ class WandBLogger(LoggerDestination):
         self._rank_zero_only = rank_zero_only
         self._log_artifacts = log_artifacts
         self._init_kwargs = init_kwargs
-        self._is_in_atexit = False
 
         # Set these variable directly to allow fetching an Artifact **without** initializing a WandB run
         # When used as a LoggerDestination, these values are overriden from global rank 0 to all ranks on Event.INIT
@@ -115,10 +113,6 @@ class WandBLogger(LoggerDestination):
         self.run_url: Optional[str] = None
 
         self.table_dict = {}
-
-    def _set_is_in_atexit(self):
-        log.info('ANNADEBUG Setting is in atexit')
-        self._is_in_atexit = True
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         if self._enabled:
@@ -229,7 +223,6 @@ class WandBLogger(LoggerDestination):
             entity_and_project = [str(wandb.run.entity), str(wandb.run.project)]
             self.run_dir = wandb.run.dir
             self.run_url = wandb.run.get_url()
-            atexit.register(self._set_is_in_atexit)
         else:
             entity_and_project = [None, None]
         # Share the entity and project across all ranks, so they are available on ranks that did not initialize wandb
@@ -333,20 +326,17 @@ class WandBLogger(LoggerDestination):
                 os.rename(wandb_artifact_path, destination)
 
     def post_close(self) -> None:
+        # Cleaning up on post_close so all artifacts are uploaded
 
         import wandb
 
         log.info(
-            'ANNADEBUG Closing WandbLogger, run: %s enabled: %s, is in atexit %s', wandb.run, self._enabled,
-            self._is_in_atexit
+            'ANNADEBUG Closing WandbLogger, run: %s enabled: %s',
+            wandb.run,
+            self._enabled,
         )
 
-        # Cleaning up on post_close so all artifacts are uploaded
-        if not self._enabled or wandb.run is None or self._is_in_atexit:
-            # Don't call wandb.finish if there is no run, or
-            # the script is in an atexit, since wandb also hooks into atexit
-            # and it will error if wandb.finish is called from the Composer atexit hook
-            # after it is called from the wandb atexit hook
+        if not self._enabled or wandb.run is None:
             return
 
         exc_tpe, exc_info, tb = sys.exc_info()
@@ -358,7 +348,7 @@ class WandBLogger(LoggerDestination):
             # record there was an error
             exit_code = 1
 
-        logger.info('ANNADEBUG Closing WandbLogger with exit_code=%s', exit_code)
+        log.info('ANNADEBUG Closing WandbLogger with exit_code=%s', exit_code)
         wandb.finish(exit_code)
 
 
