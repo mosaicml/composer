@@ -30,7 +30,7 @@ from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_
 from composer.models import ComposerClassifier
 from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
-from composer.utils import dist, parse_uri
+from composer.utils import FSDPConfig, dist, parse_uri
 from composer.utils.checkpoint import is_checkpoint_legacy_sharded
 from composer.utils.file_helpers import get_file
 from composer.utils.object_store import S3ObjectStore
@@ -77,20 +77,6 @@ class SimpleMLP(ComposerClassifier):
             init_fn(module.weight)
             if module.bias is not None:  # pyright: ignore[reportUnnecessaryComparison]
                 torch.nn.init.zeros_(module.bias)
-
-
-@dataclasses.dataclass(frozen=True)
-class FSDPConfig:
-    state_dict_type: str = 'full'
-    sharding_strategy: str = 'FULL_SHARD'
-    sharded_ckpt_prefix_dir: str = 'ba{batch}'
-    sync_module_states: bool = True
-    use_orig_params: bool = True
-    load_monolith_rank0_only: bool = False
-    save_planner: Optional[Any] = None
-    load_planner: Optional[Any] = None
-    data_parallel_shard_degree: int = -1
-    process_group: Optional[str] = None
 
 
 def get_trainer(
