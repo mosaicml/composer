@@ -379,7 +379,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             fqn_param_mapping[param] = fqns
             for fqn in fqns:
                 fqn_param_mapping[fqn] = param
-        
+
         all_fqns = set()
         for name, _ in _iterate_valid_model_state(model):
             fqns = _get_fqns(model, name)
