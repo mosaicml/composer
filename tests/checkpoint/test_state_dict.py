@@ -398,7 +398,7 @@ def test_get_optim_state_dict_ignore(use_composer_model: bool):
         for ignore_key in ignore_keys:
             if fnmatch.fnmatch(fqn, ignore_key):
                 key = fqns.index(fqn) if optim_keyed_by_ind else fqn
-                expected_optim_state_keys.remove(key)
+                expected_optim_state_keys.remove(key)  # pyright:ignore
                 continue
 
     assert set(optim_state_dict['state'].keys()) == set(expected_optim_state_keys)
@@ -410,7 +410,7 @@ def test_get_optim_state_dict_ignore(use_composer_model: bool):
         for ignore_key in ignore_keys:
             if fnmatch.fnmatch(fqn, ignore_key):
                 key = fqns.index(fqn) if optim_keyed_by_ind else fqn
-                expected_optim_state_keys.remove(key)
+                expected_optim_state_keys.remove(key)  # pyright:ignore
                 continue
 
     assert set(optim_state_dict['state'].keys()) == set(expected_optim_state_keys)
