@@ -360,11 +360,14 @@ def test_get_optim_state_dict_include(use_composer_model: bool):
     fqns = [param_fqn for param_fqn, _ in model.named_parameters()]
     include_keys = ['module.0.weight']
     optim_state_dict = get_optim_state_dict(model, optimizer, include_keys=include_keys)
+    param_keys = list(optim_state_dict['state'].keys())
+    optim_keyed_by_ind = type(list(param_keys)[0]) == int
     expected_optim_state_keys = []
     for fqn in fqns:
         for include_key in include_keys:
             if fnmatch.fnmatch(fqn, include_key):
-                expected_optim_state_keys.append(fqn)
+                key = fqns.index(fqn) if optim_keyed_by_ind else fqn
+                expected_optim_state_keys.append(key)
                 continue
     assert set(optim_state_dict['state'].keys()) == set(expected_optim_state_keys)
 
@@ -374,7 +377,8 @@ def test_get_optim_state_dict_include(use_composer_model: bool):
     for fqn in fqns:
         for include_key in include_keys:
             if fnmatch.fnmatch(fqn, include_key):
-                expected_optim_state_keys.append(fqn)
+                key = fqns.index(fqn) if optim_keyed_by_ind else fqn
+                expected_optim_state_keys.append(key)
                 continue
     assert set(optim_state_dict['state'].keys()) == set(expected_optim_state_keys)
 
@@ -386,22 +390,27 @@ def test_get_optim_state_dict_ignore(use_composer_model: bool):
     fqns = [param_fqn for param_fqn, _ in model.named_parameters()]
     ignore_keys = ['module.0*']
     optim_state_dict = get_optim_state_dict(model, optimizer, ignore_keys=ignore_keys)
-    expected_optim_state_keys = [*fqns]
+    param_keys = list(optim_state_dict['state'].keys())
+    optim_keyed_by_ind = type(list(param_keys)[0]) == int
+
+    expected_optim_state_keys = list(range(len(fqns))) if optim_keyed_by_ind else [*fqns]
     for fqn in fqns:
         for ignore_key in ignore_keys:
             if fnmatch.fnmatch(fqn, ignore_key):
-                expected_optim_state_keys.remove(fqn)
+                key = fqns.index(fqn) if optim_keyed_by_ind else fqn
+                expected_optim_state_keys.remove(key)
                 continue
 
     assert set(optim_state_dict['state'].keys()) == set(expected_optim_state_keys)
 
     ignore_keys = ['module.2.weight']
     optim_state_dict = get_optim_state_dict(model, optimizer, ignore_keys=ignore_keys)
-    expected_optim_state_keys = [*fqns]
+    expected_optim_state_keys = list(range(len(fqns))) if optim_keyed_by_ind else [*fqns]
     for fqn in fqns:
         for ignore_key in ignore_keys:
             if fnmatch.fnmatch(fqn, ignore_key):
-                expected_optim_state_keys.remove(fqn)
+                key = fqns.index(fqn) if optim_keyed_by_ind else fqn
+                expected_optim_state_keys.remove(key)
                 continue
 
     assert set(optim_state_dict['state'].keys()) == set(expected_optim_state_keys)
@@ -475,6 +484,8 @@ def test_get_optim_dict_sharded_for_sharded_model(world_size, tensor_type, use_c
         model_param_shape = fqn_to_shape_map[fqn]
         assert model_param_shape == param_state['exp_avg'].shape
         assert model_param_shape == param_state['exp_avg_sq'].shape
+
+
 @pytest.mark.gpu
 @world_size(1, 2)
 def test_get_metadata_empty_call(world_size):

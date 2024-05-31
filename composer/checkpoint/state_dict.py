@@ -6,7 +6,7 @@
 import fnmatch
 import logging
 import sys
-from typing import Any, Optional, Sequence, Union, Dict
+from typing import Any, Dict, Optional, Sequence, Union
 
 import torch
 from packaging import version
@@ -289,7 +289,15 @@ def _remove_keys_from_optim_state_dict(
     # to the optimizer state ( e.g. 'step', 'exp_avg', 'exp_avg_sq') for that parameter.
     # For sharded models the param_key is just the fqn for the underlying model parameter,
     # but for unsharded models the param_key is an index (0,1,2,..., len(model.parameters())-1)
-    if _is_model_fsdp(model):
+    param_keys = list(optim_state_dict['state'].keys())
+    optim_keyed_by_ind = type(list(param_keys)[0]) == int
+    if optim_keyed_by_ind:
+        for param_ind, (param_fqn, _) in zip(param_keys, model.named_parameters()):
+            for ignore_key in ignore_keys:
+                if fnmatch.fnmatch(param_fqn, ignore_key):
+                    optim_state_dict['state'].pop(param_ind)
+                    continue
+    else:
         for param_fqn in optim_state_dict['state'].keys():
             for ignore_key in ignore_keys:
                 if fnmatch.fnmatch(param_fqn, ignore_key):
@@ -299,13 +307,6 @@ def _remove_keys_from_optim_state_dict(
     # The param index ordering is determined by passing model.parameters()
     # to the optimizer. The underlying generator for model.parameters() is model.named_parameters()
     # so we need to use model.named_parameters() instead of model.state_dict().keys() to match fqn to ind correctly.
-    else:
-        param_inds = list(optim_state_dict['state'].keys())
-        for param_ind, (param_fqn, _) in zip(param_inds, model.named_parameters()):
-            for ignore_key in ignore_keys:
-                if fnmatch.fnmatch(param_fqn, ignore_key):
-                    optim_state_dict['state'].pop(param_ind)
-                    continue
 
     return optim_state_dict
 
@@ -317,15 +318,27 @@ def _extract_keys_from_optim_state_dict(
 ):
     if isinstance(include_keys, str):
         include_keys = [include_keys]
-    param_inds = list(optim_state_dict['state'].keys())
-    # See comment in _remove_keys_from_optim_state_dict.
-    for param_ind, (param_fqn, _) in zip(param_inds, model.named_parameters()):
-        for include_key in include_keys:
-            if not fnmatch.fnmatch(param_fqn, include_key):
-                optim_state_dict['state'].pop(param_ind)
-                continue
+
+    param_keys = list(optim_state_dict['state'].keys())
+    optim_keyed_by_ind = type(list(param_keys)[0]) == int
+
+    if optim_keyed_by_ind:
+        # See comment in _remove_keys_from_optim_state_dict.
+        for param_ind, (param_fqn, _) in zip(param_keys, model.named_parameters()):
+            for include_key in include_keys:
+                if not fnmatch.fnmatch(param_fqn, include_key):
+                    optim_state_dict['state'].pop(param_ind)
+                    continue
+    else:
+        for param_fqn in optim_state_dict['state'].keys():
+            for ignore_key in include_keys:
+                if fnmatch.fnmatch(param_fqn, ignore_key):
+                    optim_state_dict['state'].pop(param_fqn)
+                    continue
 
     return optim_state_dict
+
+
 def get_metadata_state_dict(
     model: Optional[Union[ComposerModel, nn.Module]] = None,
     sharded_state_dict: Optional[bool] = None,
