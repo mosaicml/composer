@@ -12,12 +12,11 @@
 
 import logging
 import math
-import warnings
 import functools
 import contextlib
 from dataclasses import asdict
 from itertools import chain
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Generator, Optional, Set, Tuple, Union, cast, no_type_check
+from typing import Any, Callable, Dict, Iterable, List, Generator, Optional, Set, Tuple, Union, cast, no_type_check
 
 
 import torch
