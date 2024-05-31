@@ -1,6 +1,12 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 """
-StragglerDetector README: https://github.com/NVIDIA/Megatron-LM/blob/main/megatron/core/README_STRAGGLER.md
-Original StragglerDetector implementation: https://github.com/NVIDIA/Megatron-LM/blob/main/megatron/core/utils.py
+Monitor straggler metrics during training.
+
+Original StragglerDetector README: https://github.com/NVIDIA/Megatron-LM/blob/c4d12e26b2dc25a2eab7da92e2ac30338c0ed3de/megatron/core/README_STRAGGLER.md
+Original StragglerDetector implementation: https://github.com/NVIDIA/Megatron-LM/blob/c4d12e26b2dc25a2eab7da92e2ac30338c0ed3de/megatron/core/utils.py
+"""
 """
 
 from dataclasses import dataclass
