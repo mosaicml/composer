@@ -405,7 +405,7 @@ class SimpleTransformerClassifier(ComposerClassifier):
 class ConvModel(ComposerClassifier):
     """Convolutional network featuring strided convs, a batchnorm, max pooling, and average pooling."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         conv_args = {'kernel_size': (3, 3), 'padding': 1}
         conv1 = torch.nn.Conv2d(in_channels=32, out_channels=8, stride=2, bias=False, **conv_args)  # stride > 1
         conv2 = torch.nn.Conv2d(
