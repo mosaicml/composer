@@ -266,58 +266,14 @@ def get_optim_state_dict(
 
     if target_state_dict_on_this_rank:
         if ignore_keys is not None:
-            optim_state_dict = _remove_keys_from_optim_state_dict(optim_state_dict, model, ignore_keys)
+            raise NotImplementedError('Ignoring keys in the optimizer state dict is not supported yet.')
         if include_keys is not None:
-            optim_state_dict = _extract_keys_from_optim_state_dict(optim_state_dict, model, include_keys)
+            raise NotImplementedError('Ignoring keys in the optimizer state dict is not supported yet.')
 
         # param_key := index (0,1,2,..., len(model.parameters())-1) for unsharded models.
         # param_key := fqn for sharded models.
         for param_key, param_state_dict in optim_state_dict['state'].items():
             optim_state_dict['state'][param_key] = _cast_state_dict_to_precision(param_state_dict, precision)
-    return optim_state_dict
-
-
-def _remove_keys_from_optim_state_dict(
-    optim_state_dict: Dict[str, Any],
-    model: Union[ComposerModel, nn.Module],
-    ignore_keys: Union[str, Sequence[str]],
-):
-    if isinstance(ignore_keys, str):
-        ignore_keys = [ignore_keys]
-
-    # optim_state_dict['state'] is a dictionary mapping the param_key
-    # to the optimizer state ( e.g. 'step', 'exp_avg', 'exp_avg_sq') for that parameter.
-    # For sharded models the param_key is just the fqn for the underlying model parameter,
-    # but for unsharded models the param_key is an index (0,1,2,..., len(model.parameters())-1)
-    param_keys = list(optim_state_dict['state'].keys())
-    optim_keyed_by_ind = type(list(param_keys)[0]) == int
-    if optim_keyed_by_ind:
-        for param_key, (param_fqn, _) in zip(param_keys, model.named_parameters()):
-            for ignore_key in ignore_keys:
-                if fnmatch.fnmatch(param_fqn, ignore_key):
-                    optim_state_dict['state'].pop(param_key)
-                    continue
-
-    return optim_state_dict
-
-
-def _extract_keys_from_optim_state_dict(
-    optim_state_dict: Dict[str, Any],
-    model: Union[ComposerModel, nn.Module],
-    include_keys: Union[str, Sequence[str]],
-):
-    if isinstance(include_keys, str):
-        include_keys = [include_keys]
-
-    param_keys = list(optim_state_dict['state'].keys())
-
-    # See comment in _remove_keys_from_optim_state_dict.
-    for param_key, (param_fqn, _) in zip(param_keys, model.named_parameters()):
-        for include_key in include_keys:
-            if not fnmatch.fnmatch(param_fqn, include_key):
-                optim_state_dict['state'].pop(param_key)
-                continue
-
     return optim_state_dict
 
 

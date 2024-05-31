@@ -358,52 +358,6 @@ def test_get_optim_state_dict_unsharded_model(use_composer_model: bool):
 
 
 @pytest.mark.gpu
-@pytest.mark.parametrize('use_composer_model', [True, False])
-def test_get_optim_state_dict_include(use_composer_model: bool):
-    model, optimizer = _init_model_and_optimizer(use_composer_model=use_composer_model, take_step=True)
-    fqns = [param_fqn for param_fqn, _ in model.named_parameters()]
-    include_keys = ['module.0.weight']
-    optim_state_dict = get_optim_state_dict(model, optimizer, include_keys=include_keys)
-    param_keys = list(optim_state_dict['state'].keys())
-    expected_optim_keys = []
-    for optim_key, fqn in zip(param_keys, fqns):
-        for include_key in include_keys:
-            if fnmatch.fnmatch(fqn, include_key):
-                if isinstance(optim_key, str):
-                    expected_optim_keys.append(optim_key)
-                else:
-                    expected_optim_keys.append(fqn)
-                continue
-    assert set(optim_state_dict['state'].keys()) == set(expected_optim_keys)
-
-
-@pytest.mark.gpu
-@pytest.mark.parametrize('use_composer_model', [True, False])
-def test_get_optim_state_dict_ignore(use_composer_model: bool):
-    model, optimizer = _init_model_and_optimizer(use_composer_model=use_composer_model, take_step=True)
-    fqns = [param_fqn for param_fqn, _ in model.named_parameters()]
-
-    ignore_keys = ['module.0*']
-    optim_state_dict = get_optim_state_dict(model, optimizer, ignore_keys=ignore_keys)
-    param_keys = list(optim_state_dict['state'].keys())
-    expected_optim_state_keys_inds = list(range(len(fqns))) 
-    expected_optim_state_keys_str = [*fqns]
-    expected_optim_keys = []
-    for optim_key, fqn in zip(param_keys, fqns):
-        for ignore_key in ignore_keys:
-            if fnmatch.fnmatch(fqn, ignore_key):
-                if isinstance(optim_key, str):
-                    expected_optim_state_keys_str.remove(optim_key)  # pyright:ignore
-                    expected_optim_keys = expected_optim_state_keys_str
-                else:
-                    expected_optim_state_keys_inds.remove(optim_key)
-                    expected_optim_keys = expected_optim_state_keys_inds
-                continue
-
-    assert set(optim_state_dict['state'].keys()) == set(expected_optim_keys)
-
-
-@pytest.mark.gpu
 @pytest.mark.parametrize(
     'precision',
     [
