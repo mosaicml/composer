@@ -39,12 +39,12 @@ def test_extract_hparams():
 
     class Foo:
 
-        def __init__(self):
+        def __init__(self) -> None:
             self.g = 7
 
     class Bar:
 
-        def __init__(self):
+        def __init__(self) -> None:
             self.local_hparams = {'m': 11}
 
     class Baz(StringEnum):
@@ -178,6 +178,7 @@ def test_extract_hparams_trainer():
         'deepspeed_config': None,
         'fsdp_config': None,
         'fsdp_auto_wrap': True,
+        'parallelism_config': None,
 
         # System/Numerics
         'device': 'DeviceCPU',

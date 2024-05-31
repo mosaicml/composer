@@ -9,7 +9,6 @@ import sys
 import textwrap
 import threading
 from pathlib import Path
-from typing import List
 from unittest.mock import Mock
 
 import pytest
@@ -102,7 +101,7 @@ class TestAlgorithms:
         self,
         event: Event,
         dummy_state: State,
-        always_match_algorithms: List[Algorithm],
+        always_match_algorithms: list[Algorithm],
         dummy_logger: Logger,
     ):
         dummy_state.algorithms = always_match_algorithms
@@ -115,7 +114,7 @@ class TestAlgorithms:
         self,
         event: Event,
         dummy_state: State,
-        never_match_algorithms: List[Algorithm],
+        never_match_algorithms: list[Algorithm],
         dummy_logger: Logger,
     ):
         dummy_state.algorithms = never_match_algorithms
@@ -128,7 +127,7 @@ class TestAlgorithms:
         self,
         event: Event,
         dummy_state: State,
-        always_match_algorithms: List[Algorithm],
+        always_match_algorithms: list[Algorithm],
         dummy_logger: Logger,
     ):
         dummy_state.algorithms = always_match_algorithms
@@ -140,7 +139,7 @@ class TestAlgorithms:
         self,
         event: Event,
         dummy_state: State,
-        never_match_algorithms: List[Algorithm],
+        never_match_algorithms: list[Algorithm],
         dummy_logger: Logger,
     ):
         dummy_state.algorithms = never_match_algorithms

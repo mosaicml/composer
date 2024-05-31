@@ -10,7 +10,7 @@ import pathlib
 import warnings
 from functools import partial
 from importlib.metadata import version
-from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Sequence, Set, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, Sequence, Union
 
 import numpy as np
 import torch
@@ -48,7 +48,7 @@ class NeptuneLogger(LoggerDestination):
             (default: ``False``).
         base_namespace (str, optional): The name of the base namespace where the metadata
             is logged (default: "training").
-        neptune_kwargs (Dict[str, Any], optional): Any additional keyword arguments to the
+        neptune_kwargs (dict[str, Any], optional): Any additional keyword arguments to the
             ``neptune.init_run()`` function. For options, see the
             `Run API reference <https://docs.neptune.ai/api/neptune/#init_run>`_.
     """
@@ -108,7 +108,7 @@ class NeptuneLogger(LoggerDestination):
         self._neptune_run = None
         self._base_handler = None
 
-        self._metrics_dict: Dict[str, int] = {}  # used to prevent duplicate step logging
+        self._metrics_dict: dict[str, int] = {}  # used to prevent duplicate step logging
 
         super().__init__()
 
@@ -150,24 +150,24 @@ class NeptuneLogger(LoggerDestination):
             self.neptune_run['sys/name'] = state.run_name
             self.neptune_run[self.integration_version_key] = __version__
 
-    def _sanitize_metrics(self, metrics: Dict[str, float], step: Optional[int]) -> Dict[str, float]:
+    def _sanitize_metrics(self, metrics: dict[str, float], step: Optional[int]) -> dict[str, float]:
         """Sanitize metrics to prevent duplicate step logging.
 
         Args:
-            metrics (Dict[str, float]): Metrics to log.
+            metrics (dict[str, float]): Metrics to log.
             step (Optional[int]): Step to log metrics at.
 
         Returns:
-            Dict[str, float]: Sanitized metrics.
+            dict[str, float]: Sanitized metrics.
         """
-        keys_to_delete: Set[str] = set()
+        keys_to_delete: set[str] = set()
 
         for k in metrics:
             self._process_single_metric(k, step, keys_to_delete)
 
         return dict(filter(lambda x: x[0] not in keys_to_delete, metrics.items()))
 
-    def _process_single_metric(self, metric_key: str, step: Optional[int], keys_to_delete: Set[str]) -> None:
+    def _process_single_metric(self, metric_key: str, step: Optional[int], keys_to_delete: set[str]) -> None:
         if metric_key not in self._metrics_dict:
             self._metrics_dict[metric_key] = step if step is not None else 0
         else:
@@ -180,7 +180,7 @@ class NeptuneLogger(LoggerDestination):
             else:
                 self._metrics_dict[metric_key] += 1
 
-    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
+    def log_metrics(self, metrics: dict[str, float], step: Optional[int] = None) -> None:
         if not self._enabled:
             return
 
@@ -189,7 +189,7 @@ class NeptuneLogger(LoggerDestination):
         if metrics_to_log := self._sanitize_metrics(metrics, step):
             self.base_handler[NeptuneLogger.metric_namespace].append(stringify_unsupported(metrics_to_log), step=step)
 
-    def log_hyperparameters(self, hyperparameters: Dict[str, Any]) -> None:
+    def log_hyperparameters(self, hyperparameters: dict[str, Any]) -> None:
         if not self._enabled:
             return
 
@@ -197,7 +197,7 @@ class NeptuneLogger(LoggerDestination):
 
         self.base_handler[NeptuneLogger.hyperparam_namespace] = stringify_unsupported(hyperparameters)
 
-    def log_traces(self, traces: Dict[str, Any]):
+    def log_traces(self, traces: dict[str, Any]):
         if not self._enabled:
             return
 
@@ -278,8 +278,8 @@ class NeptuneLogger(LoggerDestination):
         name: str = 'Images',
         channels_last: bool = False,
         step: Optional[int] = None,
-        masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
-        mask_class_labels: Optional[Dict[int, str]] = None,
+        masks: Optional[dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
+        mask_class_labels: Optional[dict[int, str]] = None,
         use_table: bool = True,
     ):
         if not self._enabled:

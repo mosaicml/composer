@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import contextlib
-from typing import List, Optional, Type
+from typing import Optional, Type
 
 import pytest
 from torch.utils.data import DataLoader
@@ -296,8 +296,8 @@ def dummy_schedulers_state(rank_zero_seed: int, request: pytest.FixtureRequest):
 def test_scheduler_init(
     scheduler: ComposerScheduler,
     ssr: float,
-    test_times: List[str],
-    expected_lrs: List[float],
+    test_times: list[str],
+    expected_lrs: list[float],
     dummy_schedulers_state: State,
 ):
 

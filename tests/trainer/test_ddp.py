@@ -160,16 +160,18 @@ def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path
         ),
     )
 
-    fsdp_config = None
+    parallelism_config = None
     if fsdp:
-        fsdp_config = {
-            'sharding_strategy': 'FULL_SHARD',
-            'cpu_offload': False,
-            'mixed_precision': 'PURE',
-            'backward_prefetch': 'BACKWARD_PRE',
-            'activation_checkpointing': False,
-            'activation_cpu_offload': False,
-            'verbose': False,
+        parallelism_config = {
+            'fsdp': {
+                'sharding_strategy': 'FULL_SHARD',
+                'cpu_offload': False,
+                'mixed_precision': 'PURE',
+                'backward_prefetch': 'BACKWARD_PRE',
+                'activation_checkpointing': False,
+                'activation_cpu_offload': False,
+                'verbose': False,
+            },
         }
 
     max_epochs = 2
@@ -183,7 +185,7 @@ def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path
         eval_subset_num_batches=eval_subset_num_batches,
         train_subset_num_batches=train_subset_num_batches,
         deepspeed_config={} if deepspeed else None,
-        fsdp_config=fsdp_config,
+        parallelism_config=parallelism_config,
         callbacks=[CheckBatch0(tmp_path)],
     )
 

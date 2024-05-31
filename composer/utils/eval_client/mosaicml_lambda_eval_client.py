@@ -6,7 +6,6 @@ import logging
 import os
 import time
 from http import HTTPStatus
-from typing import Dict, List
 
 import mcli
 import numpy as np
@@ -34,7 +33,7 @@ class MosaicMLLambdaEvalClient(EvalClient):
         self.backoff = backoff
         self.num_retries = num_retries
 
-    def invoke(self, payload: List[List[List[Dict[str, str]]]]) -> List[List[List[bool]]]:
+    def invoke(self, payload: list[list[list[dict[str, str]]]]) -> list[list[list[bool]]]:
         """Invoke a batch of provided payloads for code evaluations."""
         num_beams = len(payload[0])
         num_tests = [len(generation_payload[0]) for generation_payload in payload]

@@ -10,7 +10,7 @@ import os
 import pathlib
 import uuid
 from tempfile import TemporaryDirectory
-from typing import Callable, List, Optional, Union
+from typing import Callable, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
@@ -210,7 +210,7 @@ class OCIObjectStore(ObjectStore):
             else:
                 os.rename(tmp_path, filename)
 
-    def list_objects(self, prefix: Optional[str] = None) -> List[str]:
+    def list_objects(self, prefix: Optional[str] = None) -> list[str]:
         if prefix is None:
             prefix = ''
 

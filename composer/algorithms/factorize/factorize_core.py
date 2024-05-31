@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import dataclasses
-from typing import Optional, Tuple, Union
+from typing import Optional, Union
 
 import numpy as np
 import torch
@@ -65,7 +65,7 @@ def _nmse(Y: torch.Tensor, Y_hat: torch.Tensor) -> float:
     return float((diffs * diffs).mean() / Y.var())
 
 
-def _svd_initialize(Wa: torch.Tensor, Wb: Optional[torch.Tensor], k: int) -> Tuple[torch.Tensor, torch.Tensor]:
+def _svd_initialize(Wa: torch.Tensor, Wb: Optional[torch.Tensor], k: int) -> tuple[torch.Tensor, torch.Tensor]:
     if Wb is None:
         W = Wa
     else:

@@ -10,7 +10,7 @@ import math
 import os
 import pathlib
 import time
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import pytest
 import torch
@@ -496,7 +496,7 @@ class TestTrainerInitOrFit:
         max_duration: Time[int],
         eval_subset_num_batches: int,
         eval_interval: str,
-        eval_dataloader: Union[Evaluator, DataLoader, List[Evaluator]],
+        eval_dataloader: Union[Evaluator, DataLoader, list[Evaluator]],
     ):
         # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
         copied_model = copy.deepcopy(model)
@@ -664,14 +664,16 @@ class TestTrainerInitOrFit:
         if precision == Precision.FP32:  # FSDP FULL_SHARD doesn't support FP32
             return
 
-        fsdp_config = {
-            'sharding_strategy': 'FULL_SHARD',
-            'cpu_offload': False,
-            'mixed_precision': 'PURE',
-            'backward_prefetch': 'BACKWARD_PRE',
-            'activation_checkpointing': False,
-            'activation_cpu_offload': False,
-            'verbose': False,
+        parallelism_config = {
+            'fsdp': {
+                'sharding_strategy': 'FULL_SHARD',
+                'cpu_offload': False,
+                'mixed_precision': 'PURE',
+                'backward_prefetch': 'BACKWARD_PRE',
+                'activation_checkpointing': False,
+                'activation_cpu_offload': False,
+                'verbose': False,
+            },
         }
 
         # Need to catch the case where we try to train
@@ -683,7 +685,7 @@ class TestTrainerInitOrFit:
             trainer = Trainer(
                 model=model,
                 precision=precision,
-                fsdp_config=fsdp_config,
+                parallelism_config=parallelism_config,
                 max_duration=max_duration,
                 train_dataloader=train_dataloader,
             )
@@ -702,18 +704,20 @@ class TestTrainerInitOrFit:
         self,
         model: ComposerModel,
         precision: Precision,
-        compile_config: Optional[Dict[str, Any]],
+        compile_config: Optional[dict[str, Any]],
         max_duration: Time[int],
         train_dataloader: DataLoader,
     ):
-        fsdp_config = {
-            'sharding_strategy': 'FULL_SHARD',
-            'cpu_offload': False,
-            'mixed_precision': 'PURE',
-            'backward_prefetch': 'BACKWARD_PRE',
-            'activation_checkpointing': False,
-            'activation_cpu_offload': False,
-            'verbose': False,
+        parallelism_config = {
+            'fsdp': {
+                'sharding_strategy': 'FULL_SHARD',
+                'cpu_offload': False,
+                'mixed_precision': 'PURE',
+                'backward_prefetch': 'BACKWARD_PRE',
+                'activation_checkpointing': False,
+                'activation_cpu_offload': False,
+                'verbose': False,
+            },
         }
 
         # Need to catch the case where we try to train
@@ -725,7 +729,7 @@ class TestTrainerInitOrFit:
             trainer = Trainer(
                 model=model,
                 precision=precision,
-                fsdp_config=fsdp_config,
+                parallelism_config=parallelism_config,
                 max_duration=max_duration,
                 train_dataloader=train_dataloader,
                 auto_log_hparams=True,
@@ -1549,7 +1553,7 @@ class TestAutoresumeCompatibility:
             'loggers': [],
         }
 
-    def test_autoresume_and_concurrent_uploads_error(self, tmp_path: pathlib.Path, config: Dict[str, Any]):
+    def test_autoresume_and_concurrent_uploads_error(self, tmp_path: pathlib.Path, config: dict[str, Any]):
         pytest.importorskip('libcloud')
         config.update({
             'run_name': 'autoresume_concurrent_uploads_run',
@@ -1570,7 +1574,7 @@ class TestAutoresumeCompatibility:
         ):
             _ = Trainer(**config)
 
-    def test_latest_and_object_format_string_error(self, tmp_path: pathlib.Path, config: Dict[str, Any]):
+    def test_latest_and_object_format_string_error(self, tmp_path: pathlib.Path, config: dict[str, Any]):
         pytest.importorskip('libcloud')
         config.update({
             'run_name':
@@ -1596,7 +1600,7 @@ class TestAutoresumeCompatibility:
         config.update({'save_latest_filename': None, 'autoresume': False})
         _ = Trainer(**config)
 
-    def test_autoresume_and_default_remote_uploader_downloader(self, tmp_path: pathlib.Path, config: Dict[str, Any]):
+    def test_autoresume_and_default_remote_uploader_downloader(self, tmp_path: pathlib.Path, config: dict[str, Any]):
         pytest.importorskip('libcloud')
         config.update({
             'run_name': 'autoresume_default_remote_ud_run',
