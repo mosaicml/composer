@@ -3,12 +3,14 @@
 
 """Parallelism configs."""
 
+import warnings
 from dataclasses import dataclass
 from typing import Any, Optional
-import warnings
+
 from torch.distributed._tensor.device_mesh import DeviceMesh
 
 from composer.utils.warnings import VersionedDeprecationWarning
+
 
 @dataclass
 class FSDPConfig:
@@ -90,5 +92,5 @@ class TPConfig:
 @dataclass
 class ParallelismConfig:
     """Configuration for parallelism."""
-    fsdp_config: Optional[FSDPConfig] = None
-    tp_config: Optional[TPConfig] = None
+    fsdp: Optional[FSDPConfig] = None
+    tp: Optional[TPConfig] = None

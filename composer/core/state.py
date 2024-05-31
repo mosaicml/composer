@@ -543,8 +543,8 @@ class State(Serializable):
         self.profiler: Optional[Profiler] = None
 
         self.deepspeed_config = deepspeed_config
-        self.fsdp_config = parallelism_config.fsdp_config if parallelism_config is not None else None
-        self.tp_config = parallelism_config.tp_config if parallelism_config is not None else None
+        self.fsdp_config = parallelism_config.fsdp if parallelism_config is not None else None
+        self.tp_config = parallelism_config.tp if parallelism_config is not None else None
 
         self._validate_parallelism_configs()
 
