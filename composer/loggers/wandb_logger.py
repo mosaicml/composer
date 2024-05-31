@@ -25,7 +25,9 @@ from composer.utils import MissingConditionalImportError, dist
 
 if TYPE_CHECKING:
     from composer.core import State
+import logging
 
+log = logging.getLogger(__name__)
 __all__ = ['WandBLogger']
 
 
@@ -330,7 +332,10 @@ class WandBLogger(LoggerDestination):
                 os.rename(wandb_artifact_path, destination)
 
     def post_close(self) -> None:
+
         import wandb
+
+        log.info('ANNADEBUG Closing WandbLogger, run: %s enabled: %s', wandb.run, self._enabled)
 
         import time
         time.sleep(10)  # to let mlflow call it first
@@ -344,12 +349,16 @@ class WandBLogger(LoggerDestination):
             return
 
         exc_tpe, exc_info, tb = sys.exc_info()
+        log.info(f'ANNADEBUG Closing WandbLogger with exc_tpe={exc_tpe}, exc_info={exc_info}, tb={tb}')
 
         if (exc_tpe, exc_info, tb) == (None, None, None):
-            wandb.finish(0)
+            exit_code = 0
         else:
             # record there was an error
-            wandb.finish(1)
+            exit_code = 1
+
+        logger.info('ANNADEBUG Closing WandbLogger with exit_code=%s', exit_code)
+        wandb.finish(exit_code)
 
 
 def _convert_to_wandb_image(image: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:

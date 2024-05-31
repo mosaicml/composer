@@ -488,19 +488,19 @@ class MLFlowLogger(LoggerDestination):
                 )
 
     def post_close(self):
-        log.info('Closing MLFlowLogger, run_id: %s enabled: %s', self._run_id, self._enabled)
+        log.info('ANNADEBUG Closing MLFlowLogger, run_id: %s enabled: %s', self._run_id, self._enabled)
 
         if self._enabled and self._run_id is not None:
             import mlflow
 
             exc_tpe, exc_info, tb = sys.exc_info()
-            log.info(f'Closing MLFlowLogger with exc_tpe={exc_tpe}, exc_info={exc_info}, tb={tb}')
+            log.info(f'ANNADEBUG Closing MLFlowLogger with exc_tpe={exc_tpe}, exc_info={exc_info}, tb={tb}')
             if (exc_tpe, exc_info, tb) == (None, None, None):
                 status = 'FINISHED'
             else:
                 status = 'FAILED'
 
-            log.info('Closing MLFlowLogger with status: %s', status)
+            log.info('ANNADEBUG Closing MLFlowLogger with status: %s', status)
 
             mlflow.flush_async_logging()
 
