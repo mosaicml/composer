@@ -230,8 +230,6 @@ extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
 extra_deps['databricks'] = ['databricks-sdk==0.28.0']
 
-extra_deps['megatron'] = ['megatron-core==0.6.0']
-
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 
 composer_data_files = ['py.typed']
