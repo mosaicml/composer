@@ -996,22 +996,19 @@ class Trainer:
         algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
 
         # Engine Pass Registration
-        algorithm_passes: Optional[Union[
-            AlgorithmPass,
-            Tuple[AlgorithmPass, int],
-            Sequence[Union[AlgorithmPass, Tuple[AlgorithmPass, int]]],
-        ]] = None,
+        algorithm_passes: Optional[Union[AlgorithmPass,
+                                         Tuple[AlgorithmPass, int],
+                                         Sequence[Union[AlgorithmPass, Tuple[AlgorithmPass, int]]],
+                                        ]] = None,
 
         # Optimizers and Scheduling
         optimizers: Optional[torch.optim.Optimizer] = None,
-        schedulers: Optional[Union[
-            ComposerScheduler,
-            LRScheduler,
-            Sequence[Union[
-                ComposerScheduler,
-                LRScheduler,
-            ]],
-        ]] = None,
+        schedulers: Optional[Union[ComposerScheduler,
+                                   LRScheduler,
+                                   Sequence[Union[ComposerScheduler,
+                                                  LRScheduler,
+                                                 ]],
+                                  ]] = None,
         scale_schedule_ratio: float = 1.0,
         step_schedulers_every_batch: Optional[bool] = None,
 
@@ -1925,11 +1922,10 @@ class Trainer:
         reset_time: bool = False,
 
         # Schedulers
-        schedulers: Optional[Union[
-            ComposerScheduler,
-            LRScheduler,
-            Sequence[Union[ComposerScheduler, LRScheduler]],
-        ]] = None,
+        schedulers: Optional[Union[ComposerScheduler,
+                                   LRScheduler,
+                                   Sequence[Union[ComposerScheduler, LRScheduler]],
+                                  ]] = None,
         scale_schedule_ratio: float = 1.0,
         step_schedulers_every_batch: Optional[bool] = None,
 
@@ -3146,9 +3142,6 @@ class Trainer:
                 dataloader. Can also be provided in the trainer.__init__() as ``eval_subset_num_batches``.
 
         """
-
-        raise ValueError('DED')
-
         self.engine.run_event(Event.EVAL_STANDALONE_START)
 
         if eval_dataloader is not None:
@@ -3376,9 +3369,7 @@ class Trainer:
                                                 outputs.append(v)
                                     else:
                                         outputs = self.state.outputs.cpu()
-                                    batch = DeviceCPU().batch_to_device(
-                                        self.state.batch,
-                                    )
+                                    batch = DeviceCPU().batch_to_device(self.state.batch,)
                                 else:
                                     outputs = self.state.outputs
                                     batch = self.state.batch

@@ -324,15 +324,12 @@ class WandBLogger(LoggerDestination):
                 os.rename(wandb_artifact_path, destination)
 
     def post_close(self) -> None:
-        # Cleaning up on post_close so all artifacts are uploaded
-
         import wandb
 
         if not self._enabled or wandb.run is None:
             return
 
         exc_tpe, exc_info, tb = sys.exc_info()
-
         if (exc_tpe, exc_info, tb) == (None, None, None):
             exit_code = 0
         else:
