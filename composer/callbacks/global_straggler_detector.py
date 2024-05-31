@@ -1,25 +1,25 @@
-from megatron.core.utils import *
+"""
+StragglerDetector README: https://github.com/NVIDIA/Megatron-LM/blob/main/megatron/core/README_STRAGGLER.md
+Original StragglerDetector implementation: https://github.com/NVIDIA/Megatron-LM/blob/main/megatron/core/utils.py
+"""
 
-from composer.core import Callback, State, Event, Time
-from composer.loggers import Logger
-from composer.utils import dist
-from composer.models.base import ComposerModel
 from dataclasses import dataclass
 import time
 import os
 import logging
-import math
-import operator
 import queue
 import socket
 import sys
 import threading
 import traceback
-from datetime import datetime
-from functools import reduce
 from types import TracebackType
-from typing import List, Optional, Tuple, Type, Union, Any, Callable, Deque, Dict
+from typing import List, Optional, Tuple, Type, Union, Callable
 import torch
+
+from composer.core import Callback, State
+from composer.loggers import Logger
+from composer.utils import dist
+from composer.models.base import ComposerModel
 
 
 __all__ = ["GlobalStragglerDetector"]
@@ -69,13 +69,15 @@ class _ValueWithRank:
         """
         return self._value, self._rank, self._unit
 
+    #edited __str__ to include the word "Rank" for clarity
     def __str__(self) -> str:
         """String representation of the object
         Returns:
             str: strigified object
         """
 
-        return f"{self._value:.2f}{self._unit}/{self._rank}"
+        return f"{self._value:.2f}{self._unit}/Rank-{self._rank}"
+
 
 
 @dataclass
@@ -185,8 +187,8 @@ class StragglerDetector:
         self.rank = 0
         self.mmcnt = 1
         self.port = 0
-        self.amp = 3.0
-        self.amp = 1.0
+        #self.amp = 3.0 
+        self.amp = 1.0 # Changing default amp init to 1.0
         self.toggle = False
         self.bdata = False
         self.dev = None
@@ -208,7 +210,7 @@ class StragglerDetector:
         world: int,
         rank: int,
         mmcnt: int = 1,
-        amp: float = 3.0,
+        amp: float = 1.0, # changed from Megatron-LM's default 3.0
         port: int = 65535,
         prefill: int = 1024,
         enabled: bool = False,
@@ -226,8 +228,8 @@ class StragglerDetector:
             rank (int): The rank of this trainer
             mmcnt (int, optional): Number of ranks to print for showing Min/Max Etpt.
                                    Defaults to 1.
-            amp (float, optional): Set to 3.0 if we only use timers in fwd pass.
-                                   Defaults to 3.0.
+            amp (float, optional): Set to 1.0 if we only use timers in fwd pass.
+                                   Defaults to 1.0.
             port (int, optional): Control port, useful only for rank-0. Defaults to 65535.
             prefill (int, optional): Howmany Events to pre-populate. Defaults to 1024.
             enabled (bool, optional): Whether or not collection is enabled on startup.
@@ -390,6 +392,7 @@ class StragglerDetector:
         # time in ms, batch_delta in us, check return above
         return delta, batch_delta, temp, power, util, clock
 
+    # Modified following method from original Megatron-LM 
     def report(self, total_flops: float = 0.0, log_interval: int = 0) -> Tuple[bool, dict]:
         """Function to log the min/max metircs and the associated rank over a time period
         It finds the slowest and fastest rank among all ranks. It should be
@@ -427,22 +430,25 @@ class StragglerDetector:
                 min_throughput = _ValueWithRank(min_flops, min_frank, "TF")
                 max_throughput = _ValueWithRank(max_flops, max_frank, "TF")
 
+
                 min_max_data = {
-                    "MnRtt/Rnk": o_dt.min_elapsed,
-                    "MxRtt/Rnk": o_dt.max_elapsed,
-                    "MnPwr/Rnk": o_dt.min_power,
-                    "MxPwr/Rnk": o_dt.max_power,
-                    "MnTmp/Rnk": o_dt.min_temp,
-                    "MxTmp/Rnk": o_dt.max_temp,
-                    "MnUtl/Rnk": o_dt.min_util,
-                    "MxUtl/Rnk": o_dt.max_util,
-                    "MnClk/Rnk": o_dt.min_clock,
-                    "MxClk/Rnk": o_dt.max_clock,
-                    "MnDRtt/Rnk": o_dt.min_btime,
-                    "MxDRtt/Rnk": o_dt.max_btime,
-                    "MnEtpt/Rnk": min_throughput,
-                    "MxEtpt/Rnk": max_throughput
+                    "MinRoundTripTime/Rank": o_dt.min_elapsed,
+                    "MaxRoundTripTime/Rank": o_dt.max_elapsed,
+                    "MinPower/Rank": o_dt.min_power,
+                    "MaxPower/Rank": o_dt.max_power,
+                    "MinTemp/Rank": o_dt.min_temp,
+                    "MaxTemp/Rank": o_dt.max_temp,
+                    "MinUtilization/Rank": o_dt.min_util,
+                    "MaxUtilization/Rank": o_dt.max_util,
+                    "MinClock/Rank": o_dt.min_clock,
+                    "MaxClock/Rank": o_dt.max_clock,
+                    "MinBatchLoadLatency/Rank": o_dt.min_btime,
+                    "MaxBatchLoadLatency/Rank": o_dt.max_btime,
+                    "MinThroughput/Rank": min_throughput,
+                    "MaxThroughput/Rank": max_throughput
                 }
+
+
                 if self.mmcnt > 1 and self.mmcnt < self.world:
                     line = f"^^^^ Bottom {self.mmcnt} Ranks with lowest  Etpt(TF):"
                     for i in range(self.mmcnt):
@@ -737,13 +743,13 @@ class StragglerDetector:
 class GlobalStragglerDetector(Callback):
     """Logs the minimum and maximum training values across all ranks for the following metrics:
 
-        Rtt : RoundTrip Time (time spent in all the traced ops in the current batch)
-        Pwr : GPU Power
-        Tmp : GPU Temperature
-        Utl : GPU Utilization
-        Clk : GPU Clock
-        DRtt: Batch loading latency (time spent loading the current batch from the dataset)
-        Etpt: Estimated throughput for the current batch
+        RoundTripTime: Time spent in all the traced ops in the current batch
+        Power: GPU Power Consumption
+        Temp: GPU Temperature
+        Utilization: GPU Utilization
+        Clock: GPU Clock
+        BatchLoadLatency: Time spent loading the current batch from the dataset
+        Throughput: Estimated throughput for the current batch
 
     The maximum and minimum values for these metrics, alongside their respective ranks, are logged 
     on the :attr:`.Event.BATCH_END` event for every batch. 
@@ -776,41 +782,43 @@ class GlobalStragglerDetector(Callback):
     | Key                                 | Logged data                                               |
     +=====================================+===========================================================+
     |                                     | Minimum time spent in all the traced ops in the           |
-    | `MnRtt/Rnk`                         | current batch across all ranks/corresponding rank         |
+    | `MinRoundTripTime/Rank`             | current batch across all ranks for the corresponding rank |
     |                                     |                                                           |
     +-------------------------------------+-----------------------------------------------------------+
     |                                     | Maximum time spent in all the traced ops in the           |
-    | `MxRtt/Rnk`                         | current batch across all ranks/corresponding rank         |
+    | `MaxRoundTripTime/Rank`             | current batch across all ranks for the corresponding rank |
     |                                     |                                                           |
     +-------------------------------------+-----------------------------------------------------------+
-    | `MnPwr/Rnk`                         | Minimum GPU Power consumed/corresponding rank             |
+    | `MinPower/Rank`                     | Minimum GPU Power consumed for the corresponding rank     |
     +-------------------------------------+-----------------------------------------------------------+
-    | `MxPwr/Rnk`                         | Maximum GPU Power consumed/corresponding rank             |
+    | `MaxPower/Rank`                     | Maximum GPU Power consumed for the corresponding rank     |
     +-------------------------------------+-----------------------------------------------------------+
-    | `MnTmp/Rnk`                         | Minimum GPU Temperature/corresponding rank                |
+    | `MinTemp/Rank`                      | Minimum GPU Temperature for the corresponding rank        |
     +-------------------------------------+-----------------------------------------------------------+
-    | `MxTmp/Rnk`                         | Maximum GPU Temperature/corresponding rank                |    
+    | `MaxTemp/Rank`                      | Maximum GPU Temperature for the corresponding rank        |    
     +-------------------------------------+-----------------------------------------------------------+
-    | `MnUtl/Rnk`                         | Minimum GPU Utilization/corresponding rank                |
+    | `MinUtilization/Rank`               | Minimum GPU Utilization for the corresponding rank        |
     +-------------------------------------+-----------------------------------------------------------+
-    | `MxUtl/Rnk`                         | Maximum GPU Utilization/corresponding rank                |  
+    | `MaxUtilization/Rank`               | Maximum GPU Utilization for the corresponding rank        |  
     +-------------------------------------+-----------------------------------------------------------+
-    | `MnClk/Rnk`                         | Minimum GPU Clock/corresponding rank                      |  
+    | `MinClock/Rank`                     | Minimum GPU Clock for the corresponding rank              |  
     +-------------------------------------+-----------------------------------------------------------+
-    | `MxClk/Rnk`                         | Maximum GPU Clock/corresponding rank                      |  
+    | `MaxClock/Rank`                     | Maximum GPU Clock for the corresponding rank              |  
     +-------------------------------------+-----------------------------------------------------------+
     |                                     | Minimum time spent loading the current batch from the     |
-    | `MnDRtt/Rnk`                        | dataset across all ranks/corresponding rank               |
+    | `MinBatchLoadLatency/Rank`          | dataset across all ranks for the corresponding rank       |
     |                                     |                                                           |
     +-------------------------------------+-----------------------------------------------------------+
     |                                     | Maximum time spent loading the current batch from the     |
-    | `MxDRtt/Rnk`                        | dataset across all ranks/corresponding rank               |
+    | `MaxBatchLoadLatency/Rank`          | dataset across all ranks for the corresponding rank       |
     |                                     |                                                           |
     +-------------------------------------+-----------------------------------------------------------+
-    | `MnEtpt/Rnk`                         | Minimum estimated throughput/corresponding rank           |  
+    | `MinThroughput/Rank`                | Minimum estimated throughput for the corresponding rank   |  
     +-------------------------------------+-----------------------------------------------------------+
-    | `MxEtpt/Rnk`                         | Maximum estimated throughput/corresponding rank           |  
+    | `MaxThroughput/Rank`                | Maximum estimated throughput for the corresponding rank   |  
     +-------------------------------------+-----------------------------------------------------------+
+
+    
     Args:
         None
     """
@@ -824,9 +832,9 @@ class GlobalStragglerDetector(Callback):
         rank = dist.get_global_rank()
         world_size = dist.get_world_size()
         if rank == 0:
-            self.stimer.configure(world_size, rank, enabled=True, port=port, amp=1.0)
+            self.stimer.configure(world_size, rank, enabled=True, port=port)
         else:
-            self.stimer.configure(world_size, rank, enabled=True, amp=1.0)
+            self.stimer.configure(world_size, rank, enabled=True)
         
 
     def batch_start(self, state: State, logger: Logger):
@@ -846,8 +854,8 @@ class GlobalStragglerDetector(Callback):
                 )
             device_flops_per_batch = model_flops_per_batch(state.batch)
             self.stimer.stop()
-            ok, min_max_data = self.stimer.report(total_flops=device_flops_per_batch, log_interval=1)
-            if ok:
+            is_rank_zero, min_max_data = self.stimer.report(total_flops=device_flops_per_batch, log_interval=1)
+            if is_rank_zero:
                 logger.log_metrics(min_max_data)
 
         else:
@@ -863,11 +871,3 @@ class GlobalStragglerDetector(Callback):
         self.stimer.stop()
         self.stimer.report()
         self.stimer.bdata = False
-    
-
-    
-
-
-
-
-
