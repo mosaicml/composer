@@ -68,6 +68,15 @@ def pretraining_test_helper(tokenizer, model, algorithms, tmp_path, device):
     reproducibility.seed_all(17)  # seed so that the masking is the same
     pretraining_trainer.eval(pretraining_eval_dataloader)
 
+    from composer.trainer.mosaic_fsdp_utils import _iterate_valid_model_state
+    print(f"bigning debug composer model {pretraining_trainer.state.model}")
+    for name, param in pretraining_trainer.state.model.named_parameters():
+        print(f"bigning debug named parametes name: {name}")
+    for name, param in _iterate_valid_model_state(pretraining_trainer.state.model):
+        print(f"bigning debug {name=}, {param=}")
+    raise RuntimeError("bigning raise in tell_full_nlp")
+
+
     loaded_pretraining_trainer = Trainer(
         model=model,
         load_path=str(tmp_path / 'pretraining_checkpoints' / 'latest-rank0.pt'),
@@ -255,6 +264,7 @@ def test_full_nlp_pipeline(
     """
     pytest.importorskip('libcloud')
     pytest.importorskip('transformers')
+
 
     if onnx_opset_version == None and version.parse(torch.__version__) < version.parse('1.13'):
         pytest.skip("Don't test prior PyTorch version's default Opset version.")
