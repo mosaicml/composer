@@ -585,8 +585,8 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
                     prefix = '.'.join(fqn_obj_names)
                     flat_param = getattr(curr_obj, FLAT_PARAM)
                     if prefix:
-                        prefix = f"{prefix}."
-                    return {f"{prefix}{fqn}" for fqn in flat_param._fqns}
+                        prefix = f'{prefix}.'
+                    return {f'{prefix}{fqn}' for fqn in flat_param._fqns}
                 curr_obj = getattr(curr_obj, FSDP_WRAPPED_MODULE)
                 if curr_obj_name != FSDP_WRAPPED_MODULE:
                     fqn_obj_names.append(curr_obj_name)
