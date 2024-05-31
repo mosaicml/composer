@@ -340,8 +340,12 @@ def test_get_optim_state_dict_unsharded_model(use_composer_model: bool):
     # Because model is unsharded the optimizer state should have keys corresponding to the index of the model's parameters.
     # e.g. if the model has 3 parameters, the optimizer state dict keys would be (0,1,2).
     params = list(model.parameters())
-    for param_ind, param_state in osd_state.items():
-        param = params[param_ind]
+    param_dict = dict(list(model.named_parameters()))
+    for param_key, param_state in osd_state.items():
+        if isinstance(param_key, str):
+            param = param_dict[param_key]
+        else:
+            param = params[param_key]
         assert param.shape == param_state['exp_avg'].shape
         assert param.shape == param_state['exp_avg_sq'].shape
 
@@ -361,26 +365,16 @@ def test_get_optim_state_dict_include(use_composer_model: bool):
     include_keys = ['module.0.weight']
     optim_state_dict = get_optim_state_dict(model, optimizer, include_keys=include_keys)
     param_keys = list(optim_state_dict['state'].keys())
-    optim_keyed_by_ind = type(list(param_keys)[0]) == int
-    expected_optim_state_keys = []
-    for fqn in fqns:
+    expected_optim_keys = []
+    for optim_key, fqn in zip(param_keys, fqns):
         for include_key in include_keys:
             if fnmatch.fnmatch(fqn, include_key):
-                key = fqns.index(fqn) if optim_keyed_by_ind else fqn
-                expected_optim_state_keys.append(key)
+                if isinstance(optim_key, str):
+                    expected_optim_keys.append(optim_key)
+                else:
+                    expected_optim_keys.append(fqn)
                 continue
-    assert set(optim_state_dict['state'].keys()) == set(expected_optim_state_keys)
-
-    include_keys = ['module.2*']
-    optim_state_dict = get_optim_state_dict(model, optimizer, include_keys=include_keys)
-    expected_optim_state_keys = []
-    for fqn in fqns:
-        for include_key in include_keys:
-            if fnmatch.fnmatch(fqn, include_key):
-                key = fqns.index(fqn) if optim_keyed_by_ind else fqn
-                expected_optim_state_keys.append(key)
-                continue
-    assert set(optim_state_dict['state'].keys()) == set(expected_optim_state_keys)
+    assert set(optim_state_dict['state'].keys()) == set(expected_optim_keys)
 
 
 @pytest.mark.gpu
@@ -388,32 +382,25 @@ def test_get_optim_state_dict_include(use_composer_model: bool):
 def test_get_optim_state_dict_ignore(use_composer_model: bool):
     model, optimizer = _init_model_and_optimizer(use_composer_model=use_composer_model, take_step=True)
     fqns = [param_fqn for param_fqn, _ in model.named_parameters()]
+
     ignore_keys = ['module.0*']
     optim_state_dict = get_optim_state_dict(model, optimizer, ignore_keys=ignore_keys)
     param_keys = list(optim_state_dict['state'].keys())
-    optim_keyed_by_ind = type(list(param_keys)[0]) == int
-
-    expected_optim_state_keys = list(range(len(fqns))) if optim_keyed_by_ind else [*fqns]
-    for fqn in fqns:
+    expected_optim_state_keys_inds = list(range(len(fqns))) 
+    expected_optim_state_keys_str = [*fqns]
+    expected_optim_keys = []
+    for optim_key, fqn in zip(param_keys, fqns):
         for ignore_key in ignore_keys:
             if fnmatch.fnmatch(fqn, ignore_key):
-                key = fqns.index(fqn) if optim_keyed_by_ind else fqn
-                expected_optim_state_keys.remove(key)  # pyright:ignore
+                if isinstance(optim_key, str):
+                    expected_optim_state_keys_str.remove(optim_key)  # pyright:ignore
+                    expected_optim_keys = expected_optim_state_keys_str
+                else:
+                    expected_optim_state_keys_inds.remove(optim_key)
+                    expected_optim_keys = expected_optim_state_keys_inds
                 continue
 
-    assert set(optim_state_dict['state'].keys()) == set(expected_optim_state_keys)
-
-    ignore_keys = ['module.2.weight']
-    optim_state_dict = get_optim_state_dict(model, optimizer, ignore_keys=ignore_keys)
-    expected_optim_state_keys = list(range(len(fqns))) if optim_keyed_by_ind else [*fqns]
-    for fqn in fqns:
-        for ignore_key in ignore_keys:
-            if fnmatch.fnmatch(fqn, ignore_key):
-                key = fqns.index(fqn) if optim_keyed_by_ind else fqn
-                expected_optim_state_keys.remove(key)  # pyright:ignore
-                continue
-
-    assert set(optim_state_dict['state'].keys()) == set(expected_optim_state_keys)
+    assert set(optim_state_dict['state'].keys()) == set(expected_optim_keys)
 
 
 @pytest.mark.gpu

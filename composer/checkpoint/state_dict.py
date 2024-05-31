@@ -292,21 +292,11 @@ def _remove_keys_from_optim_state_dict(
     param_keys = list(optim_state_dict['state'].keys())
     optim_keyed_by_ind = type(list(param_keys)[0]) == int
     if optim_keyed_by_ind:
-        for param_ind, (param_fqn, _) in zip(param_keys, model.named_parameters()):
+        for param_key, (param_fqn, _) in zip(param_keys, model.named_parameters()):
             for ignore_key in ignore_keys:
                 if fnmatch.fnmatch(param_fqn, ignore_key):
-                    optim_state_dict['state'].pop(param_ind)
+                    optim_state_dict['state'].pop(param_key)
                     continue
-    else:
-        for param_fqn in optim_state_dict['state'].keys():
-            for ignore_key in ignore_keys:
-                if fnmatch.fnmatch(param_fqn, ignore_key):
-                    optim_state_dict['state'].pop(param_fqn)
-                    continue
-
-    # The param index ordering is determined by passing model.parameters()
-    # to the optimizer. The underlying generator for model.parameters() is model.named_parameters()
-    # so we need to use model.named_parameters() instead of model.state_dict().keys() to match fqn to ind correctly.
 
     return optim_state_dict
 
@@ -320,21 +310,13 @@ def _extract_keys_from_optim_state_dict(
         include_keys = [include_keys]
 
     param_keys = list(optim_state_dict['state'].keys())
-    optim_keyed_by_ind = type(list(param_keys)[0]) == int
 
-    if optim_keyed_by_ind:
-        # See comment in _remove_keys_from_optim_state_dict.
-        for param_ind, (param_fqn, _) in zip(param_keys, model.named_parameters()):
-            for include_key in include_keys:
-                if not fnmatch.fnmatch(param_fqn, include_key):
-                    optim_state_dict['state'].pop(param_ind)
-                    continue
-    else:
-        for param_fqn in optim_state_dict['state'].keys():
-            for ignore_key in include_keys:
-                if fnmatch.fnmatch(param_fqn, ignore_key):
-                    optim_state_dict['state'].pop(param_fqn)
-                    continue
+    # See comment in _remove_keys_from_optim_state_dict.
+    for param_key, (param_fqn, _) in zip(param_keys, model.named_parameters()):
+        for include_key in include_keys:
+            if not fnmatch.fnmatch(param_fqn, include_key):
+                optim_state_dict['state'].pop(param_key)
+                continue
 
     return optim_state_dict
 
