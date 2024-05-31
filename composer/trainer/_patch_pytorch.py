@@ -375,7 +375,11 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             Union[str, torch.Tensor], Union[Set[str], torch.Tensor],
         ] = {}
         all_fqns = set()
+        param_set = set()
         for name, param in _iterate_valid_model_state(model):
+            if param in param_set:
+                continue
+            param_set.add(param)
             fqns = _get_fqns(model, name)
             if not isinstance(param, _EXTRA_STATE):
                 fqn_param_mapping[param] = fqns
@@ -521,7 +525,11 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
         if not info.handle_model or not state_dict:
             return _IncompatibleKeys({}, {})
 
-        for key, _ in _iterate_valid_model_state(model):
+        param_set = set()
+        for key, param in _iterate_valid_model_state(model):
+            if param in param_set:
+                continue
+            param_set.add(param)
             fqns = _get_fqns(model, key)
             fqns_with_prefix = _get_fqns(
                 model, key, skip_ddp_prefix=False, skip_compiler_prefix=False,
