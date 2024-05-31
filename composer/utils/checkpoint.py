@@ -284,7 +284,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         # PyTorch will capture any exception of this function,
         # and dist.all_gather_objects(exception) before raising it.
         # If that all_gather_objects fails, the exception is never visible to user.
-        # We immediately kill the process and print the exception
+        # We raise the exception from all ranks to ensure the user sees it.
         download_error_tensor = dist.get_device(None).tensor_to_device(torch.tensor(1 if download_error else 0))
         error_by_rank = dist.all_gather(download_error_tensor)
         failed_ranks = []
@@ -295,7 +295,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
 
         if download_error:
             raise RuntimeError(
-                f'Ranks {failed_ranks} failed to download. Terminating all processes to end the run. ',
+                f'Ranks {failed_ranks} failed to download.',
                 'To see the full error please look at the logs for that rank, which are logged via log.error.',
             )
 
