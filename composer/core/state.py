@@ -600,8 +600,8 @@ class State(Serializable):
             if self.fsdp_config is None:
                 raise ValueError(
                     'Tensor parallelism (TP) currently requires FSDP to be enabled. '
-                    "An empty `parallelism_config['fsdp']` can be specified to enable FSDP with "
-                    'default settings. Additionally, PyTorch currently errors if FSDP '
+                    "An empty `parallelism_config['fsdp'] = {}` config can be specified to enable "
+                    'FSDP with default settings. Additionally, PyTorch currently errors if FSDP '
                     'data_parallel_shard_degree is not at least 2.',
                 )
             if not self.fsdp_config.use_orig_params:
