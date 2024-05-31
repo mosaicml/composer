@@ -120,10 +120,10 @@ class SimpleMLP(torch.nn.Module):
 # are not submodules of EvenSimplerMLP, like they are in SimpleMLP.
 class EvenSimplerMLP(torch.nn.Module):
 
-    def __init__(self, num_features: int, device: str = 'cpu'):
+    def __init__(self, num_features: int, device: str = 'cpu', num_out_features: int = 3):
         super().__init__()
         fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
-        fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        fc2 = torch.nn.Linear(num_features, num_out_features, device=device, bias=False)
 
         self.module = torch.nn.Sequential(fc1, torch.nn.ReLU(), fc2)
 
@@ -137,7 +137,7 @@ class SimpleComposerMLP(ComposerClassifier):
 
     def __init__(self, num_features: int, device: str, num_classes: int = 3):
         fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
-        fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        fc2 = torch.nn.Linear(num_features, num_classes, device=device, bias=False)
 
         net = torch.nn.Sequential(fc1, torch.nn.ReLU(), fc2)
         super().__init__(num_classes=num_classes, module=net)
@@ -405,7 +405,7 @@ class SimpleTransformerClassifier(ComposerClassifier):
 class ConvModel(ComposerClassifier):
     """Convolutional network featuring strided convs, a batchnorm, max pooling, and average pooling."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         conv_args = {'kernel_size': (3, 3), 'padding': 1}
         conv1 = torch.nn.Conv2d(in_channels=32, out_channels=8, stride=2, bias=False, **conv_args)  # stride > 1
         conv2 = torch.nn.Conv2d(
