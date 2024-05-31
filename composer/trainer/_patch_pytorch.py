@@ -12,11 +12,12 @@
 
 import logging
 import math
+import warnings
 import functools
 import contextlib
 from dataclasses import asdict
 from itertools import chain
-from typing import Any, Callable, Dict, Iterable, List, Generator, Optional, Set, Tuple, Union, cast, no_type_check
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Generator, Optional, Set, Tuple, Union, cast, no_type_check
 
 
 import torch
@@ -373,14 +374,16 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
         fqn_param_mapping: Dict[
             Union[str, torch.Tensor], Union[Set[str], torch.Tensor],
         ] = {}
-        all_fqns = set()
-        for name, param in _iterate_valid_model_state(model):
+        for name, param in chain(model.named_parameters(), model.named_buffers()):
             fqns = _get_fqns(model, name)
-            if not isinstance(param, _EXTRA_STATE):
-                fqn_param_mapping[param] = fqns
+            fqn_param_mapping[param] = fqns
             for fqn in fqns:
-                if not isinstance(param, _EXTRA_STATE):
-                    fqn_param_mapping[fqn] = param
+                fqn_param_mapping[fqn] = param
+        
+        all_fqns = set()
+        for name, _ in _iterate_valid_model_state(model):
+            fqns = _get_fqns(model, name)
+            for fqn in fqns:
                 all_fqns.add(fqn)
 
         submodule_prefixes: Set[str] = set()
