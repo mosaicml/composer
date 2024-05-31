@@ -13,6 +13,7 @@
 import logging
 import math
 import warnings
+import functools
 import contextlib
 from dataclasses import asdict
 from itertools import chain
@@ -89,7 +90,12 @@ def patch_pytorch():
 
         state_dict.set_model_state_dict = set_model_state_dict
         state_dict.set_optimizer_state_dict = set_optimizer_state_dict
+        # Issue: https://github.com/pytorch/pytorch/issues/122946
+        #  - PR: https://github.com/pytorch/pytorch/pull/125336
         state_dict._get_fqns = _get_fqns
+        state_dict._verify_options = _verify_options
+        state_dict._get_model_state_dict = _get_model_state_dict
+        state_dict._load_model_state_dict = _load_model_state_dict
 
         # Monkeypatch for ND child submeshes
         # PR: https://github.com/pytorch/pytorch/pull/119752
@@ -534,6 +540,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
 
 
     @no_type_check
+    @functools.lru_cache(maxsize=None)
     def _get_fqns(
         model: nn.Module,
         name: str,
@@ -578,8 +585,8 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
                     prefix = '.'.join(fqn_obj_names)
                     flat_param = getattr(curr_obj, FLAT_PARAM)
                     if prefix:
-                        prefix = f'{prefix}.'
-                    return {f'{prefix}{fqn}' for fqn in flat_param._fqns}
+                        prefix = f"{prefix}."
+                    return {f"{prefix}{fqn}" for fqn in flat_param._fqns}
                 curr_obj = getattr(curr_obj, FSDP_WRAPPED_MODULE)
                 if curr_obj_name != FSDP_WRAPPED_MODULE:
                     fqn_obj_names.append(curr_obj_name)
