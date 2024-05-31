@@ -231,22 +231,10 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
             download_object_or_file(metadata_path, metadata_destination, object_store)
         dist.barrier()
 
-        # Collect all process ids.
-        process_id = os.getpid()
-        self.process_ids = dist.all_gather_object(process_id)
-
         # FileSystemReader takes in a root directory in its constructor, which is the dir where
         # the metadata is expected to be stored. Also, this is parent directory for any shard file relative paths
         # specified in the metadata file.
         super().__init__(destination_path)
-
-    def terminate_all_processes(self):
-        # Terminate all processes. This is necessary because errors are not properly raised due to a torch bug.
-        # See https://github.com/pytorch/pytorch/issues/122529.
-        for process_id in self.process_ids:
-            if psutil.pid_exists(process_id):
-                log.info(f'Terminating process {process_id}.')
-                os.kill(process_id, signal.SIGTERM)
 
     def read_data(self, plan: LoadPlan, planner: LoadPlanner):
         # Download files if not using HSDP or if on first replica with HSDP enabled
@@ -306,10 +294,11 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                 download_error = True
 
         if download_error:
-            raise Exception(f'Ranks {failed_ranks} failed to download. Terminating all processes to end the run. ',
-                      'To see the full error please look at the logs for that rank, which are logged via log.error.')
-            # self.terminate_all_processes()
-            
+            raise RuntimeError(
+                f'Ranks {failed_ranks} failed to download. Terminating all processes to end the run. ',
+                'To see the full error please look at the logs for that rank, which are logged via log.error.',
+            )
+
         # 3. Wait for all ranks to finish.
         log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
         dist.barrier()
