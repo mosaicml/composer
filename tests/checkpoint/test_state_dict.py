@@ -1,7 +1,6 @@
 # Copyright 2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-import fnmatch
 from typing import Any, Dict
 
 import pytest
