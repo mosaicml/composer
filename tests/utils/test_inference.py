@@ -500,7 +500,7 @@ def test_export_with_other_logger(model_cls, dataloader):
 
 class LinModel(nn.Module):
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.lin1 = nn.Linear(256, 128)
         self.lin2 = nn.Linear(128, 256)

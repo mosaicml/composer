@@ -18,7 +18,7 @@ from tests.common.datasets import RandomClassificationDataset
 
 class MinimalConditionalModel(nn.Module):
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
         self.choice1 = nn.Linear(1, 1, bias=False)
