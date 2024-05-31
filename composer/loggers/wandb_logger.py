@@ -24,9 +24,7 @@ from composer.utils import MissingConditionalImportError, dist
 
 if TYPE_CHECKING:
     from composer.core import State
-import logging
 
-log = logging.getLogger(__name__)
 __all__ = ['WandBLogger']
 
 
@@ -330,25 +328,16 @@ class WandBLogger(LoggerDestination):
 
         import wandb
 
-        log.info(
-            'ANNADEBUG Closing WandbLogger, run: %s enabled: %s',
-            wandb.run,
-            self._enabled,
-        )
-
         if not self._enabled or wandb.run is None:
             return
 
         exc_tpe, exc_info, tb = sys.exc_info()
-        log.info(f'ANNADEBUG Closing WandbLogger with exc_tpe={exc_tpe}, exc_info={exc_info}, tb={tb}')
 
         if (exc_tpe, exc_info, tb) == (None, None, None):
             exit_code = 0
         else:
-            # record there was an error
             exit_code = 1
 
-        log.info('ANNADEBUG Closing WandbLogger with exit_code=%s', exit_code)
         wandb.finish(exit_code)
 
 
