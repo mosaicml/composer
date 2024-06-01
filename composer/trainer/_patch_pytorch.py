@@ -532,7 +532,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
                 if fqn != fqn_with_prefix:
                     state_dict[fqn_with_prefix] = state_dict.pop(fqn)
         
-        log.info("Strict info", info.strict)
+        log.info(f"Strict info {info.strict}")
         with info.fsdp_context():
             return cast(
                 _IncompatibleKeys,
