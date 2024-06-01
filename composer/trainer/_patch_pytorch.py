@@ -104,6 +104,9 @@ def patch_pytorch():
         DeviceMesh.__getitem__ = device_mesh__getitem__
         DeviceMesh.__init__ = device_mesh__init__
 
+        from torch.utils import checkpoint
+        checkpoint._CheckpointFrame = _CheckpointFrame
+
 
 def build_metadata(
     self,
@@ -539,6 +542,115 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
                 ),
             )
 
+    import weakref
+    from weakref import ReferenceType
+    from typing import DefaultDict 
+    
+    class _Handle:
+        pass 
+    
+    def _internal_assert(cond):
+        if not cond:
+            raise AssertionError(
+                "Something went unexpectedly wrong in activation checkpoint. "
+                "Please report this bug by filing an issue to PyTorch."
+            )
+    class CheckpointError(RuntimeError):
+        pass
+
+    class _CheckpointFrame:
+        def __init__(self, recompute_fn, early_stop, unpack_error_cb, metadata_fn):
+            self.recompute_fn = recompute_fn
+            self.input_saver = None
+            self.weak_holders: List[ReferenceType] = []
+            # We store this as a weakkeydictionary so that in the case of a partial
+            # backward, the entries in the dict are cleared alongside the Holder
+            # which will be removed when the SavedVariable is cleared.
+            self.recomputed: DefaultDict[
+                int, weakref.WeakKeyDictionary[_Handle, torch.Tensor]
+            ] = defaultdict(weakref.WeakKeyDictionary)
+            # We need both recomp_counter and recomputed since they can diverge
+            # https://github.com/pytorch/pytorch/pull/90105#discussion_r1135889885
+            self.recomp_counter: DefaultDict[int, int] = defaultdict(int)
+            self.is_recomputed: DefaultDict[int, bool] = defaultdict(bool)
+
+            # See Rule 5
+            self.early_stop = early_stop
+
+            # Debugging
+            self.metadata_fn = metadata_fn
+            self.unpack_error_cb = unpack_error_cb
+            self.x_metadatas = []
+            self.forward_completed = False
+            self.ignore_saved_mismatch = True
+
+        def check_recomputed_tensors_match(self, gid):
+            if self.ignore_saved_mismatch:
+                # TODO: we can probably make this check stricter by checking that
+                #       the metadata of the first tensors still match.
+                return
+            # NOTE [ Error handling for checkpoint ]
+            #
+            # At a high level, we need to check that the tensors saved
+            # during original forward matches tensors saved during recompute
+            # This means handling 3 cases:
+            #
+            # 1. During recompute, more tensors were saved.
+            #
+            #    Usually this is hidden due to the StopRecomputationError
+            #    but if early stop is not enabled, or we would have errored
+            #    anyway because there aren't enough weak_holders. But we
+            #    do want to have a nice error. See the _recomputation_hook
+            #    for details.
+            if not len(self.weak_holders) == self.recomp_counter[gid]:
+                # 2. During recompute, fewer tensors were saved
+                #
+                # We know that everytime we save something do original forward
+                # we append to weak_holder, and every time we save a tensor
+                # during recompute we increment recompute_counter.
+                raise CheckpointError(
+                    "torch.utils.checkpoint: A different number of tensors was saved "
+                    "during the original forward and recomputation.\n"
+                    f"Number of tensors saved during forward: {len(self.weak_holders)}\n"
+                    f"Number of tensors saved during recomputation: {self.recomp_counter[gid]}"
+                )
+
+            # 3. During recompute, the same tensors were saved, but they
+            #    have different metadata
+            nb_meta_different = []
+            for idx, weak_holder in enumerate(self.weak_holders):
+                holder = weak_holder()
+                if holder is None:
+                    continue
+                # We've seen all holders since we iterate over them in order
+                # For every holder that is still alive now, it must've been
+                # alive when we saw it during recompute, therefore, the
+                # gid must be set.
+                _internal_assert(gid in holder.handles)
+                # We know this is the first unpack, so it couldn't have been set
+                # to None yet.
+                _internal_assert(holder.handles[gid] is not None)
+                # We always set these together in the recomputation hook
+                _internal_assert(holder.handles[gid] in self.recomputed[gid])
+                # see pack hook, x_metadata is 1:1 with weak_holders.
+                x_meta = self.x_metadatas[idx]
+                recomputed_x = self.recomputed[gid][holder.handles[gid]]
+                if x_meta != self.metadata_fn(recomputed_x):
+                    nb_meta_different.append((idx, x_meta, self.metadata_fn(recomputed_x)))
+
+            if len(nb_meta_different) > 0:
+                mismatched_tensors = ""
+                for idx, x_meta, recomputed_meta in nb_meta_different:
+                    mismatched_tensors += (
+                        f"tensor at position {idx}:\n"
+                        f"saved metadata: {x_meta}\n"
+                        f"recomputed metadata: {recomputed_meta}\n"
+                    )
+                raise CheckpointError(
+                    "torch.utils.checkpoint: Recomputed values for the following tensors "
+                    "have different metadata than during the forward pass.\n"
+                    f"{mismatched_tensors}"
+                )
 
     @no_type_check
     @functools.lru_cache(maxsize=None)
