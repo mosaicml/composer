@@ -852,15 +852,16 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
         t_max = _convert_time(self.t_max, state, ssr=ssr)
         _raise_if_warmup_and_max_incompatible(t_warmup, t_max)
         _raise_if_max_duration_exceeds_t_max(t_max, state)
-        if t_warmup.value == 0:
-            warnings.warn(
-                textwrap.dedent(
-                    """\
-                The warmup duration is 0. If you specified warmup as a fraction of total
-                training duration, take note that the warmup duration is calculated in the
-                same unit as the trainer's max_duration parameter.""",
-                ),
-            )
+        # NOTE: Commented out because it feels useless.
+        # if t_warmup.value == 0:
+        #     warnings.warn(
+        #         textwrap.dedent(
+        #             """\
+        #         The warmup duration is 0. If you specified warmup as a fraction of total
+        #         training duration, take note that the warmup duration is calculated in the
+        #         same unit as the trainer's max_duration parameter.""",
+        #         ),
+        #     )
 
         if state.timestamp < t_warmup:
             if self.scale_warmup:
