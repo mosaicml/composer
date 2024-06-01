@@ -437,7 +437,6 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             fsdp_modules=cast(List[nn.Module], fsdp_modules),
             handle_model=not optim_only,
             handle_optim=(len(optims) > 0),
-            strict=False
         )
 
 
@@ -531,13 +530,12 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             for fqn, fqn_with_prefix in zip(fqns, fqns_with_prefix):
                 if fqn != fqn_with_prefix:
                     state_dict[fqn_with_prefix] = state_dict.pop(fqn)
-        
-        log.info("Strict info", info.strict)
+
         with info.fsdp_context():
             return cast(
                 _IncompatibleKeys,
                 _state_dict_fn(model, 'load_state_dict')(
-                    state_dict=state_dict, strict=False,
+                    state_dict=state_dict, strict=info.strict,
                 ),
             )
 
