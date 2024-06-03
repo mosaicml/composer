@@ -33,6 +33,7 @@ from composer.trainer.trainer import Trainer
 from composer.utils import dist, is_tar, reproducibility
 from composer.utils.checkpoint import (
     _COMPOSER_STATES_FILENAME,
+    PartialFilePath,
     _ensure_valid_checkpoint,
     _write_checkpoint_file,
     glob_filter,
@@ -394,9 +395,9 @@ class TestCheckpointSaving:
     ):
         mock_validate_credentials = MagicMock()
         monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
-        mock_checkpoint_saver = MagicMock()
-        monkeypatch.setattr(trainer, 'CheckpointSaver', mock_checkpoint_saver)
-        self.get_trainer(save_folder=save_folder)
+
+        trainer = self.get_trainer(save_folder=save_folder)
+
         expected_prefix = expected_path + '/' if expected_path != '' else expected_path
         rest_of_checkpoint_saver_kwargs = {
             'filename': 'ep{epoch}-ba{batch}-rank{rank}.pt',
@@ -409,8 +410,14 @@ class TestCheckpointSaving:
             'num_checkpoints_to_keep': -1,
             'ignore_keys': None,
         }
-        expected_folder = expected_path.rstrip('/') if expected_path != '' else '.'
-        mock_checkpoint_saver.assert_called_once_with(folder=expected_folder, **rest_of_checkpoint_saver_kwargs)
+        for attr_name, value in rest_of_checkpoint_saver_kwargs.items():
+            attr = getattr(trainer._checkpoint_saver, attr_name)
+            if attr_name == 'save_interval':
+                assert attr.__closure__[-1].cell_contents == Time.from_timestring(value)
+            elif isinstance(attr, PartialFilePath):
+                assert attr.filename == value
+            else:
+                assert attr == value
 
     @pytest.mark.parametrize('save_interval', ['1tok', '64tok', '65tok'])
     @pytest.mark.parametrize('batch_size', [1, 4])
@@ -616,6 +623,29 @@ class TestCheckpointSaving:
         # we should have one extra call from the fit end checkpoint
         assert trainer._checkpoint_saver._save_checkpoint.call_count == expected_save_calls
 
+    @pytest.mark.parametrize(('save_folder'), [None, 'local_checkpoints'])
+    @pytest.mark.parametrize(('save_latest_filename'), [None, 'latest.pt'])
+    def test_checkpoint_multiple_callbacks(
+        self,
+        save_folder: Optional[str],
+        save_latest_filename: Optional[str],
+        tmp_path: pathlib.Path,
+    ):
+        checkpoint_savers = [
+            CheckpointSaver(str(tmp_path / 'checkpoints1')),
+            CheckpointSaver(str(tmp_path / 'checkpoints2')),
+        ]
+
+        trainer = self.get_trainer(
+            max_duration='1ep',
+            callbacks=checkpoint_savers,
+            save_folder=save_folder,
+            save_latest_filename=save_latest_filename,
+        )
+
+        assert id(trainer._checkpoint_saver) == id(checkpoint_savers[0])
+        assert len([cb for cb in trainer.state.callbacks if isinstance(cb, CheckpointSaver)]) == len(checkpoint_savers)
+
 
 class TestCheckpointLoading:
 
@@ -647,6 +677,11 @@ class TestCheckpointLoading:
         eval_dataset = RandomImageDataset()
         train_batch_size = 2
 
+        callbacks = [DummyStatefulCallback()]
+        if 'callbacks' in kwargs:
+            callbacks += kwargs['callbacks']
+            del kwargs['callbacks']
+
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
@@ -670,7 +705,7 @@ class TestCheckpointLoading:
             max_duration=max_duration,
             optimizers=optimizer,
             schedulers=ExponentialScheduler(gamma=0.9),
-            callbacks=[DummyStatefulCallback()],
+            callbacks=callbacks,
             **kwargs,
         )
 
@@ -766,6 +801,43 @@ class TestCheckpointLoading:
                 trainer_1.state.eval_metrics,
                 trainer_2.state.eval_metrics,
             ), 'Original metrics do not equal metrics from loaded checkpoint.'
+
+        assert trainer_1.state.run_name == trainer_2.state.run_name
+
+    @pytest.mark.parametrize(('save_folder'), [None, 'first'])
+    def test_autoresume_from_callback(
+        self,
+        save_folder: Optional[str],
+        tmp_path: pathlib.Path,
+    ):
+        checkpoint_saver = CheckpointSaver(str(tmp_path / 'checkpoints'), latest_filename='latest-rank{rank}.pt')
+
+        trainer_1 = self.get_trainer(
+            file_extension='.pt',
+            save_folder=save_folder,
+            device='cpu',
+            run_name='big-chungus',
+            autoresume=True,
+            callbacks=[checkpoint_saver],
+        )
+
+        # trains the model, saving the checkpoint files
+        trainer_1.fit()
+        trainer_1.close()
+
+        trainer_2 = self.get_trainer(
+            file_extension='.pt',
+            save_folder=save_folder,
+            device='cpu',
+            run_name='big-chungus',
+            autoresume=True,
+            callbacks=[checkpoint_saver],
+        )
+
+        self._assert_weights_equivalent(
+            trainer_1.state.model,
+            trainer_2.state.model,
+        )
 
         assert trainer_1.state.run_name == trainer_2.state.run_name
 

@@ -318,22 +318,12 @@ def get_metadata_state_dict(
     Returns:
         The state dict containing the metadata and any integrations for a training run.
     """
-    ced = get_composer_env_dict()
+    metadata_state_dict = get_composer_env_dict()
 
     python_version = '.'.join([str(getattr(sys.version_info, k)) for k in ['major', 'minor', 'micro']])
 
-    metadata_state_dict = {
-        'composer_version': ced['composer_version'],
-        'composer_commit_hash': ced['composer_commit_hash'],
-        'torch_version': torch.__version__,
-        'python_version': python_version,
-        'num_nodes': ced['node_world_size'],
-        'num_gpus_per_node': ced['local_world_size'],
-        'num_gpus': dist.get_world_size(),
-        'gpu_model': ced['accelerator_model_name'],
-        'cpu_model': ced['host_processor_model_name'],
-        'cpu_core_count': ced['host_processor_core_count'],
-    }
+    metadata_state_dict['torch_version'] = torch.__version__
+    metadata_state_dict['python_version'] = python_version
     if sharded_state_dict is not None:
         metadata_state_dict['sharded_state_dict'] = sharded_state_dict
 
