@@ -10,6 +10,7 @@ import logging
 import os
 import pathlib
 import posixpath
+import sys
 import textwrap
 import time
 import warnings
@@ -487,13 +488,24 @@ class MLFlowLogger(LoggerDestination):
                 )
 
     def post_close(self):
-        if self._enabled:
-            import mlflow
+        import pdb
+        pdb.set_trace()
+        if not self._enabled or self._run_id is None:
+            return
 
-            assert isinstance(self._run_id, str)
-            mlflow.flush_async_logging()
-            self._mlflow_client.set_terminated(self._run_id)
-            mlflow.end_run()
+        import mlflow
+
+        exc_tpe, exc_info, tb = sys.exc_info()
+        if (exc_tpe, exc_info, tb) == (None, None, None):
+            status = 'FINISHED'
+        else:
+            status = 'FAILED'
+
+        log.info(f'Finishing MLflow run with status {status}')
+        mlflow.flush_async_logging()
+
+        self._mlflow_client.set_terminated(self._run_id, status=status)
+        mlflow.end_run(status=status)
 
 
 def _convert_to_mlflow_image(image: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:

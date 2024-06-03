@@ -640,7 +640,7 @@ def test_mlflow_log_image_works(tmp_path, device):
     )
 
     trainer.fit()
-    test_mlflow_logger.post_close()
+    # test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(
         experiment_name=experiment_name,
