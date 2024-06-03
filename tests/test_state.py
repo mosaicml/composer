@@ -168,11 +168,12 @@ def test_composer_metadata_in_state_dict(tmp_path, request: pytest.FixtureReques
     expected_env_info_keys = {
         'composer_version',
         'composer_commit_hash',
-        'node_world_size',
-        'host_processor_model_name',
-        'host_processor_core_count',
+        'cpu_model',
+        'cpu_count',
+        'num_nodes',
+        'gpu_model',
         'local_world_size',
-        'accelerator_model_name',
+        'num_gpus',
         'cuda_device_count',
     }
     actual_env_info_keys = set(loaded_state_dict['metadata']['composer_env_info'].keys())
