@@ -276,7 +276,7 @@ CPU Model: {cpu_model}
 CPU Count: {cpu_count}
 Number of Nodes: {node_world_size}
 GPU Model: {gpu_model}
-GPUs per Node: {local_world_size}
+GPUs per Node: {num_gpus_per_node}
 GPU Count: {num_gpus}
 CUDA Device Count: {cuda_device_count}
 """.strip()
@@ -292,7 +292,7 @@ def get_composer_env_dict() -> dict:
         'cpu_count': get_cpu_count(),
         'num_nodes': get_node_world_size(),
         'gpu_model': get_gpu_model(),
-        'local_world_size': get_local_world_size(),
+        'num_gpus_per_node': get_local_world_size(),
         'num_gpus': dist.get_world_size(),
         'cuda_device_count': get_cuda_device_count(),
     }
