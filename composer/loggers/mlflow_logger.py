@@ -125,8 +125,11 @@ class MLFlowLogger(LoggerDestination):
         self.run_url = None
 
         if self._enabled:
-            self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
-            mlflow.set_tracking_uri(self.tracking_uri)
+            if tracking_uri is None and os.getenv('DATABRICKS_TOKEN') is not None:
+                tracking_uri = 'databricks'
+            if tracking_uri is None:
+                tracking_uri = mlflow.get_tracking_uri(tracking_uri)
+            self.tracking_uri = str(tracking_uri)
 
             if self.model_registry_uri is not None:
                 mlflow.set_registry_uri(self.model_registry_uri)
