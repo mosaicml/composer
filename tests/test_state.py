@@ -172,7 +172,7 @@ def test_composer_metadata_in_state_dict(tmp_path, request: pytest.FixtureReques
         'cpu_count',
         'num_nodes',
         'gpu_model',
-        'local_world_size',
+        'num_gpus_per_node',
         'num_gpus',
         'cuda_device_count',
     }
