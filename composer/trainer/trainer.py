@@ -106,6 +106,7 @@ from composer.utils import (
     MLFLOW_EXPERIMENT_ID_FORMAT_KEY,
     MLFLOW_RUN_ID_FORMAT_KEY,
     ExportFormat,
+    FSDPConfig,
     MissingConditionalImportError,
     ObjectStore,
     ParallelismConfig,
@@ -1219,9 +1220,15 @@ class Trainer:
         if parallelism_config is not None and not isinstance(parallelism_config, ParallelismConfig):
             parallelism_config_args = {}
             if 'fsdp' in parallelism_config and parallelism_config['fsdp'] is not None:
-                parallelism_config_args['fsdp'] = create_fsdp_config(parallelism_config['fsdp'])
+                if isinstance(parallelism_config['fsdp'], FSDPConfig):
+                    parallelism_config_args['fsdp'] = parallelism_config['fsdp']
+                else:
+                    parallelism_config_args['fsdp'] = create_fsdp_config(parallelism_config['fsdp'])
             if 'tp' in parallelism_config and parallelism_config['tp'] is not None:
-                parallelism_config['tp'] = TPConfig(**parallelism_config['tp'])
+                if isinstance(parallelism_config['tp'], TPConfig):
+                    parallelism_config_args['tp'] = parallelism_config['tp']
+                else:
+                    parallelism_config['tp'] = TPConfig(**parallelism_config['tp'])
             parallelism_config = ParallelismConfig(
                 **parallelism_config_args,
             ) if len(parallelism_config_args) > 0 else None
