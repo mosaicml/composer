@@ -324,6 +324,7 @@ def test_fsdp_full_state_dict_load(
 
     fsdp_config = FSDPConfig(
         sharded_ckpt_prefix_dir='ba{batch}',
+        sync_module_states=load_monolith_rank0_only,
         load_monolith_rank0_only=load_monolith_rank0_only,
     )
     tp_config = None
@@ -1263,7 +1264,7 @@ def test_fsdp_monolith_resumption(
     model_init_device = [model_1_init_device, model_2_init_device][dist.get_global_rank()]
     fsdp_config_dict = dataclasses.asdict(fsdp_config)
     fsdp_config_dict['load_monolith_rank0_only'] = True
-    fsdp_config = FSDPConfig(**fsdp_config_dict, sharded_ckpt_prefix_dir='ba{batch}')
+    fsdp_config = FSDPConfig(**fsdp_config_dict)
 
     success = (sync_module_states == True and model_1_init_device == 'cpu')
 
