@@ -440,7 +440,7 @@ def test_get_metadata_empty_call(world_size):
         'num_gpus',
         'gpu_model',
         'cpu_model',
-        'cpu_core_count',
+        'cuda_device_count',
     ]:
         assert key in metadata_sd
 
