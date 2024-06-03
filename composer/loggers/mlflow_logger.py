@@ -128,7 +128,7 @@ class MLFlowLogger(LoggerDestination):
             if tracking_uri is None and os.getenv('DATABRICKS_TOKEN') is not None:
                 tracking_uri = 'databricks'
             if tracking_uri is None:
-                tracking_uri = mlflow.get_tracking_uri(tracking_uri)
+                tracking_uri = mlflow.get_tracking_uri()
             self.tracking_uri = str(tracking_uri)
 
             if self.model_registry_uri is not None:
@@ -141,8 +141,8 @@ class MLFlowLogger(LoggerDestination):
                     DEFAULT_MLFLOW_EXPERIMENT_NAME,
                 )
             assert self.experiment_name is not None  # type hint
-            if os.getenv('DATABRICKS_TOKEN') is not None and not experiment_name.startswith('/'):
-                experiment_name = '/' + experiment_name
+            if os.getenv('DATABRICKS_TOKEN') is not None and not self.experiment_name.startswith('/'):
+                self.experiment_name = '/' + self.experiment_name
             self._mlflow_client = MlflowClient(self.tracking_uri)
             # Set experiment
             env_exp_id = os.getenv(
