@@ -40,7 +40,7 @@ import pickle
 import sys
 import time
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, List, Optional, Sequence, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Optional, Sequence, TypeVar, Union, cast
 
 import torch
 import torch.distributed as dist
@@ -225,13 +225,23 @@ def get_world_size() -> int:
     )
 
 
-def get_global_rank() -> int:
-    """Returns the global rank of the current process, which is on ``[0; WORLD_SIZE - 1]``.
+def get_global_rank(group: Optional[dist.ProcessGroup] = None) -> int:
+    """Returns the global rank of the current process in the input PG, which is on ``[0; group.WORLD_SIZE - 1]``.
+
+    Args:
+        group (ProcessGroup, optional): The process group. If ``None``, it will return env_var ``RANK``
 
     Returns:
-        int: The global rank.
+        int: The global rank in input process group.
     """
-    return _get_distributed_config_var(env_var='RANK', human_name='global rank', default=0, fetch_fn_name='get_rank')
+    if group is None:
+        return _get_distributed_config_var(
+            env_var='RANK',
+            human_name='global rank',
+            default=0,
+            fetch_fn_name='get_rank',
+        )
+    return dist.get_rank(group)
 
 
 def get_local_world_size() -> int:
@@ -369,7 +379,7 @@ def broadcast(tensor: torch.Tensor, src: int, group=None) -> None:
     )
 
 
-def broadcast_object_list(object_list: List[Any], src: int = 0, group=None) -> None:
+def broadcast_object_list(object_list: list[Any], src: int = 0, group=None) -> None:
     """Broadcasts picklable objects in ``object_list`` to the whole group.
 
     Similar to :func:`broadcast`, but Python objects can be passed in.
@@ -378,7 +388,7 @@ def broadcast_object_list(object_list: List[Any], src: int = 0, group=None) -> N
     .. seealso:: :func:`torch.distributed.broadcast`.
 
     Args:
-        object_list (torch.Tensor): List of input objects to broadcast.
+        object_list (torch.Tensor): list of input objects to broadcast.
             Each object must be picklable. Only objects on the ``src`` rank will be broadcast,
             but each rank must provide lists of equal sizes.
         src (int, optional): Source rank (default: ``0``)
@@ -434,7 +444,7 @@ def all_gather(tensor: torch.Tensor, group=None) -> Sequence[torch.Tensor]:
     )
 
 
-def all_gather_object(obj: TObj, group=None) -> List[TObj]:
+def all_gather_object(obj: TObj, group=None) -> list[TObj]:
     """Collect a pickleable object from each rank and return a list of these objects indexed by rank.
 
     .. seealso:: :func:`torch.distributed.all_gather_object`
@@ -445,7 +455,7 @@ def all_gather_object(obj: TObj, group=None) -> List[TObj]:
             the default process group will be used. Default is ``None``.
 
     Returns:
-        List[TObj]: A list of objects indexed by rank.
+        list[TObj]: A list of objects indexed by rank.
     """
     if dist.is_available() and dist.is_initialized():
         obj_gather_list = [None for _ in range(get_world_size())]
@@ -455,7 +465,7 @@ def all_gather_object(obj: TObj, group=None) -> List[TObj]:
             dist.all_gather_object(obj_gather_list, obj, group=group)
         # torch.distributed will replace the None's in obj_gather_list with the gathered objects on rank 0
         # or will just be None on non-rank-0
-        return cast(List[TObj], obj_gather_list)
+        return cast(list[TObj], obj_gather_list)
     world_size = get_world_size()
     if world_size == 1:
         return [obj]
@@ -490,7 +500,7 @@ def is_initialized():
     return dist.is_initialized()
 
 
-def initialize_dist(device: Union[str, Device], timeout: float = 300.0):
+def initialize_dist(device: Union[str, Device], timeout: float = 300.0) -> None:
     """Initialize the default PyTorch distributed process group.
 
     This function assumes that the following environment variables are set:

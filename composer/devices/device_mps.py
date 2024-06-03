@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, TypeVar
+from typing import Any, TypeVar
 
 import torch
 import torch.cuda.amp
@@ -27,7 +27,7 @@ class DeviceMPS(Device):
     dist_backend = ''
     name = 'mps'
 
-    def __init__(self):
+    def __init__(self) -> None:
         if version.parse(torch.__version__) < version.parse('1.12.0'):
             raise RuntimeError('Support for MPS device requires torch >= 1.12.')
         if not torch.backends.mps.is_available():  # type: ignore (version guarded)
@@ -43,9 +43,9 @@ class DeviceMPS(Device):
     def tensor_to_device(self, tensor: torch.Tensor) -> torch.Tensor:
         return tensor.to(self._device)
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         return {}
 
-    def load_state_dict(self, state: Dict[str, Any]) -> None:
+    def load_state_dict(self, state: dict[str, Any]) -> None:
         if len(state) != 0:
             raise ValueError('MPS device has no state.')

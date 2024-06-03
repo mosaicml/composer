@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import datetime
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import torch
@@ -12,7 +12,7 @@ from composer import Time
 from composer.core.time import TimeUnit
 
 
-def deep_compare(item1: Any, item2: Any, atol: float = 0.0, rtol: float = 0.0):
+def deep_compare(item1: Any, item2: Any, atol: float = 0.0, rtol: float = 0.0, ignore_keys: Optional[List[str]] = None):
     """Compare two items recursively. Supports dicts, lists, tuples, tensors, numpy arrays, Composer Time objects, and callables.
 
     Args:
@@ -21,10 +21,17 @@ def deep_compare(item1: Any, item2: Any, atol: float = 0.0, rtol: float = 0.0):
         atol (bool): Atol tolerance for torch tensors and numpy arrays (default: 0.0)
         rtol (float): Rtol tolerance for torch tensors and numpy arrays (default: 0.0)
     """
-    return _check_item(item1, item2, path='', atol=atol, rtol=rtol)
+    return _check_item(item1, item2, path='', atol=atol, rtol=rtol, ignore_keys=ignore_keys)
 
 
-def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: float = 0.0):
+def _check_item(
+    item1: Any,
+    item2: Any,
+    path: str,
+    rtol: float = 0.0,
+    atol: float = 0.0,
+    ignore_keys: Optional[List[str]] = None,
+):
     if item1 is None:
         assert item2 is None, f'{path} differs: {item1} != {item2}'
         return
@@ -45,7 +52,7 @@ def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: floa
         return
     if isinstance(item1, dict):
         assert isinstance(item2, dict), f'{path} differs: {item1} != {item2}'
-        _check_dict_recursively(item1, item2, path, atol=atol, rtol=rtol)
+        _check_dict_recursively(item1, item2, path, atol=atol, rtol=rtol, ignore_keys=ignore_keys)
         return
     if isinstance(item1, (tuple, list)):
         assert isinstance(item2, type(item1)), f'{path} differs: {item1} != {item2}'
@@ -78,8 +85,8 @@ def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: floa
 
 
 def _check_list_recursively(
-    list1: Union[Tuple[Any], List[Any]],
-    list2: Union[Tuple[Any], List[Any]],
+    list1: Union[tuple[Any], list[Any]],
+    list2: Union[tuple[Any], list[Any]],
     path: str,
     atol: float,
     rtol: float,
@@ -89,9 +96,18 @@ def _check_list_recursively(
         _check_item(item1, item2, path=f'{path}/{i}', atol=atol, rtol=rtol)
 
 
-def _check_dict_recursively(dict1: Dict[str, Any], dict2: Dict[str, Any], path: str, atol: float, rtol: float):
+def _check_dict_recursively(
+    dict1: Dict[str, Any],
+    dict2: Dict[str, Any],
+    path: str,
+    atol: float,
+    rtol: float,
+    ignore_keys: Optional[List[str]] = None,
+):
     assert len(dict1) == len(dict2), f'{path} differs: {dict1} != {dict2}'
     for k, val1 in dict1.items():
+        if ignore_keys is not None and k in ignore_keys:
+            continue
         val2 = dict2[k]
 
         # special case fused optimizer to allow comparing a GPU checkpoint with a CPU checkpoint

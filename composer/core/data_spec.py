@@ -7,7 +7,7 @@ from __future__ import annotations
 import collections.abc
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Sequence, Union
 
 import torch
 import torch.utils.data
@@ -48,7 +48,7 @@ def _split_mapping(m, microbatch_size: int):
     for k, v in m.items():
         if isinstance(v, torch.Tensor):
             chunked[k] = _split_tensor(v, microbatch_size)
-        elif isinstance(v, (List, Tuple)):
+        elif isinstance(v, (list, tuple)):
             chunked[k] = _split_list(v, microbatch_size)
         elif isinstance(v, Mapping):
             chunked[k] = _split_mapping(v, microbatch_size)
@@ -96,14 +96,14 @@ def _default_split_batch(batch: Any, microbatch_size: Union[int, float]) -> Sequ
         return _split_tensor(batch, microbatch_size)
     elif isinstance(batch, Mapping):  # check for dictionary (hf style)
         return _split_mapping(batch, microbatch_size)
-    elif isinstance(batch, (Tuple, list)) and _check_list_is_primitives(batch):  # check for list of primitives
+    elif isinstance(batch, (tuple, list)) and _check_list_is_primitives(batch):  # check for list of primitives
         return _split_list(batch, microbatch_size)
-    elif isinstance(batch, (Tuple, List)):  # check for batch on 2nd dimension
+    elif isinstance(batch, (tuple, list)):  # check for batch on 2nd dimension
         result = []
         for item in batch:
             if isinstance(item, torch.Tensor):
                 result.append(_split_tensor(item, microbatch_size))
-            elif isinstance(item, (List, Tuple)):
+            elif isinstance(item, (list, tuple)):
                 result.append(_split_list(item, microbatch_size))
             else:
                 raise ValueError(f'Unsupported batch type: {type(item)}.')
@@ -159,7 +159,7 @@ class DataSpec:
 
         split_batch ((Batch, (int | float)) -> Sequence[Batch], optional): Function called by the :class:`.Trainer` to
             split a batch (the first parameter) into microbatches of a given size (the second parameter). If
-            the ``dataloader`` yields batches not of type :class:`torch.Tensor`, Mapping, Tuple, or List, then
+            the ``dataloader`` yields batches not of type :class:`torch.Tensor`, Mapping, tuple, or list, then
             this function must be specified.
 
         get_num_samples_in_batch ((Batch) -> Union[int, float], optional): Function that is called by the :class:`.Trainer`
@@ -300,7 +300,7 @@ def ensure_data_spec(dataloader: Union[DataSpec, Iterable, dict]) -> DataSpec:
     """Ensures that the ``dataloader`` is a :class:`.DataSpec`.
 
     Args:
-        dataloader (DataSpec | Iterable | dict): A DataSpec, DataLoader, or Dict of DataSpec kwargs.
+        dataloader (DataSpec | Iterable | dict): A DataSpec, DataLoader, or dict of DataSpec kwargs.
 
     Returns:
         DataSpec: A DataSpec

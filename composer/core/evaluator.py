@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import textwrap
 import warnings
-from typing import Any, Callable, Dict, Iterable, List, Optional, Union
+from typing import Any, Callable, Iterable, Optional, Union
 
 from composer.core.data_spec import DataSpec, ensure_data_spec
 from composer.core.event import Event
@@ -40,8 +40,8 @@ class Evaluator:
 
     Args:
         label (str): Name of the Evaluator.
-        dataloader (DataSpec | Iterable | Dict[str, Any]): Iterable that yields batches, a :class:`.DataSpec`
-            for evaluation, or a Dict of :class:`.DataSpec` kwargs.
+        dataloader (DataSpec | Iterable | dict[str, Any]): Iterable that yields batches, a :class:`.DataSpec`
+            for evaluation, or a dict of :class:`.DataSpec` kwargs.
         metric_names: The list of metric names to compute.
             Each value in this list can be a regex string (e.g. "MulticlassAccuracy", "f1" for "BinaryF1Score",
             "Top-." for "Top-1", "Top-2", etc). Each regex string will be matched against the keys of the dictionary returned
@@ -76,8 +76,8 @@ class Evaluator:
         self,
         *,
         label: str,
-        dataloader: Union[DataSpec, Iterable, Dict[str, Any]],
-        metric_names: Optional[List[str]] = None,
+        dataloader: Union[DataSpec, Iterable, dict[str, Any]],
+        metric_names: Optional[list[str]] = None,
         subset_num_batches: Optional[int] = None,
         eval_interval: Optional[Union[int, str, Time, Callable[[State, Event], bool]]] = None,
         device_eval_microbatch_size: Optional[Union[int, str]] = None,
@@ -120,13 +120,13 @@ class Evaluator:
             self._eval_interval = eval_interval
 
 
-def ensure_evaluator(evaluator: Union[Evaluator, DataSpec, Iterable, Dict[str, Any]], default_metric_names: List[str]):
+def ensure_evaluator(evaluator: Union[Evaluator, DataSpec, Iterable, dict[str, Any]], default_metric_names: list[str]):
     """Ensure that ``evaluator`` is an :class:`.Evaluator`.
 
     Args:
-        evaluator (Evaluator | DataSpec | Iterable | Dict[str, Any]): A dataloader,
+        evaluator (Evaluator | DataSpec | Iterable | dict[str, Any]): A dataloader,
             :class:`.DataSpec` instance, dictionary of :class:`.DataSpec` kwargs, or existing evaluator.
-        default_metric_names (List[str]): The names of the metrics for the ``evaluator``,
+        default_metric_names (list[str]): The names of the metrics for the ``evaluator``,
             if a dataloader was specified.
 
     Returns:

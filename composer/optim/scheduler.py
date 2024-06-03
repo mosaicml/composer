@@ -16,7 +16,7 @@ import logging
 import math
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, List, Union
+from typing import TYPE_CHECKING, Union
 
 from torch.optim.lr_scheduler import LambdaLR, LRScheduler
 
@@ -138,7 +138,8 @@ class ComposerScheduler(Protocol):
 def _convert_time(time: Union[str, Time[int], Time[float]], state: State, ssr: float = 1.0) -> Time[int]:
     if isinstance(time, str):
         time = Time.from_timestring(time)
-
+    if time.unit == TimeUnit.SECOND:
+        raise ValueError('Wall clock time not an allowed time unit.')
     assert state.max_duration is not None, 'max_duration should be set whenever schedulers are invoked'
 
     if time.unit == TimeUnit.DURATION:
@@ -253,11 +254,11 @@ class MultiStepScheduler(ComposerScheduler):
     multiplicative decay factor.
 
     Args:
-        milestones (List[str | Time]): Times at which the learning rate should change.
+        milestones (list[str | Time]): Times at which the learning rate should change.
         gamma (float): Multiplicative decay factor. Default = ``0.1``.
     """
 
-    def __init__(self, milestones: List[Union[str, Time]], gamma: float = 0.1):
+    def __init__(self, milestones: list[Union[str, Time]], gamma: float = 0.1):
         self.milestones = milestones
         self.gamma = gamma
 
@@ -620,7 +621,7 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
 
     Args:
         t_warmup (str | Time): Warmup time.
-        milestones (List[str | Time]): Times at which the learning rate should change.
+        milestones (list[str | Time]): Times at which the learning rate should change.
         gamma (float): Multiplicative decay factor. Default = ``0.1``.
         scale_warmup (float): SSR also scales the warmup period. Default = ``False``.
     """
@@ -628,7 +629,7 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
     def __init__(
         self,
         t_warmup: Union[str, Time],
-        milestones: List[Union[str, Time]],
+        milestones: list[Union[str, Time]],
         gamma: float = 0.1,
         scale_warmup: bool = False,
     ):

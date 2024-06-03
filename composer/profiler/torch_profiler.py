@@ -176,7 +176,7 @@ class TorchProfiler(Callback):  # noqa: D101
             disk usage by deleting trace files immediately after they have been uploaded to the object store.
 
     Attributes:
-        saved_traces (List[Tuple[Timestamp, List[pathlib.Path]]]): The trace timestamps and filepaths.
+        saved_traces (list[tuple[Timestamp, list[pathlib.Path]]]): The trace timestamps and filepaths.
 
             This list contains tuples of the save timestamp and the trace filepaths.
             This list will have at most ``num_traces_to_keep`` entries. The latest trace

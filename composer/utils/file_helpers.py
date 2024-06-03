@@ -12,7 +12,7 @@ import re
 import tempfile
 import uuid
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 from urllib.parse import urlparse
 
 import requests
@@ -73,7 +73,7 @@ def extract_path_from_symlink(
     return real_path
 
 
-def _get_dist_config(strict: bool = True) -> Dict[str, Any]:
+def _get_dist_config(strict: bool = True) -> dict[str, Any]:
     """Returns a dict of distributed settings (rank, world_size, etc.).
 
     If ``strict=True``, will error if a setting is not available (e.g. the
@@ -346,14 +346,14 @@ Args:
 """
 
 
-def parse_uri(uri: str) -> Tuple[str, str, str]:
+def parse_uri(uri: str) -> tuple[str, str, str]:
     """Uses :py:func:`urllib.parse.urlparse` to parse the provided URI.
 
     Args:
         uri (str): The provided URI string
 
     Returns:
-        Tuple[str, str, str]: A tuple containing the backend (e.g. s3), bucket name, and path.
+        tuple[str, str, str]: A tuple containing the backend (e.g. s3), bucket name, and path.
                               Backend name will be empty string if the input is a local path
     """
     uri = uri.replace('AZURE_BLOBS', 'azure')  # urlparse does not support _ in scheme
@@ -433,7 +433,7 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
 
 def maybe_create_remote_uploader_downloader_from_uri(
     uri: str,
-    loggers: List[LoggerDestination],
+    loggers: list[LoggerDestination],
 ) -> Optional['RemoteUploaderDownloader']:
     """Automatically creates a :class:`composer.loggers.RemoteUploaderDownloader` from supported URI formats.
 
@@ -441,7 +441,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
 
     Args:
         uri (str):The path to (maybe) create a :class:`composer.loggers.RemoteUploaderDownloader` from
-        loggers (List[:class:`composer.loggers.LoggerDestination`]): List of the existing :class:`composer.loggers.LoggerDestination` s so as to not create a duplicate
+        loggers (list[:class:`composer.loggers.LoggerDestination`]): List of the existing :class:`composer.loggers.LoggerDestination` s so as to not create a duplicate
 
     Raises:
         NotImplementedError: Raises when the URI format is not supported.
@@ -487,7 +487,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
         )
 
 
-def list_remote_objects(remote_path: str) -> List[str]:
+def list_remote_objects(remote_path: str) -> list[str]:
     """List objects at the remote path.
 
     Args:

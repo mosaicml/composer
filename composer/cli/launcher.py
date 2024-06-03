@@ -15,7 +15,7 @@ import tempfile
 import time
 import traceback
 from argparse import ArgumentParser
-from typing import Any, Dict, List, Union
+from typing import Any, Union
 
 import psutil
 import torch
@@ -312,8 +312,8 @@ def _launch_processes(
     training_script: str,
     stdout_file_format: str,
     stderr_file_format: Union[str, None],
-    training_script_args: List[Any],
-    processes: Dict[int, subprocess.Popen],
+    training_script_args: list[Any],
+    processes: dict[int, subprocess.Popen],
 ):
     log.info('Starting distributed environment on local node for global_rank(%s-%s)', base_rank, base_rank + nproc - 1)
     log.info('Distributed KV store: tcp://%s:%s', master_addr, master_port)
@@ -392,7 +392,7 @@ def _launch_processes(
             processes[global_rank] = process
 
 
-def _monitor_processes(processes: Dict[int, subprocess.Popen]):
+def _monitor_processes(processes: dict[int, subprocess.Popen]):
     try:
         while True:
             process_has_crashed = False
@@ -457,7 +457,7 @@ def _print_process_exit_status(global_rank: int, process: subprocess.Popen):
     print('\n'.join(error_msg))
 
 
-def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
+def _cleanup_processes(processes: dict[int, subprocess.Popen]):
     for global_rank, process in processes.items():
         process.poll()
         if process.returncode is None:
@@ -517,7 +517,7 @@ def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
             _print_process_exit_status(global_rank, process)
 
 
-def _aggregate_process_returncode(processes: Dict[int, subprocess.Popen]) -> int:
+def _aggregate_process_returncode(processes: dict[int, subprocess.Popen]) -> int:
     for global_rank, process in processes.items():
         process.poll()
         if process.returncode is None:
