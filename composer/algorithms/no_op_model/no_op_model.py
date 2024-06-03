@@ -73,7 +73,7 @@ class NoOpModelClass(ComposerModel):
 class NoOpModel(Algorithm):
     """Runs on :attr:`Event.INIT` and replaces the model with a dummy :class:`.NoOpModelClass` instance."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # No arguments
         pass
 

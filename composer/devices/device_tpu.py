@@ -29,7 +29,7 @@ class DeviceTPU(Device):
     dist_backend = 'xla'
     name = 'tpu'
 
-    def __init__(self):
+    def __init__(self) -> None:
         import torch_xla.core.xla_model as xm
 
         self._device = xm.xla_device()

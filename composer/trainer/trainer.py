@@ -295,7 +295,7 @@ def _get_initial_device_train_microbatch_size(
                 "`device_train_microbatch_size='auto'` requires the `state.train_dataloader` to have a `batch_size` attribute.",
             ) from e
         return batch_size
-    elif isinstance(device_train_microbatch_size, Union[int, float]):
+    elif isinstance(device_train_microbatch_size, (int, float)):
         return device_train_microbatch_size
     else:
         raise ValueError("device_train_microbatch_size must be an int or ``'auto'``")
@@ -1401,7 +1401,28 @@ class Trainer:
         # Checkpoint Saving
         self._checkpoint_saver = None
         latest_remote_file_name = None
-        if save_folder is not None:
+
+        _checkpoint_savers = [cb for cb in self.state.callbacks if isinstance(cb, CheckpointSaver)]
+        if len(_checkpoint_savers) >= 1:
+            if len(_checkpoint_savers) > 1:
+                log.info('Multiple CheckpointSaver provided as callbacks. Using the first one as reference.')
+            self._checkpoint_saver = _checkpoint_savers[0]
+
+            if self._checkpoint_saver.folder != save_folder:
+                log.info(f'Using {self._checkpoint_saver.folder} as save_folder.')
+                save_folder = self._checkpoint_saver.folder
+
+            if self._checkpoint_saver.latest_filename is None:
+                save_latest_filename = None
+                log.info(f'Using {save_latest_filename} as latest_filename.')
+            elif self._checkpoint_saver.latest_filename.filename != save_latest_filename:
+                save_latest_filename = str(self._checkpoint_saver.latest_filename.filename)
+                log.info(f'Using {save_latest_filename} as latest_filename.')
+
+            if self._checkpoint_saver.latest_remote_file_name is not None:
+                latest_remote_file_name = str(self._checkpoint_saver.latest_remote_file_name.filename)
+
+        if self._checkpoint_saver is None and save_folder is not None:
             if save_weights_only:
                 log.info(
                     'save_weights_only=True now also saves metadata and integrations! Please adjust your workflow accordingly.',

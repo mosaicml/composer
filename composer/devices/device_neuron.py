@@ -29,7 +29,7 @@ class DeviceNeuron(Device):
     name = 'neuron'
     dist_backend = 'xla'
 
-    def __init__(self):
+    def __init__(self) -> None:
         import torch_xla.core.xla_model as xm
 
         # Turn off compiler based mixed precision (we use torch's amp support)
