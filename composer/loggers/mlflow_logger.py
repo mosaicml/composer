@@ -130,6 +130,7 @@ class MLFlowLogger(LoggerDestination):
             if tracking_uri is None:
                 tracking_uri = mlflow.get_tracking_uri()
             self.tracking_uri = str(tracking_uri)
+            mlflow.set_tracking_uri(self.tracking_uri)
 
             if self.model_registry_uri is not None:
                 mlflow.set_registry_uri(self.model_registry_uri)
