@@ -125,7 +125,7 @@ def get_trainer(
     else:
         raise ValueError(f'Unsupported optimizer name {optimizer}')
 
-    parallelism_config = {'fsdp': fsdp_config}
+    parallelism_config: dict[str, Union[FSDPConfig, dict[str, Any]]] = {'fsdp': fsdp_config}
     if tp_config is not None:
         parallelism_config['tp'] = tp_config
 
