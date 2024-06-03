@@ -30,8 +30,6 @@ log = logging.getLogger(__name__)
 
 __all__ = ['MLFlowLogger']
 
-DEFAULT_MLFLOW_EXPERIMENT_NAME = 'my-mlflow-experiment'
-
 
 class MLFlowLogger(LoggerDestination):
     """Log to `MLflow <https://www.mlflow.org/docs/latest/index.html>`_.
@@ -135,13 +133,10 @@ class MLFlowLogger(LoggerDestination):
             if self.experiment_name is None:
                 self.experiment_name = os.getenv(
                     mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,  # type: ignore
+                    self.run_name,
                 )
-                if self.experiment_name is None:
-                    raise ValueError(
-                        'MLFlow Logger requires an experiment name to be set either through the '
-                        '`experiment_name` argument or the MLFLOW_EXPERIMENT_NAME environment '
-                        'variable.',
-                    )
+            if os.getenv('DATABRICKS_TOKEN') is not None and not experiment_name.startswith('/'):
+                experiment_name = '/' + experiment_name
             self._mlflow_client = MlflowClient(self.tracking_uri)
             # Set experiment
             env_exp_id = os.getenv(
