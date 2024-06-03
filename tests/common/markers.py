@@ -25,7 +25,7 @@ def device(*args, precision=False):
     args = [arg.replace('-fp32', '') for arg in args]
 
     if precision:
-        devices = {.
+        devices = {
             'cpu': pytest.param('cpu', Precision.FP32, id='cpu-fp32'),
             'gpu': pytest.param('gpu', Precision.FP32, id='gpu-fp32', marks=pytest.mark.gpu),
             'gpu-amp': pytest.param('gpu', Precision.AMP_FP16, id='gpu-amp', marks=pytest.mark.gpu),
