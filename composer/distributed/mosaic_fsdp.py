@@ -5,7 +5,7 @@
 
 import logging
 import warnings
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Union
 
 import torch
 from packaging import version
@@ -40,13 +40,13 @@ BACKWARD_PREFETCH_MAP = {
 }
 
 
-def set_fsdp_default(fsdp_config: Dict[str, Any]):
+def set_fsdp_default(fsdp_config: dict[str, Any]):
     """Modify fsdp_config to set default values for missing keys."""
     if 'process_group' in fsdp_config:
         warnings.warn(
             VersionedDeprecationWarning(
                 'process_group is deprecated. Please specify `data_parallel_shard_degree` and `data_parallel_replicate_degree` instead.',
-                remove_version='0.24.0',
+                remove_version='0.24',
             ),
         )
 
@@ -54,7 +54,7 @@ def set_fsdp_default(fsdp_config: Dict[str, Any]):
         warnings.warn(
             VersionedDeprecationWarning(
                 'device_mesh is deprecated. Please specify `data_parallel_shard_degree` and `data_parallel_replicate_degree` instead.',
-                remove_version='0.24.0',
+                remove_version='0.24',
             ),
         )
         if 'data_parallel_shard_degree' in fsdp_config or 'data_parallel_replicate_degree' in fsdp_config:
@@ -62,9 +62,15 @@ def set_fsdp_default(fsdp_config: Dict[str, Any]):
                 'Cannot specify both `device_mesh` and `data_parallel_shard_degree` or `data_parallel_replicate_degree`. Please remove `device_mesh`.',
             )
         device_mesh = fsdp_config.pop('device_mesh')
-        fsdp_config['data_parallel_shard_degree'] = device_mesh[0]
-        if len(device_mesh) > 1:
-            fsdp_config['data_parallel_replicate_degree'] = device_mesh[1]
+        if len(device_mesh) == 1:
+            fsdp_config['data_parallel_shard_degree'] = device_mesh[0]
+        elif len(device_mesh) == 2:
+            fsdp_config['data_parallel_replicate_degree'] = device_mesh[0]
+            fsdp_config['data_parallel_shard_degree'] = device_mesh[1]
+        else:
+            raise ValueError(
+                f'device_mesh must be of length 1 or 2 but received length {len(device_mesh)} with device mesh {device_mesh}.',
+            )
 
     fsdp_config.setdefault('activation_checkpointing', False)
     fsdp_config.setdefault('activation_checkpointing_reentrant', True)
@@ -76,7 +82,7 @@ def set_fsdp_default(fsdp_config: Dict[str, Any]):
     fsdp_config.setdefault('backward_prefetch_limit', 1)
     fsdp_config.setdefault('cpu_offload', False)
     fsdp_config.setdefault('data_parallel_shard_degree', -1)
-    fsdp_config.setdefault('data_parallel_replicate_degree', 1)
+    fsdp_config.setdefault('data_parallel_replicate_degree', None)
     fsdp_config.setdefault('forward_prefetch', False)
     fsdp_config.setdefault('forward_prefetch_limit', 1)
     fsdp_config.setdefault('ignored_modules', None)
@@ -185,7 +191,7 @@ def _get_process_group(pg, process_group_cache=None):
         pg = f'mod{local_world_size}'
         log.info(f"Converting process_group='local_rank_across_nodes' to process_group='{pg}'")
 
-    # Handle str and Union[List[int], Tuple[int]] process_group cases
+    # Handle str and Union[list[int], tuple[int]] process_group cases
     if isinstance(pg, str) and pg.startswith('set'):
         k = int(pg.strip('set'))
         world_size = dist.get_world_size()
@@ -223,7 +229,7 @@ def _get_process_group(pg, process_group_cache=None):
     return current_group
 
 
-def set_custom_fsdp_module_kwargs(module_kwargs: Dict, process_group_cache: Dict[Tuple[int], Any]) -> Dict:
+def set_custom_fsdp_module_kwargs(module_kwargs: dict, process_group_cache: dict[tuple[int], Any]) -> dict:
     """Set custom module_kwargs per fsdp module."""
     if ('sharding_strategy' in module_kwargs and module_kwargs['sharding_strategy'] not in SHARDING_MAP.values()):
         module_kwargs['sharding_strategy'] = SHARDING_MAP[module_kwargs['sharding_strategy'].upper()]

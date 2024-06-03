@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import warnings
 from collections import deque
-from typing import Any, Callable, Deque, Dict, Optional, Union
+from typing import Any, Callable, Deque, Optional, Union
 
 import torch
 
@@ -57,6 +57,15 @@ GPU_AVAILABLE_FLOPS = {
         'amp_fp16': 312e12,
         'bf16': 312e12,
         'amp_bf16': 312e12,
+    },
+    # source: https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a10/pdf/a10-datasheet.pdf
+    'a10': {
+        'fp32': 31.2e12,
+        'tf32': 62.5e12,
+        'fp16': 125e12,
+        'amp_fp16': 125e12,
+        'bf16': 125e12,
+        'amp_bf16': 125e12,
     },
     # source: https://images.nvidia.com/content/technologies/volta/pdf/volta-v100-datasheet-update-us-1165301-r5.pdf
     'v100-sxm': {
@@ -113,6 +122,8 @@ def get_gpu_flops_available(state: State):
             device_name = 'h100-pcie'
         elif 'a100' in device_name:
             device_name = 'a100'
+        elif 'a10' in device_name:
+            device_name = 'a10'
         elif 'v100-sxm' in device_name:
             device_name = 'v100-sxm'
         elif 'v100-pcie' in device_name:
@@ -264,12 +275,12 @@ class SpeedMonitor(Callback):
         # Keep track of time spent evaluating
         self.total_eval_wct = 0.0
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         return {
             'total_eval_wct': self.total_eval_wct,
         }
 
-    def load_state_dict(self, state: Dict[str, Any]) -> None:
+    def load_state_dict(self, state: dict[str, Any]) -> None:
         self.total_eval_wct = state['total_eval_wct']
 
     def init(self, state: State, logger: Logger) -> None:

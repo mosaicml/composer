@@ -9,7 +9,7 @@ import logging
 import os
 import pathlib
 import uuid
-from typing import Callable, List, Optional
+from typing import Callable, Optional
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError
@@ -22,12 +22,26 @@ _NOT_FOUND_ERROR_CODE = 'NOT_FOUND'
 
 
 def _wrap_errors(uri: str, e: Exception):
-    from databricks.sdk.core import DatabricksError
+    """Wrap an exception in ObjectStoreTransientError if it's retryable.
+
+    Oherwise, raise the exception.
+    """
+    # Wrap DatabricksError in ObjectStoreTransientError.
+    # If the file is not found, raise FileNotFoundError.
+    from databricks.sdk.errors import DatabricksError
     from databricks.sdk.errors.platform import NotFound
     if isinstance(e, DatabricksError):
         if isinstance(e, NotFound) or e.error_code == _NOT_FOUND_ERROR_CODE:  # type: ignore
             raise FileNotFoundError(f'Object {uri} not found') from e
-    raise ObjectStoreTransientError from e
+        raise ObjectStoreTransientError from e
+
+    # Wrap ChunkedEncodingError in ObjectStoreTransientError.
+    from requests.exceptions import ChunkedEncodingError
+    if isinstance(e, ChunkedEncodingError):
+        raise ObjectStoreTransientError from e
+
+    # Otherwise raise the exception.
+    raise e
 
 
 class UCObjectStore(ObjectStore):
@@ -177,7 +191,7 @@ class UCObjectStore(ObjectStore):
         tmp_path = str(filename) + f'{uuid.uuid4()}.tmp'
 
         try:
-            from databricks.sdk.core import DatabricksError
+
             try:
                 contents = self.client.files.download(self._get_object_path(object_name)).contents
                 assert contents is not None
@@ -188,7 +202,7 @@ class UCObjectStore(ObjectStore):
                         # OOMs when downloading really large files
                         for chunk in iter(lambda: resp.read(64 * 1024 * 1024), b''):
                             f.write(chunk)
-            except DatabricksError as e:
+            except Exception as e:
                 _wrap_errors(self.get_uri(object_name), e)
         except:
             # Make best effort attempt to clean up the temporary file
@@ -216,7 +230,6 @@ class UCObjectStore(ObjectStore):
             FileNotFoundError: If the file was not found in the object store.
             IsADirectoryError: If the object is a directory, not a file.
         """
-        from databricks.sdk.core import DatabricksError
         try:
             # Note: The UC team is working on changes to fix the files.get_status API, but it currently
             # does not work. Once fixed, we will call the files API endpoint. We currently only use this
@@ -225,12 +238,12 @@ class UCObjectStore(ObjectStore):
             path = os.path.join(self._UC_VOLUME_FILES_API_ENDPOINT, object_path)
             self.client.api_client.do(method='HEAD', path=path, headers={'Source': 'mosaicml/composer'})
             return 1000000  # Dummy value, as we don't have a way to get the size of the file
-        except DatabricksError as e:
+        except Exception as e:
             # If the code reaches here, the file was not found
             _wrap_errors(self.get_uri(object_name), e)
         return -1
 
-    def list_objects(self, prefix: Optional[str]) -> List[str]:
+    def list_objects(self, prefix: Optional[str]) -> list[str]:
         """List all objects in the object store with the given prefix.
 
         Args:
@@ -242,7 +255,6 @@ class UCObjectStore(ObjectStore):
         if not prefix:
             prefix = self.prefix
 
-        from databricks.sdk.core import DatabricksError
         try:
             # Iteratively get all UC Volume files with `prefix`.
             stack = [prefix]
@@ -267,6 +279,6 @@ class UCObjectStore(ObjectStore):
 
             return all_files
 
-        except DatabricksError as e:
+        except Exception as e:
             _wrap_errors(self.get_uri(prefix), e)
         return []

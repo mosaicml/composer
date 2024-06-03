@@ -16,7 +16,7 @@ import textwrap
 import warnings
 from importlib import import_module
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 import torch
 from packaging import version
@@ -56,7 +56,7 @@ _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME = f'__{dist.get_global_rank()}_0.distcp'
 
 
 def _get_checkpoint_validation_function(
-) -> Optional[Callable[[Union[Path, str], Optional[List[Tuple[int, int]]]], bool]]:
+) -> Optional[Callable[[Union[Path, str], Optional[list[tuple[int, int]]]], bool]]:
     """Get the validation function specified by the environment variable `CHECKPOINT_VALIDATION_FUNCTION`.
 
     Returns:
@@ -75,7 +75,7 @@ def _get_checkpoint_validation_function(
 
 
 def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str],
-                             specs: Optional[List[Tuple[int, int]]] = None) -> Union[Path, str]:
+                             specs: Optional[list[tuple[int, int]]] = None) -> Union[Path, str]:
     """Ensures that the checkpoint at checkpoint_filepath is valid.
 
     using the function specified by the CHECKPOINT_VALIDATION_FUNCTION environment variable.
@@ -83,7 +83,7 @@ def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str],
 
     Args:
         checkpoint_filepath (Union[Path,str]): The path to the checkpoint file.
-        specs (Optional[List[Tuple[int,int]]]): A list of offsets and lengths to check. Defaults to None.
+        specs (Optional[list[tuple[int,int]]]): A list of offsets and lengths to check. Defaults to None.
 
     Raises:
         ValueError if checkpoint file is invalid.
@@ -168,7 +168,7 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
         Raises:
             ValueError if the data file is invalid.
         """
-        path_to_specs: Dict[str, List[Tuple[int, int]]] = {}
+        path_to_specs: dict[str, list[tuple[int, int]]] = {}
         for read_item in plan.items:
             item_md = self.storage_data[read_item.storage_index]
             path = os.path.join(self.path, item_md.relative_path)
@@ -236,9 +236,10 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
 
     def read_data(self, plan: LoadPlan, planner: LoadPlanner):
         # Download files if not using HSDP or if on first replica with HSDP enabled
-        first_replica = self.device_mesh is None or self.device_mesh.ndim == 1 or (
-            self.device_mesh.ndim >= 2 and self.device_mesh.get_local_rank(mesh_dim=0) == 0
-        )
+        first_replica = True
+        if self.device_mesh is not None and self.device_mesh.mesh_dim_names is not None and ParallelismType.DATA_PARALLEL_REPLICATE.value in self.device_mesh.mesh_dim_names:
+            hsdp_index = self.device_mesh.mesh_dim_names.index(ParallelismType.DATA_PARALLEL_REPLICATE.value)
+            first_replica = self.device_mesh.get_local_rank(mesh_dim=hsdp_index) == 0
 
         # 1. Collect the relative paths to download for all ranks for deduplication
         relative_file_paths = set()
@@ -247,6 +248,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         all_file_paths = dist.all_gather_object(relative_file_paths)
 
         # 2. Download to the destination all files this rank needs if on first replica
+        download_error = False
         if first_replica:
             log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
 
@@ -274,12 +276,26 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                         download_object_or_file(object_name, file_destination, self.object_store)
                         log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
             except Exception as e:
-                # PyTorch will capture any exception of this function,
-                # and dist.all_gather_objects(exception) before raising it.
-                # If that all_gather_objects fails, the exception is never visible to user.
-                # We immediately print the exception to avoid that situation.
                 log.error(f'Exception {type(e)} raised during downloading: {str(e)}')
-                raise e
+                download_error = True
+
+        # PyTorch will capture any exception of this function,
+        # and dist.all_gather_objects(exception) before raising it.
+        # If that all_gather_objects fails, the exception is never visible to user.
+        # We raise the exception from all ranks to ensure the user sees it.
+        download_error_tensor = dist.get_device(None).tensor_to_device(torch.tensor(1 if download_error else 0))
+        error_by_rank = dist.all_gather(download_error_tensor)
+        failed_ranks = []
+        for rank, error in enumerate(list(error_by_rank)):
+            if error > 0:
+                failed_ranks.append(rank)
+                download_error = True
+
+        if download_error:
+            raise RuntimeError(
+                f'Ranks {failed_ranks} failed to download.',
+                'To see the full error please look at the logs for that rank, which are logged via log.error.',
+            )
 
         # 3. Wait for all ranks to finish.
         log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
@@ -287,11 +303,13 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         log.debug('Done waiting for all ranks to finish downloading files.')
 
         # 4. Broadcast files to all other replicas if HSDP
-        if self.device_mesh is not None and self.device_mesh.ndim == 2:
+        if self.device_mesh is not None and self.device_mesh.mesh_dim_names is not None and ParallelismType.DATA_PARALLEL_REPLICATE.value in self.device_mesh.mesh_dim_names:
             # Broadcast file to all replicas
-            replicate_process_group = self.device_mesh.get_group(0)
-            shard_process_group = self.device_mesh.get_group(1)
-            shard_size = self.device_mesh.size(1)
+            replicate_index = self.device_mesh.mesh_dim_names.index(ParallelismType.DATA_PARALLEL_REPLICATE.value)
+            shard_index = self.device_mesh.mesh_dim_names.index(ParallelismType.DATA_PARALLEL_SHARD.value)
+            replicate_process_group = self.device_mesh.get_group(replicate_index)
+            shard_process_group = self.device_mesh.get_group(shard_index)
+            shard_size = self.device_mesh.size(shard_index)
             rank_in_first_replica = dist.get_global_rank() % shard_size
             sender = dist.get_global_rank() == rank_in_first_replica
             receiver = dist.get_global_rank() != rank_in_first_replica
@@ -302,7 +320,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
             ]]
             dist.broadcast_object_list(file_list, src=rank_in_first_replica, group=replicate_process_group)
             file_list = file_list[0]
-            log.debug(f'List of files to broadcast: {file_list}')
+            log.debug(f'list of files to broadcast: {file_list}')
 
             # Send each file to the appropriate rank
             for file_name in file_list:
@@ -641,14 +659,14 @@ def load_sharded_checkpoint(
 
             # 2. Load model and metadata
             if load_weights_only:
-                state_dict: Dict[str, Any] = {'state': {'model': state.get_model_state_dict()}}
+                state_dict: dict[str, Any] = {'state': {'model': state.get_model_state_dict()}}
             else:
                 cur_state_dict = state.state_dict()
                 # If 'optimizers' is at root-level, we load it separately.
                 if optimizers_at_root:
                     cur_state_dict.pop('optimizers')
                 num_rng_ranks = _get_num_ranks_that_saved_rng(storage_reader.read_metadata())
-                state_dict: Dict[str, Any] = {
+                state_dict: dict[str, Any] = {
                     'state': cur_state_dict,
                     'rng': reproducibility.get_rng_state()[:num_rng_ranks],
                 }
@@ -1050,7 +1068,7 @@ def _save_checkpoint(
     save_filename: str,
     *,
     weights_only: bool = False,
-    ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
+    ignore_keys: Optional[Union[list[str], Callable[[dict], None]]] = None,
 ) -> Union[str, None]:  # noqa: D103
 
     is_deepspeed = is_model_deepspeed(state.model)
@@ -1165,7 +1183,7 @@ def _save_checkpoint(
         return None
 
 
-def _write_checkpoint_file(state_dict: Dict[str, Any], filename: str) -> None:
+def _write_checkpoint_file(state_dict: dict[str, Any], filename: str) -> None:
     """Write the given checkpoint state to the given path. Compressing if indicated to do so by the file extension."""
     if is_tar(filename):
         log.debug('Writing checkpoint tar file %s', filename)
@@ -1213,7 +1231,7 @@ def save_checkpoint(
     filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
     *,
     weights_only: bool = False,
-    ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
+    ignore_keys: Optional[Union[list[str], Callable[[dict], None]]] = None,
 ) -> Union[str, None]:  # noqa: D103
     # Clear the cache in case we are near the memory limit to give some space for NCCL.
     torch.cuda.empty_cache()

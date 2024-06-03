@@ -1,8 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import List
-
 import pytest
 from torch.utils.data import DataLoader
 from torchmetrics.classification import MulticlassAccuracy
@@ -18,7 +16,7 @@ from tests.metrics import MetricSetterCallback
 @device('cpu', 'gpu')
 @pytest.mark.parametrize('metric_sequence', [[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], [0.1, 0.2]])
 @pytest.mark.parametrize('unit', [TimeUnit.EPOCH, TimeUnit.BATCH])
-def test_early_stopper(metric_sequence: List[float], unit: TimeUnit, device: str):
+def test_early_stopper(metric_sequence: list[float], unit: TimeUnit, device: str):
 
     if unit == TimeUnit.EPOCH:
         dataloader_label = 'eval'

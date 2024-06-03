@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from typing import List, Optional
+from typing import Optional
 
 import pytest
 
@@ -24,7 +24,7 @@ pytest_plugins = [
 ]
 
 
-def _add_option(parser: pytest.Parser, name: str, help: str, choices: Optional[List[str]] = None):
+def _add_option(parser: pytest.Parser, name: str, help: str, choices: Optional[list[str]] = None):
     parser.addoption(
         f'--{name}',
         default=None,
@@ -72,7 +72,7 @@ def _get_world_size(item: pytest.Item):
     return item.get_closest_marker('world_size', default=_default).args[0]
 
 
-def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item]) -> None:
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """Filter tests by world_size (for multi-GPU tests) and duration (short, long, or all)"""
 
     world_size = int(os.environ.get('WORLD_SIZE', '1'))

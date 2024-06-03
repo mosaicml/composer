@@ -448,9 +448,12 @@ def test_fsdp_shard_and_replicate(world_size: int):
 
     Trainer(
         model=model,
-        parallelism_config={'fsdp': {
-            'data_parallel_shard_degree': 2,
-            'data_parallel_replicate_degree': 1,
-        }},
+        parallelism_config={
+            'fsdp': {
+                'data_parallel_shard_degree': 2,
+                'data_parallel_replicate_degree': 1,
+                'sharding_strategy': 'HYBRID_SHARD',
+            },
+        },
         max_duration='3ba',
     )

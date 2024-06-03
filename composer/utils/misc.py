@@ -8,7 +8,7 @@ import math
 import socket
 import textwrap
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Callable, Optional, Set, Type, Union
+from typing import TYPE_CHECKING, Callable, Optional, Type, Union
 
 import torch
 from torch.nn.parallel import DistributedDataParallel
@@ -58,7 +58,7 @@ def create_interval_scheduler(
     interval: Union[str, int, 'Time'],
     include_end_of_training: bool = True,
     checkpoint_events: bool = True,
-    final_events: Optional[Set['Event']] = None,
+    final_events: Optional[set['Event']] = None,
 ) -> Callable[['State', 'Event'], bool]:
     """Helper function to create a scheduler according to a specified interval.
 
@@ -70,7 +70,7 @@ def create_interval_scheduler(
             Otherwise, the returned callable will return true at intervals only.
         checkpoint_events (bool): If true, will use the EPOCH_CHECKPOINT and BATCH_CHECKPOINT events. If False, will use
             the EPOCH_END and BATCH_END events.
-        final_events (Optional[Set[Event]]): The set of events to trigger on at the end of training.
+        final_events (Optional[set[Event]]): The set of events to trigger on at the end of training.
 
     Returns:
         Callable[[State, Event], bool]: A function that returns true at interval and at the end of training if specified.
@@ -87,11 +87,18 @@ def create_interval_scheduler(
         interval_event = Event.EPOCH_CHECKPOINT if checkpoint_events else Event.EPOCH_END
     elif time_interval.unit == TimeUnit.ITERATION:
         interval_event = Event.ITERATION_CHECKPOINT if checkpoint_events else Event.ITERATION_END
-    elif time_interval.unit in {TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE, TimeUnit.DURATION}:
+    elif time_interval.unit in {
+        TimeUnit.BATCH,
+        TimeUnit.TOKEN,
+        TimeUnit.SAMPLE,
+        TimeUnit.DURATION,
+        TimeUnit.SECOND,
+    }:
         interval_event = Event.BATCH_CHECKPOINT if checkpoint_events else Event.BATCH_END
     else:
         raise NotImplementedError(
-            f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.',
+            f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, ' +\
+            'TimeUnit.SAMPLE, TimeUnit.SECOND',
         )
 
     last_batch_seen = -1
@@ -113,7 +120,14 @@ def create_interval_scheduler(
         if include_end_of_training and event in final_events and elapsed_duration >= 1.0 and state.timestamp.batch != last_batch_seen:
             return True
 
-        if time_interval.unit in {TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE}:
+        if time_interval.unit in {
+            TimeUnit.ITERATION,
+            TimeUnit.EPOCH,
+            TimeUnit.BATCH,
+            TimeUnit.TOKEN,
+            TimeUnit.SAMPLE,
+            TimeUnit.SECOND,
+        }:
             previous_count = state.previous_timestamp.get(time_interval.unit)
             count = state.timestamp.get(time_interval.unit)
         # If the eval_interval is a duration, we will track progress in terms of the unit of max_duration
@@ -123,7 +137,8 @@ def create_interval_scheduler(
             count = state.timestamp.get(state.max_duration.unit)
         else:
             raise NotImplementedError(
-                f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.',
+                f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, ' +\
+                'TimeUnit.SAMPLE, TimeUnit.SECOND',
             )
 
         threshold_passed = math.floor(previous_count / time_interval.value) != math.floor(count / time_interval.value)

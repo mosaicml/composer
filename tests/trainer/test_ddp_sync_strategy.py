@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import List, Optional
+from typing import Optional
 
 import pytest
 import torch
@@ -18,7 +18,7 @@ from tests.common.datasets import RandomClassificationDataset
 
 class MinimalConditionalModel(nn.Module):
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
         self.choice1 = nn.Linear(1, 1, bias=False)
@@ -57,7 +57,7 @@ class MinimalConditionalModel(nn.Module):
 @pytest.mark.world_size(2)
 def test_ddp_sync_strategy(
     ddp_sync_strategy: str,
-    expected_grads: List[List[Optional[float]]],
+    expected_grads: list[list[Optional[float]]],
     rank_zero_seed: int,
     request: pytest.FixtureRequest,
 ):

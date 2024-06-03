@@ -4,7 +4,7 @@
 import contextlib
 import copy
 import pathlib
-from typing import Any, Dict, Tuple
+from typing import Any
 from urllib.parse import urlparse
 
 import pytest
@@ -81,7 +81,7 @@ class TestObjectStore:
     @pytest.fixture
     def object_store(
         self,
-        bucket_uri_and_kwargs: Tuple[str, Dict[str, Any]],
+        bucket_uri_and_kwargs: tuple[str, dict[str, Any]],
         monkeypatch: pytest.MonkeyPatch,
         tmp_path: pathlib.Path,
         remote: bool,
