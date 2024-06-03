@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, TextIO, Union
+from typing import TYPE_CHECKING, Any, Optional, Sequence, TextIO, Union
 
 import numpy as np
 import yaml
@@ -63,26 +63,26 @@ class ConsoleLogger(LoggerDestination):
                 raise ValueError(f'stream must be one of ("stdout", "stderr", TextIO-like), got {stream}')
         self.should_log_traces = log_traces
         self.stream = stream
-        self.hparams: Dict[str, Any] = {}
+        self.hparams: dict[str, Any] = {}
         self.hparams_already_logged_to_console: bool = False
-        self.logged_metrics: Dict[str, float] = {}
+        self.logged_metrics: dict[str, float] = {}
         self.eval_batch_idxs_to_log: Sequence[int] = []
-        self.tables: Dict[str, str] = {}
+        self.tables: dict[str, str] = {}
 
-    def log_traces(self, traces: Dict[str, Any]):
+    def log_traces(self, traces: dict[str, Any]):
         if self.should_log_traces:
             for trace_name, trace in traces.items():
                 trace_str = format_log_data_value(trace)
                 self._log_to_console(f'[trace]: {trace_name}:' + trace_str + '\n')
 
-    def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
+    def log_hyperparameters(self, hyperparameters: dict[str, Any]):
         # Lazy logging of hyperparameters.
         self.hparams.update(hyperparameters)
 
     def log_table(
         self,
-        columns: List[str],
-        rows: List[List[Any]],
+        columns: list[str],
+        rows: list[list[Any]],
         name: str = 'Table',
         step: Optional[int] = None,
     ) -> None:
@@ -98,7 +98,7 @@ class ConsoleLogger(LoggerDestination):
         table = pd.DataFrame.from_records(data=rows, columns=columns).to_json(orient='split', index=False)
         self.tables[name] = str(table)
 
-    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
+    def log_metrics(self, metrics: dict[str, float], step: Optional[int] = None) -> None:
         del step
         # Lazy logging of metrics.
         # Stores all metrics logged until they are cleared with a log_to_console call
@@ -226,7 +226,7 @@ class ConsoleLogger(LoggerDestination):
             training_progress = f'[{unit.name.lower()}={curr_duration}/{total}]'
         return training_progress
 
-    def log_to_console(self, data: Dict[str, Any], state: State, prefix: str = '', is_train=True) -> None:
+    def log_to_console(self, data: dict[str, Any], state: State, prefix: str = '', is_train=True) -> None:
         # log to console
         if is_train:
             progress = self._get_progress_string(state)
