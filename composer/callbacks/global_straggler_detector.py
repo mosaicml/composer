@@ -8,36 +8,39 @@ Original StragglerDetector README: https://github.com/NVIDIA/Megatron-LM/blob/c4
 Original StragglerDetector implementation: https://github.com/NVIDIA/Megatron-LM/blob/c4d12e26b2dc25a2eab7da92e2ac30338c0ed3de/megatron/core/utils.py
 """
 
-from dataclasses import dataclass
-import time
-import os
 import logging
+import os
 import queue
 import socket
 import sys
 import threading
+import time
 import traceback
+from dataclasses import dataclass
 from types import TracebackType
-from typing import List, Optional, Tuple, Type, Union, Callable
+from typing import Callable, List, Optional, Tuple, Type, Union
+
 import torch
 
 from composer.core import Callback, State
 from composer.loggers import Logger
-from composer.utils import dist
 from composer.models.base import ComposerModel
+from composer.utils import dist
 
+__all__ = ['GlobalStragglerDetector']
 
-__all__ = ["GlobalStragglerDetector"]
 
 class _ValueWithRank:
     """This is an internal class, not for use outside this module
+
+
     Attributes:
         _rank (int): rank for the value
         _value (float) : the value it stores, eg elapsed time
         _unit (str) : unit for the value
     """
 
-    def __init__(self, value: float, rank: int, unit: str = "") -> None:
+    def __init__(self, value: float, rank: int, unit: str = '') -> None:
         """Initializer
         Args:
             _value (float): the initial value with which it is inited
@@ -68,7 +71,7 @@ class _ValueWithRank:
 
     def __call__(self) -> Tuple[float, int, str]:
         """Returns the value, the rank, and unit as a Tuple
-            
+
         Returns:
             Tuple[float, int, str]: value, rank, unit
         """
@@ -84,10 +87,11 @@ class _ValueWithRank:
         return f"{self._value:.2f}{self._unit}/Rank-{self._rank}"
 
 
-
 @dataclass
 class _StragglerData:
     """This is an internal dataclass, not for use outside this module
+
+
     Attributes:
         min_elapsed (_ValueWithRank) min iteration time across all ranks
         max_elapsed (_ValueWithRank) max iteration time across all ranks
@@ -105,24 +109,24 @@ class _StragglerData:
     """
 
     # gemm time
-    min_elapsed = _ValueWithRank(sys.float_info.max, 0, "ms")
-    max_elapsed = _ValueWithRank(sys.float_info.min, 0, "ms")
+    min_elapsed = _ValueWithRank(sys.float_info.max, 0, 'ms')
+    max_elapsed = _ValueWithRank(sys.float_info.min, 0, 'ms')
     # get_batch time
-    min_btime = _ValueWithRank(sys.float_info.max, 0, "us")
-    max_btime = _ValueWithRank(sys.float_info.min, 0, "us")
+    min_btime = _ValueWithRank(sys.float_info.max, 0, 'us')
+    max_btime = _ValueWithRank(sys.float_info.min, 0, 'us')
     # temp
-    min_temp = _ValueWithRank(sys.float_info.max, 0, "C")
-    max_temp = _ValueWithRank(sys.float_info.min, 0, "C")
+    min_temp = _ValueWithRank(sys.float_info.max, 0, 'C')
+    max_temp = _ValueWithRank(sys.float_info.min, 0, 'C')
     # power
-    min_power = _ValueWithRank(sys.float_info.max, 0, "W")
-    max_power = _ValueWithRank(sys.float_info.min, 0, "W")
+    min_power = _ValueWithRank(sys.float_info.max, 0, 'W')
+    max_power = _ValueWithRank(sys.float_info.min, 0, 'W')
     # util
-    min_util = _ValueWithRank(sys.float_info.max, 0, "%")
-    max_util = _ValueWithRank(sys.float_info.min, 0, "%")
+    min_util = _ValueWithRank(sys.float_info.max, 0, '%')
+    max_util = _ValueWithRank(sys.float_info.min, 0, '%')
     # clock
-    min_clock = _ValueWithRank(sys.float_info.max, 0, "MHz")
-    max_clock = _ValueWithRank(sys.float_info.min, 0, "MHz")
-    aflops: List[_ValueWithRank] = None
+    min_clock = _ValueWithRank(sys.float_info.max, 0, 'MHz')
+    max_clock = _ValueWithRank(sys.float_info.min, 0, 'MHz')
+    aflops: List[_ValueWithRank] = []
 
 
 class StragglerDetector:
@@ -162,11 +166,10 @@ class StragglerDetector:
         logger (Logger): the logger instance for this instance
     """
 
-    _configured = False
-    """Indicates if the singleton instance is configured or not
-    """
+    _instance = None
+    __initialized = False
 
-    def __new__(cls: Type["StragglerDetector"]) -> "StragglerDetector":
+    def __new__(cls: Type['StragglerDetector']) -> 'StragglerDetector':
         """Constructor
         Creates an instance of the class if not created
         Args:
@@ -175,120 +178,52 @@ class StragglerDetector:
             StragglerDetector: the class instance
         """
 
-        if not hasattr(cls, "_instance"):
+        if cls._instance is None:
             cls._instance = super(StragglerDetector, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self) -> None:
+    def __init__(self, world: int, rank: int, mmcnt: int = 1, amp: float = 1.0, prefill: int = 1024) -> None:
         """Initializer
         The inital state of the StragglerDetector instance is disabled.
         The enabled state is indicated using self._off member variable
         and the property enabled.
         """
-        self._off = True
-        self.start = self.null_method
-        self.stop = self.null_method
-        self.world = 0
-        self.rank = 0
-        self.mmcnt = 1
-        self.port = 0
-        #self.amp = 3.0 
-        self.amp = 1.0 # Changing default amp init to 1.0
-        self.toggle = False
-        self.bdata = False
-        self.dev = None
-        self.idx = 0
-        self.idx_q = None
-        self.evt_q = None
-        self.start_events = None
-        self.stop_events = None
-        self.start_time = None
-        self.stop_time = None
-        self.start_batch = None
-        self.stop_batch = None
-        self.sock = None
-        self.ctrlr = None
-        self.logger = logging.getLogger(__name__)
-
-    def configure(
-        self,
-        world: int,
-        rank: int,
-        mmcnt: int = 1,
-        amp: float = 1.0, # changed from Megatron-LM's default 3.0
-        port: int = 65535,
-        prefill: int = 1024,
-        enabled: bool = False,
-    ) -> None:
-        """This method is called to configure the Singleton instance
-        It should be called once per instantiation per process.
-        Note:
-            The constructor keeps the state of instance disabled
-            i.e no collection will happen even when start/stop methods are
-            called. Only when enabled is True (self._off is True), the
-            start/stop method pointers get assigned the real collection
-            methods, otherwise they are initialized with null_method
-        Args:
-            world (int): World Size
-            rank (int): The rank of this trainer
-            mmcnt (int, optional): Number of ranks to print for showing Min/Max Etpt.
-                                   Defaults to 1.
-            amp (float, optional): Set to 1.0 if we only use timers in fwd pass.
-                                   Defaults to 1.0.
-            port (int, optional): Control port, useful only for rank-0. Defaults to 65535.
-            prefill (int, optional): Howmany Events to pre-populate. Defaults to 1024.
-            enabled (bool, optional): Whether or not collection is enabled on startup.
-                                      Defaults to False.
-        """
-        if StragglerDetector._configured:
-            # don't throw
+        if self.__initialized:
             return
- 
-        StragglerDetector._configured = True
+        
+        self.__initialized = True
+        self.logger = logging.getLogger(__name__)
+        self.world = world
+        self.rank = rank
+        self.mmcnt = mmcnt
+        self.amp = amp
         self.bdata = False
-        self.start = self.null_method
-        self.stop = self.null_method
-        self._off = True
-        # No CUDA, No Support
+        self.idx = 0
+
+        self.start_events = []
+        self.stop_events = []
+        self.start_time = []
+        self.stop_time = []
+        self.start_batch = []
+        self.stop_batch = []
+        self.idx_q = queue.LifoQueue()
+        self.evt_q = queue.LifoQueue()
+        
+
         if torch.cuda.is_available():
-            self._off = not enabled
-            self.world = world
-            self.rank = rank
-            self.mmcnt = mmcnt if mmcnt > 1 else 1
-            self.amp = amp
-            self.port = port
-            self.toggle = False
-            self.bdata = False
-            self.idx = 0
-            self.idx_q = queue.LifoQueue()
-            self.evt_q = queue.LifoQueue()
-            self.start_events = []
-            self.stop_events = []
-            self.start_time = []
-            self.stop_time = []
-            self.start_batch = []
-            self.stop_batch = []
-            backend = torch.distributed.get_backend()
-            if backend == "nccl":
-                self.dev = torch.cuda.current_device()
-            else:
-                self.dev = torch.device("cpu")
-            # cache some events
-            for _ in range(prefill):
-                self.evt_q.put(torch.cuda.Event(enable_timing=True))
-            if self.rank == 0:
-                # Start the controller
-                self._controller()
-            if not self._off:
-                self.start = self.start_method
-                self.stop = self.stop_method
+            self.dev = torch.cuda.current_device()
+        else:
+            self.dev = torch.device('cpu')
+        for _ in range(prefill):
+            self.evt_q.put(torch.cuda.Event(enable_timing=True))
+
+        self.__initialized = True
+
 
     def reset(self) -> None:
         """This method is called to reset the metrics state of the instance
         It is generally called from within elapsed() after extracting per rank metrics.
         """
-        if self._off:
-            return
         self.idx = 0
         self.idx_q = queue.LifoQueue()
         # Pool them
@@ -361,9 +296,7 @@ class StragglerDetector:
                 util        : observed gpu utilization
                 clock       : observed gpu clock
         """
-        if self._off:
-            # match with return below
-            return 0, 0, 0, 0, 0, 0
+        
         ls_ev = len(self.start_events)
         le_ev = len(self.stop_events)
         ls_bs = len(self.start_batch)
@@ -397,7 +330,7 @@ class StragglerDetector:
         # time in ms, batch_delta in us, check return above
         return delta, batch_delta, temp, power, util, clock
 
-    # Modified following method from original Megatron-LM 
+    # Modified following method from original Megatron-LM
     def report(self, total_flops: float = 0.0, log_interval: int = 0) -> Tuple[bool, dict]:
         """Function to log the min/max metircs and the associated rank over a time period
         It finds the slowest and fastest rank among all ranks. It should be
@@ -419,40 +352,42 @@ class StragglerDetector:
             ptime = elapsed / (log_interval * 1.0)  # avg per iteration elapsed time, ms
             btime = btime_us / (log_interval * 1.0)  # avg per iteration get_batch time, us
             api_flops = total_flops / (log_interval * 1.0)  # avg per iteration flops, ms
-            
-            apir_flops = api_flops / (
-                ptime * 10 ** 9
-            )
+
+            apir_flops = api_flops / (ptime * 10**9)
             et_flops = apir_flops / self.amp  # Estimated TFLOPs, not tracing backward
 
             o_dt = self._min_max(
-                ptime, btime, float(temp), float(power), float(util), float(clock), et_flops,
+                ptime,
+                btime,
+                float(temp),
+                float(power),
+                float(util),
+                float(clock),
+                et_flops,
             )
             if self.rank == 0:
                 min_flops, min_frank, _ = o_dt.aflops[0]()
                 max_flops, max_frank, _ = o_dt.aflops[-1]()
-                
-                min_throughput = _ValueWithRank(min_flops, min_frank, "TF")
-                max_throughput = _ValueWithRank(max_flops, max_frank, "TF")
 
+                min_throughput = _ValueWithRank(min_flops, min_frank, 'TF')
+                max_throughput = _ValueWithRank(max_flops, max_frank, 'TF')
 
                 min_max_data = {
-                    "MinRoundTripTime/Rank": o_dt.min_elapsed,
-                    "MaxRoundTripTime/Rank": o_dt.max_elapsed,
-                    "MinPower/Rank": o_dt.min_power,
-                    "MaxPower/Rank": o_dt.max_power,
-                    "MinTemp/Rank": o_dt.min_temp,
-                    "MaxTemp/Rank": o_dt.max_temp,
-                    "MinUtilization/Rank": o_dt.min_util,
-                    "MaxUtilization/Rank": o_dt.max_util,
-                    "MinClock/Rank": o_dt.min_clock,
-                    "MaxClock/Rank": o_dt.max_clock,
-                    "MinBatchLoadLatency/Rank": o_dt.min_btime,
-                    "MaxBatchLoadLatency/Rank": o_dt.max_btime,
-                    "MinThroughput/Rank": min_throughput,
-                    "MaxThroughput/Rank": max_throughput
+                    'MinRoundTripTime/Rank': o_dt.min_elapsed,
+                    'MaxRoundTripTime/Rank': o_dt.max_elapsed,
+                    'MinPower/Rank': o_dt.min_power,
+                    'MaxPower/Rank': o_dt.max_power,
+                    'MinTemp/Rank': o_dt.min_temp,
+                    'MaxTemp/Rank': o_dt.max_temp,
+                    'MinUtilization/Rank': o_dt.min_util,
+                    'MaxUtilization/Rank': o_dt.max_util,
+                    'MinClock/Rank': o_dt.min_clock,
+                    'MaxClock/Rank': o_dt.max_clock,
+                    'MinBatchLoadLatency/Rank': o_dt.min_btime,
+                    'MaxBatchLoadLatency/Rank': o_dt.max_btime,
+                    'MinThroughput/Rank': min_throughput,
+                    'MaxThroughput/Rank': max_throughput,
                 }
-
 
                 if self.mmcnt > 1 and self.mmcnt < self.world:
                     line = f"^^^^ Bottom {self.mmcnt} Ranks with lowest  Etpt(TF):"
@@ -466,84 +401,7 @@ class StragglerDetector:
                     self.logger.info(line)
                 ret = True
 
-        # Check/Communicate if tracking is turned off or on
-        self._check_toggle()
         return ret, min_max_data
-
-    def _check_toggle(self) -> None:
-        """Helper method to check if a request to toggle the collection state was made
-        It checks iof collection state toggle req was made via the server listening on
-        rank-0 since last call to report(). Called by report(). Calling this method
-        indirectly from report() is the only way to activate the change that is made
-        via rank-0
-        """
-        # If no change just commnunicate the current
-        off = self._off
-        if self.rank == 0 and self.toggle:
-            off = not self._off
-            self.toggle = False
-        state = torch.tensor(off, dtype=torch.bool, device=self.dev)
-        torch.distributed.broadcast(state, 0)  # Blocking
-        self._off = state.item()
-        if not self._off:
-            self.start = self.start_method
-            self.stop = self.stop_method
-            state = "ON"
-        else:
-            self.start = self.null_method
-            self.stop = self.null_method
-            state = "OFF"
-        if self.rank == 0 and off is not self._off:
-            self.logger.info(f"Toggling StragglerDetector State {state}")
-
-    def _handler(self) -> None:
-        """Thread function for the controller.
-        It is a tcp-server that listens on a port. Uses HTTP protocol.
-        If connected to it using curl, it indicates a toggle of the
-        collection state. The actual toggling happens at the end of
-        calling report() when _check_toggle() is called.
-        """
-        resp = f"HTTP/1.0 200 OK\r\nConnection: Close\r\nContent-length: "
-
-        if self.rank == 0:
-            state = "OFF" if self._off else "ON"
-            self.logger.info(
-                f"Controller ready to recv " f"commands on port {self.port}. Current state {state}"
-            )
-            while True:
-                try:
-                    conn, _ = self.sock.accept()
-                    _ = conn.recv(1024)
-                    self.toggle = True
-                    state = "ON" if self._off else "OFF"
-                    msg = f"Will turn StragglerDetector {state} at next logging interval"
-                    msg_len = len(msg)
-                    final_resp = f"{resp}{msg_len}\r\n\r\n{msg}"
-                    conn.send(final_resp.encode())
-                    conn.close()
-                    self.logger.info(msg)
-                except Exception as err:
-                    self.logger.error(f"Error in stragler handler.. {str(err)}")
-                    return
-
-    def _controller(self):
-        """Installs a controller listener that is used to toggle collection state.
-        Called from configure(). Ignored for all ranks other than rank-0
-        """
-        try:
-            if self.rank == 0:
-                neth = "0.0.0.0"
-                netp = self.port
-                self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                self.sock.bind((neth, netp))
-                self.sock.listen(128)
-                self.ctrlr = threading.Thread(
-                    target=self._handler, args=(), name="straggler", daemon=True
-                )
-                self.ctrlr.start()
-        except Exception as err:
-            self.logger.warning(f"StragglerDetector cannot be controlled.. {str(err)}")
 
     def _min_max(
         self,
@@ -570,20 +428,18 @@ class StragglerDetector:
                                          all (flops, rank) sorted by flops (aflops)
                                          or returns None if collecton is disabled
         """
-        if self._off:
-            return None
         # initialize output data object
         o_dt = _StragglerData()
 
         prof_data = {}
-        prof_data["rank"] = self.rank
-        prof_data["time"] = ptime
-        prof_data["btime"] = btime
-        prof_data["temp"] = temp
-        prof_data["power"] = power
-        prof_data["util"] = util
-        prof_data["clock"] = clock
-        prof_data["flops"] = flops
+        prof_data['rank'] = self.rank
+        prof_data['time'] = ptime
+        prof_data['btime'] = btime
+        prof_data['temp'] = temp
+        prof_data['power'] = power
+        prof_data['util'] = util
+        prof_data['clock'] = clock
+        prof_data['flops'] = flops
 
         if self.rank == 0:
             data_list = [prof_data] * self.world
@@ -594,114 +450,75 @@ class StragglerDetector:
         torch.distributed.gather_object(prof_data, object_gather_list=data_list, dst=0)
 
         if self.rank == 0:
-            min_ctime = min(data_list, key=lambda k: k["time"])  # elapsed
-            max_ctime = max(data_list, key=lambda k: k["time"])  # elapsed
+            min_ctime = min(data_list, key=lambda k: k['time'])  # elapsed
+            max_ctime = max(data_list, key=lambda k: k['time'])  # elapsed
 
-            min_cbatch = min(data_list, key=lambda k: k["btime"])  # batch time
-            max_cbatch = max(data_list, key=lambda k: k["btime"])  # batch time
+            min_cbatch = min(data_list, key=lambda k: k['btime'])  # batch time
+            max_cbatch = max(data_list, key=lambda k: k['btime'])  # batch time
 
-            min_ctemp = min(data_list, key=lambda k: k["temp"])  # temp
-            max_ctemp = max(data_list, key=lambda k: k["temp"])  # temp
+            min_ctemp = min(data_list, key=lambda k: k['temp'])  # temp
+            max_ctemp = max(data_list, key=lambda k: k['temp'])  # temp
 
-            min_cpower = min(data_list, key=lambda k: k["power"])  # power
-            max_cpower = max(data_list, key=lambda k: k["power"])  # power
+            min_cpower = min(data_list, key=lambda k: k['power'])  # power
+            max_cpower = max(data_list, key=lambda k: k['power'])  # power
 
-            min_cutil = min(data_list, key=lambda k: k["util"])  # gpu util
-            max_cutil = max(data_list, key=lambda k: k["util"])  # gpu util
+            min_cutil = min(data_list, key=lambda k: k['util'])  # gpu util
+            max_cutil = max(data_list, key=lambda k: k['util'])  # gpu util
 
-            min_cclock = min(data_list, key=lambda k: k["clock"])  # gpu clock
-            max_cclock = max(data_list, key=lambda k: k["clock"])  # gpu clock
+            min_cclock = min(data_list, key=lambda k: k['clock'])  # gpu clock
+            max_cclock = max(data_list, key=lambda k: k['clock'])  # gpu clock
 
-            min_val = min_ctime["time"]
-            min_rank = min_ctime["rank"]
-            max_val = max_ctime["time"]
-            max_rank = max_ctime["rank"]
-            o_dt.min_elapsed = _ValueWithRank(min_val, min_rank, "ms")
-            o_dt.max_elapsed = _ValueWithRank(max_val, max_rank, "ms")
+            min_val = min_ctime['time']
+            min_rank = min_ctime['rank']
+            max_val = max_ctime['time']
+            max_rank = max_ctime['rank']
+            o_dt.min_elapsed = _ValueWithRank(min_val, min_rank, 'ms')
+            o_dt.max_elapsed = _ValueWithRank(max_val, max_rank, 'ms')
 
-            min_val = min_cbatch["btime"]
-            min_rank = min_cbatch["rank"]
-            max_val = max_cbatch["btime"]
-            max_rank = max_cbatch["rank"]
-            o_dt.min_btime = _ValueWithRank(min_val, min_rank, "us")
-            o_dt.max_btime = _ValueWithRank(max_val, max_rank, "us")
+            min_val = min_cbatch['btime']
+            min_rank = min_cbatch['rank']
+            max_val = max_cbatch['btime']
+            max_rank = max_cbatch['rank']
+            o_dt.min_btime = _ValueWithRank(min_val, min_rank, 'us')
+            o_dt.max_btime = _ValueWithRank(max_val, max_rank, 'us')
 
-            min_val = min_ctemp["temp"]
-            min_rank = min_ctemp["rank"]
-            max_val = max_ctemp["temp"]
-            max_rank = max_ctemp["rank"]
-            o_dt.min_temp = _ValueWithRank(min_val, min_rank, "C")
-            o_dt.max_temp = _ValueWithRank(max_val, max_rank, "C")
+            min_val = min_ctemp['temp']
+            min_rank = min_ctemp['rank']
+            max_val = max_ctemp['temp']
+            max_rank = max_ctemp['rank']
+            o_dt.min_temp = _ValueWithRank(min_val, min_rank, 'C')
+            o_dt.max_temp = _ValueWithRank(max_val, max_rank, 'C')
 
-            min_val = min_cpower["power"]
-            min_rank = min_cpower["rank"]
-            max_val = max_cpower["power"]
-            max_rank = max_cpower["rank"]
-            o_dt.min_power = _ValueWithRank(min_val, min_rank, "W")
-            o_dt.max_power = _ValueWithRank(max_val, max_rank, "W")
+            min_val = min_cpower['power']
+            min_rank = min_cpower['rank']
+            max_val = max_cpower['power']
+            max_rank = max_cpower['rank']
+            o_dt.min_power = _ValueWithRank(min_val, min_rank, 'W')
+            o_dt.max_power = _ValueWithRank(max_val, max_rank, 'W')
 
-            min_val = min_cutil["util"]
-            min_rank = min_cutil["rank"]
-            max_val = max_cutil["util"]
-            max_rank = max_cutil["rank"]
-            o_dt.min_util = _ValueWithRank(min_val, min_rank, "%")
-            o_dt.max_util = _ValueWithRank(max_val, max_rank, "%")
+            min_val = min_cutil['util']
+            min_rank = min_cutil['rank']
+            max_val = max_cutil['util']
+            max_rank = max_cutil['rank']
+            o_dt.min_util = _ValueWithRank(min_val, min_rank, '%')
+            o_dt.max_util = _ValueWithRank(max_val, max_rank, '%')
 
-            min_val = min_cclock["clock"]
-            min_rank = min_cclock["rank"]
-            max_val = max_cclock["clock"]
-            max_rank = max_cclock["rank"]
-            o_dt.min_clock = _ValueWithRank(min_val, min_rank, "MHz")
-            o_dt.max_clock = _ValueWithRank(max_val, max_rank, "MHz")
+            min_val = min_cclock['clock']
+            min_rank = min_cclock['rank']
+            max_val = max_cclock['clock']
+            max_rank = max_cclock['rank']
+            o_dt.min_clock = _ValueWithRank(min_val, min_rank, 'MHz')
+            o_dt.max_clock = _ValueWithRank(max_val, max_rank, 'MHz')
 
-            o_dt.aflops = [
-                _ValueWithRank(d.get("flops"), d.get("rank")) for _, d in enumerate(data_list)
-            ]
+            o_dt.aflops = [_ValueWithRank(d.get('flops'), d.get('rank')) for _, d in enumerate(data_list)]
             o_dt.aflops.sort(key=lambda val_with_rank: val_with_rank()[0])
         # wait for everyone here
         torch.distributed.barrier()
 
         return o_dt
 
-    @property
-    def enabled(self) -> bool:
-        """Can be called to check the enabled state of the instance
-        Note:
-            After the request to toggle the state, the
-            actual state change happens at end of call
-            to report()
-        """
-        return not self._off
 
-    @property
-    def configured(self) -> bool:
-        """Can be called to check if the the instance is already configured
-        Returns:
-            bool: returns True if configure was called and was a success, else False
-        """
-        return StragglerDetector._configured
-
-    @property
-    def my_rank(self):
-        """Can be called to get configured rank of this instance
-        Returns:
-            int: Configured rank for this instance
-        """
-        return self.rank
-
-    @property
-    def world_size(self) -> int:
-        """Can be called to get configured world of this instance
-        Returns:
-            int: World size configured for this instance
-        """
-        return self.world
-
-    def null_method(self) -> None:
-        """Default method to initialize start/stop method ptrs"""
-        pass
-
-    def __enter__(self) -> "StragglerDetector":
+    def __enter__(self) -> 'StragglerDetector':
         """Define context/instance entry
         Returns:
             StragglerDetector: the instance
@@ -709,7 +526,7 @@ class StragglerDetector:
         self.start()
         return self
 
-    def __call__(self, bdata: bool = False) -> "StragglerDetector":
+    def __call__(self, bdata: bool = False) -> 'StragglerDetector':
         """Callable for the instance. Set context state,
         Useful when the context is used for cpu timers only when bdata=True
         Args:
@@ -744,7 +561,6 @@ class StragglerDetector:
         return ret
 
 
-
 class GlobalStragglerDetector(Callback):
     """Logs the minimum and maximum training values across all ranks for the following metrics:
 
@@ -756,8 +572,8 @@ class GlobalStragglerDetector(Callback):
         BatchLoadLatency: Time spent loading the current batch from the dataset
         Throughput: Estimated throughput for the current batch
 
-    The maximum and minimum values for these metrics, alongside their respective ranks, are logged 
-    on the :attr:`.Event.BATCH_END` event for every batch. 
+    The maximum and minimum values for these metrics, alongside their respective ranks, are logged
+    on the :attr:`.Event.BATCH_END` event for every batch.
 
     To compute `flops_per_sec`, the model attribute `flops_per_batch` should be set to a callable
     which accepts a batch and returns the number of flops for that batch. Typically, this should
@@ -800,15 +616,15 @@ class GlobalStragglerDetector(Callback):
     +-------------------------------------+-----------------------------------------------------------+
     | `MinTemp/Rank`                      | Minimum GPU Temperature for the corresponding rank        |
     +-------------------------------------+-----------------------------------------------------------+
-    | `MaxTemp/Rank`                      | Maximum GPU Temperature for the corresponding rank        |    
+    | `MaxTemp/Rank`                      | Maximum GPU Temperature for the corresponding rank        |
     +-------------------------------------+-----------------------------------------------------------+
     | `MinUtilization/Rank`               | Minimum GPU Utilization for the corresponding rank        |
     +-------------------------------------+-----------------------------------------------------------+
-    | `MaxUtilization/Rank`               | Maximum GPU Utilization for the corresponding rank        |  
+    | `MaxUtilization/Rank`               | Maximum GPU Utilization for the corresponding rank        |
     +-------------------------------------+-----------------------------------------------------------+
-    | `MinClock/Rank`                     | Minimum GPU Clock for the corresponding rank              |  
+    | `MinClock/Rank`                     | Minimum GPU Clock for the corresponding rank              |
     +-------------------------------------+-----------------------------------------------------------+
-    | `MaxClock/Rank`                     | Maximum GPU Clock for the corresponding rank              |  
+    | `MaxClock/Rank`                     | Maximum GPU Clock for the corresponding rank              |
     +-------------------------------------+-----------------------------------------------------------+
     |                                     | Minimum time spent loading the current batch from the     |
     | `MinBatchLoadLatency/Rank`          | dataset across all ranks for the corresponding rank       |
@@ -818,34 +634,32 @@ class GlobalStragglerDetector(Callback):
     | `MaxBatchLoadLatency/Rank`          | dataset across all ranks for the corresponding rank       |
     |                                     |                                                           |
     +-------------------------------------+-----------------------------------------------------------+
-    | `MinThroughput/Rank`                | Minimum estimated throughput for the corresponding rank   |  
+    | `MinThroughput/Rank`                | Minimum estimated throughput for the corresponding rank   |
     +-------------------------------------+-----------------------------------------------------------+
-    | `MaxThroughput/Rank`                | Maximum estimated throughput for the corresponding rank   |  
+    | `MaxThroughput/Rank`                | Maximum estimated throughput for the corresponding rank   |
     +-------------------------------------+-----------------------------------------------------------+
 
-    
+
     Args:
         None
     """
 
     def __init__(self) -> None:
-        self.stimer = None
+        self.off = False
 
     def init(self, state: State, logger: Logger) -> None:
-        self.stimer = StragglerDetector()
-        port = int(os.environ.get('MASTER_PORT'))
         rank = dist.get_global_rank()
         world_size = dist.get_world_size()
-        if rank == 0:
-            self.stimer.configure(world_size, rank, enabled=True, port=port)
-        else:
-            self.stimer.configure(world_size, rank, enabled=True)
-        
+        self.stimer = StragglerDetector(world_size, rank)
 
     def batch_start(self, state: State, logger: Logger):
+        if self.off:
+            return
         self.stimer.start()
 
     def batch_end(self, state: State, logger: Logger):
+        if self.off:
+            return
         # Compute flops stats if model has flops_per_batch
         composer_model = state.model
         if not isinstance(composer_model, ComposerModel):
@@ -853,10 +667,9 @@ class GlobalStragglerDetector(Callback):
         if hasattr(composer_model, 'flops_per_batch'):
             model_flops_per_batch = composer_model.flops_per_batch  # type: ignore
             if not isinstance(model_flops_per_batch, Callable):
-                raise TypeError(
-                    'flops_per_batch must a callable accepting a batch and '
-                    f'returning an int or float. Instead, got {type(model_flops_per_batch)}.',
-                )
+                self.off = True
+                logger.info("Model must contain the parameter model_flops_per_batch for throughput calculation and be Callable. Turning off GlobalStragglerDetector Callback.")
+                return
             device_flops_per_batch = model_flops_per_batch(state.batch)
             self.stimer.stop()
             is_rank_zero, min_max_data = self.stimer.report(total_flops=device_flops_per_batch, log_interval=1)
@@ -864,15 +677,19 @@ class GlobalStragglerDetector(Callback):
                 logger.log_metrics(min_max_data)
 
         else:
-            raise ValueError("The 'flops_per_batch' attribute is not present in this model; StragglerDetector requires tracking flops per batch.")
+            self.off = True
+            logger.info("Model must contain the parameter model_flops_per_batch for throughput calculation. Turning off GlobalStragglerDetector Callback.")
+            return
 
-    
     def before_dataloader(self, state: State, logger: Logger):
+        if self.off:
+            return
         self.stimer.bdata = True
         self.stimer.start()
-  
-    
+
     def after_dataloader(self, state: State, logger: Logger):
+        if self.off:
+            return
         self.stimer.stop()
         self.stimer.report()
         self.stimer.bdata = False
