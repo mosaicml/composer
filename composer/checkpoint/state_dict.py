@@ -25,7 +25,7 @@ from composer.core.evaluator import Evaluator
 from composer.core.state import State
 from composer.core.time import Timestamp
 from composer.models import ComposerModel
-from composer.utils import STR_TO_DTYPE, _dataset_of, dist
+from composer.utils import STR_TO_DTYPE, dist
 from composer.devices import Device
 from composer.models import ComposerModel, HuggingFaceModel
 from composer.utils import STR_TO_DTYPE, dist, get_composer_env_dict
@@ -215,8 +215,10 @@ def get_resumption_state_dict(state: Optional[State] = None) -> Dict[str, Any]:
     return resumption_state_dict
 
 
-def _make_state_dict_for_list_of_objects(objects: Sequence[Any]) -> Dict[str, Any]:
+def _make_state_dict_for_list_of_objects(objects: Union[Sequence[Any], Any]) -> Dict[str, Any]:
     object_dict = {}
+    if not isinstance(objects, Sequence):
+        objects = [objects]
     for obj in objects:
         if not hasattr(obj, 'state_dict') or obj.state_dict() == {}:
             continue
@@ -239,7 +241,7 @@ def get_dataset_state_dict(
     dataset = _dataset_of(train_dataloader)
     if hasattr(dataset, 'state_dict'):
         num_samples = int(timestamp.sample_in_epoch.value)
-        obj['train'] = dataset.state_dict(num_samples, True)  # pyright: ignore
+        dataset_state_dict['train'] = dataset.state_dict(num_samples, True)  # pyright: ignore
 
     return dataset_state_dict
 
@@ -454,7 +456,7 @@ def get_metadata_state_dict(
     return metadata_state_dict
 
 
-def _dataset_of(self, dataloader: Optional[Union[Evaluator, DataSpec, DataLoader, Iterable]]) -> Optional[Dataset]:
+def _dataset_of(dataloader: Optional[Union[Evaluator, DataSpec, DataLoader, Iterable]]) -> Optional[Dataset]:
     """Get the dataset contained by the given dataloader-like object.
 
     Args:

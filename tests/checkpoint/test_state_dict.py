@@ -17,7 +17,7 @@ from tests.common.compare import deep_compare
 from tests.common.markers import world_size
 from tests.common.models import EvenSimplerMLP, SimpleComposerMLP, configure_tiny_gpt2_hf_model
 from composer.core import State
-from torch.optim.lr_scheduler import LRScheduler
+from torch.optim.lr_scheduler import StepLR
 from composer.algorithms import SWA
 from composer.callbacks import SpeedMonitor
 import datetime
@@ -523,7 +523,7 @@ def test_get_metadata_sharded_model(model_type: str, tensor_type: str, world_siz
     assert 'dist_backend' in metadata_sd
     assert metadata_sd['dist_backend'] == 'nccl'
 
-
+@pytest.mark.filterwarnings("ignore:SWA has")
 def test_get_resumption_state_dict():
 
     model, optimizer = _init_model_and_optimizer(use_composer_model=True, take_step=True)
@@ -531,21 +531,22 @@ def test_get_resumption_state_dict():
     rank_zero_seed = 10
     run_name = 'test_run'
     device = DeviceCPU()
-    test_dataset_sd = {'test': 0}
-    dataloader = MagicMock()
+    test_dataset_sd = {'foo': 0}
+    dataloader = MagicMock(spec=torch.utils.data.DataLoader)
     dataloader.dataset = MagicMock()
     dataloader.dataset.state_dict = MagicMock(return_value=test_dataset_sd)
+    swa = SWA()
     state = State(
         model=model,
         rank_zero_seed=rank_zero_seed,
         run_name=run_name,
         device=device,
         train_dataloader=dataloader,
-        algorithms=SWA(),
+        algorithms=swa,
         callbacks=SpeedMonitor(),
 
     )
-    state.schedulers = LRScheduler(optimizer=optimizer)
+    state.schedulers = StepLR(optimizer=optimizer, step_size=2)
     rsd = get_resumption_state_dict(state)
 
     assert rsd['rank_zero_seed'] == rank_zero_seed
@@ -566,14 +567,16 @@ def test_get_resumption_state_dict():
             'epoch_wct': datetime.timedelta(0),
             'batch_wct': datetime.timedelta(0),
         }
-    assert rsd['dataset_state'] == test_dataset_sd
+    assert rsd['dataset_state'] == {'train': test_dataset_sd}
+    assert 'SWA' in rsd['algorithms']
+    rsd['algorithms']['SWA'].pop('repr')
     assert rsd['algorithms'] == {'SWA': {'swa_model': None,
                                          'swa_completed': False,
                                          'swa_started': False,
                                          'swa_scheduler': None,
                                          'step_counter': 0,
                                          }}
-    assert rsd['callbacks'] == {'SpeedMonitor': {'total_eval_wct': datetime.timedelta(0)}}
+    assert rsd['callbacks'] == {'SpeedMonitor': {'total_eval_wct': 0.0}}
 
 
 @pytest.mark.gpu
@@ -600,10 +603,10 @@ def test_get_resumption_state_dict_with_grad_scaler():
         scaler=GradScaler(),
     )
     rsd = get_resumption_state_dict(state)
-    assert 'scalers' in rsd
-    assert rsd['scalers'].keys() == ["scale", 
+    assert 'scaler' in rsd
+    assert set(rsd['scaler'].keys()) == {"scale", 
                                      "growth_factor",
                                      "backoff_factor",
                                      "growth_interval",
-                                     "_growth_tracker"]
+                                     "_growth_tracker"}
 
