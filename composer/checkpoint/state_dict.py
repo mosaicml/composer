@@ -28,7 +28,8 @@ from composer.models import ComposerModel
 from composer.utils import STR_TO_DTYPE, dist
 from composer.devices import Device
 from composer.models import ComposerModel, HuggingFaceModel
-from composer.utils import STR_TO_DTYPE, dist, get_composer_env_dict
+from composer.utils import STR_TO_DTYPE, dist, get_composer_env_dict, reproducibility
+
 
 log = logging.getLogger(__name__)
 
@@ -211,6 +212,7 @@ def get_resumption_state_dict(state: Optional[State] = None) -> Dict[str, Any]:
 
     resumption_state_dict['rank_zero_seed'] = state.rank_zero_seed
     resumption_state_dict['run_name'] = state.run_name
+    resumption_state_dict['rng'] = reproducibility.get_rng_state()
 
     return resumption_state_dict
 

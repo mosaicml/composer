@@ -12,7 +12,7 @@ from torch.optim import adam
 from composer.checkpoint import (get_metadata_state_dict, get_model_state_dict, get_optim_state_dict,
                                 get_resumption_state_dict)
 from composer.devices import DeviceGPU, DeviceCPU
-from composer.utils import dist
+from composer.utils import dist, reproducibility
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
 from tests.common.models import EvenSimplerMLP, SimpleComposerMLP, configure_tiny_gpt2_hf_model
@@ -279,13 +279,14 @@ def _init_model(
     batch_size=5,
     num_features=8,
     use_fsdp=False,
+    device='cuda',
     tensor_type='sharded_tensor',
 ):
     if use_composer_model:
-        model = SimpleComposerMLP(num_features=num_features, num_classes=num_classes, device='cuda')
+        model = SimpleComposerMLP(num_features=num_features, num_classes=num_classes, device=device)
         loss_fn = model._loss_fn
     else:
-        model = EvenSimplerMLP(num_features=num_features, num_out_features=num_classes, device='cuda')
+        model = EvenSimplerMLP(num_features=num_features, num_out_features=num_classes, device=device)
         loss_fn = torch.nn.CrossEntropyLoss()
 
     if use_fsdp:
@@ -315,9 +316,10 @@ def _init_optimizer(
     batch_size=5,
     num_features=8,
     take_step=True,
+    device='cuda',
 ):
-    inputs = torch.randn(batch_size, num_features, device='cuda')
-    targets = torch.randint(low=0, high=num_classes, size=(batch_size,), device='cuda', dtype=torch.long)
+    inputs = torch.randn(batch_size, num_features, device=device)
+    targets = torch.randint(low=0, high=num_classes, size=(batch_size,), device=device, dtype=torch.long)
     batch = (inputs, targets) if use_composer_model else inputs
     optimizer = adam.Adam(model.parameters())
     outputs = model(batch)
@@ -526,7 +528,7 @@ def test_get_metadata_sharded_model(model_type: str, tensor_type: str, world_siz
 @pytest.mark.filterwarnings("ignore:SWA has")
 def test_get_resumption_state_dict():
 
-    model, optimizer = _init_model_and_optimizer(use_composer_model=True, take_step=True)
+    model, optimizer = _init_model_and_optimizer(use_composer_model=True, take_step=True, device='cpu')
     
     rank_zero_seed = 10
     run_name = 'test_run'
@@ -580,13 +582,13 @@ def test_get_resumption_state_dict():
 
 
 @pytest.mark.gpu
-def test_get_resumption_state_dict_with_grad_scaler():
+def test_get_resumption_state_dict_gpu():
     if version.parse(torch.__version__) >= version.parse('2.3.0'):
         from torch.amp.grad_scaler import GradScaler
     else:
         from torch.cuda.amp.grad_scaler import GradScaler
 
-    model, _ = _init_model_and_optimizer(use_composer_model=True, take_step=False)
+    model, _ = _init_model_and_optimizer(use_composer_model=True, take_step=False, device='cuda')
     
     rank_zero_seed = 10
     run_name = 'test_run'
@@ -609,4 +611,7 @@ def test_get_resumption_state_dict_with_grad_scaler():
                                      "backoff_factor",
                                      "growth_interval",
                                      "_growth_tracker"}
+    
+    assert 'rng' in rsd
+    deep_compare(rsd['rng'], reproducibility.get_rng_state())
 
