@@ -97,19 +97,6 @@ class _ProgressBar:
                 print('', file=self.file, flush=True)
             self.pbar.close()
 
-    def state_dict(self) -> dict[str, Any]:
-        pbar_state = self.pbar.format_dict
-
-        return {
-            'total': pbar_state['total'],
-            'position': self.position,
-            'bar_format': pbar_state['bar_format'],
-            'metrics': self.metrics,
-            'keys_to_log': self.keys_to_log,
-            'n': pbar_state['n'],
-            'timestamp_key': self.timestamp_key,
-        }
-
 
 class ProgressBarLogger(LoggerDestination):
     """Log metrics to the console and optionally show a progress bar.
@@ -334,24 +321,6 @@ class ProgressBarLogger(LoggerDestination):
         if self.eval_pbar:
             self.eval_pbar.close()
             self.eval_pbar = None
-
-    def state_dict(self) -> dict[str, Any]:
-        return {
-            'train_pbar': self.train_pbar.state_dict() if self.train_pbar else None,
-            'eval_pbar': self.eval_pbar.state_dict() if self.eval_pbar else None,
-        }
-
-    def load_state_dict(self, state: dict[str, Any]) -> None:
-        if state['train_pbar']:
-            n = state['train_pbar'].pop('n')
-            train_pbar = self._ensure_backwards_compatibility(state['train_pbar'])
-            self.train_pbar = _ProgressBar(file=self.stream, **train_pbar)
-            self.train_pbar.update(n=n)
-        if state['eval_pbar']:
-            n = state['train_pbar'].pop('n')
-            eval_pbar = self._ensure_backwards_compatibility(state['eval_pbar'])
-            self.eval_pbar = _ProgressBar(file=self.stream, **eval_pbar)
-            self.eval_pbar.update(n=n)
 
     def _ensure_backwards_compatibility(self, state: dict[str, Any]) -> dict[str, Any]:
         # ensure backwards compatible with mosaicml<=v0.8.0 checkpoints
