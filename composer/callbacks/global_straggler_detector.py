@@ -216,6 +216,8 @@ class StragglerDetector:
         for _ in range(prefill):
             self.evt_q.put(torch.cuda.Event(enable_timing=True))
 
+        self.start = self.start_method
+        self.stop = self.stop_method
         self.__initialized = True
 
     def reset(self) -> None:
@@ -666,7 +668,7 @@ class GlobalStragglerDetector(Callback):
             if not isinstance(model_flops_per_batch, Callable):
                 self.off = True
                 logger.info(
-                    'Model must contain the parameter model_flops_per_batch for throughput calculation and be Callable. Turning off GlobalStragglerDetector Callback.'
+                    'Model must contain the parameter model_flops_per_batch for throughput calculation and be Callable. Turning off GlobalStragglerDetector Callback.',
                 )
                 return
             device_flops_per_batch = model_flops_per_batch(state.batch)
@@ -678,7 +680,7 @@ class GlobalStragglerDetector(Callback):
         else:
             self.off = True
             logger.info(
-                'Model must contain the parameter model_flops_per_batch for throughput calculation. Turning off GlobalStragglerDetector Callback.'
+                'Model must contain the parameter model_flops_per_batch for throughput calculation. Turning off GlobalStragglerDetector Callback.',
             )
             return
 
