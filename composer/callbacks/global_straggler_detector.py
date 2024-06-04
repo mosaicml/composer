@@ -145,15 +145,11 @@ class StragglerDetector:
         private to the class and has no use outside the class
 
     Attributes:
-        _off (bool): current state of the toggle
         start (FunctionType): start method
         stop (FunctionType): stop method
         world (int): world size
         rank (int): rank for this instance
         mmcnt (int): number of ranks to report
-        port (int): control port
-        amp (float): amplification factor for TFLOPs, default 3.0
-        toggle (bool): whether to start/stop detector collection
         bdata (bool): when true, just collect get_batch
         dev (int): cuda device
         idx (int): index into the list below
@@ -165,12 +161,9 @@ class StragglerDetector:
         stop_time (list[int]): stop time (wallclock)
         start_batch (list[int]): start time for get_batch
         stop_batch (list[int]): stop time for get_batch
-        sock (socket): the controller socket
-        ctrlr (Thread): the controller thread
         logger (Logger): the logger instance for this instance
     """
     _instance = None
-    
 
     def __new__(cls: Type['StragglerDetector'], *args, **kwargs) -> 'StragglerDetector':
         """Constructor.
@@ -184,10 +177,10 @@ class StragglerDetector:
         """
         if cls._instance is None:
             cls._instance = super(StragglerDetector, cls).__new__(cls)
-            cls._instance.__initialized = False 
+            cls._instance.__initialized = False
         return cls._instance
 
-    def __init__(self, world: int, rank: int, mmcnt: int = 1, amp: float = 1.0, prefill: int = 1024) -> None:
+    def __init__(self, world: int, rank: int, mmcnt: int = 1, prefill: int = 1024) -> None:
         """Initializer.
 
         The inital state of the StragglerDetector instance is disabled.
@@ -202,7 +195,6 @@ class StragglerDetector:
         self.world = world
         self.rank = rank
         self.mmcnt = mmcnt
-        self.amp = amp
         self.bdata = False
         self.idx = 0
 
@@ -358,7 +350,6 @@ class StragglerDetector:
             bool: True if reported, else False
             dict: Dict of min/max metrics and their associated ranks, empty if not rank-0
         """
-        self.logger.info("Entered report")
         ret = False
         min_max_data = {}
         if total_flops > 0.0 and log_interval > 0:
@@ -368,7 +359,7 @@ class StragglerDetector:
             api_flops = total_flops / (log_interval * 1.0)  # avg per iteration flops, ms
 
             apir_flops = api_flops / (ptime * 10**9)
-            et_flops = apir_flops / self.amp  # Estimated TFLOPs, not tracing backward
+            et_flops = apir_flops   # Estimated TFLOPs, not tracing backward
 
             o_dt = self._min_max(
                 ptime,
@@ -669,11 +660,9 @@ class GlobalStragglerDetector(Callback):
         self.off = False
 
     def init(self, state: State, logger: Logger) -> None:
-        print("entered init")
         rank = dist.get_global_rank()
         world_size = dist.get_world_size()
         self.stimer = StragglerDetector(world_size, rank)
-        print("finished init")
 
     def batch_start(self, state: State, logger: Logger):
         if self.off:
@@ -681,7 +670,6 @@ class GlobalStragglerDetector(Callback):
         self.stimer.start()
 
     def batch_end(self, state: State, logger: Logger):
-        print("entered batch_end")
         if self.off:
             return
         # Compute flops stats if model has flops_per_batch
