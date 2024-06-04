@@ -16,7 +16,7 @@ import queue
 import sys
 import time
 import traceback
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import TracebackType
 from typing import Callable, List, Optional, Tuple, Type, Union
 
