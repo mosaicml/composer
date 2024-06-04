@@ -218,7 +218,7 @@ def _main():
         if not cuda_version or interconnect == 'EFA':
             entry['MOFED_VERSION'] = ''
         else:
-            entry['MOFED_VERSION'] = '5.5-1.0.3.2'
+            entry['MOFED_VERSION'] = 'latest-23.10'
 
         # Skip EFA drivers if not using EFA
         if interconnect != 'EFA':
@@ -251,7 +251,7 @@ def _main():
             'PYTORCH_NIGHTLY_VERSION': '',
             'TARGET': 'composer_stage',
             'TORCHVISION_VERSION': _get_torchvision_version(pytorch_version),
-            'MOFED_VERSION': '5.5-1.0.3.2',
+            'MOFED_VERSION': 'latest-23.10',
             'AWS_OFI_NCCL_VERSION': '',
             'COMPOSER_INSTALL_COMMAND': f'mosaicml[all]=={composer_version}',
             'TAGS': _get_composer_tags(

@@ -30,7 +30,7 @@ from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_
 from composer.models import ComposerClassifier
 from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
-from composer.utils import dist, parse_uri
+from composer.utils import FSDPConfig, dist, parse_uri
 from composer.utils.checkpoint import is_checkpoint_legacy_sharded
 from composer.utils.file_helpers import get_file
 from composer.utils.object_store import S3ObjectStore
@@ -79,20 +79,6 @@ class SimpleMLP(ComposerClassifier):
                 torch.nn.init.zeros_(module.bias)
 
 
-@dataclasses.dataclass(frozen=True)
-class FSDPConfig:
-    state_dict_type: str = 'full'
-    sharding_strategy: str = 'FULL_SHARD'
-    sharded_ckpt_prefix_dir: str = 'ba{batch}'
-    sync_module_states: bool = True
-    use_orig_params: bool = True
-    load_monolith_rank0_only: bool = False
-    save_planner: Optional[Any] = None
-    load_planner: Optional[Any] = None
-    data_parallel_shard_degree: int = -1
-    process_group: Optional[str] = None
-
-
 def get_trainer(
     model_init_device: str = 'cpu',
     save_folder: Optional[str] = None,
@@ -118,7 +104,7 @@ def get_trainer(
     tp_config: Optional[dict[str, Any]] = None,
 ):
     if fsdp_config is None:
-        fsdp_config = FSDPConfig()
+        fsdp_config = FSDPConfig(sharded_ckpt_prefix_dir='ba{batch}')
     model = SimpleMLP(
         num_features=num_features,
         num_classes=num_classes,
@@ -139,7 +125,7 @@ def get_trainer(
     else:
         raise ValueError(f'Unsupported optimizer name {optimizer}')
 
-    parallelism_config = {'fsdp': dataclasses.asdict(fsdp_config)}
+    parallelism_config: dict[str, Union[FSDPConfig, dict[str, Any]]] = {'fsdp': fsdp_config}
     if tp_config is not None:
         parallelism_config['tp'] = tp_config
 
@@ -336,7 +322,11 @@ def test_fsdp_full_state_dict_load(
     save_folder = tmp_path
     save_filename = 'rank{rank}.pt'
 
-    fsdp_config = FSDPConfig(load_monolith_rank0_only=load_monolith_rank0_only)
+    fsdp_config = FSDPConfig(
+        sharded_ckpt_prefix_dir='ba{batch}',
+        sync_module_states=load_monolith_rank0_only,
+        load_monolith_rank0_only=load_monolith_rank0_only,
+    )
     tp_config = None
     if use_tp:
         from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
@@ -413,7 +403,10 @@ def test_fsdp_mixed_with_sync(
         get_trainer(
             model_init_device=['cpu', 'meta'][dist.get_global_rank()],
             save_folder=str(tmp_path),
-            fsdp_config=FSDPConfig(sync_module_states=sync_module_states),
+            fsdp_config=FSDPConfig(
+                sync_module_states=sync_module_states,
+                sharded_ckpt_prefix_dir='ba{batch}',
+            ),
         )
 
 
@@ -567,6 +560,7 @@ def test_fsdp_load_old_checkpoint(
         state_dict_type=state_dict_type,
         sharding_strategy=sharding_strategy,
         process_group='mod1' if requires_pgs else None,
+        sharded_ckpt_prefix_dir='ba{batch}',
     )
 
     trainer = get_trainer(
@@ -689,7 +683,10 @@ def test_fsdp_full_state_dict_load_with_ema(
     save_folder = tmp_path
     save_filename = 'ba{batch}-rank{rank}.pt'
 
-    fsdp_config = FSDPConfig(sharding_strategy='SHARD_GRAD_OP')
+    fsdp_config = FSDPConfig(
+        sharding_strategy='SHARD_GRAD_OP',
+        sharded_ckpt_prefix_dir='ba{batch}',
+    )
 
     trainer1 = get_trainer(
         save_folder=str(save_folder),
@@ -749,7 +746,10 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
 
     tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
     save_folder = os.path.join(tmp_paths[0], 'checkpoints')
-    fsdp_config = FSDPConfig(state_dict_type=state_dict_type)
+    fsdp_config = FSDPConfig(
+        state_dict_type=state_dict_type,
+        sharded_ckpt_prefix_dir='ba{batch}',
+    )
 
     # First trainer saves checkpoints.
     trainer = get_trainer(save_folder=save_folder, fsdp_config=fsdp_config, max_duration='1ba')
@@ -830,10 +830,10 @@ def test_fsdp_partitioned_state_dict_load(
 
     save_filename = 'ba{batch}-rank{rank}.pt'
 
-    fsdp_config = FSDPConfig(state_dict_type='sharded')
+    fsdp_config = FSDPConfig(state_dict_type='sharded', sharded_ckpt_prefix_dir='ba{batch}')
     tp_config = None
     if use_tp:
-        fsdp_config = FSDPConfig(state_dict_type='sharded')
+        fsdp_config = FSDPConfig(state_dict_type='sharded', sharded_ckpt_prefix_dir='ba{batch}')
         from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
         tp_config = {
             'tensor_parallel_degree': 2,
@@ -987,7 +987,7 @@ def test_elastic_resumption(
         run_name=run_name,
         max_duration='4ba',
         load_weights_only=False,
-        fsdp_config=FSDPConfig(state_dict_type='sharded'),
+        fsdp_config=FSDPConfig(state_dict_type='sharded', sharded_ckpt_prefix_dir='ba{batch}'),
     )
 
     def get_mono_state_dict_from_sharded_one(trainer):
@@ -1059,7 +1059,7 @@ def test_cleanup_sharded_checkpoints(
         max_duration=f'{batches_to_train}ba',
         save_interval='1ba',
         save_num_checkpoints_to_keep=num_ckpts_to_keep,
-        fsdp_config=FSDPConfig(state_dict_type='sharded'),
+        fsdp_config=FSDPConfig(state_dict_type='sharded', sharded_ckpt_prefix_dir='ba{batch}'),
     )
     run_name = trainer1.state.run_name
     trainer1.fit()
@@ -1149,6 +1149,7 @@ def test_fsdp_planner(
         state_dict_type='sharded',
         load_planner=load_planner,
         save_planner=save_planner,
+        sharded_ckpt_prefix_dir='ba{batch}',
     )
 
     trainer1 = get_trainer(
@@ -1232,6 +1233,7 @@ def test_fsdp_monolith_resumption(
         use_orig_params=use_orig_params,
         sync_module_states=sync_module_states,
         state_dict_type='full',
+        sharded_ckpt_prefix_dir='ba{batch}',
     )
 
     # All ranks use rank 0 folder

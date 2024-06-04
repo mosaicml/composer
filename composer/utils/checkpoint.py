@@ -685,7 +685,7 @@ def load_sharded_checkpoint(
             dist_cp.load_state_dict(
                 state_dict=state_dict,
                 storage_reader=storage_reader,
-                planner=state.fsdp_config['load_planner'],
+                planner=state.fsdp_config.load_planner,
                 no_dist=(not dist.is_initialized()),
             )
 
@@ -1053,7 +1053,7 @@ def get_save_filename(
 
     # Sharded checkpoints get their own little folder.
     assert state.fsdp_config is not None
-    remote_prefix = state.fsdp_config['sharded_ckpt_prefix_dir']
+    remote_prefix = state.fsdp_config.sharded_ckpt_prefix_dir
     assert remote_prefix is not None
     save_dirpath = Path(Path(filename).parent) / Path(remote_prefix)
     save_dirpath = format_name_with_dist_and_time(str(save_dirpath), state.run_name, state.timestamp)
@@ -1145,7 +1145,7 @@ def _save_checkpoint(
 
         if expect_file:
             if version.parse(torch.__version__) >= version.parse('2.3.0'):
-                save_planner = state.fsdp_config['save_planner']
+                save_planner = state.fsdp_config.save_planner
                 if save_planner is None:
                     from composer.trainer._patch_pytorch import SavePlannerWithDedupFix
 
@@ -1160,7 +1160,7 @@ def _save_checkpoint(
                 dist_cp.save_state_dict(
                     state_dict=state_dict,
                     storage_writer=dist_cp.FileSystemWriter(dirname),
-                    planner=state.fsdp_config['save_planner'],
+                    planner=state.fsdp_config.save_planner,
                     process_group=process_group,
                 )
         log.debug('Finished pytorch save state dict')
