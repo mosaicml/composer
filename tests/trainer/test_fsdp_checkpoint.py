@@ -354,24 +354,23 @@ def test_fsdp_full_state_dict_load(
     trainer1 = get_trainer(
         save_folder=str(save_folder),
         save_filename=save_filename,
+        algorithms=algorithms,
         run_name=run_name,
         precision=precision,
         autoresume=autoresume,
         optimizer=optimizer,
         fsdp_config=fsdp_config,
         tp_config=tp_config,
-        algorithms=algorithms,
-        save_interval='1ba',
-        max_duration='5ba',
     )
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
     trainer1.close()
-    load_path = str(save_folder / pathlib.Path('ba4-rank{rank}.pt')) if use_ema else str(save_folder / pathlib.Path('rank{rank}.pt'))
+    load_path = str(save_folder / pathlib.Path('rank{rank}.pt'))
     trainer2 = get_trainer(
         save_folder=str(save_folder),
         save_filename=save_filename,
         load_path=load_path,
+        algorithms=algorithms,
         run_name=run_name,
         precision=precision,
         autoresume=autoresume,
@@ -381,11 +380,9 @@ def test_fsdp_full_state_dict_load(
         save_weights_only=save_weights_only,
         load_weights_only=load_weights_only,
         tp_config=tp_config,
-        algorithms=algorithms,
-        save_interval='1ba',
-        save_overwrite=True if use_ema else None,
     )
-    trainer2.fit(duration='1ba' if use_ema else None)
+    if use_ema:
+        trainer2.fit(duration='1ba')
     state_dict_from_trainer2 = trainer2.state.state_dict()
 
     if dist.get_global_rank() == 0:
@@ -398,12 +395,10 @@ def test_fsdp_full_state_dict_load(
                 state_dict_from_trainer1,
                 state_dict_from_trainer2,
             )
-        if use_ema:
-            _compare_metrics_between_state_dicts(
-                state_dict_from_trainer1,
-                state_dict_from_trainer2,
-            )
-    
+        _compare_metrics_between_state_dicts(
+            state_dict_from_trainer1,
+            state_dict_from_trainer2,
+        )
     # Continue to fit to make sure we can continue training.
     trainer2.fit()
     trainer2.close()
