@@ -5,11 +5,12 @@
 
 import fnmatch
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Sequence, Union
 import sys
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Sequence, Union
+
+from torch.utils.data import DataLoader, Dataset
 
 from composer.core.data_spec import DataSpec
-from torch.utils.data import DataLoader, Dataset
 
 if TYPE_CHECKING:
     from composer.core.evaluator import Evaluator
@@ -24,8 +25,6 @@ from torch.utils.data import DataLoader
 from composer.core.evaluator import Evaluator
 from composer.core.state import State
 from composer.core.time import Timestamp
-from composer.models import ComposerModel
-from composer.utils import STR_TO_DTYPE, dist
 from composer.devices import Device
 from composer.models import ComposerModel, HuggingFaceModel
 from composer.utils import STR_TO_DTYPE, dist, get_composer_env_dict, reproducibility
@@ -171,7 +170,7 @@ def _get_model_state_dict_with_fsdp_context_manager(model: nn.Module, sharded_st
     return model_state_dict
 
 
-def get_resumption_state_dict(state: Optional[State] = None) -> Dict[str, Any]:
+def get_resumption_state_dict(state: State) -> Dict[str, Any]:
     """Generate the state dict for any objects needed for resumption.
 
     This includes:
@@ -408,22 +407,12 @@ def get_metadata_state_dict(
     Returns:
         The state dict containing the metadata and any integrations for a training run.
     """
-    ced = get_composer_env_dict()
+    metadata_state_dict = get_composer_env_dict()
 
     python_version = '.'.join([str(getattr(sys.version_info, k)) for k in ['major', 'minor', 'micro']])
 
-    metadata_state_dict = {
-        'composer_version': ced['composer_version'],
-        'composer_commit_hash': ced['composer_commit_hash'],
-        'torch_version': torch.__version__,
-        'python_version': python_version,
-        'num_nodes': ced['node_world_size'],
-        'num_gpus_per_node': ced['local_world_size'],
-        'num_gpus': dist.get_world_size(),
-        'gpu_model': ced['accelerator_model_name'],
-        'cpu_model': ced['host_processor_model_name'],
-        'cpu_core_count': ced['host_processor_core_count'],
-    }
+    metadata_state_dict['torch_version'] = torch.__version__
+    metadata_state_dict['python_version'] = python_version
     if sharded_state_dict is not None:
         metadata_state_dict['sharded_state_dict'] = sharded_state_dict
 
