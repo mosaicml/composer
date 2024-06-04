@@ -288,6 +288,12 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
     deep_compare(timestamp1, timestamp2)
 
 
+import pytest
+import pathlib
+import torch.distributed as dist
+
+# Assuming FSDPConfig, get_trainer, EMA, and other required functions and classes are already imported.
+
 @pytest.mark.gpu
 @pytest.mark.filterwarnings(r'ignore:.*scatter_full_optim_state_dict``is being deprecated.*:UserWarning')
 @pytest.mark.parametrize(
@@ -342,12 +348,8 @@ def test_fsdp_full_state_dict_load(
         }
 
     algorithms = []
-    save_interval = None
-    max_duration = None
     if use_ema:
         algorithms.append(EMA(smoothing=0.9999, half_life=None, update_interval='1ba'))
-        save_interval = '1ba'
-        max_duration = '5ba'
 
     trainer1 = get_trainer(
         save_folder=str(save_folder),
@@ -359,8 +361,8 @@ def test_fsdp_full_state_dict_load(
         fsdp_config=fsdp_config,
         tp_config=tp_config,
         algorithms=algorithms,
-        save_interval=save_interval,
-        max_duration=max_duration,
+        save_interval='1ba',
+        max_duration='5ba',
     )
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
@@ -380,7 +382,7 @@ def test_fsdp_full_state_dict_load(
         load_weights_only=load_weights_only,
         tp_config=tp_config,
         algorithms=algorithms,
-        save_interval=save_interval,
+        save_interval='1ba',
         save_overwrite=True if use_ema else None,
     )
     trainer2.fit(duration='1ba' if use_ema else None)
