@@ -43,7 +43,6 @@ class NeptuneLogger(LoggerDestination):
             ``NEPTUNE_API_TOKEN`` environment variable (recommended).
             You can find your API token in the user menu of the Neptune web app.
         rank_zero_only (bool): Whether to log only on the rank-zero process (default: ``True``).
-        upload_artifacts (bool, optional): Deprecated. See ``upload_checkpoints``.
         upload_checkpoints (bool): Whether the logger should upload checkpoints to Neptune
             (default: ``False``).
         base_namespace (str, optional): The name of the base namespace where the metadata
@@ -63,7 +62,6 @@ class NeptuneLogger(LoggerDestination):
         project: Optional[str] = None,
         api_token: Optional[str] = None,
         rank_zero_only: bool = True,
-        upload_artifacts: Optional[bool] = None,
         upload_checkpoints: bool = False,
         base_namespace: str = 'training',
         mode: Optional[NEPTUNE_MODE_TYPE] = None,
@@ -81,7 +79,6 @@ class NeptuneLogger(LoggerDestination):
         verify_type('project', project, (str, type(None)))
         verify_type('api_token', api_token, (str, type(None)))
         verify_type('rank_zero_only', rank_zero_only, bool)
-        verify_type('upload_artifacts', upload_artifacts, (bool, type(None)))
         verify_type('upload_checkpoints', upload_checkpoints, bool)
         verify_type('base_namespace', base_namespace, str)
 
@@ -92,11 +89,7 @@ class NeptuneLogger(LoggerDestination):
         self._api_token = api_token
         self._rank_zero_only = rank_zero_only
 
-        if upload_artifacts is not None:
-            _warn_about_deprecated_upload_artifacts()
-            self._upload_checkpoints = upload_artifacts
-        else:
-            self._upload_checkpoints = upload_checkpoints
+        self._upload_checkpoints = upload_checkpoints
 
         self._base_namespace = base_namespace
         self._neptune_kwargs = neptune_kwargs
@@ -341,16 +334,6 @@ def _validate_image_value_range(img: np.ndarray) -> np.ndarray:
 def _scale_image_to_0_255(img: np.ndarray, array_min: Union[int, float], array_max: Union[int, float]) -> np.ndarray:
     scaled_image = 255 * (img - array_min) / (array_max - array_min)
     return scaled_image.astype(np.uint8)
-
-
-def _warn_about_deprecated_upload_artifacts() -> None:
-    warnings.warn(
-        VersionedDeprecationWarning(
-            'The \'upload_artifacts\' parameter is deprecated and will be removed in the next version. '
-            'Use the \'upload_checkpoints\' parameter instead.',
-            remove_version='0.23',
-        ),
-    )
 
 
 def _is_progress_bar_enabled() -> bool:
