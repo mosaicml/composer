@@ -1726,6 +1726,8 @@ class Trainer:
         if autoresume:
             log.info('Searching for a previous checkpoint to autoresume')
             error_message = ''
+            if max_duration is not None:
+                error_message += 'The `max_duration` must be specified on trainer.__init__ when autoresume is enabled. '
             if save_folder is None:
                 error_message += 'The `save_folder` must be specified when autoresume is enabled. '
             if save_overwrite:

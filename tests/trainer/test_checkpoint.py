@@ -1212,21 +1212,23 @@ class TestCheckpointLoading:
         )
 
     @pytest.mark.parametrize(
-        'run_name,save_folder,save_overwrite,latest_filename',
+        'run_name,save_folder,save_overwrite,latest_filename,max_duration',
         [
-            [None, 'first', False, 'latest-rank{rank}.pt'],
-            ['big-chungus', None, False, 'latest-rank{rank}.pt'],
-            ['big-chungus', 'first', True, 'latest-rank{rank}.pt'],
-            ['big-chungus', 'first', False, None],
+            [None, 'first', False, 'latest-rank{rank}.pt', '2ep'],
+            ['big-chungus', None, False, 'latest-rank{rank}.pt', '2ep'],
+            ['big-chungus', 'first', True, 'latest-rank{rank}.pt', '2ep'],
+            ['big-chungus', 'first', False, None, '2ep'],
+            ['big-chungus', 'first', False, 'latest-rank{rank}.pt', None],
         ],
     )
-    def test_autoresume_fail(self, run_name, save_folder, save_overwrite, latest_filename):
+    def test_autoresume_fail(self, run_name, save_folder, save_overwrite, latest_filename, max_duration):
         with pytest.raises(ValueError):
             self.get_trainer(
                 latest_filename=latest_filename,
                 save_overwrite=save_overwrite,
                 save_folder=save_folder,
                 run_name=run_name,
+                max_duration=max_duration,
                 autoresume=True,
             )
 
