@@ -190,7 +190,7 @@ class StragglerDetector:
         """
         if self.__initialized:
             return
-        
+
         self.__initialized = True
         self.logger = logging.getLogger(__name__)
         self.world = world
@@ -208,7 +208,6 @@ class StragglerDetector:
         self.stop_batch = []
         self.idx_q = queue.LifoQueue()
         self.evt_q = queue.LifoQueue()
-        
 
         if torch.cuda.is_available():
             self.dev = torch.cuda.current_device()
@@ -218,7 +217,6 @@ class StragglerDetector:
             self.evt_q.put(torch.cuda.Event(enable_timing=True))
 
         self.__initialized = True
-
 
     def reset(self) -> None:
         """This method is called to reset the metrics state of the instance
@@ -296,7 +294,7 @@ class StragglerDetector:
                 util        : observed gpu utilization
                 clock       : observed gpu clock
         """
-        
+
         ls_ev = len(self.start_events)
         le_ev = len(self.stop_events)
         ls_bs = len(self.start_batch)
@@ -347,7 +345,7 @@ class StragglerDetector:
         """
         ret = False
         min_max_data = {}
-        if not self._off and total_flops > 0.0 and log_interval > 0:
+        if total_flops > 0.0 and log_interval > 0:
             elapsed, btime_us, temp, power, util, clock = self.elapsed()  # get raw time
             ptime = elapsed / (log_interval * 1.0)  # avg per iteration elapsed time, ms
             btime = btime_us / (log_interval * 1.0)  # avg per iteration get_batch time, us
@@ -517,7 +515,6 @@ class StragglerDetector:
 
         return o_dt
 
-
     def __enter__(self) -> 'StragglerDetector':
         """Define context/instance entry
         Returns:
@@ -668,7 +665,9 @@ class GlobalStragglerDetector(Callback):
             model_flops_per_batch = composer_model.flops_per_batch  # type: ignore
             if not isinstance(model_flops_per_batch, Callable):
                 self.off = True
-                logger.info("Model must contain the parameter model_flops_per_batch for throughput calculation and be Callable. Turning off GlobalStragglerDetector Callback.")
+                logger.info(
+                    'Model must contain the parameter model_flops_per_batch for throughput calculation and be Callable. Turning off GlobalStragglerDetector Callback.'
+                )
                 return
             device_flops_per_batch = model_flops_per_batch(state.batch)
             self.stimer.stop()
@@ -678,7 +677,9 @@ class GlobalStragglerDetector(Callback):
 
         else:
             self.off = True
-            logger.info("Model must contain the parameter model_flops_per_batch for throughput calculation. Turning off GlobalStragglerDetector Callback.")
+            logger.info(
+                'Model must contain the parameter model_flops_per_batch for throughput calculation. Turning off GlobalStragglerDetector Callback.'
+            )
             return
 
     def before_dataloader(self, state: State, logger: Logger):
