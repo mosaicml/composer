@@ -1,5 +1,8 @@
-# Copyright 2022 MosaicML Composer authors
+# Copyright 2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
+
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0s
 
 """
 Monitor straggler metrics during training.
@@ -9,11 +12,8 @@ Original StragglerDetector implementation: https://github.com/NVIDIA/Megatron-LM
 """
 
 import logging
-import os
 import queue
-import socket
 import sys
-import threading
 import time
 import traceback
 from dataclasses import dataclass
@@ -31,8 +31,7 @@ __all__ = ['GlobalStragglerDetector']
 
 
 class _ValueWithRank:
-    """This is an internal class, not for use outside this module
-
+    """_ValueWithRank is an internal class, not for use outside this module.
 
     Attributes:
         _rank (int): rank for the value
@@ -41,18 +40,20 @@ class _ValueWithRank:
     """
 
     def __init__(self, value: float, rank: int, unit: str = '') -> None:
-        """Initializer
+        """Initializer.
+
         Args:
-            _value (float): the initial value with which it is inited
-            _rank (int): the rank number
-            _unit (str) : the unit of the value, eg ms or flops
+            value (float): the initial value with which it is inited
+            rank (int): the rank number
+            unit (str) : the unit of the value, eg ms or flops
         """
         self._rank = rank
         self._value = value
         self._unit = unit
 
     def __lt__(self, other) -> bool:
-        """ Check if value of self is smaller than other's value
+        """Check if value of self is smaller than other's value.
+
         Args:
             other (_ValueWithRank): The other object to compare with
         Returns:
@@ -61,16 +62,18 @@ class _ValueWithRank:
         return self._value < other._value
 
     def __gt__(self, other) -> bool:
-        """Check if value of self is larger than other's value
+        """Check if value of self is larger than other's value.
+
         Args:
             other (_ValueWithRank): The other object to compare with
+
         Returns:
             bool: True if lhs._value of operand is greater than rhs._value, else False
         """
         return self._value > other._value
 
     def __call__(self) -> Tuple[float, int, str]:
-        """Returns the value, the rank, and unit as a Tuple
+        """Returns the value, the rank, and unit as a Tuple.
 
         Returns:
             Tuple[float, int, str]: value, rank, unit
@@ -79,18 +82,17 @@ class _ValueWithRank:
 
     #edited __str__ to include the word "Rank" for clarity
     def __str__(self) -> str:
-        """String representation of the object
+        """String representation of the object.
+
         Returns:
             str: strigified object
         """
-
         return f"{self._value:.2f}{self._unit}/Rank-{self._rank}"
 
 
 @dataclass
 class _StragglerData:
-    """This is an internal dataclass, not for use outside this module
-
+    """_StragglerData is an internal dataclass, not for use outside this module.
 
     Attributes:
         min_elapsed (_ValueWithRank) min iteration time across all ranks
@@ -130,7 +132,8 @@ class _StragglerData:
 
 
 class StragglerDetector:
-    """Singleton Class implementing per rank Straggler Detector
+    """Singleton Class implementing per rank Straggler Detector.
+
     It use cuda events to time operation of choice using the
     start and stop methods which can be directly invoked using
     the class instance or can be used like a python context.
@@ -140,6 +143,7 @@ class StragglerDetector:
     Note:
         The instance and class attributes mentioned below are all
         private to the class and has no use outside the class
+
     Attributes:
         _off (bool): current state of the toggle
         start (FunctionType): start method
@@ -165,25 +169,26 @@ class StragglerDetector:
         ctrlr (Thread): the controller thread
         logger (Logger): the logger instance for this instance
     """
-
     _instance = None
     __initialized = False
 
     def __new__(cls: Type['StragglerDetector']) -> 'StragglerDetector':
-        """Constructor
+        """Constructor.
+
         Creates an instance of the class if not created
+
         Args:
             cls (Type[&#39;StragglerDetector&#39;]): The class type
         Returns:
             StragglerDetector: the class instance
         """
-
         if cls._instance is None:
             cls._instance = super(StragglerDetector, cls).__new__(cls)
         return cls._instance
 
     def __init__(self, world: int, rank: int, mmcnt: int = 1, amp: float = 1.0, prefill: int = 1024) -> None:
-        """Initializer
+        """Initializer.
+
         The inital state of the StragglerDetector instance is disabled.
         The enabled state is indicated using self._off member variable
         and the property enabled.
@@ -221,7 +226,8 @@ class StragglerDetector:
         self.__initialized = True
 
     def reset(self) -> None:
-        """This method is called to reset the metrics state of the instance
+        """Reset is called to reset the metrics state of the instance.
+
         It is generally called from within elapsed() after extracting per rank metrics.
         """
         self.idx = 0
@@ -239,7 +245,8 @@ class StragglerDetector:
         self.bdata = False
 
     def start_method(self) -> None:
-        """This method adds the start timers.
+        """start_method adds the start timers.
+
         Both cuda event and perf_counter are added. If bdata is set to
         true from __call__, this method skips inserting cuda
         timer. This way it can be used to measure time spent on
@@ -268,7 +275,8 @@ class StragglerDetector:
         self.idx += 1
 
     def stop_method(self) -> None:
-        """This method adds the stop timers.
+        """stop_method adds the stop timers.
+
         Both cuda event and perf_counter are added. If bdata is set to
         true from __call__, this method skips inserting cuda
         timer. Also see start_method()
@@ -284,9 +292,11 @@ class StragglerDetector:
         self.stop_events[idx].record()
 
     def elapsed(self) -> Tuple[float, float, int, int, int, int]:
-        """This method is called from report(), or can be called directly
+        """Elapsed is called from report(), or can be called directly.
+
          It is called to collect all the elapsed time since last reset().
          It finally calls reset()
+
         Returns:
             Tuple[float, float, int, int, int, int]: see below for returns
                 delta       : time spent in kernel
@@ -296,7 +306,6 @@ class StragglerDetector:
                 util        : observed gpu utilization
                 clock       : observed gpu clock
         """
-
         ls_ev = len(self.start_events)
         le_ev = len(self.stop_events)
         ls_bs = len(self.start_batch)
@@ -332,15 +341,18 @@ class StragglerDetector:
 
     # Modified following method from original Megatron-LM
     def report(self, total_flops: float = 0.0, log_interval: int = 0) -> Tuple[bool, dict]:
-        """Function to log the min/max metircs and the associated rank over a time period
+        """Function to log the min/max metircs and the associated rank over a time period.
+
         It finds the slowest and fastest rank among all ranks. It should be
         called by all ranks, but only rank-0 prints the analysis
         At the end it checks, if the straggler detector should
         remain active or if it should be deactivated.
+
         Args:
             total_flops (float, optional): The theoretical flops over the period. Defaults to 0.0.
             log_interval (int, optional): The training interval over which reporting is called(ms)
                                           Defaults to 0.
+
         Returns:
             bool: True if reported, else False
             dict: Dict of min/max metrics and their associated ranks, empty if not rank-0
@@ -413,7 +425,8 @@ class StragglerDetector:
         clock: float,
         flops: float,
     ) -> Union[_StragglerData, None]:
-        """Helper function to find the min/max values
+        """Helper function to find the min/max values.
+
         Args:
             ptime (float): avg per iteration gpu time
             btime (float): avg per iteration cpu time
@@ -422,6 +435,7 @@ class StragglerDetector:
             util (float): gpu util at the time of reporting
             clock (float): gpu clock at the time of reporting
             flops (float): estimated flops for the rank
+
         Returns:
             Union[_StragglerData, None]: It contains the min/max of few metrics and the
                                          corresponding rank it also has sorted list of
@@ -518,7 +532,8 @@ class StragglerDetector:
         return o_dt
 
     def __enter__(self) -> 'StragglerDetector':
-        """Define context/instance entry
+        """Define context/instance entry.
+
         Returns:
             StragglerDetector: the instance
         """
@@ -526,10 +541,13 @@ class StragglerDetector:
         return self
 
     def __call__(self, bdata: bool = False) -> 'StragglerDetector':
-        """Callable for the instance. Set context state,
+        """Callable for the instance. Set context state.
+
         Useful when the context is used for cpu timers only when bdata=True
+
         Args:
             bdata (bool, optional): when true, only enables cpu timers. Defaults to False.
+
         Returns:
             StragglerDetector: the instance
         """
@@ -542,11 +560,13 @@ class StragglerDetector:
         ex_val: Optional[BaseException],
         ex_tb: Optional[TracebackType],
     ) -> bool:
-        """Define context/instance exit, calls the stop method
+        """Define context/instance exit, calls the stop method.
+
         Args:
             ex_type (Optional[Type[BaseException]]): Exception type
             ex_val (Optional[BaseException]): _description_
             ex_tb (Optional[TracebackType]): _description_
+
         Returns:
             bool: True if the exception was handled
         """
@@ -561,7 +581,7 @@ class StragglerDetector:
 
 
 class GlobalStragglerDetector(Callback):
-    """Logs the minimum and maximum training values across all ranks for the following metrics:
+    """Logs the minimum and maximum training values across all ranks for the following metrics.
 
         RoundTripTime: Time spent in all the traced ops in the current batch
         Power: GPU Power Consumption
@@ -647,9 +667,12 @@ class GlobalStragglerDetector(Callback):
         self.off = False
 
     def init(self, state: State, logger: Logger) -> None:
-        rank = dist.get_global_rank()
-        world_size = dist.get_world_size()
-        self.stimer = StragglerDetector(world_size, rank)
+        try:
+            rank = dist.get_global_rank()
+            world_size = dist.get_world_size()
+            self.stimer = StragglerDetector(world_size, rank)
+        except:
+            self.off = True
 
     def batch_start(self, state: State, logger: Logger):
         if self.off:
