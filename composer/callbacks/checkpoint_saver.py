@@ -469,7 +469,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                     keep_placeholders=True,
                 ).lstrip('/')
                 assert state.fsdp_config is not None
-                remote_prefix = state.fsdp_config['sharded_ckpt_prefix_dir']
+                remote_prefix = state.fsdp_config.sharded_ckpt_prefix_dir
                 assert remote_prefix is not None
                 ckpt_filename = checkpoint._TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
                 remote_file_name = os.path.join(pathlib.Path(remote_file_name).parent, remote_prefix, ckpt_filename)

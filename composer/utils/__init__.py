@@ -61,6 +61,8 @@ from composer.utils.misc import (
     partial_format,
 )
 from composer.utils.object_store import (
+    MLFLOW_EXPERIMENT_ID_FORMAT_KEY,
+    MLFLOW_RUN_ID_FORMAT_KEY,
     GCSObjectStore,
     LibcloudObjectStore,
     MLFlowObjectStore,
@@ -71,6 +73,7 @@ from composer.utils.object_store import (
     SFTPObjectStore,
     UCObjectStore,
 )
+from composer.utils.parallelism import FSDPConfig, ParallelismConfig, TPConfig, create_fsdp_config
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
 from composer.utils.warnings import VersionedDeprecationWarning
@@ -147,4 +150,10 @@ __all__ = [
     'KNOWN_COMPRESSORS',
     'STR_TO_DTYPE',
     'ParallelismType',
+    'create_fsdp_config',
+    'FSDPConfig',
+    'TPConfig',
+    'ParallelismConfig',
+    'MLFLOW_EXPERIMENT_ID_FORMAT_KEY',
+    'MLFLOW_RUN_ID_FORMAT_KEY',
 ]

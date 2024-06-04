@@ -112,12 +112,8 @@ class TestEventCalls:
             parallelism_config = {
                 'fsdp': {
                     'sharding_strategy': 'FULL_SHARD',
-                    'cpu_offload': False,
                     'mixed_precision': 'PURE',
                     'backward_prefetch': 'BACKWARD_PRE',
-                    'activation_checkpointing': False,
-                    'activation_ocpu_offload': False,
-                    'verbose': False,
                 },
             }
 

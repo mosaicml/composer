@@ -11,7 +11,6 @@ from composer.distributed.dist_strategy import (
     prepare_fsdp_module,
     prepare_tp_module,
 )
-from composer.distributed.mosaic_fsdp import set_fsdp_default
 
 __all__ = [
     'fix_batch_precision_for_deepspeed',
@@ -21,5 +20,4 @@ __all__ = [
     'prepare_ddp_module',
     'prepare_fsdp_module',
     'prepare_tp_module',
-    'set_fsdp_default',
 ]
