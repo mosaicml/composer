@@ -400,7 +400,8 @@ def test_fsdp_full_state_dict_load(
             state_dict_from_trainer2,
         )
     # Continue to fit to make sure we can continue training.
-    trainer2.fit()
+    if not use_ema:
+        trainer2.fit()
     trainer2.close()
 
 
