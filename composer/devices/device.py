@@ -5,7 +5,7 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
-from typing import Any, Callable, TypeVar
+from typing import Callable, TypeVar
 
 import torch
 import torch.nn
