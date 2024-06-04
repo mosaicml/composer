@@ -537,7 +537,7 @@ def test_get_metadata_sharded_model(model_type: str, tensor_type: str, world_siz
 def test_get_resumption_state_dict():
 
     model, optimizer = _init_model_and_optimizer(use_composer_model=True, take_step=True, device='cpu')
-    
+
     rank_zero_seed = 10
     run_name = 'test_run'
     device = DeviceCPU()
@@ -553,7 +553,7 @@ def test_get_resumption_state_dict():
         device=device,
         train_dataloader=dataloader,
         algorithms=[swa],
-        callbacks=[SpeedMonitor(), SpeedMonitor()]
+        callbacks=[SpeedMonitor(), SpeedMonitor()],
     )
     state.schedulers = StepLR(optimizer=optimizer, step_size=2)
     rsd = get_resumption_state_dict(state)
@@ -579,15 +579,18 @@ def test_get_resumption_state_dict():
     assert rsd['dataset_state'] == {'train': test_dataset_sd}
     dict(rsd['algorithms'])['SWA'].pop('repr')
     assert rsd['algorithms'] == [
-        ('SWA', {
-            'swa_model': None,
-            'swa_completed': False,
-            'swa_started': False,
-            'swa_scheduler': None,
-            'step_counter': 0,
-        },)
+        (
+            'SWA',
+            {
+                'swa_model': None,
+                'swa_completed': False,
+                'swa_started': False,
+                'swa_scheduler': None,
+                'step_counter': 0,
+            },
+        ),
     ]
-    assert rsd['callbacks'] == [('SpeedMonitor', {'total_eval_wct': 0.0}), ('SpeedMonitor', {'total_eval_wct': 0.0}) ]
+    assert rsd['callbacks'] == [('SpeedMonitor', {'total_eval_wct': 0.0}), ('SpeedMonitor', {'total_eval_wct': 0.0})]
 
 
 @pytest.mark.gpu
@@ -598,7 +601,7 @@ def test_get_resumption_state_dict_gpu():
         from torch.cuda.amp.grad_scaler import GradScaler
 
     model, _ = _init_model_and_optimizer(use_composer_model=True, take_step=False, device='cuda')
-    
+
     rank_zero_seed = 10
     run_name = 'test_run'
     device = DeviceCPU()
@@ -615,12 +618,9 @@ def test_get_resumption_state_dict_gpu():
     )
     rsd = get_resumption_state_dict(state)
     assert 'scaler' in rsd
-    assert set(rsd['scaler'].keys()) == {"scale", 
-                                     "growth_factor",
-                                     "backoff_factor",
-                                     "growth_interval",
-                                     "_growth_tracker"}
-    
+    assert set(
+        rsd['scaler'].keys(),
+    ) == {'scale', 'growth_factor', 'backoff_factor', 'growth_interval', '_growth_tracker'}
+
     assert 'rng' in rsd
     deep_compare(rsd['rng'], reproducibility.get_rng_state())
-

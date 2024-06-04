@@ -6,7 +6,7 @@
 import fnmatch
 import logging
 import sys
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence, Union
 
 from torch.utils.data import DataLoader, Dataset
 
@@ -28,7 +28,6 @@ from composer.core.time import Timestamp
 from composer.devices import Device
 from composer.models import ComposerModel, HuggingFaceModel
 from composer.utils import STR_TO_DTYPE, dist, get_composer_env_dict, reproducibility
-
 
 log = logging.getLogger(__name__)
 
@@ -218,18 +217,23 @@ def get_resumption_state_dict(state: State) -> Dict[str, Any]:
     return resumption_state_dict
 
 
-def _make_state_dict_for_list_of_objects(objects: Union[Sequence[Any], Any], use_list_of_tuples=False) -> Dict[str, Any]:
-    object_container = [] if use_list_of_tuples else {}
+def _make_state_dict_for_list_of_objects(objects: Union[Sequence[Any], Any],
+                                         use_list_of_tuples=False) -> Union[Dict[str, Any], List]:
+    object_list = []
+    object_dict = {}
     if not isinstance(objects, Sequence):
         objects = [objects]
     for obj in objects:
         if not hasattr(obj, 'state_dict') or obj.state_dict() == {}:
             continue
         if use_list_of_tuples:
-            object_container.append((type(obj).__qualname__, obj.state_dict()))
+            object_list.append((type(obj).__qualname__, obj.state_dict()))
         else:
-            object_container[type(obj).__qualname__] = obj.state_dict()
-    return object_container
+            object_dict[type(obj).__qualname__] = obj.state_dict()
+    if use_list_of_tuples:
+        return object_list
+    else:
+        return object_dict
 
 
 def get_dataset_state_dict(
