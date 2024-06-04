@@ -1235,11 +1235,11 @@ class TestCheckpointLoading:
             )
 
     @pytest.mark.parametrize(
-            'duration,reset_time',
-            [
-                ['1ep', False],
-                [None, True],
-            ]
+        'duration,reset_time',
+        [
+            ['1ep', False],
+            [None, True],
+        ],
     )
     def test_autoresume_fail_fit(self, duration: Optional[str], reset_time: bool):
         trainer = self.get_trainer(
