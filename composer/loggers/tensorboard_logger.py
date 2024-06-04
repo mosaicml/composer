@@ -28,11 +28,11 @@ class TensorboardLogger(LoggerDestination):
     will be in the relative path: `tensorboard_logs/{run_name}` with names starting with
     `events.out.tfevents.*`
     
-    If a client_id is provided, the logs will be saved in a subdirectory of `tensorboard_logs/{run_name}`
-    named `client_{client_id}`.
+    If a log_name is provided, the logs will be saved in a subdirectory of `tensorboard_logs/{run_name}`
+    named `{log_name}`. So the final folder will be `tensorboard_logs/{run_name}/{log_name}`.
 
     Args:
-        client_id (int, optional): The client id of the client that is using this logger.
+        log_name (str, optional): An additional name to discriminate multiple loggers in the same exp.
         log_dir (str, optional): The path to the directory where all the tensorboard logs
             will be saved. This is also the value that should be specified when starting
             a tensorboard server. e.g. `tensorboard --logdir={log_dir}`. If not specified
@@ -49,7 +49,7 @@ class TensorboardLogger(LoggerDestination):
             Default: :attr:`True`.
     """
 
-    def __init__(self, client_id: Optional[int] = None, log_dir: Optional[str] = None, flush_interval: int = 100, rank_zero_only: bool = True):
+    def __init__(self, log_name: Optional[str] = None, log_dir: Optional[str] = None, flush_interval: int = 100, rank_zero_only: bool = True):
         try:
             from torch.utils.tensorboard import SummaryWriter
         except ImportError as e:
@@ -59,7 +59,7 @@ class TensorboardLogger(LoggerDestination):
                 conda_channel='conda-forge',
             ) from e
 
-        self.client_id = client_id
+        self.log_name = log_name
         self.log_dir = log_dir
         self.flush_interval = flush_interval
         self.rank_zero_only = rank_zero_only
@@ -116,8 +116,8 @@ class TensorboardLogger(LoggerDestination):
         # We name the child directory after the run_name to ensure the run_name shows up
         # in the Tensorboard GUI.
         summary_writer_log_dir = Path(self.log_dir) / self.run_name
-        if self.client_id is not None:
-            summary_writer_log_dir = summary_writer_log_dir / f'client_{self.client_id}'
+        if self.log_name is not None:
+            summary_writer_log_dir = summary_writer_log_dir / f'{self.log_name}'
 
         # Disable SummaryWriter's internal flushing to avoid file corruption while
         # file staged for upload to an ObjectStore.
@@ -191,8 +191,8 @@ class TensorboardLogger(LoggerDestination):
         event_file_name = Path(file_path).stem
         
         remote_file_path = 'tensorboard_logs/{run_name}/'
-        if self.client_id is not None:
-            remote_file_path += f'client_{self.client_id}/'
+        if self.log_name is not None:
+            remote_file_path += f'{self.log_name}/'
                                              
 
         logger.upload_file(
