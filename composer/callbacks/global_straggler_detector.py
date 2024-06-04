@@ -128,7 +128,7 @@ class _StragglerData:
     # clock
     min_clock = _ValueWithRank(sys.float_info.max, 0, 'MHz')
     max_clock = _ValueWithRank(sys.float_info.min, 0, 'MHz')
-    aflops: List[_ValueWithRank] = []
+    aflops: List[_ValueWithRank] = field(default_factory=list)
 
 
 class StragglerDetector:
