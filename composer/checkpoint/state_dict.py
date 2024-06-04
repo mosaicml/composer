@@ -5,9 +5,14 @@
 
 import fnmatch
 import logging
-from typing import Any, Dict, Iterable, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Sequence, Union
 import sys
 
+from composer.core.data_spec import DataSpec
+from torch.utils.data import DataLoader, Dataset
+
+if TYPE_CHECKING:
+    from composer.core.evaluator import Evaluator
 
 import torch
 from packaging import version
@@ -27,7 +32,7 @@ from composer.utils import STR_TO_DTYPE, dist, get_composer_env_dict
 
 log = logging.getLogger(__name__)
 
-__all__ = ['get_model_state_dict', 'get_optim_state_dict']
+__all__ = ['get_model_state_dict', 'get_optim_state_dict', 'get_metadata_state_dict', 'get_resumption_state_dict']
 
 
 def get_model_state_dict(
@@ -175,7 +180,7 @@ def get_resumption_state_dict(state: Optional[State] = None) -> Dict[str, Any]:
         * scaler
         * rank_zero_seed
         * callbacks
-        * algorithms?
+        * algorithms
 
     Returns:
         The state dict containing the objects needed for resumption.
@@ -183,7 +188,6 @@ def get_resumption_state_dict(state: Optional[State] = None) -> Dict[str, Any]:
     resumption_state_dict = {}
     resumption_state_dict['dataset_state'] = get_dataset_state_dict(
         state.train_dataloader,
-        state.evaluators,
         state.timestamp,
     )
     resumption_state_dict['timestamp'] = state.timestamp.state_dict()
@@ -222,7 +226,6 @@ def _make_state_dict_for_list_of_objects(objects: Sequence[Any]) -> Dict[str, An
 
 def get_dataset_state_dict(
     train_dataloader: Optional[Union[DataLoader, Iterable]],
-    evaluators: Sequence[Evaluator],
     timestamp: Timestamp,
 ) -> Dict[str, Any]:
     """Collect the state dict(s) of our train and eval dataset(s).
@@ -232,26 +235,15 @@ def get_dataset_state_dict(
     """
     dataset_state_dict = {
         'train': None,
-        'eval': {},
     }
-
     dataset = _dataset_of(train_dataloader)
     if hasattr(dataset, 'state_dict'):
         num_samples = int(timestamp.sample_in_epoch.value)
         obj['train'] = dataset.state_dict(num_samples, True)  # pyright: ignore
 
-    for evaluator in evaluators:
-        dataset = _dataset_of(evaluator)
-        if hasattr(dataset, 'state_dict'):
-            # Don't save eval sample because we do not checkpoint during eval.
-            obj['eval'][evaluator.label] = dataset.state_dict(0, True)  # pyright: ignore
-
     return dataset_state_dict
 
 
-# def _get_timestamp_state_dict
-# def _get_scheduler_state_dict,
-# def _dataset_state_state_dict
 def _get_optim_state_dict_with_fsdp_context_manager(
     model: nn.Module,
     optimizer: torch.optim.Optimizer,
@@ -460,3 +452,34 @@ def get_metadata_state_dict(
         metadata_state_dict['precision'] = 'fp32'
 
     return metadata_state_dict
+
+
+def _dataset_of(self, dataloader: Optional[Union[Evaluator, DataSpec, DataLoader, Iterable]]) -> Optional[Dataset]:
+    """Get the dataset contained by the given dataloader-like object.
+
+    Args:
+        dataloader (Evaluator | DataSpec | DataLoader | Iterable, optional): The dataloader, wrapped dataloader, or
+            generic python iterable to get the dataset of, if applicable.
+
+    Returns:
+        Dataset: Its dataset, if there is one.
+    """
+    from composer.core.evaluator import Evaluator
+
+    # If it's None, no dataset for you.
+    if dataloader is None:
+        return None
+
+    # An Evaluator is a dataloader wrapped with metrics. Unwrap its dataloader.
+    if isinstance(dataloader, Evaluator):
+        dataloader = dataloader.dataloader
+
+    # A DataSpec is a dataloader wrapped with an on-device transform. Unwrap its dataloader.
+    if isinstance(dataloader, DataSpec):
+        dataloader = dataloader.dataloader
+
+    # If what we now have is an actual DataLoader, return its dataset. If not, return None.
+    if isinstance(dataloader, DataLoader):
+        return dataloader.dataset
+    else:
+        return None
