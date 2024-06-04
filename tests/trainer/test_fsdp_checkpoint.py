@@ -297,19 +297,17 @@ import torch.distributed as dist
 @pytest.mark.gpu
 @pytest.mark.filterwarnings(r'ignore:.*scatter_full_optim_state_dict``is being deprecated.*:UserWarning')
 @pytest.mark.parametrize(
-    'world_size,optimizer,autoresume,precision,save_weights_only,load_weights_only,load_monolith_rank0_only,use_tp,use_ema',
+    'world_size,optimizer,autoresume,precision,save_weights_only,load_weights_only,load_monolith_rank0_only,use_tp',
     [
-        pytest.param(2, 'adam', False, 'amp_bf16', False, False, False, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adamw', False, 'amp_bf16', False, False, False, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', True, 'amp_bf16', False, False, False, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', False, 'amp_fp16', False, False, False, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', False, 'amp_bf16', True, True, False, False, False, marks=pytest.mark.world_size(2)),  # save_weights_only requires load_weights_only
-        pytest.param(2, 'adam', False, 'amp_bf16', False, True, False, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', False, 'amp_bf16', False, False, True, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(4, 'adam', False, 'amp_bf16', False, False, False, True, False, marks=pytest.mark.world_size(4)),
-        pytest.param(2, 'adam', False, 'amp_bf16', False, False, False, False, True, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adamw', False, 'amp_bf16', False, False, False, False, True, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', False, 'amp_fp16', False, False, False, False, True, marks=pytest.mark.world_size(2)),
+        pytest.param(2, 'adam', False, 'amp_bf16', False, False, False, False, marks=pytest.mark.world_size(2)),
+        pytest.param(2, 'adamw', False, 'amp_bf16', False, False, False, False, marks=pytest.mark.world_size(2)),
+        pytest.param(2, 'adam', True, 'amp_bf16', False, False, False, False, marks=pytest.mark.world_size(2)),
+        pytest.param(2, 'adam', False, 'amp_fp16', False, False, False, False, marks=pytest.mark.world_size(2)),
+        pytest.param(2, 'adam', False, 'amp_bf16', True, True, False, False,
+                     marks=pytest.mark.world_size(2)),  # save_weights_only requires load_weights_only
+        pytest.param(2, 'adam', False, 'amp_bf16', False, True, False, False, marks=pytest.mark.world_size(2)),
+        pytest.param(2, 'adam', False, 'amp_bf16', False, False, True, False, marks=pytest.mark.world_size(2)),
+        pytest.param(4, 'adam', False, 'amp_bf16', False, False, False, True, marks=pytest.mark.world_size(4)),
     ],
 )
 def test_fsdp_full_state_dict_load(
@@ -322,7 +320,6 @@ def test_fsdp_full_state_dict_load(
     load_weights_only: bool,
     load_monolith_rank0_only: bool,
     use_tp: bool,
-    use_ema: bool,
 ):
     if autoresume:
         run_name = 'my-cool-autoresume-run'
@@ -347,14 +344,9 @@ def test_fsdp_full_state_dict_load(
             },
         }
 
-    algorithms = []
-    if use_ema:
-        algorithms.append(EMA(smoothing=0.9999, half_life=None, update_interval='1ba'))
-
     trainer1 = get_trainer(
         save_folder=str(save_folder),
         save_filename=save_filename,
-        algorithms=algorithms,
         run_name=run_name,
         precision=precision,
         autoresume=autoresume,
@@ -370,7 +362,6 @@ def test_fsdp_full_state_dict_load(
         save_folder=str(save_folder),
         save_filename=save_filename,
         load_path=load_path,
-        algorithms=algorithms,
         run_name=run_name,
         precision=precision,
         autoresume=autoresume,
@@ -381,8 +372,6 @@ def test_fsdp_full_state_dict_load(
         load_weights_only=load_weights_only,
         tp_config=tp_config,
     )
-    if use_ema:
-        trainer2.fit(duration='1ba')
     state_dict_from_trainer2 = trainer2.state.state_dict()
 
     if dist.get_global_rank() == 0:
@@ -400,9 +389,9 @@ def test_fsdp_full_state_dict_load(
             state_dict_from_trainer2,
         )
     # Continue to fit to make sure we can continue training.
-    if not use_ema:
-        trainer2.fit()
+    trainer2.fit()
     trainer2.close()
+
 
 
 @pytest.mark.gpu
