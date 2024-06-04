@@ -196,11 +196,13 @@ def get_resumption_state_dict(state: State) -> Dict[str, Any]:
     if scheduler_state_dict != {}:
         resumption_state_dict['schedulers'] = scheduler_state_dict
 
-    callbacks_state_dict = _make_state_dict_for_list_of_objects(state.callbacks)
+    # Use list of tuples to account for duplicates
+    callbacks_state_dict = _make_state_dict_for_list_of_objects(state.callbacks, use_list_of_tuples=True)
     if callbacks_state_dict != {}:
         resumption_state_dict['callbacks'] = callbacks_state_dict
 
-    algorithms_state_dict = _make_state_dict_for_list_of_objects(state.algorithms)
+    # Use list of tuples to preserve order.
+    algorithms_state_dict = _make_state_dict_for_list_of_objects(state.algorithms, use_list_of_tuples=True)
     if algorithms_state_dict != {}:
         resumption_state_dict['algorithms'] = algorithms_state_dict
 
@@ -216,15 +218,18 @@ def get_resumption_state_dict(state: State) -> Dict[str, Any]:
     return resumption_state_dict
 
 
-def _make_state_dict_for_list_of_objects(objects: Union[Sequence[Any], Any]) -> Dict[str, Any]:
-    object_dict = {}
+def _make_state_dict_for_list_of_objects(objects: Union[Sequence[Any], Any], use_list_of_tuples=False) -> Dict[str, Any]:
+    object_container = [] if use_list_of_tuples else {}
     if not isinstance(objects, Sequence):
         objects = [objects]
     for obj in objects:
         if not hasattr(obj, 'state_dict') or obj.state_dict() == {}:
             continue
-        object_dict[type(obj).__qualname__] = obj.state_dict()
-    return object_dict
+        if use_list_of_tuples:
+            object_container.append((type(obj).__qualname__, obj.state_dict()))
+        else:
+            object_container[type(obj).__qualname__] = obj.state_dict()
+    return object_container
 
 
 def get_dataset_state_dict(

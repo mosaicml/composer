@@ -254,6 +254,7 @@ def _init_model_and_optimizer(
     take_step=True,
     use_fsdp=False,
     tensor_type='sharded_tensor',
+    device='cuda',
 ):
     model, loss_fn = _init_model(
         use_composer_model,
@@ -262,6 +263,7 @@ def _init_model_and_optimizer(
         num_features=num_features,
         use_fsdp=use_fsdp,
         tensor_type=tensor_type,
+        device=device,
     )
 
     optimizer = _init_optimizer(
@@ -272,6 +274,7 @@ def _init_model_and_optimizer(
         batch_size=batch_size,
         num_features=num_features,
         take_step=take_step,
+        device=device,
     )
 
     return model, optimizer
@@ -549,8 +552,8 @@ def test_get_resumption_state_dict():
         run_name=run_name,
         device=device,
         train_dataloader=dataloader,
-        algorithms=swa,
-        callbacks=SpeedMonitor(),
+        algorithms=[swa],
+        callbacks=[SpeedMonitor(), SpeedMonitor()]
     )
     state.schedulers = StepLR(optimizer=optimizer, step_size=2)
     rsd = get_resumption_state_dict(state)
@@ -574,18 +577,17 @@ def test_get_resumption_state_dict():
         'batch_wct': datetime.timedelta(0),
     }
     assert rsd['dataset_state'] == {'train': test_dataset_sd}
-    assert 'SWA' in rsd['algorithms']
-    rsd['algorithms']['SWA'].pop('repr')
-    assert rsd['algorithms'] == {
-        'SWA': {
+    dict(rsd['algorithms'])['SWA'].pop('repr')
+    assert rsd['algorithms'] == [
+        ('SWA', {
             'swa_model': None,
             'swa_completed': False,
             'swa_started': False,
             'swa_scheduler': None,
             'step_counter': 0,
-        },
-    }
-    assert rsd['callbacks'] == {'SpeedMonitor': {'total_eval_wct': 0.0}}
+        },)
+    ]
+    assert rsd['callbacks'] == [('SpeedMonitor', {'total_eval_wct': 0.0}), ('SpeedMonitor', {'total_eval_wct': 0.0}) ]
 
 
 @pytest.mark.gpu
