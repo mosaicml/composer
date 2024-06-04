@@ -170,9 +170,9 @@ class StragglerDetector:
         logger (Logger): the logger instance for this instance
     """
     _instance = None
-    __initialized = False
+    
 
-    def __new__(cls: Type['StragglerDetector']) -> 'StragglerDetector':
+    def __new__(cls: Type['StragglerDetector'], *args, **kwargs) -> 'StragglerDetector':
         """Constructor.
 
         Creates an instance of the class if not created
@@ -184,6 +184,7 @@ class StragglerDetector:
         """
         if cls._instance is None:
             cls._instance = super(StragglerDetector, cls).__new__(cls)
+            cls._instance.__initialized = False 
         return cls._instance
 
     def __init__(self, world: int, rank: int, mmcnt: int = 1, amp: float = 1.0, prefill: int = 1024) -> None:
