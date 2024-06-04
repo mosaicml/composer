@@ -342,8 +342,12 @@ def test_fsdp_full_state_dict_load(
         }
 
     algorithms = []
+    save_interval = None
+    max_duration = None
     if use_ema:
         algorithms.append(EMA(smoothing=0.9999, half_life=None, update_interval='1ba'))
+        save_interval = '1ba'
+        max_duration = '5ba'
 
     trainer1 = get_trainer(
         save_folder=str(save_folder),
@@ -355,8 +359,8 @@ def test_fsdp_full_state_dict_load(
         fsdp_config=fsdp_config,
         tp_config=tp_config,
         algorithms=algorithms,
-        save_interval='1ba' if use_ema else None,
-        max_duration='5ba' if use_ema else None,
+        save_interval=save_interval,
+        max_duration=max_duration,
     )
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
@@ -376,6 +380,7 @@ def test_fsdp_full_state_dict_load(
         load_weights_only=load_weights_only,
         tp_config=tp_config,
         algorithms=algorithms,
+        save_interval=save_interval,
         save_overwrite=True if use_ema else None,
     )
     trainer2.fit(duration='1ba' if use_ema else None)
