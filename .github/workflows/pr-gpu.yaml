@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         include:
-        - name: Pytest GPU 1 GPU
+        - name: gpu-3.11-2.3-1
           container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
           markers: not daily and not remote and gpu and (doctest or not doctest)
           pytest_command: coverage run -m pytest
@@ -39,7 +39,7 @@ jobs:
     strategy:
       matrix:
         include:
-        - name: Pytest GPU 2 GPU
+        - name: gpu-3.11-2.3-2
           container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
           markers: not daily and not remote and gpu and (doctest or not doctest)
           pytest_command: coverage run -m pytest
@@ -66,7 +66,7 @@ jobs:
     strategy:
       matrix:
         include:
-        - name: Pytest GPU 4 GPU
+        - name: gpu-3.11-2.3-4
           container: mosaicml/pytorch:2.3.0_cu121-python3.11-ubuntu20.04
           markers: not daily and not remote and gpu and (doctest or not doctest)
           pytest_command: coverage run -m pytest
