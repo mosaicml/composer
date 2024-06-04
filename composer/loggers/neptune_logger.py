@@ -18,7 +18,7 @@ from packaging.version import Version
 
 from composer._version import __version__
 from composer.loggers import LoggerDestination
-from composer.utils import MissingConditionalImportError, VersionedDeprecationWarning, dist
+from composer.utils import MissingConditionalImportError, dist
 
 if TYPE_CHECKING:
     from composer import Logger
