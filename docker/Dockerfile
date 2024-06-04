@@ -10,10 +10,13 @@
 # ARG CUDA_VERSION=
 ARG CUDA_VERSION=11.3.1
 
-# Calculate the base image based on CUDA_VERSION
-ARG BASE_IMAGE=${CUDA_VERSION:+"nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu20.04"}
-ARG BASE_IMAGE=${BASE_IMAGE:-"ubuntu:20.04"}
+# Can use these to dynamically set the base image using the build matrix in the future.
+ARG LINUX_DISTRO='ubuntu'
+ARG LINUX_DISTRO_VERSION='20.04'
 
+# Calculate the base image based on CUDA_VERSION
+ARG BASE_IMAGE=${CUDA_VERSION:+nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-${LINUX_DISTRO}${LINUX_DISTRO_VERSION}}
+ARG BASE_IMAGE=${BASE_IMAGE:-${LINUX_DISTRO}:${LINUX_DISTRO_VERSION}}
 # The Python version to install
 ARG PYTHON_VERSION=3.10
 
@@ -64,7 +67,13 @@ ARG COMPOSER_INSTALL_COMMAND='mosaicml[all]'
 #########################
 
 FROM ${BASE_IMAGE} AS pytorch_stage
+
+ARG TARGETARCH
+
 ARG DEBIAN_FRONTEND=noninteractive
+
+ARG LINUX_DISTRO='ubuntu'
+ARG LINUX_DISTRO_VERSION='20.04'
 
 #######################
 # Set the shell to bash
@@ -73,6 +82,7 @@ SHELL ["/bin/bash", "-c"]
 
 ARG CUDA_VERSION
 
+
 # Remove a bad symlink from the base composer image
 # If this file is present after the first command, kaniko
 # won't be able to build the docker image.
@@ -80,22 +90,28 @@ RUN if [ -n "$CUDA_VERSION" ]; then \
         rm -f /usr/local/cuda-$(echo $CUDA_VERSION | cut -c -4)/cuda-$(echo $CUDA_VERSION | cut -c -4); \
     fi
 
-
 # update repository keys
 # https://developer.nvidia.com/blog/updating-the-cuda-linux-gpg-repository-key/
-RUN if [ -n "$CUDA_VERSION" ] ; then \
+RUN if [ -n "$CUDA_VERSION" ]; then \
+        LINUX_DISTRO_VERSION="${LINUX_DISTRO_VERSION//./}" && \
         rm -f /etc/apt/sources.list.d/cuda.list && \
         rm -f /etc/apt/sources.list.d/nvidia-ml.list && \
-        apt-get update &&  \
-        apt-get install -y --no-install-recommends wget && \
+        apt-get update && \
+        mkdir -p /tmp/cuda-keyring && \
+        if [ "$TARGETARCH" = "amd64" ]; then \
+            apt-get install -y --no-install-recommends wget && \
+            wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/${LINUX_DISTRO}${LINUX_DISTRO_VERSION}/x86_64/cuda-keyring_1.0-1_all.deb; \
+        elif [ "$TARGETARCH" = "arm64" ]; then \
+            apt-get install -y gnupg gnupg1 gnupg2 && \
+            apt-get install -y --no-install-recommends wget && \
+            wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/${LINUX_DISTRO}${LINUX_DISTRO_VERSION}/arm64/cuda-keyring_1.0-1_all.deb; \
+        fi && \
         apt-get autoclean && \
         apt-get clean && \
-        rm -rf /var/lib/apt/lists/* \
+        rm -rf /var/lib/apt/lists/* && \
         apt-key del 7fa2af80 && \
-        mkdir -p /tmp/cuda-keyring && \
-        wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb && \
         dpkg -i /tmp/cuda-keyring/cuda-keyring_1.0-1_all.deb && \
-        rm -rf /tmp/cuda-keyring ; \
+        rm -rf /tmp/cuda-keyring; \
     fi
 
 RUN apt-get update && \
@@ -191,9 +207,14 @@ ARG PILLOW_SIMD_VERSION
 # so when pillow_simd is installed, other packages won't later override it
 COPY pillow_stub /tmp/pillow_stub
 
-RUN pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
-    pip${PYTHON_VERSION} install --no-cache-dir --upgrade pillow_simd==${PILLOW_SIMD_VERSION} && \
-    rm -rf /tmp/pillow_stub
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+        pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
+        pip${PYTHON_VERSION} install --no-cache-dir --upgrade pillow_simd==${PILLOW_SIMD_VERSION} && \
+        rm -rf /tmp/pillow_stub; \
+    # Install Pillow as arm64 is not supported by pillow-simd,
+    elif [ "$TARGETARCH" = "arm64" ]; then \
+        pip${PYTHON_VERSION} install --no-cache-dir --upgrade Pillow==${PILLOW_PSEUDOVERSION}; \
+    fi
 
 #################
 # Install Pytorch
@@ -209,10 +230,17 @@ ENV PYTORCH_NIGHTLY_URL=${PYTORCH_NIGHTLY_URL}
 ENV PYTORCH_NIGHTLY_VERSION=${PYTORCH_NIGHTLY_VERSION}
 
 RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
-      CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
-        pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
-            torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
-            torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} ; \
+        if [ "$TARGETARCH" = "amd64" ]; then \
+        CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
+            pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
+                torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
+                torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} ; \
+        elif [ "$TARGETARCH" = "arm64" ]; then \
+            # torch==<version>+cpu not working with arm for some reason, so using torch==<version> instead with the install from cpu package endpoint
+            pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/cpu/torch_stable.html \
+                torch==${PYTORCH_VERSION} \
+                torchvision==${TORCHVISION_VERSION} ; \
+        fi ; \
     else \
         pip${PYTHON_VERSION} install --no-cache-dir --pre --index-url ${PYTORCH_NIGHTLY_URL} \
             torch==${PYTORCH_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
@@ -269,12 +297,19 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
 
 ARG MOFED_VERSION
 
-RUN if [ -n "$MOFED_VERSION" ] ; then \
+
+RUN if [ -n "$MOFED_VERSION" ]; then \
+        if [ "$TARGETARCH" = "amd64" ]; then \
+            MOFED_PACKAGE="x86_64"; \
+        elif [ "$TARGETARCH" = "arm64" ]; then \
+            MOFED_PACKAGE="aarch64"; \
+        fi && \
+        echo "MOFED Package: $MOFED_PACKAGE" && \
         mkdir -p /tmp/mofed && \
-        wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz && \
-        tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz -C /tmp/mofed && \
-        /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64/mlnxofedinstall --user-space-only --without-fw-update --force && \
-        rm -rf /tmp/mofed ; \
+        wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-${LINUX_DISTRO}${LINUX_DISTRO_VERSION}-${MOFED_PACKAGE}.tgz && \
+        tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-${LINUX_DISTRO}${LINUX_DISTRO_VERSION}-${MOFED_PACKAGE}.tgz -C /tmp/mofed && \
+        /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-${LINUX_DISTRO}${LINUX_DISTRO_VERSION}-${MOFED_PACKAGE}/mlnxofedinstall --user-space-only --without-fw-update --force && \
+        rm -rf /tmp/mofed; \
     fi
 
 ##########################
@@ -331,8 +366,8 @@ RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml 
 #########################
 # Upgrade apt packages
 #########################
-RUN apt-get update && \
-    apt-get upgrade -y && \
+RUN apt-get update -v && \
+    apt-get upgrade -y -v && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
