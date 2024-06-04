@@ -3,7 +3,7 @@
   BASE_IMAGE: nvidia/cuda:12.1.1-cudnn8-devel-ubuntu20.04
   CUDA_VERSION: 12.1.1
   IMAGE_NAME: torch-2-3-0-cu121
-  MOFED_VERSION: 5.5-1.0.3.2
+  MOFED_VERSION: latest-23.10
   NVIDIA_REQUIRE_CUDA_OVERRIDE: cuda>=12.1 brand=tesla,driver>=450,driver<451 brand=tesla,driver>=470,driver<471
     brand=unknown,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471
     brand=geforce,driver>=470,driver<471 brand=geforcertx,driver>=470,driver<471 brand=quadro,driver>=470,driver<471
@@ -74,7 +74,7 @@
   BASE_IMAGE: nvidia/cuda:12.1.1-cudnn8-devel-ubuntu20.04
   CUDA_VERSION: 12.1.1
   IMAGE_NAME: torch-2-2-2-cu121
-  MOFED_VERSION: 5.5-1.0.3.2
+  MOFED_VERSION: latest-23.10
   NVIDIA_REQUIRE_CUDA_OVERRIDE: cuda>=12.1 brand=tesla,driver>=450,driver<451 brand=tesla,driver>=470,driver<471
     brand=unknown,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471
     brand=geforce,driver>=470,driver<471 brand=geforcertx,driver>=470,driver<471 brand=quadro,driver>=470,driver<471
@@ -142,7 +142,7 @@
   BASE_IMAGE: nvidia/cuda:12.1.1-cudnn8-devel-ubuntu20.04
   CUDA_VERSION: 12.1.1
   IMAGE_NAME: torch-2-1-2-cu121
-  MOFED_VERSION: 5.5-1.0.3.2
+  MOFED_VERSION: latest-23.10
   NVIDIA_REQUIRE_CUDA_OVERRIDE: cuda>=12.1 brand=tesla,driver>=450,driver<451 brand=tesla,driver>=470,driver<471
     brand=unknown,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471
     brand=geforce,driver>=470,driver<471 brand=geforcertx,driver>=470,driver<471 brand=quadro,driver>=470,driver<471
@@ -211,7 +211,7 @@
   COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.22.0
   CUDA_VERSION: 12.1.1
   IMAGE_NAME: composer-0-22-0
-  MOFED_VERSION: 5.5-1.0.3.2
+  MOFED_VERSION: latest-23.10
   NVIDIA_REQUIRE_CUDA_OVERRIDE: cuda>=12.1 brand=tesla,driver>=450,driver<451 brand=tesla,driver>=470,driver<471
     brand=unknown,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471
     brand=geforce,driver>=470,driver<471 brand=geforcertx,driver>=470,driver<471 brand=quadro,driver>=470,driver<471
@@ -240,7 +240,7 @@
   COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.22.0
   CUDA_VERSION: ''
   IMAGE_NAME: composer-0-22-0-cpu
-  MOFED_VERSION: 5.5-1.0.3.2
+  MOFED_VERSION: latest-23.10
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
   PYTHON_VERSION: '3.11'
   PYTORCH_NIGHTLY_URL: ''
