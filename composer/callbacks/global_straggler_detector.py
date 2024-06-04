@@ -357,6 +357,7 @@ class StragglerDetector:
             bool: True if reported, else False
             dict: Dict of min/max metrics and their associated ranks, empty if not rank-0
         """
+        logger.info("Entered report")
         ret = False
         min_max_data = {}
         if total_flops > 0.0 and log_interval > 0:
@@ -667,12 +668,11 @@ class GlobalStragglerDetector(Callback):
         self.off = False
 
     def init(self, state: State, logger: Logger) -> None:
-        try:
-            rank = dist.get_global_rank()
-            world_size = dist.get_world_size()
-            self.stimer = StragglerDetector(world_size, rank)
-        except:
-            self.off = True
+        logger.info("entered init")
+        rank = dist.get_global_rank()
+        world_size = dist.get_world_size()
+        self.stimer = StragglerDetector(world_size, rank)
+        logger.info("finished init")
 
     def batch_start(self, state: State, logger: Logger):
         if self.off:
@@ -680,6 +680,7 @@ class GlobalStragglerDetector(Callback):
         self.stimer.start()
 
     def batch_end(self, state: State, logger: Logger):
+        logger.info("entered batch_end")
         if self.off:
             return
         # Compute flops stats if model has flops_per_batch
