@@ -88,6 +88,7 @@ class MLFlowLogger(LoggerDestination):
     ) -> None:
         try:
             import mlflow
+            from databricks.sdk import WorkspaceClient
             from mlflow import MlflowClient
         except ImportError as e:
             raise MissingConditionalImportError(
@@ -125,7 +126,11 @@ class MLFlowLogger(LoggerDestination):
         self.run_url = None
 
         if self._enabled:
-            self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
+            if tracking_uri is None and os.getenv('DATABRICKS_TOKEN') is not None:
+                tracking_uri = 'databricks'
+            if tracking_uri is None:
+                tracking_uri = mlflow.get_tracking_uri()
+            self.tracking_uri = str(tracking_uri)
             mlflow.set_tracking_uri(self.tracking_uri)
 
             if self.model_registry_uri is not None:
@@ -137,6 +142,10 @@ class MLFlowLogger(LoggerDestination):
                     mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,  # type: ignore
                     DEFAULT_MLFLOW_EXPERIMENT_NAME,
                 )
+            assert self.experiment_name is not None  # type hint
+            if os.getenv('DATABRICKS_TOKEN') is not None and not self.experiment_name.startswith('/Users/'):
+                databricks_username = WorkspaceClient().current_user.me().user_name or ''
+                self.experiment_name = '/' + os.path.join('Users', databricks_username, self.experiment_name)
             self._mlflow_client = MlflowClient(self.tracking_uri)
             # Set experiment
             env_exp_id = os.getenv(
