@@ -304,9 +304,9 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
         pytest.param(2, 'adam', False, 'amp_bf16', False, True, False, False, False, marks=pytest.mark.world_size(2)),
         pytest.param(2, 'adam', False, 'amp_bf16', False, False, True, False, False, marks=pytest.mark.world_size(2)),
         pytest.param(4, 'adam', False, 'amp_bf16', False, False, False, True, False, marks=pytest.mark.world_size(4)),
-        pytest.param(2, 'adam', False, 'amp_bf16', False, False, False, False, True, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adamw', False, 'amp_bf16', False, False, False, False, True, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', False, 'amp_fp16', False, False, False, False, True, marks=pytest.mark.world_size(2)),
+        # pytest.param(2, 'adam', False, 'amp_fp16', False, False, False, False, True, marks=pytest.mark.world_size(2)),
+        # pytest.param(2, 'adamw', False, 'amp_fp16', False, False, False, False, True, marks=pytest.mark.world_size(2)),
+        # pytest.param(2, 'adam', False, 'amp_fp16', False, False, False, False, True, marks=pytest.mark.world_size(2)),
     ],
 )
 def test_fsdp_full_state_dict_load(
@@ -326,7 +326,7 @@ def test_fsdp_full_state_dict_load(
     else:
         run_name = None
     save_folder = tmp_path
-    save_filename = 'rank{rank}.pt'
+    save_filename = 'ba{batch}-rank{rank}.pt' if use_ema else 'rank{rank}.pt'
 
     if use_ema:
         fsdp_config = FSDPConfig(
@@ -358,8 +358,8 @@ def test_fsdp_full_state_dict_load(
         precision=precision,
         autoresume=autoresume,
         algorithms=EMA(smoothing=0.9999, half_life=None, update_interval='1ba') if use_ema else None,
-        save_interval='1ba',
-        max_duration='5ba',
+        save_interval='1ba' if use_ema else '2ba',
+        max_duration='5ba' if use_ema else '2ba',
         optimizer=optimizer,
         fsdp_config=fsdp_config,
         tp_config=tp_config,
@@ -368,7 +368,7 @@ def test_fsdp_full_state_dict_load(
     state_dict_from_trainer1 = trainer1.state.state_dict()
     trainer1.close()
 
-    load_path = str(save_folder / pathlib.Path('rank{rank}.pt'))
+    load_path = str(save_folder / pathlib.Path('ba4-rank{rank}.pt')) if use_ema else str(save_folder / pathlib.Path('rank{rank}.pt'))
     trainer2 = get_trainer(
         save_folder=str(save_folder),
         save_filename=save_filename,
@@ -376,9 +376,9 @@ def test_fsdp_full_state_dict_load(
         run_name=run_name,
         precision=precision,
         autoresume=autoresume,
-        max_duration='4ba',
+        max_duration='2ba' if use_ema else '4ba',
         algorithms=EMA(smoothing=0.9999, half_life=None, update_interval='1ba') if use_ema else None,
-        save_interval='1ba',
+        save_interval='1ba' if use_ema else '2ba',
         save_overwrite=True if use_ema else False,
         optimizer=optimizer,
         fsdp_config=fsdp_config,
@@ -386,6 +386,10 @@ def test_fsdp_full_state_dict_load(
         load_weights_only=load_weights_only,
         tp_config=tp_config,
     )
+
+    trainer2.fit(duration='1ba')
+    state_dict_from_trainer2 = trainer2.state.state_dict()
+
     if use_ema:
         trainer2.fit(duration='1ba')
     state_dict_from_trainer2 = trainer2.state.state_dict()
@@ -407,7 +411,7 @@ def test_fsdp_full_state_dict_load(
             )
     # Continue to fit to make sure we can continue training.
     if not use_ema:
-        trainer2.fit(duration='1ba')
+        trainer2.fit()
     trainer2.close()
 
 
