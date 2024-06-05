@@ -1,11 +1,16 @@
+import torch
+from torch.distributed._shard.sharded_tensor import ShardedTensor
+from torch.distributed._tensor import DTensor
+from typing import Any, Dict, Optional
+from composer.utils.checkpoint import _write_checkpoint_file
+from composer.utils.file_helpers import format_name_with_dist, format_name_with_dist_and_time
+
 def save_state_dict_to_disk(
         state_dict: Dict[str, Any],
-        destination_dir: str = None,
-        filename: str,
+        destination_file_path: str = None,
         overwrite: bool = False,
         save_format: str = 'pt', # or hf, safetensor
-        async_save: bool = False,
-        sharded: bool = False) -> str:
+        ) -> str:
     """Saves a state dict to local disk.
 
        If sharded is true, then every rank saves, otherwise just rank 0 does.
@@ -18,28 +23,49 @@ def save_state_dict_to_disk(
         overwrite (bool): If True, the file will be overwritten if it exists.
         save_format (str): The format to save the state dict in. One of 'pt', 'hf', or 'safetensor'.
         async_save (bool): If True, the save will be done asynchronously and the function will return with the path of where it was going to be saved
-        sharded (bool): If True, the state dict is sharded across ranks and each rank saves their shard.
-
+    
     Returns:
         str: The full path to the saved state dict if sharded is false and rank 0 or if sharded is true, otherwise None.
     """
+    sharded_state_dict = is_state_dict_sharded(state_dict)
+        
+    if sharded_state_dict:
+        _save_sharded_state_dict_to_disk(state_dict, destination_file_path, overwrite, save_format)
+    else:
+        _save_full_state_dict_to_disk(state_dict, destination_file_path, overwrite, save_format)
 
-def save_sharded_state_dict_to_disk(
-        state_dict; Dict[str,Any],
-        destination_dir: str = None,
-        filename: Optional[str] = None,
+
+def _save_sharded_state_dict_to_disk(
+        state_dict: Dict[str,Any],
+        destination_file_path: str = None,
         overwrite: bool = False, 
         save_format: str = 'pt', # or safetensor 
-        async_save: bool = False,
- hybrid_sharding: bool) -> str:
+        hybrid_sharding: bool) -> str:
+    pass
 
 
-def save_full_state_dict_to_disk(
-    state_dict; Dict[str,Any],
-    destination_dir: str = None, 
-    filename: str,
+def _save_full_state_dict_to_disk(
+    state_dict: Dict[str,Any],
+    destination_file_path: str = None,
     overwrite: bool = False, 
     save_format: str = 'pt', # or hf, safetensor 
-    async_save: bool = False)) -> Optional[str]:
-	if save_format == 'safetensor':
-	  save_state_dict_to_safe_tensor(...)
+    ) -> Optional[str]:
+
+    # fill in placeholders
+    _write_checkpoint_file(state_dict=state_dict,
+                           filename=destination_file_path)
+
+
+
+
+def is_state_dict_sharded(state_dict: Dict[str, Any]) -> bool:
+    """Determines if the state dict is sharded.
+
+    Args:
+        state_dict (Dict[str, Any]): The state dict to check.
+
+    Returns:
+        bool: Whether the state dict is sharded.
+    """
+    sample_value = next(iter(state_dict.values()))
+    return isinstance(sample_value, ShardedTensor) or isinstance(sample_value, DTensor)
