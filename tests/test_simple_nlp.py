@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 
 from composer.core import DataSpec
 from composer.trainer import Trainer
-from composer.utils import dist, get_device, reproducibility
+from composer.utils import dist, get_device
 from tests.common import device
 from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset
 from tests.common.models import SimpleTransformerClassifier, SimpleTransformerMaskedLM
@@ -145,7 +145,7 @@ def test_simple_nlp_mlm_token_batch(tiny_bert_tokenizer, device):
         use_keys=True,
         pad_token_id=tiny_bert_tokenizer.pad_token_id,
     )
-    for i in range(size):  # Proactively load dataset
+    for i in range(size):  # Proactively load dataset for consistent randomization
         train_dataset[i]
     collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer)
 
@@ -167,13 +167,13 @@ def test_simple_nlp_mlm_token_batch(tiny_bert_tokenizer, device):
 
     trainer = Trainer(
         model=model,
+        seed=42,
         train_dataloader=data_spec,
         max_duration='2ep',
         device_train_microbatch_size=batch_size // 2,
         accumulate_train_batch_on_tokens=False,
         device=device,
     )
-    reproducibility.seed_all(42)
     trainer.fit()
 
     # Check that there is some train cross entropy
@@ -185,13 +185,13 @@ def test_simple_nlp_mlm_token_batch(tiny_bert_tokenizer, device):
     model.load_state_dict(state_dict)
     token_trainer = Trainer(
         model=model,
+        seed=42,
         train_dataloader=data_spec,
         max_duration='2ep',
         device_train_microbatch_size=batch_size // 2,
         accumulate_train_batch_on_tokens=True,
         device=device,
     )
-    reproducibility.seed_all(42)
     token_trainer.fit()
 
     # Check that there is some train cross entropy
@@ -206,13 +206,13 @@ def test_simple_nlp_mlm_token_batch(tiny_bert_tokenizer, device):
     model.load_state_dict(state_dict)
     trainer2 = Trainer(
         model=model,
+        seed=42,
         train_dataloader=data_spec,
         max_duration='2ep',
         device_train_microbatch_size=batch_size // 2,
         accumulate_train_batch_on_tokens=False,
         device=device,
     )
-    reproducibility.seed_all(42)
     trainer2.fit()
     assert trainer2.state.train_metrics is not None
     assert trainer2.state.train_metrics['LanguageCrossEntropy'].compute() == cross_entropy
