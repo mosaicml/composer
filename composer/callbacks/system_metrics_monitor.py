@@ -61,12 +61,12 @@ class SystemMetricsMonitor(Callback):
             global_rank = dist.get_global_rank()
             handle = pynvml.nvmlDeviceGetHandleByIndex(local_rank)
             memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
-            system_metrics[f'device{global_rank}_memory_total'] = memory.total
-            system_metrics[f'device{global_rank}_memory_free'] = memory.free
-            system_metrics[f'device{global_rank}_memory_used'] = memory.used
+            # system_metrics[f'device{global_rank}_memory_total'] = memory.total
+            # system_metrics[f'device{global_rank}_memory_free'] = memory.free
+            # system_metrics[f'device{global_rank}_memory_used'] = memory.used
             device_utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
             system_metrics[f'device{global_rank}_gpu_percentage'] = device_utilization.gpu
-            system_metrics[f'device{global_rank}_memory_percentage'] = device_utilization.memory
+            # system_metrics[f'device{global_rank}_memory_percentage'] = device_utilization.memory
             temperature = pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)
             system_metrics[f'device{global_rank}_gpu_temperature'] = temperature
 
