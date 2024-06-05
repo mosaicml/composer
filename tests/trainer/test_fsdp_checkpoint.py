@@ -288,12 +288,6 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
     deep_compare(timestamp1, timestamp2)
 
 
-import pytest
-import pathlib
-import torch.distributed as dist
-
-# Assuming FSDPConfig, get_trainer, EMA, and other required functions and classes are already imported.
-
 @pytest.mark.gpu
 @pytest.mark.filterwarnings(r'ignore:.*scatter_full_optim_state_dict``is being deprecated.*:UserWarning')
 @pytest.mark.parametrize(
