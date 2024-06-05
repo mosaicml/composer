@@ -36,7 +36,6 @@ from composer.utils.file_helpers import get_file
 from composer.utils.object_store import S3ObjectStore
 from composer.utils.reproducibility import get_rng_state
 from tests.common import RandomClassificationDataset, deep_compare
-from tests.common.compare import deep_compare
 from tests.common.markers import world_size
 from tests.trainer.test_checkpoint import TestCheckpointResumption, _assert_checkpoints_equivalent
 
@@ -188,7 +187,6 @@ def _compare_optims_between_state_dicts(state_dict1, state_dict2):
                 state_dict1_moment = state_dict1_moment.to_local()
             if isinstance(state_dict2_moment, DTensor):
                 state_dict2_moment = state_dict2_moment.to_local()
-            print(param_name, state_dict1_moment, state_dict2_moment)
             torch.testing.assert_close(state_dict1_moment, state_dict2_moment)
 
 
