@@ -344,14 +344,10 @@ def test_fsdp_full_state_dict_load(
             },
         }
 
-    algorithm = None
-    if use_ema:
-        algorithm = EMA(smoothing=0.9999, half_life=None, update_interval='1ba')
-
     trainer1 = get_trainer(
         save_folder=str(save_folder),
         save_filename=save_filename,
-        algorithms=algorithm,
+        algorithms=EMA(smoothing=0.9999, half_life=None, update_interval='1ba') if use_ema else None,
         run_name=run_name,
         precision=precision,
         autoresume=autoresume,
@@ -368,7 +364,7 @@ def test_fsdp_full_state_dict_load(
         save_folder=str(save_folder),
         save_filename=save_filename,
         load_path=load_path,
-        algorithms=algorithm,
+        algorithms=EMA(smoothing=0.9999, half_life=None, update_interval='1ba') if use_ema else None,
         run_name=run_name,
         precision=precision,
         autoresume=autoresume,
