@@ -330,15 +330,16 @@ def test_fsdp_full_state_dict_load(
 
     if use_ema:
         fsdp_config = FSDPConfig(
+            sharding_strategy='SHARD_GRAD_OP',
+            sharded_ckpt_prefix_dir='ba{batch}',
+        )
+    else:
+        fsdp_config = FSDPConfig(
             sharded_ckpt_prefix_dir='ba{batch}',
             sync_module_states=load_monolith_rank0_only,
             load_monolith_rank0_only=load_monolith_rank0_only,
         )
-    else:
-        fsdp_config = FSDPConfig(
-            sharding_strategy='SHARD_GRAD_OP',
-            sharded_ckpt_prefix_dir='ba{batch}',
-        )
+
     tp_config = None
     if use_tp:
         from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
@@ -353,10 +354,12 @@ def test_fsdp_full_state_dict_load(
     trainer1 = get_trainer(
         save_folder=str(save_folder),
         save_filename=save_filename,
-        algorithms=EMA(smoothing=0.9999, half_life=None, update_interval='1ba') if use_ema else None,
         run_name=run_name,
         precision=precision,
         autoresume=autoresume,
+        algorithms=EMA(smoothing=0.9999, half_life=None, update_interval='1ba') if use_ema else None,
+        save_interval='1ba' if use_ema else None,
+        max_duration='5ba' if use_ema else None,
         optimizer=optimizer,
         fsdp_config=fsdp_config,
         tp_config=tp_config,
@@ -364,17 +367,19 @@ def test_fsdp_full_state_dict_load(
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
     trainer1.close()
-    
+
     load_path = str(save_folder / pathlib.Path('rank{rank}.pt'))
     trainer2 = get_trainer(
         save_folder=str(save_folder),
         save_filename=save_filename,
         load_path=load_path,
-        algorithms=EMA(smoothing=0.9999, half_life=None, update_interval='1ba') if use_ema else None,
         run_name=run_name,
         precision=precision,
         autoresume=autoresume,
         max_duration='4ba',
+        algorithms=EMA(smoothing=0.9999, half_life=None, update_interval='1ba') if use_ema else None,
+        save_interval='1ba',
+        save_overwrite=True if use_ema else False,
         optimizer=optimizer,
         fsdp_config=fsdp_config,
         save_weights_only=save_weights_only,
@@ -390,15 +395,16 @@ def test_fsdp_full_state_dict_load(
             state_dict_from_trainer1,
             state_dict_from_trainer2,
         )
-        if not load_weights_only:
+        if not load_weights_only or use_ema:
             _compare_optims_between_state_dicts(
                 state_dict_from_trainer1,
                 state_dict_from_trainer2,
             )
-        _compare_metrics_between_state_dicts(
-            state_dict_from_trainer1,
-            state_dict_from_trainer2,
-        )
+        if not use_ema:
+            _compare_metrics_between_state_dicts(
+                state_dict_from_trainer1,
+                state_dict_from_trainer2,
+            )
     # Continue to fit to make sure we can continue training.
     if not use_ema:
         trainer2.fit()
