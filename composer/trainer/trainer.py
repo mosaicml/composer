@@ -1723,12 +1723,9 @@ class Trainer:
         # Load Checkpoint
         self._rng_state = None
         # If autoresume is enabled, first check for existing checkpoints to load
-        self.autoresume = autoresume
-        if self.autoresume:
+        if autoresume:
             log.info('Searching for a previous checkpoint to autoresume')
             error_message = ''
-            if max_duration is None:
-                error_message += 'The `max_duration` must be specified on trainer.__init__ when autoresume is enabled. '
             if save_folder is None:
                 error_message += 'The `save_folder` must be specified when autoresume is enabled. '
             if save_overwrite:
@@ -2191,21 +2188,10 @@ class Trainer:
 
         # Reset Time
         if reset_time:
-            if self.autoresume:
-                raise ValueError(
-                    'Cannot specify `reset_time=True` when autoresume is enabled. Please instead '
-                    'specify `load_ignore_keys` when constructing the Trainer, which will only '
-                    'run on the initial load and not any subsequent autoresumptions.',
-                )
             self.state.timestamp = Timestamp()
 
         # Max Duration
         if duration is not None:
-            if self.autoresume:
-                raise ValueError(
-                    '`duration` cannot be specified when autoresume is enabled. Please instead '
-                    'specify `max_duration` when constructing the Trainer.',
-                )
             duration = ensure_time(duration, TimeUnit.EPOCH)
             if duration.unit == TimeUnit.SECOND:
                 raise ValueError('Wall clock time not an allowed time unit.')
