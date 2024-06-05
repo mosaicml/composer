@@ -387,9 +387,6 @@ def test_fsdp_full_state_dict_load(
         tp_config=tp_config,
     )
 
-    trainer2.fit(duration='1ba')
-    state_dict_from_trainer2 = trainer2.state.state_dict()
-
     if use_ema:
         trainer2.fit(duration='1ba')
     state_dict_from_trainer2 = trainer2.state.state_dict()
