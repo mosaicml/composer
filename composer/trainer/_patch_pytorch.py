@@ -109,6 +109,8 @@ def patch_pytorch():
 
         # Issue: https://github.com/pytorch/pytorch/issues/122946
         #  - PR: https://github.com/pytorch/pytorch/pull/125336
+        from torch.distributed.checkpoint import state_dict
+
         state_dict._verify_options = _verify_options
         state_dict._get_model_state_dict = _get_model_state_dict
         state_dict._load_model_state_dict = _load_model_state_dict
