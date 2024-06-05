@@ -208,13 +208,14 @@ class HuggingFaceModel(ComposerModel):
         full_state_dict = super().state_dict(*args, **kwargs)
 
         if self.using_peft and self.should_save_peft_only:
+            from peft.utils.save_and_load import get_peft_model_state_dict
+
             active_adapter = self.model.active_adapter
             assert isinstance(active_adapter, str)
-            full_state_dict = filter_state_dict_peft(
-                full_state_dict,
-                self.model.peft_config[active_adapter],
-                adapter_name='default',
-                remove_adapter_names=False,
+            full_state_dict = get_peft_model_state_dict(
+                model=self.model,
+                state_dict=full_state_dict,
+                adapter_name=active_adapter,
             )
 
         return full_state_dict
