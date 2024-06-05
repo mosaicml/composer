@@ -328,11 +328,17 @@ def test_fsdp_full_state_dict_load(
     save_folder = tmp_path
     save_filename = 'rank{rank}.pt'
 
-    fsdp_config = FSDPConfig(
-        sharded_ckpt_prefix_dir='ba{batch}',
-        sync_module_states=load_monolith_rank0_only,
-        load_monolith_rank0_only=load_monolith_rank0_only,
-    )
+    if use_ema:
+        fsdp_config = FSDPConfig(
+            sharded_ckpt_prefix_dir='ba{batch}',
+            sync_module_states=load_monolith_rank0_only,
+            load_monolith_rank0_only=load_monolith_rank0_only,
+        )
+    else:
+        fsdp_config = FSDPConfig(
+            sharding_strategy='SHARD_GRAD_OP',
+            sharded_ckpt_prefix_dir='ba{batch}',
+        )
     tp_config = None
     if use_tp:
         from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
