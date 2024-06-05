@@ -11,8 +11,9 @@ import pathlib
 import shutil
 import tempfile
 import textwrap
+from concurrent.futures import Future
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Optional, Union, List, Tuple
 
 from composer.core import Callback, Event, State, Time, Timestamp
 from composer.loggers import Logger, MLFlowLogger
@@ -326,7 +327,10 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         self.remote_uploader = None
         backend, _, _ = parse_uri(save_folder)
-        self.remote_uploader_futures = []
+        self.remote_uploader_futures: List[List[Future]] = []
+        self.symlink_file_tasks: List[Tuple(str, str)] = []
+        self.this_rank_saves_remote_symlinks: bool = False
+        self.tmp_dir_for_symlink =  tempfile.TemporaryDirectory()
         if backend != "":
             self.remote_uploader = RemoteUploader(
                 remote_folder = save_folder,
@@ -474,6 +478,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         # if remote file name provided, upload the checkpoint
         if self.remote_file_name is not None:
+            futures: List[Future] = []
             if state.fsdp_sharded_state_dict_enabled:
                 remote_file_name = self.remote_file_name.format(
                     state,
@@ -495,7 +500,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                         state.timestamp,
                     )
                     assert metadata_local_file_path is not None
-                    self.remote_uploader_futures.append(
+                    futures.append(
                         self.remote_uploader.upload_file_async(
                             remote_file_name=metadata_remote_file_name,
                             file_path=metadata_local_file_path,
@@ -510,7 +515,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
             log.debug(f'Uploading checkpoint to {remote_file_name}')
             try:
-                self.remote_uploader_futures.append(
+                futures.append(
                     self.remote_uploader.upload_file_async(
                         remote_file_name=remote_file_name,
                         file_path=saved_path,
@@ -522,6 +527,8 @@ class CheckpointSaver(Callback):  # noqa: D101
                     f'Uploading checkpoint failed with error: {e}. overwrite was set to {self.overwrite}. To overwrite checkpoints with Trainer, set save_overwrite to True.',
                 ) from e
 
+            self.remote_uploader_futures.append(futures)
+
             # symlinks stay the same with sharded checkpointing
             if self.latest_remote_file_name is not None:
                 symlink_name = self.latest_remote_file_name.format(
@@ -530,29 +537,36 @@ class CheckpointSaver(Callback):  # noqa: D101
                 ).lstrip('/') + '.symlink'
 
                 # create and upload a symlink file
-                with tempfile.TemporaryDirectory() as tmpdir:
-                    symlink_filename = os.path.join(tmpdir, 'latest.symlink')
-                    # Sharded checkpoints for torch >2.0 use directories not files for load_paths
-                    if state.fsdp_sharded_state_dict_enabled:
-                        src_path = str(pathlib.Path(remote_file_name).parent)
-                    else:
-                        src_path = remote_file_name
-                    log.debug(f'Creating symlink file {symlink_filename} -> {src_path}')
-                    this_rank_saves_symlinks = dist.get_global_rank() == 0 or not state.fsdp_sharded_state_dict_enabled
-                    if this_rank_saves_symlinks:
-                        create_symlink_file(src_path, symlink_filename)
-                        logger.upload_file(
-                            remote_file_name=symlink_name,
-                            file_path=symlink_filename,
-                            overwrite=True,
-                        )
+                symlink_filename = os.path.join(self.tmp_dir_for_symlink, f'latest.symlink.{len(saved_checkpoints)}')
+                # Sharded checkpoints for torch >2.0 use directories not files for load_paths
+                if state.fsdp_sharded_state_dict_enabled:
+                    src_path = str(pathlib.Path(remote_file_name).parent)
+                else:
+                    src_path = remote_file_name
+                log.debug(f'Creating symlink file {symlink_filename} -> {src_path}')
+                this_rank_saves_symlinks = dist.get_global_rank() == 0 or not state.fsdp_sharded_state_dict_enabled
+                if this_rank_saves_symlinks:
+                    self.this_rank_saves_remote_symlinks = True
+                    create_symlink_file(src_path, symlink_filename)
+                    self.symlink_file_tasks.append((symlink_filename, symlink_name))
 
         self.saved_checkpoints.append(saved_path)
 
         if self.num_checkpoints_to_keep >= 0:
             self._rotate_checkpoints(sharding_enabled=state.fsdp_sharded_state_dict_enabled)
 
-    def _upload_symlink_file(self):
+    def wait(self) -> None:
+        # Wait remote uploader futures and start to upload the latest symlink file if necessary
+        if self.this_rank_saves_remote_symlinks:
+            if len(self.remote_uploader_futures) != len(self.symlink_file_tasks):
+                raise RuntimeError(f'Expect len(remote_uploader_futures) == len(symlink_file_tasks), but got {len(self.remote_uploader_futures)} != {len(self.symlink_file_tasks)}')
+        for i in range(len(self.remote_uploader_futures)):
+            for future in self.remote_uploader_futures[i]:
+                future.result()
+
+        # nccl commms , then upload symlink file
+
+
 
     def _rotate_checkpoints(self, sharding_enabled: bool = False):
 
