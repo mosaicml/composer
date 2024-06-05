@@ -82,7 +82,7 @@ if __name__ == "__main__":
     num_classes=8
 
     fsdp_config= {
-            'min_params': 1,
+            #'min_params': 1,
             'state_dict_type': fsdp_state_dict_type,
             'sharding_strategy': sharding_strategy,
         } if fsdp_state_dict_type != 'no_fsdp' else None
