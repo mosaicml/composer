@@ -24,14 +24,14 @@ from torchmetrics import Metric, MetricCollection
 from composer.core import Precision, State
 from composer.devices import Device
 from composer.distributed.meta_safe_apply import meta_safe_apply
-from composer.distributed.mosaic_fsdp import (
+from composer.distributed.mosaic_parallelism import (
     BACKWARD_PREFETCH_MAP,
     SHARDING_MAP,
     get_cpu_offload,
     get_mixed_precision,
     set_custom_fsdp_module_kwargs,
 )
-from composer.utils import StringEnum, dist, ensure_tuple
+from composer.utils import FSDPConfig, StringEnum, TPConfig, dist, ensure_tuple
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare_fsdp_module', 'prepare_tp_module']
 
@@ -181,24 +181,24 @@ def _recreate_fsdp_param_groups_from_unwrapped_opt_info(
 
 def prepare_tp_module(
     model: torch.nn.Module,
-    tp_config: dict[str, Any],
+    tp_config: TPConfig,
 ) -> None:
     """Prepare a module (assumed ComposerModel) for use with tensor parallel."""
     from torch.distributed.tensor.parallel import parallelize_module
 
-    device_mesh = tp_config['device_mesh']
-    layer_plan = tp_config['layer_plan']
+    device_mesh = tp_config.device_mesh
+    assert device_mesh is not None  # For type checking, set in State.__init__
     parallelize_module(
         module=model,
         device_mesh=device_mesh,
-        parallelize_plan=layer_plan,
+        parallelize_plan=tp_config.layer_plan,
     )
 
 
 def prepare_fsdp_module(
     model: torch.nn.Module,
     optimizers: Optional[Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]]],
-    fsdp_config: dict[str, Any],
+    fsdp_config: FSDPConfig,
     precision: Precision,
     device: Device,
     auto_microbatching: bool,
@@ -216,7 +216,7 @@ def prepare_fsdp_module(
         te_rng_seed(int): The seed to use for the Transformer Engine activation checkpointing RNG. Defaults to 1234.
     """
     # Check sync_module_states is True for mixed initialization or HSDP
-    if fsdp_config['sync_module_states'] == False:
+    if fsdp_config.sync_module_states == False:
         rank_on_meta = 1 if next(model.parameters()).device.type == 'meta' else 0
         all_ranks_meta = device.tensor_to_device(torch.tensor([rank_on_meta], dtype=torch.uint8))
         dist.all_reduce(all_ranks_meta, reduce_operation='MIN')
@@ -226,7 +226,7 @@ def prepare_fsdp_module(
             raise ValueError(
                 'Detected mixed initialization where some ranks have model on cpu or '
                 'gpu and some ranks are on meta. Either keep all ranks on the same '
-                "device or set fsdp_config['sync_module_states'] = True. Otherwise, "
+                "device or set parallelism_config['fsdp']['sync_module_states'] = True. Otherwise, "
                 'some weights may be randomly initialized when loading a checkpoint.',
             )
 
@@ -263,7 +263,7 @@ def prepare_fsdp_module(
 
         num_param_groups = len(optim.param_groups)
         if num_param_groups > 1:
-            if not fsdp_config['use_orig_params']:
+            if not fsdp_config.use_orig_params:
                 raise RuntimeError(
                     'Multiple optimizer groups with FSDP are only supported with '
                     'use_orig_params=True.',
@@ -297,17 +297,19 @@ def prepare_fsdp_module(
         optim.param_groups.clear()
         optim.state.clear()
 
-    sharding_map_key = fsdp_config['sharding_strategy'].upper()
+    sharding_map_key = fsdp_config.sharding_strategy.upper()
     sharding_strategy = SHARDING_MAP[sharding_map_key]
 
     kwargs = {}
-    if version.parse(torch.__version__.split('.dev')[0]) >= version.parse('2.2.0') and 'device_mesh' in fsdp_config:
-        if fsdp_config['process_group'] is not None:
+    if version.parse(
+        torch.__version__.split('.dev')[0],
+    ) >= version.parse('2.2.0') and fsdp_config.device_mesh is not None:
+        if fsdp_config.process_group is not None:
             warnings.warn(
                 'process_group and device_mesh are set for FSDP, so ignoring device_mesh. Please set process_group to None.',
             )
         else:
-            ndim = fsdp_config['device_mesh'].ndim
+            ndim = fsdp_config.device_mesh.ndim
             if ndim == 1 and sharding_strategy == ShardingStrategy.HYBRID_SHARD:
                 sharding_strategy = ShardingStrategy.FULL_SHARD
                 warnings.warn('HYBRID_SHARD is not supported with 1D device mesh. Using FULL_SHARD instead.')
@@ -320,12 +322,12 @@ def prepare_fsdp_module(
             elif ndim == 2 and sharding_strategy == ShardingStrategy.FULL_SHARD:
                 sharding_strategy = ShardingStrategy.HYBRID_SHARD
                 warnings.warn('FULL_SHARD is not supported with 2D device mesh. Using HYBRID_SHARD instead.')
-            kwargs['device_mesh'] = fsdp_config['device_mesh']
+            kwargs['device_mesh'] = fsdp_config.device_mesh
 
-    cpu_offload = get_cpu_offload(cpu_offload=fsdp_config['cpu_offload'])
+    cpu_offload = get_cpu_offload(cpu_offload=fsdp_config.cpu_offload)
 
-    mixed_precision = fsdp_config['mixed_precision']
-    keep_low_precision_grads = fsdp_config['keep_low_precision_grads']
+    mixed_precision = fsdp_config.mixed_precision
+    keep_low_precision_grads = fsdp_config.keep_low_precision_grads
     mixed_precision, param_dtype, _, _ = get_mixed_precision(
         precision,
         mixed_precision=mixed_precision,
@@ -357,22 +359,22 @@ def prepare_fsdp_module(
             )
 
     process_group = None
-    if fsdp_config['process_group'] is not None:
-        process_group_dict = {'process_group': fsdp_config['process_group']}
+    if fsdp_config.process_group is not None:
+        process_group_dict = {'process_group': fsdp_config.process_group}
         process_group = set_custom_fsdp_module_kwargs(process_group_dict, process_group_cache)['process_group']
-    backward_prefetch = BACKWARD_PREFETCH_MAP[fsdp_config['backward_prefetch'].upper()]
-    activation_checkpointing = fsdp_config['activation_checkpointing']
-    activation_cpu_offload = fsdp_config['activation_cpu_offload']
-    sync_module_states = fsdp_config['sync_module_states']
-    forward_prefetch = fsdp_config['forward_prefetch']
-    limit_all_gathers = fsdp_config['limit_all_gathers']
-    ignored_modules = fsdp_config['ignored_modules']
-    state_dict_type = fsdp_config['state_dict_type']
-    activation_checkpointing_reentrant = fsdp_config['activation_checkpointing_reentrant']
-    te_checkpoint_wrapper = fsdp_config['te_checkpoint_wrapper'] if precision == Precision.AMP_FP8 else False
-    te_shard_fp8_weight = fsdp_config['te_shard_fp8_weight'] if precision == Precision.AMP_FP8 else False
-    sharded_ckpt_prefix_dir = fsdp_config['sharded_ckpt_prefix_dir']
-    use_orig_params = fsdp_config['use_orig_params']
+    backward_prefetch = BACKWARD_PREFETCH_MAP[fsdp_config.backward_prefetch.upper()]
+    activation_checkpointing = fsdp_config.activation_checkpointing
+    activation_cpu_offload = fsdp_config.activation_cpu_offload
+    sync_module_states = fsdp_config.sync_module_states
+    forward_prefetch = fsdp_config.forward_prefetch
+    limit_all_gathers = fsdp_config.limit_all_gathers
+    ignored_modules = fsdp_config.ignored_modules
+    state_dict_type = fsdp_config.state_dict_type
+    activation_checkpointing_reentrant = fsdp_config.activation_checkpointing_reentrant
+    te_checkpoint_wrapper = fsdp_config.te_checkpoint_wrapper if precision == Precision.AMP_FP8 else False
+    te_shard_fp8_weight = fsdp_config.te_shard_fp8_weight if precision == Precision.AMP_FP8 else False
+    sharded_ckpt_prefix_dir = fsdp_config.sharded_ckpt_prefix_dir
+    use_orig_params = fsdp_config.use_orig_params
 
     # We choose to not wrap the ComposerModel directly, but instead wrap any submodules like `ComposerModel.model`
     # This makes it safer to call ComposerModel-specific functions like 'eval_forward' that
@@ -591,7 +593,7 @@ def prepare_fsdp_module(
 
             if hasattr(fsdp_obj, '_exec_order_data'):
                 if hasattr(fsdp_obj._exec_order_data, '_forward_prefetch_limit'):
-                    fsdp_obj._exec_order_data._forward_prefetch_limit = fsdp_config['forward_prefetch_limit']
+                    fsdp_obj._exec_order_data._forward_prefetch_limit = fsdp_config.forward_prefetch_limit
                 else:
                     warnings.warn(
                         'FSDP._exec_order_data does not have attribute _forward_prefetch_limit '
@@ -599,7 +601,7 @@ def prepare_fsdp_module(
                         'config being ignored. Please open an issue to Composer to report this.',
                     )
                 if hasattr(fsdp_obj._exec_order_data, '_backward_prefetch_limit'):
-                    fsdp_obj._exec_order_data._backward_prefetch_limit = fsdp_config['backward_prefetch_limit']
+                    fsdp_obj._exec_order_data._backward_prefetch_limit = fsdp_config.backward_prefetch_limit
                 else:
                     warnings.warn(
                         'FSDP._exec_order_data does not have attribute _backward_prefetch_limit '
@@ -712,7 +714,7 @@ def prepare_fsdp_module(
             setattr(model, obj_name, fsdp_obj)
 
     # Print FSDP wrapped model and FSDP config if `verbose=True`
-    if fsdp_config['verbose']:
+    if fsdp_config.verbose:
         log.info(f'FSDP: Wrapped model: {model}')
         log.info(f'FSDP: Using sharding_strategy={sharding_strategy}')
         log.info(f'FSDP: Using cpu_offload={cpu_offload}')

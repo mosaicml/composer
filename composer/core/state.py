@@ -43,7 +43,10 @@ from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit, ensure_time
 from composer.devices import Device
 from composer.utils import (
+    FSDPConfig,
+    ParallelismConfig,
     ParallelismType,
+    TPConfig,
     VersionedDeprecationWarning,
     batch_get,
     batch_set,
@@ -197,8 +200,8 @@ def _ensure_backwards_compatible_checkpointing(state_dict: dict[str, Any]):
 
 def _create_device_mesh(
     device: Device,
-    fsdp_config: Optional[dict[str, Any]],
-    tp_config: Optional[dict[str, Any]],
+    fsdp_config: Optional[FSDPConfig],
+    tp_config: Optional[TPConfig],
 ) -> Optional[DeviceMesh]:
     if version.parse(torch.__version__.split('.dev')[0]) < version.parse('2.3.0'):
         # Device mesh has correctness issues before torch 2.3.0
@@ -210,13 +213,13 @@ def _create_device_mesh(
     # Gather dimensions and names for the device mesh
     dims: list[int] = []
     names: list[str] = []
-    if fsdp_config['data_parallel_replicate_degree'] is not None:
-        dims.append(fsdp_config['data_parallel_replicate_degree'])
+    if fsdp_config.data_parallel_replicate_degree is not None:
+        dims.append(fsdp_config.data_parallel_replicate_degree)
         names.append(ParallelismType.DATA_PARALLEL_REPLICATE.value)
-    dims.append(fsdp_config['data_parallel_shard_degree'])
+    dims.append(fsdp_config.data_parallel_shard_degree)
     names.append(ParallelismType.DATA_PARALLEL_SHARD.value)
     if tp_config is not None:
-        dims.append(tp_config['tensor_parallel_degree'])
+        dims.append(tp_config.tensor_parallel_degree)
         names.append(ParallelismType.TENSOR_PARALLEL.value)
 
     # Fill in the unspecified dimensions
@@ -329,7 +332,7 @@ class State(Serializable):
         algorithms (Algorithm | Sequence[Algorithm], optional): The algorithms used for training.
         callbacks (Callback | Sequence[Callback], optional): The callbacks used for training.
         deepspeed_config (dict[str, Any], optional): The configuration dictionary for deepspeed.
-        parallelism_config (dict[str, Any], optional): The configuration dictionary for parallelism.
+        parallelism_config (ParallelismConfig, optional): The configuration dictionary for parallelism.
 
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
@@ -496,7 +499,7 @@ class State(Serializable):
 
         # Distributed training configs
         deepspeed_config: Optional[dict[str, Any]] = None,
-        parallelism_config: Optional[dict[str, Any]] = None,
+        parallelism_config: Optional[ParallelismConfig] = None,
     ):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
@@ -540,9 +543,8 @@ class State(Serializable):
         self.profiler: Optional[Profiler] = None
 
         self.deepspeed_config = deepspeed_config
-        parallelism_config = parallelism_config or {}
-        self.fsdp_config = parallelism_config.get('fsdp', None)
-        self.tp_config = parallelism_config.get('tp', None)
+        self.fsdp_config = parallelism_config.fsdp if parallelism_config is not None else None
+        self.tp_config = parallelism_config.tp if parallelism_config is not None else None
 
         self._validate_parallelism_configs()
 
@@ -552,9 +554,9 @@ class State(Serializable):
             if self.device_mesh.mesh_dim_names is not None and ParallelismType.DATA_PARALLEL_REPLICATE.value in self.device_mesh.mesh_dim_names:
                 fsdp_mesh_dim_names.append(ParallelismType.DATA_PARALLEL_REPLICATE.value)
             fsdp_mesh_dim_names.append(ParallelismType.DATA_PARALLEL_SHARD.value)
-            self.fsdp_config['device_mesh'] = self.device_mesh[tuple(fsdp_mesh_dim_names)]  # type: ignore
+            self.fsdp_config.device_mesh = self.device_mesh[tuple(fsdp_mesh_dim_names)]  # type: ignore
         if self.tp_config is not None and self.device_mesh is not None:
-            self.tp_config['device_mesh'] = self.device_mesh[ParallelismType.TENSOR_PARALLEL.value]
+            self.tp_config.device_mesh = self.device_mesh[ParallelismType.TENSOR_PARALLEL.value]
 
         # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None
@@ -598,11 +600,11 @@ class State(Serializable):
             if self.fsdp_config is None:
                 raise ValueError(
                     'Tensor parallelism (TP) currently requires FSDP to be enabled. '
-                    'An empty `fsdp_config` can be specified to enable FSDP with '
-                    'default settings. Additionally, PyTorch currently errors if FSDP '
+                    "An empty `parallelism_config['fsdp'] = {}` config can be specified to enable "
+                    'FSDP with default settings. Additionally, PyTorch currently errors if FSDP '
                     'data_parallel_shard_degree is not at least 2.',
                 )
-            if not self.fsdp_config['use_orig_params']:
+            if not self.fsdp_config.use_orig_params:
                 raise ValueError(
                     'Tensor parallelism (TP) currently requires FSDP with use_orig_params=True, '
                     'which is the default and recommended setting.',
@@ -614,10 +616,10 @@ class State(Serializable):
                 raise ValueError('load_fsdp_monolith_rank0_only is not compatible with tensor parallelism (TP).')
             assert self.fsdp_config is not None
             error_message = ''
-            if self.fsdp_config['sync_module_states'] == False:
+            if self.fsdp_config.sync_module_states == False:
                 error_message += textwrap.dedent(
-                    "load_monolith_rank0_only requires fsdp_config['sync_module_states'] to be True. "
-                    "Either set fsdp_config['sync_module_states'] = True or set load_monolith_rank0_only = False. ",
+                    "load_monolith_rank0_only requires parallelism_config['fsdp']['sync_module_states'] to be True. "
+                    "Either set parallelism_config['fsdp']['sync_module_states'] = True or set load_monolith_rank0_only = False.",
                 )
             # Broadcast rank 0 meta check to all ranks so error can be raised on all ranks
             rank0_on_meta = 0
@@ -654,7 +656,7 @@ class State(Serializable):
                 textwrap.dedent(
                     'Saving metrics is not allowed with sharded state dict as metric tensors will '
                     'be sharded and break on load. If you wish to save metric state, set '
-                    'fsdp_config["state_dict_type"] = "full" to disable sharded checkpoints.',
+                    "parallelism_config['fsdp']['state_dict_type'] = 'full' to disable sharded checkpoints.",
                 ),
             )
 
@@ -881,7 +883,7 @@ class State(Serializable):
         if not self.fsdp_enabled:
             return None
         if self.fsdp_config is not None:
-            return self.fsdp_config['state_dict_type']
+            return self.fsdp_config.state_dict_type
         return 'full'
 
     @property
@@ -906,8 +908,8 @@ class State(Serializable):
     @property
     def load_monolith_rank0_only(self):
         return (
-            self.fsdp_config is not None and self.fsdp_config['auto_wrap'] and
-            self.fsdp_config['state_dict_type'] == 'full' and self.fsdp_config['load_monolith_rank0_only'] == True
+            self.fsdp_config is not None and self.fsdp_config.auto_wrap and
+            self.fsdp_config.state_dict_type == 'full' and self.fsdp_config.load_monolith_rank0_only == True
         )
 
     def _get_integrations_state_dict(self) -> dict[str, Any]:

@@ -667,6 +667,7 @@ class TestCheckpointLoading:
         max_duration: str = '2ep',
         latest_filename: str = 'latest-rank{rank}.pt',
         file_extension: str = '.pt',
+        use_scheduler: bool = True,
         **kwargs,
     ):
         if model is None:
@@ -704,7 +705,7 @@ class TestCheckpointLoading:
             save_filename='ep{epoch}' + file_extension,
             max_duration=max_duration,
             optimizers=optimizer,
-            schedulers=ExponentialScheduler(gamma=0.9),
+            schedulers=ExponentialScheduler(gamma=0.9) if use_scheduler else None,
             callbacks=callbacks,
             **kwargs,
         )
@@ -1212,23 +1213,42 @@ class TestCheckpointLoading:
         )
 
     @pytest.mark.parametrize(
-        'run_name,save_folder,save_overwrite,latest_filename',
+        'run_name,save_folder,save_overwrite,latest_filename,max_duration',
         [
-            [None, 'first', False, 'latest-rank{rank}.pt'],
-            ['big-chungus', None, False, 'latest-rank{rank}.pt'],
-            ['big-chungus', 'first', True, 'latest-rank{rank}.pt'],
-            ['big-chungus', 'first', False, None],
+            [None, 'first', False, 'latest-rank{rank}.pt', '2ep'],
+            ['big-chungus', None, False, 'latest-rank{rank}.pt', '2ep'],
+            ['big-chungus', 'first', True, 'latest-rank{rank}.pt', '2ep'],
+            ['big-chungus', 'first', False, None, '2ep'],
+            ['big-chungus', 'first', False, 'latest-rank{rank}.pt', None],
         ],
     )
-    def test_autoresume_fail(self, run_name, save_folder, save_overwrite, latest_filename):
+    def test_autoresume_fail_init(self, run_name, save_folder, save_overwrite, latest_filename, max_duration):
         with pytest.raises(ValueError):
             self.get_trainer(
                 latest_filename=latest_filename,
                 save_overwrite=save_overwrite,
                 save_folder=save_folder,
                 run_name=run_name,
+                max_duration=max_duration,
                 autoresume=True,
+                use_scheduler=False,
             )
+
+    @pytest.mark.parametrize(
+        'duration,reset_time',
+        [
+            ['1ep', False],
+            [None, True],
+        ],
+    )
+    def test_autoresume_fail_fit(self, duration: Optional[str], reset_time: bool):
+        trainer = self.get_trainer(
+            run_name='bigtrainer',
+            save_folder='first',
+            autoresume=True,
+        )
+        with pytest.raises(ValueError):
+            trainer.fit(duration=duration, reset_time=reset_time)
 
     def test_different_run_names(self):
 
