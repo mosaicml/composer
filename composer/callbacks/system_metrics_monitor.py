@@ -22,7 +22,89 @@ __all__ = ['SystemMetricsMonitor']
 
 
 class SystemMetricsMonitor(Callback):
-    """Track system metrics."""
+    """Logs the minimum and maximum training values across all ranks for the following metrics:
+
+        RoundTripTime: Time spent in all the traced ops in the current batch
+        Power: GPU Power Consumption
+        Temp: GPU Temperature
+        Utilization: GPU Utilization
+        Clock: GPU Clock
+        BatchLoadLatency: Time spent loading the current batch from the dataset
+        Throughput: Estimated throughput for the current batch
+
+    The maximum and minimum values for these metrics, alongside their respective ranks, are logged 
+    on the :attr:`.Event.BATCH_END` event for every batch. 
+
+    To compute `flops_per_sec`, the model attribute `flops_per_batch` should be set to a callable
+    which accepts a batch and returns the number of flops for that batch. Typically, this should
+    be flops per sample times the batch size unless pad tokens are used.
+
+    The wall clock time is logged on every :attr:`.Event.BATCH_END` event.
+
+    Example:
+        .. doctest::
+
+            >>> from composer import Trainer
+            >>> from composer.callbacks import GlobalStragglerDetector
+            >>> # constructing trainer object with this callback
+            >>> trainer = Trainer(
+            ...     model=model,
+            ...     train_dataloader=train_dataloader,
+            ...     eval_dataloader=eval_dataloader,
+            ...     optimizers=optimizer,
+            ...     max_duration='1ep',
+            ...     callbacks=[GlobalStragglerDetector()],
+            ... )
+
+    The metrics are logged by the :class:`.Logger` to the following keys as
+    described below.
+
+    +-------------------------------------+-----------------------------------------------------------+
+    | Key                                 | Logged data                                               |
+    +=====================================+===========================================================+
+    |                                     | Minimum time spent in all the traced ops in the           |
+    | `MinRoundTripTime/Rank`             | current batch across all ranks for the corresponding rank |
+    |                                     |                                                           |
+    +-------------------------------------+-----------------------------------------------------------+
+    |                                     | Maximum time spent in all the traced ops in the           |
+    | `MaxRoundTripTime/Rank`             | current batch across all ranks for the corresponding rank |
+    |                                     |                                                           |
+    +-------------------------------------+-----------------------------------------------------------+
+    | `MinPower/Rank`                     | Minimum GPU Power consumed for the corresponding rank     |
+    +-------------------------------------+-----------------------------------------------------------+
+    | `MaxPower/Rank`                     | Maximum GPU Power consumed for the corresponding rank     |
+    +-------------------------------------+-----------------------------------------------------------+
+    | `MinTemp/Rank`                      | Minimum GPU Temperature for the corresponding rank        |
+    +-------------------------------------+-----------------------------------------------------------+
+    | `MaxTemp/Rank`                      | Maximum GPU Temperature for the corresponding rank        |    
+    +-------------------------------------+-----------------------------------------------------------+
+    | `MinUtilization/Rank`               | Minimum GPU Utilization for the corresponding rank        |
+    +-------------------------------------+-----------------------------------------------------------+
+    | `MaxUtilization/Rank`               | Maximum GPU Utilization for the corresponding rank        |  
+    +-------------------------------------+-----------------------------------------------------------+
+    | `MinClock/Rank`                     | Minimum GPU Clock for the corresponding rank              |  
+    +-------------------------------------+-----------------------------------------------------------+
+    | `MaxClock/Rank`                     | Maximum GPU Clock for the corresponding rank              |  
+    +-------------------------------------+-----------------------------------------------------------+
+    |                                     | Minimum time spent loading the current batch from the     |
+    | `MinBatchLoadLatency/Rank`          | dataset across all ranks for the corresponding rank       |
+    |                                     |                                                           |
+    +-------------------------------------+-----------------------------------------------------------+
+    |                                     | Maximum time spent loading the current batch from the     |
+    | `MaxBatchLoadLatency/Rank`          | dataset across all ranks for the corresponding rank       |
+    |                                     |                                                           |
+    +-------------------------------------+-----------------------------------------------------------+
+    | `MinThroughput/Rank`                | Minimum estimated throughput for the corresponding rank   |  
+    +-------------------------------------+-----------------------------------------------------------+
+    | `MaxThroughput/Rank`                | Maximum estimated throughput for the corresponding rank   |  
+    +-------------------------------------+-----------------------------------------------------------+
+
+    
+    Args:
+        log_all_data (bool, optional): True if user wants to log data for all ranks, not just the min/max.
+        Defaults to False.
+    """
+
 
     def __init__(self, log_all_data: bool = False) -> None:
         super().__init__()
@@ -98,7 +180,7 @@ class SystemMetricsMonitor(Callback):
 
         for key, value in all_metrics[0].items():
             if key.startswith('device'):
-                metric_name = key.split('_')[1]
+                metric_name = key.split('_', 1)[1]
                 min_metrics[metric_name] = (value, 0)  
                 max_metrics[metric_name] = (value, 0)
             else:
@@ -108,7 +190,7 @@ class SystemMetricsMonitor(Callback):
         for cur_rank, metrics in enumerate(all_metrics[1:]):
             for key, value in metrics.items():
                 if key.startswith('device'):
-                    metric_name = key.split('_')[1]
+                    metric_name = key.split('_', 1)[1]
                     current_min_value, _ = min_metrics[metric_name]
                     current_max_value, _ = max_metrics[metric_name]
                     if value < current_min_value:
