@@ -36,7 +36,6 @@ from composer.utils.file_helpers import get_file
 from composer.utils.object_store import S3ObjectStore
 from composer.utils.reproducibility import get_rng_state
 from tests.common import RandomClassificationDataset, deep_compare
-from tests.common.compare import deep_compare
 from tests.common.markers import world_size
 from tests.trainer.test_checkpoint import TestCheckpointResumption, _assert_checkpoints_equivalent
 
@@ -188,7 +187,6 @@ def _compare_optims_between_state_dicts(state_dict1, state_dict2):
                 state_dict1_moment = state_dict1_moment.to_local()
             if isinstance(state_dict2_moment, DTensor):
                 state_dict2_moment = state_dict2_moment.to_local()
-            print(param_name, state_dict1_moment, state_dict2_moment)
             torch.testing.assert_close(state_dict1_moment, state_dict2_moment)
 
 
@@ -288,29 +286,31 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
     deep_compare(timestamp1, timestamp2)
 
 
+base_params = [
+    (2, 'adam', False, 'amp_bf16', False, False, False, False),
+    (2, 'adamw', False, 'amp_bf16', False, False, False, False),
+    (2, 'adam', True, 'amp_bf16', False, False, False, False),
+    (2, 'adam', False, 'amp_fp16', False, False, False, False),
+    (2, 'adam', False, 'amp_bf16', True, True, False, False),  # save_weights_only requires load_weights_only
+    (2, 'adam', False, 'amp_bf16', False, True, False, False),
+    (2, 'adam', False, 'amp_bf16', False, False, True, False),
+    (4, 'adam', False, 'amp_bf16', False, False, False, True),
+]
+
+# Generate the pytest parameters for both HSDP True and False
+param_list = [
+    pytest.param(*params, use_hsdp, marks=pytest.mark.world_size(params[0]))
+    for params in base_params
+    for use_hsdp in [True, False]
+]
+
 @pytest.mark.gpu
 @pytest.mark.filterwarnings(r'ignore:.*scatter_full_optim_state_dict``is being deprecated.*:UserWarning')
-@pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
-@pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
-@pytest.mark.filterwarnings(r'ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning')
 @pytest.mark.parametrize(
-    'world_size,optimizer,autoresume,precision,save_weights_only,load_weights_only,load_monolith_rank0_only,use_tp,use_ema',
-    [
-        pytest.param(2, 'adam', False, 'amp_bf16', False, False, False, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adamw', False, 'amp_bf16', False, False, False, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', True, 'amp_bf16', False, False, False, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', False, 'amp_fp16', False, False, False, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', False, 'amp_bf16', True, True, False, False, False, marks=pytest.mark.world_size(2)),  # save_weights_only requires load_weights_only
-        pytest.param(2, 'adam', False, 'amp_bf16', False, True, False, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', False, 'amp_bf16', False, False, True, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(4, 'adam', False, 'amp_bf16', False, False, False, True, False, marks=pytest.mark.world_size(4)),
-        pytest.param(2, 'adam', False, 'amp_bf16', False, False, False, False, True, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adamw', False, 'amp_bf16', False, False, False, False, True, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', False, 'amp_fp16', False, False, False, False, True, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adamw', False, 'amp_fp16', False, False, False, False, True, marks=pytest.mark.world_size(2)),
-    ],
+    'world_size,optimizer,autoresume,precision,save_weights_only,load_weights_only,load_monolith_rank0_only,use_tp,use_hsdp',
+    param_list
 )
-def test_fsdp_full_state_dict_load(
+def test_fsdp_full_state_dict_load_with_hsdp(
     world_size,
     tmp_path: pathlib.Path,
     autoresume: bool,
@@ -320,19 +320,18 @@ def test_fsdp_full_state_dict_load(
     load_weights_only: bool,
     load_monolith_rank0_only: bool,
     use_tp: bool,
-    use_ema: bool,
+    use_hsdp: bool,
 ):
-    if autoresume:
-        run_name = 'my-cool-autoresume-run'
-    else:
-        run_name = None
+    run_name = 'my-cool-autoresume-run' if autoresume else None
     save_folder = tmp_path
-    save_filename = 'ba{batch}-rank{rank}.pt' if use_ema else 'rank{rank}.pt'
+    save_filename = 'rank{rank}.pt'
 
-    if use_ema:
+    if use_hsdp:
         fsdp_config = FSDPConfig(
-            sharding_strategy='SHARD_GRAD_OP',
             sharded_ckpt_prefix_dir='ba{batch}',
+            sharding_strategy='HYBRID_SHARD',
+            data_parallel_shard_degree=world_size,
+            data_parallel_replicate_degree=-1,
         )
     else:
         fsdp_config = FSDPConfig(
@@ -358,9 +357,6 @@ def test_fsdp_full_state_dict_load(
         run_name=run_name,
         precision=precision,
         autoresume=autoresume,
-        algorithms=EMA(smoothing=0.9999, half_life=None, update_interval='1ba') if use_ema else None,
-        save_interval='1ba' if use_ema else '2ba',
-        max_duration='5ba' if use_ema else '2ba',
         optimizer=optimizer,
         fsdp_config=fsdp_config,
         tp_config=tp_config,
@@ -369,7 +365,7 @@ def test_fsdp_full_state_dict_load(
     state_dict_from_trainer1 = trainer1.state.state_dict()
     trainer1.close()
 
-    load_path = str(save_folder / pathlib.Path('ba4-rank{rank}.pt')) if use_ema else str(save_folder / pathlib.Path('rank{rank}.pt'))
+    load_path = str(save_folder / pathlib.Path('rank{rank}.pt'))
     trainer2 = get_trainer(
         save_folder=str(save_folder),
         save_filename=save_filename,
@@ -377,19 +373,13 @@ def test_fsdp_full_state_dict_load(
         run_name=run_name,
         precision=precision,
         autoresume=autoresume,
-        max_duration='2ba' if use_ema else '4ba',
-        algorithms=EMA(smoothing=0.9999, half_life=None, update_interval='1ba') if use_ema else None,
-        save_interval='1ba' if use_ema else '2ba',
-        save_overwrite=True if use_ema else False,
+        max_duration='4ba',
         optimizer=optimizer,
         fsdp_config=fsdp_config,
         save_weights_only=save_weights_only,
         load_weights_only=load_weights_only,
         tp_config=tp_config,
     )
-
-    if use_ema:
-        trainer2.fit(duration='1ba')
     state_dict_from_trainer2 = trainer2.state.state_dict()
 
     if dist.get_global_rank() == 0:
@@ -397,19 +387,17 @@ def test_fsdp_full_state_dict_load(
             state_dict_from_trainer1,
             state_dict_from_trainer2,
         )
-        if not load_weights_only or use_ema:
+        if not load_weights_only:
             _compare_optims_between_state_dicts(
                 state_dict_from_trainer1,
                 state_dict_from_trainer2,
             )
-        if not use_ema:
-            _compare_metrics_between_state_dicts(
-                state_dict_from_trainer1,
-                state_dict_from_trainer2,
-            )
+        _compare_metrics_between_state_dicts(
+            state_dict_from_trainer1,
+            state_dict_from_trainer2,
+        )
     # Continue to fit to make sure we can continue training.
-    if not use_ema:
-        trainer2.fit()
+    trainer2.fit()
     trainer2.close()
 
 
@@ -694,6 +682,82 @@ def test_fsdp_load_old_checkpoint(
     # Continue to fit to make sure we can continue training.
     trainer.fit()
     trainer.close()
+
+
+@pytest.mark.gpu
+@world_size(2)
+@pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
+@pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
+def test_fsdp_full_state_dict_load_with_ema(
+    world_size,
+    tmp_path: pathlib.Path,
+    precision: str,
+    optimizer: str,
+):
+    save_folder = tmp_path
+    save_filename = 'ba{batch}-rank{rank}.pt'
+
+    fsdp_config = FSDPConfig(
+        sharding_strategy='SHARD_GRAD_OP',
+        sharded_ckpt_prefix_dir='ba{batch}',
+    )
+
+    trainer1 = get_trainer(
+        save_folder=str(save_folder),
+        save_filename=save_filename,
+        algorithms=EMA(smoothing=0.9999, half_life=None, update_interval='1ba'),
+        save_interval='1ba',
+        max_duration='5ba',
+        optimizer=optimizer,
+        fsdp_config=fsdp_config,
+    )
+    trainer1.fit()
+    state_dict_from_trainer1 = trainer1.state.state_dict()
+    trainer1.close()
+
+    load_path = str(save_folder / pathlib.Path('ba4-rank{rank}.pt'))
+    trainer2 = get_trainer(
+        save_folder=str(save_folder),
+        save_filename=save_filename,
+        load_path=load_path,
+        algorithms=EMA(smoothing=0.9999, half_life=None, update_interval='1ba'),
+        save_interval='1ba',
+        save_overwrite=True,
+        optimizer=optimizer,
+        fsdp_config=fsdp_config,
+    )
+    trainer2.fit(duration='1ba')
+    state_dict_from_trainer2 = trainer2.state.state_dict()
+
+    if dist.get_global_rank() == 0:
+        _compare_model_params_between_state_dicts(
+            state_dict_from_trainer1,
+            state_dict_from_trainer2,
+        )
+        _compare_optims_between_state_dicts(
+            state_dict_from_trainer1,
+            state_dict_from_trainer2,
+        )
+
+    trainer2.close()
+
+
+@pytest.mark.gpu
+@pytest.mark.filterwarnings(r'ignore:.*scatter_full_optim_state_dict``is being deprecated.*:UserWarning')
+@pytest.mark.parametrize(
+    'world_size,optimizer,autoresume,precision,save_weights_only,load_weights_only,load_monolith_rank0_only,use_tp',
+    [
+        pytest.param(2, 'adam', False, 'amp_bf16', False, False, False, False, marks=pytest.mark.world_size(2)),
+        pytest.param(2, 'adamw', False, 'amp_bf16', False, False, False, False, marks=pytest.mark.world_size(2)),
+        pytest.param(2, 'adam', True, 'amp_bf16', False, False, False, False, marks=pytest.mark.world_size(2)),
+        pytest.param(2, 'adam', False, 'amp_fp16', False, False, False, False, marks=pytest.mark.world_size(2)),
+        pytest.param(2, 'adam', False, 'amp_bf16', True, True, False, False,
+                     marks=pytest.mark.world_size(2)),  # save_weights_only requires load_weights_only
+        pytest.param(2, 'adam', False, 'amp_bf16', False, True, False, False, marks=pytest.mark.world_size(2)),
+        pytest.param(2, 'adam', False, 'amp_bf16', False, False, True, False, marks=pytest.mark.world_size(2)),
+        pytest.param(4, 'adam', False, 'amp_bf16', False, False, False, True, marks=pytest.mark.world_size(4)),
+    ],
+)
 
 
 @pytest.mark.gpu
