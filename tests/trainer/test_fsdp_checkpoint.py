@@ -326,7 +326,7 @@ def test_fsdp_full_state_dict_load(
     else:
         run_name = None
     save_folder = tmp_path
-    save_filename = 'ba{batch}-rank{rank}.pt'
+    save_filename = 'ba{batch}-rank{rank}.pt' if use_ema else 'rank{rank}.pt'
 
     if use_ema:
         fsdp_config = FSDPConfig(
@@ -368,7 +368,7 @@ def test_fsdp_full_state_dict_load(
     state_dict_from_trainer1 = trainer1.state.state_dict()
     trainer1.close()
 
-    load_path = str(save_folder / pathlib.Path('ba4-rank{rank}.pt'))
+    load_path = str(save_folder / pathlib.Path('ba4-rank{rank}.pt')) if use_ema else str(save_folder / pathlib.Path('rank{rank}.pt'))
     trainer2 = get_trainer(
         save_folder=str(save_folder),
         save_filename=save_filename,
