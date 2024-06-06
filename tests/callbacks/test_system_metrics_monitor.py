@@ -13,7 +13,7 @@ from tests.common import RandomClassificationDataset, SimpleModel
 @pytest.mark.gpu
 def test_system_metrics_monitor_gpu():
     # Construct the trainer
-    system_metrics_monitor = SystemMetricsMonitor(gpu_available=True)
+    system_metrics_monitor = SystemMetricsMonitor()
     in_memory_logger = InMemoryLogger()
     trainer = Trainer(
         model=SimpleModel(),

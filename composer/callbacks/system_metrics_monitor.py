@@ -7,10 +7,9 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Union
 
-import torch
 import psutil
+import torch
 
 from composer.core import Callback, Event, State
 from composer.loggers import Logger
@@ -21,27 +20,27 @@ log = logging.getLogger(__name__)
 
 __all__ = ['SystemMetricsMonitor']
 
-
 _GPU_METRICS = [
-    "gpu_percentage",
-    "memory_percentage",
-    "gpu_temperature_C",
-    "gpu_power_usage_W"
+    'gpu_percentage',
+    'memory_percentage',
+    'gpu_temperature_C',
+    'gpu_power_usage_W',
 ]
+
 
 class SystemMetricsMonitor(Callback):
     """Logs GPU and CPU metrics relevant to straggler detection across all ranks.
 
     GPU Metrics:
-        gpu_percentage: Occupancy rate, percent of time over the past sampling period during 
+        gpu_percentage: Occupancy rate, percent of time over the past sampling period during
                         which one or more kernels was executing on the GPU.
-        memory_percentage: Percent of time over the past sampling period during which 
+        memory_percentage: Percent of time over the past sampling period during which
                         global (device) memory was being read or written.
         gpu_temperature_C: Temperature of device, in Celcius.
         gpu_power_usage_W: Power usage of device, in Watts.
 
-    If the log_all_data flag is set to false (which is false by default), only the maximum and minimum values 
-    for these metrics, alongside their respective ranks in the key names, are logged 
+    If the log_all_data flag is set to false (which is false by default), only the maximum and minimum values
+    for these metrics, alongside their respective ranks in the key names, are logged
     on the :attr:`.Event.BATCH_START`, :attr:`.Event.EVAL_BATCH_START`, :attr:`.Event.PREDICT_BATCH_START`
     events for every batch. Otherwise, all values for these metrics across all ranks are logged on the above
     events for every batch.
@@ -66,6 +65,7 @@ class SystemMetricsMonitor(Callback):
         log_all_data (bool, optional): True if user wants to log data for all ranks, not just the min/max.
         Defaults to False.
     """
+
     def __init__(self, log_all_data: bool = False) -> None:
         super().__init__()
         self.gpu_available = torch.cuda.is_available()
@@ -108,7 +108,7 @@ class SystemMetricsMonitor(Callback):
                     for key, value in metrics.items():
                         if key not in gpu_metrics_set:
                             system_metrics[key] = value
-                        
+
             logger.log_metrics(system_metrics)
 
     def compute_system_metrics(self):
@@ -124,7 +124,7 @@ class SystemMetricsMonitor(Callback):
             system_metrics['memory_percentage'] = device_utilization.memory
             temperature = pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)
             system_metrics['gpu_temperature_C'] = temperature
-            power = pynvml.nvmlDeviceGetPowerUsage(handle) / 1000.0 # convert from mW to W
+            power = pynvml.nvmlDeviceGetPowerUsage(handle) / 1000.0  # convert from mW to W
             system_metrics['gpu_power_usage_W'] = power
 
         # Get metrics for the system
@@ -141,18 +141,18 @@ class SystemMetricsMonitor(Callback):
             system_metrics[f'network_{k}'] = v
         return system_metrics
 
-
     def compute_min_max_metrics(self, all_metrics, model_device):
         min_max_metrics = {}
 
         if self.gpu_available:
             gpu_metrics = _GPU_METRICS
             for key in gpu_metrics:
-                values = torch.tensor([metrics_for_cur_rank[key] for metrics_for_cur_rank in all_metrics], device=model_device)
+                values = torch.tensor([metrics_for_cur_rank[key] for metrics_for_cur_rank in all_metrics],
+                                      device=model_device)
 
                 min_rank = torch.argmin(values).item()
                 max_rank = torch.argmax(values).item()
                 min_max_metrics[f'min_{key}/Rank_{min_rank}'] = values[min_rank].item()
                 min_max_metrics[f'max_{key}/Rank_{max_rank}'] = values[max_rank].item()
-        
+
         return min_max_metrics
