@@ -54,7 +54,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0'):
 else:
     from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state  # type: ignore
 
-from composer.callbacks import CheckpointSaver, MemorySnapshot, OOMObserver, OptimizerMonitor
+from composer.callbacks import CheckpointSaver, MemorySnapshot, OOMObserver, OptimizerMonitor, CheckpointSaverCallback
 from composer.core import (
     Algorithm,
     AlgorithmPass,
@@ -1415,7 +1415,7 @@ class Trainer:
         self._checkpoint_saver = None
         latest_remote_file_name = None
 
-        _checkpoint_savers = [cb for cb in self.state.callbacks if isinstance(cb, CheckpointSaver)]
+        _checkpoint_savers = [cb for cb in self.state.callbacks if (isinstance(cb, CheckpointSaver) or isinstance(cb, CheckpointSaverCallback))]
         if len(_checkpoint_savers) >= 1:
             if len(_checkpoint_savers) > 1:
                 log.info('Multiple CheckpointSaver provided as callbacks. Using the first one as reference.')
@@ -1461,7 +1461,7 @@ class Trainer:
                 else:
                     latest_remote_file_name = None
 
-            self._checkpoint_saver = CheckpointSaver(
+            self._checkpoint_saver = CheckpointSaverCallback(
                 folder=folder,
                 filename=save_filename,
                 remote_file_name=remote_file_name,
@@ -1472,6 +1472,7 @@ class Trainer:
                 ignore_keys=save_ignore_keys,
                 save_interval=save_interval,
                 num_checkpoints_to_keep=save_num_checkpoints_to_keep,
+                save_folder=save_folder,
             )
             self.state.callbacks.append(self._checkpoint_saver)
 

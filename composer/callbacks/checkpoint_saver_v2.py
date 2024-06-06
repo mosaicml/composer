@@ -38,12 +38,12 @@ from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID
 
 log = logging.getLogger(__name__)
 
-__all__ = ['CheckpointSaver']
+__all__ = ['CheckpointSaverCallback']
 
 _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME = '.metadata'
 
 
-class CheckpointSaver(Callback):  # noqa: D101
+class CheckpointSaverCallback(Callback):  # noqa: D101
     __doc__ = f"""Callback to save checkpoints.
 
     .. note::
