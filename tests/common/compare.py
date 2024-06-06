@@ -10,6 +10,8 @@ import torchmetrics
 
 from composer import Time
 from composer.core.time import TimeUnit
+from torch.distributed._shard.sharded_tensor import ShardedTensor
+from torch.distributed._tensor import DTensor
 
 
 def deep_compare(item1: Any, item2: Any, atol: float = 0.0, rtol: float = 0.0, ignore_keys: Optional[List[str]] = None):
@@ -39,7 +41,7 @@ def _check_item(
         assert type(item1) == type(item2)
         assert item1 == item2, f'{path} differs: {item1} != {item2}'
         return
-    if isinstance(item1, torch.Tensor):
+    if isinstance(item1, torch.Tensor) and not (isinstance(item1, ShardedTensor) or isinstance(item1, DTensor)):
         assert isinstance(item2, torch.Tensor)
         if item1.device != item2.device:
             item1 = item1.cpu()
@@ -58,6 +60,16 @@ def _check_item(
         assert isinstance(item2, type(item1)), f'{path} differs: {item1} != {item2}'
         _check_list_recursively(item1, item2, path, atol=atol, rtol=rtol)
         return
+    if isinstance(item1, ShardedTensor):
+        assert isinstance(item2, type(item1)), f'{path} differs: {item1} != {item2}'
+        _check_sharded_tensor_recursively(item1, item2, path, atol=atol, rtol=rtol)
+        return
+    
+    if isinstance(item1, DTensor):
+        assert isinstance(item2, type(item1)), f'{path} differs: {item1} != {item2}'
+        _check_dtensor_recursively(item1, item2, path, atol=atol, rtol=rtol)
+        return
+    
     if isinstance(item1, torchmetrics.Metric):
         assert isinstance(item2, torchmetrics.Metric), f'{path} differs: {item1} != {item2}'
         # Increase update count so Torchmetrics doesn't throw warning when computing two metrics which haven't been updated
@@ -83,6 +95,28 @@ def _check_item(
 
     raise NotImplementedError(f'Unsupported item type: {type(item1)}')
 
+
+def _check_dtensor_recursively(
+    dtensor1: DTensor,
+    dtensor2: DTensor,
+    path: str,
+    atol: float,
+    rtol: float,
+):
+    tensor1, tensor2 = dtensor1.to_local(), dtensor2.to_local()
+    _check_item(tensor1, tensor2, path, atol=atol, rtol=rtol)
+    
+
+def _check_sharded_tensor_recursively(
+    sharded_tensor1: ShardedTensor,
+    sharded_tensor2: ShardedTensor,
+    path: str,
+    atol: float,
+    rtol: float,
+):
+    tensor1, tensor2 = sharded_tensor1.local_tensor(), sharded_tensor2.local_tensor()
+    _check_item(tensor1, tensor2, path, atol=atol, rtol=rtol)
+    
 
 def _check_list_recursively(
     list1: Union[tuple[Any], list[Any]],

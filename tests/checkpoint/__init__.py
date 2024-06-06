@@ -4,7 +4,7 @@ import torch
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.optim import adam
 from tests.common.models import EvenSimplerMLP, SimpleComposerMLP
-
+from torch.distributed.fsdp.api import CPUOffload
 
 def _init_model_and_optimizer(
     use_composer_model: bool,
@@ -46,6 +46,8 @@ def _init_model(
     use_fsdp=False,
     device='cuda',
     tensor_type='sharded_tensor',
+    sync_module_states=True,
+    cpu_offload=False,
 ):
     if use_composer_model:
         model = SimpleComposerMLP(num_features=num_features, num_classes=num_classes, device=device)
@@ -57,7 +59,8 @@ def _init_model(
     if use_fsdp:
         fsdp_kwargs: Dict[str, Any] = dict(
             use_orig_params=True,
-            sync_module_states=True,  # To enable easy comparison between rank 0 unsharded model and full state dict
+            sync_module_states=sync_module_states,  # To enable easy comparison between rank 0 unsharded model and full state dict
+            cpu_offload=CPUOffload(offload_params=True) if cpu_offload else None,
         )
 
         if tensor_type == 'dtensor':
