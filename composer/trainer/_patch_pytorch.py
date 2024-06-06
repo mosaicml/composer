@@ -934,8 +934,8 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
 
     else:
         def create_child_mesh(
-            self, parent_mesh: "DeviceMesh", submesh_dim_names: Tuple[str, ...]
-        ) -> "DeviceMesh":
+            self, parent_mesh: 'DeviceMesh', submesh_dim_names: Tuple[str, ...],
+        ) -> 'DeviceMesh':
             """Monkeypatch create_child_mesh to nightly version."""
             # submesh_dims are the mesh dimension of the submesh in the parent mesh.
             submesh_dims = [
@@ -954,7 +954,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             # This means on each local rank of the outermost slice mesh dim, we have a tensor of submesh size with
             # the pg ranks of the submesh. From this, we can extract the submesh mesh tensor contains the current rank.
             pg_ranks_by_dim = parent_mesh.mesh.permute(
-                *mesh_dims_remained, *submesh_dims
+                *mesh_dims_remained, *submesh_dims,
             ).reshape(-1, *submesh_dim_sizes)
 
             cur_rank = parent_mesh.get_rank()
@@ -968,17 +968,17 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
                 if cur_rank in mesh_nd:
                     res_submesh = submesh
 
-            res_submesh._parent_mesh = parent_mesh  # type: ignore[possibly-undefined]
+            res_submesh._parent_mesh = parent_mesh  # type: ignore
             res_submesh._dim_group_infos = [
-                parent_mesh._dim_group_infos[mesh_dim] for mesh_dim in submesh_dims  # type: ignore[possibly-undefined]
+                parent_mesh._dim_group_infos[mesh_dim] for mesh_dim in submesh_dims  # type: ignore
             ]
-            self.child_to_parent_mapping[res_submesh] = parent_mesh
+            self.child_to_parent_mapping[res_submesh] = parent_mesh  # type: ignore
 
             return res_submesh
 
         def device_mesh__getitem__(
-            self, mesh_dim_names: Union[str, tuple[str, ...]]
-        ) -> "DeviceMesh":
+            self, mesh_dim_names: Union[str, tuple[str, ...]],
+        ) -> 'DeviceMesh':
             """Monkeypatch device_mesh __getitem__ to nightly version.
 
             Slice the current DeviceMesh based on the mesh_dim_name given to create a child
@@ -1008,15 +1008,15 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
                 >>> mesh = DeviceMesh(device_type="cuda", mesh=[[0, 1, 2, 3],[4, 5, 6, 7]])
             """
             if not self.mesh_dim_names:
-                raise RuntimeError("Cannot slice a DeviceMesh without mesh_dim_names!")
+                raise RuntimeError('Cannot slice a DeviceMesh without mesh_dim_names!')
 
             mesh_dim_names = (
                 (mesh_dim_names,) if isinstance(mesh_dim_names, str) else mesh_dim_names
             )
 
             error_msg = (
-                f"Invalid mesh_dim_name {mesh_dim_names} specified. "
-                f"Valid mesh_dim_names should be a contiguous subsequence of {self.mesh_dim_names}."
+                f'Invalid mesh_dim_name {mesh_dim_names} specified. '
+                f'Valid mesh_dim_names should be a contiguous subsequence of {self.mesh_dim_names}.'
             )
 
             if mesh_dim_names == self.mesh_dim_names:
