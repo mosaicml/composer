@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional, TypeVar
+from typing import Optional, TypeVar
 
 import torch
 import torch.backends.cuda
@@ -57,11 +57,3 @@ class DeviceGPU(Device):
 
     def tensor_to_device(self, tensor: torch.Tensor) -> torch.Tensor:
         return tensor.to(self._device, non_blocking=True)
-
-    def state_dict(self) -> dict[str, Any]:
-        return {
-            'rng': torch.cuda.get_rng_state(),
-        }
-
-    def load_state_dict(self, state: dict[str, Any]) -> None:
-        torch.cuda.set_rng_state(state['rng'])

@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, TypeVar
+from typing import TypeVar
 
 import torch
 
@@ -34,11 +34,3 @@ class DeviceCPU(Device):
 
     def tensor_to_device(self, tensor: torch.Tensor) -> torch.Tensor:
         return tensor.to(self._device)
-
-    def state_dict(self) -> dict[str, Any]:
-        # CPU device has no RNG state
-        return {}
-
-    def load_state_dict(self, state: dict[str, Any]) -> None:
-        if len(state) != 0:
-            raise ValueError('CPU device has no state.')
