@@ -23,8 +23,6 @@ __all__ = ['SystemMetricsMonitor']
 
 
 _GPU_METRICS = [
-    "memory_free_bytes",
-    "memory_used_bytes",
     "gpu_percentage",
     "memory_percentage",
     "gpu_temperature_C",
@@ -32,30 +30,27 @@ _GPU_METRICS = [
 ]
 
 class SystemMetricsMonitor(Callback):
-    """Logs the minimum and maximum training values across all ranks for the following metrics:
+    """Logs GPU and CPU metrics relevant to straggler detection across all ranks.
 
-        RoundTripTime: Time spent in all the traced ops in the current batch
-        Power: GPU Power Consumption
-        Temp: GPU Temperature
-        Utilization: GPU Utilization
-        Clock: GPU Clock
-        BatchLoadLatency: Time spent loading the current batch from the dataset
-        Throughput: Estimated throughput for the current batch
+    GPU Metrics:
+        gpu_percentage: Occupancy rate, percent of time over the past sampling period during 
+                        which one or more kernels was executing on the GPU.
+        memory_percentage: Percent of time over the past sampling period during which 
+                        global (device) memory was being read or written.
+        gpu_temperature_C: Temperature of device, in Celcius.
+        gpu_power_usage_W: Power usage of device, in Watts.
 
-    The maximum and minimum values for these metrics, alongside their respective ranks, are logged 
-    on the :attr:`.Event.BATCH_END` event for every batch. 
-
-    To compute `flops_per_sec`, the model attribute `flops_per_batch` should be set to a callable
-    which accepts a batch and returns the number of flops for that batch. Typically, this should
-    be flops per sample times the batch size unless pad tokens are used.
-
-    The wall clock time is logged on every :attr:`.Event.BATCH_END` event.
+    If the log_all_data flag is set to false (which is false by default), only the maximum and minimum values 
+    for these metrics, alongside their respective ranks in the key names, are logged 
+    on the :attr:`.Event.BATCH_START`, :attr:`.Event.EVAL_BATCH_START`, :attr:`.Event.PREDICT_BATCH_START`
+    events for every batch. Otherwise, all values for these metrics across all ranks are logged on the above
+    events for every batch.
 
     Example:
         .. doctest::
 
             >>> from composer import Trainer
-            >>> from composer.callbacks import GlobalStragglerDetector
+            >>> from composer.callbacks import SystemMetricsMonitor
             >>> # constructing trainer object with this callback
             >>> trainer = Trainer(
             ...     model=model,
@@ -63,59 +58,14 @@ class SystemMetricsMonitor(Callback):
             ...     eval_dataloader=eval_dataloader,
             ...     optimizers=optimizer,
             ...     max_duration='1ep',
-            ...     callbacks=[GlobalStragglerDetector()],
+            ...     callbacks=[SystemMetricsMonitor()],
             ... )
 
-    The metrics are logged by the :class:`.Logger` to the following keys as
-    described below.
 
-    +-------------------------------------+-----------------------------------------------------------+
-    | Key                                 | Logged data                                               |
-    +=====================================+===========================================================+
-    |                                     | Minimum time spent in all the traced ops in the           |
-    | `MinRoundTripTime/Rank`             | current batch across all ranks for the corresponding rank |
-    |                                     |                                                           |
-    +-------------------------------------+-----------------------------------------------------------+
-    |                                     | Maximum time spent in all the traced ops in the           |
-    | `MaxRoundTripTime/Rank`             | current batch across all ranks for the corresponding rank |
-    |                                     |                                                           |
-    +-------------------------------------+-----------------------------------------------------------+
-    | `MinPower/Rank`                     | Minimum GPU Power consumed for the corresponding rank     |
-    +-------------------------------------+-----------------------------------------------------------+
-    | `MaxPower/Rank`                     | Maximum GPU Power consumed for the corresponding rank     |
-    +-------------------------------------+-----------------------------------------------------------+
-    | `MinTemp/Rank`                      | Minimum GPU Temperature for the corresponding rank        |
-    +-------------------------------------+-----------------------------------------------------------+
-    | `MaxTemp/Rank`                      | Maximum GPU Temperature for the corresponding rank        |    
-    +-------------------------------------+-----------------------------------------------------------+
-    | `MinUtilization/Rank`               | Minimum GPU Utilization for the corresponding rank        |
-    +-------------------------------------+-----------------------------------------------------------+
-    | `MaxUtilization/Rank`               | Maximum GPU Utilization for the corresponding rank        |  
-    +-------------------------------------+-----------------------------------------------------------+
-    | `MinClock/Rank`                     | Minimum GPU Clock for the corresponding rank              |  
-    +-------------------------------------+-----------------------------------------------------------+
-    | `MaxClock/Rank`                     | Maximum GPU Clock for the corresponding rank              |  
-    +-------------------------------------+-----------------------------------------------------------+
-    |                                     | Minimum time spent loading the current batch from the     |
-    | `MinBatchLoadLatency/Rank`          | dataset across all ranks for the corresponding rank       |
-    |                                     |                                                           |
-    +-------------------------------------+-----------------------------------------------------------+
-    |                                     | Maximum time spent loading the current batch from the     |
-    | `MaxBatchLoadLatency/Rank`          | dataset across all ranks for the corresponding rank       |
-    |                                     |                                                           |
-    +-------------------------------------+-----------------------------------------------------------+
-    | `MinThroughput/Rank`                | Minimum estimated throughput for the corresponding rank   |  
-    +-------------------------------------+-----------------------------------------------------------+
-    | `MaxThroughput/Rank`                | Maximum estimated throughput for the corresponding rank   |  
-    +-------------------------------------+-----------------------------------------------------------+
-
-    
     Args:
         log_all_data (bool, optional): True if user wants to log data for all ranks, not just the min/max.
         Defaults to False.
     """
-
-
     def __init__(self, log_all_data: bool = False) -> None:
         super().__init__()
         self.gpu_available = torch.cuda.is_available()
@@ -153,8 +103,6 @@ class SystemMetricsMonitor(Callback):
 
             else:
                 model_device = next(state.model.parameters()).device
-                if model_device.type != 'cuda':
-                    return
                 system_metrics = self.compute_min_max_metrics(all_system_metrics, model_device)
                 for rank, metrics in enumerate(all_system_metrics):
                     for key, value in metrics.items():
@@ -171,9 +119,6 @@ class SystemMetricsMonitor(Callback):
             import pynvml
             local_rank = dist.get_local_rank()
             handle = pynvml.nvmlDeviceGetHandleByIndex(local_rank)
-            memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
-            system_metrics['memory_free_bytes'] = memory.free
-            system_metrics['memory_used_bytes'] = memory.used
             device_utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
             system_metrics['gpu_percentage'] = device_utilization.gpu
             system_metrics['memory_percentage'] = device_utilization.memory
@@ -200,13 +145,14 @@ class SystemMetricsMonitor(Callback):
     def compute_min_max_metrics(self, all_metrics, model_device):
         min_max_metrics = {}
 
-        gpu_metrics = _GPU_METRICS
-        for key in gpu_metrics:
-            values = torch.tensor([metrics_for_cur_rank[key] for metrics_for_cur_rank in all_metrics], device=model_device)
+        if self.gpu_available:
+            gpu_metrics = _GPU_METRICS
+            for key in gpu_metrics:
+                values = torch.tensor([metrics_for_cur_rank[key] for metrics_for_cur_rank in all_metrics], device=model_device)
 
-            min_rank = torch.argmin(values).item()
-            max_rank = torch.argmax(values).item()
-            min_max_metrics[f'min_{key}/Rank_{min_rank}'] = values[min_rank].item()
-            min_max_metrics[f'max_{key}/Rank_{max_rank}'] = values[max_rank].item()
+                min_rank = torch.argmin(values).item()
+                max_rank = torch.argmax(values).item()
+                min_max_metrics[f'min_{key}/Rank_{min_rank}'] = values[min_rank].item()
+                min_max_metrics[f'max_{key}/Rank_{max_rank}'] = values[max_rank].item()
         
         return min_max_metrics
