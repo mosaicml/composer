@@ -300,7 +300,7 @@ if version.parse(torch.__version__) >= version.parse('2.2.1') and version.parse(
 
 if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
         torch.__version__,
-) < version.parse('2.3.1'):
+) < version.parse('2.3.2'):
     from torch.distributed._tensor import DTensor
 
     @no_type_check
