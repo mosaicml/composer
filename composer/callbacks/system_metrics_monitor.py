@@ -23,7 +23,6 @@ __all__ = ['SystemMetricsMonitor']
 
 
 _GPU_METRICS = [
-    "memory_total_bytes",
     "memory_free_bytes",
     "memory_used_bytes",
     "gpu_percentage",
@@ -173,7 +172,6 @@ class SystemMetricsMonitor(Callback):
             local_rank = dist.get_local_rank()
             handle = pynvml.nvmlDeviceGetHandleByIndex(local_rank)
             memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
-            system_metrics['memory_total_bytes'] = memory.total
             system_metrics['memory_free_bytes'] = memory.free
             system_metrics['memory_used_bytes'] = memory.used
             device_utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
