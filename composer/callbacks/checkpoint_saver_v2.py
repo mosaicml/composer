@@ -544,7 +544,7 @@ class CheckpointSaverCallback(Callback):  # noqa: D101
                 ).lstrip('/') + '.symlink'
 
                 # create and upload a symlink file
-                symlink_filename = os.path.join(self.tmp_dir_for_symlink, f'latest.symlink.{len(saved_checkpoints)}')
+                symlink_filename = os.path.join(self.tmp_dir_for_symlink.name, f'latest.{len(self.saved_checkpoints)}.symlink')
                 # Sharded checkpoints for torch >2.0 use directories not files for load_paths
                 if state.fsdp_sharded_state_dict_enabled:
                     src_path = str(pathlib.Path(remote_file_name).parent)

@@ -1465,6 +1465,7 @@ class Trainer:
                 else:
                     latest_remote_file_name = None
 
+            log.info(f"bigning debug useing the new saver")
             self._checkpoint_saver = CheckpointSaverCallback(
                 folder=folder,
                 filename=save_filename,

@@ -74,6 +74,7 @@ from composer.utils.object_store import (
     UCObjectStore,
 )
 from composer.utils.parallelism import FSDPConfig, ParallelismConfig, TPConfig, create_fsdp_config
+from composer.utils.remote_uploader import RemoteUploader
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
 from composer.utils.warnings import VersionedDeprecationWarning
@@ -156,4 +157,5 @@ __all__ = [
     'ParallelismConfig',
     'MLFLOW_EXPERIMENT_ID_FORMAT_KEY',
     'MLFLOW_RUN_ID_FORMAT_KEY',
+    'RemoteUploader',
 ]
