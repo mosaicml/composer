@@ -36,7 +36,6 @@ from composer.utils.file_helpers import get_file
 from composer.utils.object_store import S3ObjectStore
 from composer.utils.reproducibility import get_rng_state
 from tests.common import RandomClassificationDataset, deep_compare
-from tests.common.compare import deep_compare
 from tests.common.markers import world_size
 from tests.trainer.test_checkpoint import TestCheckpointResumption, _assert_checkpoints_equivalent
 
@@ -188,7 +187,6 @@ def _compare_optims_between_state_dicts(state_dict1, state_dict2):
                 state_dict1_moment = state_dict1_moment.to_local()
             if isinstance(state_dict2_moment, DTensor):
                 state_dict2_moment = state_dict2_moment.to_local()
-            print(param_name, state_dict1_moment, state_dict2_moment)
             torch.testing.assert_close(state_dict1_moment, state_dict2_moment)
 
 
@@ -493,6 +491,7 @@ def test_fsdp_mixed_with_sync(
         '0.20.0',
         '0.21.0',
         '0.22.0',
+        '0.23.0',
     ],
 )
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
@@ -511,7 +510,7 @@ def test_fsdp_load_old_checkpoint(
     if composer_version == '0.18.1' and state_dict_type == 'full' and precision == 'amp_bf16' and sharding_strategy == 'FULL_SHARD':
         pytest.skip('TODO: This checkpoint is missing')
 
-    if composer_version in ['0.22.0'] and version.parse(torch.__version__) < version.parse('2.3.0'):
+    if composer_version in ['0.22.0', '0.23.0'] and version.parse(torch.__version__) < version.parse('2.3.0'):
         pytest.skip('Current torch version is older than torch version that checkpoint was written with.')
 
     if composer_version in ['0.13.5', '0.14.0', '0.14.1', '0.15.1']:
