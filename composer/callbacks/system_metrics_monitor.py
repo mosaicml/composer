@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import os
+from typing import Union
 
 import torch
 import psutil
@@ -145,19 +146,18 @@ class SystemMetricsMonitor(Callback):
         if self.gpu_available:
             import pynvml
             local_rank = dist.get_local_rank()
-            global_rank = dist.get_global_rank()
             handle = pynvml.nvmlDeviceGetHandleByIndex(local_rank)
             memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
-            system_metrics[f'device{global_rank}_memory_total_bytes'] = memory.total
-            system_metrics[f'device{global_rank}_memory_free_bytes'] = memory.free
-            system_metrics[f'device{global_rank}_memory_used_bytes'] = memory.used
+            system_metrics['memory_total_bytes'] = memory.total
+            system_metrics['memory_free_bytes'] = memory.free
+            system_metrics['memory_used_bytes'] = memory.used
             device_utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
-            system_metrics[f'device{global_rank}_gpu_percentage'] = device_utilization.gpu
-            system_metrics[f'device{global_rank}_memory_percentage'] = device_utilization.memory
+            system_metrics['gpu_percentage'] = device_utilization.gpu
+            system_metrics['memory_percentage'] = device_utilization.memory
             temperature = pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)
-            system_metrics[f'device{global_rank}_gpu_temperature_C'] = temperature
+            system_metrics['gpu_temperature_C'] = temperature
             power = pynvml.nvmlDeviceGetPowerUsage(handle) / 1000.0 # convert from mW to W
-            system_metrics[f'device{global_rank}_gpu_power_usage_W'] = power
+            system_metrics['gpu_power_usage_W'] = power
 
         # Get metrics for the system
         cpu_percent = psutil.cpu_percent()
@@ -173,6 +173,39 @@ class SystemMetricsMonitor(Callback):
             system_metrics[f'network_{k}'] = v
         return system_metrics
     
+
+
+    def reduce_value(
+        value: Union[int, float],
+        model_device: torch.device,
+        reduce_op: str = 'mean',
+    ):
+        """Reduce a value across distributed processes.
+
+        Args:
+            value (Union[int, float]): The value to reduce.
+            model_device (torch.device): The device on which the model is located.
+            reduce_op (str, optional): The reduction operation to perform. One of 'mean', 'avg', 'sum', 'min', 'max'.
+                Defaults to 'mean'.
+        """
+        tensor_value = torch.tensor(value, device=model_device)
+
+        if reduce_op in ['mean', 'avg', 'sum']:
+            op = distributed.ReduceOp.SUM
+        elif reduce_op == 'min':
+            op = distributed.ReduceOp.MIN
+        elif reduce_op == 'max':
+            op = distributed.ReduceOp.MAX
+        else:
+            raise ValueError(f'{reduce_op=} not supported.')
+
+        distributed.all_reduce(tensor_value, op=op)
+        if reduce_op in ['mean', 'avg']:
+            tensor_value = tensor_value / distributed.get_world_size()
+
+        return tensor_value.item()
+
+
     def compute_min_max_metrics(self, all_metrics):
         min_metrics = {}
         max_metrics = {}
@@ -184,7 +217,7 @@ class SystemMetricsMonitor(Callback):
                 min_metrics[metric_name] = (value, 0)  
                 max_metrics[metric_name] = (value, 0)
             else:
-                min_max_metrics[metric_name] = value
+                min_max_metrics[key] = value
         
       
         for cur_rank, metrics in enumerate(all_metrics[1:]):
@@ -198,7 +231,7 @@ class SystemMetricsMonitor(Callback):
                     elif value > current_max_value:
                         max_metrics[metric_name] = (value, cur_rank)
                 else:
-                    min_max_metrics[metric_name] = value
+                    min_max_metrics[key] = value
 
         for key, _ in min_metrics.items():
             min_rank = min_metrics[key][1]
