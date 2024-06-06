@@ -128,6 +128,7 @@ def test_simple_nlp_mlm(tiny_bert_tokenizer, tiny_bert_model):
     assert len(predictions) == num_predict_batches_expected
     assert predictions[0].shape == (batch_size, sequence_length, vocab_size)
 
+
 @device('gpu')
 def test_simple_nlp_mlm_token_batch(tiny_bert_tokenizer, device):
     transformers = pytest.importorskip('transformers')
