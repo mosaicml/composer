@@ -4,6 +4,8 @@ from torch.distributed._tensor import DTensor
 from typing import Any, Dict, Optional
 from composer.utils.checkpoint import _write_checkpoint_file
 from composer.utils.file_helpers import format_name_with_dist, format_name_with_dist_and_time
+import os 
+from composer.utils import dist
 
 def save_state_dict_to_disk(
         state_dict: Dict[str, Any],
@@ -12,9 +14,6 @@ def save_state_dict_to_disk(
         save_format: str = 'pt', # or hf, safetensor
         ) -> str:
     """Saves a state dict to local disk.
-
-       If sharded is true, then every rank saves, otherwise just rank 0 does.
-       If sharded is True, calls save_sharded_state_dict_to_disk else calls    save_full_state_dict_to_disk
 
     Args:
         state_dict (Dict[str,Any]): The state dict to save.
@@ -27,12 +26,25 @@ def save_state_dict_to_disk(
     Returns:
         str: The full path to the saved state dict if sharded is false and rank 0 or if sharded is true, otherwise None.
     """
+    if state_dict == {}:
+        return None
     sharded_state_dict = is_state_dict_sharded(state_dict)
         
     if sharded_state_dict:
-        _save_sharded_state_dict_to_disk(state_dict, destination_file_path, overwrite, save_format)
+        path_saved = _save_sharded_state_dict_to_disk(state_dict,
+                                                      destination_file_path,
+                                                      overwrite,
+                                                      save_format)
     else:
-        _save_full_state_dict_to_disk(state_dict, destination_file_path, overwrite, save_format)
+        if dist.get_global_rank() == 0:
+            path_saved = _save_full_state_dict_to_disk(state_dict,
+                                                    destination_file_path,
+                                                    overwrite,
+                                                    save_format)
+        else:
+            path_saved = None
+            
+    return path_saved
 
 
 def _save_sharded_state_dict_to_disk(
@@ -40,7 +52,7 @@ def _save_sharded_state_dict_to_disk(
         destination_file_path: str = None,
         overwrite: bool = False, 
         save_format: str = 'pt', # or safetensor 
-        hybrid_sharding: bool) -> str:
+        hybrid_sharding: bool = False) -> str:
     pass
 
 
@@ -51,9 +63,17 @@ def _save_full_state_dict_to_disk(
     save_format: str = 'pt', # or hf, safetensor 
     ) -> Optional[str]:
 
-    # fill in placeholders
-    _write_checkpoint_file(state_dict=state_dict,
-                           filename=destination_file_path)
+    if save_format != 'pt':
+        raise NotImplementedError(f"Saving full state dict to disk in format {save_format} is not supported.")
+    
+    if not overwrite and os.path.exists(destination_file_path):
+        raise ValueError(f"File {destination_file_path} already exists. Set overwrite=True to overwrite it.")
+    
+    if dist.get_global_rank() == 0:
+        _write_checkpoint_file(state_dict=state_dict,
+                            filename=destination_file_path)
+        return destination_file_path
+    return None
 
 
 
