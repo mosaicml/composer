@@ -179,7 +179,7 @@ def _get_initial_device_eval_microbatch_size(
                     ),
                 ) from e
         return batch_size
-    elif isinstance(device_eval_microbatch_size, Union[int, float]):
+    elif isinstance(device_eval_microbatch_size, (int, float)):
         return device_eval_microbatch_size
     else:
         raise ValueError("device_eval_microbatch_size must be an int or ``'auto'``")
