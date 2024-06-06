@@ -153,7 +153,10 @@ class SystemMetricsMonitor(Callback):
                             system_metrics[key] = value
 
             else:
-                system_metrics = self.compute_min_max_metrics(all_system_metrics)
+                model_device = next(state.model.parameters()).device
+                if model_device.type != 'cuda':
+                    return
+                system_metrics = self.compute_min_max_metrics(all_system_metrics, model_device)
                 for rank, metrics in enumerate(all_system_metrics):
                     for key, value in metrics.items():
                         if key not in gpu_metrics_set:
