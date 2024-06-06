@@ -146,10 +146,8 @@ class SystemMetricsMonitor(Callback):
         if self.gpu_available:
             import pynvml
             local_rank = dist.get_local_rank()
-            global_rank = dist.get_global_rank()
             handle = pynvml.nvmlDeviceGetHandleByIndex(local_rank)
             memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
-            system_metrics['rank'] = global_rank
             system_metrics['memory_total_bytes'] = memory.total
             system_metrics['memory_free_bytes'] = memory.free
             system_metrics['memory_used_bytes'] = memory.used
@@ -175,70 +173,25 @@ class SystemMetricsMonitor(Callback):
             system_metrics[f'network_{k}'] = v
         return system_metrics
     
-
-
-    def reduce_value(
-        value: Union[int, float],
-        model_device: torch.device,
-        reduce_op: str = 'mean',
-    ):
-        """Reduce a value across distributed processes.
-
-        Args:
-            value (Union[int, float]): The value to reduce.
-            model_device (torch.device): The device on which the model is located.
-            reduce_op (str, optional): The reduction operation to perform. One of 'mean', 'avg', 'sum', 'min', 'max'.
-                Defaults to 'mean'.
-        """
-        tensor_value = torch.tensor(value, device=model_device)
-
-        if reduce_op in ['mean', 'avg', 'sum']:
-            op = distributed.ReduceOp.SUM
-        elif reduce_op == 'min':
-            op = distributed.ReduceOp.MIN
-        elif reduce_op == 'max':
-            op = distributed.ReduceOp.MAX
-        else:
-            raise ValueError(f'{reduce_op=} not supported.')
-
-        distributed.all_reduce(tensor_value, op=op)
-        if reduce_op in ['mean', 'avg']:
-            tensor_value = tensor_value / distributed.get_world_size()
-
-        return tensor_value.item()
-
-
-    def compute_min_max_metrics(self, all_metrics):
-        min_metrics = {}
-        max_metrics = {}
+    def compute_min_max_metrics(self, all_metrics, model_device):
         min_max_metrics = {}
 
-        for key, value in all_metrics[0].items():
-            if key.startswith('device'):
-                metric_name = key.split('_', 1)[1]
-                min_metrics[metric_name] = (value, 0)  
-                max_metrics[metric_name] = (value, 0)
-            else:
-                min_max_metrics[key] = value
+        gpu_metrics = [
+            "memory_total_bytes",
+            "memory_free_bytes",
+            "memory_used_bytes",
+            "gpu_percentage",
+            "memory_percentage",
+            "gpu_temperature_C",
+            "gpu_power_usage_W"
+        ]
+
+        for key in gpu_metrics:
+            values = torch.tensor([metrics_for_cur_rank[key] for metrics_for_cur_rank in all_metrics], device=model_device)
+
+            min_rank = torch.argmin(values).item()
+            max_rank = torch.argmax(values).item()
+            min_max_metrics[f'min_{key}'] = (values[min_rank].item(), min_rank)
+            min_max_metrics[f'max_{key}'] = (values[max_rank].item(), max_rank)
         
-      
-        for cur_rank, metrics in enumerate(all_metrics[1:]):
-            for key, value in metrics.items():
-                if key.startswith('device'):
-                    metric_name = key.split('_', 1)[1]
-                    current_min_value, _ = min_metrics[metric_name]
-                    current_max_value, _ = max_metrics[metric_name]
-                    if value < current_min_value:
-                        min_metrics[metric_name] = (value, cur_rank)
-                    elif value > current_max_value:
-                        max_metrics[metric_name] = (value, cur_rank)
-                else:
-                    min_max_metrics[key] = value
-
-        for key, _ in min_metrics.items():
-            min_rank = min_metrics[key][1]
-            max_rank = max_metrics[key][1]
-            min_max_metrics["min_" + key + "/Rank_" + str(min_rank)] = min_metrics[key][0]
-            min_max_metrics["max_" + key + "/Rank_" + str(max_rank)] = max_metrics[key][0]
-
         return min_max_metrics
