@@ -946,6 +946,8 @@ class Trainer:
             .. note:: This is implemented by taking the batch yielded by the ``train_dataloader`` and splitting
                 it into sections of size ``device_train_microbatch_size``. If the batch size of the dataloader
                 is not divisible by ``device_train_microbatch_size``, the last section will be potentially smaller.
+        accumulate_train_batch_on_tokens (bool, optional): Whether training loss is accumulated over the number of tokens in a batch,
+             rather than the number of samples. Only works if the train data spec implements `get_num_tokens_in_batch`. (default: ``False``)
         seed (int, optional): The seed used in randomization. If ``None``, then a random seed
             will be created. (default: ``None``)
 
@@ -1080,6 +1082,7 @@ class Trainer:
         precision: Optional[Union[str, Precision]] = None,
         precision_config: Optional[dict[str, Any]] = None,
         device_train_microbatch_size: Optional[Union[int, float, str]] = None,
+        accumulate_train_batch_on_tokens: bool = False,
 
         # Reproducibility
         seed: Optional[int] = None,
@@ -1314,6 +1317,7 @@ class Trainer:
             deepspeed_config=deepspeed_config,
             parallelism_config=parallelism_config,
         )
+        self.accumulate_train_batch_on_tokens = accumulate_train_batch_on_tokens
 
         # Console Logging
         loggers = list(ensure_tuple(loggers))
@@ -2848,7 +2852,22 @@ class Trainer:
                         optimizer.zero_grad()
 
             # Tracker for gradient accumulation
-            current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(batch) for batch in microbatches])
+            if self.accumulate_train_batch_on_tokens:
+                current_batch_size = sum([self._train_data_spec.get_num_tokens_in_batch(b) for b in microbatches])
+                if current_batch_size == 0:
+                    raise ValueError(
+                        textwrap.dedent(
+                            'Requested loss accumulation based on number of tokens in training batch, '
+                            'but zero tokens found (perhaps due to an improper DataSpec).',
+                        ),
+                    )
+            else:
+                current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(b) for b in microbatches])
+            # Average the current batch size across ranks, to ensure each rank contributes appropriately
+            current_batch_size = self.state.device.tensor_to_device(torch.tensor(current_batch_size))
+            dist.all_reduce(current_batch_size, reduce_operation='SUM')
+            current_batch_size = current_batch_size.item() / dist.get_world_size()
+
             # Cache batch, which will be overwritten by microbatches. Restore after microbatches complete
             current_batch = self.state.batch
 
@@ -2895,7 +2914,10 @@ class Trainer:
         # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
         device_batch = deepcopy(self.state.batch)
 
-        microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
+        if self.accumulate_train_batch_on_tokens:
+            microbatch_size = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
+        else:
+            microbatch_size = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
         if self.state.deepspeed_enabled or not isinstance(self.state.model, DistributedDataParallel):
             sync_context = contextlib.nullcontext()
         elif self.state.auto_microbatching and not self.first_batch_complete:
@@ -2985,7 +3007,7 @@ class Trainer:
 
             # For each loss to log: detach, clone, mean, then multiply by (microbatch size) / (batch size)
             for k, loss in microbatch_loss_dict.items():
-                microbatch_loss_dict[k] = loss.detach().clone().mean() * (microbatch_num_samples / current_batch_size)
+                microbatch_loss_dict[k] = loss.detach().clone().mean() * (microbatch_size / current_batch_size)
 
             if use_grad_scaling:
                 microbatch_loss = cast(torch.Tensor, self.state.scaler.scale(microbatch_loss))  # type: ignore
@@ -2994,7 +3016,7 @@ class Trainer:
                 self.state.deepspeed_model.backward(microbatch_loss)
             else:
                 # Scale loss based on the number of samples in the microbatch to maintain gradient numerics
-                microbatch_loss.mul_(microbatch_num_samples / current_batch_size)
+                microbatch_loss.mul_(microbatch_size / current_batch_size)
                 microbatch_loss.backward(create_graph=self._backwards_create_graph)
 
             if self.state.device.dist_backend == 'xla':
