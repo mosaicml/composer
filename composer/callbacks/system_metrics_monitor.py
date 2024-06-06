@@ -22,6 +22,16 @@ log = logging.getLogger(__name__)
 __all__ = ['SystemMetricsMonitor']
 
 
+_GPU_METRICS = [
+    "memory_total_bytes",
+    "memory_free_bytes",
+    "memory_used_bytes",
+    "gpu_percentage",
+    "memory_percentage",
+    "gpu_temperature_C",
+    "gpu_power_usage_W"
+]
+
 class SystemMetricsMonitor(Callback):
     """Logs the minimum and maximum training values across all ranks for the following metrics:
 
@@ -131,12 +141,24 @@ class SystemMetricsMonitor(Callback):
         ]:
             local_node_system_metrics = self.compute_system_metrics()
             all_system_metrics = dist.all_gather_object(local_node_system_metrics)
+            system_metrics = {}
+            gpu_metrics_set = set(_GPU_METRICS)
+
             if self.log_all_data:
-                system_metrics = {
-                    key: value for local_metrics in all_system_metrics for key, value in local_metrics.items()
-                }
+                for rank, metrics in enumerate(all_system_metrics):
+                    for key, value in metrics.items():
+                        if key in gpu_metrics_set:
+                            system_metrics[f'Rank_{rank}_{key}'] = value
+                        else:
+                            system_metrics[key] = value
+
             else:
                 system_metrics = self.compute_min_max_metrics(all_system_metrics)
+                for rank, metrics in enumerate(all_system_metrics):
+                    for key, value in metrics.items():
+                        if key not in gpu_metrics_set:
+                            system_metrics[key] = value
+                        
             logger.log_metrics(system_metrics)
 
     def compute_system_metrics(self):
@@ -172,26 +194,18 @@ class SystemMetricsMonitor(Callback):
         for k, v in network_usage.items():
             system_metrics[f'network_{k}'] = v
         return system_metrics
-    
+
+
     def compute_min_max_metrics(self, all_metrics, model_device):
         min_max_metrics = {}
 
-        gpu_metrics = [
-            "memory_total_bytes",
-            "memory_free_bytes",
-            "memory_used_bytes",
-            "gpu_percentage",
-            "memory_percentage",
-            "gpu_temperature_C",
-            "gpu_power_usage_W"
-        ]
-
+        gpu_metrics = _GPU_METRICS
         for key in gpu_metrics:
             values = torch.tensor([metrics_for_cur_rank[key] for metrics_for_cur_rank in all_metrics], device=model_device)
 
             min_rank = torch.argmin(values).item()
             max_rank = torch.argmax(values).item()
-            min_max_metrics[f'min_{key}'] = (values[min_rank].item(), min_rank)
-            min_max_metrics[f'max_{key}'] = (values[max_rank].item(), max_rank)
+            min_max_metrics[f'min_{key}/Rank_{min_rank}'] = values[min_rank].item()
+            min_max_metrics[f'max_{key}/Rank_{max_rank}'] = values[max_rank].item()
         
         return min_max_metrics
