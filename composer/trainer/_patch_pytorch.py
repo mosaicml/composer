@@ -104,6 +104,25 @@ def patch_pytorch():
         DeviceMesh.__getitem__ = device_mesh__getitem__
         DeviceMesh.__init__ = device_mesh__init__
 
+    elif version.parse(torch.__version__) < version.parse('2.3.2'):
+        # Monkey patch for torch < 2.3.2 ie torch == 2.3.1
+
+        # Issue: https://github.com/pytorch/pytorch/issues/122946
+        #  - PR: https://github.com/pytorch/pytorch/pull/125336
+        from torch.distributed.checkpoint import state_dict
+
+        state_dict._verify_options = _verify_options
+        state_dict._get_model_state_dict = _get_model_state_dict
+        state_dict._load_model_state_dict = _load_model_state_dict
+
+        # Monkeypatch for ND child submeshes
+        # PR: https://github.com/pytorch/pytorch/pull/119752
+        from torch.distributed.device_mesh import DeviceMesh, _MeshEnv
+
+        _MeshEnv.create_child_mesh = create_child_mesh
+        DeviceMesh.__getitem__ = device_mesh__getitem__
+        DeviceMesh.__init__ = device_mesh__init__
+
 
 def build_metadata(
     self,
