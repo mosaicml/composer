@@ -21,15 +21,15 @@ log = logging.getLogger(__name__)
 __all__ = ['SystemMetricsMonitor']
 
 _GPU_METRICS = [
-   'gpu_percentage',
-   'memory_percentage',
-   'gpu_temperature_C',
-   'gpu_power_usage_W',
+    'gpu_percentage',
+    'memory_percentage',
+    'gpu_temperature_C',
+    'gpu_power_usage_W',
 ]
 
 
 class SystemMetricsMonitor(Callback):
-    """Logs GPU and CPU metrics relevant to straggler detection across all ranks.
+    """Logs GPU/CPU metrics.
 
     GPU Metrics:
         gpu_percentage: Occupancy rate, percent of time over the past sampling period during
@@ -39,11 +39,10 @@ class SystemMetricsMonitor(Callback):
         gpu_temperature_C: Temperature of device, in Celcius.
         gpu_power_usage_W: Power usage of device, in Watts.
 
-    If the log_all_data flag is set to false (which is false by default), only the maximum and minimum values
-    for these metrics, alongside their respective ranks in the key names, are logged
-    on the :attr:`.Event.BATCH_START`, :attr:`.Event.EVAL_BATCH_START`, :attr:`.Event.PREDICT_BATCH_START`
-    events for every batch. Otherwise, all values for these metrics across all ranks are logged on the above
-    events for every batch.
+    By default, only the maximum and minimum values for these metrics, alongside their respective ranks in the key names,
+    are logged on the :attr:`.Event.BATCH_START`, :attr:`.Event.EVAL_BATCH_START`, :attr:`.Event.PREDICT_BATCH_START`
+    events for every batch. If log_all_data is set to True, all values for these metrics across all ranks are logged on the
+    above events for every batch.
 
     Example:
     .. doctest::
@@ -60,10 +59,9 @@ class SystemMetricsMonitor(Callback):
         ...    callbacks=[SystemMetricsMonitor()],
         ... )
 
-
     Args:
-    log_all_data (bool, optional): True if user wants to log data for all ranks, not just the min/max.
-    Defaults to False.
+        log_all_data (bool, optional): True if user wants to log data for all ranks, not just the min/max.
+            Defaults to False.
     """
 
     def __init__(self, log_all_data: bool = False) -> None:
@@ -102,7 +100,7 @@ class SystemMetricsMonitor(Callback):
                             system_metrics[key] = value
 
             else:
-                model_device = next(state.model.parameters()).device
+                model_device = state.device
                 system_metrics = self.compute_min_max_metrics(all_system_metrics, model_device)
                 for rank, metrics in enumerate(all_system_metrics):
                     for key, value in metrics.items():
@@ -145,14 +143,12 @@ class SystemMetricsMonitor(Callback):
         min_max_metrics = {}
 
         if self.gpu_available:
-            gpu_metrics = _GPU_METRICS
-            for key in gpu_metrics:
+            for key in _GPU_METRICS:
                 values = torch.tensor([metrics_for_cur_rank[key] for metrics_for_cur_rank in all_metrics],
-                                        device=model_device)
+                                      device=model_device)
                 min_rank = int(torch.argmin(values).item())
                 max_rank = int(torch.argmax(values).item())
                 min_max_metrics[f'min_{key}/Rank_{min_rank}'] = values[min_rank].item()
                 min_max_metrics[f'max_{key}/Rank_{max_rank}'] = values[max_rank].item()
 
         return min_max_metrics
-    
