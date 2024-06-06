@@ -185,6 +185,7 @@ def test_extract_hparams_trainer():
         'precision': 'fp32',
         'precision_config': None,
         'device_train_microbatch_size': 16,
+        'accumulate_train_batch_on_tokens': False,
 
         # Reproducibility
         'seed': 3,
