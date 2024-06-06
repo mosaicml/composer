@@ -166,3 +166,4 @@ class RemoteUploader:
         # make sure all workers are either running, or completed successfully
         self.wait()
         self.executor.shutdown(wait=True)
+        log.info('Finished all uploading tasks, closing RemoteUploader')
