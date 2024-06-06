@@ -34,3 +34,12 @@ def test_save_full_state_dict_to_disk(world_size: int, tmp_path: str, use_cpu: b
         assert path_saved is None
 
 
+def test_save_sharded_state_dict_to_disk():
+    pass
+
+def test_save_hybrid_sharded_state_dict_to_disk():
+    pass
+
+
+
+
