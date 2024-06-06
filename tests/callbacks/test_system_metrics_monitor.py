@@ -24,7 +24,7 @@ def test_system_metrics_monitor_gpu():
     )
     trainer.fit()
 
-    assert 'device0_gpu_percentage' in in_memory_logger.data
+    assert 'min_gpu_percentage/Rank_0' in in_memory_logger.data
     assert 'cpu_percentage' in in_memory_logger.data
 
 
