@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 import os
 
+import torch
 import psutil
 
 from composer.core import Callback, Event, State
@@ -23,9 +24,10 @@ __all__ = ['SystemMetricsMonitor']
 class SystemMetricsMonitor(Callback):
     """Track system metrics."""
 
-    def __init__(self, gpu_available: bool = False) -> None:
+    def __init__(self, log_all_data: bool = False) -> None:
         super().__init__()
-        self.gpu_available = gpu_available
+        self.gpu_available = torch.cuda.is_available()
+        self.log_all_data = log_all_data
         if self.gpu_available:
             try:
                 import pynvml
@@ -46,9 +48,12 @@ class SystemMetricsMonitor(Callback):
         ]:
             local_node_system_metrics = self.compute_system_metrics()
             all_system_metrics = dist.all_gather_object(local_node_system_metrics)
-            system_metrics = {
-                key: value for local_metrics in all_system_metrics for key, value in local_metrics.items()
-            }
+            if self.log_all_data:
+                system_metrics = {
+                    key: value for local_metrics in all_system_metrics for key, value in local_metrics.items()
+                }
+            else:
+                system_metrics = self.compute_min_max_metrics(all_system_metrics)
             logger.log_metrics(system_metrics)
 
     def compute_system_metrics(self):
@@ -61,14 +66,16 @@ class SystemMetricsMonitor(Callback):
             global_rank = dist.get_global_rank()
             handle = pynvml.nvmlDeviceGetHandleByIndex(local_rank)
             memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
-            system_metrics[f'device{global_rank}_memory_total'] = memory.total
-            system_metrics[f'device{global_rank}_memory_free'] = memory.free
-            system_metrics[f'device{global_rank}_memory_used'] = memory.used
+            system_metrics[f'device{global_rank}_memory_total_bytes'] = memory.total
+            system_metrics[f'device{global_rank}_memory_free_bytes'] = memory.free
+            system_metrics[f'device{global_rank}_memory_used_bytes'] = memory.used
             device_utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
             system_metrics[f'device{global_rank}_gpu_percentage'] = device_utilization.gpu
             system_metrics[f'device{global_rank}_memory_percentage'] = device_utilization.memory
             temperature = pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)
-            system_metrics[f'device{global_rank}_gpu_temperature'] = temperature
+            system_metrics[f'device{global_rank}_gpu_temperature_C'] = temperature
+            power = pynvml.nvmlDeviceGetPowerUsage(handle) / 1000.0 # convert from mW to W
+            system_metrics[f'device{global_rank}_gpu_power_usage_W'] = power
 
         # Get metrics for the system
         cpu_percent = psutil.cpu_percent()
@@ -83,3 +90,38 @@ class SystemMetricsMonitor(Callback):
         for k, v in network_usage.items():
             system_metrics[f'network_{k}'] = v
         return system_metrics
+    
+    def compute_min_max_metrics(self, all_metrics):
+        min_metrics = {}
+        max_metrics = {}
+        min_max_metrics = {}
+
+        for key, value in all_metrics[0].items():
+            if key.startswith('device'):
+                metric_name = key.split('_')[1]
+                min_metrics[metric_name] = (value, 0)  
+                max_metrics[metric_name] = (value, 0)
+            else:
+                min_max_metrics[metric_name] = value
+        
+      
+        for cur_rank, metrics in enumerate(all_metrics[1:]):
+            for key, value in metrics.items():
+                if key.startswith('device'):
+                    metric_name = key.split('_')[1]
+                    current_min_value, _ = min_metrics[metric_name]
+                    current_max_value, _ = max_metrics[metric_name]
+                    if value < current_min_value:
+                        min_metrics[metric_name] = (value, cur_rank)
+                    elif value > current_max_value:
+                        max_metrics[metric_name] = (value, cur_rank)
+                else:
+                    min_max_metrics[metric_name] = value
+
+        for key, _ in min_metrics.items():
+            min_rank = min_metrics[key][1]
+            max_rank = max_metrics[key][1]
+            min_max_metrics["min_" + key + "/Rank_" + str(min_rank)] = min_metrics[key][0]
+            min_max_metrics["max_" + key + "/Rank_" + str(max_rank)] = max_metrics[key][0]
+
+        return min_max_metrics
