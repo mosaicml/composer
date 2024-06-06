@@ -32,10 +32,8 @@ class SystemMetricsMonitor(Callback):
     """Logs GPU/CPU metrics.
 
     GPU Metrics:
-        gpu_percentage: Occupancy rate, percent of time over the past sampling period during
-                        which one or more kernels was executing on the GPU.
-        memory_percentage: Percent of time over the past sampling period during which
-                        global (device) memory was being read or written.
+        gpu_percentage: Occupancy rate, percent of time over sampling period during which one or more kernels was executing on the GPU.
+        memory_percentage: Percent of time over sampling period during which global memory was being read or written.
         gpu_temperature_C: Temperature of device, in Celcius.
         gpu_power_usage_W: Power usage of device, in Watts.
 
