@@ -146,8 +146,10 @@ class SystemMetricsMonitor(Callback):
         if self.gpu_available:
             import pynvml
             local_rank = dist.get_local_rank()
+            global_rank = dist.get_global_rank()
             handle = pynvml.nvmlDeviceGetHandleByIndex(local_rank)
             memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
+            system_metrics['rank'] = global_rank
             system_metrics['memory_total_bytes'] = memory.total
             system_metrics['memory_free_bytes'] = memory.free
             system_metrics['memory_used_bytes'] = memory.used
