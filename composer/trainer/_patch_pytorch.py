@@ -969,12 +969,12 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
                     res_submesh = submesh
 
             res_submesh._parent_mesh = parent_mesh  # type: ignore
-            res_submesh._dim_group_infos = [
+            res_submesh._dim_group_infos = [  # type: ignore
                 parent_mesh._dim_group_infos[mesh_dim] for mesh_dim in submesh_dims  # type: ignore
             ]
             self.child_to_parent_mapping[res_submesh] = parent_mesh  # type: ignore
 
-            return res_submesh
+            return res_submesh  # type: ignore
 
         def device_mesh__getitem__(
             self, mesh_dim_names: Union[str, tuple[str, ...]],
@@ -987,6 +987,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             Args:
                 mesh_dim_name (Union[str, Tuple[str]]): the name or the tuple of names of the
                 mesh dimension of the parent DeviceMesh to create the child DeviceMesh for.
+
             Returns:
                 A :class:`DeviceMesh` object
 
