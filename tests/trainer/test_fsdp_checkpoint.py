@@ -304,9 +304,10 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
         pytest.param(2, 'adam', False, 'amp_bf16', False, True, False, False, False, marks=pytest.mark.world_size(2)),
         pytest.param(2, 'adam', False, 'amp_bf16', False, False, True, False, False, marks=pytest.mark.world_size(2)),
         pytest.param(4, 'adam', False, 'amp_bf16', False, False, False, True, False, marks=pytest.mark.world_size(4)),
+        pytest.param(2, 'adam', False, 'amp_bf16', False, False, False, False, True, marks=pytest.mark.world_size(2)),
+        pytest.param(2, 'adamw', False, 'amp_bf16', False, False, False, False, True, marks=pytest.mark.world_size(2)),
         pytest.param(2, 'adam', False, 'amp_fp16', False, False, False, False, True, marks=pytest.mark.world_size(2)),
         pytest.param(2, 'adamw', False, 'amp_fp16', False, False, False, False, True, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', False, 'amp_fp16', False, False, False, False, True, marks=pytest.mark.world_size(2)),
     ],
 )
 def test_fsdp_full_state_dict_load(
