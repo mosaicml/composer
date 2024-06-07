@@ -188,10 +188,10 @@ class InContextLearningMetric:
             f'This is a class for only fixing the backward compatibility, please use this https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md'
         )
 
-    def __getstate__():
+    def __getstate__(self):
         return None
 
-    def __setstate__():
+    def __setstate__(self, state):
         pass
 
 
