@@ -98,7 +98,7 @@ class SystemMetricsMonitor(Callback):
                             system_metrics[key] = value
 
             else:
-                model_device = state.device
+                model_device = next(state.model.parameters()).device
                 system_metrics = self.compute_min_max_metrics(all_system_metrics, model_device)
                 for rank, metrics in enumerate(all_system_metrics):
                     for key, value in metrics.items():
