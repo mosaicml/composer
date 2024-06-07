@@ -15,7 +15,7 @@ from composer.checkpoint.save import save_state_dict_to_disk
 from composer.checkpoint.state_dict import get_model_state_dict
 from composer.utils import dist
 from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
-from tests.checkpoint import init_model
+from tests.checkpoint.helpers import init_model
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
 

@@ -23,7 +23,7 @@ from composer.checkpoint import (
 from composer.core import State
 from composer.devices import DeviceCPU, DeviceGPU
 from composer.utils import dist, reproducibility
-from tests.checkpoint import init_model_and_optimizer
+from tests.checkpoint.helpers import init_model_and_optimizer
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
 from tests.common.models import EvenSimplerMLP, SimpleComposerMLP, configure_tiny_gpt2_hf_model
