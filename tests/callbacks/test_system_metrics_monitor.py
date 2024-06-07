@@ -13,8 +13,8 @@ from tests.common import RandomClassificationDataset, SimpleModel
 
 @pytest.mark.gpu
 def test_system_metrics_monitor_gpu():
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-
+    device = 'gpu'
+    
     # Construct the trainer
     system_metrics_monitor = SystemMetricsMonitor()
     in_memory_logger = InMemoryLogger()
