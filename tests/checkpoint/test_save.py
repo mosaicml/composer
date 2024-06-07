@@ -46,7 +46,6 @@ def test_save_full_state_dict_to_disk(world_size: int, tmp_path: str, sharded_mo
 @pytest.mark.filterwarnings('ignore:The passed')  # Torch issues a warning for wrapping a CPU model in FSDP
 @pytest.mark.parametrize('sharded_model', [False, True])
 def test_save_full_state_dict_to_disk_cpu(world_size: int, tmp_path: str, sharded_model: bool):
-    #tmp_path = dist.all_gather_object(tmp_path)[0]
 
     destination_file_path = os.path.join(tmp_path, 'test.pt')
     use_fsdp = sharded_model
