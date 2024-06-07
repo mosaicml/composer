@@ -7,11 +7,11 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 import torch
 import torchmetrics
+from torch.distributed._shard.sharded_tensor import ShardedTensor
+from torch.distributed._tensor import DTensor
 
 from composer import Time
 from composer.core.time import TimeUnit
-from torch.distributed._shard.sharded_tensor import ShardedTensor
-from torch.distributed._tensor import DTensor
 
 
 def deep_compare(item1: Any, item2: Any, atol: float = 0.0, rtol: float = 0.0, ignore_keys: Optional[List[str]] = None):
@@ -64,12 +64,12 @@ def _check_item(
         assert isinstance(item2, type(item1)), f'{path} differs: {item1} != {item2}'
         _check_sharded_tensor_recursively(item1, item2, path, atol=atol, rtol=rtol)
         return
-    
+
     if isinstance(item1, DTensor):
         assert isinstance(item2, type(item1)), f'{path} differs: {item1} != {item2}'
         _check_dtensor_recursively(item1, item2, path, atol=atol, rtol=rtol)
         return
-    
+
     if isinstance(item1, torchmetrics.Metric):
         assert isinstance(item2, torchmetrics.Metric), f'{path} differs: {item1} != {item2}'
         # Increase update count so Torchmetrics doesn't throw warning when computing two metrics which haven't been updated
@@ -105,7 +105,7 @@ def _check_dtensor_recursively(
 ):
     tensor1, tensor2 = dtensor1.to_local(), dtensor2.to_local()
     _check_item(tensor1, tensor2, path, atol=atol, rtol=rtol)
-    
+
 
 def _check_sharded_tensor_recursively(
     sharded_tensor1: ShardedTensor,
@@ -116,7 +116,7 @@ def _check_sharded_tensor_recursively(
 ):
     tensor1, tensor2 = sharded_tensor1.local_tensor(), sharded_tensor2.local_tensor()
     _check_item(tensor1, tensor2, path, atol=atol, rtol=rtol)
-    
+
 
 def _check_list_recursively(
     list1: Union[tuple[Any], list[Any]],

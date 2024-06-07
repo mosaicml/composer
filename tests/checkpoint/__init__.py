@@ -1,12 +1,23 @@
+# Copyright 2024 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 from typing import Any, Dict
+
 import torch
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.optim import adam
-from tests.common.models import EvenSimplerMLP, SimpleComposerMLP
 from torch.distributed.fsdp.api import CPUOffload
+from torch.optim import adam
 
-def _init_model_and_optimizer(
+from tests.common.models import EvenSimplerMLP, SimpleComposerMLP
+
+__all__ = [
+    'init_model_and_optimizer',
+    'init_model',
+    'init_optimizer',
+]
+
+
+def init_model_and_optimizer(
     use_composer_model: bool,
     num_classes=3,
     batch_size=5,
@@ -16,7 +27,7 @@ def _init_model_and_optimizer(
     tensor_type='sharded_tensor',
     device='cuda',
 ):
-    model, loss_fn = _init_model(
+    model, loss_fn = init_model(
         use_composer_model,
         num_classes=num_classes,
         num_features=num_features,
@@ -25,7 +36,7 @@ def _init_model_and_optimizer(
         device=device,
     )
 
-    optimizer = _init_optimizer(
+    optimizer = init_optimizer(
         model,
         loss_fn,
         use_composer_model=use_composer_model,
@@ -39,7 +50,7 @@ def _init_model_and_optimizer(
     return model, optimizer
 
 
-def _init_model(
+def init_model(
     use_composer_model: bool = False,
     num_classes=3,
     num_features=8,
@@ -76,7 +87,7 @@ def _init_model(
     return model, loss_fn
 
 
-def _init_optimizer(
+def init_optimizer(
     model,
     loss_fn,
     use_composer_model: bool = False,
