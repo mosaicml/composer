@@ -184,29 +184,6 @@ class WandBLogger(LoggerDestination):
             else:
                 wandb.log({name: list(wandb_images)}, step=step)
 
-    def state_dict(self) -> dict[str, Any]:
-        import wandb
-
-        # Storing these fields in the state dict to support run resuming in the future.
-        if self._enabled:
-            if wandb.run is None:
-                raise ValueError('wandb module must be initialized before serialization.')
-
-            # If WandB is disabled, most things are RunDisabled objects, which are not
-            # pickleable due to overriding __getstate__ but not __setstate__
-            if wandb.run.disabled:
-                return {}
-            else:
-                return {
-                    'name': wandb.run.name,
-                    'project': wandb.run.project,
-                    'entity': wandb.run.entity,
-                    'id': wandb.run.id,
-                    'group': wandb.run.group,
-                }
-        else:
-            return {}
-
     def init(self, state: State, logger: Logger) -> None:
         import wandb
         del logger  # unused

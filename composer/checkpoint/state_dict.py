@@ -6,21 +6,32 @@
 import fnmatch
 import logging
 import sys
-from typing import Any, Dict, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence, Union
+
+from torch.utils.data import DataLoader, Dataset
+
+from composer.core.data_spec import DataSpec
+
+if TYPE_CHECKING:
+    from composer.core.evaluator import Evaluator
 
 import torch
 from packaging import version
 from torch import nn
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn.parallel import DistributedDataParallel
+from torch.utils.data import DataLoader
 
+from composer.core.evaluator import Evaluator
+from composer.core.state import State
+from composer.core.time import Timestamp
 from composer.devices import Device
 from composer.models import ComposerModel, HuggingFaceModel
-from composer.utils import STR_TO_DTYPE, dist, get_composer_env_dict
+from composer.utils import STR_TO_DTYPE, dist, get_composer_env_dict, reproducibility
 
 log = logging.getLogger(__name__)
 
-__all__ = ['get_model_state_dict', 'get_optim_state_dict']
+__all__ = ['get_model_state_dict', 'get_optim_state_dict', 'get_metadata_state_dict', 'get_resumption_state_dict']
 
 
 def get_model_state_dict(
@@ -156,6 +167,93 @@ def _get_model_state_dict_with_fsdp_context_manager(model: nn.Module, sharded_st
     with FSDP.state_dict_type(model, state_dict_type=state_dict_type, state_dict_config=state_dict_config):
         model_state_dict = model.state_dict()
     return model_state_dict
+
+
+def get_resumption_state_dict(state: State) -> Dict[str, Any]:
+    """Generate the state dict for any objects needed for resumption.
+
+    This includes:
+        * timestamp
+        * scheduler
+        * dataset_state
+        * scaler
+        * rank_zero_seed
+        * callbacks
+        * algorithms
+
+    Returns:
+        The state dict containing the objects needed for resumption.
+    """
+    resumption_state_dict = {}
+    resumption_state_dict['dataset_state'] = get_dataset_state_dict(
+        state.train_dataloader,
+        state.timestamp,
+    )
+    resumption_state_dict['timestamp'] = state.timestamp.state_dict()
+
+    scheduler_state_dict = _make_state_dict_for_list_of_objects(state.schedulers)
+    if scheduler_state_dict != {}:
+        resumption_state_dict['schedulers'] = scheduler_state_dict
+
+    # Use list of tuples to account for duplicates
+    callbacks_state_dict = _make_state_dict_for_list_of_objects(state.callbacks, use_list_of_tuples=True)
+    if callbacks_state_dict != {}:
+        resumption_state_dict['callbacks'] = callbacks_state_dict
+
+    # Use list of tuples to preserve order.
+    algorithms_state_dict = _make_state_dict_for_list_of_objects(state.algorithms, use_list_of_tuples=True)
+    if algorithms_state_dict != {}:
+        resumption_state_dict['algorithms'] = algorithms_state_dict
+
+    if state.scaler is not None:
+        scaler_sd = _make_state_dict_for_list_of_objects(state.scaler)
+        if scaler_sd != {}:
+            resumption_state_dict['scaler'] = state.scaler.state_dict()
+
+    resumption_state_dict['rank_zero_seed'] = state.rank_zero_seed
+    resumption_state_dict['run_name'] = state.run_name
+    resumption_state_dict['rng'] = reproducibility.get_rng_state()
+
+    return resumption_state_dict
+
+
+def _make_state_dict_for_list_of_objects(objects: Union[Sequence[Any], Any],
+                                         use_list_of_tuples=False) -> Union[Dict[str, Any], List]:
+    object_list = []
+    object_dict = {}
+    if not isinstance(objects, Sequence):
+        objects = [objects]
+    for obj in objects:
+        if not hasattr(obj, 'state_dict') or obj.state_dict() == {}:
+            continue
+        if use_list_of_tuples:
+            object_list.append((type(obj).__qualname__, obj.state_dict()))
+        else:
+            object_dict[type(obj).__qualname__] = obj.state_dict()
+    if use_list_of_tuples:
+        return object_list
+    else:
+        return object_dict
+
+
+def get_dataset_state_dict(
+    train_dataloader: Optional[Union[DataLoader, Iterable]],
+    timestamp: Timestamp,
+) -> Dict[str, Any]:
+    """Collect the state dict(s) of our train and eval dataset(s).
+
+    Returns:
+        Dict[str, Any]: The state dict(s).
+    """
+    dataset_state_dict = {
+        'train': None,
+    }
+    dataset = _dataset_of(train_dataloader)
+    if hasattr(dataset, 'state_dict'):
+        num_samples = int(timestamp.sample_in_epoch.value)
+        dataset_state_dict['train'] = dataset.state_dict(num_samples, True)  # pyright: ignore
+
+    return dataset_state_dict
 
 
 def _get_optim_state_dict_with_fsdp_context_manager(
@@ -356,3 +454,34 @@ def get_metadata_state_dict(
         metadata_state_dict['precision'] = 'fp32'
 
     return metadata_state_dict
+
+
+def _dataset_of(dataloader: Optional[Union[Evaluator, DataSpec, DataLoader, Iterable]]) -> Optional[Dataset]:
+    """Get the dataset contained by the given dataloader-like object.
+
+    Args:
+        dataloader (Evaluator | DataSpec | DataLoader | Iterable, optional): The dataloader, wrapped dataloader, or
+            generic python iterable to get the dataset of, if applicable.
+
+    Returns:
+        Dataset: Its dataset, if there is one.
+    """
+    from composer.core.evaluator import Evaluator
+
+    # If it's None, no dataset for you.
+    if dataloader is None:
+        return None
+
+    # An Evaluator is a dataloader wrapped with metrics. Unwrap its dataloader.
+    if isinstance(dataloader, Evaluator):
+        dataloader = dataloader.dataloader
+
+    # A DataSpec is a dataloader wrapped with an on-device transform. Unwrap its dataloader.
+    if isinstance(dataloader, DataSpec):
+        dataloader = dataloader.dataloader
+
+    # If what we now have is an actual DataLoader, return its dataset. If not, return None.
+    if isinstance(dataloader, DataLoader):
+        return dataloader.dataset
+    else:
+        return None
