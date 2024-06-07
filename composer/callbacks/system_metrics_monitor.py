@@ -143,7 +143,7 @@ class SystemMetricsMonitor(Callback):
         if self.gpu_available:
             for key in _GPU_METRICS:
                 values = torch.tensor([metrics_for_cur_rank[key] for metrics_for_cur_rank in all_metrics],
-                                      device=model_device)
+                                      device=model_device.type)
                 min_rank = int(torch.argmin(values).item())
                 max_rank = int(torch.argmax(values).item())
                 min_max_metrics[f'min_{key}/Rank_{min_rank}'] = values[min_rank].item()
