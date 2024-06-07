@@ -13,8 +13,8 @@ from tests.common import RandomClassificationDataset, SimpleModel
 
 @pytest.mark.gpu
 def test_system_metrics_monitor_gpu():
-    device = 'gpu'
-    
+    device = 'cuda'
+
     # Construct the trainer
     system_metrics_monitor = SystemMetricsMonitor()
     in_memory_logger = InMemoryLogger()
