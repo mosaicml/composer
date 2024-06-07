@@ -319,6 +319,7 @@ def all_reduce(
             enum.  Specifies an operation used for element-wise reductions.
         group (ProcessGroup, optional): The process group to work on. If ``None``,
             the default process group will be used. Default is ``None``.
+
     Args:
         tensor (torch.Tensor): Tensor to reduce. The function operates in-place.
         reduce_operation (str, optional): The reduction operation (default: ``SUM``).

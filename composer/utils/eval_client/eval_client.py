@@ -35,6 +35,7 @@ class EvalClient(abc.ABC):
 
         The JSON is formatted as [[[request]]] so that the client can batch requests. The outermost list is for the generations of a
         given prompt, the middle list is for the beam generations of a given prompt, and the innermost list is for each test cases.
+
         Args:
             payload: the materials of the batched HTTPS request to the client organized by prompt, beam generation, and test case.
 

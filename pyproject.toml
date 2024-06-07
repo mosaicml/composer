@@ -40,7 +40,17 @@ ignore = [
     "D408",
     "D409",
     "D413",
+    "D417",
+    "D103"
 ]
+
+[tool.ruff.lint.per-file-ignores]
+".ci*" = ["D"]
+"tests/*" = ["D"]
+"composer/algorithms/*" = ["D"]
+"composer/datasets/*" = ["D"]
+"composer/models/*" = ["D"]
+"composer/trainer/activation_checkpointing.py" = ["D"]
 
 [tool.ruff]
 exclude = [
