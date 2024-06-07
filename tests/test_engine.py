@@ -307,7 +307,7 @@ def test_logging(
 ):
     """Test that engine logs statements as expected"""
     caplog.clear()
-    with caplog.set_level(logging.DEBUG, logger=Engine.__module__):
+    with caplog.at_level(logging.DEBUG, logger=Engine.__module__):
         # Include a callback, since most logging happens around callback events
         dummy_state.callbacks = [EventCounterCallback()]
 
