@@ -306,24 +306,25 @@ def test_logging(
     monkeypatch: pytest.MonkeyPatch,
 ):
     """Test that engine logs statements as expected"""
-    caplog.set_level(logging.DEBUG, logger=Engine.__module__)
-    # Include a callback, since most logging happens around callback events
-    dummy_state.callbacks = [EventCounterCallback()]
+    caplog.clear()
+    with caplog.set_level(logging.DEBUG, logger=Engine.__module__):
+        # Include a callback, since most logging happens around callback events
+        dummy_state.callbacks = [EventCounterCallback()]
 
-    monkeypatch.setenv('ENGINE_DEBUG', '1')
-    engine = Engine(dummy_state, dummy_logger)
-    engine.run_event('INIT')
-    engine.close()
+        monkeypatch.setenv('ENGINE_DEBUG', '1')
+        engine = Engine(dummy_state, dummy_logger)
+        engine.run_event('INIT')
+        engine.close()
 
-    # Validate that we have the expected log entries
-    assert caplog.record_tuples == [
-        ('composer.core.engine', 10, '[ep=0][ba=0][event=INIT]: Running event'),
-        ('composer.core.engine', 10, '[ep=0][ba=0][event=INIT]: Running callback EventCounterCallback'),
-        ('composer.core.engine', 10, 'Closing the engine.'),
-        ('composer.core.engine', 10, 'Closing callback EventCounterCallback'),
-        ('composer.core.engine', 10, 'Post-closing callback EventCounterCallback'),
-        ('composer.core.engine', 10, 'Engine closed.'),
-    ]
+        # Validate that we have the expected log entries
+        assert caplog.record_tuples == [
+            ('composer.core.engine', 10, '[ep=0][ba=0][event=INIT]: Running event'),
+            ('composer.core.engine', 10, '[ep=0][ba=0][event=INIT]: Running callback EventCounterCallback'),
+            ('composer.core.engine', 10, 'Closing the engine.'),
+            ('composer.core.engine', 10, 'Closing callback EventCounterCallback'),
+            ('composer.core.engine', 10, 'Post-closing callback EventCounterCallback'),
+            ('composer.core.engine', 10, 'Engine closed.'),
+        ]
 
 
 def _worker():
