@@ -32,17 +32,17 @@ repos:
 #           types: [python]
 #           require_serial: true
 #     rev: v2.12.2
-- repo: https://github.com/PyCQA/pydocstyle
-  hooks:
-  - id: pydocstyle
-    name: pydocstyle
-    entry: pydocstyle
-    language: python
-    types: [python]
-    exclude: "(?:tests|.ci|composer\/algorithms|composer\/datasets|composer\/models)\/.*|composer\/trainer\/activation_checkpointing.py"
-    additional_dependencies:
-    - "toml"
-  rev: 6.1.1
+# - repo: https://github.com/PyCQA/pydocstyle
+#   hooks:
+#   - id: pydocstyle
+#     name: pydocstyle
+#     entry: pydocstyle
+#     language: python
+#     types: [python]
+#     exclude: "(?:tests|.ci|composer\/algorithms|composer\/datasets|composer\/models)\/.*|composer\/trainer\/activation_checkpointing.py"
+#     additional_dependencies:
+#     - "toml"
+#   rev: 6.1.1
 - repo: https://github.com/adrienverge/yamllint.git
   rev: v1.28.0
   hooks:

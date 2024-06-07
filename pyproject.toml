@@ -15,8 +15,7 @@ split_on_trailing_comma = true
 [tool.ruff.lint]
 select = [
     "C4",
-    # TODO port pydocstyle
-    # "D", # pydocstyle
+    "D",
     "LOG",
     "PERF",
     "PLE",
@@ -27,7 +26,24 @@ ignore = [
     "C408",
     "PERF2",
     "PERF4",
+    "D102",
+    "D105",
+    "D107",
+    "D401",
+    "D203",
+    "D204",
+    "D213",
+    "D215",
+    "D400",
+    "D401",
+    "D404",
+    "D406",
+    "D407",
+    "D408",
+    "D409",
+    "D413",
 ]
+
 [tool.ruff]
 exclude = [
     "build/**",
@@ -1076,7 +1092,7 @@ min-public-methods=2
 # "BaseException, Exception".
 overgeneral-exceptions="BaseException,Exception"
 
-[tool.pydocstyle]
-convention="google"
-add_ignore="D102,D105,D107,D401"
-add_select="D400,D404"
+# [tool.pydocstyle]
+# convention="google"
+# add_ignore="D102,D105,D107,D401"
+# add_select="D400,D404"
