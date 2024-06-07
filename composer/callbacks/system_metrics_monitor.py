@@ -87,22 +87,20 @@ class SystemMetricsMonitor(Callback):
             local_node_system_metrics = self.compute_system_metrics()
             all_system_metrics = dist.all_gather_object(local_node_system_metrics)
             system_metrics = {}
-            gpu_metrics_set = set(_GPU_METRICS)
 
             if self.log_all_data:
                 for rank, metrics in enumerate(all_system_metrics):
                     for key, value in metrics.items():
-                        if key in gpu_metrics_set:
-                            system_metrics[f'Rank_{rank}_{key}'] = value
+                        if key in _GPU_METRICS:
+                            system_metrics[f'{key}_rank_{rank}'] = value
                         else:
                             system_metrics[key] = value
 
             else:
-                model_device = next(state.model.parameters()).device
-                system_metrics = self.compute_min_max_metrics(all_system_metrics, model_device)
+                system_metrics = self.compute_gpu_min_max_metrics(all_system_metrics, state)
                 for rank, metrics in enumerate(all_system_metrics):
                     for key, value in metrics.items():
-                        if key not in gpu_metrics_set:
+                        if key not in _GPU_METRICS:
                             system_metrics[key] = value
 
             logger.log_metrics(system_metrics)
@@ -137,16 +135,16 @@ class SystemMetricsMonitor(Callback):
             system_metrics[f'network_{k}'] = v
         return system_metrics
 
-    def compute_min_max_metrics(self, all_metrics, model_device):
+    def compute_gpu_min_max_metrics(self, all_metrics, state):
         min_max_metrics = {}
 
         if self.gpu_available:
             for key in _GPU_METRICS:
-                values = torch.tensor([metrics_for_cur_rank[key] for metrics_for_cur_rank in all_metrics],
-                                      device=model_device)
+                values = torch.tensor([metrics_for_cur_rank[key] for metrics_for_cur_rank in all_metrics])
+                values = state.device.tensor_to_device(values)
                 min_rank = int(torch.argmin(values).item())
                 max_rank = int(torch.argmax(values).item())
-                min_max_metrics[f'min_{key}/Rank_{min_rank}'] = values[min_rank].item()
-                min_max_metrics[f'max_{key}/Rank_{max_rank}'] = values[max_rank].item()
+                min_max_metrics[f'min_{key}_rank_{min_rank}'] = values[min_rank].item()
+                min_max_metrics[f'max_{key}_rank_{max_rank}'] = values[max_rank].item()
 
         return min_max_metrics
