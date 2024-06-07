@@ -939,12 +939,6 @@ def safe_torch_load(
             model = None
             optimizer = None
             if dist.get_global_rank() == 0:
-                log.info(f"bigning debug haha before load")
-                try:
-                    state_dict_list[0] = _torch_load_with_validation(composer_states_filepath, map_location=map_location)
-                except Exception as e:
-                    log.info(f"bigning debug exception {e}")
-                    assert False
                 # Don't broadcast model/optimizer state if they exist
                 if 'model' in state_dict_list[0]['state']:
                     model = state_dict_list[0]['state']['model']

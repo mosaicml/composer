@@ -1864,7 +1864,6 @@ class Trainer:
         # DDP wrap if required
         if not self.state.deepspeed_enabled and not self.state.fsdp_enabled and dist.get_world_size() > 1:
             self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
-        log.info(f"bigning debug run")
 
         # The model would need to be torch.compile()'d after being wrapped in a distributed strategy
         # to take advantage of any graph breaks.
