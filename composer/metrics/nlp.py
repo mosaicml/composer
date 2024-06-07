@@ -178,3 +178,26 @@ class LanguagePerplexity(LanguageCrossEntropy):
         """Returns torch.exp() of the LanguageCrossEntropy."""
         avg_loss = super().compute()
         return torch.exp(avg_loss)
+
+
+# Fix backward compatibility
+class InContextLearningMetric:
+
+    def __init__(self):
+        raise RuntimeError(
+            f'This is a class for only fixing the backward compatibility, please use this https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md'
+        )
+
+    def __getstate__():
+        return None
+
+    def __setstate__():
+        pass
+
+
+InContextLearningCodeEvalAccuracy = InContextLearningMetric
+InContextLearningLMAccuracy = InContextLearningMetric
+InContextLearningLMExpectedCalibrationError = InContextLearningMetric
+InContextLearningMCExpectedCalibrationError = InContextLearningMetric
+InContextLearningQAAccuracy = InContextLearningMetric
+InContextLearningMultipleChoiceAccuracy = InContextLearningMetric
