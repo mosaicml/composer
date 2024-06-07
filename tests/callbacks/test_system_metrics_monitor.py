@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
+import torch
 from torch.utils.data import DataLoader
 
 from composer.callbacks import SystemMetricsMonitor
@@ -12,6 +13,8 @@ from tests.common import RandomClassificationDataset, SimpleModel
 
 @pytest.mark.gpu
 def test_system_metrics_monitor_gpu():
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
     # Construct the trainer
     system_metrics_monitor = SystemMetricsMonitor()
     in_memory_logger = InMemoryLogger()
@@ -21,6 +24,7 @@ def test_system_metrics_monitor_gpu():
         loggers=in_memory_logger,
         train_dataloader=DataLoader(RandomClassificationDataset()),
         max_duration='1ba',
+        device=device
     )
     trainer.fit()
 
