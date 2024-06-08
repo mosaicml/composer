@@ -292,6 +292,7 @@ class CheckpointSaverCallback(Callback):  # noqa: D101
         weights_only: bool = False,
         ignore_keys: Optional[Union[list[str], Callable[[dict], None]]] = None,
         save_folder: Optional[str] = None,
+        num_concurrent_uploads: int = 2,
     ):
         folder = str(folder)
         filename = str(filename)
@@ -331,8 +332,12 @@ class CheckpointSaverCallback(Callback):  # noqa: D101
         self.symlink_file_tasks: List[Tuple(str, str)] = []
         self.this_rank_saves_remote_symlinks: bool = False
         self.tmp_dir_for_symlink = tempfile.TemporaryDirectory()
+        self.num_concurrent_uploads = num_concurrent_uploads
         if backend != '':
-            self.remote_uploader = RemoteUploader(remote_folder=save_folder,)
+            self.remote_uploader = RemoteUploader(
+                remote_folder=save_folder,
+                num_concurrent_uploads=self.num_concurrent_uploads,
+            )
         self.count = 0
 
     def init(self, state: State, logger: Logger) -> None:
@@ -451,7 +456,7 @@ class CheckpointSaverCallback(Callback):  # noqa: D101
         # Wait the previous upload tasks on all ranks
         # self.wait() has dist.barrier, so it needs to be called
         # on all ranks before any early return
-        if wait_previous_remote_upload_tasks:
+        if wait_previous_remote_upload_tasks and self.count / self.num_concurrent_uploads == 0:
             self.wait()
 
         if not saved_path:  # not all ranks save
