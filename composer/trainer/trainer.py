@@ -54,7 +54,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0'):
 else:
     from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state  # type: ignore
 
-from composer.callbacks import CheckpointSaver, MemorySnapshot, OOMObserver, OptimizerMonitor, CheckpointSaverCallback
+from composer.callbacks import CheckpointSaver, CheckpointSaverCallback, MemorySnapshot, OOMObserver, OptimizerMonitor
 from composer.core import (
     Algorithm,
     AlgorithmPass,
@@ -1392,10 +1392,13 @@ class Trainer:
         # the ``RemoteUploaderDownloader`` init. This is necessary to use an ``MLFlowObjectStore`` to log objects to a
         # run managed by an ``MLFlowLogger``, as the ``MLFlowObjectStore`` relies on the ``MLFlowLogger`` to initialize
         # the active MLFlow run.
+
+        """
         if save_folder is not None:
             remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
             if remote_ud is not None:
                 loggers.append(remote_ud)
+        """
 
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)
@@ -1419,7 +1422,10 @@ class Trainer:
         self._checkpoint_saver = None
         latest_remote_file_name = None
 
-        _checkpoint_savers = [cb for cb in self.state.callbacks if (isinstance(cb, CheckpointSaver) or isinstance(cb, CheckpointSaverCallback))]
+        _checkpoint_savers = [
+            cb for cb in self.state.callbacks
+            if (isinstance(cb, CheckpointSaver) or isinstance(cb, CheckpointSaverCallback))
+        ]
         if len(_checkpoint_savers) >= 1:
             if len(_checkpoint_savers) > 1:
                 log.info('Multiple CheckpointSaver provided as callbacks. Using the first one as reference.')
@@ -1465,7 +1471,7 @@ class Trainer:
                 else:
                     latest_remote_file_name = None
 
-            log.info(f"bigning debug useing the new saver")
+            log.info(f'bigning debug useing the new saver')
             self._checkpoint_saver = CheckpointSaverCallback(
                 folder=folder,
                 filename=save_filename,

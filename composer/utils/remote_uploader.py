@@ -14,11 +14,17 @@ import uuid
 from concurrent.futures import Future, ProcessPoolExecutor
 from typing import List
 
-from composer.utils.dist import get_local_rank
+from composer.utils.dist import broadcast_object_list, get_global_rank, get_local_rank
 from composer.utils.file_helpers import (
     maybe_create_object_store_from_uri,
+    parse_uri,
 )
-from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError
+from composer.utils.object_store.mlflow_object_store import MLFLOW_DBFS_PATH_PREFIX, MLFlowObjectStore
+from composer.utils.object_store.object_store import (
+    ObjectStore,
+    ObjectStoreTransientError,
+)
+from composer.utils.object_store.uc_object_store import UCObjectStore
 from composer.utils.retrying import retry
 
 log = logging.getLogger(__name__)
@@ -26,16 +32,28 @@ log = logging.getLogger(__name__)
 __all__ = ['RemoteUploader']
 
 
+def _build_dbfs_backend(path: str) -> ObjectStore:
+    if path.startswith(MLFLOW_DBFS_PATH_PREFIX):
+        return MLFlowObjectStore(path=path)
+    UCObjectStore.validate_path(path)
+    return UCObjectStore(path=path)
+
+
 def _upload_file_to_object_store(
     remote_folder: str,
+    is_dbfs: bool,
+    dbfs_path: str,
     remote_file_name: str,
     local_file_path: str,
     overwrite: bool,
     num_attempts: int,
 ) -> int:
-    object_store: ObjectStore = maybe_create_object_store_from_uri(
-        remote_folder,
-    )  # pyright: ignore[reportGeneralTypeIssues]
+    if is_dbfs:
+        object_store: ObjectStore = _build_dbfs_backend(dbfs_path)
+    else:
+        object_store: ObjectStore = maybe_create_object_store_from_uri(
+            remote_folder,
+        )  # pyright: ignore[reportGeneralTypeIssues]
 
     @retry(ObjectStoreTransientError, num_attempts=num_attempts)
     def upload_file(retry_index: int = 0):
@@ -84,6 +102,11 @@ class RemoteUploader:
         # A folder to use for staging uploads
         self._tempdir = tempfile.TemporaryDirectory()
         self._upload_staging_folder = self._tempdir.name
+        backend, _, self.path = parse_uri(remote_folder)
+
+        # Need some special handling for dbfs path
+        self._is_dbfs = backend == 'dbfs'
+        self._dbfs_backend: Optional[MLFlowObjectStore] = None
 
         self.num_attempts = num_attempts
 
@@ -96,6 +119,24 @@ class RemoteUploader:
         # If a future completed successfully, we'll remove it from this list
         # when check_workers() or wait() is called
         self.futures: List[Future] = []
+
+    def init_mlflow_path(self):
+        # If it's dbfs path like: dbfs:/databricks/mlflow-tracking/{mlflow_experiment_id}/{mlflow_run_id}/
+        # We need to fill out the experiment_id and run_id
+        if not self._is_dbfs:
+            return
+        if not self.path.startswith(MLFLOW_DBFS_PATH_PREFIX):
+            return
+        log.info(f'bigning debug before path: {self.path}')
+        if get_global_rank() == 0:
+            if self._dbfs_backend is None:
+                self._dbfs_backend = _build_dbfs_backend(self.path)
+            assert isinstance(self._dbfs_backend, MLFlowObjectStore)
+            self.path = self._dbfs_backend.get_dbfs_path(self.path)
+        path_list = [self.path]
+        broadcast_object_list(path_list, src=0)
+        self.path = path_list[0]
+        log.info(f'bigning debug after path: {self.path}')
 
     def upload_file_async(
         self,
@@ -116,6 +157,8 @@ class RemoteUploader:
         # Async upload file
         future = self.executor.submit(
             _upload_file_to_object_store,
+            is_dbfs=self._is_dbfs,
+            dbfs_path=self.path,
             remote_folder=self.remote_folder,
             remote_file_name=remote_file_name,
             local_file_path=copied_path,
