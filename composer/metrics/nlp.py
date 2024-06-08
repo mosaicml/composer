@@ -182,11 +182,11 @@ class LanguagePerplexity(LanguageCrossEntropy):
 
 # Fix backward compatibility
 class InContextLearningMetric:
-    """This only exists for backwards compatibility of checkpoints that contain pickled metrics."""
+    """A class only exists for backwards compatibility of checkpoints that contain pickled metrics."""
 
     def __init__(self):
         raise RuntimeError(
-            f'This class only exists for maintaining backward compatibility for checkpoints that contain pickled metrics, please use this https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md.'
+            f'This class only exists for maintaining backward compatibility for checkpoints that contain pickled metrics, please use this https://github.com/mosaicml/llm-foundry/blob/main/scripts/eval/README.md.',
         )
 
     def __getstate__(self):
