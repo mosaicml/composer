@@ -182,6 +182,7 @@ class LanguagePerplexity(LanguageCrossEntropy):
 
 # Fix backward compatibility
 class InContextLearningMetric:
+    """This only exists for backwards compatibility of checkpoints that contain pickled metrics."""
 
     def __init__(self):
         raise RuntimeError(
