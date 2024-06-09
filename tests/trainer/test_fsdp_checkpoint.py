@@ -289,19 +289,108 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
 @pytest.mark.gpu
 @pytest.mark.filterwarnings(r'ignore:.*scatter_full_optim_state_dict``is being deprecated.*:UserWarning')
 @pytest.mark.parametrize(
-    'world_size,optimizer,autoresume,precision,save_weights_only,load_weights_only,load_monolith_rank0_only,use_tp,use_hsdp',
+    'optimizer,autoresume,precision,save_weights_only,load_weights_only,load_monolith_rank0_only,use_tp',
     [
-        pytest.param(2, 'adam', False, 'amp_bf16', False, False, False, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adamw', False, 'amp_bf16', False, False, False, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', True, 'amp_bf16', False, False, False, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', False, 'amp_fp16', False, False, False, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', False, 'amp_bf16', True, True, False, False, False, 
+        pytest.param('adam', False, 'amp_bf16', False, False, False, False, marks=pytest.mark.world_size(2)),
+        pytest.param('adamw', False, 'amp_bf16', False, False, False, False, marks=pytest.mark.world_size(2)),
+        pytest.param('adam', True, 'amp_bf16', False, False, False, False, marks=pytest.mark.world_size(2)),
+        pytest.param('adam', False, 'amp_fp16', False, False, False, False, marks=pytest.mark.world_size(2)),
+        pytest.param('adam', False, 'amp_bf16', True, True, False, False, 
                      marks=pytest.mark.world_size(2)),  # save_weights_only requires load_weights_only
-        pytest.param(2, 'adam', False, 'amp_bf16', False, True, False, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', False, 'amp_bf16', False, False, True, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param(4, 'adam', False, 'amp_bf16', False, False, False, True, False, marks=pytest.mark.world_size(4)),
-        pytest.param(1, 'adam', False, 'amp_bf16', False, False, False, True, True, marks=pytest.mark.world_size(4)),
-        pytest.param(2, 'adam', False, 'amp_bf16', False, False, False, True, True, marks=pytest.mark.world_size(4)),
+        pytest.param('adam', False, 'amp_bf16', False, True, False, False, marks=pytest.mark.world_size(2)),
+        pytest.param('adam', False, 'amp_bf16', False, False, True, False, marks=pytest.mark.world_size(2)),
+        pytest.param('adam', False, 'amp_bf16', False, False, False, True, marks=pytest.mark.world_size(4)),
+    ],
+)
+def test_fsdp_full_state_dict_load(
+    tmp_path: pathlib.Path,
+    autoresume: bool,
+    precision: str,
+    optimizer: str,
+    save_weights_only: bool,
+    load_weights_only: bool,
+    load_monolith_rank0_only: bool,
+    use_tp: bool,
+):
+    if autoresume:
+        run_name = 'my-cool-autoresume-run'
+    else:
+        run_name = None
+    save_folder = tmp_path
+    save_filename = 'rank{rank}.pt'
+    fsdp_config = FSDPConfig(
+        sharded_ckpt_prefix_dir='ba{batch}',
+        sync_module_states=load_monolith_rank0_only,
+        load_monolith_rank0_only=load_monolith_rank0_only,
+    )
+
+    tp_config = None
+    if use_tp:
+        from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
+        tp_config = {
+            'tensor_parallel_degree': 2,
+            'layer_plan': {
+                'module.0': ColwiseParallel(),
+                'module.2': RowwiseParallel(),
+            },
+        }
+
+    trainer1 = get_trainer(
+        save_folder=str(save_folder),
+        save_filename=save_filename,
+        run_name=run_name,
+        precision=precision,
+        autoresume=autoresume,
+        optimizer=optimizer,
+        fsdp_config=fsdp_config,
+        tp_config=tp_config,
+    )
+    trainer1.fit()
+    state_dict_from_trainer1 = trainer1.state.state_dict()
+    trainer1.close()
+    load_path = str(save_folder / pathlib.Path('rank{rank}.pt'))
+    trainer2 = get_trainer(
+        save_folder=str(save_folder),
+        save_filename=save_filename,
+        load_path=load_path,
+        run_name=run_name,
+        precision=precision,
+        autoresume=autoresume,
+        max_duration='4ba',
+        optimizer=optimizer,
+        fsdp_config=fsdp_config,
+        save_weights_only=save_weights_only,
+        load_weights_only=load_weights_only,
+        tp_config=tp_config,
+    )
+    state_dict_from_trainer2 = trainer2.state.state_dict()
+
+    if dist.get_global_rank() == 0:
+        _compare_model_params_between_state_dicts(
+            state_dict_from_trainer1,
+            state_dict_from_trainer2,
+        )
+        if not load_weights_only:
+            _compare_optims_between_state_dicts(
+                state_dict_from_trainer1,
+                state_dict_from_trainer2,
+            )
+        _compare_metrics_between_state_dicts(
+            state_dict_from_trainer1,
+            state_dict_from_trainer2,
+        )
+    # Continue to fit to make sure we can continue training.
+    trainer2.fit()
+    trainer2.close()
+
+
+@pytest.mark.gpu
+@pytest.mark.filterwarnings(r'ignore:.*scatter_full_optim_state_dict``is being deprecated.*:UserWarning')
+@pytest.mark.parametrize(
+    'world_size,optimizer,autoresume,precision,save_weights_only,load_weights_only,use_tp,data_parallel_shard',
+    [
+        pytest.param(4, 'adam', False, 'amp_bf16', False, False, True, 1, marks=pytest.mark.world_size(4)),
+        pytest.param(4, 'adam', False, 'amp_bf16', False, False, True, 2, marks=pytest.mark.world_size(4)),
     ],
 )
 def test_fsdp_full_state_dict_load(
@@ -312,9 +401,8 @@ def test_fsdp_full_state_dict_load(
     optimizer: str,
     save_weights_only: bool,
     load_weights_only: bool,
-    load_monolith_rank0_only: bool,
     use_tp: bool,
-    use_hsdp: bool,
+    data_parallel_shard: int,
 ):
     if autoresume:
         run_name = 'my-cool-autoresume-run'
@@ -323,18 +411,12 @@ def test_fsdp_full_state_dict_load(
     save_folder = tmp_path
     save_filename = 'rank{rank}.pt'
 
-    if use_hsdp:
-        fsdp_config = FSDPConfig(
-            sharded_ckpt_prefix_dir='ba{batch}',
-            sharding_strategy='HYBRID_SHARD',
-            data_parallel_shard_degree=world_size,
-        )
-    else:
-        fsdp_config = FSDPConfig(
-            sharded_ckpt_prefix_dir='ba{batch}',
-            sync_module_states=load_monolith_rank0_only,
-            load_monolith_rank0_only=load_monolith_rank0_only,
-        )
+    fsdp_config = FSDPConfig(
+        sharded_ckpt_prefix_dir='ba{batch}',
+        sharding_strategy='HYBRID_SHARD',
+        data_parallel_shard_degree=data_parallel_shard,
+        data_parallel_replicate_degree=world_size/data_parallel_shard,
+    )
 
     tp_config = None
     if use_tp:
