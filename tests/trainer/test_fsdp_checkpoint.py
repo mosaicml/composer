@@ -325,15 +325,16 @@ def test_fsdp_full_state_dict_load(
     if use_hsdp:
         fsdp_config = FSDPConfig(
             sharded_ckpt_prefix_dir='ba{batch}',
-            sync_module_states=load_monolith_rank0_only,
-            load_monolith_rank0_only=load_monolith_rank0_only,
+            sharding_strategy='HYBRID_SHARD',
+            data_parallel_shard_degree=world_size,
         )
     else:
         fsdp_config = FSDPConfig(
             sharded_ckpt_prefix_dir='ba{batch}',
-            sharding_strategy='HYBRID_SHARD',
-            data_parallel_shard_degree=world_size,
+            sync_module_states=load_monolith_rank0_only,
+            load_monolith_rank0_only=load_monolith_rank0_only,
         )
+        
     tp_config = None
     if use_tp:
         from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
