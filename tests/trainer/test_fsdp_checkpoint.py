@@ -393,7 +393,7 @@ def test_fsdp_full_state_dict_load(
         pytest.param(4, 'adam', False, 'amp_bf16', False, False, True, 2, marks=pytest.mark.world_size(4)),
     ],
 )
-def test_fsdp_full_state_dict_load(
+def test_fsdp_full_state_dict_load_with_hsdp(
     world_size,
     tmp_path: pathlib.Path,
     autoresume: bool,
