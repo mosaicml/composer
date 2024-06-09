@@ -415,7 +415,7 @@ def test_fsdp_full_state_dict_load(
         sharded_ckpt_prefix_dir='ba{batch}',
         sharding_strategy='HYBRID_SHARD',
         data_parallel_shard_degree=data_parallel_shard,
-        data_parallel_replicate_degree=world_size / data_parallel_shard,
+        data_parallel_replicate_degree=world_size // data_parallel_shard,
     )
 
     tp_config = None
