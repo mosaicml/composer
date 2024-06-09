@@ -295,7 +295,7 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
         pytest.param('adamw', False, 'amp_bf16', False, False, False, False, marks=pytest.mark.world_size(2)),
         pytest.param('adam', True, 'amp_bf16', False, False, False, False, marks=pytest.mark.world_size(2)),
         pytest.param('adam', False, 'amp_fp16', False, False, False, False, marks=pytest.mark.world_size(2)),
-        pytest.param('adam', False, 'amp_bf16', True, True, False, False, 
+        pytest.param('adam', False, 'amp_bf16', True, True, False, False,
                      marks=pytest.mark.world_size(2)),  # save_weights_only requires load_weights_only
         pytest.param('adam', False, 'amp_bf16', False, True, False, False, marks=pytest.mark.world_size(2)),
         pytest.param('adam', False, 'amp_bf16', False, False, True, False, marks=pytest.mark.world_size(2)),
@@ -415,7 +415,7 @@ def test_fsdp_full_state_dict_load(
         sharded_ckpt_prefix_dir='ba{batch}',
         sharding_strategy='HYBRID_SHARD',
         data_parallel_shard_degree=data_parallel_shard,
-        data_parallel_replicate_degree=world_size/data_parallel_shard,
+        data_parallel_replicate_degree=world_size / data_parallel_shard,
     )
 
     tp_config = None
