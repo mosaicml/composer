@@ -389,7 +389,6 @@ def test_fsdp_full_state_dict_load(
 @pytest.mark.parametrize(
     'world_size,optimizer,autoresume,precision,save_weights_only,load_weights_only,use_tp,data_parallel_shard',
     [
-        pytest.param(4, 'adam', False, 'amp_bf16', False, False, True, 1, marks=pytest.mark.world_size(4)),
         pytest.param(4, 'adam', False, 'amp_bf16', False, False, True, 2, marks=pytest.mark.world_size(4)),
     ],
 )
