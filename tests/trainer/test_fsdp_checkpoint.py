@@ -300,7 +300,8 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
         pytest.param(2, 'adam', False, 'amp_bf16', False, True, False, False, False, marks=pytest.mark.world_size(2)),
         pytest.param(2, 'adam', False, 'amp_bf16', False, False, True, False, False, marks=pytest.mark.world_size(2)),
         pytest.param(4, 'adam', False, 'amp_bf16', False, False, False, True, False, marks=pytest.mark.world_size(4)),
-        pytest.param(4, 'adam', False, 'amp_bf16', False, False, False, True, True, marks=pytest.mark.world_size(4)),
+        pytest.param(1, 'adam', False, 'amp_bf16', False, False, False, True, True, marks=pytest.mark.world_size(4)),
+        pytest.param(2, 'adam', False, 'amp_bf16', False, False, False, True, True, marks=pytest.mark.world_size(4)),
     ],
 )
 def test_fsdp_full_state_dict_load(
@@ -334,7 +335,7 @@ def test_fsdp_full_state_dict_load(
             sync_module_states=load_monolith_rank0_only,
             load_monolith_rank0_only=load_monolith_rank0_only,
         )
-        
+
     tp_config = None
     if use_tp:
         from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
