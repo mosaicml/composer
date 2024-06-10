@@ -62,7 +62,7 @@ def _save_sharded_state_dict_to_disk(
 ) -> Optional[str]:
 
     if save_format != 'pt':
-        raise NotImplementedError(f'Saving sharded state dict to disk in format {save_format} is not supported.')
+        raise NotImplementedError(f"Saving sharded state dict to disk in format {save_format} is not supported. Please choose from ['pt'].")
 
     if state_dict == {}:
         return None
