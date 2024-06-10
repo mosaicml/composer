@@ -410,11 +410,13 @@ def test_fsdp_full_state_dict_load_with_hsdp(
     save_folder = tmp_path
     save_filename = 'rank{rank}.pt'
 
+    data_parallel_replicate_degree = world_size // data_parallel_shard
+    print('DEBUG: ', data_parallel_replicate_degree)
     fsdp_config = FSDPConfig(
         sharded_ckpt_prefix_dir='ba{batch}',
         sharding_strategy='HYBRID_SHARD',
         data_parallel_shard_degree=data_parallel_shard,
-        data_parallel_replicate_degree=world_size // data_parallel_shard,
+        data_parallel_replicate_degree=data_parallel_replicate_degree,
     )
 
     tp_config = None
