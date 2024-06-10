@@ -395,7 +395,7 @@ def test_fsdp_full_state_dict_load(
     ],
 )
 def test_fsdp_full_state_dict_load_with_hsdp(
-    world_size,
+    world_size: int,
     tmp_path: pathlib.Path,
     autoresume: bool,
     precision: str,
