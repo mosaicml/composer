@@ -383,13 +383,13 @@ def test_fsdp_full_state_dict_load(
     trainer2.fit()
     trainer2.close()
 
-@world_size(4)
+
 @pytest.mark.gpu
 @pytest.mark.filterwarnings(r'ignore:.*scatter_full_optim_state_dict``is being deprecated.*:UserWarning')
 @pytest.mark.parametrize(
-    'optimizer,autoresume,precision,save_weights_only,load_weights_only,data_parallel_shard,use_tp',
+    'world_size,optimizer,autoresume,precision,save_weights_only,load_weights_only,data_parallel_shard,use_tp',
     [
-        pytest.param('adam', False, 'amp_bf16', False, False, 2, False),
+        pytest.param(4, 'adam', False, 'amp_bf16', False, False, 2, False, marks=pytest.mark.world_size(4)),
     ],
 )
 def test_fsdp_full_state_dict_load_with_hsdp(
