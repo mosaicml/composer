@@ -37,7 +37,7 @@ def save_state_dict_to_disk(
         async_save (bool): If True, the save will be done asynchronously and the function will return with the path of where it was going to be saved
 
     Returns:
-        str: The full path to the saved state dict if sharded is false and rank 0 or if sharded is true, otherwise None.
+        str: The full path to the saved state dict if (sharded is false and rank 0) or if sharded is true, otherwise None.
     """
     if state_dict == {}:
         return None
