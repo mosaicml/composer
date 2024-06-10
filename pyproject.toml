@@ -51,6 +51,8 @@ ignore = [
 "composer/datasets/*" = ["D"]
 "composer/models/*" = ["D"]
 "composer/trainer/activation_checkpointing.py" = ["D"]
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.ruff]
 exclude = [
