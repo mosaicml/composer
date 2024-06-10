@@ -427,7 +427,6 @@ def test_fsdp_full_state_dict_load_with_hsdp(
         autoresume=autoresume,
         optimizer=optimizer,
         fsdp_config=fsdp_config,
-        tp_config=None
     )
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
@@ -445,7 +444,6 @@ def test_fsdp_full_state_dict_load_with_hsdp(
         fsdp_config=fsdp_config,
         save_weights_only=save_weights_only,
         load_weights_only=load_weights_only,
-        tp_config=None,
     )
     state_dict_from_trainer2 = trainer2.state.state_dict()
 
