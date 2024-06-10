@@ -387,9 +387,9 @@ def test_fsdp_full_state_dict_load(
 @pytest.mark.gpu
 @pytest.mark.filterwarnings(r'ignore:.*scatter_full_optim_state_dict``is being deprecated.*:UserWarning')
 @pytest.mark.parametrize(
-    'world_size,optimizer,autoresume,precision,save_weights_only,load_weights_only,data_parallel_shard',
+    'world_size,optimizer,autoresume,precision,save_weights_only,load_weights_only,data_parallel_shard,use_tp',
     [
-        pytest.param(4, 'adam', False, 'amp_bf16', False, True, 2, marks=pytest.mark.world_size(4)),
+        pytest.param(4, 'adam', False, 'amp_bf16', False, True, 2, True marks=pytest.mark.world_size(4)),
     ],
 )
 def test_fsdp_full_state_dict_load_with_hsdp(
@@ -401,6 +401,7 @@ def test_fsdp_full_state_dict_load_with_hsdp(
     save_weights_only: bool,
     load_weights_only: bool,
     data_parallel_shard: int,
+    use_tp: bool, 
 ):
     if autoresume:
         run_name = 'my-cool-autoresume-run'
@@ -417,6 +418,17 @@ def test_fsdp_full_state_dict_load_with_hsdp(
         data_parallel_replicate_degree=data_parallel_replicate_degree,
     )
 
+    tp_config = None
+    if use_tp:
+        from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
+        tp_config = {
+            'tensor_parallel_degree': 2,
+            'layer_plan': {
+                'module.0': ColwiseParallel(),
+                'module.2': RowwiseParallel(),
+            },
+        }
+
     trainer1 = get_trainer(
         save_folder=str(save_folder),
         save_filename=save_filename,
@@ -425,6 +437,7 @@ def test_fsdp_full_state_dict_load_with_hsdp(
         autoresume=autoresume,
         optimizer=optimizer,
         fsdp_config=fsdp_config,
+        tp_config=tp_config,
     )
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
@@ -442,6 +455,7 @@ def test_fsdp_full_state_dict_load_with_hsdp(
         fsdp_config=fsdp_config,
         save_weights_only=save_weights_only,
         load_weights_only=load_weights_only,
+        tp_config=tp_config,
     )
     state_dict_from_trainer2 = trainer2.state.state_dict()
 
