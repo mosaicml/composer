@@ -646,6 +646,63 @@ class TestCheckpointSaving:
         assert id(trainer._checkpoint_saver) == id(checkpoint_savers[0])
         assert len([cb for cb in trainer.state.callbacks if isinstance(cb, CheckpointSaver)]) == len(checkpoint_savers)
 
+    
+    @pytest.mark.parametrize(('upload_success'), [True, False])
+    def test_checkpoint_remote_symlink(
+        self,
+        upload_success: bool
+    ):
+        from tests.utils.test_remote_uploader import DummyObjectStore
+        import multiprocessing
+        fork_context = multiprocessing.get_context('fork')
+        tmp_dir = tempfile.TemporaryDirectory()
+        def _get_tmp_dir(self):
+            return tmp_dir
+
+        class _AlwaysFailDummyObjectStore(DummyObjectStore):
+            def upload_object(self, object_name, filename, callback=None):
+                # Only allows to upload symlink to simulate
+                # the situation that checkpoint file uploading fails
+                if 'symlink' in object_name:
+                    return super().upload_object(object_name, filename, callback)
+                raise RuntimeError('Raise Error intentionally') 
+        if upload_success:
+            MockObjectStore = DummyObjectStore
+        else:
+            MockObjectStore = _AlwaysFailDummyObjectStore
+
+        with patch('composer.utils.file_helpers.S3ObjectStore', MockObjectStore):
+            with patch('tests.utils.test_remote_uploader.DummyObjectStore.get_tmp_dir', _get_tmp_dir):
+                with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
+                    train_dataset = RandomClassificationDataset(size=10)
+                    train_dataloader = DataLoader(
+                        dataset=train_dataset,
+                        batch_size=2,
+                        sampler=dist.get_sampler(train_dataset),
+                    )
+
+                    trainer = Trainer(
+                        model=SimpleModel(),
+                        train_dataloader=train_dataloader,
+                        save_interval='1ba',
+                        max_duration='1ba',
+                        save_folder='S3://whatever/',
+                    )
+                    symlink_filepath = os.path.join(tmp_dir.name, 'latest-rank0.pt.symlink')
+                    if upload_success:
+                        trainer.fit()
+                        dir_list = os.listdir(tmp_dir.name)
+                        with open(symlink_filepath, 'r') as f:
+                            assert f.read() == "ep0-ba1-rank0.pt"
+                    else:
+                        from composer.callbacks.checkpoint_saver_v2 import CheckpointSaverCallback
+                        with pytest.raises(RuntimeError, match='Raise Error intentionally'):
+                            trainer.fit()
+                        assert os.path.exists(symlink_filepath) == False
+                        def post_close(self):
+                            return
+                        trainer._checkpoint_saver.post_close = post_close.__get__(trainer._checkpoint_saver, CheckpointSaverCallback)
+
 
 class TestCheckpointLoading:
 

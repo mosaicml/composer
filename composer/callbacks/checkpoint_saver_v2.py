@@ -596,7 +596,6 @@ class CheckpointSaverCallback(Callback):  # noqa: D101
             self.symlink_file_tasks = []
 
     def _rotate_checkpoints(self, sharding_enabled: bool = False):
-
         while len(self.saved_checkpoints) > self.num_checkpoints_to_keep:
             prefix_dir = None
             checkpoint_to_delete = self.saved_checkpoints.pop(0)
@@ -611,6 +610,12 @@ class CheckpointSaverCallback(Callback):  # noqa: D101
         del state, logger  # unused
         if self.remote_uploader is not None:
             self.remote_uploader.check_workers()
+
+    def fit_end(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
+        if self.remote_uploader is not None:
+            self.wait()
+            self.remote_uploader.wait()
 
     def post_close(self):
         if self.remote_uploader is not None:
