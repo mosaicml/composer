@@ -52,7 +52,6 @@ def test_save_full_state_dict_to_disk_cpu(world_size: int, tmp_path: str, sharde
     model, _ = init_model(use_fsdp=use_fsdp, device='cpu', sync_module_states=False, cpu_offload=True)
     state_dict = get_model_state_dict(model, sharded_state_dict=False)
     path_saved = save_state_dict_to_disk(state_dict, destination_file_path=destination_file_path)
-    time.sleep(1)
     if dist.get_global_rank() == 0:
         assert path_saved == destination_file_path
         assert os.path.exists(destination_file_path), f'{destination_file_path} does not exist'
