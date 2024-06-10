@@ -101,7 +101,7 @@ def _save_full_state_dict_to_disk(
 ) -> Optional[str]:
 
     if save_format != 'pt':
-        raise NotImplementedError(f'Saving full state dict to disk in format {save_format} is not supported.')
+        raise NotImplementedError(f"Saving sharded state dict to disk in format {save_format} is not supported. Please choose from ['pt'].")
 
     if not overwrite and os.path.exists(destination_file_path):
         raise ValueError(f'File {destination_file_path} already exists. Set overwrite=True to overwrite it.')
