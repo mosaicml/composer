@@ -708,7 +708,7 @@ class State(Serializable):
         """
         self._train_dataloader = train_dataloader
         # Load dataset state from checkpoint when train_dataloader is set
-        if self.dataset_state:
+        if self.dataset_state is not None and self.dataset_state.get('train') is not None:
             dataset = self._dataset_of(self._train_dataloader)
             if hasattr(dataset, 'load_state_dict'):
                 dataset.load_state_dict(self.dataset_state['train'])  # pyright: ignore
@@ -1278,13 +1278,13 @@ class State(Serializable):
         Args:
             obj (dict[str, Any]): The state to load.
         """
-        self.dataset_state = obj
-
         dataset = self._dataset_of(self.train_dataloader)
         if hasattr(dataset, 'load_state_dict'):
             dataset.load_state_dict(obj['train'])  # pyright: ignore
             obj['train'] = None
             self.dataset_resumption['train'] = True
+
+        self.dataset_state = obj
 
     def load_model_state(
         self,
