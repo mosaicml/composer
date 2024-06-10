@@ -67,7 +67,7 @@ def _save_sharded_state_dict_to_disk(
     if state_dict == {}:
         return None
 
-    # If used specifies filename instead of directory suffixes, strip them and warn.
+    # If user specifies filename instead of directory suffixes, strip them and warn
     if len(Path(destination_file_path).suffixes) > 0:
         stripped_path = _strip_suffixes(destination_file_path)
         warnings.warn(
