@@ -25,7 +25,6 @@ def save_state_dict_to_disk(
     destination_file_path: str,
     overwrite: bool = False,
     save_format: str = 'pt',  # or hf, safetensor
-    
 ) -> Optional[str]:
     """Saves a state dict to local disk.
 
@@ -62,7 +61,9 @@ def _save_sharded_state_dict_to_disk(
 ) -> Optional[str]:
 
     if save_format != 'pt':
-        raise NotImplementedError(f"Saving sharded state dict to disk in format {save_format} is not supported. Please choose from ['pt'].")
+        raise NotImplementedError(
+            f"Saving sharded state dict to disk in format {save_format} is not supported. Please choose from ['pt']."
+        )
 
     if state_dict == {}:
         return None
@@ -101,7 +102,9 @@ def _save_full_state_dict_to_disk(
 ) -> Optional[str]:
 
     if save_format != 'pt':
-        raise NotImplementedError(f"Saving sharded state dict to disk in format {save_format} is not supported. Please choose from ['pt'].")
+        raise NotImplementedError(
+            f"Saving sharded state dict to disk in format {save_format} is not supported. Please choose from ['pt']."
+        )
 
     if not overwrite and os.path.exists(destination_file_path):
         raise ValueError(f'File {destination_file_path} already exists. Set overwrite=True to overwrite it.')

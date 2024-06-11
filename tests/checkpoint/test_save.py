@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 import torch
 import torch.distributed.checkpoint as DCP
+from packaging import version
 
 from composer.checkpoint.save import save_state_dict_to_disk
 from composer.checkpoint.state_dict import get_model_state_dict
@@ -18,7 +19,6 @@ from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
 from tests.checkpoint.helpers import init_model
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
-from packaging import version
 
 
 @world_size(2)
@@ -45,11 +45,16 @@ def test_save_full_state_dict_to_disk(world_size: int, tmp_path: str, sharded_mo
 
 @world_size(2)
 @pytest.mark.filterwarnings('ignore:The passed')  # Torch issues a warning for wrapping a CPU model in FSDP
-@pytest.mark.parametrize('sharded_model', [False, 
-                                           pytest.param(True,
-                                                               marks=pytest.mark.skipif(
-                                                               (version.parse(torch.__version__) < version.parse('2.2.0')),
-                                                               reason='torch <2.2 does not support FSDP state dicts on CPU'))])
+@pytest.mark.parametrize(
+    'sharded_model', [
+        False,
+        pytest.param(
+            True,
+            marks=pytest.mark.skipif((version.parse(torch.__version__) < version.parse('2.2.0')),
+                                     reason='torch <2.2 does not support FSDP state dicts on CPU')
+        )
+    ]
+)
 def test_save_full_state_dict_to_disk_cpu(world_size: int, tmp_path: str, sharded_model: bool):
 
     destination_file_path = os.path.join(tmp_path, 'test.pt')
