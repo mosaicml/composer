@@ -291,7 +291,7 @@ class CheckpointSaverCallback(Callback):  # noqa: D101
         num_checkpoints_to_keep: int = -1,
         weights_only: bool = False,
         ignore_keys: Optional[Union[list[str], Callable[[dict], None]]] = None,
-        save_folder: Optional[str] = None,
+        save_folder: str = '',
         num_concurrent_uploads: int = 2,
     ):
         folder = str(folder)

@@ -24,7 +24,7 @@ from pytest import MonkeyPatch
 from torch.utils.data import DataLoader, Dataset, DistributedSampler
 
 from composer.algorithms import NoOpModel
-from composer.callbacks import CheckpointSaver
+from composer.callbacks import CheckpointSaver, CheckpointSaverCallback
 from composer.core import Callback, Time, TimeUnit
 from composer.loggers import RemoteUploaderDownloader, remote_uploader_downloader
 from composer.metrics import MAP
@@ -226,7 +226,7 @@ def test_ignore_params(remove_field_paths: list[list[str]], filter_params: list[
     ],
 )
 def test_checkpoint_saver_folder_filename_path(folder: Union[str, pathlib.Path], filename: Union[str, pathlib.Path]):
-    checkpoint_saver = CheckpointSaver(folder=folder, filename=filename)
+    checkpoint_saver = CheckpointSaverCallback(folder=folder, filename=filename)
 
     assert checkpoint_saver.folder == str(folder)
     assert checkpoint_saver.filename.filename == str(filename)
@@ -237,7 +237,7 @@ def test_checkpoint_invalid_compressor(monkeypatch: pytest.MonkeyPatch):
         CompressorNotFound,
         match=re.escape('Could not find compressor for "foo.pt.unknown_compressor".'),
     ):
-        CheckpointSaver(filename='foo.pt.unknown_compressor')
+        CheckpointSaverCallback(filename='foo.pt.unknown_compressor')
 
     import composer.utils.compression
     monkeypatch.setattr(
@@ -250,7 +250,7 @@ def test_checkpoint_invalid_compressor(monkeypatch: pytest.MonkeyPatch):
         CompressorNotFound,
         match=re.escape('Could not find command "unknown_compressor_cmd" in the PATH'),
     ):
-        CheckpointSaver(filename='foo.pt.unknown_compressor')
+        CheckpointSaverCallback(filename='foo.pt.unknown_compressor')
 
 
 @pytest.mark.parametrize(
@@ -273,7 +273,7 @@ def test_checkpoint_filenames(
     latest_filename: Optional[Union[str, pathlib.Path]],
     latest_remote_file_name: Optional[Union[str, pathlib.Path]],
 ):
-    checkpoint_saver = CheckpointSaver(
+    checkpoint_saver = CheckpointSaverCallback(
         remote_file_name=remote_file_name,
         latest_filename=latest_filename,
         latest_remote_file_name=latest_remote_file_name,
@@ -294,7 +294,7 @@ def test_checkpoint_filenames_none(
     latest_filename: Optional[Union[str, pathlib.Path]],
     latest_remote_file_name: Optional[Union[str, pathlib.Path]],
 ):
-    checkpoint_saver = CheckpointSaver(
+    checkpoint_saver = CheckpointSaverCallback(
         remote_file_name=remote_file_name,
         latest_filename=latest_filename,
         latest_remote_file_name=latest_remote_file_name,
@@ -610,8 +610,8 @@ class TestCheckpointSaving:
         tmp_path: pathlib.Path,
     ):
         checkpoint_savers = [
-            CheckpointSaver(str(tmp_path / 'checkpoints1')),
-            CheckpointSaver(str(tmp_path / 'checkpoints2')),
+            CheckpointSaverCallback(str(tmp_path / 'checkpoints1')),
+            CheckpointSaverCallback(str(tmp_path / 'checkpoints2')),
         ]
 
         trainer = self.get_trainer(
@@ -622,7 +622,7 @@ class TestCheckpointSaving:
         )
 
         assert id(trainer._checkpoint_saver) == id(checkpoint_savers[0])
-        assert len([cb for cb in trainer.state.callbacks if isinstance(cb, CheckpointSaver)]) == len(checkpoint_savers)
+        assert len([cb for cb in trainer.state.callbacks if isinstance(cb, CheckpointSaverCallback)]) == len(checkpoint_savers)
 
     @pytest.mark.parametrize(('upload_success'), [True, False])
     def test_checkpoint_remote_symlink(
@@ -855,7 +855,7 @@ class TestCheckpointLoading:
         save_folder: Optional[str],
         tmp_path: pathlib.Path,
     ):
-        checkpoint_saver = CheckpointSaver(str(tmp_path / 'checkpoints'), latest_filename='latest-rank{rank}.pt')
+        checkpoint_saver = CheckpointSaverCallback(str(tmp_path / 'checkpoints'), latest_filename='latest-rank{rank}.pt')
 
         trainer_1 = self.get_trainer(
             file_extension='.pt',

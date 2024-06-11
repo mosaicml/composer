@@ -1895,10 +1895,10 @@ class Trainer:
         log.debug(
             f'Trying to download {save_latest_remote_file_name} to {latest_checkpoint_path} on rank {dist.get_global_rank()}',
         )
+        if self._checkpoint_saver is None or self._checkpoint_saver.remote_uploader is None:
+            log.debug(f'Skip downloading from remote since no remote object_store found')
+            return
         try:
-            # Fetch from logger. If it succeeds, stop trying the rest of the loggers
-            log.debug(f"bigning debug {self._checkpoint_saver.remote_uploader=}, {self._checkpoint_saver.remote_uploader.object_store}")
-            assert self._checkpoint_saver.remote_uploader is not None and self._checkpoint_saver.remote_uploader.object_store is not None
             get_file(
                 path=save_latest_remote_file_name,
                 destination=latest_checkpoint_path,
@@ -1907,8 +1907,7 @@ class Trainer:
                 progress_bar=load_progress_bar,
             )
         except (FileNotFoundError):
-            log.info(f'Checkpoint not found in: {self._checkpoint_saver.remote_uploader.object_store}')
-            # Ignore errors caused by no checkpoint saved with logger
+            log.info(f'Checkpoint not found in remote object store')
             pass
 
     def _get_autoresume_checkpoint(

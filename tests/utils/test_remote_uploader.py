@@ -41,6 +41,8 @@ class DummyObjectStore(ObjectStore):
             raise RuntimeError('Raise Error intentionally')
         time.sleep(self.sleep_sec)
         dest_filename = pathlib.Path(self.root) / object_name
+        os.makedirs(os.path.dirname(dest_filename), exist_ok=True)
+        print(f"bigning debug {filename=}, {dest_filename=}")
         shutil.copy2(filename, dest_filename)
         self.dest_filename = dest_filename
 
