@@ -142,8 +142,8 @@ def _assert_checkpoints_equal(file1, file2):
     del checkpoint2['state']['run_name']
 
     # Remove all saved checkpoints to timestamp (accumulates between runs)
-    del checkpoint1['state']['callbacks']['CheckpointSaver']['all_saved_checkpoints_to_timestamp']
-    del checkpoint2['state']['callbacks']['CheckpointSaver']['all_saved_checkpoints_to_timestamp']
+    del checkpoint1['state']['callbacks']['CheckpointSaverCallback']['all_saved_checkpoints_to_timestamp']
+    del checkpoint2['state']['callbacks']['CheckpointSaverCallback']['all_saved_checkpoints_to_timestamp']
 
     # Remove algorithm representations which are memory addresses
     for i, algo_info in enumerate(checkpoint1['state']['algorithms']):
