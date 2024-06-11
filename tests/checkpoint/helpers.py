@@ -72,6 +72,7 @@ def init_model(
             use_orig_params=True,
             sync_module_states=sync_module_states,  # To enable easy comparison between rank 0 unsharded model and full state dict
             cpu_offload=CPUOffload(offload_params=True) if cpu_offload else None,
+            device_id=torch.device('cpu') if device == 'cpu' else None,
         )
 
         if tensor_type == 'dtensor':

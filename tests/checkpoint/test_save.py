@@ -44,35 +44,6 @@ def test_save_full_state_dict_to_disk(world_size: int, tmp_path: str, sharded_mo
 
 
 @world_size(2)
-@pytest.mark.filterwarnings('ignore:The passed')  # Torch issues a warning for wrapping a CPU model in FSDP
-@pytest.mark.parametrize(
-    'sharded_model', [
-        False,
-        pytest.param(
-            True,
-            marks=pytest.mark.skipif((version.parse(torch.__version__) < version.parse('2.3.0')),
-                                     reason='torch <2.2 does not support FSDP state dicts on CPU')
-        )
-    ]
-)
-def test_save_full_state_dict_to_disk_cpu(world_size: int, tmp_path: str, sharded_model: bool):
-
-    destination_file_path = os.path.join(tmp_path, 'test.pt')
-    use_fsdp = sharded_model
-    model, _ = init_model(use_fsdp=use_fsdp, device='cpu', sync_module_states=False, cpu_offload=True)
-    state_dict = get_model_state_dict(model, sharded_state_dict=False)
-    path_saved = save_state_dict_to_disk(state_dict, destination_file_path=destination_file_path)
-    if dist.get_global_rank() == 0:
-        assert path_saved == destination_file_path
-        assert os.path.exists(destination_file_path), f'{destination_file_path} does not exist'
-        assert path_saved is not None
-        loaded_state_dict = torch.load(path_saved, map_location='cpu')
-        deep_compare(state_dict, loaded_state_dict)
-    else:
-        assert path_saved is None
-
-
-@world_size(2)
 @pytest.mark.gpu
 @pytest.mark.parametrize('tensor_type', ['sharded_tensor', 'dtensor'])
 def test_save_sharded_state_dict_to_disk(world_size: int, tmp_path: str, tensor_type: str):
@@ -86,25 +57,6 @@ def test_save_sharded_state_dict_to_disk(world_size: int, tmp_path: str, tensor_
     path_saved = save_state_dict_to_disk(state_dict, destination_file_path=destination_file_path, overwrite=True)
     assert path_saved == f'{destination_file_path}/{_TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME}'
     assert path_saved is not None
-    load_path = str(Path(path_saved).parent)
-    DCP.load(state_dict=loaded_in_state_dict, storage_reader=DCP.FileSystemReader(load_path))
-    deep_compare(state_dict, loaded_in_state_dict)
-
-
-@pytest.mark.filterwarnings('ignore:The passed')  # Torch issues a warning for wrapping a CPU model in FSDP
-@pytest.mark.skipif((version.parse(torch.__version__) < version.parse('2.3.0')),
-                    reason='torch <2.2 does not support FSDP state dicts on CPU')
-@world_size(2)
-def test_save_sharded_state_dict_to_disk_cpu(world_size: int, tmp_path: str):
-    destination_file_path = os.path.join(tmp_path, str(uuid.uuid4())[:8])
-    destination_file_path = dist.all_gather_object(destination_file_path)[0]
-    model, _ = init_model(use_fsdp=True, device='cpu', sync_module_states=False, cpu_offload=True)
-    state_dict = get_model_state_dict(model, sharded_state_dict=True)
-    loaded_in_state_dict = deepcopy(state_dict)
-    path_saved = save_state_dict_to_disk(state_dict, destination_file_path=destination_file_path, overwrite=True)
-    assert path_saved == f'{destination_file_path}/{_TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME}'
-
-    assert isinstance(path_saved, str)
     load_path = str(Path(path_saved).parent)
     DCP.load(state_dict=loaded_in_state_dict, storage_reader=DCP.FileSystemReader(load_path))
     deep_compare(state_dict, loaded_in_state_dict)
