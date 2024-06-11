@@ -309,30 +309,6 @@ class TestCheckpointSaving:
         model = SimpleConvModel()
         return Trainer(model=model, **kwargs)
 
-    @pytest.mark.parametrize('add_remote_ud', [True, False])
-    def test_s3_uri_creates_remote_ud(self, add_remote_ud: bool, monkeypatch: MonkeyPatch):
-        mock_validate_credentials = MagicMock()
-        monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
-        if add_remote_ud:
-            with pytest.warns(UserWarning):
-                trainer = self.get_trainer(
-                    save_folder='s3://bucket_name/{run_name}/checkpoints',
-                    loggers=[
-                        RemoteUploaderDownloader('s3://bucket_name', file_path_format_string='{remote_file_name}'),
-                    ],
-                )
-        else:
-            trainer = self.get_trainer(save_folder='s3://bucket_name/{run_name}/checkpoints')
-
-        remote_uds = [
-            logger_dest for logger_dest in trainer.logger.destinations
-            if isinstance(logger_dest, RemoteUploaderDownloader)
-        ]
-        assert len(remote_uds) == 1
-        remote_ud = remote_uds[0]
-        assert remote_ud.remote_backend_name == 's3'
-        assert remote_ud.remote_bucket_name == 'bucket_name'
-
     @pytest.mark.parametrize('uri', ['wandb://foo/bar', 'gcs://foo/bar', 'sftp://foo/bar"'])
     def test_other_uris_error_out(self, uri: str):
         with pytest.raises(NotImplementedError):
@@ -646,7 +622,6 @@ class TestCheckpointSaving:
         assert id(trainer._checkpoint_saver) == id(checkpoint_savers[0])
         assert len([cb for cb in trainer.state.callbacks if isinstance(cb, CheckpointSaver)]) == len(checkpoint_savers)
 
-    
     @pytest.mark.parametrize(('upload_success'), [True, False])
     def test_checkpoint_remote_symlink(
         self,
@@ -816,50 +791,62 @@ class TestCheckpointLoading:
         if is_compressed_pt(latest_filename) and not get_compressor(latest_filename).exists:
             pytest.skip(reason=f'compressor not found for {latest_filename}')
 
-        trainer_1 = self.get_trainer(
-            latest_filename=latest_filename,
-            file_extension=file_extension,
-            save_folder='first',
-            device=device,
-            run_name='big-chungus',
-            autoresume=True,
-            loggers=[self.get_logger(tmp_path)] if use_object_store else [],
-            save_metrics=save_metrics,
-        )
+        if use_object_store:
+            save_folder = 's3://bucket_name/first'
+        else:
+            save_folder = 'first'
 
-        # trains the model, saving the checkpoint files
-        trainer_1.fit()
-        trainer_1.close()
+        # Mock S3 object store
+        fork_context = multiprocessing.get_context('fork')
+        tmp_dir = tempfile.TemporaryDirectory()
+        def _get_tmp_dir():
+            return tmp_dir
+        with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
+            with patch('tests.utils.test_remote_uploader.DummyObjectStore.get_tmp_dir', _get_tmp_dir):
+                with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
 
-        if delete_local:
-            # delete files locally, forcing trainer to look in object store
-            shutil.rmtree('first')
+                    trainer_1 = self.get_trainer(
+                        latest_filename=latest_filename,
+                        file_extension=file_extension,
+                        save_folder=save_folder,
+                        device=device,
+                        run_name='big-chungus',
+                        autoresume=True,
+                        save_metrics=save_metrics,
+                    )
 
-        trainer_2 = self.get_trainer(
-            latest_filename=latest_filename,
-            save_folder='first',
-            device=device,
-            run_name='big-chungus',
-            autoresume=True,
-            load_path='ignore_me.pt',  # this should be ignored
-            load_ignore_keys=['*'],  # this should be ignored
-            loggers=[self.get_logger(tmp_path)] if use_object_store else [],
-        )
+                    # trains the model, saving the checkpoint files
+                    trainer_1.fit()
+                    trainer_1.close()
 
-        self._assert_weights_equivalent(
-            trainer_1.state.model,
-            trainer_2.state.model,
-        )
+                    if delete_local:
+                        # delete files locally, forcing trainer to look in object store
+                        shutil.rmtree('first')
 
-        if save_metrics:
-            assert self._metrics_equal(
-                trainer_1.state.train_metrics,
-                trainer_2.state.train_metrics,
-                trainer_1.state.eval_metrics,
-                trainer_2.state.eval_metrics,
-            ), 'Original metrics do not equal metrics from loaded checkpoint.'
+                    trainer_2 = self.get_trainer(
+                        latest_filename=latest_filename,
+                        save_folder=save_folder,
+                        device=device,
+                        run_name='big-chungus',
+                        autoresume=True,
+                        load_path='ignore_me.pt',  # this should be ignored
+                        load_ignore_keys=['*'],  # this should be ignored
+                    )
 
-        assert trainer_1.state.run_name == trainer_2.state.run_name
+                    self._assert_weights_equivalent(
+                        trainer_1.state.model,
+                        trainer_2.state.model,
+                    )
+
+                    if save_metrics:
+                        assert self._metrics_equal(
+                            trainer_1.state.train_metrics,
+                            trainer_2.state.train_metrics,
+                            trainer_1.state.eval_metrics,
+                            trainer_2.state.eval_metrics,
+                        ), 'Original metrics do not equal metrics from loaded checkpoint.'
+
+                    assert trainer_1.state.run_name == trainer_2.state.run_name
 
     @pytest.mark.parametrize(('save_folder'), [None, 'first'])
     def test_autoresume_from_callback(

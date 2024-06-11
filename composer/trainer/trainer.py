@@ -1387,19 +1387,6 @@ class Trainer:
             mosaicml_logger = MosaicMLLogger()
             loggers.append(mosaicml_logger)
 
-        # Remote Uploader Downloader
-        # Keep the ``RemoteUploaderDownloader`` below client-provided loggers so the loggers init callbacks run before
-        # the ``RemoteUploaderDownloader`` init. This is necessary to use an ``MLFlowObjectStore`` to log objects to a
-        # run managed by an ``MLFlowLogger``, as the ``MLFlowObjectStore`` relies on the ``MLFlowLogger`` to initialize
-        # the active MLFlow run.
-
-        """
-        if save_folder is not None:
-            remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
-            if remote_ud is not None:
-                loggers.append(remote_ud)
-        """
-
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)
 
@@ -1902,28 +1889,26 @@ class Trainer:
         self,
         latest_checkpoint_path: str,
         save_latest_remote_file_name: str,
-        loggers: Sequence[LoggerDestination],
         load_progress_bar: bool,
     ) -> None:
         """Attempts to download the checkpoint from the logger destinations."""
         log.debug(
             f'Trying to download {save_latest_remote_file_name} to {latest_checkpoint_path} on rank {dist.get_global_rank()}',
         )
-        for logger in loggers:
-            try:
-                # Fetch from logger. If it succeeds, stop trying the rest of the loggers
-                get_file(
-                    path=save_latest_remote_file_name,
-                    destination=latest_checkpoint_path,
-                    object_store=logger,
-                    overwrite=True,
-                    progress_bar=load_progress_bar,
-                )
-                break
-            except (NotImplementedError, FileNotFoundError):
-                log.info(f'Checkpoint not found in: {logger}')
-                # Ignore errors caused by no checkpoint saved with logger
-                pass
+        try:
+            # Fetch from logger. If it succeeds, stop trying the rest of the loggers
+            assert self._checkpoint_saver.remote_uploader is not None and self._checkpoint_saver.remote_uploader.object_store is not None
+            get_file(
+                path=save_latest_remote_file_name,
+                destination=latest_checkpoint_path,
+                object_store=self._checkpoint_saver.remote_uploader.object_store,
+                overwrite=True,
+                progress_bar=load_progress_bar,
+            )
+        except (FileNotFoundError):
+            log.info(f'Checkpoint not found in: {self._checkpoint_saver.remote_uploader.object_store}')
+            # Ignore errors caused by no checkpoint saved with logger
+            pass
 
     def _get_autoresume_checkpoint(
         self,
@@ -1951,7 +1936,7 @@ class Trainer:
             f'Looking for autoresume checkpoint: {save_latest_remote_file_name} (remote), {latest_checkpoint_path} (local)',
         )
 
-        if self.state.deepspeed_enabled or self.state.fsdp_sharded_state_dict_enabled:
+        if self.state.deepspeed_enabled:
             # If latest checkpoint is not saved locally, try to fetch from loggers
             if not os.path.exists(latest_checkpoint_path):
                 log.debug(f'Attempting to download the checkpoint on to rank {dist.get_global_rank()}')
@@ -1959,7 +1944,6 @@ class Trainer:
                 self._try_checkpoint_download(
                     latest_checkpoint_path,
                     save_latest_remote_file_name,
-                    loggers,
                     load_progress_bar,
                 )
 
@@ -1994,7 +1978,6 @@ class Trainer:
                 self._try_checkpoint_download(
                     latest_checkpoint_path,
                     save_latest_remote_file_name,
-                    loggers,
                     load_progress_bar,
                 )
 

@@ -106,7 +106,7 @@ class RemoteUploader:
 
         # Need some special handling for dbfs path
         self._is_dbfs = backend == 'dbfs'
-        self._dbfs_backend: Optional[MLFlowObjectStore] = None
+        self.object_store: Optional[MLFlowObjectStore] = None
 
         self.num_attempts = num_attempts
 
@@ -120,23 +120,25 @@ class RemoteUploader:
         # when check_workers() or wait() is called
         self.futures: List[Future] = []
 
-    def init_mlflow_path(self):
+    def init(self):
         # If it's dbfs path like: dbfs:/databricks/mlflow-tracking/{mlflow_experiment_id}/{mlflow_run_id}/
         # We need to fill out the experiment_id and run_id
         if not self._is_dbfs:
+            if self.object_store is None:
+                self.object_store = maybe_create_object_store_from_uri(self.remote_folder)
             return
         if not self.path.startswith(MLFLOW_DBFS_PATH_PREFIX):
+            if self.object_store is None:
+                self.object_store = _build_dbfs_backend(self.path)
             return
-        log.info(f'bigning debug before path: {self.path}')
         if get_global_rank() == 0:
-            if self._dbfs_backend is None:
-                self._dbfs_backend = _build_dbfs_backend(self.path)
-            assert isinstance(self._dbfs_backend, MLFlowObjectStore)
-            self.path = self._dbfs_backend.get_dbfs_path(self.path)
+            if self.object_store is None:
+                self.object_store = _build_dbfs_backend(self.path)
+            assert isinstance(self.object_store, MLFlowObjectStore)
+            self.path = self.object_store.get_dbfs_path(self.path)
         path_list = [self.path]
         broadcast_object_list(path_list, src=0)
         self.path = path_list[0]
-        log.info(f'bigning debug after path: {self.path}')
 
     def upload_file_async(
         self,

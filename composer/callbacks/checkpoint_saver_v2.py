@@ -333,7 +333,18 @@ class CheckpointSaverCallback(Callback):  # noqa: D101
         self.this_rank_saves_remote_symlinks: bool = False
         self.tmp_dir_for_symlink = tempfile.TemporaryDirectory()
         self.num_concurrent_uploads = num_concurrent_uploads
+
         if backend != '':
+            if backend == 'wandb':
+                raise NotImplementedError(
+                    f'There is no implementation for WandB via URI. Please use '
+                    'WandBLogger with log_artifacts set to True',
+                )
+            elif backend not in ['s3', 'oci', 'gs', 'azure', 'dbfs']:
+                raise NotImplementedError(
+                    f'There is no implementation for the cloud backend {backend} via URI. Please use '
+                    'one of the supported RemoteUploaderDownloader object stores',
+                )
             self.remote_uploader = RemoteUploader(
                 remote_folder=save_folder,
                 num_concurrent_uploads=self.num_concurrent_uploads,
@@ -487,7 +498,8 @@ class CheckpointSaverCallback(Callback):  # noqa: D101
                 os.symlink(os.path.relpath(src_path, os.path.dirname(symlink)), symlink)
 
         # if remote file name provided, upload the checkpoint
-        if self.remote_file_name is not None:
+        #if self.remote_file_name is not None:
+        if self.remote_uploader is not None:
 
             futures: List[Future] = []
             if state.fsdp_sharded_state_dict_enabled:
