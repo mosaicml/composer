@@ -790,6 +790,8 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
         pytest.param(4, False, 'adamw', 'amp_bf16', False, None, False, True, False, -1, marks=pytest.mark.world_size(4)),
         pytest.param(4, False, 'adamw', 'amp_bf16', False, None, False, True, True, 4, marks=pytest.mark.world_size(4)),
         pytest.param(4, False, 'adamw', 'amp_bf16', False, None, False, True, True, 2, marks=pytest.mark.world_size(4)),
+        pytest.param(4, False, 'adam', 'amp_bf16', False, None, False, True, True, 2, marks=pytest.mark.world_size(4)),
+        pytest.param(4, False, 'adamw', 'amp_fp16', False, None, False, True, True, 2, marks=pytest.mark.world_size(4)),
     ],
 )
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
