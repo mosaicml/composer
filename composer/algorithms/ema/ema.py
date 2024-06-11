@@ -13,7 +13,8 @@ from typing import Any, Optional, Union
 import torch
 
 import composer.utils.misc as misc
-from composer.callbacks.checkpoint_saver import CheckpointSaver, CheckpointSaverCallback
+from composer.callbacks.checkpoint_saver import CheckpointSaver
+from composer.callbacks.checkpoint_saver_v2 import CheckpointSaverCallback
 from composer.core import Algorithm, Event, State, Time, TimeUnit
 from composer.loggers import Logger
 
