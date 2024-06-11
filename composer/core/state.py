@@ -707,7 +707,9 @@ class State(Serializable):
             train_dataloader (Iterable | DataLoader, optional): The dataloader.
         """
         self._train_dataloader = train_dataloader
-        # Load dataset state from checkpoint when train_dataloader is set
+        # Load dataset state from checkpoint when train_dataloader is set. This occurs if
+        # dataset_state was loaded from checkpoint and train_dataloader has not already
+        # consumed dataset_state['train'] to resume.
         if self.dataset_state is not None and self.dataset_state.get('train') is not None:
             dataset = self._dataset_of(self._train_dataloader)
             if hasattr(dataset, 'load_state_dict'):
