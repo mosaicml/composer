@@ -62,7 +62,7 @@ def _save_sharded_state_dict_to_disk(
 
     if save_format != 'pt':
         raise NotImplementedError(
-            f"Saving sharded state dict to disk in format {save_format} is not supported. Please choose from ['pt']."
+            f"Saving sharded state dict to disk in format {save_format} is not supported. Please choose from ['pt'].",
         )
 
     if state_dict == {}:
@@ -103,7 +103,7 @@ def _save_full_state_dict_to_disk(
 
     if save_format != 'pt':
         raise NotImplementedError(
-            f"Saving sharded state dict to disk in format {save_format} is not supported. Please choose from ['pt']."
+            f"Saving sharded state dict to disk in format {save_format} is not supported. Please choose from ['pt'].",
         )
 
     if not overwrite and os.path.exists(destination_file_path):
