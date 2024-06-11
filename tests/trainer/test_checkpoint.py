@@ -800,7 +800,7 @@ class TestCheckpointLoading:
         # Mock S3 object store
         fork_context = multiprocessing.get_context('fork')
         tmp_dir = tempfile.TemporaryDirectory()
-        def _get_tmp_dir():
+        def _get_tmp_dir(self):
             return tmp_dir
         with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
             with patch('tests.utils.test_remote_uploader.DummyObjectStore.get_tmp_dir', _get_tmp_dir):
