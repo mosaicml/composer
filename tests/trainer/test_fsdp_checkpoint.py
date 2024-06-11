@@ -780,14 +780,30 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
 @pytest.mark.parametrize(
     'world_size,weights_only,optimizer,precision,autoresume,load_ignore_keys,use_symlink,use_tp,use_hsdp,data_parallel_shard_degree',
     [
-        pytest.param(2, False, 'adamw', 'amp_bf16', False, None, False, False, False, -1, marks=pytest.mark.world_size(2)),
-        pytest.param(2, True, 'adamw', 'amp_bf16', False, None, False, False, False, -1, marks=pytest.mark.world_size(2)),
-        pytest.param(2, False, 'adam', 'amp_bf16', False, None, False, False, False, -1, marks=pytest.mark.world_size(2)),
-        pytest.param(2, False, 'adamw', 'amp_fp16', False, None, False, False, False, -1, marks=pytest.mark.world_size(2)),
-        pytest.param(2, False, 'adamw', 'amp_bf16', True, None, False, False, False, -1, marks=pytest.mark.world_size(2)),
-        pytest.param(2, False, 'adamw', 'amp_bf16', False, ['rng'], False, False, False, -1, marks=pytest.mark.world_size(2)),
-        pytest.param(2, False, 'adamw', 'amp_bf16', False, None, True, False, False, -1, marks=pytest.mark.world_size(2)),
-        pytest.param(4, False, 'adamw', 'amp_bf16', False, None, False, True, False, -1, marks=pytest.mark.world_size(4)),
+        pytest.param(
+            2, False, 'adamw', 'amp_bf16', False, None, False, False, False, -1, marks=pytest.mark.world_size(2)
+        ),
+        pytest.param(
+            2, True, 'adamw', 'amp_bf16', False, None, False, False, False, -1, marks=pytest.mark.world_size(2)
+        ),
+        pytest.param(
+            2, False, 'adam', 'amp_bf16', False, None, False, False, False, -1, marks=pytest.mark.world_size(2)
+        ),
+        pytest.param(
+            2, False, 'adamw', 'amp_fp16', False, None, False, False, False, -1, marks=pytest.mark.world_size(2)
+        ),
+        pytest.param(
+            2, False, 'adamw', 'amp_bf16', True, None, False, False, False, -1, marks=pytest.mark.world_size(2)
+        ),
+        pytest.param(
+            2, False, 'adamw', 'amp_bf16', False, ['rng'], False, False, False, -1, marks=pytest.mark.world_size(2)
+        ),
+        pytest.param(
+            2, False, 'adamw', 'amp_bf16', False, None, True, False, False, -1, marks=pytest.mark.world_size(2)
+        ),
+        pytest.param(
+            4, False, 'adamw', 'amp_bf16', False, None, False, True, False, -1, marks=pytest.mark.world_size(4)
+        ),
         pytest.param(4, False, 'adamw', 'amp_bf16', False, None, False, True, True, 4, marks=pytest.mark.world_size(4)),
         pytest.param(4, False, 'adamw', 'amp_bf16', False, None, False, True, True, 2, marks=pytest.mark.world_size(4)),
         pytest.param(4, False, 'adam', 'amp_bf16', False, None, False, True, True, 2, marks=pytest.mark.world_size(4)),
@@ -808,7 +824,7 @@ def test_fsdp_partitioned_state_dict_load(
     use_symlink: bool,
     use_tp: bool,
     use_hsdp: bool,
-    data_parallel_shard_degree: int, 
+    data_parallel_shard_degree: int,
     use_remote,
     s3_bucket,
     s3_ephemeral_prefix,
@@ -841,7 +857,7 @@ def test_fsdp_partitioned_state_dict_load(
             sharding_strategy='HYBRID_SHARD',
             sharded_ckpt_prefix_dir='ba{batch}',
             data_parallel_shard_degree=data_parallel_shard_degree,
-            data_parallel_replicate_degree=world_size//data_parallel_shard_degree,
+            data_parallel_replicate_degree=world_size // data_parallel_shard_degree,
         )
     else:
         fsdp_config = FSDPConfig(state_dict_type='sharded', sharded_ckpt_prefix_dir='ba{batch}')
