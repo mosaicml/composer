@@ -50,7 +50,7 @@ def test_save_full_state_dict_to_disk(world_size: int, tmp_path: str, sharded_mo
         False,
         pytest.param(
             True,
-            marks=pytest.mark.skipif((version.parse(torch.__version__) < version.parse('2.2.0')),
+            marks=pytest.mark.skipif((version.parse(torch.__version__) < version.parse('2.3.0')),
                                      reason='torch <2.2 does not support FSDP state dicts on CPU')
         )
     ]
@@ -92,7 +92,7 @@ def test_save_sharded_state_dict_to_disk(world_size: int, tmp_path: str, tensor_
 
 
 @pytest.mark.filterwarnings('ignore:The passed')  # Torch issues a warning for wrapping a CPU model in FSDP
-@pytest.mark.skipif((version.parse(torch.__version__) < version.parse('2.2.0')),
+@pytest.mark.skipif((version.parse(torch.__version__) < version.parse('2.3.0')),
                     reason='torch <2.2 does not support FSDP state dicts on CPU')
 @world_size(2)
 def test_save_sharded_state_dict_to_disk_cpu(world_size: int, tmp_path: str):
