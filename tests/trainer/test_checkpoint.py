@@ -5,6 +5,7 @@ import contextlib
 import copy
 import io
 import os
+import multiprocessing
 import pathlib
 import re
 import shutil
@@ -52,6 +53,7 @@ from tests.common import (
     device,
 )
 from tests.common.markers import world_size
+from tests.utils.test_remote_uploader import DummyObjectStore
 
 
 class DummyStatefulCallback(Callback):
@@ -627,7 +629,6 @@ class TestCheckpointSaving:
         self,
         upload_success: bool
     ):
-        from tests.utils.test_remote_uploader import DummyObjectStore
         import multiprocessing
         fork_context = multiprocessing.get_context('fork')
         tmp_dir = tempfile.TemporaryDirectory()

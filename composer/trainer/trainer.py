@@ -1897,6 +1897,7 @@ class Trainer:
         )
         try:
             # Fetch from logger. If it succeeds, stop trying the rest of the loggers
+            log.debug(f"bigning debug {self._checkpoint_saver.remote_uploader=}, {self._checkpoint_saver.remote_uploader.object_store}")
             assert self._checkpoint_saver.remote_uploader is not None and self._checkpoint_saver.remote_uploader.object_store is not None
             get_file(
                 path=save_latest_remote_file_name,

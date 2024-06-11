@@ -377,10 +377,10 @@ class CheckpointSaverCallback(Callback):  # noqa: D101
                         self.latest_remote_file_name.filename,
                         **mlflow_format_kwargs,
                     )
-                if self.remote_uploader is not None:
-                    self.remote_uploader.init_mlflow_path()
                 break
 
+        if self.remote_uploader is not None:
+            self.remote_uploader.init()
         folder = format_name_with_dist(self.folder, state.run_name)
         os.makedirs(folder, exist_ok=True)
 
