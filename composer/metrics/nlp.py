@@ -83,7 +83,14 @@ class LanguageCrossEntropy(Metric):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
         self.ignore_index = ignore_index
-        self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=ignore_index, reduction='sum')
+        try:
+            from flash_attn.losses.cross_entropy import CrossEntropyLoss as FusedCrossEntropyLoss
+            self.loss_fn = FusedCrossEntropyLoss(ignore_index=ignore_index, reduction='sum')
+        except ImportError:
+            log.debug(
+                'Package `flash_attn` not installed. Using torch.nn.CrossEntropyLoss ' +
+                'to compute LanguageCrossEntropy metric, which will be slower.',
+            )
         self.add_state('sum_loss', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total_items', default=torch.tensor(0), dist_reduce_fx='sum')
 
