@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 import torch
 import torch.distributed.checkpoint as DCP
+from packaging import version
 
 from composer.checkpoint.save import save_state_dict_to_disk
 from composer.checkpoint.state_dict import get_model_state_dict
@@ -18,12 +19,11 @@ from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
 from tests.checkpoint.helpers import init_model
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
-from packaging import version
 
 
 @world_size(1, 2)
 @pytest.mark.gpu
-@pytest.mark.parametrize('sharded_model', [False,True])
+@pytest.mark.parametrize('sharded_model', [False, True])
 def test_save_full_state_dict_to_disk(world_size: int, tmp_path: str, sharded_model: bool):
     if world_size == 1 and sharded_model:
         pytest.skip("Can't have a sharded model for world_size = 1")
@@ -46,10 +46,17 @@ def test_save_full_state_dict_to_disk(world_size: int, tmp_path: str, sharded_mo
 
 @world_size(2)
 @pytest.mark.gpu
-@pytest.mark.parametrize('tensor_type', ['sharded_tensor', pytest.param('dtensor',
-                                                                        marks=pytest.mark.skipif(
-                                                                            version.parse(torch.__version__) < version.parse('2.2.0'),
-                                                                            reason='Requires torch>=2.2.0 for dtensor'))])
+@pytest.mark.parametrize(
+    'tensor_type', [
+        'sharded_tensor',
+        pytest.param(
+            'dtensor',
+            marks=pytest.mark.skipif(
+                version.parse(torch.__version__) < version.parse('2.2.0'), reason='Requires torch>=2.2.0 for dtensor'
+            )
+        )
+    ]
+)
 def test_save_sharded_state_dict_to_disk(world_size: int, tmp_path: str, tensor_type: str):
 
     destination_file_path = os.path.join(tmp_path, str(uuid.uuid4())[:8])

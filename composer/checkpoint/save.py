@@ -10,11 +10,12 @@ import warnings
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
+import torch
 import torch.distributed.checkpoint as DCP
+from packaging import version
 from torch.distributed._shard.sharded_tensor import ShardedTensor
 from torch.distributed._tensor import DTensor
-from packaging import version
-import torch
+
 from composer.utils import dist
 from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME, _write_checkpoint_file
 
