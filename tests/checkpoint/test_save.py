@@ -47,15 +47,17 @@ def test_save_full_state_dict_to_disk(world_size: int, tmp_path: str, sharded_mo
 @world_size(2)
 @pytest.mark.gpu
 @pytest.mark.parametrize(
-    'tensor_type', [
+    'tensor_type',
+    [
         'sharded_tensor',
         pytest.param(
             'dtensor',
             marks=pytest.mark.skipif(
-                version.parse(torch.__version__) < version.parse('2.2.0'), reason='Requires torch>=2.2.0 for dtensor'
-            )
-        )
-    ]
+                version.parse(torch.__version__) < version.parse('2.2.0'),
+                reason='Requires torch>=2.2.0 for dtensor',
+            ),
+        ),
+    ],
 )
 def test_save_sharded_state_dict_to_disk(world_size: int, tmp_path: str, tensor_type: str):
 
