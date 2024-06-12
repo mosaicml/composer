@@ -935,10 +935,11 @@ def test_fsdp_partitioned_state_dict_load(
     if use_hsdp:
         fsdp_config = FSDPConfig(
             sharding_strategy='HYBRID_SHARD',
-            state_dict_type='sharded', 
             sharded_ckpt_prefix_dir='ba{batch}',
+            state_dict_type='sharded',
             data_parallel_shard_degree=data_parallel_shard_degree,
-            data_parallel_replicate_degree=world_size // data_parallel_shard_degree,
+            data_parallel_replicate_degree=world_size//data_parallel_shard_degree,
+            sync_module_states=True,
         )
     else:
         fsdp_config = FSDPConfig(state_dict_type='sharded', sharded_ckpt_prefix_dir='ba{batch}')
