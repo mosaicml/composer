@@ -45,9 +45,11 @@ def test_get_node_signal_file_name():
 
 @pytest.mark.world_size(2)
 def test_write_signal_file(tmp_path):
+    gathered_tmp_path = dist.all_gather_object(tmp_path)[0]
+
     file_name = dist.get_node_signal_file_name()
-    file_path = os.path.join(tmp_path, file_name)
-    dist.write_signal_file(file_name, tmp_path)
+    file_path = os.path.join(gathered_tmp_path, file_name)
+    dist.write_signal_file(file_name, gathered_tmp_path)
 
     if dist.get_local_rank() == 0:
         assert os.path.exists(file_path)
