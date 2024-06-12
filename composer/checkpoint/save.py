@@ -132,7 +132,7 @@ def is_state_dict_sharded(state_dict: Dict[str, Any]) -> bool:
     for value in state_dict.values():
         if isinstance(value, ShardedTensor) or isinstance(sample_value, DTensor):
             return True
-
+    return False
 
 
 def _strip_suffixes(path: Union[str, Path]) -> str:
