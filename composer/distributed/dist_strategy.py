@@ -328,7 +328,7 @@ def prepare_fsdp_module(
 
     mixed_precision = fsdp_config.mixed_precision
     keep_low_precision_grads = fsdp_config.keep_low_precision_grads
-    mixed_precision, param_dtype, _, _ = get_mixed_precision(
+    mixed_precision, _, _, _ = get_mixed_precision(
         precision,
         mixed_precision=mixed_precision,
         keep_low_precision_grads=keep_low_precision_grads,
