@@ -13,7 +13,7 @@ import tempfile
 import textwrap
 from concurrent.futures import Future
 from pathlib import Path
-from typing import Any, Callable, Optional, Union, List, Tuple
+from typing import Any, Callable, List, Optional, Tuple, Union
 
 from composer.core import Callback, Event, State, Time, Timestamp
 from composer.loggers import Logger, MLFlowLogger
@@ -21,6 +21,7 @@ from composer.utils import (
     FORMAT_NAME_WITH_DIST_AND_TIME_TABLE,
     FORMAT_NAME_WITH_DIST_TABLE,
     PartialFilePath,
+    RemoteUploader,
     checkpoint,
     create_interval_scheduler,
     create_symlink_file,
@@ -29,9 +30,8 @@ from composer.utils import (
     format_name_with_dist,
     format_name_with_dist_and_time,
     is_model_deepspeed,
-    partial_format,
-    RemoteUploader,
     parse_uri,
+    partial_format,
 )
 from composer.utils.compression import get_compressor, is_compressed_pt
 from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
@@ -291,7 +291,8 @@ class CheckpointSaverCallback(Callback):  # noqa: D101
         num_checkpoints_to_keep: int = -1,
         weights_only: bool = False,
         ignore_keys: Optional[Union[list[str], Callable[[dict], None]]] = None,
-        save_folder: Optional[str] = None,
+        save_folder: str = '',
+        num_concurrent_uploads: int = 2,
     ):
         folder = str(folder)
         filename = str(filename)
@@ -330,12 +331,25 @@ class CheckpointSaverCallback(Callback):  # noqa: D101
         self.remote_uploader_futures: List[List[Future]] = []
         self.symlink_file_tasks: List[Tuple(str, str)] = []
         self.this_rank_saves_remote_symlinks: bool = False
-        self.tmp_dir_for_symlink =  tempfile.TemporaryDirectory()
-        if backend != "":
-            self.remote_uploader = RemoteUploader(
-                remote_folder = save_folder,
-            )
+        self.tmp_dir_for_symlink = tempfile.TemporaryDirectory()
+        self.num_concurrent_uploads = num_concurrent_uploads
 
+        if backend != '':
+            if backend == 'wandb':
+                raise NotImplementedError(
+                    f'There is no implementation for WandB via URI. Please use '
+                    'WandBLogger with log_artifacts set to True',
+                )
+            elif backend not in ['s3', 'oci', 'gs', 'azure', 'dbfs']:
+                raise NotImplementedError(
+                    f'There is no implementation for the cloud backend {backend} via URI. Please use '
+                    'one of the supported RemoteUploaderDownloader object stores',
+                )
+            self.remote_uploader = RemoteUploader(
+                remote_folder=save_folder,
+                num_concurrent_uploads=self.num_concurrent_uploads,
+            )
+        self.count = 0
 
     def init(self, state: State, logger: Logger) -> None:
         # If MLFlowLogger is being used, format MLFlow-specific placeholders in the save folder and paths.
@@ -363,9 +377,10 @@ class CheckpointSaverCallback(Callback):  # noqa: D101
                         self.latest_remote_file_name.filename,
                         **mlflow_format_kwargs,
                     )
-
                 break
 
+        if self.remote_uploader is not None:
+            self.remote_uploader.init()
         folder = format_name_with_dist(self.folder, state.run_name)
         os.makedirs(folder, exist_ok=True)
 
@@ -427,7 +442,7 @@ class CheckpointSaverCallback(Callback):  # noqa: D101
                 load_timestamp.load_state_dict(timestamp_state)
                 self.all_saved_checkpoints_to_timestamp[save_filename] = load_timestamp
 
-    def _save_checkpoint(self, state: State, logger: Logger, wait_previous_remote_upload_tasks: bool=True):
+    def _save_checkpoint(self, state: State, logger: Logger, wait_previous_remote_upload_tasks: bool = True):
         self.last_checkpoint_batch = state.timestamp.batch
 
         is_deepspeed = is_model_deepspeed(state.model)
@@ -448,11 +463,11 @@ class CheckpointSaverCallback(Callback):  # noqa: D101
             ignore_keys=self.ignore_keys,
         )
         log.debug(f'Checkpoint locally saved to {saved_path}')
-        
+
         # Wait the previous upload tasks on all ranks
         # self.wait() has dist.barrier, so it needs to be called
         # on all ranks before any early return
-        if wait_previous_remote_upload_tasks:
+        if wait_previous_remote_upload_tasks and self.count / self.num_concurrent_uploads == 0:
             self.wait()
 
         if not saved_path:  # not all ranks save
@@ -483,7 +498,8 @@ class CheckpointSaverCallback(Callback):  # noqa: D101
                 os.symlink(os.path.relpath(src_path, os.path.dirname(symlink)), symlink)
 
         # if remote file name provided, upload the checkpoint
-        if self.remote_file_name is not None:
+        #if self.remote_file_name is not None:
+        if self.remote_uploader is not None:
 
             futures: List[Future] = []
             if state.fsdp_sharded_state_dict_enabled:
@@ -512,7 +528,7 @@ class CheckpointSaverCallback(Callback):  # noqa: D101
                             remote_file_name=metadata_remote_file_name,
                             file_path=metadata_local_file_path,
                             overwrite=self.overwrite,
-                        )
+                        ),
                     )
             else:
                 remote_file_name = self.remote_file_name.format(
@@ -544,7 +560,9 @@ class CheckpointSaverCallback(Callback):  # noqa: D101
                 ).lstrip('/') + '.symlink'
 
                 # create and upload a symlink file
-                symlink_filename = os.path.join(self.tmp_dir_for_symlink.name, f'latest.{len(self.saved_checkpoints)}.symlink')
+                symlink_filename = os.path.join(
+                    self.tmp_dir_for_symlink.name, f'latest.{self.count}.symlink'
+                )
                 # Sharded checkpoints for torch >2.0 use directories not files for load_paths
                 if state.fsdp_sharded_state_dict_enabled:
                     src_path = str(pathlib.Path(remote_file_name).parent)
@@ -558,6 +576,7 @@ class CheckpointSaverCallback(Callback):  # noqa: D101
                     self.symlink_file_tasks.append((symlink_filename, symlink_name))
 
         self.saved_checkpoints.append(saved_path)
+        self.count += 1
 
         if self.num_checkpoints_to_keep >= 0:
             self._rotate_checkpoints(sharding_enabled=state.fsdp_sharded_state_dict_enabled)
@@ -566,7 +585,9 @@ class CheckpointSaverCallback(Callback):  # noqa: D101
         # Wait remote uploader futures and start to upload the latest symlink file if necessary
         if self.this_rank_saves_remote_symlinks:
             if len(self.remote_uploader_futures) != len(self.symlink_file_tasks):
-                raise RuntimeError(f'Expect len(remote_uploader_futures) == len(symlink_file_tasks), but got {len(self.remote_uploader_futures)} != {len(self.symlink_file_tasks)}')
+                raise RuntimeError(
+                    f'Expect len(remote_uploader_futures) == len(symlink_file_tasks), but got {len(self.remote_uploader_futures)} != {len(self.symlink_file_tasks)}'
+                )
         log.debug('Waiting for previous checkpoint files upload finish')
         for i in range(len(self.remote_uploader_futures)):
             for future in self.remote_uploader_futures[i]:
@@ -586,9 +607,7 @@ class CheckpointSaverCallback(Callback):  # noqa: D101
             )
             self.symlink_file_tasks = []
 
-
     def _rotate_checkpoints(self, sharding_enabled: bool = False):
-
         while len(self.saved_checkpoints) > self.num_checkpoints_to_keep:
             prefix_dir = None
             checkpoint_to_delete = self.saved_checkpoints.pop(0)
@@ -603,6 +622,12 @@ class CheckpointSaverCallback(Callback):  # noqa: D101
         del state, logger  # unused
         if self.remote_uploader is not None:
             self.remote_uploader.check_workers()
+
+    def fit_end(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
+        if self.remote_uploader is not None:
+            self.wait()
+            self.remote_uploader.wait()
 
     def post_close(self):
         if self.remote_uploader is not None:

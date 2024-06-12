@@ -12,7 +12,7 @@ import torch
 from packaging import version
 
 from composer import Trainer, algorithms
-from composer.callbacks import CheckpointSaver
+from composer.callbacks import CheckpointSaver, CheckpointSaverCallback
 from composer.core import Algorithm, Event, Time, TimeUnit  # type: ignore imports used in `eval(representation)`
 from composer.models import ComposerClassifier, ComposerModel
 from composer.utils import dist
@@ -165,7 +165,7 @@ def test_autoload(
             save_folder=str(tmp_path),
             save_filename='ckpt.pt',
         )
-        checkpoint_saver = [cb for cb in trainer1.state.callbacks if isinstance(cb, CheckpointSaver)][0]
+        checkpoint_saver = [cb for cb in trainer1.state.callbacks if isinstance(cb, CheckpointSaver) or isinstance(cb, CheckpointSaverCallback)][0]
         checkpoint_saver._save_checkpoint(trainer1.state, trainer1.logger)
 
         context = contextlib.nullcontext()

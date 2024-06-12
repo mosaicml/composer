@@ -20,10 +20,13 @@ class DummyObjectStore(ObjectStore):
     """Dummy ObjectStore implementation that is backed by a local directory."""
 
     def __init__(self, **kwargs: Dict[str, Any]) -> None:
-        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.tmp_dir = self.get_tmp_dir() 
         self.root = self.tmp_dir.name
         self.sleep_sec = 0
         self.dest_filename = ''
+
+    def get_tmp_dir(self):
+        return tempfile.TemporaryDirectory()
 
     def raise_error(self):
         return False
@@ -38,6 +41,8 @@ class DummyObjectStore(ObjectStore):
             raise RuntimeError('Raise Error intentionally')
         time.sleep(self.sleep_sec)
         dest_filename = pathlib.Path(self.root) / object_name
+        os.makedirs(os.path.dirname(dest_filename), exist_ok=True)
+        print(f"bigning debug {filename=}, {dest_filename=}")
         shutil.copy2(filename, dest_filename)
         self.dest_filename = dest_filename
 
@@ -45,6 +50,17 @@ class DummyObjectStore(ObjectStore):
         object_path = pathlib.Path(self.root) / object_name
         size = os.stat(object_path).st_size
         return size
+
+    def download_object(
+        self,
+        object_name: str,
+        filename: Union[str, pathlib.Path],
+        overwrite: bool = False,
+        callback: Optional[Callable[[int, int], None]] = None,
+    ):
+        object_path = pathlib.Path(self.root) / object_name
+        shutil.copy2(object_path, filename)
+
 
 
 def test_upload_mutliple_files():

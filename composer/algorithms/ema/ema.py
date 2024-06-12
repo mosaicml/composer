@@ -14,6 +14,7 @@ import torch
 
 import composer.utils.misc as misc
 from composer.callbacks.checkpoint_saver import CheckpointSaver
+from composer.callbacks.checkpoint_saver_v2 import CheckpointSaverCallback
 from composer.core import Algorithm, Event, State, Time, TimeUnit
 from composer.loggers import Logger
 
@@ -247,7 +248,7 @@ class EMA(Algorithm):
 
         # Match on checkpointing events if a checkpoint is to be saved
         if event in [Event.BATCH_CHECKPOINT, Event.EPOCH_CHECKPOINT] and self.ema_started:
-            checkpoint_savers = [cb for cb in state.callbacks if isinstance(cb, CheckpointSaver)]
+            checkpoint_savers = [cb for cb in state.callbacks if isinstance(cb, CheckpointSaver) or isinstance(cb, CheckpointSaverCallback)]
             for checkpoint_saver in checkpoint_savers:
                 assert callable(checkpoint_saver.save_interval)
                 if checkpoint_saver.save_interval(state, event) is True:
