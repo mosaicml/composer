@@ -642,7 +642,8 @@ def get_node_signal_file_name(rng: Optional[random.Random] = None) -> str:
         rng = random.Random()
 
     random_string = ''.join(rng.choices(string.ascii_letters + string.digits, k=6))
-    file_name_list = [f'._signal_file_{random_string}']
+    node_rank = get_node_rank()
+    file_name_list = [f'._signal_file_node{node_rank}_{random_string}']
     dist.broadcast_object_list(file_name_list, src=0)
     return file_name_list[0]
 
@@ -655,7 +656,7 @@ def write_signal_file(signal_file_name: str, dir_path: Optional[str] = None) -> 
 
     Args:
         signal_file_name (str): The name of the signal file.
-        dir_path (str, optional): The directory in which to create the signal file. If ``None``,
+        dir_path (str, optional): The full path to the directory in which to create the signal file. If ``None``,
             the current working directory will be used.
     """
     if dir_path is not None:

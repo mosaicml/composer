@@ -39,18 +39,18 @@ def test_get_node_signal_file_name():
     assert len(gathered_file_names) == 2
     assert gathered_file_names[0] == gathered_file_names[1]
     assert gathered_file_names[0] == file_name
-    assert file_name.startswith('._signal_file_')
-    assert len(file_name) == len('._signal_file_') + 6
+    assert file_name.startswith('._signal_file_node0_')
+    assert len(file_name) == len('._signal_file_node0_') + 6
 
 
 @pytest.mark.world_size(2)
 def test_write_signal_file(tmp_path):
-    gathered_tmp_path = dist.all_gather_object(tmp_path)[0]
-
     file_name = dist.get_node_signal_file_name()
-    file_path = os.path.join(gathered_tmp_path, file_name)
-    dist.write_signal_file(file_name, gathered_tmp_path)
+    file_path = os.path.join(tmp_path, file_name)
+    dist.write_signal_file(file_name, tmp_path)
 
+    # tmp_path will be different on each rank, and only rank zero
+    # should have written a file
     if dist.get_local_rank() == 0:
         assert os.path.exists(file_path)
     else:
