@@ -155,7 +155,7 @@ def rotate(pil_img: Image.Image, level: float):
     degrees = _int_parameter(_sample_level(level), 30)
     if np.random.uniform() > 0.5:
         degrees = -degrees
-    return pil_img.rotate(degrees, resample=Image.BILINEAR)
+    return pil_img.rotate(degrees, resample=Image.Resampling.BILINEAR)
 
 
 def solarize(pil_img: Image.Image, level: float):
