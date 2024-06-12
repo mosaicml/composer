@@ -88,7 +88,7 @@ install_requires = [
     'coolname>=1.1.0,<3',
     'tabulate==0.9.0',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<10',
-    'packaging>=21.3.0,<24.1',
+    'packaging>=21.3.0,<24.2',
     'importlib-metadata>=5.0.0,<7',
     'mosaicml-cli>=0.5.25,<0.7',
 ]
@@ -139,7 +139,7 @@ extra_deps['dev'] = [
     'GitPython==3.1.43',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
-    'cryptography==42.0.6',
+    'cryptography==42.0.8',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
     'pillow==9.3.0',  # Matches the Pillow version listed in the Dockerfile
