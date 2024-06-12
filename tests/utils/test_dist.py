@@ -57,16 +57,18 @@ def test_write_signal_file(tmp_path):
 
 @pytest.mark.world_size(2)
 def test_busy_wait_for_local_rank_zero(tmp_path):
+    gathered_tmp_path = dist.all_gather_object(tmp_path)[0]
+
     dist.barrier()
     start_time = time.time()
-    assert os.listdir(tmp_path) == []
-    with dist.busy_wait_for_local_rank_zero(tmp_path):
+    assert os.listdir(gathered_tmp_path) == []
+    with dist.busy_wait_for_local_rank_zero(gathered_tmp_path):
         if dist.get_local_rank() == 0:
             time.sleep(0.5)
 
     end_time = time.time()
     total_time = end_time - start_time
     gathered_times = dist.all_gather_object(total_time)
-    assert os.listdir(tmp_path) == []
+    assert os.listdir(gathered_tmp_path) == []
     assert len(gathered_times) == 2
     assert abs(gathered_times[0] - gathered_times[1]) < 0.1
