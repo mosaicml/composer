@@ -642,9 +642,9 @@ def get_node_signal_file_name(rng: Optional[random.Random] = None) -> str:
         rng = random.Random()
 
     random_string = ''.join(rng.choices(string.ascii_letters + string.digits, k=6))
-    file_name = f'._signal_file_{random_string}'
-    file_name = dist.broadcast_object_list([file_name], src=0)[0]
-    return file_name
+    file_name_list = [f'._signal_file_{random_string}']
+    dist.broadcast_object_list(file_name_list, src=0)
+    return file_name_list[0]
 
 
 def write_signal_file(signal_file_name: str, dir_path: Optional[str] = None) -> str:
