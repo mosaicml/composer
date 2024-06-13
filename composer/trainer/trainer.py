@@ -54,7 +54,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0'):
 else:
     from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state  # type: ignore
 
-from composer.callbacks import CheckpointSaver, CheckpointSaverCallback, MemorySnapshot, OOMObserver, OptimizerMonitor
+from composer.callbacks import CheckpointSaver, MemorySnapshot, OOMObserver, OptimizerMonitor
 from composer.core import (
     Algorithm,
     AlgorithmPass,
@@ -1409,10 +1409,7 @@ class Trainer:
         self._checkpoint_saver = None
         latest_remote_file_name = None
 
-        _checkpoint_savers = [
-            cb for cb in self.state.callbacks
-            if (isinstance(cb, CheckpointSaver) or isinstance(cb, CheckpointSaverCallback))
-        ]
+        _checkpoint_savers = [cb for cb in self.state.callbacks if isinstance(cb, CheckpointSaver)]
         if len(_checkpoint_savers) >= 1:
             if len(_checkpoint_savers) > 1:
                 log.info('Multiple CheckpointSaver provided as callbacks. Using the first one as reference.')
@@ -1459,7 +1456,7 @@ class Trainer:
                     latest_remote_file_name = None
 
             log.info(f'bigning debug useing the new saver')
-            self._checkpoint_saver = CheckpointSaverCallback(
+            self._checkpoint_saver = CheckpointSaver(
                 folder=folder,
                 filename=save_filename,
                 remote_file_name=remote_file_name,
@@ -1813,8 +1810,10 @@ class Trainer:
                 log.info('No previous autoresume checkpoint found')
         # Actually load the checkpoint from potentially updated arguments
         if load_path is not None:
+            log.debug(f"bigning debug before: {load_object_store=}, {load_path=}")
             if load_object_store is None:
                 load_object_store = maybe_create_object_store_from_uri(load_path)
+            log.debug(f"bigning debug after: {load_object_store=}, {load_path=}")
             if isinstance(load_object_store, WandBLogger):
                 import wandb
                 if wandb.run is None:
