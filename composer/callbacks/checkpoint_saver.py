@@ -470,6 +470,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         if wait_previous_remote_upload_tasks and self.count / self.num_concurrent_uploads == 0:
             self.wait()
 
+        self.count += 1
         if not saved_path:  # not all ranks save
             return
 
@@ -598,7 +599,6 @@ class CheckpointSaver(Callback):  # noqa: D101
                         )
 
         self.saved_checkpoints.append(saved_path)
-        self.count += 1
 
         if self.num_checkpoints_to_keep >= 0:
             self._rotate_checkpoints(sharding_enabled=state.fsdp_sharded_state_dict_enabled)
