@@ -143,7 +143,6 @@ extra_deps['dev'] = [
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
     'pillow-simd==9.0.0.post0',
-    'pillow==9.3.0',
 ]
 
 extra_deps['system_metrics_monitor'] = {
