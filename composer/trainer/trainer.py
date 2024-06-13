@@ -1967,6 +1967,7 @@ class Trainer:
 
             # broadcast the remote checkpoint path to all ranks
             save_latest_remote_file_name_list = [save_latest_remote_file_name]
+            log.debug(f"bigning debug {save_latest_remote_file_name_list=}")
             dist.broadcast_object_list(save_latest_remote_file_name_list, src=0)
             save_latest_remote_file_name = save_latest_remote_file_name_list[0]
 

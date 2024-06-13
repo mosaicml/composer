@@ -682,7 +682,8 @@ class TestCheckpointSaving:
 
                         assert trainer._checkpoint_saver is not None
                         trainer._checkpoint_saver.post_close = post_close.__get__(
-                            trainer._checkpoint_saver, CheckpointSaver
+                            trainer._checkpoint_saver,
+                            CheckpointSaver,
                         )
 
 
@@ -768,9 +769,6 @@ class TestCheckpointLoading:
     ):
         if delete_local and not use_object_store:
             pytest.skip('Invalid test setting.')
-
-        if use_object_store:
-            pytest.importorskip('libcloud')
 
         latest_filename = 'latest-rank{rank}' + file_extension
         if test_slashed:

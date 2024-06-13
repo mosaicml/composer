@@ -45,16 +45,23 @@ _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME = '.metadata'
 
 class CheckpointSaver(Callback):  # noqa: D101
     __doc__ = f"""Callback to save checkpoints.
+
     .. note::
+
         If the ``folder`` argument is specified when constructing the :class:`.Trainer`, then the :class:`.CheckpointSaver`
         callback need not be constructed manually. However, for advanced checkpointing use cases
         (such as saving a weights-only checkpoint at one interval and the full training state
         at another interval), instance(s) of this :class:`.CheckpointSaver` callback can be specified in the
         ``callbacks`` argument of the :class:`.Trainer`, as shown in the example below.
+
     Example
+
     .. testsetup::
+
         from composer.callbacks.checkpoint_saver import CheckpointSaver
+
     .. doctest::
+
         >>> trainer = Trainer(..., callbacks=[
         ...     CheckpointSaver(
         ...         folder='{{run_name}}/checkpoints',
@@ -64,142 +71,207 @@ class CheckpointSaver(Callback):  # noqa: D101
         ...         weights_only=False,
         ...     )
         ... ])
+
     Args:
         folder (str, optional): Format string for the save_folder where checkpoints will be saved.
             Default: ``'{{run_name}}/checkpoints'``.
+
             The following format variables are available:
+
             {textwrap.indent(FORMAT_NAME_WITH_DIST_TABLE, prefix='            ')}
+
             .. note::
+
                 When training with multiple devices (i.e. GPUs), ensure that ``'{{rank}}'`` appears in the format.
                 Otherwise, multiple processes may attempt to write to the same file.
+
         filename (str, optional): A format string describing how to name checkpoints.
             Default: ``'ep{{epoch}}-ba{{batch}}-rank{{rank}}.pt'``.
+
             Checkpoints will be saved approximately to ``{{folder}}/{{filename.format(...)}}``.
+
             The following format variables are available:
+
             {textwrap.indent(FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, prefix='            ')}
+
+
             .. note::
+
                 *   By default, only the rank zero process will save a checkpoint file.
+
                 *   When using DeepSpeed, each rank will save a checkpoint file in tarball format. DeepSpeed
                     requires tarball format, as it saves model and optimizer states in separate files.
                     Ensure that ``'{{rank}}'`` appears within the ``filename``. Otherwise, multiple ranks
                     may attempt to write to the same file(s), leading to corrupted checkpoints. If no tarball file
                     extension is specified, ``'.tar'`` will be used.
+
                 *   To write to compressed tar files (regardless of whether DeepSpeed is enabled), set the file
                     extension to ``'.tar.gz'``, ``'.tgz'``, ``'.tar.bz2'``, or ``'.tar.lzma'`` (depending on the
                     desired compression algorithm).
+
                 *   To write to compressed pt files (when DeepSpeed is disabled), set the file extension to
                     ``'.pt.bz2'``, ``'.pt.gz'``, ``'.pt.lz4'``, ``'.pt.lzma'``, ``'.pt.lzo'``, ``'.pt.xz'``,
                     ``'.pt.zst'``
                     (depending on the desired algorithm). You must have the corresponding CLI tool installed.
                     ``lz4`` is a good choice for a modest space saving while being very fast to compress.
+
             .. warning::
+
                 Using compression will block the training loop while checkpoints are being compressed and the
                 compressibility of checkpoints can vary significantly depending on your setup. As such, we
                 recommend saving checkpoints without compression by default.
+
                 If you have the ``lz4`` command available on your system, you may want to try saving as ``.pt.lz4``
                 as the overhead is minimal (usually less than a second) and the saved space can sometimes
                 be significant (1% - 40%).
+
             Consider the following scenario where:
+
             *   The :attr:`~.State.run_name` is ``'awesome-training-run'``
             *   The default ``folder='{{run_name}}/checkpoints'`` is used.
             *   The default ``name='ep{{epoch}}-ba{{batch}}-rank{{rank}}'`` is used.
             *   The current epoch count is ``1``.
             *   The current batch count is ``42``.
+
             When DeepSpeed is not being used, the rank zero process will save the checkpoint to
             ``"awesome-training-run/checkpoints/ep1-ba42-rank0"``.
+
             When DeepSpeed is being used, each rank (process) will save checkpoints to::
+
                 awesome-training-run/checkpoints/ep1-ba42-rank0.tar
                 awesome-training-run/checkpoints/ep1-ba42-rank1.tar
                 awesome-training-run/checkpoints/ep1-ba42-rank2.tar
                 ...
+
         remote_file_name (str, optional): Format string for the checkpoint's remote file name.
             Default: ``"{{run_name}}/checkpoints/ep{{epoch}}-ba{{batch}}-rank{{rank}}"``.
+
             After the checkpoint is saved, it will be periodically uploaded.
             The remote file name will be determined by this format string.
+
             .. seealso:: :doc:`Uploading Files</trainer/file_uploading>` for notes for file uploading.
+
             The same format variables for ``filename`` are available.
+
             Leading slashes (``'/'``) will be stripped.
+
             To disable uploading checkpoints, set this parameter to ``None``.
         latest_filename (str, optional): A format string for a symlink which points to the last saved checkpoint.
             Default: ``'latest-rank{{rank}}.pt'``.
+
             Symlinks will be created approximately at ``{{folder}}/{{latest_filename.format(...)}}``.
+
             The same format variables as for ``name`` are available.
+
             To disable symlinks, set this parameter to ``None``.
+
             Consider the following scenario, where:
+
             *   The :attr:`~.State.run_name` is 'awesome-training-run'
             *   The default ``folder='{{run_name}}/checkpoints'`` is used.
             *   The default ``name='ep{{epoch}}-ba{{batch}}-rank{{rank}}'`` is used.
             *   The default ``latest_filename='latest-rank{{rank}}'`` is used.
             *   The current epoch count is ``1``.
             *   The current batch count is ``42``.
+
             When DeepSpeed is not being used, the rank zero process will save the checkpoint to
             ``'awesome-training-run/checkpoints/ep1-ba42-rank0'``,
             and a symlink will be created at
             ``'awesome-training-run/checkpoints/latest-rank0' -> 'awesome-training-run/checkpoints/ep1-ba42-rank0'``
+
             When DeepSpeed is being used, each rank (process) will save checkpoints to::
+
                 awesome-training-run/checkpoints/ep1-ba42-rank0.tar
                 awesome-training-run/checkpoints/ep1-ba42-rank1.tar
                 awesome-training-run/checkpoints/ep1-ba42-rank2.tar
                 ...
+
             Corresponding symlinks will be created at::
+
                 awesome-training-run/checkpoints/latest-rank0.tar -> awesome-training-run/checkpoints/ep1-ba42-rank0.tar
                 awesome-training-run/checkpoints/latest-rank1.tar -> awesome-training-run/checkpoints/ep1-ba42-rank1.tar
                 awesome-training-run/checkpoints/latest-rank2.tar -> awesome-training-run/checkpoints/ep1-ba42-rank2.tar
                 ...
         latest_remote_file_name (str, optional): Format string for the checkpoint's latest symlink remote file name.
             Default: ``'{{run_name}}/checkpoints/latest-rank{{rank}}"``.
+
             Whenever a new checkpoint is saved, a symlink is created or updated to point to the latest checkpoint's ``remote_file_name``.
             The remote file name will be determined by this format string. This parameter has no effect if ``latest_filename`` or ``remote_file_name`` is ``None``.
+
             .. seealso:: :doc:`Uploading Files</trainer/file_uploading>` for notes for file uploading.
+
             The same format variables for ``filename`` are available.
+
             Leading slashes (``'/'``) will be stripped.
+
             To disable symlinks in logger, set this parameter to ``None``.
+
         overwrite (bool, optional): Whether existing checkpoints should be overridden.
             If ``False`` (the default), then the ``folder`` must not exist or must not contain checkpoints which may conflict
             with the current run. Default: ``False``.
+
         save_interval (Time | str | int | (State, Event) -> bool): A :class:`.Time`, time-string, integer (in epochs),
             or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
+
             If an integer, checkpoints will be saved every n epochs.
             If :class:`.Time` or a time-string, checkpoints will be saved according to this interval.
+
             .. seealso:: :func:`.checkpoint_periodically`
+
             If a function, then this function should take two arguments (:class:`.State`, :class:`.Event`).
             The first argument will be the current state of the trainer, and the second argument will be
             be :attr:`.Event.BATCH_CHECKPOINT` or :attr:`.Event.EPOCH_CHECKPOINT` (depending on the current training
             progress). It should return ``True`` if a checkpoint should be saved given the current state and
             event.
+
         num_checkpoints_to_keep (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
             are removed first. Set to ``-1`` to keep all checkpoints locally. Default: ``-1``.
+
             Checkpoints will be removed after they have been uploaded. For example, when this callback
             is used in conjunction with the :class:`.RemoteUploaderDownloader`, set this
             parameter to ``0`` to immediately delete checkpoints from the local disk after they have been uploaded to
             the object store.
+
             This parameter only controls how many checkpoints are kept locally; checkpoints are not deleted from
             remote file systems.
+
         weights_only (bool): If ``True``, save only the model weights instead of the entire training state.
             This parameter must be ``False`` when using DeepSpeed. Default: ``False``.
+
         ignore_keys (list[str] | (dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
             which, when provided, will be ignored from the state_dict before a checkpoint is saved. Each path is a list
             of strings specifying the keys to index into ``state_dict`` joined together with `/` as a separator (as PyTorch
             uses `.` in parameter names). If a prefix is provided, all children are also ignored (see Example 2).
             See :mod:`composer.core.state` for the structure of state_dict.
+
             Example 1: ``save_ignore_keys = ["state/model/layer1.weights", "state/model/layer1.bias"]`` would ignore
             layer 1 weights and bias.
+
             Example 2: ``save_ignore_keys = ["state/model/*"]`` would ignore the entire model, which would have the same
             effect as the previous example if there was only 1 layer.
+
             Example 3: ``save_ignore_keys = ["state/model/layer*.weights"]`` would ignore all weights in the model.
+
             Example 4: ``save_ignore_keys = ["state/rank_zero_seed", "rng"]`` would reset all randomness when
             saving the checkpoint.
+
             If a callable, it should take one argument which is the state_dict. The callable is free to arbitrarily modify
             the state_dict before it is loaded.
+
             (default: ``None``)
+
     Attributes:
         saved_checkpoints (list[tuple[Timestamp, list[pathlib.Path]]]): The checkpoint timestamps and filepaths.
+
             This list contains tuples of the save timestamp and the checkpoint filepaths.
             This list will have at most ``num_checkpoints_to_keep`` entries. The latest checkpoint
             will be at the end.
+
             .. note::
+
                 When using DeepSpeed, the index of a filepath in each list corresponds to the global rank of
                 the process that wrote that file. Each filepath is valid only on the process's (rank's) node.
+
                 Otherwise, when not using DeepSpeed, each sub-list will contain only one filepath since only rank zero
                 saves checkpoints.
     """
