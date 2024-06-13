@@ -307,7 +307,7 @@ def _get_initial_device_train_microbatch_size(
 
 def _is_cuda_oom(e: RuntimeError):
     """Determines if error is CUDA Out of Memory and if auto_microbatching is enabled."""
-    if 'CUDA out of memory' in str(e):
+    if any(s in str(e) for s in ['CUDA out of memory', 'CUDA error: out of memory']):
         return True
     # With batch_norm, large batch sizes sometimes result in cuDNN instead of Cuda OOMs.
     if 'cuDNN error: CUDNN_STATUS_NOT_SUPPORTED. This error may appear if you passed in a non-contiguous input.' in str(
