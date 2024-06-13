@@ -1967,9 +1967,11 @@ class Trainer:
 
             # broadcast the remote checkpoint path to all ranks
             save_latest_remote_file_name_list = [save_latest_remote_file_name]
-            log.debug(f"bigning debug {save_latest_remote_file_name_list=}")
+            log.debug(f"bigning debug {save_latest_remote_file_name_list=}, {latest_checkpoint_path=}")
+            #raise RuntimeError(f"bigning debug raise haha")
             dist.broadcast_object_list(save_latest_remote_file_name_list, src=0)
             save_latest_remote_file_name = save_latest_remote_file_name_list[0]
+            return None
 
             # try to download the checkpoint on local rank 0 of all nodes
             if dist.get_local_rank() == 0 and not os.path.exists(latest_checkpoint_path):
