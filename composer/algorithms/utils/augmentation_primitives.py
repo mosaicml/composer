@@ -31,9 +31,10 @@ from typing import Callable
 
 import numpy as np
 from PIL import Image, ImageEnhance, ImageOps
+
 try:
-    from PIL.Image import Transform, Resampling
-except ImportError: # fix version conflict issues
+    from PIL.Image import Resampling, Transform
+except ImportError:  # fix version conflict issues
     # transforms (also defined in Imaging.h)
     class Transform(IntEnum):
         AFFINE = 0
@@ -41,7 +42,6 @@ except ImportError: # fix version conflict issues
         PERSPECTIVE = 2
         QUAD = 3
         MESH = 4
-
 
     # resampling filters (also defined in Imaging.h)
     class Resampling(IntEnum):
@@ -51,6 +51,7 @@ except ImportError: # fix version conflict issues
         HAMMING = 5
         BICUBIC = 3
         LANCZOS = 1
+
 
 AugmentationFn = Callable[[Image.Image, float], Image.Image]
 
@@ -150,9 +151,12 @@ def equalize(pil_img: Image.Image, level: float):
     del level  # unused
     return ImageOps.equalize(pil_img)
 
+
 from PIL import WebPImagePlugin
+
 supported = WebPImagePlugin.SUPPORTED
 assert supported
+
 
 def posterize(pil_img: Image.Image, level: float):
     """Posterize an image.
@@ -179,7 +183,7 @@ def rotate(pil_img: Image.Image, level: float):
     degrees = _int_parameter(_sample_level(level), 30)
     if np.random.uniform() > 0.5:
         degrees = -degrees
-    return pil_img.rotate(degrees, resample=Resampling.BILINEAR) # pyright: ignore
+    return pil_img.rotate(degrees, resample=Resampling.BILINEAR)  # pyright: ignore
 
 
 def solarize(pil_img: Image.Image, level: float):
@@ -207,7 +211,12 @@ def shear_x(pil_img: Image.Image, level: float):
     level = _float_parameter(_sample_level(level), 0.3)
     if np.random.uniform() > 0.5:
         level = -level
-    return pil_img.transform(pil_img.size, Transform.AFFINE, (1, level, 0, 0, 1, 0), resample=Resampling.BILINEAR) # pyright: ignore
+    return pil_img.transform(
+        pil_img.size,
+        Transform.AFFINE,  # pyright: ignore
+        (1, level, 0, 0, 1, 0),
+        resample=Resampling.BILINEAR,  # pyright: ignore
+    )  # pyright: ignore
 
 
 def shear_y(pil_img: Image.Image, level: float):
@@ -221,7 +230,12 @@ def shear_y(pil_img: Image.Image, level: float):
     level = _float_parameter(_sample_level(level), 0.3)
     if np.random.uniform() > 0.5:
         level = -level
-    return pil_img.transform(pil_img.size, Transform.AFFINE, (1, 0, 0, level, 1, 0), resample=Resampling.BILINEAR) # pyright: ignore
+    return pil_img.transform(
+        pil_img.size,
+        Transform.AFFINE,  # pyright: ignore
+        (1, 0, 0, level, 1, 0),
+        resample=Resampling.BILINEAR,  # pyright: ignore
+    )  # pyright: ignore
 
 
 def translate_x(pil_img: Image.Image, level: float):
@@ -235,8 +249,12 @@ def translate_x(pil_img: Image.Image, level: float):
     level = _int_parameter(_sample_level(level), pil_img.size[0] / 3)
     if np.random.random() > 0.5:
         level = -level
-    return pil_img.transform(pil_img.size, Transform.AFFINE, (1, 0, level, 0, 1, 0), resample=Resampling.BILINEAR) # pyright: ignore
-
+    return pil_img.transform(
+        pil_img.size,
+        Transform.AFFINE,  # pyright: ignore
+        (1, 0, level, 0, 1, 0),
+        resample=Resampling.BILINEAR,  # pyright: ignore
+    )  # pyright: ignore
 
 
 def translate_y(pil_img: Image.Image, level: float):
@@ -250,7 +268,12 @@ def translate_y(pil_img: Image.Image, level: float):
     level = _int_parameter(_sample_level(level), pil_img.size[1] / 3)
     if np.random.random() > 0.5:
         level = -level
-    return pil_img.transform(pil_img.size, Transform.AFFINE, (1, 0, 0, 0, 1, level), resample=Resampling.BILINEAR) # pyright: ignore
+    return pil_img.transform(
+        pil_img.size,
+        Transform.AFFINE,  # pyright: ignore
+        (1, 0, 0, 0, 1, level),
+        resample=Resampling.BILINEAR,  # pyright: ignore
+    )  # pyright: ignore
 
 
 # The following augmentations overlap with corruptions in the ImageNet-C/CIFAR10-C test
