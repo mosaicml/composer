@@ -154,8 +154,6 @@ def equalize(pil_img: Image.Image, level: float):
 
 from PIL import WebPImagePlugin
 
-supported = WebPImagePlugin.SUPPORTED
-assert supported
 
 
 def posterize(pil_img: Image.Image, level: float):
