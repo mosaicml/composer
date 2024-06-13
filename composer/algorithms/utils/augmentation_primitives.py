@@ -30,7 +30,26 @@ from typing import Callable
 
 import numpy as np
 from PIL import Image, ImageEnhance, ImageOps
-from PIL.Image import Transform, Resampling
+try:
+    from PIL.Image import Transform, Resampling
+except ImportError: # fix version conflict issues
+    # transforms (also defined in Imaging.h)
+    class Transform(IntEnum):
+        AFFINE = 0
+        EXTENT = 1
+        PERSPECTIVE = 2
+        QUAD = 3
+        MESH = 4
+
+
+    # resampling filters (also defined in Imaging.h)
+    class Resampling(IntEnum):
+        NEAREST = 0
+        BOX = 4
+        BILINEAR = 2
+        HAMMING = 5
+        BICUBIC = 3
+        LANCZOS = 1
 
 AugmentationFn = Callable[[Image.Image, float], Image.Image]
 
