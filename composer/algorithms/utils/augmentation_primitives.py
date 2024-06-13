@@ -179,7 +179,7 @@ def rotate(pil_img: Image.Image, level: float):
     degrees = _int_parameter(_sample_level(level), 30)
     if np.random.uniform() > 0.5:
         degrees = -degrees
-    return pil_img.rotate(degrees, resample=Resampling.BILINEAR)
+    return pil_img.rotate(degrees, resample=Resampling.BILINEAR) # pyright: ignore
 
 
 def solarize(pil_img: Image.Image, level: float):
@@ -207,7 +207,7 @@ def shear_x(pil_img: Image.Image, level: float):
     level = _float_parameter(_sample_level(level), 0.3)
     if np.random.uniform() > 0.5:
         level = -level
-    return pil_img.transform(pil_img.size, Transform.AFFINE, (1, level, 0, 0, 1, 0), resample=Resampling.BILINEAR)
+    return pil_img.transform(pil_img.size, Transform.AFFINE, (1, level, 0, 0, 1, 0), resample=Resampling.BILINEAR) # pyright: ignore
 
 
 def shear_y(pil_img: Image.Image, level: float):
@@ -221,7 +221,7 @@ def shear_y(pil_img: Image.Image, level: float):
     level = _float_parameter(_sample_level(level), 0.3)
     if np.random.uniform() > 0.5:
         level = -level
-    return pil_img.transform(pil_img.size, Transform.AFFINE, (1, 0, 0, level, 1, 0), resample=Resampling.BILINEAR)
+    return pil_img.transform(pil_img.size, Transform.AFFINE, (1, 0, 0, level, 1, 0), resample=Resampling.BILINEAR) # pyright: ignore
 
 
 def translate_x(pil_img: Image.Image, level: float):
@@ -235,7 +235,7 @@ def translate_x(pil_img: Image.Image, level: float):
     level = _int_parameter(_sample_level(level), pil_img.size[0] / 3)
     if np.random.random() > 0.5:
         level = -level
-    return pil_img.transform(pil_img.size, Transform.AFFINE, (1, 0, level, 0, 1, 0), resample=Resampling.BILINEAR)
+    return pil_img.transform(pil_img.size, Transform.AFFINE, (1, 0, level, 0, 1, 0), resample=Resampling.BILINEAR) # pyright: ignore
 
 
 def translate_y(pil_img: Image.Image, level: float):
@@ -249,7 +249,7 @@ def translate_y(pil_img: Image.Image, level: float):
     level = _int_parameter(_sample_level(level), pil_img.size[1] / 3)
     if np.random.random() > 0.5:
         level = -level
-    return pil_img.transform(pil_img.size, Transform.AFFINE, (1, 0, 0, 0, 1, level), resample=Resampling.BILINEAR)
+    return pil_img.transform(pil_img.size, Transform.AFFINE, (1, 0, 0, 0, 1, level), resample=Resampling.BILINEAR) # pyright: ignore
 
 
 # The following augmentations overlap with corruptions in the ImageNet-C/CIFAR10-C test
