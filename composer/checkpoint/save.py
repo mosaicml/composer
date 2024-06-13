@@ -8,7 +8,7 @@ import os
 import textwrap
 import warnings
 from pathlib import Path
-from typing import Any, Dict, Optional, Union, Sequence
+from typing import Any, Dict, Optional, Union, Sequence, List
 from composer.devices import Device
 import torch
 import torch.distributed.checkpoint as DCP
@@ -23,6 +23,7 @@ import json
 import pickle
 from composer.core import State
 from dataclasses import dataclass
+from composer.core import Time
 
 log = logging.getLogger(__name__)
 
@@ -36,8 +37,8 @@ RESUMPTION_CHECKPOINT_FILENAME = 'resumption.pkl'
 
 @dataclass
 class CheckpointSaveOptions:
-    frequency: Union[str, int, Time] 
-    destination_dir: Union[str, List[str]] = None
+    save_frequency: Union[str, int, Time] 
+    destination_dir: Union[str, List[str]]
     checkpoint_name: str = 'ep{epoch}-ba{batch}'
     overwrite: bool = False
     save_model: bool = True
