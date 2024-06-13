@@ -692,7 +692,7 @@ def busy_wait_for_local_rank_zero(dir_path: Optional[str] = None):
 
     # Wait for the signal file to be created by local rank zero
     with local_rank_zero_download_and_wait(signal_file_path):
-        # Sync up all ranks
+        # Sync all ranks across nodes as busy wait only is within node
         dist.barrier()
 
     # Remove the signal file
