@@ -152,10 +152,6 @@ def equalize(pil_img: Image.Image, level: float):
     return ImageOps.equalize(pil_img)
 
 
-from PIL import WebPImagePlugin
-
-
-
 def posterize(pil_img: Image.Image, level: float):
     """Posterize an image.
 
