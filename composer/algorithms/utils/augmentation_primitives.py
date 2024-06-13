@@ -33,7 +33,7 @@ import numpy as np
 from PIL import Image, ImageEnhance, ImageOps
 
 try:
-    from PIL.Image import Resampling, Transform
+    from PIL.Image import Resampling, Transform  # pyright: ignore
 except ImportError:  # fix version conflict issues
     # transforms (also defined in Imaging.h)
     class Transform(IntEnum):
