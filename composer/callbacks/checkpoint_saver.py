@@ -332,7 +332,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         backend, _, _ = parse_uri(save_folder)
         self.remote_uploader_futures: List[List[Future]] = []
         self.symlink_file_tasks: List[tuple[str, str]] = []
-        self.this_rank_saves_remote_symlinks: bool = False
+        self.rank_saves_remote_symlinks: bool = False
         self.tmp_dir_for_symlink = tempfile.TemporaryDirectory()
         self.num_concurrent_uploads = num_concurrent_uploads
 
@@ -340,12 +340,12 @@ class CheckpointSaver(Callback):  # noqa: D101
             if backend == 'wandb':
                 raise NotImplementedError(
                     f'There is no implementation for WandB via URI. Please use '
-                    'WandBLogger with log_artifacts set to True',
+                    'WandBLogger with log_artifacts set to True.',
                 )
             elif backend not in ['s3', 'oci', 'gs', 'azure', 'dbfs']:
                 raise NotImplementedError(
                     f'There is no implementation for the cloud backend {backend} via URI. Please use '
-                    'one of the supported RemoteUploaderDownloader object stores',
+                    'one of the supported object stores.',
                 )
             self.remote_uploader = RemoteUploader(
                 remote_folder=save_folder,
@@ -496,8 +496,8 @@ class CheckpointSaver(Callback):  # noqa: D101
                 src_path = str(pathlib.Path(saved_path).parent)
             else:
                 src_path = saved_path
-            this_rank_saves_symlinks = dist.get_global_rank() == 0 or not state.fsdp_sharded_state_dict_enabled
-            if this_rank_saves_symlinks:
+            rank_saves_symlinks = dist.get_global_rank() == 0 or not state.fsdp_sharded_state_dict_enabled
+            if rank_saves_symlinks:
                 os.symlink(os.path.relpath(src_path, os.path.dirname(symlink)), symlink)
 
         # if remote file name provided, upload the checkpoint
@@ -587,9 +587,9 @@ class CheckpointSaver(Callback):  # noqa: D101
                 else:
                     src_path = remote_file_name
                 log.debug(f'Creating symlink file {symlink_filename} -> {src_path}')
-                this_rank_saves_symlinks = dist.get_global_rank() == 0 or not state.fsdp_sharded_state_dict_enabled
-                if this_rank_saves_symlinks:
-                    self.this_rank_saves_remote_symlinks = True
+                rank_saves_symlinks = dist.get_global_rank() == 0 or not state.fsdp_sharded_state_dict_enabled
+                if rank_saves_symlinks:
+                    self.rank_saves_remote_symlinks = True
                     create_symlink_file(src_path, symlink_filename)
                     if self.remote_uploader is not None:
                         self.symlink_file_tasks.append((symlink_filename, symlink_name))
@@ -606,14 +606,14 @@ class CheckpointSaver(Callback):  # noqa: D101
             self._rotate_checkpoints(sharding_enabled=state.fsdp_sharded_state_dict_enabled)
 
     def wait(self) -> None:
+        """Wait exsiting upload tasks to finish and start uploading symlink file if necessary."""
         if self.remote_uploader is None:
             return
         # Wait remote uploader futures and start to upload the latest symlink file if necessary
-        if self.this_rank_saves_remote_symlinks:
-            if len(self.remote_uploader_futures) != len(self.symlink_file_tasks):
-                raise RuntimeError(
-                    f'Expect len(remote_uploader_futures) == len(symlink_file_tasks), but got {len(self.remote_uploader_futures)} != {len(self.symlink_file_tasks)}',
-                )
+        if self.rank_saves_remote_symlinks and len(self.remote_uploader_futures) != len(self.symlink_file_tasks):
+            raise RuntimeError(
+                f'Expect len(remote_uploader_futures) == len(symlink_file_tasks), but got {len(self.remote_uploader_futures)} != {len(self.symlink_file_tasks)}',
+            )
         log.debug('Waiting for previous checkpoint files upload finish')
         for i in range(len(self.remote_uploader_futures)):
             for future in self.remote_uploader_futures[i]:
@@ -626,7 +626,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         if t.item() != dist.get_world_size():
             raise RuntimeError(f'Some rank failed to upload checkpoint files')
         log.debug('All ranks finished existing checkpoint uploading tasks, starting symlink file upload if necessary')
-        if self.this_rank_saves_remote_symlinks and len(self.symlink_file_tasks) > 0:
+        if self.rank_saves_remote_symlinks and len(self.symlink_file_tasks) > 0:
             # Only upload the last symlink file
             symlink_local_filename, symlink_remote_filename = self.symlink_file_tasks[-1]
             self.remote_uploader.upload_file_async(
