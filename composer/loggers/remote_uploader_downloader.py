@@ -38,6 +38,7 @@ from composer.utils import (
     format_name_with_dist,
     get_file,
     retry,
+    validate_credentials,
 )
 from composer.utils.object_store.mlflow_object_store import MLFLOW_DBFS_PATH_PREFIX
 
@@ -359,7 +360,7 @@ class RemoteUploaderDownloader(LoggerDestination):
             retry(
                 ObjectStoreTransientError,
                 self.num_attempts,
-            )(lambda: _validate_credentials(self.remote_backend, file_name_to_test))()
+            )(lambda: validate_credentials(self.remote_backend, file_name_to_test))()
 
         # If the remote backend is an `MLFlowObjectStore`, the original path kwarg may have placeholders that can be
         # updated with information generated at runtime, i.e., the MLFlow experiment and run IDs. This information
@@ -633,20 +634,6 @@ class RemoteUploaderDownloader(LoggerDestination):
         key_name = key_name.lstrip('/')
 
         return key_name
-
-
-def _validate_credentials(
-    remote_backend: ObjectStore,
-    remote_file_name_to_test: str,
-) -> None:
-    # Validates the credentials by attempting to touch a file in the bucket
-    # raises an error if there was a credentials failure.
-    with tempfile.NamedTemporaryFile('wb') as f:
-        f.write(b'credentials_validated_successfully')
-        remote_backend.upload_object(
-            object_name=remote_file_name_to_test,
-            filename=f.name,
-        )
 
 
 def _upload_worker(

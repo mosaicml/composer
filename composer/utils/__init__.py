@@ -44,6 +44,7 @@ from composer.utils.file_helpers import (
     maybe_create_object_store_from_uri,
     maybe_create_remote_uploader_downloader_from_uri,
     parse_uri,
+    validate_credentials,
 )
 from composer.utils.import_helpers import MissingConditionalImportError, import_object
 from composer.utils.inference import ExportFormat, Transform, export_for_inference, export_with_logger, quantize_dynamic
@@ -158,4 +159,5 @@ __all__ = [
     'MLFLOW_EXPERIMENT_ID_FORMAT_KEY',
     'MLFLOW_RUN_ID_FORMAT_KEY',
     'RemoteUploader',
+    'validate_credentials',
 ]

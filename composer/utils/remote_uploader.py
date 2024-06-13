@@ -18,6 +18,7 @@ from composer.utils.dist import broadcast_object_list, get_global_rank, get_loca
 from composer.utils.file_helpers import (
     maybe_create_object_store_from_uri,
     parse_uri,
+    validate_credentials,
 )
 from composer.utils.object_store.mlflow_object_store import MLFLOW_DBFS_PATH_PREFIX, MLFlowObjectStore
 from composer.utils.object_store.object_store import (
@@ -126,20 +127,27 @@ class RemoteUploader:
         if not self._is_dbfs:
             if self.object_store is None:
                 self.object_store = maybe_create_object_store_from_uri(self.remote_folder)
-            return
-        if not self.path.startswith(MLFLOW_DBFS_PATH_PREFIX):
-            if self.object_store is None:
+        else:
+            if not self.path.startswith(MLFLOW_DBFS_PATH_PREFIX):
+                if self.object_store is None:
+                    self.object_store = _build_dbfs_backend(self.path)
+                return
+            if get_global_rank() == 0:
+                if self.object_store is None:
+                    self.object_store = _build_dbfs_backend(self.path)
+                assert isinstance(self.object_store, MLFlowObjectStore)
+                self.path = self.object_store.get_dbfs_path(self.path)
+            path_list = [self.path]
+            broadcast_object_list(path_list, src=0)
+            self.path = path_list[0]
+            if get_global_rank() != 0:
                 self.object_store = _build_dbfs_backend(self.path)
-            return
+
         if get_global_rank() == 0:
-            if self.object_store is None:
-                self.object_store = _build_dbfs_backend(self.path)
-            assert isinstance(self.object_store, MLFlowObjectStore)
-            self.path = self.object_store.get_dbfs_path(self.path)
-        path_list = [self.path]
-        broadcast_object_list(path_list, src=0)
-        self.path = path_list[0]
-        # TODO: add valdation
+            retry(
+                ObjectStoreTransientError,
+                self.num_attempts,
+            )(lambda: validate_credentials(self.object_store, '.credentials_validated_successfully'))()
 
     def upload_file_async(
         self,

@@ -26,12 +26,11 @@ from torch.utils.data import DataLoader, Dataset, DistributedSampler
 from composer.algorithms import NoOpModel
 from composer.callbacks import CheckpointSaver
 from composer.core import Callback, Time, TimeUnit
-from composer.loggers import remote_uploader_downloader
 from composer.metrics import MAP
 from composer.optim import ExponentialScheduler
 from composer.trainer import trainer
 from composer.trainer.trainer import Trainer
-from composer.utils import dist, is_tar, reproducibility
+from composer.utils import dist, is_tar, remote_uploader, reproducibility
 from composer.utils.checkpoint import (
     _COMPOSER_STATES_FILENAME,
     PartialFilePath,
@@ -372,7 +371,7 @@ class TestCheckpointSaving:
         monkeypatch: MonkeyPatch,
     ):
         mock_validate_credentials = MagicMock()
-        monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
+        monkeypatch.setattr(remote_uploader, 'validate_credentials', mock_validate_credentials)
 
         trainer = self.get_trainer(save_folder=save_folder)
 
@@ -884,7 +883,7 @@ class TestCheckpointLoading:
     def test_load_from_uri(self, load_path: str, load_object_store: Optional[ObjectStore], monkeypatch: MonkeyPatch):
 
         mock_validate_credentials = MagicMock()
-        monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
+        monkeypatch.setattr(remote_uploader, 'validate_credentials', mock_validate_credentials)
         mock_load_checkpoint = MagicMock()
         monkeypatch.setattr(trainer.checkpoint, 'load_checkpoint', mock_load_checkpoint)
         self.get_trainer(load_path=load_path, load_object_store=load_object_store)
@@ -904,7 +903,7 @@ class TestCheckpointLoading:
     )
     def test_other_backends_error(self, load_path: str, monkeypatch: MonkeyPatch):
         mock_validate_credentials = MagicMock()
-        monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
+        monkeypatch.setattr(remote_uploader, 'validate_credentials', mock_validate_credentials)
         with pytest.raises(NotImplementedError):
             self.get_trainer(load_path=load_path)
 
