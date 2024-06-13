@@ -4,8 +4,8 @@
 import contextlib
 import copy
 import io
-import os
 import multiprocessing
+import os
 import pathlib
 import re
 import shutil
@@ -26,7 +26,7 @@ from torch.utils.data import DataLoader, Dataset, DistributedSampler
 from composer.algorithms import NoOpModel
 from composer.callbacks import CheckpointSaver
 from composer.core import Callback, Time, TimeUnit
-from composer.loggers import RemoteUploaderDownloader, remote_uploader_downloader
+from composer.loggers import remote_uploader_downloader
 from composer.metrics import MAP
 from composer.optim import ExponentialScheduler
 from composer.trainer import trainer
@@ -627,21 +627,24 @@ class TestCheckpointSaving:
     @pytest.mark.parametrize(('upload_success'), [True, False])
     def test_checkpoint_remote_symlink(
         self,
-        upload_success: bool
+        upload_success: bool,
     ):
         import multiprocessing
         fork_context = multiprocessing.get_context('fork')
         tmp_dir = tempfile.TemporaryDirectory()
+
         def _get_tmp_dir(self):
             return tmp_dir
 
         class _AlwaysFailDummyObjectStore(DummyObjectStore):
+
             def upload_object(self, object_name, filename, callback=None):
                 # Only allows to upload symlink to simulate
                 # the situation that checkpoint file uploading fails
                 if 'symlink' in object_name:
                     return super().upload_object(object_name, filename, callback)
-                raise RuntimeError('Raise Error intentionally') 
+                raise RuntimeError('Raise Error intentionally')
+
         if upload_success:
             MockObjectStore = DummyObjectStore
         else:
@@ -667,16 +670,20 @@ class TestCheckpointSaving:
                     symlink_filepath = os.path.join(tmp_dir.name, 'latest-rank0.pt.symlink')
                     if upload_success:
                         trainer.fit()
-                        dir_list = os.listdir(tmp_dir.name)
                         with open(symlink_filepath, 'r') as f:
-                            assert f.read() == "ep0-ba1-rank0.pt"
+                            assert f.read() == 'ep0-ba1-rank0.pt'
                     else:
                         with pytest.raises(RuntimeError, match='Raise Error intentionally'):
                             trainer.fit()
                         assert os.path.exists(symlink_filepath) == False
+
                         def post_close(self):
                             return
-                        trainer._checkpoint_saver.post_close = post_close.__get__(trainer._checkpoint_saver, CheckpointSaver)
+
+                        assert trainer._checkpoint_saver is not None
+                        trainer._checkpoint_saver.post_close = post_close.__get__(
+                            trainer._checkpoint_saver, CheckpointSaver
+                        )
 
 
 class TestCheckpointLoading:
@@ -780,8 +787,10 @@ class TestCheckpointLoading:
         # Mock S3 object store
         fork_context = multiprocessing.get_context('fork')
         tmp_dir = tempfile.TemporaryDirectory()
+
         def _get_tmp_dir(self):
             return tmp_dir
+
         with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
             with patch('tests.utils.test_remote_uploader.DummyObjectStore.get_tmp_dir', _get_tmp_dir):
                 with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
@@ -1215,8 +1224,10 @@ class TestCheckpointLoading:
         # Mock S3 object store
         fork_context = multiprocessing.get_context('fork')
         tmp_dir = tempfile.TemporaryDirectory()
+
         def _get_tmp_dir(self):
             return tmp_dir
+
         with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
             with patch('tests.utils.test_remote_uploader.DummyObjectStore.get_tmp_dir', _get_tmp_dir):
                 with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):

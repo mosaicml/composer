@@ -12,7 +12,7 @@ import tempfile
 import time
 import uuid
 from concurrent.futures import Future, ProcessPoolExecutor
-from typing import List
+from typing import List, Optional
 
 from composer.utils.dist import broadcast_object_list, get_global_rank, get_local_rank
 from composer.utils.file_helpers import (
@@ -106,7 +106,7 @@ class RemoteUploader:
 
         # Need some special handling for dbfs path
         self._is_dbfs = backend == 'dbfs'
-        self.object_store: Optional[MLFlowObjectStore] = None
+        self.object_store: Optional[ObjectStore] = None
 
         self.num_attempts = num_attempts
 
@@ -139,6 +139,7 @@ class RemoteUploader:
         path_list = [self.path]
         broadcast_object_list(path_list, src=0)
         self.path = path_list[0]
+        # TODO: add valdation
 
     def upload_file_async(
         self,
