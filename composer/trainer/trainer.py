@@ -1455,7 +1455,6 @@ class Trainer:
                 else:
                     latest_remote_file_name = None
 
-            log.info(f'bigning debug useing the new saver')
             self._checkpoint_saver = CheckpointSaver(
                 folder=folder,
                 filename=save_filename,
@@ -1810,10 +1809,8 @@ class Trainer:
                 log.info('No previous autoresume checkpoint found')
         # Actually load the checkpoint from potentially updated arguments
         if load_path is not None:
-            log.debug(f"bigning debug before: {load_object_store=}, {load_path=}")
             if load_object_store is None:
                 load_object_store = maybe_create_object_store_from_uri(load_path)
-            log.debug(f"bigning debug after: {load_object_store=}, {load_path=}")
             if isinstance(load_object_store, WandBLogger):
                 import wandb
                 if wandb.run is None:
@@ -1967,9 +1964,6 @@ class Trainer:
 
             # broadcast the remote checkpoint path to all ranks
             save_latest_remote_file_name_list = [save_latest_remote_file_name]
-            log.debug(f"bigning debug {save_latest_remote_file_name_list=}, {latest_checkpoint_path=}")
-            #raise RuntimeError(f"bigning debug raise haha")
-            return None
             dist.broadcast_object_list(save_latest_remote_file_name_list, src=0)
             save_latest_remote_file_name = save_latest_remote_file_name_list[0]
 

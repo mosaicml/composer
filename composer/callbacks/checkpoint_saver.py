@@ -15,6 +15,8 @@ from concurrent.futures import Future
 from pathlib import Path
 from typing import Any, Callable, List, Optional, Union
 
+import torch
+
 from composer.core import Callback, Event, State, Time, Timestamp
 from composer.loggers import Logger, MLFlowLogger
 from composer.utils import (
@@ -619,7 +621,10 @@ class CheckpointSaver(Callback):  # noqa: D101
         log.debug(f'Current rank finished existing uploading tasks')
         self.remote_uploader_futures = []
 
-        dist.barrier()
+        t = dist.get_device(None).tensor_to_device(torch.tensor(1))
+        dist.all_reduce(t)
+        if t.item() != dist.get_world_size():
+            raise RuntimeError(f'Some rank failed to upload checkpoint files')
         log.debug('All ranks finished existing checkpoint uploading tasks, starting symlink file upload if necessary')
         if self.this_rank_saves_remote_symlinks and len(self.symlink_file_tasks) > 0:
             # Only upload the last symlink file
