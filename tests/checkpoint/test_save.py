@@ -12,13 +12,30 @@ import torch
 import torch.distributed.checkpoint as DCP
 from packaging import version
 
-from composer.checkpoint.save import save_state_dict_to_disk
+from composer.checkpoint.save import save_state_dict_to_disk, save_model_to_disk
 from composer.checkpoint.state_dict import get_model_state_dict
 from composer.utils import dist
 from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
 from tests.checkpoint.helpers import init_model
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
+
+@world_size(1, 2)
+@pytest.mark.gpu
+@pytest.mark.parametrize('sharded_model', [False, True])
+def test_save_model_to_disk(tmp_path: str):
+    destination_file_path = os.path.join(tmp_path, 'checkpoints')
+    model, _ = init_model(use_fsdp=False, device='gpu', sync_module_states=True)
+    path_saved = save_model_to_disk(model, destination_file_path=destination_file_path)
+    time.sleep(1)
+    if dist.get_global_rank() == 0:
+        assert path_saved is not None
+        assert path_saved == destination_file_path
+        assert os.path.exists(destination_file_path), f'{destination_file_path} does not exist'
+        loaded_model = torch.load(path_saved, map_location='cpu')
+        deep_compare(model, loaded_model)
+    else:
+        assert path_saved is None
 
 
 @world_size(1, 2)
@@ -30,7 +47,6 @@ def test_save_full_state_dict_to_disk(world_size: int, tmp_path: str, sharded_mo
     destination_file_path = os.path.join(tmp_path, 'test.pt')
     use_fsdp = sharded_model
     model, _ = init_model(use_fsdp=use_fsdp, device='cuda', sync_module_states=True)
-
     state_dict = get_model_state_dict(model, sharded_state_dict=False)
     path_saved = save_state_dict_to_disk(state_dict, destination_file_path=destination_file_path)
     time.sleep(1)

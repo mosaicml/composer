@@ -37,9 +37,9 @@ RESUMPTION_CHECKPOINT_FILENAME = 'resumption.pkl'
 
 @dataclass
 class CheckpointSaveOptions:
-    save_frequency: Union[str, int, Time] 
-    destination_dir: Union[str, List[str]]
-    checkpoint_name: str = 'ep{epoch}-ba{batch}'
+    destination_dir: str
+    save_frequency: Union[str, int, Time] = '1ep'
+    dir_prefix: str = 'ep{epoch}-ba{batch}'
     overwrite: bool = False
     save_model: bool = True
     save_optimizer: bool = True
@@ -54,8 +54,45 @@ class CheckpointSaveOptions:
     ignore_keys: Optional[Union[str, Sequence[str]]] = None,
 
 
-def save_checkpoint_to_disk(state: State, options: CheckpointSaveOptions) -> str:
-    pass
+def save_checkpoint_to_disk(state: State, options: Optional[Union[CheckpointSaveOptions, Dict]]=None, destination_dir: Optional[str]=None) -> str:
+    if options is None:
+        if destination_dir is None:
+            raise ValueError('destination_dir must be provided if options is None')
+        options = CheckpointSaveOptions(destination_dir=destination_dir)
+    else:
+        if isinstance(options, Dict):
+            options = CheckpointSaveOptions(**options)
+        if destination_dir is not None:
+            options.destination_dir = destination_dir
+    if options.save_model:
+        save_model_to_disk(state.model,
+                           options.destination_dir,
+                           options.sharded_checkpoint,
+                           options.precision,
+                           options.include_keys,
+                           options.ignore_keys,
+                           options.overwrite,
+                           options.save_format)
+    if options.save_optimizer:
+        optimizer = state.optimizers[0]
+        save_optim_to_disk(state.model,
+                           optimizer,
+                           options.destination_dir,
+                           options.sharded_checkpoint,
+                           options.precision,
+                           options.overwrite,
+                           options.save_format)
+    if options.save_resumption_state:
+        save_resumption_state_to_disk(state, options.destination_dir)
+
+    save_composer_metadata_to_disk(state.model,
+                                   options.destination_dir,
+                                   options.sharded_checkpoint,
+                                   options.precision,
+                                   state.device,
+                                   state.device_train_microbatch_size)
+
+    
 
 def save_model_to_disk(model: Union[ComposerModel, torch.nn.Module],
     destination_dir: str,
