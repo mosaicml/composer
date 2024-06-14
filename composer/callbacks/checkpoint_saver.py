@@ -469,7 +469,8 @@ class CheckpointSaver(Callback):  # noqa: D101
         # Wait the previous upload tasks on all ranks
         # self.wait() has dist.barrier, so it needs to be called
         # on all ranks before any early return
-        if wait_previous_remote_upload_tasks and self.count / self.num_concurrent_uploads == 0:
+        #if wait_previous_remote_upload_tasks and self.count / self.num_concurrent_uploads == 0:
+        if wait_previous_remote_upload_tasks:
             self.wait()
 
         self.count += 1
