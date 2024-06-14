@@ -24,7 +24,7 @@ import torch
 import torch.distributed as dist
 import torch.nn as nn
 from torch.distributed._shard.sharded_tensor import ShardedTensor
-from torch.distributed._state_dict_utils import (
+from composer.trainer._state_dict_utils import (
     _broadcast_state_dict,
     _distribute_state_dict,
     _flatten_state_dict,
