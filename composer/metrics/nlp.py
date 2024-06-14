@@ -85,11 +85,18 @@ class LanguageCrossEntropy(Metric):
         self.ignore_index = ignore_index
         try:
             from flash_attn.losses.cross_entropy import CrossEntropyLoss as FusedCrossEntropyLoss
-            self.loss_fn = FusedCrossEntropyLoss(ignore_index=ignore_index, reduction='sum')
-            log.debug(
-                'Found `flash_attn` installation. Using CrossEntropyLoss from `flash_attn`' +
-                'to compute LanguageCrossEntropy metric, which will be faster.',
-            )
+            if torch.cuda.is_available():
+                self.loss_fn = FusedCrossEntropyLoss(ignore_index=ignore_index, reduction='sum')
+                log.debug(
+                    'Found `flash_attn` installation. Using CrossEntropyLoss from `flash_attn`' +
+                    'to compute LanguageCrossEntropy metric, which will be faster.',
+                )
+            else:
+                log.debug(
+                    'No cuda devices available. Using torch.nn.CrossEntropyLoss ' +
+                    'to compute LanguageCrossEntropy metric.',
+                )
+                self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=ignore_index, reduction='sum')
         except ImportError:
             log.debug(
                 'Package `flash_attn` not installed. Using torch.nn.CrossEntropyLoss ' +
