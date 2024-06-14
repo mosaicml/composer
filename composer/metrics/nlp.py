@@ -83,26 +83,21 @@ class LanguageCrossEntropy(Metric):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
         self.ignore_index = ignore_index
+        self.flash_loss_fn = None
         try:
             from flash_attn.losses.cross_entropy import CrossEntropyLoss as FusedCrossEntropyLoss
-            if torch.cuda.is_available():
-                self.loss_fn = FusedCrossEntropyLoss(ignore_index=ignore_index, reduction='sum')
-                log.debug(
-                    'Found `flash_attn` installation. Using CrossEntropyLoss from `flash_attn`' +
-                    'to compute LanguageCrossEntropy metric, which will be faster.',
-                )
-            else:
-                log.debug(
-                    'No cuda devices available. Using torch.nn.CrossEntropyLoss ' +
-                    'to compute LanguageCrossEntropy metric.',
-                )
-                self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=ignore_index, reduction='sum')
-        except ImportError:
             log.debug(
-                'Package `flash_attn` not installed. Using torch.nn.CrossEntropyLoss ' +
-                'to compute LanguageCrossEntropy metric, which will be slower.',
+                'Found `flash_attn` installation. Using CrossEntropyLoss from `flash_attn`' +
+                'to compute LanguageCrossEntropy metric for CUDA tensors, which will be faster.',
             )
-            self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=ignore_index, reduction='sum')
+            self.flash_loss_fn = FusedCrossEntropyLoss(ignore_index=ignore_index, reduction='sum')
+        except ImportError:
+            if torch.cuda.is_available():
+                log.debug(
+                    'Package `flash_attn` not installed. Using torch.nn.CrossEntropyLoss ' +
+                    'to compute LanguageCrossEntropy metric for CUDA tensors, which will be slower.',
+                )
+        self.torch_loss_fn = torch.nn.CrossEntropyLoss(ignore_index=ignore_index, reduction='sum')
         self.add_state('sum_loss', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total_items', default=torch.tensor(0), dist_reduce_fx='sum')
 
@@ -123,7 +118,11 @@ class LanguageCrossEntropy(Metric):
 
         target = target.view(-1)
         logits = logits.view(target.shape[0], -1)
-        losses = self.loss_fn(logits, target)
+        # Use Flash attn's CE loss function, if available, if inputs are both CUDA tensors.
+        if self.flash_loss_fn is not None and target.is_cuda and logits.is_cuda:
+            losses = self.flash_loss_fn(logits, target)
+        else:
+            losses = self.torch_loss_fn(logits, target)
 
         total_items = (target != self.ignore_index).sum()
         self.total_items += total_items  #type: ignore (third-party)
