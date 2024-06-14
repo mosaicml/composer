@@ -37,6 +37,8 @@ import io
 import logging
 import os
 import pickle
+import random
+import string
 import sys
 import time
 from contextlib import contextmanager
@@ -626,6 +628,77 @@ def get_sampler(
         num_replicas=get_world_size() if num_replicas is None else num_replicas,
         rank=get_global_rank() if rank is None else rank,
     )
+
+
+def get_node_signal_file_name(rng: Optional[random.Random] = None) -> str:
+    """Returns a file name to use for a file based wait within a node.
+
+    The file name will contain a randomly generated string to avoid conflicts.
+    Note: This file name will be the same on each node, so that it can be used for a file based wait.
+
+    Returns:
+        str: The name of the file that will be created to signal the end of a node's training.
+    """
+    if rng is None:
+        rng = random.Random()
+
+    random_string = ''.join(rng.choices(string.ascii_letters + string.digits, k=6))
+    node_rank = get_node_rank()
+    file_name_list = [f'._signal_file_node{node_rank}_{random_string}']
+    dist.broadcast_object_list(file_name_list, src=0)
+    return file_name_list[0]
+
+
+def write_signal_file(signal_file_name: str, dir_path: Optional[str] = None) -> str:
+    """Writes a signal file to the specified directory.
+
+    This function creates a signal file in the specified directory. If the directory does
+    Note: Only local rank zero writes the signal file. All other ranks are expected to wait for the signal file.
+
+    Args:
+        signal_file_name (str): The name of the signal file.
+        dir_path (str, optional): The full path to the directory in which to create the signal file. If ``None``,
+            the current working directory will be used.
+    """
+    if dir_path is not None:
+        os.makedirs(dir_path, exist_ok=True)
+
+    signal_file_path = os.path.join(dir_path or os.getcwd(), signal_file_name)
+    if get_local_rank() == 0:
+        with open(signal_file_path, 'w') as _f:
+            _f.write('local rank zero done')
+
+    return signal_file_path
+
+
+@contextmanager
+def busy_wait_for_local_rank_zero(dir_path: Optional[str] = None):
+    """Busy waits for the signal file to be created by local rank zero.
+
+    This function will wait for the signal file to be created by local rank zero. It will
+    check every 0.1 seconds for the existence of the file.
+
+    Args:
+        dir_path (str, optional): The directory in which to look for the signal file. If ``None``,
+            the current working directory will be used.
+    """
+    # Get unique file name
+    signal_file_name = get_node_signal_file_name()
+
+    # All ranks yield execution to allow local rank zero to run the code it needs to
+    yield
+
+    # Local rank zero writes the signal file, all other rank just get the expected path
+    signal_file_path = write_signal_file(signal_file_name=signal_file_name, dir_path=dir_path)
+
+    # Wait for the signal file to be created by local rank zero
+    with local_rank_zero_download_and_wait(signal_file_path):
+        # Sync all ranks across nodes as busy wait only is within node
+        dist.barrier()
+
+    # Remove the signal file
+    if get_local_rank() == 0:
+        os.remove(signal_file_path)
 
 
 @contextmanager
