@@ -1898,7 +1898,7 @@ class Trainer:
             get_file(
                 path=save_latest_remote_file_name,
                 destination=latest_checkpoint_path,
-                object_store=self._checkpoint_saver.remote_uploader.object_store,
+                object_store=self._checkpoint_saver.remote_uploader.remote_backend,
                 overwrite=True,
                 progress_bar=load_progress_bar,
             )

@@ -73,6 +73,7 @@ from composer.utils.object_store import (
     S3ObjectStore,
     SFTPObjectStore,
     UCObjectStore,
+    build_remote_backend,
 )
 from composer.utils.parallelism import FSDPConfig, ParallelismConfig, TPConfig, create_fsdp_config
 from composer.utils.remote_uploader import RemoteUploader
@@ -160,4 +161,5 @@ __all__ = [
     'MLFLOW_RUN_ID_FORMAT_KEY',
     'RemoteUploader',
     'validate_credentials',
+    'build_remote_backend',
 ]

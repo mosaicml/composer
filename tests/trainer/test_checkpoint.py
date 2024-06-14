@@ -640,7 +640,7 @@ class TestCheckpointSaving:
             def upload_object(self, object_name, filename, callback=None):
                 # Only allows to upload symlink to simulate
                 # the situation that checkpoint file uploading fails
-                if 'symlink' in object_name:
+                if 'symlink' in object_name or 'credentials_validated_successfully' in object_name:
                     return super().upload_object(object_name, filename, callback)
                 raise RuntimeError('Raise Error intentionally')
 
@@ -649,7 +649,7 @@ class TestCheckpointSaving:
         else:
             MockObjectStore = _AlwaysFailDummyObjectStore
 
-        with patch('composer.utils.file_helpers.S3ObjectStore', MockObjectStore):
+        with patch('composer.utils.object_store.utils.S3ObjectStore', MockObjectStore):
             with patch('tests.utils.test_remote_uploader.DummyObjectStore.get_tmp_dir', _get_tmp_dir):
                 with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
                     train_dataset = RandomClassificationDataset(size=10)
@@ -788,7 +788,7 @@ class TestCheckpointLoading:
         def _get_tmp_dir(self):
             return tmp_dir
 
-        with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
+        with patch('composer.utils.object_store.utils.S3ObjectStore', DummyObjectStore):
             with patch('tests.utils.test_remote_uploader.DummyObjectStore.get_tmp_dir', _get_tmp_dir):
                 with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
 
@@ -1225,7 +1225,7 @@ class TestCheckpointLoading:
         def _get_tmp_dir(self):
             return tmp_dir
 
-        with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
+        with patch('composer.utils.object_store.utils.S3ObjectStore', DummyObjectStore):
             with patch('tests.utils.test_remote_uploader.DummyObjectStore.get_tmp_dir', _get_tmp_dir):
                 with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
                     save_folder = 's3://my_bucket/{run_name}/checkpoints'

@@ -12,11 +12,10 @@ import tempfile
 import time
 import uuid
 from concurrent.futures import Future, ProcessPoolExecutor
-from typing import List, Optional
+from typing import Any, Optional
 
 from composer.utils.dist import broadcast_object_list, get_global_rank, get_local_rank
 from composer.utils.file_helpers import (
-    maybe_create_object_store_from_uri,
     parse_uri,
     validate_credentials,
 )
@@ -25,7 +24,7 @@ from composer.utils.object_store.object_store import (
     ObjectStore,
     ObjectStoreTransientError,
 )
-from composer.utils.object_store.uc_object_store import UCObjectStore
+from composer.utils.object_store.utils import build_remote_backend
 from composer.utils.retrying import retry
 
 log = logging.getLogger(__name__)
@@ -33,28 +32,15 @@ log = logging.getLogger(__name__)
 __all__ = ['RemoteUploader']
 
 
-def _build_dbfs_backend(path: str) -> ObjectStore:
-    if path.startswith(MLFLOW_DBFS_PATH_PREFIX):
-        return MLFlowObjectStore(path=path)
-    UCObjectStore.validate_path(path)
-    return UCObjectStore(path=path)
-
-
 def _upload_file_to_object_store(
-    remote_folder: str,
-    is_dbfs: bool,
-    dbfs_path: str,
+    remote_backend_name: str,
+    backend_kwargs: dict[str, Any],
     remote_file_name: str,
     local_file_path: str,
     overwrite: bool,
     num_attempts: int,
 ) -> int:
-    if is_dbfs:
-        object_store: ObjectStore = _build_dbfs_backend(dbfs_path)
-    else:
-        object_store: ObjectStore = maybe_create_object_store_from_uri(
-            remote_folder,
-        )  # pyright: ignore[reportGeneralTypeIssues]
+    object_store = build_remote_backend(remote_backend_name, backend_kwargs)
 
     @retry(ObjectStoreTransientError, num_attempts=num_attempts)
     def upload_file(retry_index: int = 0):
@@ -91,6 +77,7 @@ class RemoteUploader:
     def __init__(
         self,
         remote_folder: str,
+        backend_kwargs: Optional[dict[str, Any]] = None,
         num_concurrent_uploads: int = 2,
         num_attempts: int = 3,
     ):
@@ -103,14 +90,26 @@ class RemoteUploader:
         # A folder to use for staging uploads
         self._tempdir = tempfile.TemporaryDirectory()
         self._upload_staging_folder = self._tempdir.name
-        backend, _, self.path = parse_uri(remote_folder)
+        self.remote_backend_name, self.remote_bucket_name, self.path = parse_uri(remote_folder)
 
-        # Need some special handling for dbfs path
-        self._is_dbfs = backend == 'dbfs'
-        self.object_store: Optional[ObjectStore] = None
+        self.backend_kwargs: dict[str, Any] = backend_kwargs if backend_kwargs is not None else {}
+        if self.remote_backend_name in ['s3', 'oci', 'gs'] and 'bucket' not in self.backend_kwargs:
+            self.backend_kwargs['bucket'] = self.remote_bucket_name
+        elif self.remote_backend_name == 'libcloud' and 'container' not in self.backend_kwargs:
+            self.backend_kwargs['container'] = self.remote_bucket_name
+        elif self.remote_backend_name == 'azure':
+            self.remote_backend_name = 'libcloud'
+            self.backend_kwargs = {
+                'provider': 'AZURE_BLOBS',
+                'container': self.remote_bucket_name,
+                'key_environ': 'AZURE_ACCOUNT_NAME',
+                'secret_environ': 'AZURE_ACCOUNT_ACCESS_KEY',
+            }
+        elif self.remote_backend_name == 'dbfs':
+            self.backend_kwargs['path'] = self.path
 
         self.num_attempts = num_attempts
-
+        self._remote_backend: Optional[ObjectStore] = None
         self.executor = ProcessPoolExecutor(
             max_workers=num_concurrent_uploads,
             mp_context=multiprocessing.get_context('spawn'),
@@ -119,35 +118,31 @@ class RemoteUploader:
         # Used internally to track the future status.
         # If a future completed successfully, we'll remove it from this list
         # when check_workers() or wait() is called
-        self.futures: List[Future] = []
+        self.futures: list[Future] = []
+
+    @property
+    def remote_backend(self) -> ObjectStore:
+        if self._remote_backend is None:
+            self._remote_backend = build_remote_backend(self.remote_backend_name, self.backend_kwargs)
+        return self._remote_backend
 
     def init(self):
         # If it's dbfs path like: dbfs:/databricks/mlflow-tracking/{mlflow_experiment_id}/{mlflow_run_id}/
         # We need to fill out the experiment_id and run_id
-        if not self._is_dbfs:
-            if self.object_store is None:
-                self.object_store = maybe_create_object_store_from_uri(self.remote_folder)
-        else:
-            if not self.path.startswith(MLFLOW_DBFS_PATH_PREFIX):
-                if self.object_store is None:
-                    self.object_store = _build_dbfs_backend(self.path)
-                return
-            if get_global_rank() == 0:
-                if self.object_store is None:
-                    self.object_store = _build_dbfs_backend(self.path)
-                assert isinstance(self.object_store, MLFlowObjectStore)
-                self.path = self.object_store.get_dbfs_path(self.path)
-            path_list = [self.path]
-            broadcast_object_list(path_list, src=0)
-            self.path = path_list[0]
-            if get_global_rank() != 0:
-                self.object_store = _build_dbfs_backend(self.path)
 
         if get_global_rank() == 0:
             retry(
                 ObjectStoreTransientError,
                 self.num_attempts,
-            )(lambda: validate_credentials(self.object_store, '.credentials_validated_successfully'))()
+            )(lambda: validate_credentials(self.remote_backend, '.credentials_validated_successfully'))()
+        if self.path.startswith(MLFLOW_DBFS_PATH_PREFIX):
+            if get_global_rank() == 0:
+                assert isinstance(self.remote_backend, MLFlowObjectStore)
+                self.path = self.remote_backend.get_dbfs_path(self.path)
+            path_list = [self.path]
+            broadcast_object_list(path_list, src=0)
+            self.path = path_list[0]
+            self.backend_kwargs['path'] = self.path
 
     def upload_file_async(
         self,
@@ -168,9 +163,8 @@ class RemoteUploader:
         # Async upload file
         future = self.executor.submit(
             _upload_file_to_object_store,
-            is_dbfs=self._is_dbfs,
-            dbfs_path=self.path,
-            remote_folder=self.remote_folder,
+            remote_backend_name=self.remote_backend_name,
+            backend_kwargs=self.backend_kwargs,
             remote_file_name=remote_file_name,
             local_file_path=copied_path,
             overwrite=overwrite,
@@ -186,7 +180,7 @@ class RemoteUploader:
         1. if it completed with exception, raise that exception
         2. if it completed without exception, remove it from self.futures
         """
-        done_futures: List[Future] = []
+        done_futures: list[Future] = []
         for future in self.futures:
             if future.done():
                 # future.exception is a blocking call

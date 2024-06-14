@@ -22,10 +22,7 @@ from composer.loggers.mlflow_logger import MLFlowLogger
 from composer.loggers.mosaicml_logger import MosaicMLLogger
 from composer.loggers.neptune_logger import NeptuneLogger
 from composer.loggers.progress_bar_logger import ProgressBarLogger
-from composer.loggers.remote_uploader_downloader import (
-    RemoteUploaderDownloader,
-    validate_credentials,
-)
+from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
 from composer.loggers.slack_logger import SlackLogger
 from composer.loggers.tensorboard_logger import TensorboardLogger
 from composer.loggers.wandb_logger import WandBLogger
