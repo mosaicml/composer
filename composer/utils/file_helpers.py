@@ -744,6 +744,7 @@ def validate_credentials(
     remote_backend: ObjectStore,
     remote_file_name_to_test: str,
 ) -> None:
+    """Upload a tiny text file to test if the credentials are setup correctly."""
     # Validates the credentials by attempting to touch a file in the bucket
     # raises an error if there was a credentials failure.
     with tempfile.NamedTemporaryFile('wb') as f:
