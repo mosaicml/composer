@@ -815,7 +815,7 @@ def test_mlflow_logging_time_buffer(tmp_path):
             experiment_name=experiment_name,
             log_system_metrics=True,
             run_name='test_run',
-            logging_time_buffer_seconds=5,
+            logging_buffer_seconds=5,
         )
         test_mlflow_logger.init(state=mock_state, logger=mock_logger)
         test_mlflow_logger.log_hyperparameters({'name': 'test'})
