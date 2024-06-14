@@ -66,6 +66,9 @@ class MLFlowLogger(LoggerDestination):
         resume (bool, optional): If ``True``, Composer will search for an existing run tagged with
             the `run_name` and resume it. If no existing run is found, a new run will be created.
             If ``False``, Composer will create a new run. (default: ``False``)
+        logging_buffer_seconds (int, optional): The amount of time, in seconds, that MLflow
+            waits before sending logs to the MLflow tracking server. Metrics/params/tags logged
+            within this buffer time will be grouped in batches before being sent to the backend.
     """
 
     def __init__(
@@ -85,6 +88,7 @@ class MLFlowLogger(LoggerDestination):
         ignore_hyperparameters: Optional[list[str]] = None,
         run_group: Optional[str] = None,
         resume: bool = False,
+        logging_buffer_seconds: Optional[int] = 10,
     ) -> None:
         try:
             import mlflow
@@ -115,6 +119,9 @@ class MLFlowLogger(LoggerDestination):
                     f'{{catalog_name}}.{{schema_name}}, but got {self.model_registry_prefix}',
                 )
         self.resume = resume
+
+        if logging_buffer_seconds:
+            os.environ['MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS'] = str(logging_buffer_seconds)
 
         self._rank_zero_only = rank_zero_only
         self._last_flush_time = time.time()
