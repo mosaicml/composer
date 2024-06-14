@@ -88,7 +88,7 @@ class MLFlowLogger(LoggerDestination):
         ignore_hyperparameters: Optional[list[str]] = None,
         run_group: Optional[str] = None,
         resume: bool = False,
-        logging_buffer_seconds: Optional[int] = None,
+        logging_buffer_seconds: Optional[int] = 10,
     ) -> None:
         try:
             import mlflow
