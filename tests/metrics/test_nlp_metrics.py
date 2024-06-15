@@ -93,6 +93,13 @@ def test_cross_entropy(
     torchmetrics_xent = LanguageCrossEntropy(dist_sync_on_step=False, ignore_index=ignore_index)
     ce_with_keys_metric = LanguageCrossEntropy(dist_sync_on_step=False, ignore_index=ignore_index)
 
+    if tensor_device == 'cpu':
+        torchmetrics_xent = torchmetrics_xent.to('cpu')
+        ce_with_keys_metric = ce_with_keys_metric.to('cpu')
+    elif tensor_device == 'gpu':
+        torchmetrics_xent = torchmetrics_xent.to('cuda')
+        ce_with_keys_metric = ce_with_keys_metric.to('cuda')
+
     if device == 'gpu':
         assert torchmetrics_xent.flash_loss_fn is not None
 
@@ -112,7 +119,7 @@ def test_cross_entropy(
         if tensor_device == 'cpu':
             preds_subset = preds_subset.cpu()
             true_subset = true_subset.cpu()
-        if tensor_device == 'gpu':
+        elif tensor_device == 'gpu':
             preds_subset = preds_subset.cuda()
             true_subset = true_subset.cuda()
 
