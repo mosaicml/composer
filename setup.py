@@ -142,7 +142,7 @@ extra_deps['dev'] = [
     'cryptography==42.0.8',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
-    'pillow==9.3.0',  # Matches the Pillow version listed in the Dockerfile
+    'pillow>=10.3.0,<11',
 ]
 
 extra_deps['system_metrics_monitor'] = {
@@ -225,6 +225,7 @@ extra_deps['onnx'] = [
 extra_deps['mlflow'] = [
     'mlflow>=2.11.1,<3.0',
     'databricks-sdk==0.28.0',
+    'pynvml>=11.5.0,<12',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
