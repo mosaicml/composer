@@ -31,27 +31,7 @@ from typing import Callable
 
 import numpy as np
 from PIL import Image, ImageEnhance, ImageOps
-
-try:
-    from PIL.Image import Resampling, Transform  # pyright: ignore
-except ImportError:  # fix version conflict issues
-    # transforms (also defined in Imaging.h)
-    class Transform(IntEnum):
-        AFFINE = 0
-        EXTENT = 1
-        PERSPECTIVE = 2
-        QUAD = 3
-        MESH = 4
-
-    # resampling filters (also defined in Imaging.h)
-    class Resampling(IntEnum):
-        NEAREST = 0
-        BOX = 4
-        BILINEAR = 2
-        HAMMING = 5
-        BICUBIC = 3
-        LANCZOS = 1
-
+from PIL.Image import Resampling, Transform
 
 AugmentationFn = Callable[[Image.Image, float], Image.Image]
 
@@ -177,7 +157,7 @@ def rotate(pil_img: Image.Image, level: float):
     degrees = _int_parameter(_sample_level(level), 30)
     if np.random.uniform() > 0.5:
         degrees = -degrees
-    return pil_img.rotate(degrees, resample=Resampling.BILINEAR)  # pyright: ignore
+    return pil_img.rotate(degrees, resample=Resampling.BILINEAR)
 
 
 def solarize(pil_img: Image.Image, level: float):
@@ -207,10 +187,10 @@ def shear_x(pil_img: Image.Image, level: float):
         level = -level
     return pil_img.transform(
         pil_img.size,
-        Transform.AFFINE,  # pyright: ignore
+        Transform.AFFINE,
         (1, level, 0, 0, 1, 0),
-        resample=Resampling.BILINEAR,  # pyright: ignore
-    )  # pyright: ignore
+        resample=Resampling.BILINEAR,
+    )
 
 
 def shear_y(pil_img: Image.Image, level: float):
@@ -226,10 +206,10 @@ def shear_y(pil_img: Image.Image, level: float):
         level = -level
     return pil_img.transform(
         pil_img.size,
-        Transform.AFFINE,  # pyright: ignore
+        Transform.AFFINE,
         (1, 0, 0, level, 1, 0),
-        resample=Resampling.BILINEAR,  # pyright: ignore
-    )  # pyright: ignore
+        resample=Resampling.BILINEAR,
+    )
 
 
 def translate_x(pil_img: Image.Image, level: float):
@@ -245,10 +225,10 @@ def translate_x(pil_img: Image.Image, level: float):
         level = -level
     return pil_img.transform(
         pil_img.size,
-        Transform.AFFINE,  # pyright: ignore
+        Transform.AFFINE,
         (1, 0, level, 0, 1, 0),
-        resample=Resampling.BILINEAR,  # pyright: ignore
-    )  # pyright: ignore
+        resample=Resampling.BILINEAR,
+    )
 
 
 def translate_y(pil_img: Image.Image, level: float):
@@ -264,10 +244,10 @@ def translate_y(pil_img: Image.Image, level: float):
         level = -level
     return pil_img.transform(
         pil_img.size,
-        Transform.AFFINE,  # pyright: ignore
+        Transform.AFFINE,
         (1, 0, 0, 0, 1, level),
-        resample=Resampling.BILINEAR,  # pyright: ignore
-    )  # pyright: ignore
+        resample=Resampling.BILINEAR,
+    )
 
 
 # The following augmentations overlap with corruptions in the ImageNet-C/CIFAR10-C test
