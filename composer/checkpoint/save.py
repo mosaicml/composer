@@ -129,10 +129,13 @@ def is_state_dict_sharded(state_dict: Dict[str, Any]) -> bool:
     Returns:
         bool: Whether the state dict is sharded.
     """
-    sample_value = next(iter(state_dict.values()))
     for value in state_dict.values():
-        if isinstance(value, ShardedTensor) or isinstance(sample_value, DTensor):
+        if isinstance(value, ShardedTensor) or isinstance(value, DTensor):
             return True
+        if isinstance(value, Dict):
+            is_sharded = is_state_dict_sharded(value)
+            if is_sharded:
+                return True
     return False
 
 
