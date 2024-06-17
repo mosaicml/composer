@@ -13,7 +13,7 @@ from tests.common import RandomClassificationDataset, SimpleModel
 @pytest.mark.gpu
 def test_system_metrics_monitor_gpu():
     # Construct the trainer
-    system_metrics_monitor = SystemMetricsMonitor(gpu_available=True)
+    system_metrics_monitor = SystemMetricsMonitor()
     in_memory_logger = InMemoryLogger()
     trainer = Trainer(
         model=SimpleModel(),
@@ -24,7 +24,7 @@ def test_system_metrics_monitor_gpu():
     )
     trainer.fit()
 
-    assert 'device0_gpu_percentage' in in_memory_logger.data
+    assert 'min_gpu_percentage_rank_0' in in_memory_logger.data
     assert 'cpu_percentage' in in_memory_logger.data
 
 
