@@ -57,7 +57,7 @@ def _save_sharded_state_dict_to_disk(
     state_dict: Dict[str, Any],
     destination_file_path: str,
     overwrite: bool = False,
-    save_format: str = 'pt',  # or safetensor
+    save_format: str = 'pt',
 ) -> Optional[str]:
 
     if save_format != 'pt':
