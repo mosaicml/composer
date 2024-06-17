@@ -26,7 +26,6 @@ Attributes:
             implementations of enhancing color, contrast, brightness, and sharpness.
         * ``augmentation_sets["all"]`` contains all augmentations.
 """
-from enum import IntEnum
 from typing import Callable
 
 import numpy as np
