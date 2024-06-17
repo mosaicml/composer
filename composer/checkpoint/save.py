@@ -42,9 +42,7 @@ def save_state_dict_to_disk(
     """
     if state_dict == {}:
         return None
-    sharded_state_dict = is_state_dict_sharded(state_dict)
-
-    if sharded_state_dict:
+    if is_state_dict_sharded(state_dict):
         path_saved = _save_sharded_state_dict_to_disk(state_dict, destination_file_path, overwrite, save_format)
     else:
         if dist.get_global_rank() == 0:
