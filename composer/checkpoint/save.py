@@ -30,7 +30,7 @@ log = logging.getLogger(__name__)
 MODEL_CHECKPOINT_DIRECTORY_NAME = 'model'
 MONOLITHIC_MODEL_CHECKPOINT_FILENAME = 'model.pt'
 OPTIM_CHECKPOINT_DIRECTORY_NAME = 'optim'
-OPTIM_MODEL_CHECKPOINT_FILENAME = 'optim.pt'
+OPTIM_CHECKPOINT_FILENAME = 'optim.pt'
 METADATA_MODEL_CHECKPOINT_FILENAME = 'metadata.json'
 RESUMPTION_CHECKPOINT_DIRECTORY_NAME = 'resumption'
 RESUMPTION_CHECKPOINT_FILENAME = 'resumption.pkl'
@@ -131,8 +131,8 @@ def save_model_to_disk(model: Union[ComposerModel, torch.nn.Module],
                                             include_keys,
                                             ignore_keys,)
     
-    destination_file_path=(os.path.join([destination_dir, MODEL_CHECKPOINT_DIRECTORY_NAME]) if sharded_checkpoint 
-                           else os.path.join([destination_dir, MODEL_CHECKPOINT_DIRECTORY_NAME, MONOLITHIC_MODEL_CHECKPOINT_FILENAME]))
+    destination_file_path=(os.path.join(destination_dir, MODEL_CHECKPOINT_DIRECTORY_NAME) if sharded_checkpoint 
+                           else os.path.join(destination_dir, MODEL_CHECKPOINT_DIRECTORY_NAME, MONOLITHIC_MODEL_CHECKPOINT_FILENAME))
     saved_path = save_state_dict_to_disk(
         state_dict=model_state_dict,
         destination_file_path=destination_file_path,
@@ -158,12 +158,12 @@ def save_optim_to_disk(
         sharded_state_dict=sharded_checkpoint,
         precision=precision,
         )
-    destination_file_path=os.path.join([destination_dir, MODEL_CHECKPOINT_DIRECTORY_NAME]) if sharded_checkpoint else os.path.join([destination_dir, MODEL_CHECKPOINT_DIRECTORY_NAME, MONOLITHIC_MODEL_CHECKPOINT_FILENAME])
+    destination_file_path=os.path.join(destination_dir, OPTIM_CHECKPOINT_DIRECTORY_NAME) if sharded_checkpoint else os.path.join(destination_dir, OPTIM_CHECKPOINT_DIRECTORY_NAME, OPTIM_CHECKPOINT_FILENAME)
     saved_path = save_state_dict_to_disk(
         state_dict=optim_state_dict,
         destination_file_path=destination_file_path,
         overwrite=overwrite,
-        save_format=save_format, # pt or safetensor
+        save_format=save_format,
     )
     return saved_path
 
@@ -181,7 +181,7 @@ def save_composer_metadata_to_disk(
                             precision,
                             device,
                             device_train_microbatch_size,)
-    destination_file_path=os.path.join([destination_dir, METADATA_MODEL_CHECKPOINT_FILENAME])
+    destination_file_path=os.path.join(destination_dir, METADATA_MODEL_CHECKPOINT_FILENAME)
     json.dump(md_dict, destination_file_path, indent=4)
     return destination_file_path
     
@@ -191,7 +191,7 @@ def save_resumption_state_to_disk(
     destination_dir: str,
 ):
     resumption_state_dict = get_resumption_state_dict(state)
-    destination_file_path=os.path.join([destination_dir, RESUMPTION_CHECKPOINT_FILENAME])
+    destination_file_path=os.path.join(destination_dir, RESUMPTION_CHECKPOINT_FILENAME)
     pickle.dump(resumption_state_dict, destination_file_path)
     return destination_file_path
 
@@ -217,7 +217,6 @@ def save_state_dict_to_disk(
     if state_dict == {}:
         return None
     sharded_state_dict = is_state_dict_sharded(state_dict)
-
     if sharded_state_dict:
         path_saved = _save_sharded_state_dict_to_disk(state_dict, destination_file_path, overwrite, save_format)
     else:
@@ -256,6 +255,8 @@ def _save_sharded_state_dict_to_disk(
         )
         destination_file_path = stripped_path
 
+    # Wait for all ranks to get here before checking if the directory exists.
+    dist.barrier()
     if dist.get_global_rank() == 0 and not overwrite and os.path.exists(destination_file_path):
         raise ValueError(f'Directory {destination_file_path} already exists. Set overwrite=True to overwrite it.')
 
@@ -289,6 +290,7 @@ def _save_full_state_dict_to_disk(
         raise ValueError(f'File {destination_file_path} already exists. Set overwrite=True to overwrite it.')
 
     if dist.get_global_rank() == 0:
+        os.makedirs(os.path.dirname(destination_file_path), exist_ok=True)
         _write_checkpoint_file(state_dict=state_dict, filename=destination_file_path)
         return destination_file_path
     return None
@@ -303,10 +305,13 @@ def is_state_dict_sharded(state_dict: Dict[str, Any]) -> bool:
     Returns:
         bool: Whether the state dict is sharded.
     """
-    sample_value = next(iter(state_dict.values()))
     for value in state_dict.values():
-        if isinstance(value, ShardedTensor) or isinstance(sample_value, DTensor):
+        if isinstance(value, ShardedTensor) or isinstance(value, DTensor):
             return True
+        elif isinstance(value, Dict):
+            is_sharded = is_state_dict_sharded(value)
+            if is_sharded:
+                return True
     return False
 
 

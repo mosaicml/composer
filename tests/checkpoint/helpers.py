@@ -18,7 +18,7 @@ __all__ = [
 
 
 def init_model_and_optimizer(
-    use_composer_model: bool,
+    use_composer_model: bool=False,
     num_classes=3,
     batch_size=5,
     num_features=8,
