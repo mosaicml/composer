@@ -530,7 +530,10 @@ def test_get_metadata_sharded_model(model_type: str, tensor_type: str, world_siz
         assert 'model_name' in metadata_sd
 
     assert 'dist_backend' in metadata_sd
-    assert metadata_sd['dist_backend'] == 'nccl'
+    if torch.distributed.is_gloo_available():
+        assert metadata_sd['dist_backend'] == 'cuda:nccl,cpu:gloo'
+    else:
+        assert metadata_sd['dist_backend'] == 'nccl'
 
 
 @pytest.mark.filterwarnings('ignore:SWA has')

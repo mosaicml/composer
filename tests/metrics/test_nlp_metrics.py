@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import math
-import time
 from typing import Optional
 
 import pytest

@@ -12,6 +12,7 @@ import torch.backends.cuda
 import torch.backends.cudnn
 import torch.cuda
 import torch.cuda.amp
+import torch.distributed as torch_dist
 import torch.utils.data
 
 from composer.devices.device import Device
@@ -42,7 +43,7 @@ class DeviceGPU(Device):
     ):
         if not torch.cuda.is_available():
             raise ValueError('DeviceGPU cannot be created as torch.cuda is not available.')
-        if torch.distributed.is_gloo_available():
+        if torch_dist.is_gloo_available():
             DeviceGPU.dist_backend = 'cuda:nccl,cpu:gloo'
         if device_id is None:
             device_id = dist.get_local_rank()
