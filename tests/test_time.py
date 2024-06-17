@@ -146,6 +146,13 @@ def test_timestamp_update():
     assert timestamp is not timestamp_2
 
 
+def test_set_timestamp():
+    timestamp = Timestamp(epoch_in_iteration=1)
+    assert timestamp.epoch_in_iteration == 1
+    timestamp.epoch_in_iteration = 2
+    assert timestamp.epoch_in_iteration == 2
+
+
 def test_timestamp_to_next_batch_epoch_iteration():
     timestamp = Timestamp()
     # Step batch 0 in epoch 0
