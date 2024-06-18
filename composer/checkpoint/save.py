@@ -44,8 +44,7 @@ RESUMPTION_CHECKPOINT_FILENAME = 'resumption.pkl'
 
 @dataclass
 class CheckpointSaveOptions:
-    """
-    Options for saving a checkpoint to disk.
+    """Options for saving a checkpoint to disk.
 
     Args:
         destination_dir (str): The directory to save the checkpoint to.
@@ -88,8 +87,7 @@ def save_checkpoint_to_disk(
     options: Optional[Union[CheckpointSaveOptions, Dict]] = None,
     destination_dir: Optional[str] = None,
 ):
-    """
-    Saves a checkpoint to disk.
+    """Saves a checkpoint to disk.
 
     Args:
         state (State): The state to save.
@@ -251,8 +249,7 @@ def save_composer_metadata_to_disk(
     device: Optional[Device] = None,
     device_train_microbatch_size: Optional[Union[int, float]] = None,
 ):
-    """
-    Saves metadata about the model to disk.
+    """Saves metadata about the model to disk.
 
     Args:
         destination_dir (str): The directory to save the metadata to.
@@ -282,8 +279,7 @@ def save_resumption_state_to_disk(
     state: State,
     destination_dir: str,
 ):
-    """
-    Saves the resumption state to disk.
+    """Saves the resumption state to disk.
 
     Args:
         state (State): The state to save.
