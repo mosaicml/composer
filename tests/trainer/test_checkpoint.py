@@ -652,38 +652,39 @@ class TestCheckpointSaving:
         with patch('composer.utils.object_store.utils.S3ObjectStore', MockObjectStore):
             with patch('tests.utils.test_remote_uploader.DummyObjectStore.get_tmp_dir', _get_tmp_dir):
                 with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
-                    train_dataset = RandomClassificationDataset(size=10)
-                    train_dataloader = DataLoader(
-                        dataset=train_dataset,
-                        batch_size=2,
-                        sampler=dist.get_sampler(train_dataset),
-                    )
-
-                    trainer = Trainer(
-                        model=SimpleModel(),
-                        train_dataloader=train_dataloader,
-                        save_interval='1ba',
-                        max_duration='1ba',
-                        save_folder='S3://whatever/',
-                    )
-                    symlink_filepath = os.path.join(tmp_dir.name, 'latest-rank0.pt.symlink')
-                    if upload_success:
-                        trainer.fit()
-                        with open(symlink_filepath, 'r') as f:
-                            assert f.read() == 'ep0-ba1-rank0.pt'
-                    else:
-                        with pytest.raises(RuntimeError, match='Raise Error intentionally'):
-                            trainer.fit()
-                        assert os.path.exists(symlink_filepath) == False
-
-                        def post_close(self):
-                            return
-
-                        assert trainer._checkpoint_saver is not None
-                        trainer._checkpoint_saver.post_close = post_close.__get__(
-                            trainer._checkpoint_saver,
-                            CheckpointSaver,
+                    with patch('composer.callbacks.checkpoint_saver.multiprocessing.get_context', lambda _: fork_context):
+                        train_dataset = RandomClassificationDataset(size=10)
+                        train_dataloader = DataLoader(
+                            dataset=train_dataset,
+                            batch_size=2,
+                            sampler=dist.get_sampler(train_dataset),
                         )
+
+                        trainer = Trainer(
+                            model=SimpleModel(),
+                            train_dataloader=train_dataloader,
+                            save_interval='1ba',
+                            max_duration='1ba',
+                            save_folder='S3://whatever/',
+                        )
+                        symlink_filepath = os.path.join(tmp_dir.name, 'latest-rank0.pt.symlink')
+                        if upload_success:
+                            trainer.fit()
+                            with open(symlink_filepath, 'r') as f:
+                                assert f.read() == 'ep0-ba1-rank0.pt'
+                        else:
+                            with pytest.raises(RuntimeError, match='Raise Error intentionally'):
+                                trainer.fit()
+                            assert os.path.exists(symlink_filepath) == False
+
+                            def post_close(self):
+                                return
+
+                            assert trainer._checkpoint_saver is not None
+                            trainer._checkpoint_saver.post_close = post_close.__get__(
+                                trainer._checkpoint_saver,
+                                CheckpointSaver,
+                            )
 
 
 class TestCheckpointLoading:
