@@ -652,7 +652,10 @@ class TestCheckpointSaving:
         with patch('composer.utils.object_store.utils.S3ObjectStore', MockObjectStore):
             with patch('tests.utils.test_remote_uploader.DummyObjectStore.get_tmp_dir', _get_tmp_dir):
                 with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
-                    with patch('composer.callbacks.checkpoint_saver.multiprocessing.get_context', lambda _: fork_context):
+                    with patch(
+                        'composer.callbacks.checkpoint_saver.multiprocessing.get_context',
+                        lambda _: fork_context,
+                    ):
                         train_dataset = RandomClassificationDataset(size=10)
                         train_dataloader = DataLoader(
                             dataset=train_dataset,
@@ -673,11 +676,16 @@ class TestCheckpointSaving:
                             with open(symlink_filepath, 'r') as f:
                                 assert f.read() == 'ep0-ba1-rank0.pt'
                         else:
+                            assert trainer._checkpoint_saver is not None
+                            trainer._checkpoint_saver._symlink_upload_wait_before_next_try_in_seconds = 0.01
+                            trainer._checkpoint_saver.upload_timeout_in_seconds = 1
                             with pytest.raises(RuntimeError, match='Raise Error intentionally'):
                                 trainer.fit()
                             assert os.path.exists(symlink_filepath) == False
 
                             def post_close(self):
+                                #raise RuntimeError("haha")
+                                #self.symlink_upload_executor.shutdown(wait=False, ca)
                                 return
 
                             assert trainer._checkpoint_saver is not None
@@ -749,7 +757,6 @@ class TestCheckpointLoading:
             **kwargs,
         )
 
-    """
     @world_size(1, 2)
     @device('cpu', 'gpu')
     @pytest.mark.parametrize('file_extension', ['.pt', '.tar.gz', '.pt.lz4'])
@@ -757,14 +764,6 @@ class TestCheckpointLoading:
     @pytest.mark.parametrize('delete_local', [True, False])
     @pytest.mark.parametrize('test_slashed', [True, False])
     @pytest.mark.parametrize('save_metrics', [True, False])
-    """
-    @world_size(1)
-    @device('cpu')
-    @pytest.mark.parametrize('file_extension', ['.pt'])
-    @pytest.mark.parametrize('use_object_store', [True])
-    @pytest.mark.parametrize('delete_local', [True])
-    @pytest.mark.parametrize('test_slashed', [True])
-    @pytest.mark.parametrize('save_metrics', [True])
     def test_autoresume(
         self,
         device: str,
@@ -802,7 +801,6 @@ class TestCheckpointLoading:
             with patch('tests.utils.test_remote_uploader.DummyObjectStore.get_tmp_dir', _get_tmp_dir):
                 with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
 
-                    time_1 = time.time()
                     trainer_1 = self.get_trainer(
                         latest_filename=latest_filename,
                         file_extension=file_extension,
@@ -812,13 +810,13 @@ class TestCheckpointLoading:
                         autoresume=True,
                         save_metrics=save_metrics,
                     )
-                    time_2 = time.time()
+                    if use_object_store:
+                        assert trainer_1._checkpoint_saver is not None
+                        trainer_1._checkpoint_saver._symlink_upload_wait_before_next_try_in_seconds = 0.01
 
                     # trains the model, saving the checkpoint files
                     trainer_1.fit()
-                    time_3 = time.time()
                     trainer_1.close()
-                    time_4 = time.time()
 
                     if delete_local:
                         # delete files locally, forcing trainer to look in object store
@@ -833,7 +831,6 @@ class TestCheckpointLoading:
                         load_path='ignore_me.pt',  # this should be ignored
                         load_ignore_keys=['*'],  # this should be ignored
                     )
-                    time_5 = time.time()
 
                     self._assert_weights_equivalent(
                         trainer_1.state.model,
@@ -849,8 +846,6 @@ class TestCheckpointLoading:
                         ), 'Original metrics do not equal metrics from loaded checkpoint.'
 
                     assert trainer_1.state.run_name == trainer_2.state.run_name
-                    print(f"bigning debug traine 1 init {time_2-time_1}, fit {time_3-time_2}, close {time_4 - time_3}, trainer 2 init: {time_5-time_4}")
-                    raise 1 == 0
 
     @pytest.mark.parametrize(('save_folder'), [None, 'first'])
     def test_autoresume_from_callback(
@@ -1250,6 +1245,8 @@ class TestCheckpointLoading:
                         save_folder=save_folder,
                         run_name='electric-zebra',
                     )
+                    assert trainer_1._checkpoint_saver is not None
+                    trainer_1._checkpoint_saver._symlink_upload_wait_before_next_try_in_seconds = 0.01
                     trainer_1.fit()
                     trainer_1.close()
 
