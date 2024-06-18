@@ -12,6 +12,8 @@ import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional, Sequence, Union
+from pathlib import Path
+from typing import Any, Dict, Optional, Union
 
 import torch
 import torch.distributed.checkpoint as DCP
@@ -232,6 +234,11 @@ def save_resumption_state_to_disk(
         pickle.dump(resumption_state_dict, f)
     return destination_file_path
 
+from composer.utils import dist
+from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME, _write_checkpoint_file
+
+log = logging.getLogger(__name__)
+
 
 def save_state_dict_to_disk(
     state_dict: Dict[str, Any],
@@ -253,8 +260,7 @@ def save_state_dict_to_disk(
     """
     if state_dict == {}:
         return None
-    sharded_state_dict = is_state_dict_sharded(state_dict)
-    if sharded_state_dict:
+    if is_state_dict_sharded(state_dict):
         path_saved = _save_sharded_state_dict_to_disk(state_dict, destination_file_path, overwrite, save_format)
     else:
         if dist.get_global_rank() == 0:
@@ -269,7 +275,7 @@ def _save_sharded_state_dict_to_disk(
     state_dict: Dict[str, Any],
     destination_file_path: str,
     overwrite: bool = False,
-    save_format: str = 'pt',  # or safetensor
+    save_format: str = 'pt',
 ) -> Optional[str]:
 
     if save_format != 'pt':

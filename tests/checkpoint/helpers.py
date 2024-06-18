@@ -3,6 +3,7 @@
 
 from typing import Any, Dict, Tuple, Union
 from unittest.mock import MagicMock
+from typing import Any, Dict
 
 import torch
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -16,6 +17,7 @@ from composer.callbacks import SpeedMonitor
 from composer.core import State
 from composer.devices import Device, DeviceCPU, DeviceGPU
 from composer.models import ComposerModel
+
 from tests.common.models import EvenSimplerMLP, SimpleComposerMLP
 
 __all__ = [
@@ -67,7 +69,7 @@ def init_state(
 
 
 def init_model_and_optimizer(
-    use_composer_model: bool = False,
+    use_composer_model: bool,
     num_classes=3,
     batch_size=5,
     num_features=8,
