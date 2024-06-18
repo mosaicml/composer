@@ -44,6 +44,28 @@ RESUMPTION_CHECKPOINT_FILENAME = 'resumption.pkl'
 
 @dataclass
 class CheckpointSaveOptions:
+    """
+    Options for saving a checkpoint to disk.
+
+    Args:
+        destination_dir (str): The directory to save the checkpoint to.
+        save_frequency (Union[str, int, Time]): The frequency to save the checkpoint.
+            If '1ep', the checkpoint will be saved after each epoch.
+            If '1ba', the checkpoint will be saved after each batch.
+            If an int, the checkpoint will be saved after that many epochs.
+        dir_prefix (str): The prefix to use for the directory name. Can include {epoch} and {batch}.
+        overwrite (bool): Whether to overwrite the checkpoint if it already exists.
+        save_model (bool): Whether to save the model.
+        save_optimizer (bool): Whether to save the optimizer.
+        save_resumption_state (bool): Whether to save the resumption state.
+        num_checkpoints_to_keep (int): The number of checkpoints to keep.
+            If -1, all checkpoints will be kept.
+        save_format (str): The format to save the model in. 'pt', which is the standard pytorch serializarion, is the only option for now.
+        sharded_checkpoint (bool): Whether to save the model as a sharded checkpoint.
+        precision (str): The precision to save the model in. One of 'bf16', 'fp32', 'fp16', 'fp64'.
+        include_keys (Optional[Union[str, Sequence[str]]]): Keys to include in the saved model.
+        ignore_keys (Optional[Union[str, Sequence[str]]]): Keys to ignore in the saved model.
+    """
     destination_dir: str
     save_frequency: Union[str, int, Time] = '1ep'
     dir_prefix: str = 'ep{epoch}-ba{batch}'
@@ -66,6 +88,16 @@ def save_checkpoint_to_disk(
     options: Optional[Union[CheckpointSaveOptions, Dict]] = None,
     destination_dir: Optional[str] = None,
 ):
+    """
+    Saves a checkpoint to disk.
+
+    Args:
+        state (State): The state to save.
+        options (Optional[Union[CheckpointSaveOptions, Dict]]): The options for saving the checkpoint.
+            If None, destination_dir must be provided.
+        destination_dir (Optional[str]): The directory to save the checkpoint to.
+            If options is provided, this will overwrite options.destination_dir.
+    """
     if options is None:
         if destination_dir is None:
             raise ValueError('destination_dir must be provided if options is None')
@@ -161,7 +193,7 @@ def save_model_to_disk(
         state_dict=model_state_dict,
         destination_file_path=destination_file_path,
         overwrite=overwrite,
-        save_format=save_format,  # pt or safetensor
+        save_format=save_format,
     )
     return saved_path
 
@@ -173,8 +205,21 @@ def save_optim_to_disk(
     sharded_checkpoint: bool = False,
     precision: str = 'fp32',
     overwrite: bool = False,
-    save_format: str = 'pt',  # or hf, safetensor
+    save_format: str = 'pt',
 ) -> Optional[str]:
+    """Saves an optimizer to disk.
+
+    Args:
+        model (Union[ComposerModel, torch.nn.Module]): The model to save.
+        optimizer (torch.optim.Optimizer): The optimizer to save.
+        destination_dir (str): The directory to save the optimizer to.
+            Optimizer will be saved as destination_dir/optim/optim.pt if sharded_checkpoint is False,
+            otherwise all shards will be saved as destination_dir/optim/__<rank>_0.distcp.
+        sharded_checkpoint (bool): Whether to save the optimizer as a sharded checkpoint.
+        precision (str): The precision to save the optimizer in. One of 'bf16', 'fp32', 'fp16', 'fp64'.
+        overwrite (bool): If True, the file will be overwritten if it exists.
+        save_format (str): The format to save the optimizer in. One of 'pt'.
+    """
 
     optim_state_dict = get_optim_state_dict(
         model,
@@ -206,6 +251,17 @@ def save_composer_metadata_to_disk(
     device: Optional[Device] = None,
     device_train_microbatch_size: Optional[Union[int, float]] = None,
 ):
+    """
+    Saves metadata about the model to disk.
+
+    Args:
+        destination_dir (str): The directory to save the metadata to.
+        model (Optional[Union[ComposerModel, torch.nn.Module]]): The model to save metadata about.
+        sharded_state_dict (Optional[bool]): Whether the model is sharded.
+        precision (Optional[Union[str, torch.dtype]]): The precision of the model.
+        device (Optional[Device]): The device the model is on.
+        device_train_microbatch_size (Optional[Union[int, float]]): The device train microbatch size.
+    """
     md_dict = get_metadata_state_dict(
         model,
         sharded_state_dict,
@@ -226,6 +282,13 @@ def save_resumption_state_to_disk(
     state: State,
     destination_dir: str,
 ):
+    """
+    Saves the resumption state to disk.
+
+    Args:
+        state (State): The state to save.
+        destination_dir (str): The directory to save the resumption state to.
+    """
     resumption_state_dict = get_resumption_state_dict(state)
     destination_file_path = os.path.join(destination_dir, RESUMPTION_CHECKPOINT_FILENAME)
     with open(destination_file_path, 'wb') as f:

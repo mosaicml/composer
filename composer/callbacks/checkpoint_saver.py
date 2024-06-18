@@ -438,7 +438,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         metadata_local_file_path = None
         if dist.get_global_rank() == 0 and state.fsdp_sharded_state_dict_enabled:
             metadata_local_file_path = format_name_with_dist_and_time(
-                os.path.join(Path(saved_path).parent, checkpoint._TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME),
+                os.path.join(Path(saved_path).parent, _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME),
                 state.run_name,
                 state.timestamp,
             )
