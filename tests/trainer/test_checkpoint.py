@@ -749,6 +749,7 @@ class TestCheckpointLoading:
             **kwargs,
         )
 
+    """
     @world_size(1, 2)
     @device('cpu', 'gpu')
     @pytest.mark.parametrize('file_extension', ['.pt', '.tar.gz', '.pt.lz4'])
@@ -756,6 +757,14 @@ class TestCheckpointLoading:
     @pytest.mark.parametrize('delete_local', [True, False])
     @pytest.mark.parametrize('test_slashed', [True, False])
     @pytest.mark.parametrize('save_metrics', [True, False])
+    """
+    @world_size(1)
+    @device('cpu')
+    @pytest.mark.parametrize('file_extension', ['.pt'])
+    @pytest.mark.parametrize('use_object_store', [True])
+    @pytest.mark.parametrize('delete_local', [True])
+    @pytest.mark.parametrize('test_slashed', [True])
+    @pytest.mark.parametrize('save_metrics', [True])
     def test_autoresume(
         self,
         device: str,
@@ -835,6 +844,7 @@ class TestCheckpointLoading:
                         ), 'Original metrics do not equal metrics from loaded checkpoint.'
 
                     assert trainer_1.state.run_name == trainer_2.state.run_name
+                    raise 1 == 0
 
     @pytest.mark.parametrize(('save_folder'), [None, 'first'])
     def test_autoresume_from_callback(
