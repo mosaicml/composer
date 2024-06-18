@@ -23,6 +23,7 @@ __all__ = [
     'init_model_and_optimizer',
     'init_model',
     'init_optimizer',
+    'init_state'
 ]
 
 
