@@ -12,22 +12,35 @@ import torch
 import torch.distributed.checkpoint as DCP
 from packaging import version
 
-from composer.checkpoint.save import save_state_dict_to_disk, save_model_to_disk, save_optim_to_disk
-from composer.checkpoint.state_dict import get_model_state_dict, get_optim_state_dict
+from composer.checkpoint.save import (save_state_dict_to_disk, save_model_to_disk, save_optim_to_disk,
+                                      save_composer_metadata_to_disk, save_resumption_state_to_disk)
+from composer.checkpoint.state_dict import get_model_state_dict, get_optim_state_dict, get_metadata_state_dict
 from composer.utils import dist
 from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
 from tests.checkpoint.helpers import init_model, init_model_and_optimizer
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
 import pickle
+import json
+
+
+
+
+def test_save_composer_metadata_to_disk(tmp_path: str):
+    destination_dir = os.path.join(tmp_path, str(uuid.uuid4())[:8])
+    destination_dir = dist.all_gather_object(destination_dir)[0]
+    save_composer_metadata_to_disk(destination_dir)
+    expected_file_path = os.path.join(destination_dir, 'composer_metadata.json')
+    assert os.path.exists(expected_file_path)
+    json.load(open(expected_file_path, 'r'))
 
 
 @pytest.mark.gpu
 @pytest.mark.parametrize('world_size,sharded_optimizer,sharded_checkpoint', 
                          [
-                             #pytest.param(1, False, False, marks=pytest.mark.world_size(1)),
+                          pytest.param(1, False, False, marks=pytest.mark.world_size(1)),
                           pytest.param(2, True, True, marks=pytest.mark.world_size(2)),
-                          #pytest.param(2, True, False, marks=pytest.mark.world_size(2))
+                          pytest.param(2, True, False, marks=pytest.mark.world_size(2))
                           ])
 def test_save_optim_to_disk(world_size: int, tmp_path: str, sharded_optimizer: bool, sharded_checkpoint: bool):
     destination_dir = os.path.join(tmp_path, str(uuid.uuid4())[:8])
@@ -45,9 +58,6 @@ def test_save_optim_to_disk(world_size: int, tmp_path: str, sharded_optimizer: b
     
     if sharded_checkpoint:
         expected_file_path = os.path.join(destination_dir, 'optim')
-        md = pickle.load(open(os.path.join(expected_file_path, '.metadata'), 'rb'))
-        new_md = {k.fqn: (v.relative_path, v.offset) for k, v in md.storage_data.items()}
-        assert new_md == 'foo'
         if version.parse(torch.__version__) < version.parse('2.2.0'):
             DCP.load_state_dict(state_dict=cur_state_dict,
                                 storage_reader=DCP.FileSystemReader(expected_file_path))

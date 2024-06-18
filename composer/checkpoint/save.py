@@ -31,7 +31,7 @@ MODEL_CHECKPOINT_DIRECTORY_NAME = 'model'
 MONOLITHIC_MODEL_CHECKPOINT_FILENAME = 'model.pt'
 OPTIM_CHECKPOINT_DIRECTORY_NAME = 'optim'
 OPTIM_CHECKPOINT_FILENAME = 'optim.pt'
-METADATA_MODEL_CHECKPOINT_FILENAME = 'metadata.json'
+METADATA_MODEL_CHECKPOINT_FILENAME = 'composer_metadata.json'
 RESUMPTION_CHECKPOINT_DIRECTORY_NAME = 'resumption'
 RESUMPTION_CHECKPOINT_FILENAME = 'resumption.pkl'
 
@@ -169,8 +169,8 @@ def save_optim_to_disk(
 
 
 def save_composer_metadata_to_disk(
-    model: Optional[Union[ComposerModel, torch.nn.Module]],
     destination_dir: str,
+    model: Optional[Union[ComposerModel, torch.nn.Module]]=None,
     sharded_state_dict: Optional[bool] = None,
     precision: Optional[Union[str, torch.dtype]] = None,
     device: Optional[Device] = None,
@@ -181,8 +181,12 @@ def save_composer_metadata_to_disk(
                             precision,
                             device,
                             device_train_microbatch_size,)
+    os.makedirs(destination_dir, exist_ok=True)
     destination_file_path=os.path.join(destination_dir, METADATA_MODEL_CHECKPOINT_FILENAME)
-    json.dump(md_dict, destination_file_path, indent=4)
+
+    if dist.get_global_rank() == 0:
+        with open(destination_file_path, 'w') as f:
+            json.dump(md_dict, f, indent=4)
     return destination_file_path
     
 
