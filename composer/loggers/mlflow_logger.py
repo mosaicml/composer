@@ -150,7 +150,7 @@ class MLFlowLogger(LoggerDestination):
                 )
             assert self.experiment_name is not None  # type hint
 
-            if os.getenv('DATABRICKS_TOKEN') is not None and not self.experiment_name.startswith('/Users/'):
+            if os.getenv('DATABRICKS_TOKEN') is not None and not self.experiment_name.startswith('/Users/') and not self.experiment_name.startswith('/Shared/'):
                 try:
                     from databricks.sdk import WorkspaceClient
                 except ImportError as e:
