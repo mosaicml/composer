@@ -23,7 +23,7 @@ from composer.checkpoint import (
 from composer.core import State
 from composer.devices import DeviceCPU, DeviceGPU
 from composer.utils import dist, reproducibility
-from tests.checkpoint.helpers import init_model_and_optimizer
+from tests.checkpoint.helpers import init_model_and_optimizer, init_state
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
 from tests.common.models import EvenSimplerMLP, SimpleComposerMLP, configure_tiny_gpt2_hf_model
@@ -505,27 +505,28 @@ def test_get_resumption_state_dict():
 
 @pytest.mark.gpu
 def test_get_resumption_state_dict_gpu():
-    if version.parse(torch.__version__) >= version.parse('2.3.0'):
-        from torch.amp.grad_scaler import GradScaler
-    else:
-        from torch.cuda.amp.grad_scaler import GradScaler
+    state = init_state(device='cuda', use_grad_scaler=True)
+    # if version.parse(torch.__version__) >= version.parse('2.3.0'):
+    #     from torch.amp.grad_scaler import GradScaler
+    # else:
+    #     from torch.cuda.amp.grad_scaler import GradScaler
 
-    model, _ = init_model_and_optimizer(use_composer_model=True, take_step=False, device='cuda')
+    # model, _ = init_model_and_optimizer(use_composer_model=True, take_step=False, device='cuda')
 
-    rank_zero_seed = 10
-    run_name = 'test_run'
-    device = DeviceCPU()
-    test_dataset_sd = {'test': 0}
-    dataloader = MagicMock()
-    dataloader.dataset = MagicMock()
-    dataloader.dataset.state_dict = MagicMock(return_value=test_dataset_sd)
-    state = State(
-        model=model,
-        rank_zero_seed=rank_zero_seed,
-        run_name=run_name,
-        device=device,
-        scaler=GradScaler(),
-    )
+    # rank_zero_seed = 10
+    # run_name = 'test_run'
+    # device = DeviceCPU()
+    # test_dataset_sd = {'test': 0}
+    # dataloader = MagicMock()
+    # dataloader.dataset = MagicMock()
+    # dataloader.dataset.state_dict = MagicMock(return_value=test_dataset_sd)
+    # state = State(
+    #     model=model,
+    #     rank_zero_seed=rank_zero_seed,
+    #     run_name=run_name,
+    #     device=device,
+    #     scaler=GradScaler(),
+    # )
     rsd = get_resumption_state_dict(state)
     assert 'scaler' in rsd
     assert set(

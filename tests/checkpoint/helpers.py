@@ -17,6 +17,7 @@ from composer.core import State
 from composer.devices import Device, DeviceCPU, DeviceGPU
 from composer.models import ComposerModel
 from tests.common.models import EvenSimplerMLP, SimpleComposerMLP
+from packaging import version
 
 __all__ = [
     'init_model_and_optimizer',
@@ -31,6 +32,9 @@ def init_state(
     include_schedulers=False,
     include_callbacks=False,
     include_algorithms=False,
+    use_grad_scaler=False,
+    rank_zero_seed = 10,
+    run_name = 'test_run',
 ) -> State:
     model, optimizer = init_model_and_optimizer(
         use_fsdp=use_fsdp,
@@ -39,10 +43,9 @@ def init_state(
         device=device,
     )
 
-    rank_zero_seed = 10
-    run_name = 'test_run'
+    test_dataset_sd = {'test': 0},
     device_obj: Device = DeviceCPU() if device == 'cpu' else DeviceGPU()
-    test_dataset_sd = {'foo': 0}
+    
     dataloader = MagicMock(spec=DataLoader)
     dataloader.dataset = MagicMock()
     dataloader.dataset.state_dict = MagicMock(return_value=test_dataset_sd)
@@ -53,6 +56,12 @@ def init_state(
         kwargs['callbacks'] = [SpeedMonitor(), SpeedMonitor()]
     if include_algorithms:
         kwargs['algorithms'] = [SWA()]
+    if use_grad_scaler:
+        if version.parse(torch.__version__) >= version.parse('2.3.0'):
+            from torch.amp.grad_scaler import GradScaler
+        else:
+            from torch.cuda.amp.grad_scaler import GradScaler
+        kwargs['grad_scaler'] = GradScaler()
 
     state = State(
         model=model,
