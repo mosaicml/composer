@@ -160,10 +160,7 @@ class MLFlowLogger(LoggerDestination):
                         conda_channel='conda-forge',
                     ) from e
                 databricks_username = WorkspaceClient().current_user.me().user_name or ''
-                if self.experiment_name.startswith('/Shared/'):
-                    self.experiment_name = os.path.join('Users', databricks_username, self.experiment_name)
-                else:
-                    self.experiment_name = '/' + os.path.join('Users', databricks_username, self.experiment_name)
+                self.experiment_name = os.path.join('/Users', databricks_username, self.experiment_name.strip('/'))
 
             self._mlflow_client = MlflowClient(self.tracking_uri)
             # Set experiment
