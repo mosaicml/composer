@@ -24,15 +24,15 @@ import pickle
 from composer.core import State
 from dataclasses import dataclass
 from composer.core import Time
+from composer.utils.file_helpers import format_name_with_dist_and_time
 
 log = logging.getLogger(__name__)
 
 MODEL_CHECKPOINT_DIRECTORY_NAME = 'model'
 MONOLITHIC_MODEL_CHECKPOINT_FILENAME = 'model.pt'
 OPTIM_CHECKPOINT_DIRECTORY_NAME = 'optim'
-OPTIM_CHECKPOINT_FILENAME = 'optim.pt'
-METADATA_MODEL_CHECKPOINT_FILENAME = 'composer_metadata.json'
-RESUMPTION_CHECKPOINT_DIRECTORY_NAME = 'resumption'
+OPTIM_MONO_CHECKPOINT_FILENAME = 'optim.pt'
+METADATA_CHECKPOINT_FILENAME = 'composer_metadata.json'
 RESUMPTION_CHECKPOINT_FILENAME = 'resumption.pkl'
 
 @dataclass
@@ -53,6 +53,15 @@ class CheckpointSaveOptions:
     include_keys: Optional[Union[str, Sequence[str]]] = None,
     ignore_keys: Optional[Union[str, Sequence[str]]] = None,
 
+    def __post_init__(self):
+        if self.include_keys is not None and isinstance(self.include_keys, Sequence) and len(self.include_keys) == 1:
+            if self.include_keys[0] is None: #noqa
+                self.include_keys = None
+
+        if self.ignore_keys is not None and isinstance(self.ignore_keys, Sequence) and len(self.ignore_keys) == 1:
+            if self.ignore_keys[0] is None: #noqa
+                self.ignore_keys = None
+
 
 def save_checkpoint_to_disk(state: State, options: Optional[Union[CheckpointSaveOptions, Dict]]=None, destination_dir: Optional[str]=None) -> str:
     if options is None:
@@ -64,9 +73,12 @@ def save_checkpoint_to_disk(state: State, options: Optional[Union[CheckpointSave
             options = CheckpointSaveOptions(**options)
         if destination_dir is not None:
             options.destination_dir = destination_dir
+    save_path = os.path.join(options.destination_dir, options.dir_prefix)
+    save_path = format_name_with_dist_and_time(save_path, state.run_name, state.timestamp)
+    os.makedirs(save_path, exist_ok=True)
     if options.save_model:
         save_model_to_disk(state.model,
-                           options.destination_dir,
+                           save_path,
                            options.sharded_checkpoint,
                            options.precision,
                            options.include_keys,
@@ -77,16 +89,16 @@ def save_checkpoint_to_disk(state: State, options: Optional[Union[CheckpointSave
         optimizer = state.optimizers[0]
         save_optim_to_disk(state.model,
                            optimizer,
-                           options.destination_dir,
+                           save_path,
                            options.sharded_checkpoint,
                            options.precision,
                            options.overwrite,
                            options.save_format)
     if options.save_resumption_state:
-        save_resumption_state_to_disk(state, options.destination_dir)
+        save_resumption_state_to_disk(state, save_path)
 
-    save_composer_metadata_to_disk(state.model,
-                                   options.destination_dir,
+    save_composer_metadata_to_disk(save_path,
+                                   state.model,
                                    options.sharded_checkpoint,
                                    options.precision,
                                    state.device,
@@ -158,7 +170,7 @@ def save_optim_to_disk(
         sharded_state_dict=sharded_checkpoint,
         precision=precision,
         )
-    destination_file_path=os.path.join(destination_dir, OPTIM_CHECKPOINT_DIRECTORY_NAME) if sharded_checkpoint else os.path.join(destination_dir, OPTIM_CHECKPOINT_DIRECTORY_NAME, OPTIM_CHECKPOINT_FILENAME)
+    destination_file_path=os.path.join(destination_dir, OPTIM_CHECKPOINT_DIRECTORY_NAME) if sharded_checkpoint else os.path.join(destination_dir, OPTIM_CHECKPOINT_DIRECTORY_NAME, OPTIM_MONO_CHECKPOINT_FILENAME)
     saved_path = save_state_dict_to_disk(
         state_dict=optim_state_dict,
         destination_file_path=destination_file_path,
@@ -182,7 +194,7 @@ def save_composer_metadata_to_disk(
                             device,
                             device_train_microbatch_size,)
     os.makedirs(destination_dir, exist_ok=True)
-    destination_file_path=os.path.join(destination_dir, METADATA_MODEL_CHECKPOINT_FILENAME)
+    destination_file_path=os.path.join(destination_dir, METADATA_CHECKPOINT_FILENAME)
 
     if dist.get_global_rank() == 0:
         with open(destination_file_path, 'w') as f:
@@ -196,7 +208,8 @@ def save_resumption_state_to_disk(
 ):
     resumption_state_dict = get_resumption_state_dict(state)
     destination_file_path=os.path.join(destination_dir, RESUMPTION_CHECKPOINT_FILENAME)
-    pickle.dump(resumption_state_dict, destination_file_path)
+    with open(destination_file_path, 'wb') as f:
+        pickle.dump(resumption_state_dict, f)
     return destination_file_path
 
     

@@ -7,8 +7,14 @@ import torch
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.api import CPUOffload
 from torch.optim import adam
-
+from composer.core import State
+from torch.utils.data import DataLoader
+from composer.devices import DeviceCPU, DeviceGPU
+from torch.optim.lr_scheduler import StepLR
+from unittest.mock import MagicMock
 from tests.common.models import EvenSimplerMLP, SimpleComposerMLP
+from composer.algorithms import SWA
+from composer.callbacks import SpeedMonitor
 
 __all__ = [
     'init_model_and_optimizer',
@@ -16,6 +22,34 @@ __all__ = [
     'init_optimizer',
 ]
 
+def init_state(use_fsdp:bool = False, device: str = 'cpu', include_schedulers=False, include_callbacks=False, include_algorithms=False):
+    model, optimizer = init_model_and_optimizer(use_fsdp=use_fsdp, use_composer_model=True, take_step=True, device=device)
+
+    rank_zero_seed = 10
+    run_name = 'test_run'
+    device = DeviceCPU() if device == 'cpu' else DeviceGPU()
+    test_dataset_sd = {'foo': 0}
+    dataloader = MagicMock(spec=DataLoader)
+    dataloader.dataset = MagicMock()
+    dataloader.dataset.state_dict = MagicMock(return_value=test_dataset_sd)
+    state_kwargs = dict(model=model,
+        rank_zero_seed=rank_zero_seed,
+        run_name=run_name,
+        device=device,
+        train_dataloader=dataloader,
+        optimizers=[optimizer],)
+    
+    if include_schedulers:
+        state_kwargs['schedulers'] = StepLR(optimizer=optimizer, step_size=2)
+    if include_callbacks:
+        state_kwargs['callbacks'] = [SpeedMonitor(), SpeedMonitor()]
+    if include_algorithms:
+        state_kwargs['algorithms'] = [SWA()]
+    
+    state = State(
+        **state_kwargs
+    )
+    return state
 
 def init_model_and_optimizer(
     use_composer_model: bool=False,

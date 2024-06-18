@@ -13,17 +13,56 @@ import torch.distributed.checkpoint as DCP
 from packaging import version
 
 from composer.checkpoint.save import (save_state_dict_to_disk, save_model_to_disk, save_optim_to_disk,
-                                      save_composer_metadata_to_disk, save_resumption_state_to_disk)
+                                      save_composer_metadata_to_disk, save_resumption_state_to_disk, save_checkpoint_to_disk)
 from composer.checkpoint.state_dict import get_model_state_dict, get_optim_state_dict, get_metadata_state_dict
 from composer.utils import dist
-from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
+from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME, _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME
 from tests.checkpoint.helpers import init_model, init_model_and_optimizer
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
 import pickle
 import json
+from tests.checkpoint.helpers import init_state
+from composer.core import Timestamp
 
 
+
+@pytest.mark.gpu
+@pytest.mark.parametrize('world_size,sharded_model,sharded_checkpoint', 
+                         [pytest.param(1, False, False, marks=pytest.mark.world_size(1)),
+                          pytest.param(2, True, True, marks=pytest.mark.world_size(2)),
+                          pytest.param(2, True, False, marks=pytest.mark.world_size(2))])
+def test_save_checkpoint_to_disk(world_size: int, tmp_path: str, sharded_model: bool, sharded_checkpoint: bool):
+    destination_dir = os.path.join(tmp_path, str(uuid.uuid4())[:8])
+    destination_dir = dist.all_gather_object(destination_dir)[0]
+    save_options = {'destination_dir': destination_dir, 
+                    'save_model': True,
+                    'save_optimizer':True,
+                    'save_resumption_state':True,
+                    'sharded_checkpoint':sharded_checkpoint,
+                     'dir_prefix': 'ep{epoch}-ba{batch}' }
+    state = init_state(use_fsdp=sharded_model, device='cuda')
+    state.run_name = 'foo'
+    state.timestamp = Timestamp()
+    expected_destination_dir = os.path.join(destination_dir, 'ep0-ba0' )
+    save_checkpoint_to_disk(state, save_options)
+    expected_model_dir = os.path.join(expected_destination_dir, 'model')
+    expected_optim_dir = os.path.join(expected_destination_dir, 'optim')
+    expected_metadata_filepath = os.path.join(expected_destination_dir, 'composer_metadata.json')
+    expected_resumption_filepath = os.path.join(expected_destination_dir, 'resumption.pkl')
+    if sharded_checkpoint:
+        checkpoint_filenames = dist.all_gather_object(_TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME)
+        for checkpoint_filename in checkpoint_filenames:
+            assert os.path.exists(os.path.join(expected_model_dir, checkpoint_filename))
+            assert os.path.exists(os.path.join(expected_optim_dir, checkpoint_filename))
+        assert os.path.exists(os.path.join(expected_model_dir, _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME))
+        assert os.path.exists(os.path.join(expected_optim_dir, _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME))
+    else:
+        assert os.path.exists(os.path.join(expected_model_dir, 'model.pt'))
+        assert os.path.exists(os.path.join(expected_optim_dir, 'optim.pt'))
+
+    assert os.path.exists(expected_metadata_filepath)
+    assert os.path.exists(expected_resumption_filepath)
 
 
 def test_save_composer_metadata_to_disk(tmp_path: str):
