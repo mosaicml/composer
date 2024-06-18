@@ -1,10 +1,7 @@
 # Copyright 2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-<<<<<<< HEAD
 import json
-=======
->>>>>>> 2587c05b5bdd51acd0db32692a399689eb3ef10f
 import os
 import time
 import uuid
@@ -31,11 +28,6 @@ from composer.utils.checkpoint import (
     _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME,
 )
 from tests.checkpoint.helpers import init_model, init_model_and_optimizer, init_state
-from composer.checkpoint.save import save_state_dict_to_disk
-from composer.checkpoint.state_dict import get_model_state_dict
-from composer.utils import dist
-from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
-from tests.checkpoint.helpers import init_model
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
 

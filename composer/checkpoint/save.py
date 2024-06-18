@@ -12,8 +12,6 @@ import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional, Sequence, Union
-from pathlib import Path
-from typing import Any, Dict, Optional, Union
 
 import torch
 import torch.distributed.checkpoint as DCP
@@ -233,6 +231,7 @@ def save_resumption_state_to_disk(
     with open(destination_file_path, 'wb') as f:
         pickle.dump(resumption_state_dict, f)
     return destination_file_path
+
 
 from composer.utils import dist
 from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME, _write_checkpoint_file
