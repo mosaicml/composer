@@ -7,7 +7,6 @@ from unittest.mock import MagicMock
 
 import pytest
 import torch
-import torch.distributed as torch_dist
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.optim.lr_scheduler import StepLR
@@ -440,10 +439,7 @@ def test_get_metadata_sharded_model(model_type: str, tensor_type: str, world_siz
         assert 'model_name' in metadata_sd
 
     assert 'dist_backend' in metadata_sd
-    if torch_dist.is_gloo_available():
-        assert metadata_sd['dist_backend'] == 'cuda:nccl,cpu:gloo'
-    else:
-        assert metadata_sd['dist_backend'] == 'nccl'
+    assert metadata_sd['dist_backend'] == 'nccl'
 
 
 @pytest.mark.filterwarnings('ignore:SWA has')
