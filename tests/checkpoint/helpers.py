@@ -1,20 +1,22 @@
 # Copyright 2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict
+from typing import Any, Dict, Tuple, Union
+from unittest.mock import MagicMock
 
 import torch
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.api import CPUOffload
 from torch.optim import adam
-from composer.core import State
-from torch.utils.data import DataLoader
-from composer.devices import DeviceCPU, DeviceGPU
 from torch.optim.lr_scheduler import StepLR
-from unittest.mock import MagicMock
-from tests.common.models import EvenSimplerMLP, SimpleComposerMLP
+from torch.utils.data import DataLoader
+
 from composer.algorithms import SWA
 from composer.callbacks import SpeedMonitor
+from composer.core import State
+from composer.devices import Device, DeviceCPU, DeviceGPU
+from composer.models import ComposerModel
+from tests.common.models import EvenSimplerMLP, SimpleComposerMLP
 
 __all__ = [
     'init_model_and_optimizer',
@@ -22,37 +24,50 @@ __all__ = [
     'init_optimizer',
 ]
 
-def init_state(use_fsdp:bool = False, device: str = 'cpu', include_schedulers=False, include_callbacks=False, include_algorithms=False):
-    model, optimizer = init_model_and_optimizer(use_fsdp=use_fsdp, use_composer_model=True, take_step=True, device=device)
+
+def init_state(
+    use_fsdp: bool = False,
+    device: str = 'cpu',
+    include_schedulers=False,
+    include_callbacks=False,
+    include_algorithms=False,
+) -> State:
+    model, optimizer = init_model_and_optimizer(
+        use_fsdp=use_fsdp,
+        use_composer_model=True,
+        take_step=True,
+        device=device,
+    )
 
     rank_zero_seed = 10
     run_name = 'test_run'
-    device = DeviceCPU() if device == 'cpu' else DeviceGPU()
+    device_obj: Device = DeviceCPU() if device == 'cpu' else DeviceGPU()
     test_dataset_sd = {'foo': 0}
     dataloader = MagicMock(spec=DataLoader)
     dataloader.dataset = MagicMock()
     dataloader.dataset.state_dict = MagicMock(return_value=test_dataset_sd)
-    state_kwargs = dict(model=model,
+    kwargs = {}
+    if include_schedulers:
+        kwargs['schedulers'] = StepLR(optimizer=optimizer, step_size=2)
+    if include_callbacks:
+        kwargs['callbacks'] = [SpeedMonitor(), SpeedMonitor()]
+    if include_algorithms:
+        kwargs['algorithms'] = [SWA()]
+
+    state = State(
+        model=model,
         rank_zero_seed=rank_zero_seed,
         run_name=run_name,
-        device=device,
+        device=device_obj,
         train_dataloader=dataloader,
-        optimizers=[optimizer],)
-    
-    if include_schedulers:
-        state_kwargs['schedulers'] = StepLR(optimizer=optimizer, step_size=2)
-    if include_callbacks:
-        state_kwargs['callbacks'] = [SpeedMonitor(), SpeedMonitor()]
-    if include_algorithms:
-        state_kwargs['algorithms'] = [SWA()]
-    
-    state = State(
-        **state_kwargs
+        optimizers=[optimizer],
+        **kwargs,
     )
     return state
 
+
 def init_model_and_optimizer(
-    use_composer_model: bool=False,
+    use_composer_model: bool = False,
     num_classes=3,
     batch_size=5,
     num_features=8,
@@ -60,7 +75,7 @@ def init_model_and_optimizer(
     use_fsdp=False,
     tensor_type='sharded_tensor',
     device='cuda',
-):
+) -> Tuple[Union[ComposerModel, torch.nn.Module], torch.optim.Optimizer]:
     model, loss_fn = init_model(
         use_composer_model,
         num_classes=num_classes,
@@ -93,7 +108,7 @@ def init_model(
     tensor_type='sharded_tensor',
     sync_module_states=True,
     cpu_offload=False,
-):
+) -> Tuple[Union[ComposerModel, torch.nn.Module], Any]:
     if use_composer_model:
         model = SimpleComposerMLP(num_features=num_features, num_classes=num_classes, device=device)
         loss_fn = model._loss_fn

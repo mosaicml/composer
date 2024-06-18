@@ -3,27 +3,33 @@
 
 """Useful functions for saving state dicts to disk."""
 
+import json
 import logging
 import os
+import pickle
 import textwrap
 import warnings
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, Union, Sequence, List
-from composer.devices import Device
+from typing import Any, Dict, Optional, Sequence, Union
+
 import torch
 import torch.distributed.checkpoint as DCP
 from packaging import version
 from torch.distributed._shard.sharded_tensor import ShardedTensor
 from torch.distributed._tensor import DTensor
+
+from composer.checkpoint.state_dict import (
+    get_metadata_state_dict,
+    get_model_state_dict,
+    get_optim_state_dict,
+    get_resumption_state_dict,
+)
+from composer.core import State, Time
+from composer.devices import Device
 from composer.models import ComposerModel
-from composer.checkpoint.state_dict import get_model_state_dict, get_optim_state_dict, get_metadata_state_dict, get_resumption_state_dict
 from composer.utils import dist
 from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME, _write_checkpoint_file
-import json
-import pickle
-from composer.core import State
-from dataclasses import dataclass
-from composer.core import Time
 from composer.utils.file_helpers import format_name_with_dist_and_time
 
 log = logging.getLogger(__name__)
@@ -35,6 +41,7 @@ OPTIM_MONO_CHECKPOINT_FILENAME = 'optim.pt'
 METADATA_CHECKPOINT_FILENAME = 'composer_metadata.json'
 RESUMPTION_CHECKPOINT_FILENAME = 'resumption.pkl'
 
+
 @dataclass
 class CheckpointSaveOptions:
     destination_dir: str
@@ -43,27 +50,22 @@ class CheckpointSaveOptions:
     overwrite: bool = False
     save_model: bool = True
     save_optimizer: bool = True
-    save_resumption_state: bool = True,
+    save_resumption_state: bool = True
     num_checkpoints_to_keep: int = -1
     save_format: str = 'pt'
     sharded_checkpoint: bool = False
     precision: str = 'bf16'
-  # High level objects to save or not save
-  # e.g. 'model', 'optim', 'schedulers', 'rng' etc.
-    include_keys: Optional[Union[str, Sequence[str]]] = None,
-    ignore_keys: Optional[Union[str, Sequence[str]]] = None,
-
-    def __post_init__(self):
-        if self.include_keys is not None and isinstance(self.include_keys, Sequence) and len(self.include_keys) == 1:
-            if self.include_keys[0] is None: #noqa
-                self.include_keys = None
-
-        if self.ignore_keys is not None and isinstance(self.ignore_keys, Sequence) and len(self.ignore_keys) == 1:
-            if self.ignore_keys[0] is None: #noqa
-                self.ignore_keys = None
+    # High level objects to save or not save
+    # e.g. 'model', 'optim', 'schedulers', 'rng' etc.
+    include_keys: Optional[Union[str, Sequence[str]]] = None
+    ignore_keys: Optional[Union[str, Sequence[str]]] = None
 
 
-def save_checkpoint_to_disk(state: State, options: Optional[Union[CheckpointSaveOptions, Dict]]=None, destination_dir: Optional[str]=None) -> str:
+def save_checkpoint_to_disk(
+    state: State,
+    options: Optional[Union[CheckpointSaveOptions, Dict]] = None,
+    destination_dir: Optional[str] = None,
+):
     if options is None:
         if destination_dir is None:
             raise ValueError('destination_dir must be provided if options is None')
@@ -77,50 +79,56 @@ def save_checkpoint_to_disk(state: State, options: Optional[Union[CheckpointSave
     save_path = format_name_with_dist_and_time(save_path, state.run_name, state.timestamp)
     os.makedirs(save_path, exist_ok=True)
     if options.save_model:
-        save_model_to_disk(state.model,
-                           save_path,
-                           options.sharded_checkpoint,
-                           options.precision,
-                           options.include_keys,
-                           options.ignore_keys,
-                           options.overwrite,
-                           options.save_format)
+        save_model_to_disk(
+            state.model,
+            save_path,
+            options.sharded_checkpoint,
+            options.precision,
+            options.include_keys,
+            options.ignore_keys,
+            options.overwrite,
+            options.save_format,
+        )
     if options.save_optimizer:
         optimizer = state.optimizers[0]
-        save_optim_to_disk(state.model,
-                           optimizer,
-                           save_path,
-                           options.sharded_checkpoint,
-                           options.precision,
-                           options.overwrite,
-                           options.save_format)
+        save_optim_to_disk(
+            state.model,
+            optimizer,
+            save_path,
+            options.sharded_checkpoint,
+            options.precision,
+            options.overwrite,
+            options.save_format,
+        )
     if options.save_resumption_state:
         save_resumption_state_to_disk(state, save_path)
 
-    save_composer_metadata_to_disk(save_path,
-                                   state.model,
-                                   options.sharded_checkpoint,
-                                   options.precision,
-                                   state.device,
-                                   state.device_train_microbatch_size)
+    save_composer_metadata_to_disk(
+        save_path,
+        state.model,
+        options.sharded_checkpoint,
+        options.precision,
+        state.device,
+        state.device_train_microbatch_size,
+    )
 
-    
 
-def save_model_to_disk(model: Union[ComposerModel, torch.nn.Module],
+def save_model_to_disk(
+    model: Union[ComposerModel, torch.nn.Module],
     destination_dir: str,
     sharded_checkpoint: bool = False,
     precision: str = 'fp32',
     include_keys: Optional[Union[str, Sequence[str]]] = None,
     ignore_keys: Optional[Union[str, Sequence[str]]] = None,
     overwrite: bool = False,
-    save_format: str = 'pt', # or hf, safetensor
-    ) -> str:
+    save_format: str = 'pt',  # or hf, safetensor
+) -> Optional[str]:
     """Saves a model to disk.
 
     Args:
         model (Union[ComposerModel, torch.nn.Module]): The model to save.
-        destination_dir (str): The directory to save the model to. 
-            Model will be saved as distination_dir/models/model.pt if sharded_checkpoint is False, 
+        destination_dir (str): The directory to save the model to.
+            Model will be saved as distination_dir/models/model.pt if sharded_checkpoint is False,
             otherwise all shards will be saved as destination_dir/models/__<rank>_0.distcp.
         sharded_checkpoint (bool): Whether to save the model as a sharded checkpoint.
         precision (str): The precision to save the model in. One of 'bf16', 'fp32', 'fp16', 'fp64'.
@@ -137,19 +145,23 @@ def save_model_to_disk(model: Union[ComposerModel, torch.nn.Module],
         raise NotImplementedError(
             f"Saving checkpoint in format {save_format} is not supported. Please choose from ['pt'].",
         )
-    model_state_dict = get_model_state_dict(model,
-                                            sharded_checkpoint,
-                                            precision,
-                                            include_keys,
-                                            ignore_keys,)
-    
-    destination_file_path=(os.path.join(destination_dir, MODEL_CHECKPOINT_DIRECTORY_NAME) if sharded_checkpoint 
-                           else os.path.join(destination_dir, MODEL_CHECKPOINT_DIRECTORY_NAME, MONOLITHIC_MODEL_CHECKPOINT_FILENAME))
+    model_state_dict = get_model_state_dict(
+        model,
+        sharded_checkpoint,
+        precision,
+        include_keys,
+        ignore_keys,
+    )
+
+    destination_file_path = (
+        os.path.join(destination_dir, MODEL_CHECKPOINT_DIRECTORY_NAME) if sharded_checkpoint else
+        os.path.join(destination_dir, MODEL_CHECKPOINT_DIRECTORY_NAME, MONOLITHIC_MODEL_CHECKPOINT_FILENAME)
+    )
     saved_path = save_state_dict_to_disk(
         state_dict=model_state_dict,
         destination_file_path=destination_file_path,
         overwrite=overwrite,
-        save_format=save_format, # pt or safetensor
+        save_format=save_format,  # pt or safetensor
     )
     return saved_path
 
@@ -161,58 +173,66 @@ def save_optim_to_disk(
     sharded_checkpoint: bool = False,
     precision: str = 'fp32',
     overwrite: bool = False,
-    save_format: str = 'pt', # or hf, safetensor
-) -> str:
+    save_format: str = 'pt',  # or hf, safetensor
+) -> Optional[str]:
 
     optim_state_dict = get_optim_state_dict(
         model,
         optimizer,
         sharded_state_dict=sharded_checkpoint,
         precision=precision,
-        )
-    destination_file_path=os.path.join(destination_dir, OPTIM_CHECKPOINT_DIRECTORY_NAME) if sharded_checkpoint else os.path.join(destination_dir, OPTIM_CHECKPOINT_DIRECTORY_NAME, OPTIM_MONO_CHECKPOINT_FILENAME)
+    )
+    destination_file_path = os.path.join(destination_dir,
+                                         OPTIM_CHECKPOINT_DIRECTORY_NAME) if sharded_checkpoint else os.path.join(
+                                             destination_dir,
+                                             OPTIM_CHECKPOINT_DIRECTORY_NAME,
+                                             OPTIM_MONO_CHECKPOINT_FILENAME,
+                                         )
     saved_path = save_state_dict_to_disk(
         state_dict=optim_state_dict,
         destination_file_path=destination_file_path,
         overwrite=overwrite,
         save_format=save_format,
     )
+
     return saved_path
 
 
 def save_composer_metadata_to_disk(
     destination_dir: str,
-    model: Optional[Union[ComposerModel, torch.nn.Module]]=None,
+    model: Optional[Union[ComposerModel, torch.nn.Module]] = None,
     sharded_state_dict: Optional[bool] = None,
     precision: Optional[Union[str, torch.dtype]] = None,
     device: Optional[Device] = None,
-    device_train_microbatch_size: Optional[int] = None,
+    device_train_microbatch_size: Optional[Union[int, float]] = None,
 ):
-    md_dict = get_metadata_state_dict(model,
-                            sharded_state_dict,
-                            precision,
-                            device,
-                            device_train_microbatch_size,)
+    md_dict = get_metadata_state_dict(
+        model,
+        sharded_state_dict,
+        precision,
+        device,
+        device_train_microbatch_size,
+    )
     os.makedirs(destination_dir, exist_ok=True)
-    destination_file_path=os.path.join(destination_dir, METADATA_CHECKPOINT_FILENAME)
+    destination_file_path = os.path.join(destination_dir, METADATA_CHECKPOINT_FILENAME)
 
     if dist.get_global_rank() == 0:
         with open(destination_file_path, 'w') as f:
             json.dump(md_dict, f, indent=4)
     return destination_file_path
-    
+
 
 def save_resumption_state_to_disk(
     state: State,
     destination_dir: str,
 ):
     resumption_state_dict = get_resumption_state_dict(state)
-    destination_file_path=os.path.join(destination_dir, RESUMPTION_CHECKPOINT_FILENAME)
+    destination_file_path = os.path.join(destination_dir, RESUMPTION_CHECKPOINT_FILENAME)
     with open(destination_file_path, 'wb') as f:
         pickle.dump(resumption_state_dict, f)
     return destination_file_path
 
-    
+
 def save_state_dict_to_disk(
     state_dict: Dict[str, Any],
     destination_file_path: str,
@@ -288,6 +308,9 @@ def _save_sharded_state_dict_to_disk(
     else:
         DCP.save(state_dict=state_dict, storage_writer=DCP.FileSystemWriter(destination_file_path))
 
+    log.debug(
+        f'Finished saving of sharded state dict to {destination_file_path}/{_TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME}',
+    )
     return destination_file_path + '/' + _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
 
 
@@ -300,7 +323,7 @@ def _save_full_state_dict_to_disk(
 
     if save_format != 'pt':
         raise NotImplementedError(
-            f"Saving sharded state dict to disk in format {save_format} is not supported. Please choose from ['pt'].",
+            f"Saving full state dict to disk in format {save_format} is not supported. Please choose from ['pt'].",
         )
 
     if not overwrite and os.path.exists(destination_file_path):

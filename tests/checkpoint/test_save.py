@@ -1,6 +1,7 @@
 # Copyright 2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 import os
 import time
 import uuid
@@ -12,39 +13,49 @@ import torch
 import torch.distributed.checkpoint as DCP
 from packaging import version
 
-from composer.checkpoint.save import (save_state_dict_to_disk, save_model_to_disk, save_optim_to_disk,
-                                      save_composer_metadata_to_disk, save_resumption_state_to_disk, save_checkpoint_to_disk)
-from composer.checkpoint.state_dict import get_model_state_dict, get_optim_state_dict, get_metadata_state_dict
+from composer.checkpoint.save import (
+    save_checkpoint_to_disk,
+    save_composer_metadata_to_disk,
+    save_model_to_disk,
+    save_optim_to_disk,
+    save_state_dict_to_disk,
+)
+from composer.checkpoint.state_dict import get_model_state_dict, get_optim_state_dict
+from composer.core import Timestamp
 from composer.utils import dist
-from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME, _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME
-from tests.checkpoint.helpers import init_model, init_model_and_optimizer
+from composer.utils.checkpoint import (
+    _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME,
+    _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME,
+)
+from tests.checkpoint.helpers import init_model, init_model_and_optimizer, init_state
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
-import pickle
-import json
-from tests.checkpoint.helpers import init_state
-from composer.core import Timestamp
-
 
 
 @pytest.mark.gpu
-@pytest.mark.parametrize('world_size,sharded_model,sharded_checkpoint', 
-                         [pytest.param(1, False, False, marks=pytest.mark.world_size(1)),
-                          pytest.param(2, True, True, marks=pytest.mark.world_size(2)),
-                          pytest.param(2, True, False, marks=pytest.mark.world_size(2))])
+@pytest.mark.parametrize(
+    'world_size,sharded_model,sharded_checkpoint',
+    [
+        pytest.param(1, False, False, marks=pytest.mark.world_size(1)),
+        pytest.param(2, True, True, marks=pytest.mark.world_size(2)),
+        pytest.param(2, True, False, marks=pytest.mark.world_size(2)),
+    ],
+)
 def test_save_checkpoint_to_disk(world_size: int, tmp_path: str, sharded_model: bool, sharded_checkpoint: bool):
     destination_dir = os.path.join(tmp_path, str(uuid.uuid4())[:8])
     destination_dir = dist.all_gather_object(destination_dir)[0]
-    save_options = {'destination_dir': destination_dir, 
-                    'save_model': True,
-                    'save_optimizer':True,
-                    'save_resumption_state':True,
-                    'sharded_checkpoint':sharded_checkpoint,
-                     'dir_prefix': 'ep{epoch}-ba{batch}' }
+    save_options = {
+        'destination_dir': destination_dir,
+        'save_model': True,
+        'save_optimizer': True,
+        'save_resumption_state': True,
+        'sharded_checkpoint': sharded_checkpoint,
+        'dir_prefix': 'ep{epoch}-ba{batch}',
+    }
     state = init_state(use_fsdp=sharded_model, device='cuda')
     state.run_name = 'foo'
     state.timestamp = Timestamp()
-    expected_destination_dir = os.path.join(destination_dir, 'ep0-ba0' )
+    expected_destination_dir = os.path.join(destination_dir, 'ep0-ba0')
     save_checkpoint_to_disk(state, save_options)
     expected_model_dir = os.path.join(expected_destination_dir, 'model')
     expected_optim_dir = os.path.join(expected_destination_dir, 'optim')
@@ -75,12 +86,14 @@ def test_save_composer_metadata_to_disk(tmp_path: str):
 
 
 @pytest.mark.gpu
-@pytest.mark.parametrize('world_size,sharded_optimizer,sharded_checkpoint', 
-                         [
-                          pytest.param(1, False, False, marks=pytest.mark.world_size(1)),
-                          pytest.param(2, True, True, marks=pytest.mark.world_size(2)),
-                          pytest.param(2, True, False, marks=pytest.mark.world_size(2))
-                          ])
+@pytest.mark.parametrize(
+    'world_size,sharded_optimizer,sharded_checkpoint',
+    [
+        pytest.param(1, False, False, marks=pytest.mark.world_size(1)),
+        pytest.param(2, True, True, marks=pytest.mark.world_size(2)),
+        pytest.param(2, True, False, marks=pytest.mark.world_size(2)),
+    ],
+)
 def test_save_optim_to_disk(world_size: int, tmp_path: str, sharded_optimizer: bool, sharded_checkpoint: bool):
     destination_dir = os.path.join(tmp_path, str(uuid.uuid4())[:8])
     # Sync the path across all ranks
@@ -90,19 +103,17 @@ def test_save_optim_to_disk(world_size: int, tmp_path: str, sharded_optimizer: b
     optim_state_dict = get_optim_state_dict(model, optimizer=optim, sharded_state_dict=sharded_checkpoint)
     optim_state_dict_saved = deepcopy(optim_state_dict)
     save_optim_to_disk(model, optim, destination_dir=destination_dir, sharded_checkpoint=sharded_checkpoint)
-    
+
     # Load new optim from disk
     model, optim = init_model_and_optimizer(use_fsdp=use_fsdp, device='cuda')
     cur_state_dict = get_optim_state_dict(model, optimizer=optim, sharded_state_dict=sharded_checkpoint)
-    
+
     if sharded_checkpoint:
         expected_file_path = os.path.join(destination_dir, 'optim')
         if version.parse(torch.__version__) < version.parse('2.2.0'):
-            DCP.load_state_dict(state_dict=cur_state_dict,
-                                storage_reader=DCP.FileSystemReader(expected_file_path))
+            DCP.load_state_dict(state_dict=cur_state_dict, storage_reader=DCP.FileSystemReader(expected_file_path))
         else:
-            DCP.load(state_dict=cur_state_dict,
-                     storage_reader=DCP.FileSystemReader(expected_file_path))
+            DCP.load(state_dict=cur_state_dict, storage_reader=DCP.FileSystemReader(expected_file_path))
     else:
         if dist.get_global_rank() == 0:
             expected_file_path = os.path.join(destination_dir, 'optim', 'optim.pt')
@@ -112,10 +123,14 @@ def test_save_optim_to_disk(world_size: int, tmp_path: str, sharded_optimizer: b
 
 
 @pytest.mark.gpu
-@pytest.mark.parametrize('world_size,sharded_model,sharded_checkpoint', 
-                         [pytest.param(1, False, False, marks=pytest.mark.world_size(1)),
-                          pytest.param(2, True, True, marks=pytest.mark.world_size(2)),
-                          pytest.param(2, True, False, marks=pytest.mark.world_size(2))])
+@pytest.mark.parametrize(
+    'world_size,sharded_model,sharded_checkpoint',
+    [
+        pytest.param(1, False, False, marks=pytest.mark.world_size(1)),
+        pytest.param(2, True, True, marks=pytest.mark.world_size(2)),
+        pytest.param(2, True, False, marks=pytest.mark.world_size(2)),
+    ],
+)
 def test_save_model_to_disk(world_size: int, tmp_path: str, sharded_model: bool, sharded_checkpoint: bool):
     destination_dir = os.path.join(tmp_path, str(uuid.uuid4())[:8])
     # Sync the path across all ranks
@@ -125,27 +140,23 @@ def test_save_model_to_disk(world_size: int, tmp_path: str, sharded_model: bool,
     state_dict = get_model_state_dict(model, sharded_state_dict=sharded_checkpoint)
     state_dict_saved = deepcopy(state_dict)
     save_model_to_disk(model, destination_dir=destination_dir, sharded_checkpoint=sharded_checkpoint)
-    
+
     # Load new model from disk
     new_model, _ = init_model(use_fsdp=use_fsdp, device='cuda', sync_module_states=True)
     cur_state_dict = get_model_state_dict(new_model, sharded_state_dict=sharded_checkpoint)
-    
+
     if sharded_checkpoint:
         expected_file_path = os.path.join(destination_dir, 'model')
         if version.parse(torch.__version__) < version.parse('2.2.0'):
-            DCP.load_state_dict(state_dict=cur_state_dict,
-                                storage_reader=DCP.FileSystemReader(expected_file_path))
+            DCP.load_state_dict(state_dict=cur_state_dict, storage_reader=DCP.FileSystemReader(expected_file_path))
         else:
-            DCP.load(state_dict=cur_state_dict,
-                     storage_reader=DCP.FileSystemReader(expected_file_path))
+            DCP.load(state_dict=cur_state_dict, storage_reader=DCP.FileSystemReader(expected_file_path))
     else:
         if dist.get_global_rank() == 0:
             expected_file_path = os.path.join(destination_dir, 'model', 'model.pt')
             cur_state_dict = torch.load(expected_file_path, map_location='cuda')
 
     deep_compare(state_dict_saved, cur_state_dict)
-        
-
 
 
 @world_size(1, 2)

@@ -55,6 +55,7 @@ _DEEPSPEED_TAG = 'deepspeed'  # always tag with the same, deterministic name. We
 _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME = f'__{dist.get_global_rank()}_0.distcp'
 _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME = '.metadata'
 
+
 def _get_checkpoint_validation_function(
 ) -> Optional[Callable[[Union[Path, str], Optional[list[tuple[int, int]]]], bool]]:
     """Get the validation function specified by the environment variable `CHECKPOINT_VALIDATION_FUNCTION`.
