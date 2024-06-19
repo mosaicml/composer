@@ -2681,10 +2681,10 @@ class Trainer:
     def _eval_train_metrics(self, device_batch):
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
         assert self.state.train_metrics is not None, 'The train metrics should be set on __init__ or fit()'
-
+        precision = self.state.precision if self.state.precision is Precision.AMP_FP8 else Precision.AMP_BF16  
         with torch.no_grad(),\
                 model_eval_mode(self.state.model),\
-                _get_precision_context(self.state.precision, self.state.precision_config, self.state.deepspeed_enabled):
+                _get_precision_context(precision, self.state.precision_config, self.state.deepspeed_enabled):
             eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
             for metric in self.state.train_metrics.values():
                 self._original_model.update_metric(
@@ -3479,9 +3479,9 @@ class Trainer:
                                         )[0]
 
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
-
+                            precision = self.state.precision if self.state.precision is Precision.AMP_FP8 else Precision.AMP_BF16  
                             with _get_precision_context(
-                                self.state.precision,
+                                precision,
                                 self.state.precision_config,
                                 self.state.deepspeed_enabled,
                             ):
@@ -3496,7 +3496,7 @@ class Trainer:
 
                             # Run in same precision context to avoid NaNs
                             with _get_precision_context(
-                                self.state.precision,
+                                precision,
                                 self.state.precision_config,
                                 self.state.deepspeed_enabled,
                             ):
