@@ -170,7 +170,6 @@ def save_model_to_disk(
     Returns:
         str: The full path to the saved model.
     """
-
     if save_format != 'pt':
         raise NotImplementedError(
             f"Saving checkpoint in format {save_format} is not supported. Please choose from ['pt'].",
@@ -218,7 +217,6 @@ def save_optim_to_disk(
         overwrite (bool): If True, the file will be overwritten if it exists.
         save_format (str): The format to save the optimizer in. One of 'pt'.
     """
-
     optim_state_dict = get_optim_state_dict(
         model,
         optimizer,
