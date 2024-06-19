@@ -40,19 +40,18 @@ def init_state(
     model, optimizer = init_model_and_optimizer(
         use_fsdp=use_fsdp,
         use_composer_model=True,
-        take_step=True,
+        take_step=False,
         device=device,
     )
 
-    test_dataset_sd = {'test': 0},
+    test_dataset_sd = {'test': 0}
     device_obj: Device = DeviceCPU() if device == 'cpu' else DeviceGPU()
     
     dataloader = MagicMock(spec=DataLoader)
     dataloader.dataset = MagicMock()
     dataloader.dataset.state_dict = MagicMock(return_value=test_dataset_sd)
     kwargs = {}
-    if include_schedulers:
-        kwargs['schedulers'] = StepLR(optimizer=optimizer, step_size=2)
+   
     if include_callbacks:
         kwargs['callbacks'] = [SpeedMonitor(), SpeedMonitor()]
     if include_algorithms:
@@ -62,7 +61,7 @@ def init_state(
             from torch.amp.grad_scaler import GradScaler
         else:
             from torch.cuda.amp.grad_scaler import GradScaler
-        kwargs['grad_scaler'] = GradScaler()
+        kwargs['scaler'] = GradScaler()
 
     state = State(
         model=model,
@@ -73,6 +72,8 @@ def init_state(
         optimizers=[optimizer],
         **kwargs,
     )
+    if include_schedulers:
+        state.schedulers = StepLR(optimizer=optimizer, step_size=2)
     return state
 
 

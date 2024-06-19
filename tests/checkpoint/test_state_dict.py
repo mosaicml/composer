@@ -444,27 +444,14 @@ def test_get_metadata_sharded_model(model_type: str, tensor_type: str, world_siz
 
 @pytest.mark.filterwarnings('ignore:SWA has')
 def test_get_resumption_state_dict():
-
-    model, optimizer = init_model_and_optimizer(use_composer_model=True, take_step=True, device='cpu')
-
-    rank_zero_seed = 10
     run_name = 'test_run'
-    device = DeviceCPU()
-    test_dataset_sd = {'foo': 0}
-    dataloader = MagicMock(spec=DataLoader)
-    dataloader.dataset = MagicMock()
-    dataloader.dataset.state_dict = MagicMock(return_value=test_dataset_sd)
-    swa = SWA()
-    state = State(
-        model=model,
-        rank_zero_seed=rank_zero_seed,
-        run_name=run_name,
-        device=device,
-        train_dataloader=dataloader,
-        algorithms=[swa],
-        callbacks=[SpeedMonitor(), SpeedMonitor()],
-    )
-    state.schedulers = StepLR(optimizer=optimizer, step_size=2)
+    rank_zero_seed = 10
+    state = init_state(device='cpu',
+                       include_algorithms=True, include_callbacks=True,
+                       include_schedulers=True,
+                       rank_zero_seed=rank_zero_seed,
+                       run_name=run_name)
+    test_dataset_sd = {'test': 0}
     rsd = get_resumption_state_dict(state)
 
     assert rsd['rank_zero_seed'] == rank_zero_seed
@@ -506,27 +493,6 @@ def test_get_resumption_state_dict():
 @pytest.mark.gpu
 def test_get_resumption_state_dict_gpu():
     state = init_state(device='cuda', use_grad_scaler=True)
-    # if version.parse(torch.__version__) >= version.parse('2.3.0'):
-    #     from torch.amp.grad_scaler import GradScaler
-    # else:
-    #     from torch.cuda.amp.grad_scaler import GradScaler
-
-    # model, _ = init_model_and_optimizer(use_composer_model=True, take_step=False, device='cuda')
-
-    # rank_zero_seed = 10
-    # run_name = 'test_run'
-    # device = DeviceCPU()
-    # test_dataset_sd = {'test': 0}
-    # dataloader = MagicMock()
-    # dataloader.dataset = MagicMock()
-    # dataloader.dataset.state_dict = MagicMock(return_value=test_dataset_sd)
-    # state = State(
-    #     model=model,
-    #     rank_zero_seed=rank_zero_seed,
-    #     run_name=run_name,
-    #     device=device,
-    #     scaler=GradScaler(),
-    # )
     rsd = get_resumption_state_dict(state)
     assert 'scaler' in rsd
     assert set(
