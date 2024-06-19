@@ -3,25 +3,19 @@
 
 import datetime
 from typing import Any
-from unittest.mock import MagicMock
 
 import pytest
 import torch
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.optim.lr_scheduler import StepLR
-from torch.utils.data import DataLoader
 
-from composer.algorithms import SWA
-from composer.callbacks import SpeedMonitor
 from composer.checkpoint import (
     get_metadata_state_dict,
     get_model_state_dict,
     get_optim_state_dict,
     get_resumption_state_dict,
 )
-from composer.core import State
-from composer.devices import DeviceCPU, DeviceGPU
+from composer.devices import DeviceGPU
 from composer.utils import dist, reproducibility
 from tests.checkpoint.helpers import init_model_and_optimizer, init_state
 from tests.common.compare import deep_compare
@@ -446,11 +440,14 @@ def test_get_metadata_sharded_model(model_type: str, tensor_type: str, world_siz
 def test_get_resumption_state_dict():
     run_name = 'test_run'
     rank_zero_seed = 10
-    state = init_state(device='cpu',
-                       include_algorithms=True, include_callbacks=True,
-                       include_schedulers=True,
-                       rank_zero_seed=rank_zero_seed,
-                       run_name=run_name)
+    state = init_state(
+        device='cpu',
+        include_algorithms=True,
+        include_callbacks=True,
+        include_schedulers=True,
+        rank_zero_seed=rank_zero_seed,
+        run_name=run_name,
+    )
     test_dataset_sd = {'test': 0}
     rsd = get_resumption_state_dict(state)
 
