@@ -719,9 +719,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             try:
                 self.remote_uploader.check_workers()
                 self.check_symlink_upload_workers()
-                log.debug(f"bigning debug workers are good")
             except Exception as e:
-                log.debug(f"bigning debug workers are bad")
                 assert self.is_remote_upload_failed is not None
                 self.is_remote_upload_failed.set()
                 raise e
