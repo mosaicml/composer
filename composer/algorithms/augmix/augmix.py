@@ -96,8 +96,8 @@ def augmix_image(
                 aug = np.random.choice(augmentation_set)
                 augmented_image = aug(augmented_image, severity)
             augmented_combination += chain_weights[chain_i] * np.asarray(augmented_image)
-        mixed = (1 - mixing_weight) * np.asarray(img_pil) + mixing_weight * augmented_combination
-        mixed = Image.fromarray(np.uint8(mixed))
+        mixed = (1 - mixing_weight) * np.asarray(img_pil, dtype=np.float32) + mixing_weight * augmented_combination
+        mixed = Image.fromarray(np.uint8(mixed))  # type: ignore
         return mixed
 
     f_pil = functools.partial(
