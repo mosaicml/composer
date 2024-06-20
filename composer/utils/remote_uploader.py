@@ -40,7 +40,7 @@ def _upload_file_to_object_store(
     overwrite: bool,
     num_attempts: int,
 ) -> int:
-    object_store = build_remote_backend(remote_backend_name, backend_kwargs)  
+    object_store = build_remote_backend(remote_backend_name, backend_kwargs)
 
     @retry(ObjectStoreTransientError, num_attempts=num_attempts)
     def upload_file(retry_index: int = 0):
