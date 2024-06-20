@@ -956,6 +956,7 @@ def test_fsdp_partitioned_state_dict_load(
             data_parallel_shard_degree=world_size // 2,
             data_parallel_replicate_degree=2,
         )
+        synced_fsdp_config = dataclasses.replace(fsdp_config, sync_module_states=True)
     else:
         fsdp_config = FSDPConfig(state_dict_type='sharded', sharded_ckpt_prefix_dir='ba{batch}')
     tp_config = None
@@ -980,7 +981,7 @@ def test_fsdp_partitioned_state_dict_load(
         save_interval='2ba',
         save_weights_only=weights_only,
         # Forcing replicas to initialize with the same weights
-        fsdp_config=dataclasses.replace(fsdp_config, sync_module_states=True),
+        fsdp_config=synced_fsdp_config if use_hsdp else fsdp_config,
         tp_config=tp_config,
     )
     run_name = trainer1.state.run_name
