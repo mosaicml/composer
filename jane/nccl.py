@@ -1,4 +1,3 @@
-import os
 import time
 
 import torch
@@ -7,8 +6,6 @@ import torch.multiprocessing as mp
 
 
 def setup(rank, world_size):
-    os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '12355'
     dist.init_process_group("nccl", rank=rank, world_size=world_size)
 
 
