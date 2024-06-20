@@ -1,21 +1,27 @@
-def load_checkpoint(
-    state: State,
-    load_options: CheckpointLoadOptions
-    ):
-    """
-    Optionally download and load  a checkpoint according to the options into specified state.
+from typing import List, Optional
+from composer.core.state import State
+from composer.model.model import ComposerModel
 
-    Args:
-        state (State): The State object containing the model, optim, timestamp, scheduler, etc.
-        load_options (CheckpointLoadOptions): The options to use for loading the checkpoint.
-    """
-    
+
+import torch
+# def load_checkpoint(
+#     state: State,
+#     load_options: CheckpointLoadOptions
+#     ):
+#     """
+#     Optionally download and load  a checkpoint according to the options into specified state.
+
+#     Args:
+#         state (State): The State object containing the model, optim, timestamp, scheduler, etc.
+#         load_options (CheckpointLoadOptions): The options to use for loading the checkpoint.
+#     """
+
 def load_model_checkpoint(
     model: ComposerModel,
     load_path: str,
     do_not_load_keys: Optional[List[str]]=None,
     only_load_keys: Optional[List[str]]=None, 
-    sharded: bool
+    sharded: bool=False
 ):
     """
     Load a a model checkpoint from the specified path into the model.
