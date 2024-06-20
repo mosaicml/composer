@@ -3640,8 +3640,8 @@ class Trainer:
         else:
             dataloader_iter = itertools.islice(self.state.dataloader, int(self.state.dataloader_len))
 
-        # Track if iteration has finished (use for distributed training when we have variable length dataloaders)
-        # 0 = not finished, 1 = finished (use integer tensors so we can use dist.all_reduce)
+        # Track if iteration has finished (used for distributed training when we have variable length dataloaders)
+        # 0 = not finished, 1 = finished (using integer tensors so we can use dist.all_reduce)
         iter_finished = torch.zeros(1, dtype=torch.uint8)
         iter_finished = self.state.device.tensor_to_device(iter_finished)
         while True:
