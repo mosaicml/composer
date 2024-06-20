@@ -981,7 +981,7 @@ def test_fsdp_partitioned_state_dict_load(
         save_interval='2ba',
         save_weights_only=weights_only,
         # Forcing replicas to initialize with the same weights
-        fsdp_config=synced_fsdp_config if use_hsdp else fsdp_config,
+        fsdp_config=fsdp_config,
         tp_config=tp_config,
     )
     run_name = trainer1.state.run_name
