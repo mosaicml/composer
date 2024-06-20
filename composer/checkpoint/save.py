@@ -76,8 +76,6 @@ class CheckpointSaveOptions:
     save_format: str = 'pt'
     sharded_checkpoint: bool = False
     precision: str = 'bf16'
-    # High level objects to save or not save
-    # e.g. 'model', 'optim', 'schedulers', 'rng' etc.
     include_keys: Optional[Union[str, Sequence[str]]] = None
     ignore_keys: Optional[Union[str, Sequence[str]]] = None
 
