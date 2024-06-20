@@ -397,6 +397,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         # Allow unit test to override this to make it faster
         self._symlink_upload_wait_before_next_try_in_seconds = 30.0
         self.pid = os.getpid()
+        self.symlink_count = 0
 
         if backend != '':
             if backend == 'wandb':
@@ -419,8 +420,6 @@ class CheckpointSaver(Callback):  # noqa: D101
                 mp_context=mp_context,
             )
             self.is_remote_upload_failed = mp_context.Manager().Event()
-
-        self.count = 0
 
     def init(self, state: State, logger: Logger) -> None:
         # If MLFlowLogger is being used, format MLFlow-specific placeholders in the save folder and paths.
@@ -535,7 +534,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         )
         log.debug(f'Checkpoint locally saved to {saved_path}')
 
-        self.count += 1
+        self.symlink_count += 1
         local_remote_filenames = []
         all_remote_filenames = []
 
@@ -644,7 +643,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                 # create and upload a symlink file
                 symlink_filename = os.path.join(
                     self.tmp_dir_for_symlink.name,
-                    f'latest.{self.count}.symlink',
+                    f'latest.{self.symlink_count}.symlink',
                 )
                 # Sharded checkpoints for torch >2.0 use directories not files for load_paths
                 if state.fsdp_sharded_state_dict_enabled:
@@ -740,6 +739,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             try:
                 self.remote_uploader.wait_and_close()
             except:
+                assert self.is_remote_upload_failed is not None
                 self.is_remote_upload_failed.set()
             if len(self.symlink_upload_futures) > 1:
                 self.symlink_upload_futures[-1].result(timeout=60)

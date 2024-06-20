@@ -132,10 +132,12 @@ class RemoteUploader:
         # We need to fill out the experiment_id and run_id
 
         if get_global_rank() == 0:
-            retry(
-                ObjectStoreTransientError,
-                self.num_attempts,
-            )(lambda: validate_credentials(self.remote_backend, '.credentials_validated_successfully'))()
+
+            @retry(ObjectStoreTransientError, num_attempts=self.num_attempts)
+            def _validate_credential_with_retry():
+                validate_credentials(self.remote_backend, '.credentials_validated_successfully')
+
+            _validate_credential_with_retry()
         if self.path.startswith(MLFLOW_DBFS_PATH_PREFIX):
             if get_global_rank() == 0:
                 assert isinstance(self.remote_backend, MLFlowObjectStore)
