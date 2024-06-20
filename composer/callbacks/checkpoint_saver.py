@@ -82,7 +82,7 @@ def _upload_symlink_file(
                     f'Checkpoint file {remote_file_name} uploading not finished after {max_wait_time_in_seconds} seconds',
                 )
 
-    log.info(f'Uploading symlink file {remote_symlink_file_name}')
+    log.debug(f'Uploading symlink file {remote_symlink_file_name}')
 
     @retry(ObjectStoreTransientError, num_attempts=num_attempts)
     def upload_file():
@@ -92,7 +92,7 @@ def _upload_symlink_file(
         )
 
     upload_file()
-    log.info(f'Finished uploading symlink file {remote_symlink_file_name}')
+    log.debug(f'Finished uploading symlink file {remote_symlink_file_name}')
     return 0
 
 

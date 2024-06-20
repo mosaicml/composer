@@ -1009,7 +1009,7 @@ class TestCheckpointLoading:
     @device('cpu', 'gpu')
     @pytest.mark.parametrize('load_weights_only', [True, False])
     @pytest.mark.parametrize('save_metrics', [True, False])
-    def _test_load_weights(self, device, load_weights_only, save_metrics):
+    def test_load_weights(self, device, load_weights_only, save_metrics):
 
         trainer_1 = self.get_trainer(save_folder='first', device=device, save_metrics=save_metrics)
         trainer_1.fit()
