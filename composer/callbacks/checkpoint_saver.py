@@ -56,6 +56,7 @@ def _upload_symlink_file(
     num_attempts: int,
     remote_checkpoint_file_names: list[str],
     main_process_pid: int,
+    is_remote_upload_failed: multiprocessing.Event, # pyright: ignore[reportGeneralTypeIssues]
     max_wait_time_in_seconds: int = 3600,
     wait_before_next_try_in_seconds: float = 30,
 ):
@@ -65,6 +66,9 @@ def _upload_symlink_file(
 
     for remote_file_name in remote_checkpoint_file_names:
         while True:
+            if is_remote_upload_failed.is_set():
+                log.debug(f'Stop symlink uploading since the checkpoint files uploading failed')
+                return
             # Return if parent process exits
             try:
                 os.kill(main_process_pid, 0)
@@ -387,6 +391,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.tmp_dir_for_symlink = tempfile.TemporaryDirectory()
         self.num_concurrent_uploads = num_concurrent_uploads
         self.symlink_upload_executor = None
+        self.is_remote_upload_failed = None
         self.symlink_upload_futures = []
         self.upload_timeout_in_seconds = upload_timeout_in_seconds
         # Allow unit test to override this to make it faster
@@ -408,10 +413,12 @@ class CheckpointSaver(Callback):  # noqa: D101
                 remote_folder=save_folder,
                 num_concurrent_uploads=self.num_concurrent_uploads,
             )
+            mp_context = multiprocessing.get_context('spawn')
             self.symlink_upload_executor = ProcessPoolExecutor(
                 max_workers=1,
-                mp_context=multiprocessing.get_context('spawn'),
+                mp_context=mp_context,
             )
+            self.is_remote_upload_failed = mp_context.Manager().Event()
 
         self.count = 0
 
@@ -654,6 +661,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                         for file_names in all_remote_filenames:
                             remote_checkpoint_file_names += file_names
                         assert self.symlink_upload_executor is not None
+                        assert self.is_remote_upload_failed is not None
                         self.symlink_upload_futures.append(
                             self.symlink_upload_executor.submit(
                                 _upload_symlink_file,
@@ -664,6 +672,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                                 num_attempts=3,
                                 main_process_pid=self.pid,
                                 remote_checkpoint_file_names=remote_checkpoint_file_names,
+                                is_remote_upload_failed=self.is_remote_upload_failed,
                                 max_wait_time_in_seconds=self.upload_timeout_in_seconds,
                                 wait_before_next_try_in_seconds=self._symlink_upload_wait_before_next_try_in_seconds,
                             ),
@@ -708,8 +717,13 @@ class CheckpointSaver(Callback):  # noqa: D101
     def batch_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         if self.remote_uploader is not None:
-            self.remote_uploader.check_workers()
-            self.check_symlink_upload_workers()
+            try:
+                self.remote_uploader.check_workers()
+                self.check_symlink_upload_workers()
+            except Exception as e:
+                assert self.is_remote_upload_failed is not None
+                self.is_remote_upload_failed.set()
+                raise e
 
     def fit_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
