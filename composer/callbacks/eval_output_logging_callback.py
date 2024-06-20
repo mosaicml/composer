@@ -114,6 +114,10 @@ class EvalOutputLogging(Callback):
         self.rows.extend(rows)
 
     def eval_end(self, state: State, logger: Logger) -> None:
+        # eval_batch_end will have set these
+        assert self.columns is not None
+        assert self.name is not None
+
         list_of_rows = dist.all_gather_object(self.rows)
         rows = [row for rows in list_of_rows for row in rows]
         for dest_logger in logger.destinations:
