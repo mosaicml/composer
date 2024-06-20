@@ -956,9 +956,9 @@ def test_fsdp_partitioned_state_dict_load(
             data_parallel_shard_degree=world_size // 2,
             data_parallel_replicate_degree=2,
         )
-        synced_fsdp_config = dataclasses.replace(fsdp_config, sync_module_states=True)
     else:
         fsdp_config = FSDPConfig(state_dict_type='sharded', sharded_ckpt_prefix_dir='ba{batch}')
+    synced_fsdp_config = dataclasses.replace(fsdp_config, sync_module_states=True)
     tp_config = None
     if use_tp:
         from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
