@@ -286,6 +286,7 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
     deep_compare(timestamp1, timestamp2)
 
 
+@pytest.mark.xfail(reason='Known issue with pytorch, waiting for composer bump')
 @pytest.mark.gpu
 @pytest.mark.filterwarnings(r'ignore:.*scatter_full_optim_state_dict``is being deprecated.*:UserWarning')
 @pytest.mark.parametrize(
@@ -300,13 +301,84 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
         pytest.param(2, 'adam', False, 'amp_bf16', False, True, False, False, False, marks=pytest.mark.world_size(2)),
         pytest.param(2, 'adam', False, 'amp_bf16', False, False, True, False, False, marks=pytest.mark.world_size(2)),
         pytest.param(4, 'adam', False, 'amp_bf16', False, False, False, True, False, marks=pytest.mark.world_size(4)),
-        pytest.param(2, 'adam', False, 'amp_bf16', False, False, False, False, True, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adamw', False, 'amp_bf16', False, False, False, False, True, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', True, 'amp_bf16', False, False, False, False, True, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', False, 'amp_fp16', False, False, False, False, True, marks=pytest.mark.world_size(2)),
-        pytest.param(2, 'adam', False, 'amp_bf16', True, True, False, False, True,
-                     marks=pytest.mark.world_size(2)),  # save_weights_only requires load_weights_only
-        pytest.param(2, 'adam', False, 'amp_bf16', False, True, False, False, True, marks=pytest.mark.world_size(2)),
+        pytest.param(
+            2,
+            'adam',
+            False,
+            'amp_bf16',
+            False,
+            False,
+            False,
+            False,
+            True,
+            marks=[pytest.mark.world_size(2),
+                   pytest.mark.xfail(reason='Known issue, waiting for composer bump')]
+        ),
+        pytest.param(
+            2,
+            'adamw',
+            False,
+            'amp_bf16',
+            False,
+            False,
+            False,
+            False,
+            True,
+            marks=[pytest.mark.world_size(2),
+                   pytest.mark.xfail(reason='Known issue, waiting for composer bump')]
+        ),
+        pytest.param(
+            2,
+            'adam',
+            True,
+            'amp_bf16',
+            False,
+            False,
+            False,
+            False,
+            True,
+            marks=[pytest.mark.world_size(2),
+                   pytest.mark.xfail(reason='Known issue, waiting for composer bump')]
+        ),
+        pytest.param(
+            2,
+            'adam',
+            False,
+            'amp_fp16',
+            False,
+            False,
+            False,
+            False,
+            True,
+            marks=[pytest.mark.world_size(2),
+                   pytest.mark.xfail(reason='Known issue, waiting for composer bump')]
+        ),
+        pytest.param(
+            2,
+            'adam',
+            False,
+            'amp_bf16',
+            True,
+            True,
+            False,
+            False,
+            True,
+            marks=[pytest.mark.world_size(2),
+                   pytest.mark.xfail(reason='Known issue, waiting for composer bump')]
+        ),  # save_weights_only requires load_weights_only
+        pytest.param(
+            2,
+            'adam',
+            False,
+            'amp_bf16',
+            False,
+            True,
+            False,
+            False,
+            True,
+            marks=[pytest.mark.world_size(2),
+                   pytest.mark.xfail(reason='Known issue, waiting for composer bump')]
+        ),
     ],
 )
 def test_fsdp_full_state_dict_load(
