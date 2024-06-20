@@ -142,7 +142,7 @@ extra_deps['dev'] = [
     'cryptography==42.0.8',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
-    'pillow==9.3.0',  # Matches the Pillow version listed in the Dockerfile
+    'pillow>=10.3.0,<11',
 ]
 
 extra_deps['system_metrics_monitor'] = {
