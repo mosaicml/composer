@@ -737,6 +737,9 @@ class CheckpointSaver(Callback):  # noqa: D101
     def post_close(self):
         if self.remote_uploader is not None:
             # Wait the symlink file upload to finish and close remote uploader
-            self.remote_uploader.wait_and_close()
+            try:
+                self.remote_uploader.wait_and_close()
+            except:
+                self.is_remote_upload_failed.set()
             if len(self.symlink_upload_futures) > 1:
                 self.symlink_upload_futures[-1].result(timeout=60)
