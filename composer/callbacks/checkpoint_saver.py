@@ -30,14 +30,13 @@ from composer.utils import (
     is_model_deepspeed,
     partial_format,
 )
+from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME
 from composer.utils.compression import get_compressor, is_compressed_pt
 from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
 
 log = logging.getLogger(__name__)
 
 __all__ = ['CheckpointSaver']
-
-_TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME = '.metadata'
 
 
 class CheckpointSaver(Callback):  # noqa: D101
