@@ -3645,11 +3645,7 @@ class Trainer:
         iter_finished = torch.zeros(1, dtype=torch.uint8)
         iter_finished = self.state.device.tensor_to_device(iter_finished)
 
-        # Initialize batch to avoid "referenced before assignment" warnings
-        # Unique sentinel value to differentiate uninitialized state and dataloader yielding None
-        sentinel = object()
-        batch = sentinel
-
+        batch = None
         while True:
             try:
                 # [BEFORE/AFTER]_DATALOADER only runs while training
@@ -3674,10 +3670,6 @@ class Trainer:
             if iter_finished.item() == 1:
                 break
 
-            if batch is sentinel:
-                raise RuntimeError(
-                    "Batch should have been assigned or loop should have been broken. This shouldn't happen!",
-                )
             yield batch
 
     def _use_closures(self) -> bool:
