@@ -52,7 +52,7 @@ def test_save_checkpoint_to_disk(world_size: int, tmp_path: str, sharded_model: 
         'sharded_checkpoint': sharded_checkpoint,
         'dir_prefix': 'ep{epoch}-ba{batch}',
     }
-    state = init_state(use_fsdp=sharded_model, device='cuda')
+    state = init_state(use_fsdp=sharded_model, device='cuda', take_step=True)
     state.run_name = 'foo'
     state.timestamp = Timestamp()
     expected_destination_dir = os.path.join(destination_dir, 'ep0-ba0')
