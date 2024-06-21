@@ -684,8 +684,6 @@ class TestCheckpointSaving:
                             assert os.path.exists(symlink_filepath) == False
 
                             def post_close(self):
-                                #raise RuntimeError("haha")
-                                #self.symlink_upload_executor.shutdown(wait=False, ca)
                                 return
 
                             assert trainer._checkpoint_saver is not None

@@ -538,7 +538,6 @@ class CheckpointSaver(Callback):  # noqa: D101
         all_remote_filenames = []
 
         if not saved_path:  # not all ranks save
-            # todo: all gather
             if self.remote_file_name is not None and self.remote_uploader is not None:
                 all_remote_filenames = dist.all_gather_object(local_remote_filenames)
             return
@@ -727,7 +726,12 @@ class CheckpointSaver(Callback):  # noqa: D101
         del state, logger  # unused
         if self.remote_uploader is not None:
             log.info('Waiting checkpoint uploading finish')
-            self.remote_uploader.wait()
+            try:
+                self.remote_uploader.wait()
+            except Exception as e:
+                assert self.is_remote_upload_failed is not None
+                self.is_remote_upload_failed.set()
+                raise e
             for f in self.symlink_upload_futures:
                 f.result()
             log.info('Checkpoint uploading finished!')
