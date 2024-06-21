@@ -727,9 +727,11 @@ class CheckpointSaver(Callback):  # noqa: D101
     def fit_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         if self.remote_uploader is not None:
+            log.info('Waiting checkpoint uploading finish')
             self.remote_uploader.wait()
-        for f in self.symlink_upload_futures:
-            f.result()
+            for f in self.symlink_upload_futures:
+                f.result()
+            log.info('Checkpoint uploading finished!')
 
     def post_close(self):
         if self.remote_uploader is not None:
