@@ -525,13 +525,8 @@ class Timestamp(Serializable):
             raise ValueError(f'The `token` argument has units of {token.unit}; not {TimeUnit.TOKEN}.')
         self._token = token
 
-        epoch_in_iteration = Time.from_input(epoch_in_iteration, TimeUnit.EPOCH)
-        if epoch_in_iteration.unit != TimeUnit.EPOCH:
-            raise ValueError((
-                f'The `epoch_in_iteration` argument has units of {epoch_in_iteration.unit}; '
-                f'not {TimeUnit.EPOCH}.'
-            ))
-        self._epoch_in_iteration = epoch_in_iteration
+        self._epoch_in_iteration = Time(0, TimeUnit.EPOCH)
+        self.epoch_in_iteration = epoch_in_iteration
 
         token_in_iteration = Time.from_input(token_in_iteration, TimeUnit.TOKEN)
         if token_in_iteration.unit != TimeUnit.TOKEN:
@@ -619,7 +614,7 @@ class Timestamp(Serializable):
         if 'iteration' in state:
             self._iteration = Time(state['iteration'], TimeUnit.ITERATION)
         if 'epoch_in_iteration' in state:
-            self._epoch_in_iteration = Time(state['epoch_in_iteration'], TimeUnit.EPOCH)
+            self.epoch_in_iteration = Time(state['epoch_in_iteration'], TimeUnit.EPOCH)
         if 'token_in_iteration' in state:
             self._token_in_iteration = Time(state['token_in_iteration'], TimeUnit.TOKEN)
         if 'iteration_wct' in state:
@@ -654,6 +649,20 @@ class Timestamp(Serializable):
     def epoch_in_iteration(self) -> Time[int]:
         """The epoch count in the current iteration (resets at 0 at the beginning of every iteration)."""
         return self._epoch_in_iteration
+
+    @epoch_in_iteration.setter
+    def epoch_in_iteration(
+        self,
+        epoch_in_iteration: Union[int, Time[int]],  # pyright: ignore[reportPropertyTypeMismatch]
+    ):
+        """Sets epoch count in the current iteration."""
+        epoch_in_iteration = Time.from_input(epoch_in_iteration, TimeUnit.EPOCH)
+        if epoch_in_iteration.unit != TimeUnit.EPOCH:
+            raise ValueError((
+                f'The `epoch_in_iteration` argument has units of {epoch_in_iteration.unit}; '
+                f'not {TimeUnit.EPOCH}.'
+            ))
+        self._epoch_in_iteration = epoch_in_iteration
 
     @property
     def token_in_iteration(self) -> Time[int]:

@@ -83,7 +83,7 @@ install_requires = [
     'torchvision>=0.13.1,<0.18.2',
     'torch>=2.1.2,<2.3.2',
     'requests>=2.26.0,<3',
-    'numpy>=1.21.5,<1.27.0',
+    'numpy>=1.21.5,<2.1.0',
     'psutil>=5.8.0,<6',
     'coolname>=1.1.0,<3',
     'tabulate==0.9.0',  # for auto-generating tables
@@ -91,6 +91,7 @@ install_requires = [
     'packaging>=21.3.0,<24.2',
     'importlib-metadata>=5.0.0,<7',
     'mosaicml-cli>=0.5.25,<0.7',
+    'pillow>=10.3.0,<11',
 ]
 extra_deps = {}
 
@@ -142,7 +143,6 @@ extra_deps['dev'] = [
     'cryptography==42.0.8',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
-    'pillow==9.3.0',  # Matches the Pillow version listed in the Dockerfile
 ]
 
 extra_deps['system_metrics_monitor'] = {
@@ -280,17 +280,3 @@ setup(
     ext_package='composer',
     cmdclass={'develop': develop},
 )
-
-# only visible if user installs with verbose -v flag
-# Printing to stdout as not to interfere with setup.py CLI flags (e.g. --version)
-print('*' * 20, file=sys.stderr)
-print(
-    textwrap.dedent(
-        """\
-    NOTE: For best performance, we recommend installing Pillow-SIMD
-    for accelerated image processing operations. To install:
-    \t pip uninstall pillow && pip install pillow-simd""",
-    ),
-    file=sys.stderr,
-)
-print('*' * 20, file=sys.stderr)
