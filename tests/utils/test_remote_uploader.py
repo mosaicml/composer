@@ -25,11 +25,11 @@ class DummyObjectStore(ObjectStore):
         self.sleep_sec = 0
         self.dest_filename = ''
 
-    def get_tmp_dir(self):
-        return tempfile.TemporaryDirectory()
-
     def raise_error(self):
         return False
+
+    def get_tmp_dir(self):
+        return tempfile.TemporaryDirectory()
 
     def upload_object(
         self,

@@ -407,7 +407,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             elif backend not in ['s3', 'oci', 'gs', 'azure', 'dbfs']:
                 raise NotImplementedError(
                     f'There is no implementation for the cloud backend {backend} via URI. Please use '
-                    'one of the supported object stores.',
+                    'one of the supported object stores (s3, oci, gs, azure, dbfs).',
                 )
             self.remote_uploader = RemoteUploader(
                 remote_folder=save_folder,
@@ -511,6 +511,27 @@ class CheckpointSaver(Callback):  # noqa: D101
                 load_timestamp.load_state_dict(timestamp_state)
                 self.all_saved_checkpoints_to_timestamp[save_filename] = load_timestamp
 
+    def _upload_checkpoint(
+        self,
+        remote_file_name: str,
+        local_file_name: str,
+        local_remote_file_names: list[str],
+        logger: Logger,
+    ):
+        if self.remote_uploader is not None:
+            self.remote_uploader.upload_file_async(
+                remote_file_name=remote_file_name,
+                file_path=pathlib.Path(local_file_name),
+                overwrite=self.overwrite,
+            )
+            local_remote_file_names.append(remote_file_name)
+        else:
+            logger.upload_file(
+                remote_file_name=remote_file_name,
+                file_path=local_file_name,
+                overwrite=self.overwrite,
+            )
+
     def _save_checkpoint(self, state: State, logger: Logger):
         self.last_checkpoint_batch = state.timestamp.batch
 
@@ -534,12 +555,12 @@ class CheckpointSaver(Callback):  # noqa: D101
         log.debug(f'Checkpoint locally saved to {saved_path}')
 
         self.symlink_count += 1
-        local_remote_filenames = []
+        local_remote_file_names = []
         all_remote_filenames = []
 
         if not saved_path:  # not all ranks save
             if self.remote_file_name is not None and self.remote_uploader is not None:
-                all_remote_filenames = dist.all_gather_object(local_remote_filenames)
+                all_remote_filenames = dist.all_gather_object(local_remote_file_names)
             return
 
         metadata_local_file_path = None
@@ -589,19 +610,12 @@ class CheckpointSaver(Callback):  # noqa: D101
                         state.timestamp,
                     )
                     assert metadata_local_file_path is not None
-                    if self.remote_uploader is not None:
-                        self.remote_uploader.upload_file_async(
-                            remote_file_name=metadata_remote_file_name,
-                            file_path=pathlib.Path(metadata_local_file_path),
-                            overwrite=self.overwrite,
-                        )
-                        local_remote_filenames.append(metadata_remote_file_name)
-                    else:
-                        logger.upload_file(
-                            remote_file_name=metadata_remote_file_name,
-                            file_path=metadata_local_file_path,
-                            overwrite=self.overwrite,
-                        )
+                    self._upload_checkpoint(
+                        remote_file_name=metadata_remote_file_name,
+                        local_file_name=metadata_local_file_path,
+                        local_remote_file_names=local_remote_file_names,
+                        logger=logger,
+                    )
             else:
                 remote_file_name = self.remote_file_name.format(
                     state,
@@ -610,26 +624,19 @@ class CheckpointSaver(Callback):  # noqa: D101
 
             log.debug(f'Uploading checkpoint to {remote_file_name}')
             try:
-                if self.remote_uploader is not None:
-                    self.remote_uploader.upload_file_async(
-                        remote_file_name=remote_file_name,
-                        file_path=pathlib.Path(saved_path),
-                        overwrite=self.overwrite,
-                    )
-                    local_remote_filenames.append(remote_file_name)
-                else:
-                    logger.upload_file(
-                        remote_file_name=remote_file_name,
-                        file_path=saved_path,
-                        overwrite=self.overwrite,
-                    )
+                self._upload_checkpoint(
+                    remote_file_name=remote_file_name,
+                    local_file_name=saved_path,
+                    local_remote_file_names=local_remote_file_names,
+                    logger=logger,
+                )
             except FileExistsError as e:
                 raise FileExistsError(
                     f'Uploading checkpoint failed with error: {e}. overwrite was set to {self.overwrite}. To overwrite checkpoints with Trainer, set save_overwrite to True.',
                 ) from e
 
             if self.remote_uploader is not None:
-                all_remote_filenames = dist.all_gather_object(local_remote_filenames)
+                all_remote_filenames = dist.all_gather_object(local_remote_file_names)
 
             # symlinks stay the same with sharded checkpointing
             if self.latest_remote_file_name is not None:
