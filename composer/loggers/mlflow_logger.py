@@ -185,6 +185,9 @@ class MLFlowLogger(LoggerDestination):
     def _start_mlflow_run(self, state):
         import mlflow
 
+        # This function is only called if self._enabled is True, and therefore self._experiment_id is not None.
+        assert self._experiment_id is not None
+
         env_run_id = os.getenv(
             mlflow.environment_variables.MLFLOW_RUN_ID.name,  # pyright: ignore[reportGeneralTypeIssues]
             None,
@@ -193,7 +196,6 @@ class MLFlowLogger(LoggerDestination):
             self._run_id = env_run_id
         elif self.resume:
             # Search for an existing run tagged with this Composer run if `self.resume=True`.
-            assert self._experiment_id is not None
             run_name = self.tags['run_name']
             existing_runs = mlflow.search_runs(
                 experiment_ids=[self._experiment_id],
