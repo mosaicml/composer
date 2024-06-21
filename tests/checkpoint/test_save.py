@@ -41,6 +41,7 @@ from tests.common.markers import world_size
         pytest.param(2, True, False, marks=pytest.mark.world_size(2)),
     ],
 )
+@pytest.mark.filterwarnings('ignore::UserWarning')
 def test_save_checkpoint_to_disk(world_size: int, tmp_path: str, sharded_model: bool, sharded_checkpoint: bool):
     destination_dir = os.path.join(tmp_path, str(uuid.uuid4())[:8])
     destination_dir = dist.all_gather_object(destination_dir)[0]
@@ -72,6 +73,9 @@ def test_save_checkpoint_to_disk(world_size: int, tmp_path: str, sharded_model: 
         assert os.path.exists(os.path.join(expected_model_dir, 'model.pt'))
         assert os.path.exists(os.path.join(expected_optim_dir, 'optim.pt'))
 
+    import time
+    # Need to wait for the file to be written to avoid flaky test.
+    time.sleep(0.2)
     assert os.path.exists(expected_metadata_filepath)
     assert os.path.exists(expected_resumption_filepath)
 
