@@ -5,6 +5,7 @@ from typing import Any, Dict, Tuple, Union
 from unittest.mock import MagicMock
 
 import torch
+from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.api import CPUOffload
 from torch.optim import adam
@@ -17,13 +18,12 @@ from composer.core import State
 from composer.devices import Device, DeviceCPU, DeviceGPU
 from composer.models import ComposerModel
 from tests.common.models import EvenSimplerMLP, SimpleComposerMLP
-from packaging import version
 
 __all__ = [
     'init_model_and_optimizer',
     'init_model',
     'init_optimizer',
-    'init_state'
+    'init_state',
 ]
 
 
@@ -47,12 +47,12 @@ def init_state(
 
     test_dataset_sd = {'test': 0}
     device_obj: Device = DeviceCPU() if device == 'cpu' else DeviceGPU()
-    
+
     dataloader = MagicMock(spec=DataLoader)
     dataloader.dataset = MagicMock()
     dataloader.dataset.state_dict = MagicMock(return_value=test_dataset_sd)
     kwargs = {}
-   
+
     if include_callbacks:
         kwargs['callbacks'] = [SpeedMonitor(), SpeedMonitor()]
     if include_algorithms:
