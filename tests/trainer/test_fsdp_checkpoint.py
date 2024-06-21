@@ -286,7 +286,6 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
     deep_compare(timestamp1, timestamp2)
 
 
-@pytest.mark.xfail(reason='Known issue with pytorch, waiting for composer bump')
 @pytest.mark.gpu
 @pytest.mark.filterwarnings(r'ignore:.*scatter_full_optim_state_dict``is being deprecated.*:UserWarning')
 @pytest.mark.parametrize(
@@ -302,7 +301,7 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
         pytest.param(2, 'adam', False, 'amp_bf16', False, False, True, False, False, marks=pytest.mark.world_size(2)),
         pytest.param(4, 'adam', False, 'amp_bf16', False, False, False, True, False, marks=pytest.mark.world_size(4)),
         pytest.param(
-            2,
+            4,
             'adam',
             False,
             'amp_bf16',
@@ -311,11 +310,11 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
             False,
             False,
             True,
-            marks=[pytest.mark.world_size(2),
+            marks=[pytest.mark.world_size(4),
                    pytest.mark.xfail(reason='Known issue, waiting for composer bump')],
         ),
         pytest.param(
-            2,
+            4,
             'adamw',
             False,
             'amp_bf16',
@@ -324,11 +323,11 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
             False,
             False,
             True,
-            marks=[pytest.mark.world_size(2),
+            marks=[pytest.mark.world_size(4),
                    pytest.mark.xfail(reason='Known issue, waiting for composer bump')],
         ),
         pytest.param(
-            2,
+            4,
             'adam',
             True,
             'amp_bf16',
@@ -337,11 +336,11 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
             False,
             False,
             True,
-            marks=[pytest.mark.world_size(2),
+            marks=[pytest.mark.world_size(4),
                    pytest.mark.xfail(reason='Known issue, waiting for composer bump')],
         ),
         pytest.param(
-            2,
+            4,
             'adam',
             False,
             'amp_fp16',
@@ -350,11 +349,11 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
             False,
             False,
             True,
-            marks=[pytest.mark.world_size(2),
+            marks=[pytest.mark.world_size(4),
                    pytest.mark.xfail(reason='Known issue, waiting for composer bump')],
         ),
         pytest.param(
-            2,
+            4,
             'adam',
             False,
             'amp_bf16',
@@ -363,11 +362,11 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
             False,
             False,
             True,
-            marks=[pytest.mark.world_size(2),
+            marks=[pytest.mark.world_size(4),
                    pytest.mark.xfail(reason='Known issue, waiting for composer bump')],
         ),  # save_weights_only requires load_weights_only
         pytest.param(
-            2,
+            4,
             'adam',
             False,
             'amp_bf16',
@@ -376,7 +375,7 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
             False,
             False,
             True,
-            marks=[pytest.mark.world_size(2),
+            marks=[pytest.mark.world_size(4),
                    pytest.mark.xfail(reason='Known issue, waiting for composer bump')],
         ),
     ],
