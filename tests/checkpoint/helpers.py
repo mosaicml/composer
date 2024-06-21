@@ -34,9 +34,9 @@ def init_state(
     include_callbacks=False,
     include_algorithms=False,
     use_grad_scaler=False,
-    rank_zero_seed = 10,
-    run_name = 'test_run',
-    take_step = False,
+    rank_zero_seed=10,
+    run_name='test_run',
+    take_step=False,
 ) -> State:
     model, optimizer = init_model_and_optimizer(
         use_fsdp=use_fsdp,

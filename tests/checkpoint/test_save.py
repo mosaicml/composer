@@ -74,6 +74,7 @@ def test_save_checkpoint_to_disk(world_size: int, tmp_path: str, sharded_model: 
         assert os.path.exists(os.path.join(expected_optim_dir, 'optim.pt'))
 
     import time
+
     # Need to wait for the file to be written to avoid flaky test.
     time.sleep(0.2)
     assert os.path.exists(expected_metadata_filepath)
