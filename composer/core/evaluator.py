@@ -67,7 +67,7 @@ class Evaluator:
 
             When specifying ``eval_interval``, the evaluator(s) are also run at the ``Event.FIT_END`` if it doesn't
             evenly divide the training duration.
-        device_eval_microbatch_size (int, optional): The number of samples to use for each microbatch when evaluating.
+        device_eval_microbatch_size (str | int | float, optional): The number of samples to use for each microbatch when evaluating.
             If set to ``auto``, dynamically decreases device_eval_microbatch_size if microbatch is too large for GPU.
             If None, sets `device_eval_microbatch_size` to per rank batch size. (default: ``None``)
     """
@@ -80,7 +80,7 @@ class Evaluator:
         metric_names: Optional[list[str]] = None,
         subset_num_batches: Optional[int] = None,
         eval_interval: Optional[Union[int, str, Time, Callable[[State, Event], bool]]] = None,
-        device_eval_microbatch_size: Optional[Union[int, str]] = None,
+        device_eval_microbatch_size: Optional[Union[int, str, float]] = None,
     ):
         self.label = label
         self.dataloader = ensure_data_spec(dataloader)
@@ -142,7 +142,7 @@ def ensure_evaluator(evaluator: Union[Evaluator, DataSpec, Iterable, dict[str, A
         )
 
 
-def _is_auto_microbatching(device_eval_microbatch_size: Optional[Union[int, str]]):
+def _is_auto_microbatching(device_eval_microbatch_size: Optional[Union[int, str, float]]):
     if device_eval_microbatch_size == 'auto':
         warnings.warn((
             "Setting `device_eval_microbatch_size='auto'` is an experimental feature which may cause "
@@ -155,10 +155,10 @@ def _is_auto_microbatching(device_eval_microbatch_size: Optional[Union[int, str]
 
 
 def _get_initial_device_eval_microbatch_size(
-    device_eval_microbatch_size: Optional[Union[int, str]],
+    device_eval_microbatch_size: Optional[Union[int, str, float]],
     auto_microbatching: bool,
     dataloader: Iterable,
-) -> int:
+) -> Union[int, float]:
     """Sets initial value of device_eval_microbatch_size.
 
     If auto_microbatching, sets initial `device_eval_microbatch_size` to per rank batch size.
