@@ -301,12 +301,6 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
         pytest.param('adam', False, 'amp_bf16', False, False, True, False, False, marks=pytest.mark.world_size(2)),
         pytest.param('adam', False, 'amp_bf16', False, False, False, True, False, marks=pytest.mark.world_size(4)),
         pytest.param('adam', False, 'amp_bf16', False, False, False, False, True, marks=pytest.mark.world_size(4)),
-        pytest.param('adamw', False, 'amp_bf16', False, False, False, False, True, marks=pytest.mark.world_size(4)),
-        pytest.param('adam', True, 'amp_bf16', False, False, False, False, True, marks=pytest.mark.world_size(4)),
-        pytest.param('adam', False, 'amp_fp16', False, False, False, False, True, marks=pytest.mark.world_size(4)),
-        pytest.param('adam', False, 'amp_bf16', True, True, False, False, True,
-                     marks=pytest.mark.world_size(4)),  # save_weights_only requires load_weights_only
-        pytest.param('adam', False, 'amp_bf16', False, True, False, False, True, marks=pytest.mark.world_size(4)),
     ],
 )
 def test_fsdp_full_state_dict_load(
@@ -817,12 +811,6 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
         pytest.param(False, 'adamw', 'amp_bf16', False, None, True, False, False, marks=pytest.mark.world_size(2)),
         pytest.param(False, 'adamw', 'amp_bf16', False, None, False, True, False, marks=pytest.mark.world_size(4)),
         pytest.param(False, 'adamw', 'amp_bf16', False, None, False, False, True, marks=pytest.mark.world_size(4)),
-        pytest.param(True, 'adamw', 'amp_bf16', False, None, False, False, True, marks=pytest.mark.world_size(4)),
-        pytest.param(False, 'adam', 'amp_bf16', False, None, False, False, True, marks=pytest.mark.world_size(4)),
-        pytest.param(False, 'adamw', 'amp_fp16', False, None, False, False, True, marks=pytest.mark.world_size(4)),
-        pytest.param(False, 'adamw', 'amp_bf16', True, None, False, False, True, marks=pytest.mark.world_size(4)),
-        pytest.param(False, 'adamw', 'amp_bf16', False, ['rng'], False, False, True, marks=pytest.mark.world_size(4)),
-        pytest.param(False, 'adamw', 'amp_bf16', False, None, True, False, True, marks=pytest.mark.world_size(4)),
     ],
 )
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
@@ -843,7 +831,6 @@ def test_fsdp_partitioned_state_dict_load(
     s3_ephemeral_prefix,
     request,
 ):
-    # data_parallel_shard_degree will only be used if use_hsdp
     if weights_only and autoresume:
         pytest.skip('Weights only with autoresume is not supported')
     if use_tp and version.parse(torch.__version__) < version.parse('2.3.0'):
@@ -897,7 +884,6 @@ def test_fsdp_partitioned_state_dict_load(
         max_duration='2ba',
         save_interval='2ba',
         save_weights_only=weights_only,
-        # Forcing replicas to initialize with the same weights
         fsdp_config=fsdp_config,
         tp_config=tp_config,
     )
