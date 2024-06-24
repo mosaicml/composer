@@ -84,7 +84,7 @@ install_requires = [
     'torch>=2.1.2,<2.3.2',
     'requests>=2.26.0,<3',
     'numpy>=1.21.5,<2.1.0',
-    'psutil>=5.8.0,<6',
+    'psutil>=5.8.0,<7',
     'coolname>=1.1.0,<3',
     'tabulate==0.9.0',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<10',
@@ -103,7 +103,7 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
     'junitparser==3.1.2',
-    'coverage[toml]==7.5.3',
+    'coverage[toml]==7.5.4',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
     'ipython==8.11.0',
