@@ -1250,7 +1250,6 @@ class TestTrainerInitOrFit:
         assert num_tokens_accum == num_tokens * 2
         assert batch_time_accum == datetime.timedelta(seconds=0.1 * (1 + 0))
 
-    @pytest.mark.gpu
     @pytest.mark.world_size(2)
     def test_rank_dependent_dataloader_lengths(
         self,
