@@ -335,6 +335,7 @@ def test_fsdp_full_state_dict_load(
             sharded_ckpt_prefix_dir='ba{batch}',
             data_parallel_shard_degree=2,
             data_parallel_replicate_degree=2,
+            sync_module_states=True,
         )
     else:
         fsdp_config = FSDPConfig(
