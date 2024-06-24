@@ -3640,6 +3640,11 @@ class Trainer:
         else:
             dataloader_iter = itertools.islice(self.state.dataloader, int(self.state.dataloader_len))
 
+        # Track if iteration has finished (used for distributed training when we have variable length dataloaders)
+        # 0 = not finished, 1 = finished (using integer tensors so we can use dist.all_reduce)
+        iter_finished = self.state.device.tensor_to_device(torch.zeros(1, dtype=torch.uint8))
+
+        batch = None
         while True:
             try:
                 # [BEFORE/AFTER]_DATALOADER only runs while training
@@ -3655,7 +3660,15 @@ class Trainer:
                     # Otherwise, we will encounter an error at the start of the next epoch when
                     # Event.BEFORE_DATALOADER tries to start an unfinished marker.
                     self.engine.run_marker_only_event(Event.AFTER_DATALOADER)
+                # Mark iteration as finished - don't break yet as we need to sync across ranks
+                iter_finished += 1
+
+            # Sync iter finished across ranks
+            dist.all_reduce(iter_finished, reduce_operation='MAX')
+            # If any rank has finished, stop all rank iterations
+            if iter_finished.item() == 1:
                 break
+
             yield batch
 
     def _use_closures(self) -> bool:
