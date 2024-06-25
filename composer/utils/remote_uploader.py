@@ -12,6 +12,7 @@ import tempfile
 import time
 import uuid
 from concurrent.futures import Future, ProcessPoolExecutor
+from enum import Enum
 from typing import Any, Optional
 
 from composer.utils.dist import broadcast_object_list, get_global_rank, get_local_rank
@@ -30,6 +31,48 @@ from composer.utils.retrying import retry
 log = logging.getLogger(__name__)
 
 __all__ = ['RemoteUploader']
+
+
+class RemoteFilesExistingCheckStatus(Enum):
+    EXIST = 1
+    TIMEOUT = 2
+    ERROR = 3
+
+
+def _check_remote_files_exists(
+    remote_backend_name: str,
+    backend_kwargs: dict[str, Any],
+    remote_checkpoint_file_names: list[str],
+    main_process_pid: int,
+    #is_remote_upload_failed: multiprocessing.Event,
+    max_wait_time_in_seconds: int = 3600,
+    wait_before_next_try_in_seconds: float = 30,
+):
+    start_time = time.time()
+    object_store = build_remote_backend(remote_backend_name, backend_kwargs)
+
+    for remote_file_name in remote_checkpoint_file_names:
+        while True:
+            """
+            if is_remote_upload_failed.is_set():
+                log.debug(f'Stop symlink uploading since the checkpoint files uploading failed')
+                return RemoteFilesExistingCheckStatus.ERROR
+            """
+            # Return if parent process exits
+            try:
+                os.kill(main_process_pid, 0)
+            except OSError:
+                return RemoteFilesExistingCheckStatus.ERROR
+            try:
+                object_store.get_object_size(remote_file_name)
+                break
+            except Exception as e:
+                if not isinstance(e, FileNotFoundError):
+                    log.debug(f'Got exception {type(e)}: {str(e)} when accessing remote file {remote_file_name}')
+                time.sleep(wait_before_next_try_in_seconds)
+            if time.time() - start_time > max_wait_time_in_seconds:
+                return RemoteFilesExistingCheckStatus.TIMEOUT
+    return RemoteFilesExistingCheckStatus.EXIST
 
 
 def _upload_file_to_object_store(
@@ -110,8 +153,12 @@ class RemoteUploader:
 
         self.num_attempts = num_attempts
         self._remote_backend: Optional[ObjectStore] = None
-        self.executor = ProcessPoolExecutor(
+        self.upload_executor = ProcessPoolExecutor(
             max_workers=num_concurrent_uploads,
+            mp_context=multiprocessing.get_context('spawn'),
+        )
+        self.check_remote_files_exist_executor = ProcessPoolExecutor(
+            max_workers=2,
             mp_context=multiprocessing.get_context('spawn'),
         )
 
@@ -119,6 +166,8 @@ class RemoteUploader:
         # If a future completed successfully, we'll remove it from this list
         # when check_workers() or wait() is called
         self.futures: list[Future] = []
+
+        self.pid = os.getpid()
 
     @property
     def remote_backend(self) -> ObjectStore:
@@ -163,7 +212,7 @@ class RemoteUploader:
         shutil.copy2(file_path, copied_path)
 
         # Async upload file
-        future = self.executor.submit(
+        future = self.upload_executor.submit(
             _upload_file_to_object_store,
             remote_backend_name=self.remote_backend_name,
             backend_kwargs=self.backend_kwargs,
@@ -215,5 +264,26 @@ class RemoteUploader:
         """
         # make sure all workers are either running, or completed successfully
         self.wait()
-        self.executor.shutdown(wait=True)
+        self.upload_executor.shutdown(wait=True)
+        self.check_remote_files_exist_executor.shutdown(wait=True)
         log.debug('Finished all uploading tasks, closing RemoteUploader')
+
+    def check_remote_files_exist_async(
+        self,
+        remote_checkpoint_file_names: list[str],
+        #is_remote_upload_failed: multiprocessing.Event,
+        max_wait_time_in_seconds: int = 3600,
+        wait_before_next_try_in_seconds: float = 30,
+    ):
+        future = self.check_remote_files_exist_executor.submit(
+            _check_remote_files_exists,
+            remote_backend_name=self.remote_backend_name,
+            backend_kwargs=self.backend_kwargs,
+            remote_checkpoint_file_names=remote_checkpoint_file_names,
+            main_process_pid=self.pid,
+            #is_remote_upload_failed: multiprocessing.Event,
+            max_wait_time_in_seconds=max_wait_time_in_seconds,
+            wait_before_next_try_in_seconds=wait_before_next_try_in_seconds,
+        )
+        self.futures.append(future)
+        return future

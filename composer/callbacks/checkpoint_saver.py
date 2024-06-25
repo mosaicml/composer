@@ -12,8 +12,6 @@ import pathlib
 import shutil
 import tempfile
 import textwrap
-import time
-from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Any, Callable, Optional, Union
 
@@ -22,10 +20,9 @@ from composer.loggers import Logger, MLFlowLogger
 from composer.utils import (
     FORMAT_NAME_WITH_DIST_AND_TIME_TABLE,
     FORMAT_NAME_WITH_DIST_TABLE,
-    ObjectStoreTransientError,
     PartialFilePath,
+    RemoteFilesExistingCheckStatus,
     RemoteUploader,
-    build_remote_backend,
     checkpoint,
     create_interval_scheduler,
     create_symlink_file,
@@ -36,7 +33,6 @@ from composer.utils import (
     is_model_deepspeed,
     parse_uri,
     partial_format,
-    retry,
 )
 from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME
 from composer.utils.compression import get_compressor, is_compressed_pt
@@ -45,58 +41,6 @@ from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID
 log = logging.getLogger(__name__)
 
 __all__ = ['CheckpointSaver']
-
-
-def _upload_symlink_file(
-    remote_backend_name: str,
-    backend_kwargs: dict[str, Any],
-    remote_symlink_file_name: str,
-    local_symlink_file_name: str,
-    num_attempts: int,
-    remote_checkpoint_file_names: list[str],
-    main_process_pid: int,
-    is_remote_upload_failed: multiprocessing.Event, # pyright: ignore[reportGeneralTypeIssues]
-    max_wait_time_in_seconds: int = 3600,
-    wait_before_next_try_in_seconds: float = 30,
-):
-    """Wait the checkpoint file uploading to finish and start symlink file uploading."""
-    start_time = time.time()
-    object_store = build_remote_backend(remote_backend_name, backend_kwargs)
-
-    for remote_file_name in remote_checkpoint_file_names:
-        while True:
-            if is_remote_upload_failed.is_set():
-                log.debug(f'Stop symlink uploading since the checkpoint files uploading failed')
-                return
-            # Return if parent process exits
-            try:
-                os.kill(main_process_pid, 0)
-            except OSError:
-                return
-            try:
-                object_store.get_object_size(remote_file_name)
-                break
-            except Exception as e:
-                if not isinstance(e, FileNotFoundError):
-                    log.debug(f'Got exception {type(e)}: {str(e)} when accessing remote file {remote_file_name}')
-                time.sleep(wait_before_next_try_in_seconds)
-            if time.time() - start_time > max_wait_time_in_seconds:
-                raise RuntimeError(
-                    f'Checkpoint file {remote_file_name} uploading not finished after {max_wait_time_in_seconds} seconds',
-                )
-
-    log.debug(f'Uploading symlink file {remote_symlink_file_name}')
-
-    @retry(ObjectStoreTransientError, num_attempts=num_attempts)
-    def upload_file():
-        object_store.upload_object(
-            object_name=remote_symlink_file_name,
-            filename=local_symlink_file_name,
-        )
-
-    upload_file()
-    log.debug(f'Finished uploading symlink file {remote_symlink_file_name}')
-    return 0
 
 
 class CheckpointSaver(Callback):  # noqa: D101
@@ -389,14 +333,13 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.rank_saves_remote_symlinks: bool = False
         self.tmp_dir_for_symlink = tempfile.TemporaryDirectory()
         self.num_concurrent_uploads = num_concurrent_uploads
-        self.symlink_upload_executor = None
         self.is_remote_upload_failed = None
-        self.symlink_upload_futures = []
         self.upload_timeout_in_seconds = upload_timeout_in_seconds
         # Allow unit test to override this to make it faster
         self._symlink_upload_wait_before_next_try_in_seconds = 30.0
         self.pid = os.getpid()
         self.symlink_count = 0
+        self.symlink_upload_tasks = []
 
         if backend != '':
             if backend == 'wandb':
@@ -414,10 +357,6 @@ class CheckpointSaver(Callback):  # noqa: D101
                 num_concurrent_uploads=self.num_concurrent_uploads,
             )
             mp_context = multiprocessing.get_context('spawn')
-            self.symlink_upload_executor = ProcessPoolExecutor(
-                max_workers=1,
-                mp_context=mp_context,
-            )
             self.is_remote_upload_failed = mp_context.Manager().Event()
 
     def init(self, state: State, logger: Logger) -> None:
@@ -664,22 +603,13 @@ class CheckpointSaver(Callback):  # noqa: D101
                         remote_checkpoint_file_names = []
                         for file_names in all_remote_filenames:
                             remote_checkpoint_file_names += file_names
-                        assert self.symlink_upload_executor is not None
-                        assert self.is_remote_upload_failed is not None
-                        self.symlink_upload_futures.append(
-                            self.symlink_upload_executor.submit(
-                                _upload_symlink_file,
-                                remote_backend_name=self.remote_uploader.remote_backend_name,
-                                backend_kwargs=self.remote_uploader.backend_kwargs,
-                                remote_symlink_file_name=symlink_name,
-                                local_symlink_file_name=symlink_filename,
-                                num_attempts=3,
-                                main_process_pid=self.pid,
-                                remote_checkpoint_file_names=remote_checkpoint_file_names,
-                                is_remote_upload_failed=self.is_remote_upload_failed,
-                                max_wait_time_in_seconds=self.upload_timeout_in_seconds,
-                                wait_before_next_try_in_seconds=self._symlink_upload_wait_before_next_try_in_seconds,
-                            ),
+                        check_remote_files_exist_future = self.remote_uploader.check_remote_files_exist_async(
+                            remote_checkpoint_file_names=remote_checkpoint_file_names,
+                            max_wait_time_in_seconds=self.upload_timeout_in_seconds,
+                            wait_before_next_try_in_seconds=self._symlink_upload_wait_before_next_try_in_seconds,
+                        )
+                        self.symlink_upload_tasks.append(
+                            (check_remote_files_exist_future, symlink_filename, symlink_name),
                         )
                     else:
                         logger.upload_file(
@@ -704,44 +634,56 @@ class CheckpointSaver(Callback):  # noqa: D101
                 if dist.get_global_rank() == 0:
                     shutil.rmtree(prefix_dir)
 
-    def check_symlink_upload_workers(self):
-        if self.remote_uploader is None:
-            return
-        done_futures = []
-        for future in self.symlink_upload_futures:
-            if future.done():
-                exception_or_none = future.exception()
-                if exception_or_none is not None:
-                    raise exception_or_none
-                else:
-                    done_futures.append(future)
-        for future in done_futures:
-            self.symlink_upload_futures.remove(future)
-
     def batch_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        if self.remote_uploader is not None:
-            try:
-                self.remote_uploader.check_workers()
-                self.check_symlink_upload_workers()
-            except Exception as e:
-                assert self.is_remote_upload_failed is not None
-                self.is_remote_upload_failed.set()
-                raise e
+        if self.remote_uploader is None:
+            return
+        self.remote_uploader.check_workers()
+        if not self.rank_saves_remote_symlinks:
+            return
+        undone_symlink_upload_tasks = []
+        for (check_remote_files_exist_future, local_symlink_file,
+             remote_symlink_file) in reversed(self.symlink_upload_tasks):
+            if not check_remote_files_exist_future.done():
+                undone_symlink_upload_tasks.insert(
+                    0,
+                    (check_remote_files_exist_future, local_symlink_file, remote_symlink_file),
+                )
+                continue
+            if check_remote_files_exist_future.done():
+                result = check_remote_files_exist_future.result()
+                if result == RemoteFilesExistingCheckStatus.EXIST:
+                    self.remote_uploader.upload_file_async(
+                        remote_file_name=remote_symlink_file,
+                        file_path=local_symlink_file,
+                        overwrite=True,
+                    )
+                    break
+                else:
+                    raise RuntimeError(f'Failed to check if checkpoint files upload finish: {result}')
+        self.symlink_upload_tasks = undone_symlink_upload_tasks
 
     def fit_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        if self.remote_uploader is not None:
-            log.info('Waiting checkpoint uploading finish')
-            try:
-                self.remote_uploader.wait()
-            except Exception as e:
-                assert self.is_remote_upload_failed is not None
-                self.is_remote_upload_failed.set()
-                raise e
-            for f in self.symlink_upload_futures:
-                f.result()
-            log.info('Checkpoint uploading finished!')
+        if self.remote_uploader is None:
+            return
+        log.info('Waiting checkpoint uploading finish')
+        self.remote_uploader.wait()
+        if self.rank_saves_remote_symlinks and len(self.symlink_upload_tasks) > 0:
+            log.debug('Uploading the last symlink file')
+            check_remote_files_exist_future, local_symlink_file, remote_symlink_file = self.symlink_upload_tasks[-1]
+            result = check_remote_files_exist_future.result()
+            if result == RemoteFilesExistingCheckStatus.EXIST:
+                symlink_upload_future = self.remote_uploader.upload_file_async(
+                    remote_file_name=remote_symlink_file,
+                    file_path=local_symlink_file,
+                    overwrite=True,
+                )
+                symlink_upload_future.result()
+            else:
+                raise RuntimeError(f'Failed to check if checkpoint files upload finish: {result}')
+
+        log.info('Checkpoint uploading finished!')
 
     def post_close(self):
         if self.remote_uploader is not None:
@@ -751,5 +693,3 @@ class CheckpointSaver(Callback):  # noqa: D101
             except:
                 assert self.is_remote_upload_failed is not None
                 self.is_remote_upload_failed.set()
-            if len(self.symlink_upload_futures) > 1:
-                self.symlink_upload_futures[-1].result(timeout=60)

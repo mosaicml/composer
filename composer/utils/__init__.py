@@ -76,7 +76,7 @@ from composer.utils.object_store import (
     build_remote_backend,
 )
 from composer.utils.parallelism import FSDPConfig, ParallelismConfig, TPConfig, create_fsdp_config
-from composer.utils.remote_uploader import RemoteUploader
+from composer.utils.remote_uploader import RemoteFilesExistingCheckStatus, RemoteUploader
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
 from composer.utils.warnings import VersionedDeprecationWarning
@@ -162,4 +162,5 @@ __all__ = [
     'RemoteUploader',
     'validate_credentials',
     'build_remote_backend',
+    'RemoteFilesExistingCheckStatus',
 ]
