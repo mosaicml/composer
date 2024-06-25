@@ -696,8 +696,6 @@ def test_fsdp_full_state_dict_load_with_ema(
     precision: str,
     optimizer: str,
 ):
-    if use_tp and version.parse(torch.__version__) < version.parse('2.3.0'):
-        pytest.skip('TP requires torch 2.3.0 or later')
     save_folder = tmp_path
     save_filename = 'ba{batch}-rank{rank}.pt'
 
