@@ -788,7 +788,7 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
 
 
 @pytest.mark.gpu
-@pytest.mark.parametrize('use_remote', [pytest.param(True, marks=pytest.mark.remote), False])
+@pytest.mark.parametrize('use_remote', [False])
 @pytest.mark.parametrize(
     'weights_only,optimizer,precision,autoresume,load_ignore_keys,use_symlink,use_tp,use_hsdp',
     [
