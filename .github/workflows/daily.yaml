@@ -106,42 +106,6 @@ jobs:
         # Unlike CPU tests, we run daily tests together with GPU tests to minimize launch time
         # on MCLOUD and not eat up all GPUs at once
         include:
-        - name: "gpu-3.10-2.1-1-gpu"
-          container: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
-          markers: "(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)"
-          pytest_command: "coverage run -m pytest"
-          composer_package_name: "mosaicml"
-          gpu_num: 1
-        - name: "gpu-3.11-2.2-1-gpu"
-          container: mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
-          markers: "(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)"
-          pytest_command: "coverage run -m pytest"
-          composer_package_name: "mosaicml"
-          gpu_num: 1
-        - name: "gpu-3.11-2.3-1-gpu"
-          container: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
-          markers: "(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)"
-          pytest_command: "coverage run -m pytest"
-          composer_package_name: "mosaicml"
-          gpu_num: 1
-        - name: "gpu-3.10-2.1-2-gpu"
-          container: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
-          markers: "(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)"
-          pytest_command: "coverage run -m pytest"
-          composer_package_name: "mosaicml"
-          gpu_num: 2
-        - name: "gpu-3.11-2.2-2-gpu"
-          container: mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
-          markers: "(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)"
-          pytest_command: "coverage run -m pytest"
-          composer_package_name: "mosaicml"
-          gpu_num: 2
-        - name: "gpu-3.11-2.3-2-gpu"
-          container: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
-          markers: "(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)"
-          pytest_command: "coverage run -m pytest"
-          composer_package_name: "mosaicml"
-          gpu_num: 2
         - name: "gpu-3.10-2.1-4-gpu"
           container: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
           markers: "(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)"

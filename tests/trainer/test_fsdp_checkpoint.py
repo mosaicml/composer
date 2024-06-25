@@ -837,7 +837,7 @@ def test_fsdp_partitioned_state_dict_load(
         pytest.skip('Weights only with autoresume is not supported')
     if (use_tp or use_hsdp) and version.parse(torch.__version__) < version.parse('2.3.0'):
         print('---------- DEBUG: ')
-        print('version.parse(torch.__version__)', version.parse(torch), version.parse('2.3.0'))
+        print('PyTorch version:', torch.__version__)
         print(use_tp, use_hsdp)
         pytest.skip('HSDP and TP require torch 2.3.0 or later')
 
