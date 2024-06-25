@@ -316,11 +316,8 @@ def test_fsdp_full_state_dict_load(
 ):
     if use_hsdp:
         pytest.xfail('Known Pytorch issue with HSDP, waiting for pytorch patch')
-    if version.parse(torch.__version__) < version.parse('2.3.0'):
-        if use_tp:
-            pytest.skip('TP requires torch 2.3.0 or later')
-        if use_hsdp:
-            pytest.skip('HSDP requires torch 2.3.0 or later')
+    if (use_tp or use_hsdp) and version.parse(torch.__version__) < version.parse('2.3.0'):
+        pytest.skip('HSDP and TP require torch 2.3.0 or later')
     if autoresume:
         run_name = 'my-cool-autoresume-run'
     else:
@@ -838,11 +835,8 @@ def test_fsdp_partitioned_state_dict_load(
 ):
     if weights_only and autoresume:
         pytest.skip('Weights only with autoresume is not supported')
-    if version.parse(torch.__version__) < version.parse('2.3.0'):
-        if use_tp:
-            pytest.skip('TP requires torch 2.3.0 or later')
-        if use_hsdp:
-            pytest.skip('HSDP requires torch 2.3.0 or later')
+    if (use_tp or use_hsdp) and version.parse(torch.__version__) < version.parse('2.3.0'):
+        pytest.skip('HSDP and TP require torch 2.3.0 or later')
 
     load_ignore_keys = [] if load_ignore_keys is None else load_ignore_keys
 
