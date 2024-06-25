@@ -223,7 +223,7 @@ extra_deps['onnx'] = [
 ]
 
 extra_deps['mlflow'] = [
-    'mlflow>=2.11.1,<3.0',
+    'mlflow>=2.14.1,<3.0',
     'databricks-sdk==0.28.0',
     'pynvml>=11.5.0,<12',
 ]
