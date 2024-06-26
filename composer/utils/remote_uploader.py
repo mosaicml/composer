@@ -44,7 +44,7 @@ def _check_remote_files_exists(
     backend_kwargs: dict[str, Any],
     remote_checkpoint_file_names: list[str],
     main_process_pid: int,
-    is_remote_upload_failed: multiprocessing.Event,
+    is_remote_upload_failed: multiprocessing.Event, # pyright: ignore[reportGeneralTypeIssues]
     max_wait_time_in_seconds: int = 3600,
     wait_before_next_try_in_seconds: float = 30,
 ):
@@ -273,7 +273,6 @@ class RemoteUploader:
     def check_remote_files_exist_async(
         self,
         remote_checkpoint_file_names: list[str],
-        #is_remote_upload_failed: multiprocessing.Event,
         max_wait_time_in_seconds: int = 3600,
         wait_before_next_try_in_seconds: float = 30,
     ):
