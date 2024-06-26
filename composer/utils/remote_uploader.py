@@ -44,7 +44,7 @@ def _check_remote_files_exists(
     backend_kwargs: dict[str, Any],
     remote_checkpoint_file_names: list[str],
     main_process_pid: int,
-    #is_remote_upload_failed: multiprocessing.Event,
+    is_remote_upload_failed: multiprocessing.Event,
     max_wait_time_in_seconds: int = 3600,
     wait_before_next_try_in_seconds: float = 30,
 ):
@@ -53,11 +53,9 @@ def _check_remote_files_exists(
 
     for remote_file_name in remote_checkpoint_file_names:
         while True:
-            """
             if is_remote_upload_failed.is_set():
                 log.debug(f'Stop symlink uploading since the checkpoint files uploading failed')
                 return RemoteFilesExistingCheckStatus.ERROR
-            """
             # Return if parent process exits
             try:
                 os.kill(main_process_pid, 0)
@@ -153,14 +151,16 @@ class RemoteUploader:
 
         self.num_attempts = num_attempts
         self._remote_backend: Optional[ObjectStore] = None
+        mp_context = multiprocessing.get_context('spawn')
         self.upload_executor = ProcessPoolExecutor(
             max_workers=num_concurrent_uploads,
-            mp_context=multiprocessing.get_context('spawn'),
+            mp_context=mp_context,
         )
         self.check_remote_files_exist_executor = ProcessPoolExecutor(
             max_workers=2,
-            mp_context=multiprocessing.get_context('spawn'),
+            mp_context=mp_context,
         )
+        self.is_remote_upload_failed = mp_context.Manager().Event()
 
         # Used internally to track the future status.
         # If a future completed successfully, we'll remove it from this list
@@ -237,6 +237,7 @@ class RemoteUploader:
                 # future.exception is a blocking call
                 exception_or_none = future.exception()
                 if exception_or_none is not None:
+                    self.is_remote_upload_failed.set()
                     raise exception_or_none
                 else:
                     done_futures.append(future)
@@ -252,6 +253,7 @@ class RemoteUploader:
         for future in self.futures:
             exception_or_none = future.exception()
             if exception_or_none is not None:
+                self.is_remote_upload_failed.set()
                 raise exception_or_none
         self.futures = []
 
@@ -281,7 +283,7 @@ class RemoteUploader:
             backend_kwargs=self.backend_kwargs,
             remote_checkpoint_file_names=remote_checkpoint_file_names,
             main_process_pid=self.pid,
-            #is_remote_upload_failed: multiprocessing.Event,
+            is_remote_upload_failed=self.is_remote_upload_failed,
             max_wait_time_in_seconds=max_wait_time_in_seconds,
             wait_before_next_try_in_seconds=wait_before_next_try_in_seconds,
         )
