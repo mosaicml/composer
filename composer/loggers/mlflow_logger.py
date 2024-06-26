@@ -519,14 +519,24 @@ class MLFlowLogger(LoggerDestination):
                     step=step,
                 )
 
+    def fit_end(self, state: State, logger: Logger):
+        import mlflow
+
+        mlflow.flush_async_logging()
+        # If `fit_end` is successfully executed, the run is considered successful.
+        mlflow.end_run(status="FINISHED")
+
     def post_close(self):
         if self._enabled:
             import mlflow
 
             assert isinstance(self._run_id, str)
             mlflow.flush_async_logging()
-            self._mlflow_client.set_terminated(self._run_id)
-            mlflow.end_run()
+            status = mlflow.get_run(self._run_id).info.status
+            if status == "RUNNING":
+                # If the run is still running, it is considered failed because `post_close` was
+                # called on runtime failure.
+                mlflow.end_run(status="FAILED")
 
 
 def _convert_to_mlflow_image(image: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:

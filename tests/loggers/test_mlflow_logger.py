@@ -598,6 +598,45 @@ def test_mlflow_register_uc_error(tmp_path, monkeypatch):
         )
 
 
+@pytest.mark.parametrize('crash_during_fit', [True, False])
+def test_mlflow_run_status(tmp_path, crash_during_fit):
+    mlflow = pytest.importorskip('mlflow')
+
+    mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
+    experiment_name = 'mlflow_logging_test'
+    # mock_state = MagicMock()
+    # mock_logger = MagicMock()
+
+    test_mlflow_logger = MLFlowLogger(
+        tracking_uri=mlflow_uri,
+        experiment_name=experiment_name,
+        log_system_metrics=True,
+        run_name='test_run',
+    )
+    trainer = Trainer(
+        model=SimpleModel(),
+        loggers=test_mlflow_logger,
+        train_dataloader=DataLoader(RandomClassificationDataset(size=64), batch_size=4),
+        eval_dataloader=DataLoader(RandomClassificationDataset(size=64), batch_size=4),
+        max_duration=f'4ba',
+        eval_interval='1ba',
+    )
+
+    if crash_during_fit:
+        with patch.object(trainer, 'fit', side_effect=Exception('mocked exception')):
+            with pytest.raises(Exception, match='mocked exception'):
+                trainer.fit()
+
+        test_mlflow_logger.post_close()
+        status = mlflow.get_run(test_mlflow_logger._run_id).info.status
+        assert status == 'FAILED'
+
+    else:
+        trainer.fit()
+        test_mlflow_logger.post_close()
+        status = mlflow.get_run(test_mlflow_logger._run_id).info.status
+        assert status == 'FINISHED'
+
 @device('cpu')
 def test_mlflow_log_image_works(tmp_path, device):
     pytest.importorskip('mlflow')
