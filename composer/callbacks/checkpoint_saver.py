@@ -329,11 +329,9 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         self.remote_uploader = None
         backend, _, _ = parse_uri(save_folder)
-        self.symlink_file_tasks: list[tuple[str, str]] = []
         self.rank_saves_remote_symlinks: bool = False
         self.tmp_dir_for_symlink = tempfile.TemporaryDirectory()
         self.num_concurrent_uploads = num_concurrent_uploads
-        self.is_remote_upload_failed = None
         self.upload_timeout_in_seconds = upload_timeout_in_seconds
         # Allow unit test to override this to make it faster
         self._symlink_upload_wait_before_next_try_in_seconds = 30.0
@@ -356,8 +354,6 @@ class CheckpointSaver(Callback):  # noqa: D101
                 remote_folder=save_folder,
                 num_concurrent_uploads=self.num_concurrent_uploads,
             )
-            mp_context = multiprocessing.get_context('spawn')
-            self.is_remote_upload_failed = mp_context.Manager().Event()
 
     def init(self, state: State, logger: Logger) -> None:
         # If MLFlowLogger is being used, format MLFlow-specific placeholders in the save folder and paths.
@@ -682,7 +678,6 @@ class CheckpointSaver(Callback):  # noqa: D101
                 symlink_upload_future.result()
             else:
                 raise RuntimeError(f'Failed to check if checkpoint files upload finish: {result}')
-
         log.info('Checkpoint uploading finished!')
 
     def post_close(self):
@@ -690,6 +685,5 @@ class CheckpointSaver(Callback):  # noqa: D101
             # Wait the symlink file upload to finish and close remote uploader
             try:
                 self.remote_uploader.wait_and_close()
-            except:
-                assert self.is_remote_upload_failed is not None
-                self.is_remote_upload_failed.set()
+            except Exception as e:
+                log.error(f'RemoteUploader run into exception {e}')
