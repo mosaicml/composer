@@ -736,7 +736,7 @@ class TestCheckpointLoading:
     @pytest.mark.parametrize(
         'file_extension,save_metrics,save_overwrite',
         [
-            ['.pt', False, False, False],
+            ['.pt', False, False],
             ['.tar.gz', False, False],
             ['.pt.lz4', False, False],
             ['.pt', True, False],
