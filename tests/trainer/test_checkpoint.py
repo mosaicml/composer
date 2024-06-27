@@ -730,11 +730,19 @@ class TestCheckpointLoading:
 
     @world_size(1, 2)
     @device('cpu', 'gpu')
-    @pytest.mark.parametrize('file_extension', ['.pt', '.tar.gz', '.pt.lz4'])
     @pytest.mark.parametrize('use_object_store', [True, False])
     @pytest.mark.parametrize('delete_local', [True, False])
     @pytest.mark.parametrize('test_slashed', [True, False])
-    @pytest.mark.parametrize('save_metrics', [True, False])
+    @pytest.mark.parametrize(
+        'file_extension,save_metrics,save_overwrite',
+        [
+            ['.pt', False, False, False],
+            ['.tar.gz', False, False],
+            ['.pt.lz4', False, False],
+            ['.pt', True, False],
+            ['.pt', False, True],
+        ]
+    )
     def test_autoresume(
         self,
         device: str,
@@ -744,6 +752,7 @@ class TestCheckpointLoading:
         delete_local: bool,
         test_slashed: bool,
         save_metrics: bool,
+        save_overwrite: bool,
         world_size: int,
     ):
         if delete_local and not use_object_store:
@@ -786,6 +795,7 @@ class TestCheckpointLoading:
             autoresume=True,
             load_path='ignore_me.pt',  # this should be ignored
             load_ignore_keys=['*'],  # this should be ignored
+            save_overwrite=save_overwrite,
             loggers=[self.get_logger(tmp_path)] if use_object_store else [],
         )
 
