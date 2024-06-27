@@ -1,6 +1,9 @@
 name: PR GPU tests
 on:
   pull_request_target:
+    branches:
+      - main
+      - release/**
   workflow_dispatch:
 # Cancel old runs when a new commit is pushed to the same branch if not on main
 # or dev
