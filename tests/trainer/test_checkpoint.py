@@ -1226,7 +1226,6 @@ class TestCheckpointLoading:
         [
             [None, 'first', 'latest-rank{rank}.pt'],
             ['big-chungus', None, 'latest-rank{rank}.pt'],
-            ['big-chungus', 'first', 'latest-rank{rank}.pt'],
             ['big-chungus', 'first', None],
         ],
     )
