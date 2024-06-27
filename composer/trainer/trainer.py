@@ -1732,11 +1732,6 @@ class Trainer:
             error_message = ''
             if save_folder is None:
                 error_message += 'The `save_folder` must be specified when autoresume is enabled. '
-            if save_overwrite:
-                error_message += textwrap.dedent(
-                    'The flag `save_overwrite` must be False when autoresume is enabled as autoresume always loads the '
-                    'latest existing checkpoint in `save_folder`. ',
-                )
             if save_latest_filename is None:
                 error_message += 'The `save_latest_filename` must be specified so autoresume knows where to load checkpoints from. '
             if error_message != '':
