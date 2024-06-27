@@ -30,7 +30,7 @@ from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_
 from composer.models import ComposerClassifier
 from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
-from composer.utils import FSDPConfig, dist, parse_uri
+from composer.utils import FSDPConfig, TPConfig, dist, parse_uri
 from composer.utils.checkpoint import is_checkpoint_legacy_sharded
 from composer.utils.file_helpers import get_file
 from composer.utils.object_store import S3ObjectStore
@@ -360,6 +360,11 @@ def test_fsdp_full_state_dict_load(
         fsdp_config=fsdp_config,
         tp_config=tp_config,
     )
+
+    if use_tp:
+        assert trainer1.state.tp_config is not None
+        assert isinstance(trainer1.state.tp_config, TPConfig)
+
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
     trainer1.close()
