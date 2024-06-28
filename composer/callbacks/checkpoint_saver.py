@@ -664,7 +664,8 @@ class CheckpointSaver(Callback):  # noqa: D101
         log.info('Waiting for checkpoint uploading to finish')
         self.remote_uploader.wait()
         if self.rank_saves_symlinks and len(self.symlink_upload_tasks) > 0:
-            log.debug('Uploading the last symlink file')
+            log.debug('Uploading symlink to the latest checkpoint')
+            # We only need to upload the latest symlinke file, ignoring the old ones
             check_remote_files_exist_future, local_symlink_file, remote_symlink_file = self.symlink_upload_tasks[-1]
             result = check_remote_files_exist_future.result()
             if result == RemoteFilesExistingCheckStatus.EXIST:
