@@ -125,10 +125,10 @@ class MLFlowLogger(LoggerDestination):
 
         if log_system_metrics:
             # Set system metrics sampling interval and samples before logging so that system metrics
-            # are collected every 10s, and aggregated over 3 samples before being logged
-            # (logging per 30s).
+            # are collected every 5s, and aggregated over 3 samples before being logged
+            # (logging per 15s).
             mlflow.set_system_metrics_samples_before_logging(3)
-            mlflow.set_system_metrics_sampling_interval(10)
+            mlflow.set_system_metrics_sampling_interval(5)
 
         self._rank_zero_only = rank_zero_only
         self._last_flush_time = time.time()
