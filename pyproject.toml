@@ -111,7 +111,6 @@ filterwarnings = [
     "default::DeprecationWarning",
     'default::PendingDeprecationWarning',
     'default::ImportWarning',
-    'default::FutureWarning',
     'ignore::ResourceWarning',  # Ignore these -- they are from errors like CPU OOMs
 
     # Ignore the following warnings
