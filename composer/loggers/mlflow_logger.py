@@ -123,6 +123,13 @@ class MLFlowLogger(LoggerDestination):
         if logging_buffer_seconds:
             os.environ['MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS'] = str(logging_buffer_seconds)
 
+        if log_system_metrics:
+            # Set system metrics sampling interval and samples before logging so that system metrics
+            # are collected every 10s, and aggregated over 3 samples before being logged
+            # (logging per 30s).
+            mlflow.set_system_metrics_samples_before_logging(3)
+            mlflow.set_system_metrics_sampling_interval(10)
+
         self._rank_zero_only = rank_zero_only
         self._last_flush_time = time.time()
         self._flush_interval = flush_interval
