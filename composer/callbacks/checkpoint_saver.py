@@ -328,7 +328,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         self.remote_uploader = None
         backend, _, _ = parse_uri(save_folder)
-        self.rank_saves_symlinks: bool = dist.get_global_rank() == 0
+        self.rank_saves_symlinks: bool = False
         self.tmp_dir_for_symlink = tempfile.TemporaryDirectory()
         self.num_concurrent_uploads = num_concurrent_uploads
         self.upload_timeout_in_seconds = upload_timeout_in_seconds
@@ -493,8 +493,6 @@ class CheckpointSaver(Callback):  # noqa: D101
         all_remote_filenames = []
 
         if not saved_path:  # not all ranks save
-            if dist.get_global_rank() == 0:
-                raise RuntimeError('Global rank 0 save path should not be None.')
             if self.remote_file_name is not None and self.remote_uploader is not None:
                 all_remote_filenames = dist.all_gather_object(local_remote_file_names)
             return
@@ -507,6 +505,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                 state.timestamp,
             )
 
+        self.rank_saves_symlinks = dist.get_global_rank() == 0 or state.fsdp_sharded_state_dict_enabled
         if self.latest_filename is not None and self.num_checkpoints_to_keep != 0:
             symlink = self.latest_filename.format(state, is_deepspeed)
             os.makedirs(os.path.dirname(symlink), exist_ok=True)
