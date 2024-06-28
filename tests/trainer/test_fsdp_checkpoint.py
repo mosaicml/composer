@@ -288,6 +288,7 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
 
 @pytest.mark.gpu
 @pytest.mark.filterwarnings(r'ignore:.*scatter_full_optim_state_dict``is being deprecated.*:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:.*Tensor parallelism (TP) is experimental.*:FutureWarning')
 @pytest.mark.parametrize(
     'optimizer,autoresume,precision,save_weights_only,load_weights_only,load_monolith_rank0_only,use_tp,use_hsdp',
     [
@@ -516,6 +517,7 @@ def test_fsdp_mixed_with_sync(
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*The CUDA RNG state could not be loaded.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*ShardedTensor.to only move tensor to its current device.*:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:.*Tensor parallelism (TP) is experimental.*:FutureWarning')
 def test_fsdp_load_old_checkpoint(
     world_size,
     tmp_path: pathlib.Path,
@@ -753,6 +755,7 @@ def test_fsdp_full_state_dict_load_with_ema(
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:.*Tensor parallelism (TP) is experimental.*:FutureWarning')
 def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_checkpoint: bool, state_dict_type: str):
     # Set the error expectations.
     expectation = does_not_raise()
@@ -823,6 +826,7 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:.*Tensor parallelism (TP) is experimental.*:FutureWarning')
 def test_fsdp_partitioned_state_dict_load(
     tmp_path: pathlib.Path,
     autoresume: bool,
