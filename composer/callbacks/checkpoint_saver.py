@@ -662,7 +662,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         del state, logger  # unused
         if self.remote_uploader is None:
             return
-        log.info('Waiting checkpoint uploading finish')
+        log.info('Waiting for checkpoint uploading to finish')
         self.remote_uploader.wait()
         if self.rank_saves_remote_symlinks and len(self.symlink_upload_tasks) > 0:
             log.debug('Uploading the last symlink file')
