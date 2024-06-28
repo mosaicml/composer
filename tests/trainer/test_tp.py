@@ -18,7 +18,6 @@ from tests.common import (
 @pytest.mark.gpu
 @world_size(4)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
-@pytest.mark.filterwarnings('ignore:.*(TP) is experimental.*:FutureWarning')
 def test_tp_train(world_size: int):
     from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
 

@@ -111,6 +111,7 @@ filterwarnings = [
     "default::DeprecationWarning",
     'default::PendingDeprecationWarning',
     'default::ImportWarning',
+    'default::FutureWarning',
     'ignore::ResourceWarning',  # Ignore these -- they are from errors like CPU OOMs
 
     # Ignore the following warnings
@@ -162,8 +163,6 @@ filterwarnings = [
     '''ignore:'.*_state_dict' is deprecated and will be removed in future versions.*:UserWarning''',
     # Ignore HF deprecation which affects their own libraries
     '''ignore:'.*`resume_download` is deprecated and will be removed in version.*:FutureWarning''',
-    # Ignore warning that TP is an experimental feature
-    'ignore:.*(TP) is experimental.*:FutureWarning',
 ]
 
 # Coverage
