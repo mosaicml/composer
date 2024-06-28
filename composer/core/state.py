@@ -429,6 +429,8 @@ class State(Serializable):
         self.run_name = run_name
         self.device = device
         self.device_train_microbatch_size = device_train_microbatch_size
+        self.device_train_microbatch_size_ub = device_train_microbatch_size
+        self.device_train_microbatch_size_lb: Optional[Union[int, float]] = 1
         self.auto_microbatching = auto_microbatching
         self._dataloader_len = None
         self._dataloader = None
@@ -1246,7 +1248,7 @@ class State(Serializable):
                     ),
                 )
             else:
-                missing_keys, unexpected_keys = [], []
+                _missing_keys, unexpected_keys = [], []
                 try:
                     # Load model if it exists
                     if self.fsdp_enabled and self.fsdp_state_dict_type is not None and not self.load_fsdp_monolith_rank0_only:
@@ -1254,13 +1256,13 @@ class State(Serializable):
                             f'Loading model state dict with strict={strict} and FSDP state_dict_type={self.fsdp_state_dict_type}',
                         )
                         with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
-                            missing_keys, unexpected_keys = self.model.load_state_dict(
+                            _missing_keys, unexpected_keys = self.model.load_state_dict(
                                 state_dict['model'],
                                 strict=strict,
                             )
                     else:
                         log.debug(f'Loading model state dict with strict={strict}')
-                        missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
+                        _missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
                 except RuntimeError as e:
                     if 'Missing key(s) in state_dict' in str(e) or 'Unexpected key(s) in state_dict' in str(e):
                         raise RuntimeError(

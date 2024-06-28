@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import gc
 import collections.abc
 import contextlib
 import datetime
@@ -36,6 +37,7 @@ from typing import (
     cast,
 )
 import weakref
+import math
 
 import coolname
 import torch
@@ -272,8 +274,8 @@ def _get_initial_device_train_microbatch_size(
     device_train_microbatch_size: Optional[Union[int, float, str]],
     auto_microbatching: bool,
     train_dataloader: Optional[Iterable],
-) -> Optional[Union[int, float]]:
-    """Sets initial value of device_train_microbatch_size.
+) -> Optional[Tuple[Union[int, float], Union[int, float]]]:
+    """Return upper bound of device_train_microbatch_size and mid-point.
 
     If auto_microbatching, sets initial `device_train_microbatch_size` to per rank batch size. If
     `train_dataloader` is not set yet, returns None and this function will be called again when
@@ -296,9 +298,14 @@ def _get_initial_device_train_microbatch_size(
             raise AttributeError(
                 "`device_train_microbatch_size='auto'` requires the `state.train_dataloader` to have a `batch_size` attribute.",
             ) from e
-        return batch_size
+        # Get the mid-point on a scale in powers of 2 between batch_size and 1
+        mid_point_exponent = math.log2(batch_size) // 2
+        mid_point = 2 ** mid_point_exponent
+        # return int(mid_point), batch_size
+        return batch_size, batch_size
     elif isinstance(device_train_microbatch_size, Union[int, float]):
-        return device_train_microbatch_size
+        # NOTE: Since here it has been manually set the upper bound is unused
+        return device_train_microbatch_size, 0
     else:
         raise ValueError("device_train_microbatch_size must be an int or ``'auto'``")
 
@@ -336,7 +343,37 @@ def _fsdp_reshard_and_cleanup(model: torch.nn.Module):
                 _post_backward_final_callback(module, module)
 
 
-def _adjust_device_train_microbatch_size(state: State):
+def _adjust_device_train_microbatch_size_lb(state: State):
+    """Adjust device_train_microbatch_size lower bound if we dont' encounter OOM.
+
+    Args:
+        state (State): State of trainer.
+    """
+    assert state.device_train_microbatch_size is not None
+    assert state.device_train_microbatch_size_lb is not None
+    assert state.device_train_microbatch_size_ub is not None
+    # Assign the new lower bound
+    state.device_train_microbatch_size_lb = state.device_train_microbatch_size * 2
+    # There's still something bigger to try
+    if state.device_train_microbatch_size_ub > state.device_train_microbatch_size_lb:
+        # Get the mid-point (+1) on a scale in powers of 2 between batch_size and 1
+        mid_point_exponent = int(
+            math.log2(state.device_train_microbatch_size_lb) + \
+                ((math.log2(state.device_train_microbatch_size_ub) - \
+                    math.log2(state.device_train_microbatch_size_lb)) // 2)
+        )
+        mid_point = 2 ** mid_point_exponent
+        state.device_train_microbatch_size = int(mid_point)
+        warnings.warn(
+            RuntimeWarning(
+                'The microbatch size has not reached the upper bound yet. Train microbatch size will be increase from '
+                f'{state.device_train_microbatch_size_lb // 2} -> {state.device_train_microbatch_size}. '
+                f'UB = {state.device_train_microbatch_size_ub}; LB = {state.device_train_microbatch_size_lb}',
+            ),
+        )
+
+
+def _adjust_device_train_microbatch_size_ub(state: State):
     """Adjust device_train_microbatch_size if we encounter OOM.
 
     Args:
@@ -345,18 +382,32 @@ def _adjust_device_train_microbatch_size(state: State):
     # If any rank hit CUDA OOM, update device_train_microbatch_size and retry. Raise runtime error
     # if training 1 sample at a time still resulted in CUDA out of memory.
     assert state.device_train_microbatch_size is not None
+    assert state.device_train_microbatch_size_lb is not None
+    assert state.device_train_microbatch_size_ub is not None
+    # The upper bound must be something that we cannot run
+    state.device_train_microbatch_size_ub = state.device_train_microbatch_size
     if state.device_train_microbatch_size == 1:
         raise RuntimeError((
             'CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
             'The GPU does not have enough memory to process even 1 sample during train.'
         ))
+    # We found the smallest microbatch size that gives OOM
+    elif state.device_train_microbatch_size_lb >= state.device_train_microbatch_size_ub:
+        state.device_train_microbatch_size = state.device_train_microbatch_size_lb // 2
     else:
-        original_microbatch_size = state.device_train_microbatch_size
-        state.device_train_microbatch_size = max(int(original_microbatch_size / 2), 1)
+        # Get the mid-point on a scale in powers of 2 between upper and lower bound
+        mid_point_exponent = int(
+            math.log2(state.device_train_microbatch_size_lb) + \
+            ((math.log2(state.device_train_microbatch_size_ub) - \
+                math.log2(state.device_train_microbatch_size_lb)) // 2)
+        )
+        mid_point = 2 ** mid_point_exponent
+        state.device_train_microbatch_size = int(mid_point)
         warnings.warn(
             RuntimeWarning(
                 'CUDA out of memory detected. Train microbatch size will be decreased from '
-                f'{original_microbatch_size} -> {state.device_train_microbatch_size}.',
+                f'{state.device_train_microbatch_size_ub} -> {state.device_train_microbatch_size}. '
+                f'UB = {state.device_train_microbatch_size_ub}; LB = {state.device_train_microbatch_size_lb}',
             ),
         )
     # Clear gradients in case failure happened during backwards pass
@@ -1155,11 +1206,15 @@ class Trainer:
         # If auto_microbatching is True or `device_train_microbatch_size` is not specified, the microbatch size
         # will be determined when dataloader is specified. train_dataloader is parsed after `Event.INIT` or in
         # fit()
-        device_train_microbatch_size = _get_initial_device_train_microbatch_size(
+        _init_res = _get_initial_device_train_microbatch_size(
             device_train_microbatch_size,
             auto_microbatching,
             None,
         )
+        if _init_res is not None:
+            device_train_microbatch_size, _device_train_microbatch_size_ub = _init_res
+        else:
+            device_train_microbatch_size = None
 
         assert not isinstance(device_train_microbatch_size, str)
 
@@ -1504,11 +1559,15 @@ class Trainer:
                 self.state.train_dataloader = pl.MpDeviceLoader(self.state.dataloader, xm.xla_device())
             else:
                 self.state.train_dataloader = self.state.dataloader
-            self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
+            _init_res = _get_initial_device_train_microbatch_size(
                 self.state.device_train_microbatch_size,
                 self.state.auto_microbatching,
                 self.state.train_dataloader,
             )
+            if _init_res is not None:
+                self.state.device_train_microbatch_size, self.state.device_train_microbatch_size_ub = _init_res
+            else:
+                self.state.device_train_microbatch_size = None
         self.spin_dataloaders = spin_dataloaders
 
         # Max Duration
@@ -2067,11 +2126,15 @@ class Trainer:
             self._train_data_spec = ensure_data_spec(train_dataloader)
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label)
             self.state.train_dataloader = self.state.dataloader
-            self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
+            _init_res = _get_initial_device_train_microbatch_size(
                 self.state.device_train_microbatch_size,
                 self.state.auto_microbatching,
                 self.state.train_dataloader,
             )
+            if _init_res is not None:
+                self.state.device_train_microbatch_size, self.state.device_train_microbatch_size_ub = _init_res
+            else:
+                self.state.device_train_microbatch_size = None
         if self._train_data_spec is None:
             _raise_missing_argument_exception('train_dataloader')
         if train_subset_num_batches is not None:
@@ -2210,11 +2273,15 @@ class Trainer:
                     'the optimal device_train_microbatch_size value and then manually specify that in a '
                     'second run with profiler.',
                 )
-            self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
-                device_train_microbatch_size,
+            _init_res = _get_initial_device_train_microbatch_size(
+                self.state.device_train_microbatch_size,
                 self.state.auto_microbatching,
                 self.state.train_dataloader,
             )
+            if _init_res is not None:
+                self.state.device_train_microbatch_size, self.state.device_train_microbatch_size_ub = _init_res
+            else:
+                self.state.device_train_microbatch_size = None
 
         # Precision
         if precision is not None:
@@ -2677,9 +2744,13 @@ class Trainer:
                     dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
                     all_ranks_finished = all_ranks_finished_tensor.item() == 1
                 if found_cuda_oom == 1:
-                    _adjust_device_train_microbatch_size(self.state)
-                    # Skip return and rerun after handling oom
+                    # Correct the upper bound if we've hit OOM
+                    _adjust_device_train_microbatch_size_ub(self.state)
+                    # Skip return and rerun after handling OOM
                     continue
+                else:
+                    # Correct the lower bound if we've completed without OOMing
+                    _adjust_device_train_microbatch_size_lb(self.state)
             # Log microbatch and return loss if we've completed without OOMing.
             assert self.state.device_train_microbatch_size is not None
             self.logger.log_metrics({'trainer/device_train_microbatch_size': self.state.device_train_microbatch_size})
