@@ -161,7 +161,9 @@ filterwarnings = [
     # Ignore save_state_dict / load_state_dict deprecation warnings
     '''ignore:'.*_state_dict' is deprecated and will be removed in future versions.*:UserWarning''',
     # Ignore HF deprecation which affects their own libraries
-    '''ignore:'.*`resume_download` is deprecated and will be removed in version.*:FutureWarning'''
+    '''ignore:'.*`resume_download` is deprecated and will be removed in version.*:FutureWarning''',
+    # Ignore warning that TP is an experimental feature
+    'ignore:.*(TP) is experimental.*:FutureWarning',
 ]
 
 # Coverage
