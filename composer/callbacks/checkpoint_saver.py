@@ -505,7 +505,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                 state.timestamp,
             )
 
-        self.rank_saves_symlinks = dist.get_global_rank() == 0 or state.fsdp_sharded_state_dict_enabled
+        self.rank_saves_symlinks = dist.get_global_rank() == 0 or not state.fsdp_sharded_state_dict_enabled
         if self.latest_filename is not None and self.num_checkpoints_to_keep != 0:
             symlink = self.latest_filename.format(state, is_deepspeed)
             os.makedirs(os.path.dirname(symlink), exist_ok=True)
