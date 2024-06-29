@@ -49,6 +49,7 @@ __all__ = [
     'maybe_create_object_store_from_uri',
     'maybe_create_remote_uploader_downloader_from_uri',
     'parse_uri',
+    'extract_path_from_symlink',
 ]
 
 

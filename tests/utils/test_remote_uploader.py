@@ -20,13 +20,16 @@ class DummyObjectStore(ObjectStore):
     """Dummy ObjectStore implementation that is backed by a local directory."""
 
     def __init__(self, **kwargs: Dict[str, Any]) -> None:
-        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.tmp_dir = self.get_tmp_dir()
         self.root = self.tmp_dir.name
         self.sleep_sec = 0
         self.dest_filename = ''
 
     def raise_error(self):
         return False
+
+    def get_tmp_dir(self):
+        return tempfile.TemporaryDirectory()
 
     def upload_object(
         self,
@@ -45,6 +48,17 @@ class DummyObjectStore(ObjectStore):
         object_path = pathlib.Path(self.root) / object_name
         size = os.stat(object_path).st_size
         return size
+
+    def download_object(
+        self,
+        object_name: str,
+        filename: Union[str, pathlib.Path],
+        overwrite: bool = False,
+        callback: Optional[Callable[[int, int], None]] = None,
+    ):
+        if overwrite is False and os.path.isfile(filename):
+            raise FileExistsError(f'The file at {filename} already exists and overwrite is set to False.')
+        shutil.copy2(os.path.join(self.tmp_dir.name, object_name), filename)
 
 
 def test_upload_mutliple_files():
