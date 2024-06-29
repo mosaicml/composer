@@ -113,7 +113,6 @@ def test_fsdp_optimizer_monitor(device, world_size, use_orig_params):
 @device('gpu')
 @world_size(1, 2)
 @pytest.mark.parametrize('use_orig_params', [True, False])
-@pytest.mark.filterwarnings(r'ignore:.*Downloads always resume when possible..*:FutureWarning')
 def test_fsdp_optimizer_monitor_transformer(device, world_size, tiny_gpt2_model, tiny_gpt2_tokenizer, use_orig_params):
     transformers = pytest.importorskip('transformers')
     # Construct the callback

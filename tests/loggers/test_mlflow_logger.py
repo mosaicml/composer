@@ -340,7 +340,6 @@ def test_mlflow_log_table(tmp_path):
 
 
 @pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
-@pytest.mark.filterwarnings(r'ignore:.*Downloads always resume when possible..*:FutureWarning')
 def test_mlflow_log_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
     mlflow = pytest.importorskip('mlflow')
 

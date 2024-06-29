@@ -238,7 +238,6 @@ def inference_test_helper(
     ],
 )
 @pytest.mark.parametrize('onnx_opset_version', [14, None])
-@pytest.mark.filterwarnings(r'ignore:.*Downloads always resume when possible..*:FutureWarning')
 def test_full_nlp_pipeline(
     model_type,
     algorithms,

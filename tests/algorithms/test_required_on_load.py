@@ -89,7 +89,6 @@ def get_required_on_load_algorithms_with_marks():
 
 @pytest.mark.filterwarnings('ignore:No instances of')
 @pytest.mark.filterwarnings('ignore:Low Precision .* only applies to AMP_FP16 and AMP_BF16 precisions.*')
-@pytest.mark.filterwarnings(r'ignore:.*Downloads always resume when possible..*:FutureWarning')
 @pytest.mark.parametrize('algo_name', get_required_on_load_algorithms_with_marks())
 def test_idempotent(algo_name: str, tiny_bert_config):
     algo_cls = getattr(algorithms, algo_name)

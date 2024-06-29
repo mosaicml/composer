@@ -106,7 +106,7 @@ def test_export_for_inference_input_and_output_names():
 
 
 @device('cpu', 'gpu')
-@pytest.mark.parametrize('onnx_opset_version', [13, None])
+@pytest.mark.parametrize('onnx_opset_version', [14, None])
 def test_huggingface_export_for_inference_onnx(onnx_opset_version, tiny_bert_config, device):
     pytest.importorskip('onnx')
     pytest.importorskip('onnxruntime')

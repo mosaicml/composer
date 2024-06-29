@@ -385,7 +385,6 @@ def check_hf_model_equivalence(model1, model2):
 @pytest.mark.parametrize('num_classes', [2, 3])
 @world_size(1, 2)
 @device('cpu')
-@pytest.mark.filterwarnings(r'ignore:.*Downloads always resume when possible..*:FutureWarning')
 def test_hf_state_dict_info(
     tmp_path: Path,
     pass_in_tokenizer: bool,
@@ -603,7 +602,6 @@ def get_lm_trainer(
     return trainer
 
 
-@pytest.mark.filterwarnings(r'ignore:.*Downloads always resume when possible..*:FutureWarning')
 def test_loss_vs_ce_metric(tiny_gpt2_tokenizer, tiny_gpt2_model):
     trainer = get_lm_trainer(
         tiny_gpt2_model,
