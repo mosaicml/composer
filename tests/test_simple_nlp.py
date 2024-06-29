@@ -67,6 +67,7 @@ def test_simple_nlp_classification():
     assert predictions[0].shape == (batch_size, 2)
 
 
+@pytest.mark.filterwarnings(r'ignore:.*Downloads always resume when possible..*:FutureWarning')
 def test_simple_nlp_mlm(tiny_bert_tokenizer, tiny_bert_model):
     transformers = pytest.importorskip('transformers')
 
@@ -130,6 +131,7 @@ def test_simple_nlp_mlm(tiny_bert_tokenizer, tiny_bert_model):
 
 
 @device('gpu')
+@pytest.mark.filterwarnings(r'ignore:.*Downloads always resume when possible..*:FutureWarning')
 def test_simple_nlp_mlm_token_batch(tiny_bert_tokenizer, device):
     transformers = pytest.importorskip('transformers')
 

@@ -602,6 +602,7 @@ def get_lm_trainer(
     return trainer
 
 
+@pytest.mark.filterwarnings(r'ignore:.*Downloads always resume when possible..*:FutureWarning')
 def test_loss_vs_ce_metric(tiny_gpt2_tokenizer, tiny_gpt2_model):
     trainer = get_lm_trainer(
         tiny_gpt2_model,
