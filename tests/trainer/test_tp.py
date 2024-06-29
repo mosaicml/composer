@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import contextlib
+
 import pytest
 import torch
 from packaging import version
@@ -18,7 +20,8 @@ from tests.common import (
 @pytest.mark.gpu
 @world_size(4)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
-def test_tp_train(world_size: int):
+@pytest.mark.parametrize('tensor_parallel_degree', [1, 2])
+def test_tp_train(world_size: int, tensor_parallel_degree: int):
     from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
 
     model = SimpleModel()
@@ -31,18 +34,24 @@ def test_tp_train(world_size: int):
         'fc2': RowwiseParallel(),
     }
 
-    trainer = Trainer(
-        model=model,
-        optimizers=optimizer,
-        train_dataloader=dataloader,
-        parallelism_config={
-            'tp': {
-                'layer_plan': layer_plan,
-                'tensor_parallel_degree': 2,
+    if tensor_parallel_degree == 1:
+        ctx = pytest.warns(UserWarning, match='*Tensor parallelism will not be used*')
+    else:
+        ctx = contextlib.nullcontext()
+
+    with ctx:
+        trainer = Trainer(
+            model=model,
+            optimizers=optimizer,
+            train_dataloader=dataloader,
+            parallelism_config={
+                'tp': {
+                    'layer_plan': layer_plan,
+                    'tensor_parallel_degree': 2,
+                },
+                'fsdp': {},
             },
-            'fsdp': {},
-        },
-        max_duration='3ba',
-    )
+            max_duration='3ba',
+        )
 
     trainer.fit()

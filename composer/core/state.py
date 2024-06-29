@@ -219,8 +219,14 @@ def _create_device_mesh(
     dims.append(fsdp_config.data_parallel_shard_degree)
     names.append(ParallelismType.DATA_PARALLEL_SHARD.value)
     if tp_config is not None:
-        dims.append(tp_config.tensor_parallel_degree)
-        names.append(ParallelismType.TENSOR_PARALLEL.value)
+        if tp_config.tensor_parallel_degree == 1:
+            warnings.warn(
+                'Received tensor_parallel_degree of 1, which is a no-op. Tensor parallelism will not be used.',
+                UserWarning,
+            )
+        else:
+            dims.append(tp_config.tensor_parallel_degree)
+            names.append(ParallelismType.TENSOR_PARALLEL.value)
 
     # Fill in the unspecified dimensions
     product_of_dims = 1
@@ -555,7 +561,7 @@ class State(Serializable):
                 fsdp_mesh_dim_names.append(ParallelismType.DATA_PARALLEL_REPLICATE.value)
             fsdp_mesh_dim_names.append(ParallelismType.DATA_PARALLEL_SHARD.value)
             self.fsdp_config.device_mesh = self.device_mesh[tuple(fsdp_mesh_dim_names)]  # type: ignore
-        if self.tp_config is not None and self.device_mesh is not None:
+        if self.tp_config is not None and self.device_mesh is not None and ParallelismType.TENSOR_PARALLEL.value in self.device_mesh.mesh_dim_names:
             self.tp_config.device_mesh = self.device_mesh[ParallelismType.TENSOR_PARALLEL.value]
 
         # Set defaults for transient variables (to make pyright happy)
