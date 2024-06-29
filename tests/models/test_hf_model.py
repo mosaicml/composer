@@ -385,6 +385,7 @@ def check_hf_model_equivalence(model1, model2):
 @pytest.mark.parametrize('num_classes', [2, 3])
 @world_size(1, 2)
 @device('cpu')
+@pytest.mark.filterwarnings(r'ignore:.*Downloads always resume when possible..*:FutureWarning')
 def test_hf_state_dict_info(
     tmp_path: Path,
     pass_in_tokenizer: bool,
