@@ -346,6 +346,18 @@ Args:
 """
 
 
+def is_uri(path: str) -> bool:
+    """Check if the path is a URI.
+
+    Args:
+        path (str): The path to check.
+    Returns:
+        bool: Whether the path is a URI.
+    """
+    backend, _, _ = parse_uri(path)
+    return backend != ''
+
+
 def parse_uri(uri: str) -> tuple[str, str, str]:
     """Uses :py:func:`urllib.parse.urlparse` to parse the provided URI.
 

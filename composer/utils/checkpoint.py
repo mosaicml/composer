@@ -37,6 +37,8 @@ from composer.utils.file_helpers import (
     get_file,
     is_tar,
     parse_uri,
+    is_uri,
+    maybe_create_object_store_from_uri
 )
 from composer.utils.misc import ParallelismType, is_model_deepspeed, partial_format
 from composer.utils.object_store import ObjectStore
@@ -213,9 +215,16 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         self,
         source_path: str,
         destination_path: str,
-        object_store: Union[ObjectStore, LoggerDestination],
+        object_store: Optional[Union[ObjectStore, LoggerDestination]],
         device_mesh: Optional[DeviceMesh],
     ):
+    
+        if object_store is None:
+            if not is_uri(source_path):
+                raise ValueError('When object_store is None, source_path must be a URI.')
+            object_store = maybe_create_object_store_from_uri(source_path)
+            _, _, source_path = parse_uri(source_path)
+
         self.source_path = source_path
         self.destination_path = destination_path
         self.object_store = object_store
