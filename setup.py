@@ -202,7 +202,7 @@ extra_deps['mlperf'] = [
 extra_deps['streaming'] = [
     'mosaicml-streaming<1.0',
     'boto3>=1.21.45,<2',
-    'paramiko>=2.11.0,<3',
+    'paramiko>=3.4.0,<4',
 ]
 
 extra_deps['libcloud'] = [
