@@ -23,9 +23,15 @@ from tests.utils.test_remote_uploader import DummyObjectStore
 def test_download_monolithic_checkpoint(world_size: int, rank_zero_only: bool):
     # Write a checkpoint
     tmp_dir = tempfile.TemporaryDirectory()
-    fsdp_model, _ = init_model(use_fsdp=True,)
+    use_fsdp = False
+    if world_size > 1:
+        use_fsdp = True
+    fsdp_model, _ = init_model(use_fsdp=use_fsdp)
 
-    with FSDP.state_dict_type(fsdp_model, StateDictType.FULL_STATE_DICT):
+    if use_fsdp:
+        with FSDP.state_dict_type(fsdp_model, StateDictType.FULL_STATE_DICT):
+            state = fsdp_model.state_dict()
+    else:
         state = fsdp_model.state_dict()
 
     checkpoint_filename = 'state_dict'

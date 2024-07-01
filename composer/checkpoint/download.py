@@ -20,15 +20,15 @@ def download_file(
     source_uri: str,
     destination_path: str,
     node_ranks: Optional[list[int]] = None,
-    num_attempts=5,
+    num_attempts: int = 5,
 ):
-    """
-    Downloads a file (object) from the specified URI to the specified directory.
+    """Downloads a file (object) from the specified URI to the specified directory.
 
     Args:
         source_uri (str): The URI to download the file from or a symlink to the URI.
         destination_path (str): The directory to download the file to.
         node_ranks (list[int]): The ranks of the nodes that will download the file. If None, all nodes will download the file.
+        num_attempts (int): Retry for object store downloads. Default to 5.
     """
     # Only local rank 0 downloads
     local_rank = dist.get_local_rank()
@@ -62,9 +62,7 @@ def download_monolithic_checkpoint(
     destination_path: str,
     rank_zero_only: bool = True,
 ):
-    """"
-    Downloads a monolithic checkpoint from the specified URI to the specified directory.
-
+    """Downloads a monolithic checkpoint from the specified URI to the specified directory.
 
     Args:
         source_uri (str): The URI to download the checkpoint from or symlink that points to the URI.
