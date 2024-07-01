@@ -146,7 +146,8 @@ class MosaicMLLogger(LoggerDestination):
         self._flush_metadata(force_flush=True)
 
     def close(self, state: State, logger: Logger) -> None:
-        self._flush_metadata(force_flush=True, future=False)
+        # Skip flushing metadata as it should be logged by fit/eval/predict_end. Flushing here
+        # might schedule futures while interpreter is shutting down, which will raise an error.
         if self._enabled:
             wait(self._futures)  # Ignore raised errors on close
 
