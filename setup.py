@@ -138,7 +138,7 @@ extra_deps['dev'] = [
     'pandoc==2.3',
     'pypandoc==1.13',
     'GitPython==3.1.43',
-    'moto[s3]>=4.0.1,<5',
+    'moto[s3]>=5.0.10,<6',
     'mock-ssh-server==0.9.1',
     'cryptography==42.0.8',
     'pytest-httpserver>=1.0.4,<1.1',
