@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import fnmatch
 import logging
+import multiprocessing
 import os
 import pathlib
 import posixpath
@@ -31,6 +32,29 @@ log = logging.getLogger(__name__)
 __all__ = ['MLFlowLogger']
 
 DEFAULT_MLFLOW_EXPERIMENT_NAME = 'my-mlflow-experiment'
+
+
+class MlflowMonitorProcess(multiprocessing.Process):
+
+    def __init__(self, main_pid, mlflow_run_id, mlflow_tracking_uri, exit_event):
+        super().__init__()
+        self.main_pid = main_pid
+        self.mlflow_run_id = mlflow_run_id
+        self.mlflow_tracking_uri = mlflow_tracking_uri
+        self.exit_event = exit_event
+
+    def run(self):
+        from mlflow import MlflowClient
+        while not self.exit_event.wait(70):
+            try:
+                os.kill(self.main_pid, 0)
+            except OSError:
+                print("GEEZ MAIN PROCESS IS NOT ALIVE!")
+                client = MlflowClient(self.mlflow_tracking_uri)
+                client.set_terminated(self.mlflow_run_id, status='FAILED')
+                break
+        print("Monitor process exiting gracefully.")
+
 
 
 class MLFlowLogger(LoggerDestination):
@@ -239,6 +263,13 @@ class MLFlowLogger(LoggerDestination):
             tags=self.tags,
             log_system_metrics=self.log_system_metrics,
         )
+
+        self.monitor_thread = MlflowMonitorProcess(
+            os.getpid(),
+            self._run_id,
+            self.tracking_uri,
+        )
+        self.monitor_thread.start()
 
     def init(self, state: State, logger: Logger) -> None:
         del logger  # unused
@@ -465,7 +496,11 @@ class MLFlowLogger(LoggerDestination):
         """
         if self._enabled:
             from mlflow.exceptions import MlflowException
-            from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS, ErrorCode
+            from mlflow.protos.databricks_pb2 import (
+                ALREADY_EXISTS,
+                RESOURCE_ALREADY_EXISTS,
+                ErrorCode,
+            )
 
             full_name = f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name
 
@@ -527,13 +562,17 @@ class MLFlowLogger(LoggerDestination):
                 )
 
     def post_close(self):
+        print("GEEZ EXECUTING POST CLOSE!")
         if self._enabled:
             import mlflow
 
             assert isinstance(self._run_id, str)
             mlflow.flush_async_logging()
+            self.monitor_thread.stop()
             self._mlflow_client.set_terminated(self._run_id)
             mlflow.end_run()
+
+            self.monitor_thread.join()
 
 
 def _convert_to_mlflow_image(image: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:
