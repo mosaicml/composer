@@ -237,7 +237,7 @@ def inference_test_helper(
         ('simpletransformer', [], 'torchscript'),
     ],
 )
-@pytest.mark.parametrize('onnx_opset_version', [13, None])
+@pytest.mark.parametrize('onnx_opset_version', [14, None])
 def test_full_nlp_pipeline(
     model_type,
     algorithms,
