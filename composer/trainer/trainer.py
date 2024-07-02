@@ -301,8 +301,7 @@ def _get_initial_device_train_microbatch_size(
         # Get the mid-point on a scale in powers of 2 between batch_size and 1
         mid_point_exponent = math.log2(batch_size) // 2
         mid_point = 2 ** mid_point_exponent
-        # return int(mid_point), batch_size
-        return batch_size, batch_size
+        return int(mid_point), batch_size
     elif isinstance(device_train_microbatch_size, Union[int, float]):
         # NOTE: Since here it has been manually set the upper bound is unused
         return device_train_microbatch_size, 0
