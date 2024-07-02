@@ -50,7 +50,7 @@ def test_download_monolithic_checkpoint(world_size: int, rank_zero_only: bool):
         ret = download_monolithic_checkpoint(
             source_uri=f's3://bucket_name/{checkpoint_filename}',
             destination_path=local_file_name,
-            rank_zero_only=rank_zero_only,
+            global_rank_zero_only=rank_zero_only,
         )
     dist.barrier()
 

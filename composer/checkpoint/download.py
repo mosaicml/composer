@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Useful functions for load checkpoints from remote object store or local disk."""
+
 import logging
 from typing import Optional
 
@@ -60,25 +61,25 @@ def download_file(
 def download_monolithic_checkpoint(
     source_uri: str,
     destination_path: str,
-    rank_zero_only: bool = True,
+    global_rank_zero_only: bool = True,
 ):
     """Downloads a monolithic checkpoint from the specified URI to the specified directory.
 
     Args:
         source_uri (str): The URI to download the checkpoint from or symlink that points to the URI.
         destination_path (str): The directory to download the checkpoint to.
-        rank_zero_only (bool): If True, only rank 0 will download the checkpoint.
+        global_rank_zero_only (bool): If True, only rank 0 will download the checkpoint.
         broadcast_files_to_other_nodes (bool): If True, the downloaded checkpoint will be broadcast to all other nodes.
             If torch syncs modules states this is unnecessary.
     """
     node_ranks = None
-    if rank_zero_only:
+    if global_rank_zero_only:
         node_ranks = [0]
     download_file(
         source_uri=source_uri,
         destination_path=destination_path,
         node_ranks=node_ranks,
     )
-    if not rank_zero_only or (rank_zero_only and dist.get_global_rank() == 0):
+    if not global_rank_zero_only or (global_rank_zero_only and dist.get_global_rank() == 0):
         return destination_path
     return None
