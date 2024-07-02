@@ -148,6 +148,16 @@ class RemoteUploader:
             }
         elif self.remote_backend_name == 'dbfs':
             self.backend_kwargs['path'] = self.path
+        elif self.remote_backend_name == 'wandb':
+            raise NotImplementedError(
+                f'There is no implementation for WandB via URI. Please use '
+                'WandBLogger with log_artifacts set to True.',
+            )
+        else:
+            raise NotImplementedError(
+                f'There is no implementation for the cloud backend {self.remote_backend_name} via URI. Please use '
+                'one of the supported object stores (s3, oci, gs, azure, dbfs).',
+            )
 
         self.num_attempts = num_attempts
         self._remote_backend: Optional[ObjectStore] = None

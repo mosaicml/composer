@@ -1441,14 +1441,12 @@ class Trainer:
             # path then we assume they just want their checkpoints saved directly in their
             # bucket.
             if parsed_save_folder == '':
-                folder = '.'
                 remote_file_name = save_filename
                 latest_remote_file_name = save_latest_filename
 
             # If they actually specify a path, then we use that for their local save path
             # and we prefix save_filename with that path for remote_file_name.
             else:
-                folder = parsed_save_folder
                 remote_file_name = str(Path(parsed_save_folder) / Path(save_filename))
                 if save_latest_filename is not None:
                     latest_remote_file_name = str(Path(parsed_save_folder) / Path(save_latest_filename))
@@ -1456,7 +1454,7 @@ class Trainer:
                     latest_remote_file_name = None
 
             self._checkpoint_saver = CheckpointSaver(
-                folder=folder,
+                folder=save_folder,
                 filename=save_filename,
                 remote_file_name=remote_file_name,
                 latest_filename=save_latest_filename,
@@ -1466,7 +1464,6 @@ class Trainer:
                 ignore_keys=save_ignore_keys,
                 save_interval=save_interval,
                 num_checkpoints_to_keep=save_num_checkpoints_to_keep,
-                save_folder=save_folder,
             )
             self.state.callbacks.append(self._checkpoint_saver)
 

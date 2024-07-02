@@ -290,11 +290,13 @@ class CheckpointSaver(Callback):  # noqa: D101
         num_checkpoints_to_keep: int = -1,
         weights_only: bool = False,
         ignore_keys: Optional[Union[list[str], Callable[[dict], None]]] = None,
-        save_folder: str = '',
         num_concurrent_uploads: int = 1,
         upload_timeout_in_seconds: int = 3600,
     ):
-        folder = str(folder)
+        backend, _, local_folder = parse_uri(str(folder))
+        if local_folder == '':
+            local_folder = '.'
+
         filename = str(filename)
         remote_file_name = str(remote_file_name) if remote_file_name is not None else None
         latest_filename = str(latest_filename) if latest_filename is not None else None
@@ -310,10 +312,10 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.save_interval = save_interval
         self.last_checkpoint_batch: Optional[Time] = None
 
-        self.folder = folder
+        self.folder = local_folder
 
-        self.filename = PartialFilePath(filename.lstrip('/'), folder)
-        self.latest_filename = PartialFilePath(latest_filename.lstrip('/'), folder) if latest_filename else None
+        self.filename = PartialFilePath(filename.lstrip('/'), local_folder)
+        self.latest_filename = PartialFilePath(latest_filename.lstrip('/'), local_folder) if latest_filename else None
         self.remote_file_name = PartialFilePath(remote_file_name) if remote_file_name else None
         self.latest_remote_file_name = PartialFilePath(latest_remote_file_name) if latest_remote_file_name else None
 
@@ -327,7 +329,6 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.start_batch = None
 
         self.remote_uploader = None
-        backend, _, _ = parse_uri(save_folder)
         self.rank_saves_symlinks: bool = False
         self.tmp_dir_for_symlink = tempfile.TemporaryDirectory()
         self.num_concurrent_uploads = num_concurrent_uploads
@@ -339,18 +340,8 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.symlink_upload_tasks = []
 
         if backend != '':
-            if backend == 'wandb':
-                raise NotImplementedError(
-                    f'There is no implementation for WandB via URI. Please use '
-                    'WandBLogger with log_artifacts set to True.',
-                )
-            elif backend not in ['s3', 'oci', 'gs', 'azure', 'dbfs']:
-                raise NotImplementedError(
-                    f'There is no implementation for the cloud backend {backend} via URI. Please use '
-                    'one of the supported object stores (s3, oci, gs, azure, dbfs).',
-                )
             self.remote_uploader = RemoteUploader(
-                remote_folder=save_folder,
+                remote_folder=str(folder),
                 num_concurrent_uploads=self.num_concurrent_uploads,
             )
 
@@ -489,6 +480,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         log.debug(f'Checkpoint locally saved to {saved_path}')
 
         self.symlink_count += 1
+        # Remote checkpoint file names on this rank
         local_remote_file_names = []
         all_remote_filenames = []
 
@@ -664,7 +656,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.remote_uploader.wait()
         if self.rank_saves_symlinks and len(self.symlink_upload_tasks) > 0:
             log.debug('Uploading symlink to the latest checkpoint')
-            # We only need to upload the latest symlinke file, ignoring the old ones
+            # We only need to upload a symlink pointing to the latest checkpoint files, so we can ignore successful uploads of older checkpoints.
             check_remote_files_exist_future, local_symlink_file, remote_symlink_file = self.symlink_upload_tasks[-1]
             result = check_remote_files_exist_future.result()
             if result == RemoteFilesExistingCheckStatus.EXIST:
