@@ -836,6 +836,7 @@ def test_fsdp_partitioned_state_dict_load(
     if weights_only and autoresume:
         pytest.skip('Weights only with autoresume is not supported')
     if (use_tp or use_hsdp) and version.parse(torch.__version__) < version.parse('2.3.0'):
+        dist.barrier()  # Sync to avoid race conditions on cleaning up tmp_path
         pytest.skip('HSDP and TP require torch 2.3.0 or later')
 
     load_ignore_keys = [] if load_ignore_keys is None else load_ignore_keys
