@@ -394,6 +394,19 @@ def _adjust_device_train_microbatch_size_ub(state: State):
     # We found the smallest microbatch size that gives OOM
     elif state.device_train_microbatch_size_lb >= state.device_train_microbatch_size_ub:
         state.device_train_microbatch_size = state.device_train_microbatch_size_lb // 2
+        # NOTE: We need to downgrade the lower and upper bound as well because trying out
+        # successfully different microbatch size can change the conditions and make this
+        # fall in an infinite loop.
+        state.device_train_microbatch_size = state.device_train_microbatch_size_lb // 2
+        state.device_train_microbatch_size_lb = state.device_train_microbatch_size
+        state.device_train_microbatch_size_ub = state.device_train_microbatch_size
+        warnings.warn(
+            RuntimeWarning(
+                'CUDA out of memory detected. Train microbatch size will be decreased from '
+                f'{state.device_train_microbatch_size * 2} -> {state.device_train_microbatch_size}. '
+                f'UB = {state.device_train_microbatch_size_ub}; LB = {state.device_train_microbatch_size_lb}',
+            ),
+        )
     else:
         # Get the mid-point on a scale in powers of 2 between upper and lower bound
         mid_point_exponent = int(
