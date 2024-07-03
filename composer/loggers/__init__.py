@@ -12,6 +12,7 @@ See the :class:`~.logger_destination.LoggerDestination` documentation for an exa
 define a custom logger and use it when training.
 """
 
+from composer.loggers import mlflow_logger
 from composer.loggers.cometml_logger import CometMLLogger
 from composer.loggers.console_logger import ConsoleLogger
 from composer.loggers.file_logger import FileLogger
