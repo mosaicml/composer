@@ -106,7 +106,7 @@ def test_export_for_inference_input_and_output_names():
 
 
 @device('cpu', 'gpu')
-@pytest.mark.parametrize('onnx_opset_version', [13, None])
+@pytest.mark.parametrize('onnx_opset_version', [14, None])
 def test_huggingface_export_for_inference_onnx(onnx_opset_version, tiny_bert_config, device):
     pytest.importorskip('onnx')
     pytest.importorskip('onnxruntime')
@@ -130,7 +130,10 @@ def test_huggingface_export_for_inference_onnx(onnx_opset_version, tiny_bert_con
     input_ids = torch.randint(low=0, high=30522, size=(2, 32))
     labels = torch.randint(low=0, high=1, size=(2,))
     token_type_ids = torch.zeros(size=(2, 32), dtype=torch.int64)
-    attention_mask = torch.randint(low=0, high=1, size=(2, 32))
+    attention_mask = torch.ones(size=(2, 32), dtype=torch.int64)
+    # Mask some tokens
+    attention_mask[0, 2:] = 0
+
     sample_input = {
         'input_ids': input_ids,
         'labels': labels,

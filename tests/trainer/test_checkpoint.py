@@ -753,11 +753,19 @@ class TestCheckpointLoading:
 
     @world_size(1, 2)
     @device('cpu', 'gpu')
-    @pytest.mark.parametrize('file_extension', ['.pt', '.tar.gz', '.pt.lz4'])
     @pytest.mark.parametrize('use_object_store', [True, False])
     @pytest.mark.parametrize('delete_local', [True, False])
     @pytest.mark.parametrize('test_slashed', [True, False])
-    @pytest.mark.parametrize('save_metrics', [True, False])
+    @pytest.mark.parametrize(
+        'file_extension,save_metrics,save_overwrite',
+        [
+            ['.pt', False, False],
+            ['.tar.gz', False, False],
+            ['.pt.lz4', False, False],
+            ['.pt', True, False],
+            ['.pt', False, True],
+        ],
+    )
     def test_autoresume(
         self,
         device: str,
@@ -767,6 +775,7 @@ class TestCheckpointLoading:
         delete_local: bool,
         test_slashed: bool,
         save_metrics: bool,
+        save_overwrite: bool,
         world_size: int,
     ):
         if delete_local and not use_object_store:
@@ -824,6 +833,7 @@ class TestCheckpointLoading:
                         autoresume=True,
                         load_path='ignore_me.pt',  # this should be ignored
                         load_ignore_keys=['*'],  # this should be ignored
+                        save_overwrite=save_overwrite,
                     )
 
                     self._assert_weights_equivalent(
@@ -840,6 +850,7 @@ class TestCheckpointLoading:
                         ), 'Original metrics do not equal metrics from loaded checkpoint.'
 
                     assert trainer_1.state.run_name == trainer_2.state.run_name
+
 
     @pytest.mark.parametrize(('save_folder'), [None, 'first'])
     def test_autoresume_from_callback(
@@ -1257,19 +1268,17 @@ class TestCheckpointLoading:
                     )
 
     @pytest.mark.parametrize(
-        'run_name,save_folder,save_overwrite,latest_filename',
+        'run_name,save_folder,latest_filename',
         [
-            [None, 'first', False, 'latest-rank{rank}.pt'],
-            ['big-chungus', None, False, 'latest-rank{rank}.pt'],
-            ['big-chungus', 'first', True, 'latest-rank{rank}.pt'],
-            ['big-chungus', 'first', False, None],
+            [None, 'first', 'latest-rank{rank}.pt'],
+            ['big-chungus', None, 'latest-rank{rank}.pt'],
+            ['big-chungus', 'first', None],
         ],
     )
-    def test_autoresume_fail(self, run_name, save_folder, save_overwrite, latest_filename):
+    def test_autoresume_fail(self, run_name, save_folder, latest_filename):
         with pytest.raises(ValueError):
             self.get_trainer(
                 latest_filename=latest_filename,
-                save_overwrite=save_overwrite,
                 save_folder=save_folder,
                 run_name=run_name,
                 autoresume=True,

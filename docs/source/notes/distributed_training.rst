@@ -540,23 +540,24 @@ Composer integrates Pytorch's `Tensor Parallel <https://pytorch.org/docs/stable/
 API with some syntactic sugar to make it easy to write custom models that work with Composer + TP.
 
 To enable Tensor Parallel, a tensor parallel config must be passed to the Composer Trainer. The
-full spec and defaults for Composer's tensor parallelism_config is here:
+full spec and defaults for Composer's tensor parallelism config is here:
 
 .. code:: python
 
     tp_config = {
         tensor_parallel_degree: int = 1, # Default: 1
-        pipeline_parallel_degree: int = 1, # Default: None
+        layer_plan: dict = None, # Default: None, maps to torch's `parallelize_plan`
     }
 
 All values come with defaults and can be optionally defined in the :code:`tp_config`. Most parameters
 map directly to parameters in the
 `Tensor Parallel documentation <https://pytorch.org/docs/stable/distributed.tensor.parallel.html#torch.distributed.tensor.parallel.parallelize_module>`__.
-This config is passed under `parallelism_config['tp']` to the Composer Trainer. An important parameters
-which do not map include `tensor_parallel_degree`, which dictates the number of devices to shard across.
+This config is passed under `parallelism_config['tp']` to the Composer Trainer. Important parameters
+which do not directly map include `tensor_parallel_degree`, which dictates the number of devices to shard across,
+and `layer_plan`, which simply corresponds to torch's `parallelize_plan`.
 
 
-An example code snippet for using FSDP with composer is provided below:
+An example code snippet for using TP and FSDP with Composer is provided below:
 
 .. code:: python
 
@@ -624,10 +625,12 @@ An example code snippet for using FSDP with composer is provided below:
         }
     }
 
-
     trainer = Trainer(
         model=composer_model,
-        parallelism_config={'fsdp': fsdp_config},
+        parallelism_config={
+            'fsdp': fsdp_config,
+            'tp': tp_config,
+        },
         ...
     )
 

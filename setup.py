@@ -84,7 +84,7 @@ install_requires = [
     'torch>=2.1.2,<2.3.2',
     'requests>=2.26.0,<3',
     'numpy>=1.21.5,<2.1.0',
-    'psutil>=5.8.0,<6',
+    'psutil>=5.8.0,<7',
     'coolname>=1.1.0,<3',
     'tabulate==0.9.0',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<10',
@@ -103,7 +103,7 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
     'junitparser==3.1.2',
-    'coverage[toml]==7.5.3',
+    'coverage[toml]==7.5.4',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
     'ipython==8.11.0',
@@ -179,9 +179,9 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,!=4.34.0,<4.42',
+    'transformers>=4.11,!=4.34.0,<4.43',
     'datasets>=2.4,<3',
-    'huggingface-hub>=0.21.2,<0.23',
+    'huggingface-hub>=0.21.2,<0.24',
 ]
 
 extra_deps['peft'] = [
@@ -202,7 +202,7 @@ extra_deps['mlperf'] = [
 extra_deps['streaming'] = [
     'mosaicml-streaming<1.0',
     'boto3>=1.21.45,<2',
-    'paramiko>=2.11.0,<3',
+    'paramiko>=3.4.0,<4',
 ]
 
 extra_deps['libcloud'] = [
@@ -223,7 +223,7 @@ extra_deps['onnx'] = [
 ]
 
 extra_deps['mlflow'] = [
-    'mlflow>=2.11.1,<3.0',
+    'mlflow>=2.14.1,<3.0',
     'databricks-sdk==0.28.0',
     'pynvml>=11.5.0,<12',
 ]
