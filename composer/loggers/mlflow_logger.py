@@ -11,7 +11,7 @@ import textwrap
 import time
 import warnings
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
-
+import posixpath
 import numpy as np
 import torch
 
@@ -95,6 +95,7 @@ class MLFlowLogger(LoggerDestination):
                 self.experiment_name = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,
                                                  DEFAULT_MLFLOW_EXPERIMENT_NAME)
             self._mlflow_client = MlflowClient(self.tracking_uri)
+            self.run_url = None
             # Create an instance of MlflowAutologgingQueueingClient - an optimized version
             # of MlflowClient - that automatically batches metrics together and supports
             # asynchronous logging for improved performance
@@ -134,6 +135,17 @@ class MLFlowLogger(LoggerDestination):
                 )
                 self._run_id = new_run.info.run_id
             mlflow.start_run(run_id=self._run_id)
+
+    def after_load(self, state: State, logger: Logger) -> None:
+        logger.log_hyperparameters({'mlflow_experiment_id': self._experiment_id, 'mlflow_run_id': self._run_id})
+        self.run_url = posixpath.join(
+            os.environ.get('DATABRICKS_HOST', ''),
+            'ml',
+            'experiments',
+            str(self._experiment_id),
+            'runs',
+            str(self._run_id),
+        )
 
     def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
         if self._enabled:
