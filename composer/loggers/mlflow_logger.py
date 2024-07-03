@@ -83,6 +83,7 @@ class MLFlowLogger(LoggerDestination):
         self._rank_zero_only = rank_zero_only
         self._last_flush_time = time.time()
         self._flush_interval = flush_interval
+        self.run_url = None
         if self._enabled:
             self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
             mlflow.set_tracking_uri(self.tracking_uri)
@@ -95,7 +96,7 @@ class MLFlowLogger(LoggerDestination):
                 self.experiment_name = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,
                                                  DEFAULT_MLFLOW_EXPERIMENT_NAME)
             self._mlflow_client = MlflowClient(self.tracking_uri)
-            self.run_url = None
+            
             # Create an instance of MlflowAutologgingQueueingClient - an optimized version
             # of MlflowClient - that automatically batches metrics together and supports
             # asynchronous logging for improved performance

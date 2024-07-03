@@ -96,8 +96,10 @@ class MosaicMLLogger(LoggerDestination):
                 if run_url is not None:
                     self._log_metadata({'wandb/run_url': run_url})
             if isinstance(callback, MLFlowLogger):
-                self._log_metadata({'mlflow/run_url': callback.run_url})
-                log.debug(f'Logging MLFlow run URL to metadata: {callback.run_url}')
+                run_url = callback.run_url
+                if run_url is not None:
+                    self._log_metadata({'mlflow/run_url': run_url})
+                    log.debug(f'Logging MLFlow run URL to metadata: {run_url}')
 
     def batch_end(self, state: State, logger: Logger) -> None:
         self._flush_metadata()
