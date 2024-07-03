@@ -538,6 +538,7 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == 'llm-foundry':
         # Remove 'llm-foundry' from sys.argv to handle it correctly in the Typer CLI
         sys.argv.pop(1)
+        print('---- Running LLM Foundry CLI')
         try:
             from llmfoundry.cli.cli import app
         except ImportError:
