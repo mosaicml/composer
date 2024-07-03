@@ -2687,16 +2687,18 @@ class Trainer:
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
         assert self.state.train_metrics is not None, 'The train metrics should be set on __init__ or fit()'
         precision = self.state.precision if self.state.precision is Precision.AMP_FP8 else Precision.AMP_BF16  
-        with torch.no_grad(),\
-                model_eval_mode(self.state.model),\
-                _get_precision_context(precision, self.state.precision_config, self.state.deepspeed_enabled):
-            eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
-            for metric in self.state.train_metrics.values():
-                self._original_model.update_metric(
-                    device_batch,
-                    eval_outputs,
-                    metric,
-                )
+        import transformer_engine.pytorch as te
+        with te.fp8_autocast(enabled=False):
+            with torch.no_grad(),\
+                    model_eval_mode(self.state.model),\
+                    _get_precision_context(precision, self.state.precision_config, self.state.deepspeed_enabled):
+                eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
+                for metric in self.state.train_metrics.values():
+                    self._original_model.update_metric(
+                        device_batch,
+                        eval_outputs,
+                        metric,
+                    )
 
     def _run_evaluators(self, event: Event):
         """Runs evaluators periodically during training."""
@@ -3485,12 +3487,14 @@ class Trainer:
 
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
                             precision = self.state.precision if self.state.precision is Precision.AMP_FP8 else Precision.AMP_BF16  
-                            with _get_precision_context(
-                                precision,
-                                self.state.precision_config,
-                                self.state.deepspeed_enabled,
-                            ):
-                                self.state.outputs = self._original_model.eval_forward(self.state.batch)
+                            import transformer_engine.pytorch as te
+                            with te.fp8_autocast(enabled=False):
+                                with _get_precision_context(
+                                    precision,
+                                    self.state.precision_config,
+                                    self.state.deepspeed_enabled,
+                                ):
+                                    self.state.outputs = self._original_model.eval_forward(self.state.batch)
 
                             self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
