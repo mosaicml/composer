@@ -36,12 +36,12 @@ DEFAULT_MLFLOW_EXPERIMENT_NAME = 'my-mlflow-experiment'
 
 class MlflowMonitorProcess(multiprocessing.Process):
 
-    def __init__(self, main_pid, mlflow_run_id, mlflow_tracking_uri, exit_event):
+    def __init__(self, main_pid, mlflow_run_id, mlflow_tracking_uri):
         super().__init__()
         self.main_pid = main_pid
         self.mlflow_run_id = mlflow_run_id
         self.mlflow_tracking_uri = mlflow_tracking_uri
-        self.exit_event = exit_event
+        self.exit_event = multiprocessing.Event()
 
     def run(self):
         from mlflow import MlflowClient
@@ -54,6 +54,9 @@ class MlflowMonitorProcess(multiprocessing.Process):
                 client.set_terminated(self.mlflow_run_id, status='FAILED')
                 break
         print("Monitor process exiting gracefully.")
+
+    def stop(self):
+        self.exit_event.set()
 
 
 
@@ -264,12 +267,12 @@ class MLFlowLogger(LoggerDestination):
             log_system_metrics=self.log_system_metrics,
         )
 
-        self.monitor_thread = MlflowMonitorProcess(
+        self.monitor_process = MlflowMonitorProcess(
             os.getpid(),
             self._run_id,
             self.tracking_uri,
         )
-        self.monitor_thread.start()
+        self.monitor_process.start()
 
     def init(self, state: State, logger: Logger) -> None:
         del logger  # unused
@@ -568,11 +571,11 @@ class MLFlowLogger(LoggerDestination):
 
             assert isinstance(self._run_id, str)
             mlflow.flush_async_logging()
-            self.monitor_thread.stop()
+            self.monitor_process.stop()
             self._mlflow_client.set_terminated(self._run_id)
             mlflow.end_run()
 
-            self.monitor_thread.join()
+            self.monitor_process.join()
 
 
 def _convert_to_mlflow_image(image: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:
