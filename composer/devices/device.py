@@ -11,15 +11,13 @@ import torch
 import torch.nn
 from torch.optim import Optimizer
 
-from composer.core.serializable import Serializable
-
 __all__ = ['Device', 'T_nnModule']
 
 T_nnModule = TypeVar('T_nnModule', bound=torch.nn.Module)
 T_Batch = TypeVar('T_Batch')
 
 
-class Device(Serializable, ABC):
+class Device(ABC):
     """Abstract class for a device on which a model runs.
 
     Attributes:

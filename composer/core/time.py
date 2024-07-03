@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import datetime
 import re
-from typing import Any, Dict, Generic, Optional, TypeVar, Union, cast
+from typing import Any, Generic, Optional, TypeVar, Union, cast
 
 from composer.core.serializable import Serializable
 from composer.utils import StringEnum
@@ -473,6 +473,7 @@ class Timestamp(Serializable):
         sample (int | Time[int], optional): The sample.
         token (int | Time[int], optional): The token.
         epoch_in_iteration (int | Time[int], optional): The epoch in the iteration.
+        token_in_iteration (int | Time[int], optional): The token in the iteration.
         batch_in_epoch (int | Time[int], optional): The batch in the epoch.
         sample_in_epoch (int | Time[int], optional): The sample in the epoch.
         token_in_epoch (int | Time[int], optional): The token in the epoch.
@@ -490,6 +491,7 @@ class Timestamp(Serializable):
         sample: Union[int, Time[int]] = 0,
         token: Union[int, Time[int]] = 0,
         epoch_in_iteration: Union[int, Time[int]] = 0,
+        token_in_iteration: Union[int, Time[int]] = 0,
         batch_in_epoch: Union[int, Time[int]] = 0,
         sample_in_epoch: Union[int, Time[int]] = 0,
         token_in_epoch: Union[int, Time[int]] = 0,
@@ -523,13 +525,16 @@ class Timestamp(Serializable):
             raise ValueError(f'The `token` argument has units of {token.unit}; not {TimeUnit.TOKEN}.')
         self._token = token
 
-        epoch_in_iteration = Time.from_input(epoch_in_iteration, TimeUnit.EPOCH)
-        if epoch_in_iteration.unit != TimeUnit.EPOCH:
+        self._epoch_in_iteration = Time(0, TimeUnit.EPOCH)
+        self.epoch_in_iteration = epoch_in_iteration
+
+        token_in_iteration = Time.from_input(token_in_iteration, TimeUnit.TOKEN)
+        if token_in_iteration.unit != TimeUnit.TOKEN:
             raise ValueError((
-                f'The `epoch_in_iteration` argument has units of {epoch_in_iteration.unit}; '
-                f'not {TimeUnit.EPOCH}.'
+                f'The `token_in_iteration` argument has units of {token_in_iteration.unit}; '
+                f'not {TimeUnit.TOKEN}.'
             ))
-        self._epoch_in_iteration = epoch_in_iteration
+        self._token_in_iteration = token_in_iteration
 
         batch_in_epoch = Time.from_input(batch_in_epoch, TimeUnit.BATCH)
         if batch_in_epoch.unit != TimeUnit.BATCH:
@@ -571,7 +576,7 @@ class Timestamp(Serializable):
             batch_wct = datetime.timedelta(seconds=0)
         self._batch_wct = batch_wct
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         return {
             'iteration': self.iteration.value,
             'epoch': self.epoch.value,
@@ -579,6 +584,7 @@ class Timestamp(Serializable):
             'sample': self.sample.value,
             'token': self.token.value,
             'epoch_in_iteration': self.epoch_in_iteration.value,
+            'token_in_iteration': self.token_in_iteration.value,
             'batch_in_epoch': self.batch_in_epoch.value,
             'sample_in_epoch': self.sample_in_epoch.value,
             'token_in_epoch': self.token_in_epoch.value,
@@ -588,7 +594,7 @@ class Timestamp(Serializable):
             'batch_wct': self.batch_wct,
         }
 
-    def load_state_dict(self, state: Dict[str, Any]) -> None:
+    def load_state_dict(self, state: dict[str, Any]) -> None:
         self._epoch = Time(state['epoch'], TimeUnit.EPOCH)
         self._batch = Time(state['batch'], TimeUnit.BATCH)
         self._sample = Time(state['sample'], TimeUnit.SAMPLE)
@@ -608,7 +614,9 @@ class Timestamp(Serializable):
         if 'iteration' in state:
             self._iteration = Time(state['iteration'], TimeUnit.ITERATION)
         if 'epoch_in_iteration' in state:
-            self._epoch_in_iteration = Time(state['epoch_in_iteration'], TimeUnit.EPOCH)
+            self.epoch_in_iteration = Time(state['epoch_in_iteration'], TimeUnit.EPOCH)
+        if 'token_in_iteration' in state:
+            self._token_in_iteration = Time(state['token_in_iteration'], TimeUnit.TOKEN)
         if 'iteration_wct' in state:
             self._iteration_wct = state['iteration_wct']
 
@@ -641,6 +649,25 @@ class Timestamp(Serializable):
     def epoch_in_iteration(self) -> Time[int]:
         """The epoch count in the current iteration (resets at 0 at the beginning of every iteration)."""
         return self._epoch_in_iteration
+
+    @epoch_in_iteration.setter
+    def epoch_in_iteration(
+        self,
+        epoch_in_iteration: Union[int, Time[int]],  # pyright: ignore[reportPropertyTypeMismatch]
+    ):
+        """Sets epoch count in the current iteration."""
+        epoch_in_iteration = Time.from_input(epoch_in_iteration, TimeUnit.EPOCH)
+        if epoch_in_iteration.unit != TimeUnit.EPOCH:
+            raise ValueError((
+                f'The `epoch_in_iteration` argument has units of {epoch_in_iteration.unit}; '
+                f'not {TimeUnit.EPOCH}.'
+            ))
+        self._epoch_in_iteration = epoch_in_iteration
+
+    @property
+    def token_in_iteration(self) -> Time[int]:
+        """The token count in the current iteration (resets at 0 at the beginning of every iteration)."""
+        return self._token_in_iteration
 
     @property
     def batch_in_epoch(self) -> Time[int]:
@@ -814,6 +841,7 @@ class Timestamp(Serializable):
             sample_in_epoch=self.sample_in_epoch + samples,
             token=self.token + tokens,
             token_in_epoch=self.token_in_epoch + tokens,
+            token_in_iteration=self.token_in_iteration + tokens,
             total_wct=self.total_wct + duration,
             iteration_wct=self.iteration_wct + duration,
             epoch_wct=self.epoch_wct + duration,
@@ -822,6 +850,7 @@ class Timestamp(Serializable):
 
     def to_next_epoch(
         self,
+        tokens: Union[int, Time] = 0,
         duration: Optional[datetime.timedelta] = None,
     ):
         """Create a new :class:`.Timestamp`, advanced to the next epoch.
@@ -841,6 +870,7 @@ class Timestamp(Serializable):
             >>> timestamp.copy(
             ...     epoch=timestamp.epoch + 1,
             ...     epoch_in_iteration=timestamp.epoch_in_iteration + 1,
+            ...     token_in_iteration=timestamp.token_in_iteration + tokens,
             ...     batch_in_epoch=0,
             ...     sample_in_epoch=0,
             ...     token_in_epoch=0,
@@ -851,12 +881,17 @@ class Timestamp(Serializable):
             ... )
             Timestamp(...)
 
+        Args:
+            tokens (int | Time, optional): The number of tokens trained in the batch. Defaults to 0.
+            duration (datetime.timedelta, optional): The duration to train the batch.
+
         """
         if duration is None:
             duration = datetime.timedelta(seconds=0)
         return self.copy(
             epoch=self.epoch + 1,
             epoch_in_iteration=self.epoch_in_iteration + 1,
+            token_in_iteration=self.token_in_iteration + tokens,
             batch_in_epoch=0,
             sample_in_epoch=0,
             token_in_epoch=0,
@@ -886,6 +921,7 @@ class Timestamp(Serializable):
             >>> timestamp.copy(
             ...     iteration=timestamp.iteration + 1,
             ...     epoch_in_iteration=0,
+            ...     token_in_iteration=0,
             ...     batch_in_epoch=0,
             ...     sample_in_epoch=0,
             ...     token_in_epoch=0,
@@ -902,6 +938,7 @@ class Timestamp(Serializable):
         return self.copy(
             iteration=self.iteration + 1,
             epoch_in_iteration=0,
+            token_in_iteration=0,
             batch_in_epoch=0,
             sample_in_epoch=0,
             token_in_epoch=0,
@@ -919,6 +956,7 @@ class Timestamp(Serializable):
         sample: Optional[Union[int, Time[int]]] = None,
         token: Optional[Union[int, Time[int]]] = None,
         epoch_in_iteration: Optional[Union[int, Time[int]]] = None,
+        token_in_iteration: Optional[Union[int, Time[int]]] = None,
         batch_in_epoch: Optional[Union[int, Time[int]]] = None,
         sample_in_epoch: Optional[Union[int, Time[int]]] = None,
         token_in_epoch: Optional[Union[int, Time[int]]] = None,
@@ -938,6 +976,7 @@ class Timestamp(Serializable):
             sample (int | Time[int], optional): The sample.
             token (int | Time[int], optional): The token.
             epoch_in_iteration (int | Time[int], optional): The epoch in the iteration.
+            token_in_iteration (int | Time[int], optional): The token in the iteration.
             batch_in_epoch (int | Time[int], optional): The batch in the epoch.
             sample_in_epoch (int | Time[int], optional): The sample in the epoch.
             token_in_epoch (int | Time[int], optional): The token in the epoch.
@@ -957,6 +996,7 @@ class Timestamp(Serializable):
             sample=sample if sample is not None else self.sample,
             token=token if token is not None else self.token,
             epoch_in_iteration=epoch_in_iteration if epoch_in_iteration is not None else self.epoch_in_iteration,
+            token_in_iteration=token_in_iteration if token_in_iteration is not None else self.token_in_iteration,
             batch_in_epoch=batch_in_epoch if batch_in_epoch is not None else self.batch_in_epoch,
             sample_in_epoch=sample_in_epoch if sample_in_epoch is not None else self.sample_in_epoch,
             token_in_epoch=token_in_epoch if token_in_epoch is not None else self.token_in_epoch,
@@ -975,6 +1015,7 @@ class Timestamp(Serializable):
             f'sample={int(self.sample)}, '
             f'token={int(self.token)}, '
             f'epoch_in_iteration={int(self.epoch_in_iteration)}, '
+            f'token_in_iteration={int(self.token_in_iteration)}, '
             f'batch_in_epoch={int(self.batch_in_epoch)}, '
             f'sample_in_epoch={int(self.sample_in_epoch)}, '
             f'token_in_epoch={int(self.token_in_epoch)}, '

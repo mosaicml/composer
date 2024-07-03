@@ -5,7 +5,7 @@
 
 import copy
 import warnings
-from typing import Any, Dict, cast
+from typing import Any, cast
 
 import torch
 import torch.utils.data
@@ -13,10 +13,10 @@ import torch.utils.data
 from composer.core import Batch, Precision, State
 from composer.utils import dist, map_collection
 
-__all__ = ['_fix_batch_precision_for_deepspeed', '_parse_deepspeed_config']
+__all__ = ['fix_batch_precision_for_deepspeed', 'parse_deepspeed_config']
 
 
-def _add_batch_config(config: Dict[str, Any], state: State):
+def _add_batch_config(config: dict[str, Any], state: State):
     if state.dataloader is None:
         raise ValueError(
             'When using DeepSpeed, the `train_dataloader` must be specified when constructing the Trainer.',
@@ -66,7 +66,7 @@ def _add_batch_config(config: Dict[str, Any], state: State):
         config['train_micro_batch_size_per_gpu'] = state.device_train_microbatch_size
 
 
-def _ensure_no_optim_in_config(config: Dict[str, Any]):
+def _ensure_no_optim_in_config(config: dict[str, Any]):
     if 'optimizer' in config:
         raise ValueError((
             'The DeepSpeed configuration specifies an optimizer, but the Mosaic '
@@ -80,7 +80,7 @@ def _ensure_no_optim_in_config(config: Dict[str, Any]):
         ))
 
 
-def _add_precision_config(config: Dict[str, Any], state: State):
+def _add_precision_config(config: dict[str, Any], state: State):
     precision = state.precision
 
     # Verify DeepSpeed config is consistent with state.precision if set. DeepSpeed precision config
@@ -98,17 +98,17 @@ def _add_precision_config(config: Dict[str, Any], state: State):
             f'but the Mosaic trainer has been configured with precision={precision}.'
         ))
 
-    # Set DeepSpeed config based on state.precision if not set
+    # set DeepSpeed config based on state.precision if not set
     if precision == Precision.AMP_FP16 and 'fp16' not in config:
-        config['fp16'] = cast(Dict[str, Any], {'enabled': True})
+        config['fp16'] = cast(dict[str, Any], {'enabled': True})
     elif precision == Precision.AMP_BF16 and 'bf16' not in config:
-        config['bf16'] = cast(Dict[str, Any], {'enabled': True})
+        config['bf16'] = cast(dict[str, Any], {'enabled': True})
 
 
-def _parse_deepspeed_config(
-    config: Dict[str, Any],
+def parse_deepspeed_config(
+    config: dict[str, Any],
     state: State,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Parses the provided DeepSpeed config for compatibility with the Mosaic trainer.
 
     Broadly speaking, this function does three things.
@@ -120,12 +120,12 @@ def _parse_deepspeed_config(
     3. Use Mosaic trainer config to fill in some defaults for DeepSpeed config.
 
     Args:
-        config (Dict[str, Any]): The DeepSpeed config to use. Must follow the format specified
+        config (dict[str, Any]): The DeepSpeed config to use. Must follow the format specified
             in `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_.
         state (State): The state of the trainer.
 
     Returns:
-        Dict[str, Any]: The DeepSpeed config updated with values from the arguments passed to the
+        dict[str, Any]: The DeepSpeed config updated with values from the arguments passed to the
             :class:`.Trainer`.
 
     Raises:
@@ -160,7 +160,7 @@ def _convert_fp32_tensor_to_bf16(tensor: torch.Tensor):
     return tensor
 
 
-def _fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Batch:
+def fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Batch:
     """Ensures that a batch is properly formatted for DeepSpeed precisions, if active.
 
     .. note:: Just because the precision is set to FP16 doesn't mean the entire batch can

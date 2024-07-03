@@ -119,7 +119,7 @@ def index_tag_in_lines(lines, tag):
     """Returns line number where tag is found.
 
     Args:
-        lines (list): List of lines to check.
+        lines (list): list of lines to check.
         tag (str): Tag to find.
     """
     for index, line in enumerate(lines):

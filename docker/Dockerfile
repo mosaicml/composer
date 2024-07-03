@@ -25,13 +25,6 @@ ARG PYTORCH_VERSION=1.13.1
 # version that corresponds to the PyTorch version
 ARG TORCHVISION_VERSION=0.14.1
 
-# In the Dockerimage, Pillow-SIMD is installed instead of Pillow. To trick pip into thinking that
-# Pillow is also installed (so it won't override it with a future pip install), a Pillow stub is included
-# PILLOW_PSEUDOVERSION is the Pillow version that pip thinks is installed
-# PILLOW_SIMD_VERSION is the actual version of pillow-simd that is installed.
-ARG PILLOW_PSEUDOVERSION=9.3.0
-ARG PILLOW_SIMD_VERSION=9.0.0.post1
-
 # Version of the Mellanox Drivers to install (for InfiniBand support)
 # Leave blank for no Mellanox Drivers
 ARG MOFED_VERSION=5.5-1.0.3.2
@@ -179,21 +172,7 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
     rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} - && \
-    pip${PYTHON_VERSION} install --no-cache-dir --upgrade 'pip<23' setuptools
-
-#####################
-# Install pillow-simd
-#####################
-ARG PILLOW_PSEUDOVERSION
-ARG PILLOW_SIMD_VERSION
-
-# pillow_stub tricks pip into thinking that it installed pillow,
-# so when pillow_simd is installed, other packages won't later override it
-COPY pillow_stub /tmp/pillow_stub
-
-RUN pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
-    pip${PYTHON_VERSION} install --no-cache-dir --upgrade pillow_simd==${PILLOW_SIMD_VERSION} && \
-    rm -rf /tmp/pillow_stub
+    pip${PYTHON_VERSION} install --no-cache-dir --upgrade 'pip<23' 'setuptools<70.0.0'
 
 #################
 # Install Pytorch
@@ -270,11 +249,10 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
 ARG MOFED_VERSION
 
 RUN if [ -n "$MOFED_VERSION" ] ; then \
-        mkdir -p /tmp/mofed && \
-        wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz && \
-        tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz -C /tmp/mofed && \
-        /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64/mlnxofedinstall --user-space-only --without-fw-update --force && \
-        rm -rf /tmp/mofed ; \
+        wget -qO - http://www.mellanox.com/downloads/ofed/RPM-GPG-KEY-Mellanox | sudo apt-key add - && \
+        wget -P /etc/apt/sources.list.d/ http://linux.mellanox.com/public/repo/mlnx_ofed/$MOFED_VERSION/ubuntu20.04/mellanox_mlnx_ofed.list && \
+        apt-get update && \
+        apt-get install -y mlnx-ofed-dpdk-upstream-libs-user-only  ; \
     fi
 
 ##########################

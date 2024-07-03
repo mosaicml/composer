@@ -17,7 +17,7 @@ import time
 import uuid
 import warnings
 from multiprocessing.context import SpawnProcess
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Type, Union
 from urllib.parse import urlparse
 
 import torch
@@ -50,7 +50,7 @@ log = logging.getLogger(__name__)
 __all__ = ['RemoteUploaderDownloader']
 
 
-def _build_remote_backend(remote_backend_name: str, backend_kwargs: Dict[str, Any]):
+def _build_remote_backend(remote_backend_name: str, backend_kwargs: dict[str, Any]):
     remote_backend_cls = None
     remote_backend_name_to_cls = {
         's3': S3ObjectStore,
@@ -171,7 +171,7 @@ class RemoteUploaderDownloader(LoggerDestination):
             As individual :class:`.ObjectStore` instances are not necessarily thread safe, each worker will construct
             its own :class:`.ObjectStore` instance from ``remote_backend`` and ``backend_kwargs``.
 
-        backend_kwargs (Dict[str, Any]): The keyword arguments to construct the remote backend indicated by ``bucket_uri``.
+        backend_kwargs (dict[str, Any]): The keyword arguments to construct the remote backend indicated by ``bucket_uri``.
 
             As individual :class:`.ObjectStore` instances are not necessarily thread safe, each worker will construct
             its own :class:`.ObjectStore` instance from ``remote_backend`` and ``backend_kwargs``.
@@ -249,7 +249,7 @@ class RemoteUploaderDownloader(LoggerDestination):
     def __init__(
         self,
         bucket_uri: str,
-        backend_kwargs: Optional[Dict[str, Any]] = None,
+        backend_kwargs: Optional[dict[str, Any]] = None,
         file_path_format_string: str = '{remote_file_name}',
         num_concurrent_uploads: int = 1,
         upload_staging_folder: Optional[str] = None,
@@ -294,10 +294,10 @@ class RemoteUploaderDownloader(LoggerDestination):
         self._object_lock = threading.Lock()
 
         # Files that were logged but yet to be enqueued. Mapping of the object name to the (tempfile path, overwrite) for that object
-        self._logged_objects: Dict[str, Tuple[str, bool]] = {}
+        self._logged_objects: dict[str, tuple[str, bool]] = {}
 
         # Set of enqueued objects. This should keep track of everything in self._file_upload_queue with O(1) lookup
-        self._enqueued_objects: Set[str] = set()
+        self._enqueued_objects: set[str] = set()
 
         # Thread that runs `self._enqueue_uploads`
         self._enqueue_thread = None
@@ -306,8 +306,8 @@ class RemoteUploaderDownloader(LoggerDestination):
 
         if use_procs:
             mp_ctx = multiprocessing.get_context('spawn')
-            self._file_upload_queue: Union[queue.Queue[Tuple[str, str, bool]],
-                                           multiprocessing.JoinableQueue[Tuple[str, str, bool]],
+            self._file_upload_queue: Union[queue.Queue[tuple[str, str, bool]],
+                                           multiprocessing.JoinableQueue[tuple[str, str, bool]],
                                           ] = mp_ctx.JoinableQueue()
             self._completed_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str]] = mp_ctx.JoinableQueue()
             self._exception_queue: Union[queue.Queue[Exception],
@@ -331,7 +331,7 @@ class RemoteUploaderDownloader(LoggerDestination):
                 threading.Event,
             ]
         ] = None
-        self._workers: List[Union[SpawnProcess, threading.Thread]] = []
+        self._workers: list[Union[SpawnProcess, threading.Thread]] = []
         # the object store instance for the main thread. Deferring the construction of the object_store to first use.
         self._remote_backend = None
 
@@ -387,7 +387,7 @@ class RemoteUploaderDownloader(LoggerDestination):
                     'completed_queue': self._completed_queue,
                     'exception_queue': self._exception_queue,
                 },
-                # The worker threads are joined in the shutdown procedure, so it is OK to set the daemon status
+                # The worker threads are joined in the shutdown procedure, so it is OK to set the daemon status.
                 # Setting daemon status prevents the process from hanging if close was never called (e.g. in doctests)
                 daemon=True,
             )
@@ -650,12 +650,12 @@ def _validate_credentials(
 
 
 def _upload_worker(
-    file_queue: Union[queue.Queue[Tuple[str, str, bool]], multiprocessing.JoinableQueue[Tuple[str, str, bool]]],
+    file_queue: Union[queue.Queue[tuple[str, str, bool]], multiprocessing.JoinableQueue[tuple[str, str, bool]]],
     completed_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str]],
     exception_queue: Union[queue.Queue[Exception], multiprocessing.JoinableQueue[Exception]],
     is_finished: Union[multiprocessing._EventType, threading.Event],  # pyright: ignore[reportGeneralTypeIssues]
     remote_backend_name: str,
-    backend_kwargs: Dict[str, Any],
+    backend_kwargs: dict[str, Any],
     num_attempts: int,
 ):
     """A long-running function to handle uploading files to the object store.

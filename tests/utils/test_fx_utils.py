@@ -15,7 +15,7 @@ from composer.utils.fx_utils import apply_stochastic_residual, count_op_instance
 
 class MyTestModel(nn.Module):
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.relu = nn.ReLU()
         self.factor = 0.5
@@ -68,7 +68,7 @@ def test_replace_op(model_cls, src_ops, tgt_op, count):
 
 class SimpleParallelLinears(nn.Module):
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.fc1 = nn.Linear(64, 64)
         self.fc2 = nn.Linear(64, 64)
@@ -81,7 +81,7 @@ class SimpleParallelLinears(nn.Module):
 
 class ParallelLinears(nn.Module):
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.fc1 = nn.Linear(64, 64)
         self.ln = nn.LayerNorm(64)
@@ -98,7 +98,7 @@ class ParallelLinears(nn.Module):
 
 class NotFusibleLinears(nn.Module):
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.fc1 = nn.Linear(64, 64, bias=False)
         self.ln = nn.LayerNorm(64)
@@ -115,7 +115,7 @@ class NotFusibleLinears(nn.Module):
 
 class NotParallelLinears(nn.Module):
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.fc1 = nn.Linear(64, 64)
         self.ln = nn.LayerNorm(64)

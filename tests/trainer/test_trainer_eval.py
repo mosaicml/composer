@@ -695,7 +695,7 @@ def test_infinite_eval_dataloader(eval_subset_num_batches, success):
 
 class BreakBatchAlgorithm(Algorithm):
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
     def match(self, event, state):

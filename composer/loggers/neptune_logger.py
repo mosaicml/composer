@@ -10,7 +10,7 @@ import pathlib
 import warnings
 from functools import partial
 from importlib.metadata import version
-from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Sequence, Set, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, Sequence, Union
 
 import numpy as np
 import torch
@@ -18,7 +18,7 @@ from packaging.version import Version
 
 from composer._version import __version__
 from composer.loggers import LoggerDestination
-from composer.utils import MissingConditionalImportError, VersionedDeprecationWarning, dist
+from composer.utils import MissingConditionalImportError, dist
 
 if TYPE_CHECKING:
     from composer import Logger
@@ -43,12 +43,11 @@ class NeptuneLogger(LoggerDestination):
             ``NEPTUNE_API_TOKEN`` environment variable (recommended).
             You can find your API token in the user menu of the Neptune web app.
         rank_zero_only (bool): Whether to log only on the rank-zero process (default: ``True``).
-        upload_artifacts (bool, optional): Deprecated. See ``upload_checkpoints``.
         upload_checkpoints (bool): Whether the logger should upload checkpoints to Neptune
             (default: ``False``).
         base_namespace (str, optional): The name of the base namespace where the metadata
             is logged (default: "training").
-        neptune_kwargs (Dict[str, Any], optional): Any additional keyword arguments to the
+        neptune_kwargs (dict[str, Any], optional): Any additional keyword arguments to the
             ``neptune.init_run()`` function. For options, see the
             `Run API reference <https://docs.neptune.ai/api/neptune/#init_run>`_.
     """
@@ -63,7 +62,6 @@ class NeptuneLogger(LoggerDestination):
         project: Optional[str] = None,
         api_token: Optional[str] = None,
         rank_zero_only: bool = True,
-        upload_artifacts: Optional[bool] = None,
         upload_checkpoints: bool = False,
         base_namespace: str = 'training',
         mode: Optional[NEPTUNE_MODE_TYPE] = None,
@@ -81,7 +79,6 @@ class NeptuneLogger(LoggerDestination):
         verify_type('project', project, (str, type(None)))
         verify_type('api_token', api_token, (str, type(None)))
         verify_type('rank_zero_only', rank_zero_only, bool)
-        verify_type('upload_artifacts', upload_artifacts, (bool, type(None)))
         verify_type('upload_checkpoints', upload_checkpoints, bool)
         verify_type('base_namespace', base_namespace, str)
 
@@ -92,11 +89,7 @@ class NeptuneLogger(LoggerDestination):
         self._api_token = api_token
         self._rank_zero_only = rank_zero_only
 
-        if upload_artifacts is not None:
-            _warn_about_deprecated_upload_artifacts()
-            self._upload_checkpoints = upload_artifacts
-        else:
-            self._upload_checkpoints = upload_checkpoints
+        self._upload_checkpoints = upload_checkpoints
 
         self._base_namespace = base_namespace
         self._neptune_kwargs = neptune_kwargs
@@ -108,7 +101,7 @@ class NeptuneLogger(LoggerDestination):
         self._neptune_run = None
         self._base_handler = None
 
-        self._metrics_dict: Dict[str, int] = {}  # used to prevent duplicate step logging
+        self._metrics_dict: dict[str, int] = {}  # used to prevent duplicate step logging
 
         super().__init__()
 
@@ -150,24 +143,24 @@ class NeptuneLogger(LoggerDestination):
             self.neptune_run['sys/name'] = state.run_name
             self.neptune_run[self.integration_version_key] = __version__
 
-    def _sanitize_metrics(self, metrics: Dict[str, float], step: Optional[int]) -> Dict[str, float]:
+    def _sanitize_metrics(self, metrics: dict[str, float], step: Optional[int]) -> dict[str, float]:
         """Sanitize metrics to prevent duplicate step logging.
 
         Args:
-            metrics (Dict[str, float]): Metrics to log.
+            metrics (dict[str, float]): Metrics to log.
             step (Optional[int]): Step to log metrics at.
 
         Returns:
-            Dict[str, float]: Sanitized metrics.
+            dict[str, float]: Sanitized metrics.
         """
-        keys_to_delete: Set[str] = set()
+        keys_to_delete: set[str] = set()
 
         for k in metrics:
             self._process_single_metric(k, step, keys_to_delete)
 
         return dict(filter(lambda x: x[0] not in keys_to_delete, metrics.items()))
 
-    def _process_single_metric(self, metric_key: str, step: Optional[int], keys_to_delete: Set[str]) -> None:
+    def _process_single_metric(self, metric_key: str, step: Optional[int], keys_to_delete: set[str]) -> None:
         if metric_key not in self._metrics_dict:
             self._metrics_dict[metric_key] = step if step is not None else 0
         else:
@@ -180,7 +173,7 @@ class NeptuneLogger(LoggerDestination):
             else:
                 self._metrics_dict[metric_key] += 1
 
-    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
+    def log_metrics(self, metrics: dict[str, float], step: Optional[int] = None) -> None:
         if not self._enabled:
             return
 
@@ -189,7 +182,7 @@ class NeptuneLogger(LoggerDestination):
         if metrics_to_log := self._sanitize_metrics(metrics, step):
             self.base_handler[NeptuneLogger.metric_namespace].append(stringify_unsupported(metrics_to_log), step=step)
 
-    def log_hyperparameters(self, hyperparameters: Dict[str, Any]) -> None:
+    def log_hyperparameters(self, hyperparameters: dict[str, Any]) -> None:
         if not self._enabled:
             return
 
@@ -197,7 +190,7 @@ class NeptuneLogger(LoggerDestination):
 
         self.base_handler[NeptuneLogger.hyperparam_namespace] = stringify_unsupported(hyperparameters)
 
-    def log_traces(self, traces: Dict[str, Any]):
+    def log_traces(self, traces: dict[str, Any]):
         if not self._enabled:
             return
 
@@ -278,8 +271,8 @@ class NeptuneLogger(LoggerDestination):
         name: str = 'Images',
         channels_last: bool = False,
         step: Optional[int] = None,
-        masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
-        mask_class_labels: Optional[Dict[int, str]] = None,
+        masks: Optional[dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
+        mask_class_labels: Optional[dict[int, str]] = None,
         use_table: bool = True,
     ):
         if not self._enabled:
@@ -341,16 +334,6 @@ def _validate_image_value_range(img: np.ndarray) -> np.ndarray:
 def _scale_image_to_0_255(img: np.ndarray, array_min: Union[int, float], array_max: Union[int, float]) -> np.ndarray:
     scaled_image = 255 * (img - array_min) / (array_max - array_min)
     return scaled_image.astype(np.uint8)
-
-
-def _warn_about_deprecated_upload_artifacts() -> None:
-    warnings.warn(
-        VersionedDeprecationWarning(
-            'The \'upload_artifacts\' parameter is deprecated and will be removed in the next version. '
-            'Use the \'upload_checkpoints\' parameter instead.',
-            remove_version='0.23',
-        ),
-    )
 
 
 def _is_progress_bar_enabled() -> bool:

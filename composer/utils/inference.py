@@ -13,7 +13,7 @@ import functools
 import logging
 import os
 import tempfile
-from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, Union
 
 import torch
 import torch.nn as nn
@@ -60,9 +60,9 @@ class ExportFormat(StringEnum):
 
 
 def _move_sample_input_to_device(
-    sample_input: Optional[Union[torch.Tensor, dict, list, Tuple]],
+    sample_input: Optional[Union[torch.Tensor, dict, list, tuple]],
     device: Device,
-) -> Optional[Union[torch.Tensor, dict, list, Tuple]]:
+) -> Optional[Union[torch.Tensor, dict, list, tuple]]:
     """Handle moving sample_input of various types to a device. If possible, avoids creating copies of the input."""
     output = None
     if isinstance(sample_input, torch.Tensor):

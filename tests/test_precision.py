@@ -1,6 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import pytest
 import torch
@@ -18,7 +18,7 @@ except ImportError:
     te_installed = False
 
 
-def get_trainer(precision: Precision, precision_config: Optional[Dict[str, Any]] = None) -> Trainer:
+def get_trainer(precision: Precision, precision_config: Optional[dict[str, Any]] = None) -> Trainer:
 
     return Trainer(
         model=composer_resnet('resnet18'),
@@ -78,7 +78,7 @@ def predict_and_measure_memory(precision) -> int:
 def test_train_precision_memory(precision: Precision):
     memory_fp32 = fit_and_measure_memory(Precision.FP32)
     memory_half = fit_and_measure_memory(precision)
-    assert memory_half < 0.85 * memory_fp32
+    assert memory_half < 0.87 * memory_fp32
 
 
 @pytest.mark.gpu

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import threading
 import time
-from typing import TYPE_CHECKING, Dict, cast
+from typing import TYPE_CHECKING, cast
 
 import psutil
 
@@ -103,7 +103,7 @@ class SystemProfiler(Callback):
 
             if self.profile_disk:
                 disk_io_counters = cast(
-                    Dict[str, psutil._common.sdiskio],  # type: ignore
+                    dict[str, psutil._common.sdiskio],  # type: ignore
                     psutil.disk_io_counters(perdisk=True),
                 )
                 for disk_name, disk_stats in disk_io_counters.items():
@@ -123,7 +123,7 @@ class SystemProfiler(Callback):
 
             if self.profile_net:
                 net_io_counters = cast(
-                    Dict[str, psutil._common.snetio],  # type: ignore
+                    dict[str, psutil._common.snetio],  # type: ignore
                     psutil.net_io_counters(pernic=True),
                 )
                 for nic, nic_stats in net_io_counters.items():

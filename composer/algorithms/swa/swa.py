@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import torch
 from torch.optim.lr_scheduler import LRScheduler
@@ -195,7 +195,7 @@ class SWA(Algorithm):
         else:
             raise ValueError('units must be in epoch or duration.')
 
-    def _get_last_lr(self, schedulers: List[LRScheduler]):
+    def _get_last_lr(self, schedulers: list[LRScheduler]):
         """ retrieves the last lr from current schedulers. """
         if len(schedulers) == 0:
             return 1.0
@@ -272,7 +272,7 @@ class SWA(Algorithm):
             state.model.load_state_dict(self.swa_model.module.state_dict())  # type: ignore
             log.info('Set model to the averaged model')
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         state_dict = super().state_dict()
 
         # we pop the anneal_func from the SWALR state
@@ -292,7 +292,7 @@ class SWA(Algorithm):
         }
         return state_dict
 
-    def load_state_dict(self, state: Dict[str, Any]) -> None:
+    def load_state_dict(self, state: dict[str, Any]) -> None:
         self.swa_completed = state['swa_completed']
         self.step_counter = state['step_counter']
         self.swa_started = state['swa_started']

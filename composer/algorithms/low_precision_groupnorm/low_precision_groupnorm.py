@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import Dict, Optional, Sequence, Type, Union
+from typing import Optional, Sequence, Type, Union
 
 import torch
 import torch.nn.functional as F
@@ -30,7 +30,7 @@ def apply_low_precision_groupnorm(
         warnings.warn(NoEffectWarning('Low Precision GroupNorm only applies to AMP_FP16 and AMP_BF16 precisions.'))
         return model
 
-    policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {torch.nn.GroupNorm: _to_LPGroupNorm}
+    policy: dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {torch.nn.GroupNorm: _to_LPGroupNorm}
 
     replaced_instances = module_surgery.replace_module_classes(module=model, optimizers=optimizers, policies=policy)
     if len(replaced_instances) == 0:

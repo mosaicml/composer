@@ -114,13 +114,13 @@ For more information, see :doc:`Evaluation</trainer/evaluation>`.
 Batch Types
 -----------
 
-For custom batch types (not torch.Tensor, List, Tuple, Mapping), implement and provide
+For custom batch types (not torch.Tensor, list, tuple, Mapping), implement and provide
 the ``split_batch`` function to the trainer using :class:`.DataSpec` above. Here's an
 example function or when the batch from the dataloader is a tuple of two tensors:
 
 .. code:: python
 
-    def split_batch(self, batch: Batch, num_microbatches: int) -> List[Batch]:
+    def split_batch(self, batch: Batch, num_microbatches: int) -> list[Batch]:
         x, y = batch
         if isinstance(x, torch.Tensor) and isinstance(y, torch.Tensor):
             return list(zip(x.chunk(num_microbatches), y.chunk(num_microbatches)))
@@ -130,7 +130,7 @@ e.g. ``(Tensor, (Tensor, Tensor, Tensor))``. Then the function would be:
 
 .. code:: python
 
-    def split_batch(self, batch: Batch, num_microbatches: int) -> List[Batch]:
+    def split_batch(self, batch: Batch, num_microbatches: int) -> list[Batch]:
         n = num_microbatches
 
         x, (y1, y2) = batch

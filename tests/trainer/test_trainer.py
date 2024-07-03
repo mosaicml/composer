@@ -10,7 +10,7 @@ import math
 import os
 import pathlib
 import time
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import pytest
 import torch
@@ -496,7 +496,7 @@ class TestTrainerInitOrFit:
         max_duration: Time[int],
         eval_subset_num_batches: int,
         eval_interval: str,
-        eval_dataloader: Union[Evaluator, DataLoader, List[Evaluator]],
+        eval_dataloader: Union[Evaluator, DataLoader, list[Evaluator]],
     ):
         # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
         copied_model = copy.deepcopy(model)
@@ -664,14 +664,16 @@ class TestTrainerInitOrFit:
         if precision == Precision.FP32:  # FSDP FULL_SHARD doesn't support FP32
             return
 
-        fsdp_config = {
-            'sharding_strategy': 'FULL_SHARD',
-            'cpu_offload': False,
-            'mixed_precision': 'PURE',
-            'backward_prefetch': 'BACKWARD_PRE',
-            'activation_checkpointing': False,
-            'activation_cpu_offload': False,
-            'verbose': False,
+        parallelism_config = {
+            'fsdp': {
+                'sharding_strategy': 'FULL_SHARD',
+                'cpu_offload': False,
+                'mixed_precision': 'PURE',
+                'backward_prefetch': 'BACKWARD_PRE',
+                'activation_checkpointing': False,
+                'activation_cpu_offload': False,
+                'verbose': False,
+            },
         }
 
         # Need to catch the case where we try to train
@@ -683,7 +685,7 @@ class TestTrainerInitOrFit:
             trainer = Trainer(
                 model=model,
                 precision=precision,
-                fsdp_config=fsdp_config,
+                parallelism_config=parallelism_config,
                 max_duration=max_duration,
                 train_dataloader=train_dataloader,
             )
@@ -702,18 +704,20 @@ class TestTrainerInitOrFit:
         self,
         model: ComposerModel,
         precision: Precision,
-        compile_config: Optional[Dict[str, Any]],
+        compile_config: Optional[dict[str, Any]],
         max_duration: Time[int],
         train_dataloader: DataLoader,
     ):
-        fsdp_config = {
-            'sharding_strategy': 'FULL_SHARD',
-            'cpu_offload': False,
-            'mixed_precision': 'PURE',
-            'backward_prefetch': 'BACKWARD_PRE',
-            'activation_checkpointing': False,
-            'activation_cpu_offload': False,
-            'verbose': False,
+        parallelism_config = {
+            'fsdp': {
+                'sharding_strategy': 'FULL_SHARD',
+                'cpu_offload': False,
+                'mixed_precision': 'PURE',
+                'backward_prefetch': 'BACKWARD_PRE',
+                'activation_checkpointing': False,
+                'activation_cpu_offload': False,
+                'verbose': False,
+            },
         }
 
         # Need to catch the case where we try to train
@@ -725,7 +729,7 @@ class TestTrainerInitOrFit:
             trainer = Trainer(
                 model=model,
                 precision=precision,
-                fsdp_config=fsdp_config,
+                parallelism_config=parallelism_config,
                 max_duration=max_duration,
                 train_dataloader=train_dataloader,
                 auto_log_hparams=True,
@@ -1246,6 +1250,43 @@ class TestTrainerInitOrFit:
         assert num_tokens_accum == num_tokens * 2
         assert batch_time_accum == datetime.timedelta(seconds=0.1 * (1 + 0))
 
+    @pytest.mark.world_size(2)
+    def test_rank_dependent_dataloader_lengths(
+        self,
+        model: ComposerModel,
+        max_duration: Time[int],
+    ):
+        # Change rank 1 dataloader size to create different sized dataloaders on each rank
+        batch_size = 4
+        orig_num_samples = 16
+        rank_num_samples = orig_num_samples + 8 if dist.get_local_rank() == 1 else orig_num_samples
+        # Create train and eval dataloaders (will have rank-dependent lengths)
+        train_dataset = RandomClassificationDataset(size=rank_num_samples)
+        train_dataloader = DataLoader(
+            dataset=train_dataset,
+            batch_size=batch_size,
+            sampler=dist.get_sampler(train_dataset),
+        )
+        eval_dataset = RandomClassificationDataset(size=rank_num_samples)
+        eval_dataloader = DataLoader(
+            dataset=eval_dataset,
+            batch_size=batch_size,
+            sampler=dist.get_sampler(eval_dataset),
+        )
+        # Fit (train + eval)
+        trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            eval_dataloader=eval_dataloader,
+        )
+        trainer.fit()
+        # Check the correct number of samples and batches have been processed
+        assert trainer.state.timestamp.sample.value == orig_num_samples
+        assert trainer.state.timestamp.batch.value == orig_num_samples / batch_size / 2
+        assert trainer.state.eval_timestamp.sample.value == orig_num_samples
+        assert trainer.state.eval_timestamp.batch.value == orig_num_samples / batch_size / 2
+
 
 @world_size(1, 2)
 @device('cpu', 'gpu', 'gpu-amp', precision=True)
@@ -1549,7 +1590,7 @@ class TestAutoresumeCompatibility:
             'loggers': [],
         }
 
-    def test_autoresume_and_concurrent_uploads_error(self, tmp_path: pathlib.Path, config: Dict[str, Any]):
+    def test_autoresume_and_concurrent_uploads_error(self, tmp_path: pathlib.Path, config: dict[str, Any]):
         pytest.importorskip('libcloud')
         config.update({
             'run_name': 'autoresume_concurrent_uploads_run',
@@ -1570,7 +1611,7 @@ class TestAutoresumeCompatibility:
         ):
             _ = Trainer(**config)
 
-    def test_latest_and_object_format_string_error(self, tmp_path: pathlib.Path, config: Dict[str, Any]):
+    def test_latest_and_object_format_string_error(self, tmp_path: pathlib.Path, config: dict[str, Any]):
         pytest.importorskip('libcloud')
         config.update({
             'run_name':
@@ -1596,7 +1637,7 @@ class TestAutoresumeCompatibility:
         config.update({'save_latest_filename': None, 'autoresume': False})
         _ = Trainer(**config)
 
-    def test_autoresume_and_default_remote_uploader_downloader(self, tmp_path: pathlib.Path, config: Dict[str, Any]):
+    def test_autoresume_and_default_remote_uploader_downloader(self, tmp_path: pathlib.Path, config: dict[str, Any]):
         pytest.importorskip('libcloud')
         config.update({
             'run_name': 'autoresume_default_remote_ud_run',

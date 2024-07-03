@@ -5,7 +5,7 @@
 
 import warnings
 from copy import deepcopy
-from typing import Any, Dict, List, Sequence, Union
+from typing import Any, Sequence, Union
 
 import torch
 
@@ -41,7 +41,7 @@ class EvalOutputLogging(Callback):
         self.rows = []
 
     def eval_batch_end(self, state: State, logger: Logger) -> None:
-        if not isinstance(state.batch, Dict):
+        if not isinstance(state.batch, dict):
             warnings.warn(
                 f'''EvalOutputLogging only supports batches that are dictionary. \
                 Found batch for type {type(state.batch)}. \
@@ -51,7 +51,7 @@ class EvalOutputLogging(Callback):
 
         assert state.outputs is not None
         assert state.metric_outputs is not None
-        logging_dict: Dict[str, Union[List[Any], torch.Tensor, Sequence[torch.Tensor]]] = deepcopy(state.metric_outputs)
+        logging_dict: dict[str, Union[list[Any], torch.Tensor, Sequence[torch.Tensor]]] = deepcopy(state.metric_outputs)
 
         # If batch mode is not generate, outputs will be logits
         if state.batch['mode'] == 'generate':
@@ -114,6 +114,10 @@ class EvalOutputLogging(Callback):
         self.rows.extend(rows)
 
     def eval_end(self, state: State, logger: Logger) -> None:
+        # eval_batch_end will have set these if there is anything to log
+        if self.name is None or self.columns is None:
+            return
+
         list_of_rows = dist.all_gather_object(self.rows)
         rows = [row for rows in list_of_rows for row in rows]
         for dest_logger in logger.destinations:

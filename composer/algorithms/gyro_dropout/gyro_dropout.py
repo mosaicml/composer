@@ -5,7 +5,7 @@
 
 import logging
 import warnings
-from typing import Dict, Optional, Type
+from typing import Optional, Type
 
 import numpy as np
 import torch
@@ -89,7 +89,7 @@ def apply_gyro_dropout(
 
     # prepare the replacement policy and perform replacement
     from functools import partial
-    policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
+    policy: dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
         torch.nn.Dropout: partial(from_Dropout, iters_per_epoch, max_epoch, p, sigma, tau),
     }
     replaced_instances = module_surgery.replace_module_classes(module=model, policies=policy)

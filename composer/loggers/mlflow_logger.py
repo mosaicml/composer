@@ -13,7 +13,7 @@ import posixpath
 import textwrap
 import time
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, Sequence, Union
 
 import numpy as np
 import torch
@@ -59,20 +59,23 @@ class MLFlowLogger(LoggerDestination):
             synchronously to the MLflow backend. If ``False``, Mlflow will log asynchronously. (default: ``False``)
         log_system_metrics (bool, optional): Whether to log system metrics. If ``True``, Mlflow will
             log system metrics (CPU/GPU/memory/network usage) during training. (default: ``True``)
-        rename_metrics (Dict[str, str], optional): A dict to rename metrics, requires an exact match on the key (default: ``None``)
-        ignore_metrics (List[str], optional): A list of glob patterns for metrics to ignore when logging. (default: ``None``)
-        ignore_hyperparameters (List[str], optional): A list of glob patterns for hyperparameters to ignore when logging. (default: ``None``)
+        rename_metrics (dict[str, str], optional): A dict to rename metrics, requires an exact match on the key (default: ``None``)
+        ignore_metrics (list[str], optional): A list of glob patterns for metrics to ignore when logging. (default: ``None``)
+        ignore_hyperparameters (list[str], optional): A list of glob patterns for hyperparameters to ignore when logging. (default: ``None``)
         run_group (str, optional): A string to group runs together. (default: ``None``)
         resume (bool, optional): If ``True``, Composer will search for an existing run tagged with
             the `run_name` and resume it. If no existing run is found, a new run will be created.
             If ``False``, Composer will create a new run. (default: ``False``)
+        logging_buffer_seconds (int, optional): The amount of time, in seconds, that MLflow
+            waits before sending logs to the MLflow tracking server. Metrics/params/tags logged
+            within this buffer time will be grouped in batches before being sent to the backend.
     """
 
     def __init__(
         self,
         experiment_name: Optional[str] = None,
         run_name: Optional[str] = None,
-        tags: Optional[Dict[str, Any]] = None,
+        tags: Optional[dict[str, Any]] = None,
         tracking_uri: Optional[Union[str, pathlib.Path]] = None,
         rank_zero_only: bool = True,
         flush_interval: int = 10,
@@ -80,11 +83,12 @@ class MLFlowLogger(LoggerDestination):
         model_registry_uri: Optional[str] = None,
         synchronous: bool = False,
         log_system_metrics: bool = True,
-        rename_metrics: Optional[Dict[str, str]] = None,
-        ignore_metrics: Optional[List[str]] = None,
-        ignore_hyperparameters: Optional[List[str]] = None,
+        rename_metrics: Optional[dict[str, str]] = None,
+        ignore_metrics: Optional[list[str]] = None,
+        ignore_hyperparameters: Optional[list[str]] = None,
         run_group: Optional[str] = None,
         resume: bool = False,
+        logging_buffer_seconds: Optional[int] = 10,
     ) -> None:
         try:
             import mlflow
@@ -116,6 +120,16 @@ class MLFlowLogger(LoggerDestination):
                 )
         self.resume = resume
 
+        if logging_buffer_seconds:
+            os.environ['MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS'] = str(logging_buffer_seconds)
+
+        if log_system_metrics:
+            # Set system metrics sampling interval and samples before logging so that system metrics
+            # are collected every 5s, and aggregated over 3 samples before being logged
+            # (logging per 15s).
+            mlflow.set_system_metrics_samples_before_logging(3)
+            mlflow.set_system_metrics_sampling_interval(5)
+
         self._rank_zero_only = rank_zero_only
         self._last_flush_time = time.time()
         self._flush_interval = flush_interval
@@ -125,7 +139,11 @@ class MLFlowLogger(LoggerDestination):
         self.run_url = None
 
         if self._enabled:
-            self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
+            if tracking_uri is None and os.getenv('DATABRICKS_TOKEN') is not None:
+                tracking_uri = 'databricks'
+            if tracking_uri is None:
+                tracking_uri = mlflow.get_tracking_uri()
+            self.tracking_uri = str(tracking_uri)
             mlflow.set_tracking_uri(self.tracking_uri)
 
             if self.model_registry_uri is not None:
@@ -137,8 +155,27 @@ class MLFlowLogger(LoggerDestination):
                     mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,  # type: ignore
                     DEFAULT_MLFLOW_EXPERIMENT_NAME,
                 )
+            assert self.experiment_name is not None  # type hint
+
+            if os.getenv(
+                'DATABRICKS_TOKEN',
+            ) is not None and not self.experiment_name.startswith((
+                '/Users/',
+                '/Shared/',
+            )):
+                try:
+                    from databricks.sdk import WorkspaceClient
+                except ImportError as e:
+                    raise MissingConditionalImportError(
+                        extra_deps_group='mlflow',
+                        conda_package='databricks-sdk',
+                        conda_channel='conda-forge',
+                    ) from e
+                databricks_username = WorkspaceClient().current_user.me().user_name or ''
+                self.experiment_name = os.path.join('/Users', databricks_username, self.experiment_name.strip('/'))
+
             self._mlflow_client = MlflowClient(self.tracking_uri)
-            # Set experiment.
+            # Set experiment
             env_exp_id = os.getenv(
                 mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name,  # pyright: ignore[reportGeneralTypeIssues]
                 None,
@@ -155,6 +192,9 @@ class MLFlowLogger(LoggerDestination):
     def _start_mlflow_run(self, state):
         import mlflow
 
+        # This function is only called if self._enabled is True, and therefore self._experiment_id is not None.
+        assert self._experiment_id is not None
+
         env_run_id = os.getenv(
             mlflow.environment_variables.MLFLOW_RUN_ID.name,  # pyright: ignore[reportGeneralTypeIssues]
             None,
@@ -163,7 +203,6 @@ class MLFlowLogger(LoggerDestination):
             self._run_id = env_run_id
         elif self.resume:
             # Search for an existing run tagged with this Composer run if `self.resume=True`.
-            assert self._experiment_id is not None
             run_name = self.tags['run_name']
             existing_runs = mlflow.search_runs(
                 experiment_ids=[self._experiment_id],
@@ -238,8 +277,8 @@ class MLFlowLogger(LoggerDestination):
 
     def log_table(
         self,
-        columns: List[str],
-        rows: List[List[Any]],
+        columns: list[str],
+        rows: list[list[Any]],
         name: str = 'Table',
         step: Optional[int] = None,
     ) -> None:
@@ -264,7 +303,7 @@ class MLFlowLogger(LoggerDestination):
     def rename(self, key: str):
         return self.rename_metrics.get(key, key)
 
-    def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
+    def log_metrics(self, metrics: dict[str, Any], step: Optional[int] = None) -> None:
         from mlflow import log_metrics
         if self._enabled:
             # Convert all metrics to floats to placate mlflow.
@@ -279,7 +318,7 @@ class MLFlowLogger(LoggerDestination):
                 synchronous=self.synchronous,
             )
 
-    def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
+    def log_hyperparameters(self, hyperparameters: dict[str, Any]):
         from mlflow import log_params
 
         if self._enabled:
@@ -298,7 +337,7 @@ class MLFlowLogger(LoggerDestination):
         model_uri: str,
         name: str,
         await_registration_for: int = 300,
-        tags: Optional[Dict[str, Any]] = None,
+        tags: Optional[dict[str, Any]] = None,
     ) -> 'ModelVersion':
         """Register a model to model registry.
 
@@ -307,7 +346,7 @@ class MLFlowLogger(LoggerDestination):
             name (str): The name of the model to register. Will be appended to ``model_registry_prefix``.
             await_registration_for (int, optional): The number of seconds to wait for the model to be registered.
                 Defaults to 300.
-            tags (Optional[Dict[str, Any]], optional): A dictionary of tags to add to the model. Defaults to None.
+            tags (Optional[dict[str, Any]], optional): A dictionary of tags to add to the model. Defaults to None.
             registry_uri (str, optional): The URI of the model registry. Defaults to `None` which will register to
                 the Databricks Unity Catalog.
 
@@ -414,7 +453,7 @@ class MLFlowLogger(LoggerDestination):
         model_uri: str,
         name: str,
         await_creation_for: int = 300,
-        tags: Optional[Dict[str, Any]] = None,
+        tags: Optional[dict[str, Any]] = None,
     ):
         """Similar to ``register_model``, but uses a different MLflow API to allow passing in the run id.
 
@@ -422,7 +461,7 @@ class MLFlowLogger(LoggerDestination):
             model_uri (str): The URI of the model to register.
             name (str): The name of the model to register. Will be appended to ``model_registry_prefix``.
             await_creation_for (int, optional): The number of seconds to wait for the model to be registered. Defaults to 300.
-            tags (Optional[Dict[str, Any]], optional): A dictionary of tags to add to the model. Defaults to None.
+            tags (Optional[dict[str, Any]], optional): A dictionary of tags to add to the model. Defaults to None.
         """
         if self._enabled:
             from mlflow.exceptions import MlflowException
@@ -462,8 +501,8 @@ class MLFlowLogger(LoggerDestination):
         name: str = 'image',
         channels_last: bool = False,
         step: Optional[int] = None,
-        masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
-        mask_class_labels: Optional[Dict[int, str]] = None,
+        masks: Optional[dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
+        mask_class_labels: Optional[dict[int, str]] = None,
         use_table: bool = True,
     ):
         unused_args = (masks, mask_class_labels)  # Unused (only for wandb)
@@ -482,8 +521,9 @@ class MLFlowLogger(LoggerDestination):
                 assert isinstance(self._run_id, str)
                 self._mlflow_client.log_image(
                     image=image,
-                    artifact_file=f'{name}_{step}_{im_ind}.png',
+                    key=f'{name}_{step}_{im_ind}',
                     run_id=self._run_id,
+                    step=step,
                 )
 
     def post_close(self):

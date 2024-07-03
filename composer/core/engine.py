@@ -75,7 +75,7 @@ import textwrap
 import weakref
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Callable, ContextManager, Dict, List, Optional, Sequence, Tuple, TypeVar, Union, cast
+from typing import Callable, ContextManager, Optional, Sequence, TypeVar, Union, cast
 
 from composer.core import passes
 from composer.core.algorithm import Algorithm
@@ -97,7 +97,7 @@ _ALWAYS_RECORD_EVENTS = [Event.INIT, Event.FIT_START, Event.EPOCH_START, Event.E
 #: The default traces of an entire run is an OrderedDict.
 #: The keys are of format ``<algorithm_name>/<event>`` (e.g.,  ``Blurpool/INIT``) and values are an instance of
 #: :class:`Trace`.
-Traces = Dict[str, 'Trace']
+Traces = dict[str, 'Trace']
 
 # Track whether atexit triggered _close(), which indicates whether the python process is shutting down
 # If so, do not run close() again via __del__(), as Python machinery (e.g. the ability to do conditional
@@ -179,7 +179,7 @@ class Engine():
         state (State): The initial :class:`.State` of the trainer. ``state`` will be modified in-place.
         logger (Logger): A :class:`.Logger` instance to be used for logging algorithm and callback
             specific metrics.
-        algorithm_passes ([AlgorithmPass | Tuple[AlgorithmPass, int] | Sequence[AlgorithmPass | Tuple[AlgorithmPass, int]], optional):
+        algorithm_passes ([AlgorithmPass | tuple[AlgorithmPass, int] | Sequence[AlgorithmPass | tuple[AlgorithmPass, int]], optional):
             Optional list of passes to change order in which algorithms are applied. These passes are merged with the
             default passes specified in :class:`.Engine`. If ``None``, then no additional passes will be used.
     """
@@ -189,15 +189,15 @@ class Engine():
         state: State,
         logger: Logger,
         algorithm_passes: Optional[Union[passes.AlgorithmPass,
-                                         Tuple[passes.AlgorithmPass, int],
-                                         Sequence[Union[passes.AlgorithmPass, Tuple[passes.AlgorithmPass, int]]],
+                                         tuple[passes.AlgorithmPass, int],
+                                         Sequence[Union[passes.AlgorithmPass, tuple[passes.AlgorithmPass, int]]],
                                         ]] = None,
     ):
         self.logger = logger
         self.state = state
         self._is_closed = False
 
-        self.algorithm_passes: List[passes.AlgorithmPass] = _get_default_passes()
+        self.algorithm_passes: list[passes.AlgorithmPass] = _get_default_passes()
         if algorithm_passes is not None:
             # Wrap in list if not already a list or if it's a length 2 list specifying a single
             # call to register_pass with type [AlgorithmPass, int]
@@ -546,7 +546,7 @@ class Engine():
     def _close(state: State, logger: Logger):
         """The actual shutdown logic, as a static method, so the underlying engine can still be garbage collected."""
         log.debug('Closing the engine.')
-        callback_to_has_exception: Dict[Callback, bool] = {}
+        callback_to_has_exception: dict[Callback, bool] = {}
         for callback in state.callbacks:
             try:
                 log.debug('Closing callback %s', type(callback).__name__)

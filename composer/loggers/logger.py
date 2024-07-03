@@ -9,7 +9,7 @@ import collections.abc
 import operator
 import pathlib
 from functools import reduce
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Union
 
 import numpy as np
 import torch
@@ -52,18 +52,18 @@ class Logger:
         self.destinations = ensure_tuple(destinations)
         self._state = state
 
-    def log_traces(self, traces: Dict[str, Any]):
+    def log_traces(self, traces: dict[str, Any]):
         for destination in self.destinations:
             destination.log_traces(traces)
 
-    def log_hyperparameters(self, parameters: Dict[str, Any]):
+    def log_hyperparameters(self, parameters: dict[str, Any]):
         for destination in self.destinations:
             destination.log_hyperparameters(parameters)
 
     def log_table(
         self,
-        columns: List[str],
-        rows: List[List[Any]],
+        columns: list[str],
+        rows: list[list[Any]],
         name: str = 'Table',
         step: Optional[int] = None,
     ) -> None:
@@ -72,7 +72,7 @@ class Logger:
         for destination in self.destinations:
             destination.log_table(columns, rows, name, step)
 
-    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
+    def log_metrics(self, metrics: dict[str, float], step: Optional[int] = None) -> None:
         if step is None:
             step = self._state.timestamp.batch.value
         for destination in self.destinations:
@@ -84,8 +84,8 @@ class Logger:
         name: str = 'Images',
         channels_last: bool = False,
         step: Optional[int] = None,
-        masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
-        mask_class_labels: Optional[Dict[int, str]] = None,
+        masks: Optional[dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
+        mask_class_labels: Optional[dict[int, str]] = None,
         use_table: bool = True,
     ):
         """Log images. Logs any tensors or arrays as images.
@@ -100,9 +100,9 @@ class Logger:
                 time of logging. Defaults to None. If not specified the specific
                 LoggerDestination implementation will choose a step (usually a running
                 counter).
-            masks (Dict[str, np.ndarray | torch.Tensor | Sequence[np.ndarray | torch.Tensor]], optional): A dictionary
+            masks (dict[str, np.ndarray | torch.Tensor | Sequence[np.ndarray | torch.Tensor]], optional): A dictionary
                 mapping the mask name (e.g. predictions or ground truth) to a sequence of masks.
-            mask_class_labels (Dict[int, str], optional): Dictionary mapping label id to its name. Used for labelling
+            mask_class_labels (dict[int, str], optional): Dictionary mapping label id to its name. Used for labelling
                 each color in the mask.
             use_table (bool): Whether to make a table of the images or not. (default: ``True``). Only for use
                 with WandB.

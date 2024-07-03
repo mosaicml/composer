@@ -38,10 +38,12 @@ def test_fsdp_param_groups_without_orig_params(mixed_precision: str, device: str
             model=model,
             optimizers=optimizer,
             train_dataloader=dataloader,
-            fsdp_config={
-                'activation_checkpointing_reentrant': reentrant,
-                'mixed_precision': mixed_precision,
-                'use_orig_params': False,
+            parallelism_config={
+                'fsdp': {
+                    'activation_checkpointing_reentrant': reentrant,
+                    'mixed_precision': mixed_precision,
+                    'use_orig_params': False,
+                },
             },
             max_duration='3ba',
             device=device,
@@ -83,9 +85,11 @@ def test_fsdp_with_param_groups(mixed_precision: str, device: str, reentrant: bo
         model=model,
         optimizers=optimizer,
         train_dataloader=dataloader,
-        fsdp_config={
-            'activation_checkpointing_reentrant': reentrant,
-            'mixed_precision': mixed_precision,
+        parallelism_config={
+            'fsdp': {
+                'activation_checkpointing_reentrant': reentrant,
+                'mixed_precision': mixed_precision,
+            },
         },
         max_duration='3ba',
         device=device,

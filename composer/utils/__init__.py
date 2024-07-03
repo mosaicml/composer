@@ -30,7 +30,7 @@ from composer.utils.compression import (
     is_compressed_pt,
 )
 from composer.utils.device import get_device, is_hpu_installed, is_xla_installed
-from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient, MosaicMLLambdaEvalClient
+from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient
 from composer.utils.file_helpers import (
     FORMAT_NAME_WITH_DIST_AND_TIME_TABLE,
     FORMAT_NAME_WITH_DIST_TABLE,
@@ -50,6 +50,7 @@ from composer.utils.inference import ExportFormat, Transform, export_for_inferen
 from composer.utils.iter_helpers import IteratorFileStream, ensure_tuple, map_collection
 from composer.utils.misc import (
     STR_TO_DTYPE,
+    ParallelismType,
     add_vision_dataset_transform,
     create_interval_scheduler,
     get_free_tcp_port,
@@ -60,6 +61,8 @@ from composer.utils.misc import (
     partial_format,
 )
 from composer.utils.object_store import (
+    MLFLOW_EXPERIMENT_ID_FORMAT_KEY,
+    MLFLOW_RUN_ID_FORMAT_KEY,
     GCSObjectStore,
     LibcloudObjectStore,
     MLFlowObjectStore,
@@ -70,6 +73,7 @@ from composer.utils.object_store import (
     SFTPObjectStore,
     UCObjectStore,
 )
+from composer.utils.parallelism import FSDPConfig, ParallelismConfig, TPConfig, create_fsdp_config
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
 from composer.utils.warnings import VersionedDeprecationWarning
@@ -136,7 +140,6 @@ __all__ = [
     'EvalClient',
     'LambdaEvalClient',
     'LocalEvalClient',
-    'MosaicMLLambdaEvalClient',
     'partial_format',
     'add_vision_dataset_transform',
     'VersionedDeprecationWarning',
@@ -145,4 +148,11 @@ __all__ = [
     'get_compressor',
     'KNOWN_COMPRESSORS',
     'STR_TO_DTYPE',
+    'ParallelismType',
+    'create_fsdp_config',
+    'FSDPConfig',
+    'TPConfig',
+    'ParallelismConfig',
+    'MLFLOW_EXPERIMENT_ID_FORMAT_KEY',
+    'MLFLOW_RUN_ID_FORMAT_KEY',
 ]

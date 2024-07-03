@@ -26,7 +26,7 @@ class RecursiveLinear(nn.Linear):
 class SimpleReplacementPolicy(nn.Module):
     """Bundle the model, replacement function, and validation into one class."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.fc1 = nn.Linear(in_features=16, out_features=32)
         self.fc2 = nn.Linear(in_features=32, out_features=10)
@@ -208,7 +208,7 @@ def test_params_kept(optimizer_surgery_state):
 
 class ParamTestModel(nn.Module):
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
         self.fc1 = nn.Linear(8, 8)

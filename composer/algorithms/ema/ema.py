@@ -8,7 +8,7 @@ from __future__ import annotations
 import contextlib
 import itertools
 import logging
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 import torch
 
@@ -304,7 +304,7 @@ class EMA(Algorithm):
             # Swap the training model out for the ema model for checkpointing
             self._ensure_ema_weights_active(state)
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         state_dict = super().state_dict()
         for attribute_name in self.serialized_attributes:
             if attribute_name == 'ema_model':
@@ -316,7 +316,7 @@ class EMA(Algorithm):
                 state_dict[attribute_name] = getattr(self, attribute_name)
         return state_dict
 
-    def ensure_compatible_state_dict(self, state: Dict[str, Any]):
+    def ensure_compatible_state_dict(self, state: dict[str, Any]):
         """Ensure state dicts created prior to Composer 0.13.0 are compatible with later versions."""
         # Version 0.13.0 and later state dicts will not include training_model.
         if 'training_model' not in state:
@@ -351,7 +351,7 @@ class EMA(Algorithm):
         state['ema_model']['named_buffers_dict'] = named_buffers_dict
         return state
 
-    def load_state_dict(self, state: Dict[str, Any], strict: bool = False):
+    def load_state_dict(self, state: dict[str, Any], strict: bool = False):
         state_dict = self.ensure_compatible_state_dict(state)
         for attribute_name, serialized_value in state_dict.items():
             if attribute_name != 'repr':  # skip attribute added by parent class

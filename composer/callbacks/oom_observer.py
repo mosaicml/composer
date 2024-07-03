@@ -11,7 +11,7 @@ import pickle
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import torch.cuda
 from packaging import version
@@ -44,7 +44,7 @@ class SnapshotFileNameConfig:
             memory_flamegraph_file=filename + '_memory_flamegraph.svg',
         )
 
-    def list_filenames(self) -> List[str]:
+    def list_filenames(self) -> list[str]:
         return [getattr(self, field.name) for field in dataclasses.fields(self)]
 
 

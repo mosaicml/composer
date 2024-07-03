@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import abc
 import pathlib
-from typing import TYPE_CHECKING, Dict, List, Tuple, Union
+from typing import TYPE_CHECKING, Union
 
 from composer.core.callback import Callback
 
@@ -31,7 +31,7 @@ class TraceHandler(Callback, abc.ABC):
     def process_duration_event(
         self,
         name: str,
-        categories: Union[List[str], Tuple[str, ...]],
+        categories: Union[list[str], tuple[str, ...]],
         is_start: bool,
         timestamp: Timestamp,
         wall_clock_time_ns: int,
@@ -45,7 +45,7 @@ class TraceHandler(Callback, abc.ABC):
 
         Args:
             name (str): The name of the event.
-            categories (Union[List[str], Tuple[str, ...]]): The categories for the event.
+            categories (Union[list[str], tuple[str, ...]]): The categories for the event.
             is_start (bool): Whether the event is a start event or end event.
             timestamp (Timestamp): Snapshot of the training time.
             wall_clock_time_ns (int): The :py:func:`time.time_ns` corresponding to the event.
@@ -56,7 +56,7 @@ class TraceHandler(Callback, abc.ABC):
     def process_instant_event(
         self,
         name: str,
-        categories: Union[List[str], Tuple[str, ...]],
+        categories: Union[list[str], tuple[str, ...]],
         timestamp: Timestamp,
         wall_clock_time_ns: int,
     ) -> None:
@@ -64,7 +64,7 @@ class TraceHandler(Callback, abc.ABC):
 
         Args:
             name (str): The name of the event.
-            categories (List[str] | Tuple[str, ...]): The categories for the event.
+            categories (list[str] | tuple[str, ...]): The categories for the event.
             timestamp (Timestamp): Snapshot of current training time.
             wall_clock_time_ns (int): The :py:func:`time.time_ns` corresponding to the event.
         """
@@ -74,19 +74,19 @@ class TraceHandler(Callback, abc.ABC):
     def process_counter_event(
         self,
         name: str,
-        categories: Union[List[str], Tuple[str, ...]],
+        categories: Union[list[str], tuple[str, ...]],
         timestamp: Timestamp,
         wall_clock_time_ns: int,
-        values: Dict[str, Union[int, float]],
+        values: dict[str, Union[int, float]],
     ) -> None:
         """Invoked whenever there is an counter event to record.
 
         Args:
             name (str): The name of the event.
-            categories (List[str] | Tuple[str, ...]): The categories for the event.
+            categories (list[str] | tuple[str, ...]): The categories for the event.
             timestamp (Timestamp): The timestamp.
             wall_clock_time_ns (int): The :py:func:`time.time_ns` corresponding to the event.
-            values (Dict[str, int | float]): The values corresponding to this counter event.
+            values (dict[str, int | float]): The values corresponding to this counter event.
         """
         del name, categories, timestamp, wall_clock_time_ns, values  # unused
         pass

@@ -97,7 +97,7 @@ Other high-level deep learning trainers provide simplicity at the cost of rigidi
 Composer is built to automate away low-level pain points and headaches so you can focus on the important (and fun) parts of deep learning and iterate faster.
 
 - [**Auto-resumption**](https://docs.mosaicml.com/projects/composer/en/stable/notes/resumption.html): Failed training run? Have no fear — just re-run your code, and Composer will automatically resume from your latest saved checkpoint.
-- [**CUDA OOM Prevention**](https://docs.mosaicml.com/projects/composer/en/stable/examples/auto_microbatching.html): Say goodbye to out-of-memory errors.  Set your microbatch size to “auto”, and Composer will automatically select the biggest one that fits on your GPUs.
+- [**CUDA OOM Prevention**](https://docs.mosaicml.com/projects/composer/en/stable/examples/auto_microbatching.html): Say goodbye to out-of-memory errors. Set your microbatch size to “auto”, and Composer will automatically select the biggest one that fits on your GPUs.
 - **[Time Abstractions](https://docs.mosaicml.com/projects/composer/en/latest/trainer/time.html):** Ever messed up your conversion between update steps, epochs, samples, and tokens? Specify your training duration with custom units (epochs, batches, samples, and tokens) in your training loop with our `Time` class.
 
 ## Integrations

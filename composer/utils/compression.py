@@ -6,7 +6,7 @@
 import shutil
 import subprocess
 from contextlib import contextmanager
-from typing import IO, Iterator, List, Optional
+from typing import IO, Iterator, Optional
 
 __all__ = ['is_compressed_pt', 'CliCompressor', 'get_compressor', 'KNOWN_COMPRESSORS']
 
@@ -64,7 +64,7 @@ class CliCompressor:
         if not self.exists:
             raise CompressorNotFound(f'Could not find command "{self.cmd}" in the PATH.')
 
-    def _compress_cmd(self) -> List[str]:
+    def _compress_cmd(self) -> list[str]:
         return [self.cmd]
 
     @contextmanager
@@ -84,7 +84,7 @@ class CliCompressor:
             if returncode != 0:
                 raise IOError(f'failed to compress to "{out_filename}" using {self!r} (return code {returncode})')
 
-    def _decompress_cmd(self, filename: str) -> List[str]:
+    def _decompress_cmd(self, filename: str) -> list[str]:
         return [self.cmd, '-dc', filename]
 
     @contextmanager

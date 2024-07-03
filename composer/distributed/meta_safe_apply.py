@@ -9,13 +9,11 @@
 
 """Helper function to safely call .apply for initializing meta tensors in PyTorch."""
 
-from typing import Set
-
 import torch
 from torch.nn.parameter import Parameter
 
 
-def meta_safe_apply(self, fn, ignored_modules: Set, module_name: str):
+def meta_safe_apply(self, fn, ignored_modules: set, module_name: str):
     """Applies the function recursively to a module's children and the module itself.
 
     This variant allows us to ignore modules to apply the function.

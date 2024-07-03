@@ -8,7 +8,6 @@ import os
 import subprocess
 import textwrap
 import types
-from typing import Dict, List
 
 from composer.utils import dist
 from composer.utils.eval_client.eval_client import EvalClient
@@ -22,7 +21,7 @@ TIMEOUT = 5  # in seconds
 class LocalEvalClient(EvalClient):
     """Utility for creating a client for and invoking local evaluations."""
 
-    def invoke(self, payload: List[List[List[Dict[str, str]]]]) -> List[List[List[bool]]]:
+    def invoke(self, payload: list[list[list[dict[str, str]]]]) -> list[list[list[bool]]]:
         """Invoke a batch of provided payloads for code evaluations."""
         ret = []
         for prompt_group in payload:
@@ -35,7 +34,7 @@ class LocalEvalClient(EvalClient):
             ret.append(ret_prompt_group)
         return ret
 
-    def invoke_helper(self, payload: Dict[str, str]) -> bool:
+    def invoke_helper(self, payload: dict[str, str]) -> bool:
         """Invoke a provided dictionary payload to a multiprocessing subprocess that performs code eval."""
         ret = multiprocessing.Value('b', 0)  # Store result of test case in shared memory
         p = multiprocessing.Process(
