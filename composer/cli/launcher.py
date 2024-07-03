@@ -22,11 +22,6 @@ import torch
 from packaging import version
 
 import composer
-from composer.loggers.mosaicml_logger import (
-    MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR,
-    MOSAICML_LOG_DIR_ENV_VAR,
-    MOSAICML_PLATFORM_ENV_VAR,
-)
 from composer.utils import get_free_tcp_port
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
@@ -547,6 +542,13 @@ def main():
             return 1
         app()
         return
+
+    # Avoid circular import
+    from composer.loggers.mosaicml_logger import (
+        MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR,
+        MOSAICML_LOG_DIR_ENV_VAR,
+        MOSAICML_PLATFORM_ENV_VAR,
+    )
     args = _parse_args()
 
     logging.basicConfig()
