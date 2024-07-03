@@ -136,8 +136,9 @@ class RemoteUploader:
         self.backend_kwargs: dict[str, Any] = backend_kwargs if backend_kwargs is not None else {}
         if self.remote_backend_name in ['s3', 'oci', 'gs'] and 'bucket' not in self.backend_kwargs:
             self.backend_kwargs['bucket'] = self.remote_bucket_name
-        elif self.remote_backend_name == 'libcloud' and 'container' not in self.backend_kwargs:
-            self.backend_kwargs['container'] = self.remote_bucket_name
+        elif self.remote_backend_name == 'libcloud':
+            if 'container' not in self.backend_kwargs:
+                self.backend_kwargs['container'] = self.remote_bucket_name
         elif self.remote_backend_name == 'azure':
             self.remote_backend_name = 'libcloud'
             self.backend_kwargs = {

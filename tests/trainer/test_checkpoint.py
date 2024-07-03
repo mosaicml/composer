@@ -851,7 +851,6 @@ class TestCheckpointLoading:
 
                     assert trainer_1.state.run_name == trainer_2.state.run_name
 
-
     @pytest.mark.parametrize(('save_folder'), [None, 'first'])
     def test_autoresume_from_callback(
         self,
