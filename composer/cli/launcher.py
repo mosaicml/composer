@@ -534,6 +534,17 @@ def _aggregate_process_returncode(processes: dict[int, subprocess.Popen]) -> int
 
 def main():
     """Entrypoint into the Composer CLI."""
+    # If the first argument is 'llm-foundry', then we are running in the LLM Foundry environment
+    if len(sys.argv) > 1 and sys.argv[1] == 'llm-foundry':
+        # Remove 'llm-foundry' from sys.argv to handle it correctly in the Typer CLI
+        sys.argv.pop(1)
+        try:
+            from llmfoundry.cli.cli import app
+        except ImportError:
+            print('LLM Foundry is not installed. Please install it to use the LLM Foundry CLI.')
+            return 1
+        app()
+        return
     args = _parse_args()
 
     logging.basicConfig()
