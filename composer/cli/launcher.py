@@ -535,6 +535,7 @@ def _aggregate_process_returncode(processes: dict[int, subprocess.Popen]) -> int
 def main():
     """Entrypoint into the Composer CLI."""
     # If the first argument is 'llm-foundry', then we are running in the LLM Foundry environment
+    print('---- Running Composer CLI')
     if len(sys.argv) > 1 and sys.argv[1] == 'llm-foundry':
         # Remove 'llm-foundry' from sys.argv to handle it correctly in the Typer CLI
         sys.argv.pop(1)
