@@ -532,10 +532,9 @@ def main():
     # If the first argument is 'llm-foundry', then we are running in the LLM Foundry environment
     if len(sys.argv) > 1 and sys.argv[1] == 'llm-foundry':
         # Remove 'llm-foundry' from sys.argv to handle it correctly in the Typer CLI
-        sys.argv.pop(1)
         try:
             from llmfoundry.cli.cli import app
-            print(sys.argv)
+            sys.argv = sys.argv[2:]
             app(prog_name="llm-foundry")
             return
         except ImportError:
