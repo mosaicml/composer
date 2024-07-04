@@ -535,11 +535,11 @@ def main():
         sys.argv.pop(1)
         try:
             from llmfoundry.cli.cli import app
+            app(prog_name="llm-foundry")
+            return
         except ImportError:
             print('LLM Foundry is not installed. Please install it to use the LLM Foundry CLI.')
             return 1
-        app()
-        return
 
     # Avoid circular import
     from composer.loggers.mosaicml_logger import (
