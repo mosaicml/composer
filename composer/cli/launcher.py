@@ -535,6 +535,7 @@ def main():
         sys.argv.pop(1)
         try:
             from llmfoundry.cli.cli import app
+            print(sys.argv)
             app(prog_name="llm-foundry")
             return
         except ImportError:
