@@ -449,8 +449,8 @@ def _launch_foundry_processes(
                     text=True,
                 )
             else:
-                stdout_file = _get_file(stdout_file_format, global_rank, world_size, local_rank, nproc, node_rank)
-                stderr_file = _get_file(stderr_file_format, global_rank, world_size, local_rank, nproc, node_rank) if stderr_file_format else None
+                stdout_file = _get_file(stdout_file_format)
+                stderr_file = _get_file(stdout_file_format) if stderr_file_format else None
 
                 process = subprocess.Popen(
                     cmd,
