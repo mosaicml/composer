@@ -650,7 +650,7 @@ def main():
                 training_script_args=sys.argv[3:],
                 processes=processes,
             )
-        _monitor_processes(processes)
+            _monitor_processes(processes)
         else:
             _launch_processes(
                 nproc=args.nproc,
