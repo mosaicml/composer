@@ -647,7 +647,7 @@ def main():
                 stdout_file_format=args.stdout,
                 stderr_file_format=args.stderr,
                 foundry_mode=sys.argv[2],
-                training_script_args=sys.argv[3:],
+                foundry_script_args=sys.argv[3:],
                 processes=processes,
             )
             _monitor_processes(processes)
