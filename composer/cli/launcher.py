@@ -22,6 +22,11 @@ import torch
 from packaging import version
 
 import composer
+from composer.loggers.mosaicml_logger import (
+    MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR,
+    MOSAICML_LOG_DIR_ENV_VAR,
+    MOSAICML_PLATFORM_ENV_VAR,
+)
 from composer.utils import get_free_tcp_port
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
@@ -530,7 +535,7 @@ def _aggregate_process_returncode(processes: dict[int, subprocess.Popen]) -> int
 def main():
     """Entrypoint into the Composer CLI."""
     # If the first argument is 'llm-foundry', then we are running in the LLM Foundry environment
-    if len(sys.argv) > 1 and sys.argv[1] == 'llm-foundry':
+    if len(sys.argv) > 1 and sys.argv[1] == 'llmfoundry':
         # Remove 'llm-foundry' from sys.argv to handle it correctly in the Typer CLI
         try:
             from llmfoundry.cli.cli import app
@@ -541,12 +546,6 @@ def main():
             print('LLM Foundry is not installed. Please install it to use the LLM Foundry CLI.')
             return 1
 
-    # Avoid circular import
-    from composer.loggers.mosaicml_logger import (
-        MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR,
-        MOSAICML_LOG_DIR_ENV_VAR,
-        MOSAICML_PLATFORM_ENV_VAR,
-    )
     args = _parse_args()
 
     logging.basicConfig()
