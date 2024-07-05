@@ -301,7 +301,14 @@ def _patch_env(**environs: str):
             else:
                 os.environ[k] = v
 
-def _get_file(format: str):
+def _get_file(
+    format: str, 
+    global_rank: int, 
+    world_size: int, 
+    local_rank: int, 
+    nproc: int, 
+    node_rank: int
+):
     filename = format.format(
         rank=global_rank,
         world_size=world_size,
@@ -377,8 +384,8 @@ def _launch_processes(
                     text=True,
                 )
             else:
-                stdout_file = _get_file(stdout_file_format)
-                stderr_file = _get_file(stderr_file_format) if stderr_file_format is not None else None
+                stdout_file = _get_file(stdout_file_format, global_rank, world_size, local_rank, nproc, node_rank)
+                stderr_file = _get_file(stdout_file_format, global_rank, world_size, local_rank, nproc, node_rank) if stderr_file_format is not None else None
 
                 process = subprocess.Popen(
                     cmd,
@@ -449,8 +456,8 @@ def _launch_foundry_processes(
                     text=True,
                 )
             else:
-                stdout_file = _get_file(stdout_file_format)
-                stderr_file = _get_file(stdout_file_format) if stderr_file_format else None
+                stdout_file = _get_file(stdout_file_format, global_rank, world_size, local_rank, nproc, node_rank)
+                stderr_file = _get_file(stdout_file_format, global_rank, world_size, local_rank, nproc, node_rank) if stderr_file_format else None
 
                 process = subprocess.Popen(
                     cmd,
