@@ -534,18 +534,6 @@ def _aggregate_process_returncode(processes: dict[int, subprocess.Popen]) -> int
 
 def main():
     """Entrypoint into the Composer CLI."""
-    # If the first argument is 'llm-foundry', then we are running in the LLM Foundry environment
-    if len(sys.argv) > 1 and sys.argv[1] == 'llmfoundry':
-        # Remove 'llm-foundry' from sys.argv to handle it correctly in the Typer CLI
-        try:
-            from llmfoundry.cli.cli import app
-            sys.argv = sys.argv[2:]
-            app(prog_name="llm-foundry")
-            return
-        except ImportError:
-            print('LLM Foundry is not installed. Please install it to use the LLM Foundry CLI.')
-            return 1
-
     args = _parse_args()
 
     logging.basicConfig()
@@ -573,7 +561,8 @@ def main():
         args.stderr = None
 
     try:
-        _launch_processes(
+        if sys.argv[1] == 'llmfoundry':
+            _launch_processes(
             nproc=args.nproc,
             world_size=args.world_size,
             base_rank=args.base_rank,
@@ -584,10 +573,26 @@ def main():
             command_mode=args.command_mode,
             stdout_file_format=args.stdout,
             stderr_file_format=args.stderr,
-            training_script=args.training_script,
-            training_script_args=args.training_script_args,
+            training_script='llmfoundry/cli/cli.py',
+            training_script_args=sys.argv[3:],
             processes=processes,
         )
+        else:
+            _launch_processes(
+                nproc=args.nproc,
+                world_size=args.world_size,
+                base_rank=args.base_rank,
+                node_rank=args.node_rank,
+                master_addr=args.master_addr,
+                master_port=args.master_port,
+                module_mode=args.module_mode,
+                command_mode=args.command_mode,
+                stdout_file_format=args.stdout,
+                stderr_file_format=args.stderr,
+                training_script=args.training_script,
+                training_script_args=args.training_script_args,
+                processes=processes,
+            )
         _monitor_processes(processes)
     except:
         # Print the exception first, then kill the training processes, since killing
