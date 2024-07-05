@@ -406,7 +406,7 @@ def _launch_foundry_processes(
     foundry_mode: str, # train or eval
     stdout_file_format: str,
     stderr_file_format: Union[str, None],
-    training_script_args: list[Any],
+    foundry_script_args: list[Any],
     processes: dict[int, subprocess.Popen],
 ):
     log.info('Starting distributed environment on local node for global_rank(%s-%s)', base_rank, base_rank + nproc - 1)
