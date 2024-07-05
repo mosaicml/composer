@@ -2687,7 +2687,6 @@ class Trainer:
                 model_eval_mode(self.state.model),\
                 _get_precision_context(precision, self.state.precision_config, self.state.deepspeed_enabled):
             with te.fp8_autocast(enabled=False):
-
                 eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
                 for metric in self.state.train_metrics.values():
                     self._original_model.update_metric(
