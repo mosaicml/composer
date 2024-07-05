@@ -301,6 +301,15 @@ def _patch_env(**environs: str):
             else:
                 os.environ[k] = v
 
+def _get_file(format: str):
+    filename = format.format(
+        rank=global_rank,
+        world_size=world_size,
+        local_rank=local_rank,
+        local_world_size=nproc,
+        node_rank=node_rank,
+    )
+    return open(filename, 'a+')
 
 def _launch_processes(
     nproc: int,
@@ -368,17 +377,6 @@ def _launch_processes(
                     text=True,
                 )
             else:
-
-                def _get_file(format: str):
-                    filename = format.format(
-                        rank=global_rank,
-                        world_size=world_size,
-                        local_rank=local_rank,
-                        local_world_size=nproc,
-                        node_rank=node_rank,
-                    )
-                    return open(filename, 'a+')
-
                 stdout_file = _get_file(stdout_file_format)
                 stderr_file = _get_file(stderr_file_format) if stderr_file_format is not None else None
 
