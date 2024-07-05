@@ -394,7 +394,7 @@ def _launch_processes(
             processes[global_rank] = process
 
 
-def _launch_foundry_process(
+def _launch_foundry_processes(
     nproc: int,
     world_size: int,
     base_rank: int,
