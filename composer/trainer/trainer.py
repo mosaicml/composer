@@ -3487,7 +3487,7 @@ class Trainer:
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
                             if self.state.precision is Precision.AMP_FP8:
                                 import transformer_engine.pytorch as te
-                                log.info("Disabling AMP FP8 for train metrics evaluation")
+                                log.info("Disabling AMP FP8 for eval loop")
                                 fp8_ctx = te.fp8_autocast(enabled=False)
                             else: 
                                 fp8_ctx = contextlib.nullcontext()
