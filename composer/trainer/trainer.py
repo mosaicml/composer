@@ -3491,6 +3491,7 @@ class Trainer:
                                 fp8_ctx = te.fp8_autocast(enabled=False)
                             else: 
                                 fp8_ctx = contextlib.nullcontext()
+
                             with _get_precision_context(
                                 self.state.precision,
                                 self.state.precision_config,
@@ -3508,7 +3509,7 @@ class Trainer:
 
                             # Run in same precision context to avoid NaNs
                             with _get_precision_context(
-                                precision,
+                                self.state.precision,
                                 self.state.precision_config,
                                 self.state.deepspeed_enabled,
                             ):
