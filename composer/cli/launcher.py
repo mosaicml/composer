@@ -301,22 +301,6 @@ def _patch_env(**environs: str):
             else:
                 os.environ[k] = v
 
-def _get_file(
-    format: str, 
-    global_rank: int, 
-    world_size: int, 
-    local_rank: int, 
-    nproc: int, 
-    node_rank: int
-):
-    filename = format.format(
-        rank=global_rank,
-        world_size=world_size,
-        local_rank=local_rank,
-        local_world_size=nproc,
-        node_rank=node_rank,
-    )
-    return open(filename, 'a+')
 
 def _launch_processes(
     nproc: int,
@@ -332,6 +316,7 @@ def _launch_processes(
     stderr_file_format: Union[str, None],
     training_script_args: list[Any],
     processes: dict[int, subprocess.Popen],
+    foundry_process: Union[list[str], None] = None,
 ):
     log.info('Starting distributed environment on local node for global_rank(%s-%s)', base_rank, base_rank + nproc - 1)
     log.info('Distributed KV store: tcp://%s:%s', master_addr, master_port)
@@ -348,12 +333,15 @@ def _launch_processes(
         if command_mode and module_mode:
             raise ValueError('Either `command_mode` or `module_mode` should be set, but not both.')
         cmd = []
-        if not command_mode:
-            cmd.append(sys.executable)
-        if module_mode:
-            cmd.append('-m')
-
-        cmd.append(training_script)
+        # Detect if trying to call Foundry scripts
+        if foundry_process:
+            cmd = ['llmfoundry', foundry_mode]
+        else:
+            if not command_mode:
+                cmd.append(sys.executable)
+            if module_mode:
+                cmd.append('-m')
+            cmd.append(training_script)
 
         # Update the env with the distributed variables
         with _patch_env(
@@ -384,8 +372,18 @@ def _launch_processes(
                     text=True,
                 )
             else:
-                stdout_file = _get_file(stdout_file_format, global_rank, world_size, local_rank, nproc, node_rank)
-                stderr_file = _get_file(stdout_file_format, global_rank, world_size, local_rank, nproc, node_rank) if stderr_file_format is not None else None
+                def _get_file(format: str):
+                    filename = format.format(
+                        rank=global_rank,
+                        world_size=world_size,
+                        local_rank=local_rank,
+                        local_world_size=nproc,
+                        node_rank=node_rank,
+                    )
+                    return open(filename, 'a+')
+
+                stdout_file = _get_file(stdout_file_format)
+                stderr_file = _get_file(stderr_file_format) if stderr_file_format is not None else None
 
                 process = subprocess.Popen(
                     cmd,
@@ -396,79 +394,6 @@ def _launch_processes(
                 process.stdout = stdout_file
                 if stderr_file is not None:
                     process.stderr = stderr_file
-            processes[global_rank] = process
-
-
-def _launch_foundry_processes(
-    nproc: int,
-    world_size: int,
-    base_rank: int,
-    node_rank: int,
-    master_addr: str,
-    master_port: int,
-    module_mode: bool,
-    command_mode: bool,
-    foundry_mode: str, # train or eval
-    stdout_file_format: str,
-    stderr_file_format: Union[str, None],
-    foundry_script_args: list[Any],
-    processes: dict[int, subprocess.Popen],
-):
-    log.info('Starting distributed environment on local node for global_rank(%s-%s)', base_rank, base_rank + nproc - 1)
-    log.info('Distributed KV store: tcp://%s:%s', master_addr, master_port)
-
-    nccl_env_variable = {
-        (
-            'NCCL_ASYNC_ERROR_HANDLING' if version.parse(torch.__version__) < version.parse('2.2.0') else 'TORCH_NCCL_ASYNC_ERROR_HANDLING'
-        ):
-            '1',
-    }
-
-    for local_rank in range(nproc):
-        global_rank = base_rank + local_rank
-        if command_mode and module_mode:
-            raise ValueError('Either `command_mode` or `module_mode` should be set, but not both.')
-        cmd = ['llmfoundry', foundry_mode]  # Command to invoke LLM Foundry CLI
-        cmd.extend(foundry_script_args)
-
-        # Update the env with the distributed variables
-        with _patch_env(
-            RANK=str(global_rank),
-            WORLD_SIZE=str(world_size),
-            LOCAL_RANK=str(local_rank),
-            LOCAL_WORLD_SIZE=str(nproc),
-            NODE_RANK=str(node_rank),
-            MASTER_ADDR=master_addr,
-            MASTER_PORT=str(master_port),
-            PYTHONUNBUFFERED='1',
-            **nccl_env_variable,
-        ):
-            log.info(
-                'Launching process for local_rank(%s), global_rank(%s) with command(%s)',
-                local_rank,
-                global_rank,
-                ' '.join(cmd),
-            )
-
-            if local_rank == 0:
-                process = subprocess.Popen(
-                    cmd,
-                    text=True,
-                )
-            else:
-                stdout_file = _get_file(stdout_file_format, global_rank, world_size, local_rank, nproc, node_rank)
-                stderr_file = _get_file(stdout_file_format, global_rank, world_size, local_rank, nproc, node_rank) if stderr_file_format else None
-
-                process = subprocess.Popen(
-                    cmd,
-                    stdout=stdout_file,
-                    stderr=stderr_file if stderr_file is not None else subprocess.STDOUT,
-                    text=True,
-                )
-                process.stdout = stdout_file
-                if stderr_file is not None:
-                    process.stderr = stderr_file
-
             processes[global_rank] = process
 
 
@@ -639,39 +564,22 @@ def main():
         args.stderr = None
 
     try:
-        if sys.argv[1] == 'llmfoundry':
-            _launch_foundry_processes(
-                nproc=args.nproc,
-                world_size=args.world_size,
-                base_rank=args.base_rank,
-                node_rank=args.node_rank,
-                master_addr=args.master_addr,
-                master_port=args.master_port,
-                module_mode=args.module_mode,
-                command_mode=args.command_mode,
-                stdout_file_format=args.stdout,
-                stderr_file_format=args.stderr,
-                foundry_mode=sys.argv[2],
-                foundry_script_args=sys.argv[3:],
-                processes=processes,
-            )
-            _monitor_processes(processes)
-        else:
-            _launch_processes(
-                nproc=args.nproc,
-                world_size=args.world_size,
-                base_rank=args.base_rank,
-                node_rank=args.node_rank,
-                master_addr=args.master_addr,
-                master_port=args.master_port,
-                module_mode=args.module_mode,
-                command_mode=args.command_mode,
-                stdout_file_format=args.stdout,
-                stderr_file_format=args.stderr,
-                training_script=args.training_script,
-                training_script_args=args.training_script_args,
-                processes=processes,
-            )
+        _launch_processes(
+            nproc=args.nproc,
+            world_size=args.world_size,
+            base_rank=args.base_rank,
+            node_rank=args.node_rank,
+            master_addr=args.master_addr,
+            master_port=args.master_port,
+            module_mode=args.module_mode,
+            command_mode=args.command_mode,
+            stdout_file_format=args.stdout,
+            stderr_file_format=args.stderr,
+            training_script=args.training_script,
+            training_script_args=args.training_script_args,
+            processes=processes,
+            foundry_process=sys.argv[2:] if sys.argv[1] == 'llmfoundry' else None,
+        )
         _monitor_processes(processes)
     except:
         # Print the exception first, then kill the training processes, since killing
