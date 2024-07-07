@@ -335,7 +335,7 @@ def _launch_processes(
         cmd = []
         # Detect if trying to call Foundry scripts
         if foundry_process:
-            cmd = ['llmfoundry', foundry_mode]
+            cmd = ['llmfoundry'].extend(foundry_process)
         else:
             if not command_mode:
                 cmd.append(sys.executable)
