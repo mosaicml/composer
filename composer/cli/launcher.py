@@ -354,7 +354,8 @@ def _launch_processes(
         ):
             # Populate the distributed variables in all launcher args
             if foundry_process:
-                cmd = ['llmfoundry'].extend(foundry_process)
+                cmd = ['llmfoundry']
+                cmd.extend(foundry_process)
             else:
                 for arg in training_script_args:
                     cmd.append(os.path.expandvars(os.path.expanduser(arg)))
