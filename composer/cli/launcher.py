@@ -333,10 +333,7 @@ def _launch_processes(
         if command_mode and module_mode:
             raise ValueError('Either `command_mode` or `module_mode` should be set, but not both.')
         cmd = []
-        # Detect if trying to call Foundry scripts
-        if foundry_process:
-            cmd = ['llmfoundry'].extend(foundry_process)
-        else:
+        if not foundry_process:
             if not command_mode:
                 cmd.append(sys.executable)
             if module_mode:
@@ -356,8 +353,11 @@ def _launch_processes(
             **nccl_env_variable,
         ):
             # Populate the distributed variables in all launcher args
-            for arg in training_script_args:
-                cmd.append(os.path.expandvars(os.path.expanduser(arg)))
+            if foundry_process:
+                cmd = ['llmfoundry'].extend(foundry_process)
+            else:
+                for arg in training_script_args:
+                    cmd.append(os.path.expandvars(os.path.expanduser(arg)))
 
             log.info(
                 'Launching process for local_rank(%s), global_rank(%s) with command(%s)',
