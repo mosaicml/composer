@@ -178,7 +178,7 @@ def _get_parser():
 
 def _parse_args():
     parser = _get_parser()
-    args = parser.parse_known_args()
+    args = parser.parse_args()
 
     # Default values to env vars if they are not provided
     if args.nproc is None:
