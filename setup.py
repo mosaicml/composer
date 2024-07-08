@@ -155,7 +155,7 @@ extra_deps['slack'] = {
 
 extra_deps['deepspeed'] = [
     'deepspeed==0.8.3',
-    'pydantic>=1.0,<2',
+    'pydantic>=2.8.2,<3',
 ]
 
 extra_deps['wandb'] = [
