@@ -178,7 +178,8 @@ def _get_parser():
 
 def _parse_args():
     parser = _get_parser()
-
+    print("Command Line Args:", sys.argv)
+    print("Parsed Args:", parser.parse_args())
     args, unknown_args = parser.parse_known_args()
 
     # Default values to env vars if they are not provided
