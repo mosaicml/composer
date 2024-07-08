@@ -373,6 +373,7 @@ def _launch_processes(
                     text=True,
                 )
             else:
+
                 def _get_file(format: str):
                     filename = format.format(
                         rank=global_rank,
