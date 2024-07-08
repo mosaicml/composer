@@ -15,6 +15,7 @@ from composer.utils.object_store.oci_object_store import OCIObjectStore
 from composer.utils.object_store.s3_object_store import S3ObjectStore
 from composer.utils.object_store.sftp_object_store import SFTPObjectStore
 from composer.utils.object_store.uc_object_store import UCObjectStore
+from composer.utils.object_store.utils import build_remote_backend
 
 __all__ = [
     'ObjectStore',
@@ -28,4 +29,5 @@ __all__ = [
     'UCObjectStore',
     'MLFLOW_EXPERIMENT_ID_FORMAT_KEY',
     'MLFLOW_RUN_ID_FORMAT_KEY',
+    'build_remote_backend',
 ]
