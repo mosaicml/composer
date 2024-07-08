@@ -565,6 +565,7 @@ def main():
         args.stderr = None
 
     # Manually parse unknown args to leave the rest as is for the training script
+    print('args:', unknown_args)
     print('Remaining args:', unknown_args)
     foundry_process = None
     if 'llmfoundry' in unknown_args:
