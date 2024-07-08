@@ -565,10 +565,8 @@ def main():
 
     foundry_process = None
     if args.training_script == 'llmfoundry':
-        print('Using llmfoundry---------')
         foundry_process = ['llmfoundry']
         foundry_process.extend(args.training_script_args)
-        print('foundry process:', foundry_process)
 
     try:
         _launch_processes(
