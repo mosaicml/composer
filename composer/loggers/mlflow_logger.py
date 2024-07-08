@@ -42,8 +42,6 @@ class MLFlowLogger(LoggerDestination):
         run_name: (str, optional): MLflow run name. If not set it will be the same as the
             Trainer run name
         tags: (dict, optional): MLflow tags to log with the run
-        tracking_uri (str | pathlib.Path, optional): MLflow tracking uri, the URI to the
-            remote or local endpoint where logs are stored (If none it is set to MLflow default)
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process
             (default: ``True``).
         flush_interval (int): The amount of time, in seconds, that MLflow must wait between
@@ -76,7 +74,6 @@ class MLFlowLogger(LoggerDestination):
         experiment_name: Optional[str] = None,
         run_name: Optional[str] = None,
         tags: Optional[dict[str, Any]] = None,
-        tracking_uri: Optional[Union[str, pathlib.Path]] = None,
         rank_zero_only: bool = True,
         flush_interval: int = 10,
         model_registry_prefix: str = '',
@@ -139,13 +136,11 @@ class MLFlowLogger(LoggerDestination):
         self.run_url = None
 
         if self._enabled:
-            if tracking_uri is None and os.getenv('DATABRICKS_TOKEN') is not None:
-                tracking_uri = 'databricks'
-            if tracking_uri is None:
-                tracking_uri = mlflow.get_tracking_uri()
-            self.tracking_uri = str(tracking_uri)
-            mlflow.set_tracking_uri(self.tracking_uri)
-
+            try:
+                mlflow.login()
+            except Exception as error:
+                raise error
+            
             if self.model_registry_uri is not None:
                 mlflow.set_registry_uri(self.model_registry_uri)
             # Set up MLflow state
@@ -174,7 +169,8 @@ class MLFlowLogger(LoggerDestination):
                 databricks_username = WorkspaceClient().current_user.me().user_name or ''
                 self.experiment_name = os.path.join('/Users', databricks_username, self.experiment_name.strip('/'))
 
-            self._mlflow_client = MlflowClient(self.tracking_uri)
+            self._mlflow_client =mlflow.tracking.MlflowClient()
+
             # Set experiment
             env_exp_id = os.getenv(
                 mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name,  # pyright: ignore[reportGeneralTypeIssues]
