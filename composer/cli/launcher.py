@@ -568,7 +568,7 @@ def main():
         print('Using llmfoundry---------')
         foundry_process = ['llmfoundry']
         foundry_process.extend(args.training_script_args)
-        pritn('foundry process:', foundry_process)
+        print('foundry process:', foundry_process)
 
     try:
         _launch_processes(
