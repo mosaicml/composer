@@ -1231,7 +1231,7 @@ class Trainer:
                 if isinstance(parallelism_config['tp'], TPConfig):
                     parallelism_config_args['tp'] = parallelism_config['tp']
                 else:
-                    parallelism_config['tp'] = TPConfig(**parallelism_config['tp'])
+                    parallelism_config_args['tp'] = TPConfig(**parallelism_config['tp'])
             parallelism_config = ParallelismConfig(
                 **parallelism_config_args,
             ) if len(parallelism_config_args) > 0 else None
