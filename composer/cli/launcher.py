@@ -567,6 +567,7 @@ def main():
     parser = _get_parser()
     # Manually parse known args to leave the rest as is for the training script
     known_args, remaining_args = parser.parse_known_args()
+    foundry_process = None
     if 'llmfoundry' in remaining_args:
         foundry_index = remaining_args.index('llmfoundry')
         foundry_process = remaining_args[foundry_index:]
@@ -586,7 +587,7 @@ def main():
             training_script=args.training_script,
             training_script_args=args.training_script_args,
             processes=processes,
-            foundry_process=foundry_process if foundry_process else None,
+            foundry_process=foundry_process,
         )
         _monitor_processes(processes)
     except:
