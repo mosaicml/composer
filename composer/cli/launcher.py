@@ -354,8 +354,7 @@ def _launch_processes(
         ):
             # Populate the distributed variables in all launcher args
             if foundry_process:
-                cmd = ['llmfoundry']
-                cmd.extend(foundry_process)
+                cmd = foundry_process
             else:
                 for arg in training_script_args:
                     cmd.append(os.path.expandvars(os.path.expanduser(arg)))
@@ -565,6 +564,13 @@ def main():
         args.stdout = log_file_format
         args.stderr = None
 
+    parser = _get_parser()
+    # Manually parse known args to leave the rest as is for the training script
+    known_args, remaining_args = parser.parse_known_args()
+    if 'llmfoundry' in remaining_args:
+        foundry_index = remaining_args.index('llmfoundry')
+        foundry_process = remaining_args[foundry_index:]
+
     try:
         _launch_processes(
             nproc=args.nproc,
@@ -580,7 +586,7 @@ def main():
             training_script=args.training_script,
             training_script_args=args.training_script_args,
             processes=processes,
-            foundry_process=sys.argv[2:] if sys.argv[1] == 'llmfoundry' else None,
+            foundry_process=foundry_process if foundry_process else None,
         )
         _monitor_processes(processes)
     except:
