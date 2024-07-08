@@ -567,6 +567,7 @@ def main():
     parser = _get_parser()
     # Manually parse unknown args to leave the rest as is for the training script
     _, remaining_args = parser.parse_known_args()
+    print('Remaining args:', remaining_args)
     foundry_process = None
     if 'llmfoundry' in remaining_args:
         print('---- RUNNING FOUNDRY CLI ----')
