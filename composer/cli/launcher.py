@@ -565,8 +565,8 @@ def main():
         args.stderr = None
 
     parser = _get_parser()
-    # Manually parse known args to leave the rest as is for the training script
-    known_args, remaining_args = parser.parse_known_args()
+    # Manually parse unknown args to leave the rest as is for the training script
+    _, remaining_args = parser.parse_known_args()
     foundry_process = None
     if 'llmfoundry' in remaining_args:
         foundry_index = remaining_args.index('llmfoundry')
