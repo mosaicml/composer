@@ -316,7 +316,9 @@ def test_fsdp_full_state_dict_load(
     use_hsdp: bool,
 ):
     if use_hsdp:
-        pytest.xfail('Known Pytorch issue with HSDP, waiting for pytorch patch')
+        pytest.xfail('Known PyTorch issue with HSDP, waiting for pytorch patch')
+    if use_tp:
+        pytest.skip('TP on PyTorch 2.3 has full state dict issues.')
     if (use_tp or use_hsdp) and version.parse(torch.__version__) < version.parse('2.3.0'):
         pytest.skip('HSDP and TP require torch 2.3.0 or later')
     if autoresume:
