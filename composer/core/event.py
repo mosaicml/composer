@@ -57,7 +57,7 @@ class Event(StringEnum):
 
                     # <BATCH_END>
 
-                    # <BEFORE_EVAL_ALL>
+                    # <EVAL_BEFORE_ALL>
                     for eval_dataloader in eval_dataloaders:
                         if should_eval(batch=True):
                             # <EVAL_START>
@@ -70,7 +70,7 @@ class Event(StringEnum):
                                 # <EVAL_BATCH_END>
                             # <EVAL_END>
 
-                    # <AFTER_EVAL_ALL>
+                    # <EVAL_AFTER_ALL>
 
                     # <BATCH_CHECKPOINT>
                 # <EPOCH_END>
