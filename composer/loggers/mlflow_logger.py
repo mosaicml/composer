@@ -105,6 +105,7 @@ class MLFlowLogger(LoggerDestination):
         self.run_name = run_name
         self.run_group = run_group
         self.tags = tags or {}
+        self.tracking_uri = tracking_uri
         self.model_registry_prefix = model_registry_prefix
         self.model_registry_uri = model_registry_uri
         self.synchronous = synchronous
