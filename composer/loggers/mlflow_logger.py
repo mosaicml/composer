@@ -42,6 +42,8 @@ class MLFlowLogger(LoggerDestination):
         run_name: (str, optional): MLflow run name. If not set it will be the same as the
             Trainer run name
         tags: (dict, optional): MLflow tags to log with the run
+        tracking_uri (str | pathlib.Path, optional): MLflow tracking uri, the URI to the
+            remote or local endpoint where logs are stored (If none it is set to MLflow default)
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process
             (default: ``True``).
         flush_interval (int): The amount of time, in seconds, that MLflow must wait between
@@ -74,6 +76,7 @@ class MLFlowLogger(LoggerDestination):
         experiment_name: Optional[str] = None,
         run_name: Optional[str] = None,
         tags: Optional[dict[str, Any]] = None,
+        tracking_uri: Optional[str] = None,
         rank_zero_only: bool = True,
         flush_interval: int = 10,
         model_registry_prefix: str = '',
