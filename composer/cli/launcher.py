@@ -569,8 +569,10 @@ def main():
     _, remaining_args = parser.parse_known_args()
     foundry_process = None
     if 'llmfoundry' in remaining_args:
+        print('---- RUNNING FOUNDRY CLI ----')
         foundry_index = remaining_args.index('llmfoundry')
         foundry_process = remaining_args[foundry_index:]
+        print(foundry_process)
 
     try:
         _launch_processes(
