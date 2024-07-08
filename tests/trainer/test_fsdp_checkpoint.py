@@ -844,6 +844,8 @@ def test_fsdp_partitioned_state_dict_load(
     s3_ephemeral_prefix,
     request,
 ):
+    if use_tp:
+        pytest.skip('TP on PyTorch 2.3 has sharded state dict issues.')
     if weights_only and autoresume:
         pytest.skip('Weights only with autoresume is not supported')
     if (use_tp or use_hsdp) and version.parse(torch.__version__) < version.parse('2.3.0'):
