@@ -178,9 +178,7 @@ def _get_parser():
 
 def _parse_args():
     parser = _get_parser()
-    print("Command Line Args:", sys.argv)
-    print("Parsed Args:", parser.parse_args())
-    args, unknown_args = parser.parse_known_args()
+    args = parser.parse_known_args()
 
     # Default values to env vars if they are not provided
     if args.nproc is None:
@@ -275,7 +273,7 @@ def _parse_args():
         if args.master_port is None:
             args.master_port = get_free_tcp_port()
 
-    return args, unknown_args
+    return args
 
 
 @contextlib.contextmanager
@@ -539,7 +537,7 @@ def _aggregate_process_returncode(processes: dict[int, subprocess.Popen]) -> int
 
 def main():
     """Entrypoint into the Composer CLI."""
-    args, unknown_args = _parse_args()
+    args = _parse_args()
 
     logging.basicConfig()
     log.setLevel(logging.INFO if args.verbose else logging.WARNING)
@@ -565,15 +563,10 @@ def main():
         args.stdout = log_file_format
         args.stderr = None
 
-    # Manually parse unknown args to leave the rest as is for the training script
-    print('args:', unknown_args)
-    print('Remaining args:', unknown_args)
     foundry_process = None
-    if 'llmfoundry' in unknown_args:
-        print('---- RUNNING FOUNDRY CLI ----')
-        foundry_index = unknown_args.index('llmfoundry')
-        foundry_process = unknown_args[foundry_index:]
-        print(foundry_process)
+    if args.training_script == 'llmfoundry':
+        foundry_process = ['llmfoundry']
+        foundry_process.extend(args.training_script_args)
 
     try:
         _launch_processes(
