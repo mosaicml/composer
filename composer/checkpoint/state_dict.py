@@ -380,7 +380,7 @@ def get_metadata_state_dict(
     sharded_state_dict: Optional[bool] = None,
     precision: Optional[Union[str, torch.dtype]] = None,
     device: Optional[Device] = None,
-    device_train_microbatch_size: Optional[int] = None,
+    device_train_microbatch_size: Optional[Union[int, float]] = None,
 ) -> dict[str, Any]:
     """Generate the metadata and integrations for a training run.
 

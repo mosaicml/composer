@@ -197,8 +197,13 @@ def _parse_args():
     if args.nproc < 1:
         raise ValueError('The nproc must be 1 or greater')
 
-    if args.world_size is None and 'WORLD_SIZE' in os.environ:
-        args.world_size = int(os.environ['WORLD_SIZE'])
+    if args.world_size is None:
+        if 'WORLD_SIZE' in os.environ and os.environ.get('LOCAL_WORLD_SIZE') != os.environ['WORLD_SIZE']:
+            # Use WORLD_SIZE env var if set and running multinode. Otherwise, default to nproc
+            # to enable easy overriding of number of processes when on a single node.
+            args.world_size = int(os.environ['WORLD_SIZE'])
+        else:
+            args.world_size = args.nproc
 
     if args.base_rank is None and 'BASE_RANK' in os.environ:
         args.base_rank = int(os.environ['BASE_RANK'])
@@ -211,9 +216,6 @@ def _parse_args():
 
     if args.master_port is None and 'MASTER_PORT' in os.environ:
         args.master_port = int(os.environ['MASTER_PORT'])
-
-    if args.world_size is None:
-        args.world_size = args.nproc
 
     if args.world_size < args.nproc:
         raise ValueError(f'world_size({args.world_size}) cannot be less than nproc({args.nproc})')

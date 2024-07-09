@@ -49,6 +49,8 @@ __all__ = [
     'maybe_create_object_store_from_uri',
     'maybe_create_remote_uploader_downloader_from_uri',
     'parse_uri',
+    'extract_path_from_symlink',
+    'validate_credentials',
 ]
 
 
@@ -56,6 +58,16 @@ def extract_path_from_symlink(
     source_path: str,
     object_store: Optional[Union[LoggerDestination, ObjectStore]] = None,
 ) -> str:
+    """Returns the checkpont path from symlink file.
+
+    Args:
+        source_path(str): The remote symlink path.
+        object_store(LoggerDestination | ObjectStore, optional): The object store
+            used to download the remote symlink file
+
+    Returns:
+        str: The content of the remote symlink file.
+    """
     if object_store is not None:
         with tempfile.TemporaryDirectory() as tmpdir:
             _, _, source_path = parse_uri(source_path)
@@ -737,3 +749,18 @@ def create_symlink_file(
         raise ValueError('The symlink filename must end with .symlink.')
     with open(destination_filename, 'x') as f:
         f.write(existing_path)
+
+
+def validate_credentials(
+    remote_backend: ObjectStore,
+    remote_file_name_to_test: str,
+):
+    """Upload a tiny text file to test if the credentials are setup correctly."""
+    # Validates the credentials by attempting to touch a file in the bucket
+    # raises an error if there was a credentials failure.
+    with tempfile.NamedTemporaryFile('wb') as f:
+        f.write(b'credentials_validated_successfully')
+        remote_backend.upload_object(
+            object_name=remote_file_name_to_test,
+            filename=f.name,
+        )

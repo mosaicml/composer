@@ -307,7 +307,7 @@ def _get_initial_device_train_microbatch_size(
 
 def _is_cuda_oom(e: RuntimeError):
     """Determines if error is CUDA Out of Memory and if auto_microbatching is enabled."""
-    if 'CUDA out of memory' in str(e):
+    if any(s in str(e) for s in ['CUDA out of memory', 'CUDA error: out of memory']):
         return True
     # With batch_norm, large batch sizes sometimes result in cuDNN instead of Cuda OOMs.
     if 'cuDNN error: CUDNN_STATUS_NOT_SUPPORTED. This error may appear if you passed in a non-contiguous input.' in str(
@@ -1231,7 +1231,7 @@ class Trainer:
                 if isinstance(parallelism_config['tp'], TPConfig):
                     parallelism_config_args['tp'] = parallelism_config['tp']
                 else:
-                    parallelism_config['tp'] = TPConfig(**parallelism_config['tp'])
+                    parallelism_config_args['tp'] = TPConfig(**parallelism_config['tp'])
             parallelism_config = ParallelismConfig(
                 **parallelism_config_args,
             ) if len(parallelism_config_args) > 0 else None
@@ -1387,16 +1387,6 @@ class Trainer:
             mosaicml_logger = MosaicMLLogger()
             loggers.append(mosaicml_logger)
 
-        # Remote Uploader Downloader
-        # Keep the ``RemoteUploaderDownloader`` below client-provided loggers so the loggers init callbacks run before
-        # the ``RemoteUploaderDownloader`` init. This is necessary to use an ``MLFlowObjectStore`` to log objects to a
-        # run managed by an ``MLFlowLogger``, as the ``MLFlowObjectStore`` relies on the ``MLFlowLogger`` to initialize
-        # the active MLFlow run.
-        if save_folder is not None:
-            remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
-            if remote_ud is not None:
-                loggers.append(remote_ud)
-
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)
 
@@ -1451,14 +1441,12 @@ class Trainer:
             # path then we assume they just want their checkpoints saved directly in their
             # bucket.
             if parsed_save_folder == '':
-                folder = '.'
                 remote_file_name = save_filename
                 latest_remote_file_name = save_latest_filename
 
             # If they actually specify a path, then we use that for their local save path
             # and we prefix save_filename with that path for remote_file_name.
             else:
-                folder = parsed_save_folder
                 remote_file_name = str(Path(parsed_save_folder) / Path(save_filename))
                 if save_latest_filename is not None:
                     latest_remote_file_name = str(Path(parsed_save_folder) / Path(save_latest_filename))
@@ -1466,7 +1454,7 @@ class Trainer:
                     latest_remote_file_name = None
 
             self._checkpoint_saver = CheckpointSaver(
-                folder=folder,
+                folder=save_folder,
                 filename=save_filename,
                 remote_file_name=remote_file_name,
                 latest_filename=save_latest_filename,
@@ -1732,11 +1720,6 @@ class Trainer:
             error_message = ''
             if save_folder is None:
                 error_message += 'The `save_folder` must be specified when autoresume is enabled. '
-            if save_overwrite:
-                error_message += textwrap.dedent(
-                    'The flag `save_overwrite` must be False when autoresume is enabled as autoresume always loads the '
-                    'latest existing checkpoint in `save_folder`. ',
-                )
             if save_latest_filename is None:
                 error_message += 'The `save_latest_filename` must be specified so autoresume knows where to load checkpoints from. '
             if error_message != '':
@@ -1894,14 +1877,17 @@ class Trainer:
         self,
         latest_checkpoint_path: str,
         save_latest_remote_file_name: str,
-        loggers: Sequence[LoggerDestination],
+        loggers: Sequence[Union[LoggerDestination, ObjectStore]],
         load_progress_bar: bool,
     ) -> None:
         """Attempts to download the checkpoint from the logger destinations."""
         log.debug(
             f'Trying to download {save_latest_remote_file_name} to {latest_checkpoint_path} on rank {dist.get_global_rank()}',
         )
-        for logger in loggers:
+        remote_destination = list(loggers)
+        if self._checkpoint_saver is not None and self._checkpoint_saver.remote_uploader is not None:
+            remote_destination.append(self._checkpoint_saver.remote_uploader.remote_backend)
+        for logger in remote_destination:
             try:
                 # Fetch from logger. If it succeeds, stop trying the rest of the loggers
                 get_file(
@@ -1943,7 +1929,7 @@ class Trainer:
             f'Looking for autoresume checkpoint: {save_latest_remote_file_name} (remote), {latest_checkpoint_path} (local)',
         )
 
-        if self.state.deepspeed_enabled or self.state.fsdp_sharded_state_dict_enabled:
+        if self.state.deepspeed_enabled:
             # If latest checkpoint is not saved locally, try to fetch from loggers
             if not os.path.exists(latest_checkpoint_path):
                 log.debug(f'Attempting to download the checkpoint on to rank {dist.get_global_rank()}')
@@ -2610,10 +2596,24 @@ class Trainer:
 
                 self.engine.run_event(Event.BATCH_CHECKPOINT)
 
-                if self.state.timestamp >= self.state.max_duration:
+                if (
+                    self.state.timestamp >= self.state.max_duration or (
+                        self.state._iteration_length is not None and
+                        self.state.timestamp.token_in_iteration.unit == self.state._iteration_length.unit and
+                        self.state.timestamp.token_in_iteration >= self.state._iteration_length
+                    )
+                ):
                     # If max_duration is specified in batches, samples, or tokens, and
                     # and the max_duration is reached mid-epoch, then break out of the dataloader
                     # to finish the epoch early and finish training.
+
+                    # Increment iteration
+                    if (
+                        self.state._iteration_length is not None and
+                        self.state.timestamp.token_in_iteration.unit == self.state._iteration_length.unit and
+                        self.state.timestamp.token_in_iteration >= self.state._iteration_length
+                    ):
+                        self._increment_iteration()
                     finished_epoch_early = True
                     break
 
@@ -2649,12 +2649,10 @@ class Trainer:
                 # Increment iteration
                 if (
                     self.state._iteration_length is not None and
-                    self.state.timestamp.epoch_in_iteration == self.state._iteration_length
+                    self.state.timestamp.epoch_in_iteration.unit == self.state._iteration_length.unit and
+                    self.state.timestamp.epoch_in_iteration >= self.state._iteration_length
                 ):
-                    self.state.previous_timestamp = self.state.timestamp
-                    self.state.timestamp = self.state.timestamp.to_next_iteration()
-                    self.engine.run_event(Event.ITERATION_END)
-                    self.engine.run_event(Event.ITERATION_CHECKPOINT)
+                    self._increment_iteration()
 
         # Log final time values
         self.logger.log_metrics({
@@ -3038,6 +3036,12 @@ class Trainer:
             self.state.deepspeed_model.step()
 
         return microbatch_loss_dict
+
+    def _increment_iteration(self):
+        self.state.previous_timestamp = self.state.timestamp
+        self.state.timestamp = self.state.timestamp.to_next_iteration()
+        self.engine.run_event(Event.ITERATION_END)
+        self.engine.run_event(Event.ITERATION_CHECKPOINT)
 
     def predict(
         self,
@@ -3506,7 +3510,7 @@ class Trainer:
                                                 outputs.append(v)
                                     else:
                                         outputs = self.state.outputs.cpu()
-                                    batch = DeviceCPU().batch_to_device(self.state.batch,)
+                                    batch = DeviceCPU().batch_to_device(self.state.batch)
                                 else:
                                     outputs = self.state.outputs
                                     batch = self.state.batch
@@ -3622,6 +3626,11 @@ class Trainer:
         else:
             dataloader_iter = itertools.islice(self.state.dataloader, int(self.state.dataloader_len))
 
+        # Track if iteration has finished (used for distributed training when we have variable length dataloaders)
+        # 0 = not finished, 1 = finished (using integer tensors so we can use dist.all_reduce)
+        iter_finished = self.state.device.tensor_to_device(torch.zeros(1, dtype=torch.uint8))
+
+        batch = None
         while True:
             try:
                 # [BEFORE/AFTER]_DATALOADER only runs while training
@@ -3637,7 +3646,15 @@ class Trainer:
                     # Otherwise, we will encounter an error at the start of the next epoch when
                     # Event.BEFORE_DATALOADER tries to start an unfinished marker.
                     self.engine.run_marker_only_event(Event.AFTER_DATALOADER)
+                # Mark iteration as finished - don't break yet as we need to sync across ranks
+                iter_finished += 1
+
+            # Sync iter finished across ranks
+            dist.all_reduce(iter_finished, reduce_operation='MAX')
+            # If any rank has finished, stop all rank iterations
+            if iter_finished.item() == 1:
                 break
+
             yield batch
 
     def _use_closures(self) -> bool:

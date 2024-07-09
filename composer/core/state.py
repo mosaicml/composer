@@ -707,8 +707,10 @@ class State(Serializable):
             train_dataloader (Iterable | DataLoader, optional): The dataloader.
         """
         self._train_dataloader = train_dataloader
-        # Load dataset state from checkpoint when train_dataloader is set
-        if self.dataset_state:
+        # Load dataset state from checkpoint when train_dataloader is set. This occurs if
+        # dataset_state was loaded from checkpoint and train_dataloader has not already
+        # consumed dataset_state['train'] to resume.
+        if self.dataset_state is not None and self.dataset_state.get('train') is not None:
             dataset = self._dataset_of(self._train_dataloader)
             if hasattr(dataset, 'load_state_dict'):
                 dataset.load_state_dict(self.dataset_state['train'])  # pyright: ignore
@@ -757,14 +759,14 @@ class State(Serializable):
     def _iteration_length(self, iteration_length: Optional[Union[str, Time[int]]]):
         """Sets the length of an iteration.
 
-        An iteration must be defined as multiple epochs. See composer/core/event.py.
+        An iteration must be defined as multiple epochs or tokens. See composer/core/event.py.
         """
         if iteration_length is None:
             self.__iteration_length = None
             return
         if isinstance(iteration_length, str):
             iteration_length = ensure_time(iteration_length, TimeUnit.EPOCH)
-        if iteration_length.unit != TimeUnit.EPOCH:
+        if iteration_length.unit != TimeUnit.EPOCH and iteration_length.unit != TimeUnit.TOKEN:
             raise NotImplementedError(f'{iteration_length.unit} is not allowed as a unit for iteration_length.')
         self.__iteration_length = iteration_length
 
@@ -775,7 +777,7 @@ class State(Serializable):
         logging, and evaluation for that batch, as well as any epoch end events.
         """
         # Set the max_duration to the current time in its unit, except if the unit is TimeUnit.EPOCH. This is because TimeUnit.EPOCH is a very crude way to measure max duration. For example, it will result in division by zero error while computing get_elapsed_duration: https://github.com/mosaicml/composer/blob/1b9c6d3c0592183b947fd89890de0832366e33a7/composer/core/state.py#L641
-        if self.max_duration is not None and Time.from_input(self.max_duration,).unit != TimeUnit.EPOCH:
+        if self.max_duration is not None and Time.from_input(self.max_duration).unit != TimeUnit.EPOCH:
             max_duration_unit = Time.from_input(self.max_duration).unit
             self.max_duration = self.timestamp.get(max_duration_unit)
         else:
@@ -1278,13 +1280,13 @@ class State(Serializable):
         Args:
             obj (dict[str, Any]): The state to load.
         """
-        self.dataset_state = obj
-
         dataset = self._dataset_of(self.train_dataloader)
         if hasattr(dataset, 'load_state_dict'):
             dataset.load_state_dict(obj['train'])  # pyright: ignore
             obj['train'] = None
             self.dataset_resumption['train'] = True
+
+        self.dataset_state = obj
 
     def load_model_state(
         self,

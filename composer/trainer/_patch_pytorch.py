@@ -933,6 +933,9 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             return submesh
 
     else:
+        from torch.utils._typing_utils import not_none
+        from torch.distributed.device_mesh import DeviceMesh, _mesh_resources
+
         def create_child_mesh(
             self, parent_mesh: 'DeviceMesh', submesh_dim_names: Tuple[str, ...],
         ) -> 'DeviceMesh':
