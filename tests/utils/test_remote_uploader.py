@@ -57,6 +57,8 @@ class DummyObjectStore(ObjectStore):
         overwrite: bool = False,
         callback: Optional[Callable[[int, int], None]] = None,
     ):
+        if overwrite is False and os.path.isfile(filename):
+            raise FileExistsError(f'The file at {filename} already exists and overwrite is set to False.')
         object_path = pathlib.Path(self.root) / object_name
         shutil.copy2(object_path, filename)
 

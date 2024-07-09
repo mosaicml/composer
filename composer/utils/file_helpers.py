@@ -49,6 +49,7 @@ __all__ = [
     'maybe_create_object_store_from_uri',
     'maybe_create_remote_uploader_downloader_from_uri',
     'parse_uri',
+    'extract_path_from_symlink',
     'validate_credentials',
 ]
 
@@ -57,6 +58,16 @@ def extract_path_from_symlink(
     source_path: str,
     object_store: Optional[Union[LoggerDestination, ObjectStore]] = None,
 ) -> str:
+    """Returns the checkpont path from symlink file.
+
+    Args:
+        source_path(str): The remote symlink path.
+        object_store(LoggerDestination | ObjectStore, optional): The object store
+            used to download the remote symlink file
+
+    Returns:
+        str: The content of the remote symlink file.
+    """
     if object_store is not None:
         with tempfile.TemporaryDirectory() as tmpdir:
             _, _, source_path = parse_uri(source_path)
