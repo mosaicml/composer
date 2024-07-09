@@ -1231,7 +1231,7 @@ class Trainer:
                 if isinstance(parallelism_config['tp'], TPConfig):
                     parallelism_config_args['tp'] = parallelism_config['tp']
                 else:
-                    parallelism_config['tp'] = TPConfig(**parallelism_config['tp'])
+                    parallelism_config_args['tp'] = TPConfig(**parallelism_config['tp'])
             parallelism_config = ParallelismConfig(
                 **parallelism_config_args,
             ) if len(parallelism_config_args) > 0 else None
@@ -1387,16 +1387,6 @@ class Trainer:
             mosaicml_logger = MosaicMLLogger()
             loggers.append(mosaicml_logger)
 
-        # Remote Uploader Downloader
-        # Keep the ``RemoteUploaderDownloader`` below client-provided loggers so the loggers init callbacks run before
-        # the ``RemoteUploaderDownloader`` init. This is necessary to use an ``MLFlowObjectStore`` to log objects to a
-        # run managed by an ``MLFlowLogger``, as the ``MLFlowObjectStore`` relies on the ``MLFlowLogger`` to initialize
-        # the active MLFlow run.
-        if save_folder is not None:
-            remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
-            if remote_ud is not None:
-                loggers.append(remote_ud)
-
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)
 
@@ -1451,14 +1441,12 @@ class Trainer:
             # path then we assume they just want their checkpoints saved directly in their
             # bucket.
             if parsed_save_folder == '':
-                folder = '.'
                 remote_file_name = save_filename
                 latest_remote_file_name = save_latest_filename
 
             # If they actually specify a path, then we use that for their local save path
             # and we prefix save_filename with that path for remote_file_name.
             else:
-                folder = parsed_save_folder
                 remote_file_name = str(Path(parsed_save_folder) / Path(save_filename))
                 if save_latest_filename is not None:
                     latest_remote_file_name = str(Path(parsed_save_folder) / Path(save_latest_filename))
@@ -1466,7 +1454,7 @@ class Trainer:
                     latest_remote_file_name = None
 
             self._checkpoint_saver = CheckpointSaver(
-                folder=folder,
+                folder=save_folder,
                 filename=save_filename,
                 remote_file_name=remote_file_name,
                 latest_filename=save_latest_filename,
@@ -1889,14 +1877,17 @@ class Trainer:
         self,
         latest_checkpoint_path: str,
         save_latest_remote_file_name: str,
-        loggers: Sequence[LoggerDestination],
+        loggers: Sequence[Union[LoggerDestination, ObjectStore]],
         load_progress_bar: bool,
     ) -> None:
         """Attempts to download the checkpoint from the logger destinations."""
         log.debug(
             f'Trying to download {save_latest_remote_file_name} to {latest_checkpoint_path} on rank {dist.get_global_rank()}',
         )
-        for logger in loggers:
+        remote_destination = list(loggers)
+        if self._checkpoint_saver is not None and self._checkpoint_saver.remote_uploader is not None:
+            remote_destination.append(self._checkpoint_saver.remote_uploader.remote_backend)
+        for logger in remote_destination:
             try:
                 # Fetch from logger. If it succeeds, stop trying the rest of the loggers
                 get_file(
@@ -1938,7 +1929,7 @@ class Trainer:
             f'Looking for autoresume checkpoint: {save_latest_remote_file_name} (remote), {latest_checkpoint_path} (local)',
         )
 
-        if self.state.deepspeed_enabled or self.state.fsdp_sharded_state_dict_enabled:
+        if self.state.deepspeed_enabled:
             # If latest checkpoint is not saved locally, try to fetch from loggers
             if not os.path.exists(latest_checkpoint_path):
                 log.debug(f'Attempting to download the checkpoint on to rank {dist.get_global_rank()}')
