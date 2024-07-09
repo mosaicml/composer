@@ -7,8 +7,6 @@ from unittest.mock import patch
 
 import pytest
 import torch
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import StateDictType
 
 from composer.checkpoint import download_monolithic_checkpoint
 from composer.utils import dist
@@ -28,11 +26,8 @@ def test_download_monolithic_checkpoint(world_size: int, rank_zero_only: bool):
         use_fsdp = True
     fsdp_model, _ = init_model(use_fsdp=use_fsdp)
 
-    if use_fsdp:
-        with FSDP.state_dict_type(fsdp_model, StateDictType.FULL_STATE_DICT):
-            state = fsdp_model.state_dict()
-    else:
-        state = fsdp_model.state_dict()
+    from torch.distributed.checkpoint.state_dict import StateDictOptions, get_model_state_dict
+    state = get_model_state_dict(fsdp_model, options=StateDictOptions(full_state_dict=True))
 
     checkpoint_filename = 'state_dict'
     save_filename = os.path.join(tmp_dir.name, checkpoint_filename)
