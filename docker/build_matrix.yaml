@@ -25,6 +25,8 @@
   TAGS:
   - mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
   - mosaicml/pytorch:latest
+  - ghcr.io/databricks-mosaic/pytorch:latest
+  - ghcr.io/databricks-mosaic/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.18.1
 - AWS_OFI_NCCL_VERSION: v1.9.1-aws
@@ -53,6 +55,8 @@
   TAGS:
   - mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04-aws
   - mosaicml/pytorch:latest-aws
+  - ghcr.io/databricks-mosaic/pytorch:latest-aws
+  - ghcr.io/databricks-mosaic/pytorch:2.3.1_cu121-python3.11-ubuntu20.04-aws
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.18.1
 - AWS_OFI_NCCL_VERSION: ''
@@ -68,6 +72,8 @@
   TAGS:
   - mosaicml/pytorch:2.3.1_cpu-python3.11-ubuntu20.04
   - mosaicml/pytorch:latest_cpu
+  - ghcr.io/databricks-mosaic/pytorch:2.3.1_cpu-python3.11-ubuntu20.04
+  - ghcr.io/databricks-mosaic/pytorch:latest_cpu
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.18.1
 - AWS_OFI_NCCL_VERSION: ''
@@ -95,6 +101,7 @@
   PYTORCH_VERSION: 2.2.2
   TAGS:
   - mosaicml/pytorch:2.2.2_cu121-python3.11-ubuntu20.04
+  - ghcr.io/databricks-mosaic/pytorch:2.2.2_cu121-python3.11-ubuntu20.04
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.17.2
 - AWS_OFI_NCCL_VERSION: v1.9.1-aws
@@ -122,6 +129,7 @@
   PYTORCH_VERSION: 2.2.2
   TAGS:
   - mosaicml/pytorch:2.2.2_cu121-python3.11-ubuntu20.04-aws
+  - ghcr.io/databricks-mosaic/pytorch:2.2.2_cu121-python3.11-ubuntu20.04-aws
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.17.2
 - AWS_OFI_NCCL_VERSION: ''
@@ -136,6 +144,7 @@
   PYTORCH_VERSION: 2.2.2
   TAGS:
   - mosaicml/pytorch:2.2.2_cpu-python3.11-ubuntu20.04
+  - ghcr.io/databricks-mosaic/pytorch:2.2.2_cpu-python3.11-ubuntu20.04
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.17.2
 - AWS_OFI_NCCL_VERSION: ''
@@ -163,6 +172,7 @@
   PYTORCH_VERSION: 2.1.2
   TAGS:
   - mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
+  - ghcr.io/databricks-mosaic/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.16.2
 - AWS_OFI_NCCL_VERSION: v1.9.1-aws
@@ -190,6 +200,7 @@
   PYTORCH_VERSION: 2.1.2
   TAGS:
   - mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04-aws
+  - ghcr.io/databricks-mosaic/pytorch:2.1.2_cu121-python3.10-ubuntu20.04-aws
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.16.2
 - AWS_OFI_NCCL_VERSION: ''
@@ -204,6 +215,7 @@
   PYTORCH_VERSION: 2.1.2
   TAGS:
   - mosaicml/pytorch:2.1.2_cpu-python3.10-ubuntu20.04
+  - ghcr.io/databricks-mosaic/pytorch:2.1.2_cpu-python3.10-ubuntu20.04
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.16.2
 - AWS_OFI_NCCL_VERSION: ''
@@ -233,6 +245,8 @@
   TAGS:
   - mosaicml/composer:0.23.5
   - mosaicml/composer:latest
+  - ghcr.io/databricks-mosaic/composer:0.23.5
+  - ghcr.io/databricks-mosaic/composer:latest
   TARGET: composer_stage
   TORCHVISION_VERSION: 0.18.1
 - AWS_OFI_NCCL_VERSION: ''
@@ -249,5 +263,7 @@
   TAGS:
   - mosaicml/composer:0.23.5_cpu
   - mosaicml/composer:latest_cpu
+  - ghcr.io/databricks-mosaic/composer:0.23.5_cpu
+  - ghcr.io/databricks-mosaic/composer:latest_cpu
   TARGET: composer_stage
   TORCHVISION_VERSION: 0.18.1
