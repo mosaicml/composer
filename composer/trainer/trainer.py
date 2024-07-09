@@ -1712,6 +1712,9 @@ class Trainer:
 
         self.engine.run_event(Event.BEFORE_LOAD)
 
+        if dist.get_global_rank() == 9:
+            raise RuntimeError("bigning debug raise run time error or rank 9")
+
         # Load Checkpoint
         self._rng_state = None
         # If autoresume is enabled, first check for existing checkpoints to load
