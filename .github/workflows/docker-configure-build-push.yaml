@@ -34,11 +34,6 @@ on:
         required: true
       password:
         required: true
-permissions:
-  contents: read
-  packages: write
-  attestations: write
-  id-token: write
 jobs:
   configure-build-push:
     runs-on: ubuntu-latest
