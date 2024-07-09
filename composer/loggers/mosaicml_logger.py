@@ -97,10 +97,6 @@ class MosaicMLLogger(LoggerDestination):
     def log_metrics(self, metrics: dict[str, Any], step: Optional[int] = None) -> None:
         self.log_metadata(metrics)
 
-    def log_exception(self, exception: Exception):
-        self.log_metadata({'exception': exception_to_json_serializable_dict(exception)})
-        self._flush_metadata(force_flush=True)
-
     def after_load(self, state: State, logger: Logger) -> None:
         # Log model data downloaded and initialized for run events
         log.debug(f'Logging model initialized time to metadata')
