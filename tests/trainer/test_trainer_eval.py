@@ -91,6 +91,8 @@ def test_eval_with_nondivisible_dataset(world_size: int, size: int, batch_size: 
     dist.all_reduce(count)
     assert count.item() == size
 
+def test_fp8_eval():
+    return 0
 
 def test_eval_call_with_trainer_evaluators():
     trainer_dataset = RandomClassificationDataset()
