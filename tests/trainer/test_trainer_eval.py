@@ -93,7 +93,7 @@ def test_eval_with_nondivisible_dataset(world_size: int, size: int, batch_size: 
 
 from unittest.mock import call, patch
 
-@pytest.mark.parametrize('size', [12])
+@device('gpu')
 def test_fp8_autocast_called_with_enabled(size: int):
     try:
         import transformer_engine.pytorch as te
