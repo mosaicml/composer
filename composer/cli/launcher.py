@@ -404,19 +404,22 @@ def _monitor_processes(processes: dict[int, subprocess.Popen]):
                 if process.poll() is None:
                     # the process is still running
                     all_processes_finished = False
+                    log.error(f'Rank {global_rank} is still running. {datetime.datetime.now()}')
                     continue
                 else:
                     # return code of 0 implies clean exit
                     if process.returncode != 0:
-                        log.error(f'Rank {global_rank} crashed with exit code {process.returncode}.')
+                        import datetime
+                        log.error(f'Rank {global_rank} crashed with exit code {process.returncode}. {datetime.datetime.now()}')
                         process_has_crashed = True
                         break
                     else:
                         # exited cleanly
                         log.info(f'Rank {global_rank} finished successfully.')
+                        log.error(f'Rank {global_rank} finished successfully. {datetime.datetime.now()}')
             if process_has_crashed or all_processes_finished:
                 break
-            time.sleep(0.1)
+            time.sleep(0.3)
     except KeyboardInterrupt:
         print('Ctrl-C received; terminating training processes.')
         pass
