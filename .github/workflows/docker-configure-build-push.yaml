@@ -68,8 +68,8 @@ jobs:
     - name: Login to GHCR
       uses: docker/login-action@v3
       with:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        username: ${{ secrets.GHCR_USERNAME }}
+        password: ${{ secrets.GHCR_TOKEN }}
         registry: ghcr.io
     - name: Calculate Docker Image Variables
       run: |
