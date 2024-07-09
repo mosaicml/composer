@@ -91,8 +91,34 @@ def test_eval_with_nondivisible_dataset(world_size: int, size: int, batch_size: 
     dist.all_reduce(count)
     assert count.item() == size
 
-def test_fp8_eval():
-    return 0
+from unittest.mock import call, patch
+
+@pytest.mark.parametrize('size', [12])
+def test_fp8_autocast_called_with_enabled(size: int):
+    try:
+        import transformer_engine.pytorch as te
+    except ImportError:
+        pytest.skip(
+            'Precision amp_fp8 requires transformer-engine to be installed',
+        )
+
+    # Mocking the te.fp8_autocast
+    with patch('te.fp8_autocast') as mock_fp8_autocast:
+        # Construct the trainer
+        trainer = Trainer(model=ZeroModel(), device='gpu', precision='amp_fp8')
+        # Evaluate the model
+        dataset = ParityDataset(size=size)
+        trainer.eval(
+            eval_dataloader=DataLoader(
+                dataset=dataset,
+                batch_size=10,
+                sampler=dist.get_sampler(dataset),
+            ),
+        )
+
+    # Check that te.fp8_autocast was called with enabled=False and enabled=True in that order
+    expected_calls = [call(enabled=False), call(enabled=True)]
+    mock_fp8_autocast.assert_has_calls(expected_calls)
 
 def test_eval_call_with_trainer_evaluators():
     trainer_dataset = RandomClassificationDataset()
