@@ -11,7 +11,6 @@ import os
 import signal
 import subprocess
 import sys
-import datetime
 import tempfile
 import time
 import traceback
@@ -405,19 +404,21 @@ def _monitor_processes(processes: dict[int, subprocess.Popen]):
                 if process.poll() is None:
                     # the process is still running
                     all_processes_finished = False
-                    log.error(f'Rank {global_rank} is still running. {datetime.datetime.now()}')
+                    a = datetime.datetime.now()
+                    log.error(f'Rank {global_rank} is still running. {a}')
                     continue
                 else:
                     # return code of 0 implies clean exit
                     if process.returncode != 0:
-                        import datetime
-                        log.error(f'Rank {global_rank} crashed with exit code {process.returncode}. {datetime.datetime.now()}')
+                        a = datetime.datetime.now()
+                        log.error(f'Rank {global_rank} crashed with exit code {process.returncode}. {a}')
                         process_has_crashed = True
                         break
                     else:
                         # exited cleanly
                         log.info(f'Rank {global_rank} finished successfully.')
-                        log.error(f'Rank {global_rank} finished successfully. {datetime.datetime.now()}')
+                        a = datetime.datetime.now()
+                        log.error(f'Rank {global_rank} finished successfully. {a}')
             if process_has_crashed or all_processes_finished:
                 break
             time.sleep(0.3)
