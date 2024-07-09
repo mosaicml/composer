@@ -24,6 +24,7 @@ from tests.common import (
     SimpleTransformerMaskedLM,
     ZeroModel,
     world_size,
+    device,
 )
 
 
