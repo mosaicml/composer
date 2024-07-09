@@ -95,7 +95,7 @@ def test_eval_with_nondivisible_dataset(world_size: int, size: int, batch_size: 
 from unittest.mock import call, patch
 
 @device('gpu')
-def test_fp8_autocast_called_with_enabled(size: int, device: str):
+def test_fp8_autocast_called_with_enabled(device: str):
     try:
         import transformer_engine.pytorch as te
     except ImportError:
@@ -108,7 +108,7 @@ def test_fp8_autocast_called_with_enabled(size: int, device: str):
         # Construct the trainer
         trainer = Trainer(model=ZeroModel(), device=device, precision='amp_fp8')
         # Evaluate the model
-        dataset = ParityDataset(size=size)
+        dataset = ParityDataset(size=10)
         trainer.eval(
             eval_dataloader=DataLoader(
                 dataset=dataset,
