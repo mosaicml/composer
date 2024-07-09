@@ -50,6 +50,7 @@ __all__ = [
     'maybe_create_remote_uploader_downloader_from_uri',
     'parse_uri',
     'extract_path_from_symlink',
+    'validate_credentials',
 ]
 
 
@@ -748,3 +749,18 @@ def create_symlink_file(
         raise ValueError('The symlink filename must end with .symlink.')
     with open(destination_filename, 'x') as f:
         f.write(existing_path)
+
+
+def validate_credentials(
+    remote_backend: ObjectStore,
+    remote_file_name_to_test: str,
+):
+    """Upload a tiny text file to test if the credentials are setup correctly."""
+    # Validates the credentials by attempting to touch a file in the bucket
+    # raises an error if there was a credentials failure.
+    with tempfile.NamedTemporaryFile('wb') as f:
+        f.write(b'credentials_validated_successfully')
+        remote_backend.upload_object(
+            object_name=remote_file_name_to_test,
+            filename=f.name,
+        )

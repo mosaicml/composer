@@ -78,7 +78,7 @@ while True:
 install_requires = [
     'pyyaml>=6.0,<7',
     'tqdm>=4.62.3,<5',
-    'torchmetrics>=0.10.0,<1.3.3',
+    'torchmetrics>=1.4.0.post0,<1.4.1',
     'torch_optimizer>=0.3.0,<0.4',
     'torchvision>=0.13.1,<0.18.2',
     'torch>=2.1.2,<2.3.2',
@@ -107,7 +107,7 @@ extra_deps['dev'] = [
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
     'ipython==8.11.0',
-    'ipykernel==6.29.2',
+    'ipykernel==6.29.5',
     'jupyter==1.0.0',
     'yamllint==1.35.1',
     'recommonmark==0.7.1',
@@ -179,9 +179,9 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,!=4.34.0,<4.42',
+    'transformers>=4.11,!=4.34.0,<4.43',
     'datasets>=2.4,<3',
-    'huggingface-hub>=0.21.2,<0.23',
+    'huggingface-hub>=0.21.2,<0.24',
 ]
 
 extra_deps['peft'] = [
@@ -202,7 +202,7 @@ extra_deps['mlperf'] = [
 extra_deps['streaming'] = [
     'mosaicml-streaming<1.0',
     'boto3>=1.21.45,<2',
-    'paramiko>=2.11.0,<3',
+    'paramiko>=3.4.0,<4',
 ]
 
 extra_deps['libcloud'] = [
@@ -224,13 +224,13 @@ extra_deps['onnx'] = [
 
 extra_deps['mlflow'] = [
     'mlflow>=2.14.1,<3.0',
-    'databricks-sdk==0.28.0',
+    'databricks-sdk==0.29.0',
     'pynvml>=11.5.0,<12',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk==0.28.0']
+extra_deps['databricks'] = ['databricks-sdk==0.29.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 

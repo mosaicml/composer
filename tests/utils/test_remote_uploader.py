@@ -41,6 +41,7 @@ class DummyObjectStore(ObjectStore):
             raise RuntimeError('Raise Error intentionally')
         time.sleep(self.sleep_sec)
         dest_filename = pathlib.Path(self.root) / object_name
+        os.makedirs(os.path.dirname(dest_filename), exist_ok=True)
         shutil.copy2(filename, dest_filename)
         self.dest_filename = dest_filename
 
@@ -58,7 +59,8 @@ class DummyObjectStore(ObjectStore):
     ):
         if overwrite is False and os.path.isfile(filename):
             raise FileExistsError(f'The file at {filename} already exists and overwrite is set to False.')
-        shutil.copy2(os.path.join(self.tmp_dir.name, object_name), filename)
+        object_path = pathlib.Path(self.root) / object_name
+        shutil.copy2(object_path, filename)
 
 
 def test_upload_mutliple_files():
@@ -68,7 +70,7 @@ def test_upload_mutliple_files():
     def _get_tmp_dir():
         return tmp_dir
 
-    with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
+    with patch('composer.utils.object_store.utils.S3ObjectStore', DummyObjectStore):
         with patch('tempfile.TemporaryDirectory', _get_tmp_dir):
             with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
                 remote_uploader = RemoteUploader(
@@ -113,7 +115,7 @@ def test_overwrite(overwrite: bool):
         return remote_tmp_dir
 
     fork_context = multiprocessing.get_context('fork')
-    with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
+    with patch('composer.utils.object_store.utils.S3ObjectStore', DummyObjectStore):
         with patch('tempfile.TemporaryDirectory', _get_tmp_dir):
             with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
                 remote_uploader = RemoteUploader(remote_folder='S3://whatever/path',)
@@ -159,7 +161,7 @@ def test_check_workers():
             return True
 
     fork_context = multiprocessing.get_context('fork')
-    with patch('composer.utils.file_helpers.S3ObjectStore', AlwaysFailDummyObjectStore):
+    with patch('composer.utils.object_store.utils.S3ObjectStore', AlwaysFailDummyObjectStore):
         with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
             remote_uploader = RemoteUploader(remote_folder='S3://whatever/path',)
             tmp_dir = tempfile.TemporaryDirectory()
@@ -182,7 +184,7 @@ def test_check_workers():
 
 def test_wait():
     fork_context = multiprocessing.get_context('fork')
-    with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
+    with patch('composer.utils.object_store.utils.S3ObjectStore', DummyObjectStore):
         with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
             remote_uploader = RemoteUploader(
                 remote_folder='S3://whatever/path',
@@ -211,7 +213,7 @@ def test_wait():
 
 def test_wait_and_close():
     fork_context = multiprocessing.get_context('fork')
-    with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
+    with patch('composer.utils.object_store.utils.S3ObjectStore', DummyObjectStore):
         with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
             remote_uploader = RemoteUploader(
                 remote_folder='S3://whatever/path',
