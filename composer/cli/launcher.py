@@ -28,6 +28,7 @@ from composer.loggers.mosaicml_logger import (
     MOSAICML_PLATFORM_ENV_VAR,
 )
 from composer.utils import get_free_tcp_port
+import mcli
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
 
@@ -517,6 +518,11 @@ def _cleanup_processes(processes: dict[int, subprocess.Popen]):
             # only print the processes that have actually crashed,
             # not the ones that were killed
             _print_process_exit_status(global_rank, process)
+            try:
+                log.error(f"bigning debug stop runs")
+                mcli.api.runs.stop_run(run=os.environ.get('RUN_NAME'), future=True, reason=f'Global rank {global_rank} raised exception')
+            except Exception as e:
+                log.warning(f"can't stop run, get excetpion {e}")
 
 
 def _aggregate_process_returncode(processes: dict[int, subprocess.Popen]) -> int:
