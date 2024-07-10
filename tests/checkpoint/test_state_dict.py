@@ -3,27 +3,21 @@
 
 import datetime
 from typing import Any
-from unittest.mock import MagicMock
 
 import pytest
 import torch
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.optim.lr_scheduler import StepLR
-from torch.utils.data import DataLoader
 
-from composer.algorithms import SWA
-from composer.callbacks import SpeedMonitor
 from composer.checkpoint import (
     get_metadata_state_dict,
     get_model_state_dict,
     get_optim_state_dict,
     get_resumption_state_dict,
 )
-from composer.core import State
-from composer.devices import DeviceCPU, DeviceGPU
+from composer.devices import DeviceGPU
 from composer.utils import dist, reproducibility
-from tests.checkpoint.helpers import init_model_and_optimizer
+from tests.checkpoint.helpers import init_model_and_optimizer, init_state
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
 from tests.common.models import EvenSimplerMLP, SimpleComposerMLP, configure_tiny_gpt2_hf_model
@@ -444,27 +438,17 @@ def test_get_metadata_sharded_model(model_type: str, tensor_type: str, world_siz
 
 @pytest.mark.filterwarnings('ignore:SWA has')
 def test_get_resumption_state_dict():
-
-    model, optimizer = init_model_and_optimizer(use_composer_model=True, take_step=True, device='cpu')
-
-    rank_zero_seed = 10
     run_name = 'test_run'
-    device = DeviceCPU()
-    test_dataset_sd = {'foo': 0}
-    dataloader = MagicMock(spec=DataLoader)
-    dataloader.dataset = MagicMock()
-    dataloader.dataset.state_dict = MagicMock(return_value=test_dataset_sd)
-    swa = SWA()
-    state = State(
-        model=model,
+    rank_zero_seed = 10
+    state = init_state(
+        device='cpu',
+        include_algorithms=True,
+        include_callbacks=True,
+        include_schedulers=True,
         rank_zero_seed=rank_zero_seed,
         run_name=run_name,
-        device=device,
-        train_dataloader=dataloader,
-        algorithms=[swa],
-        callbacks=[SpeedMonitor(), SpeedMonitor()],
     )
-    state.schedulers = StepLR(optimizer=optimizer, step_size=2)
+    test_dataset_sd = {'test': 0}
     rsd = get_resumption_state_dict(state)
 
     assert rsd['rank_zero_seed'] == rank_zero_seed
@@ -505,27 +489,7 @@ def test_get_resumption_state_dict():
 
 @pytest.mark.gpu
 def test_get_resumption_state_dict_gpu():
-    if version.parse(torch.__version__) >= version.parse('2.3.0'):
-        from torch.amp.grad_scaler import GradScaler
-    else:
-        from torch.cuda.amp.grad_scaler import GradScaler
-
-    model, _ = init_model_and_optimizer(use_composer_model=True, take_step=False, device='cuda')
-
-    rank_zero_seed = 10
-    run_name = 'test_run'
-    device = DeviceCPU()
-    test_dataset_sd = {'test': 0}
-    dataloader = MagicMock()
-    dataloader.dataset = MagicMock()
-    dataloader.dataset.state_dict = MagicMock(return_value=test_dataset_sd)
-    state = State(
-        model=model,
-        rank_zero_seed=rank_zero_seed,
-        run_name=run_name,
-        device=device,
-        scaler=GradScaler(),
-    )
+    state = init_state(device='cuda', use_grad_scaler=True)
     rsd = get_resumption_state_dict(state)
     assert 'scaler' in rsd
     assert set(

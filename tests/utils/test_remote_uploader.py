@@ -20,13 +20,16 @@ class DummyObjectStore(ObjectStore):
     """Dummy ObjectStore implementation that is backed by a local directory."""
 
     def __init__(self, **kwargs: Dict[str, Any]) -> None:
-        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.tmp_dir = self.get_tmp_dir()
         self.root = self.tmp_dir.name
         self.sleep_sec = 0
         self.dest_filename = ''
 
     def raise_error(self):
         return False
+
+    def get_tmp_dir(self):
+        return tempfile.TemporaryDirectory()
 
     def upload_object(
         self,
@@ -38,6 +41,7 @@ class DummyObjectStore(ObjectStore):
             raise RuntimeError('Raise Error intentionally')
         time.sleep(self.sleep_sec)
         dest_filename = pathlib.Path(self.root) / object_name
+        os.makedirs(os.path.dirname(dest_filename), exist_ok=True)
         shutil.copy2(filename, dest_filename)
         self.dest_filename = dest_filename
 
@@ -45,6 +49,18 @@ class DummyObjectStore(ObjectStore):
         object_path = pathlib.Path(self.root) / object_name
         size = os.stat(object_path).st_size
         return size
+
+    def download_object(
+        self,
+        object_name: str,
+        filename: Union[str, pathlib.Path],
+        overwrite: bool = False,
+        callback: Optional[Callable[[int, int], None]] = None,
+    ):
+        if overwrite is False and os.path.isfile(filename):
+            raise FileExistsError(f'The file at {filename} already exists and overwrite is set to False.')
+        object_path = pathlib.Path(self.root) / object_name
+        shutil.copy2(object_path, filename)
 
 
 def test_upload_mutliple_files():
@@ -54,7 +70,7 @@ def test_upload_mutliple_files():
     def _get_tmp_dir():
         return tmp_dir
 
-    with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
+    with patch('composer.utils.object_store.utils.S3ObjectStore', DummyObjectStore):
         with patch('tempfile.TemporaryDirectory', _get_tmp_dir):
             with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
                 remote_uploader = RemoteUploader(
@@ -99,7 +115,7 @@ def test_overwrite(overwrite: bool):
         return remote_tmp_dir
 
     fork_context = multiprocessing.get_context('fork')
-    with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
+    with patch('composer.utils.object_store.utils.S3ObjectStore', DummyObjectStore):
         with patch('tempfile.TemporaryDirectory', _get_tmp_dir):
             with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
                 remote_uploader = RemoteUploader(remote_folder='S3://whatever/path',)
@@ -145,7 +161,7 @@ def test_check_workers():
             return True
 
     fork_context = multiprocessing.get_context('fork')
-    with patch('composer.utils.file_helpers.S3ObjectStore', AlwaysFailDummyObjectStore):
+    with patch('composer.utils.object_store.utils.S3ObjectStore', AlwaysFailDummyObjectStore):
         with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
             remote_uploader = RemoteUploader(remote_folder='S3://whatever/path',)
             tmp_dir = tempfile.TemporaryDirectory()
@@ -168,7 +184,7 @@ def test_check_workers():
 
 def test_wait():
     fork_context = multiprocessing.get_context('fork')
-    with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
+    with patch('composer.utils.object_store.utils.S3ObjectStore', DummyObjectStore):
         with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
             remote_uploader = RemoteUploader(
                 remote_folder='S3://whatever/path',
@@ -197,7 +213,7 @@ def test_wait():
 
 def test_wait_and_close():
     fork_context = multiprocessing.get_context('fork')
-    with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
+    with patch('composer.utils.object_store.utils.S3ObjectStore', DummyObjectStore):
         with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
             remote_uploader = RemoteUploader(
                 remote_folder='S3://whatever/path',

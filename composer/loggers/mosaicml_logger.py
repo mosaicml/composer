@@ -97,10 +97,6 @@ class MosaicMLLogger(LoggerDestination):
     def log_metrics(self, metrics: dict[str, Any], step: Optional[int] = None) -> None:
         self.log_metadata(metrics)
 
-    def log_exception(self, exception: Exception):
-        self.log_metadata({'exception': exception_to_json_serializable_dict(exception)})
-        self._flush_metadata(force_flush=True)
-
     def after_load(self, state: State, logger: Logger) -> None:
         # Log model data downloaded and initialized for run events
         log.debug(f'Logging model initialized time to metadata')
@@ -146,7 +142,8 @@ class MosaicMLLogger(LoggerDestination):
         self._flush_metadata(force_flush=True)
 
     def close(self, state: State, logger: Logger) -> None:
-        self._flush_metadata(force_flush=True, future=False)
+        # Skip flushing metadata as it should be logged by fit/eval/predict_end. Flushing here
+        # might schedule futures while interpreter is shutting down, which will raise an error.
         if self._enabled:
             wait(self._futures)  # Ignore raised errors on close
 
