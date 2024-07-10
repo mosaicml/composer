@@ -11,11 +11,12 @@ import pathlib
 import shutil
 import tempfile
 import textwrap
+import time
 from pathlib import Path
 from typing import Any, Callable, Optional, Union
 
 from composer.core import Callback, Event, State, Time, Timestamp
-from composer.loggers import Logger, MLFlowLogger
+from composer.loggers import Logger, MLFlowLogger, MosaicMLLogger
 from composer.utils import (
     FORMAT_NAME_WITH_DIST_AND_TIME_TABLE,
     FORMAT_NAME_WITH_DIST_TABLE,
@@ -619,8 +620,13 @@ class CheckpointSaver(Callback):  # noqa: D101
                 if dist.get_global_rank() == 0:
                     shutil.rmtree(prefix_dir)
 
+    def _log_checkpoint_upload(self, logger: Logger):
+        for destination in logger.destinations:
+            if isinstance(destination, MosaicMLLogger):
+                destination.log_metadata({'checkpoint_uploaded_time': time.time()}, force_flush=True)
+
     def batch_end(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
+        del state  # unused
         if self.remote_uploader is None:
             return
         self.remote_uploader.check_workers()
@@ -643,13 +649,14 @@ class CheckpointSaver(Callback):  # noqa: D101
                         file_path=local_symlink_file,
                         overwrite=True,
                     )
+                    self._log_checkpoint_upload(logger)
                     break
                 else:
                     raise RuntimeError(f'Failed to check if checkpoint files upload finish: {result}')
         self.symlink_upload_tasks = undone_symlink_upload_tasks
 
     def fit_end(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
+        del state  # unused
         if self.remote_uploader is None:
             return
         log.info('Waiting for checkpoint uploading to finish')
@@ -666,6 +673,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                     overwrite=True,
                 )
                 symlink_upload_future.result()
+                self._log_checkpoint_upload(logger)
             else:
                 raise RuntimeError(f'Failed to check if checkpoint files upload finish: {result}')
         log.info('Checkpoint uploading finished!')
