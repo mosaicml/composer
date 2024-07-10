@@ -105,16 +105,15 @@ def test_fp8_autocast_called_with_enabled():
     # Mocking the te.fp8_autocast
     with patch('transformer_engine.pytorch.fp8_autocast') as mock_fp8_autocast:
         # Construct the trainer
-        trainer = Trainer(model=ZeroModel(), device='gpu', precision='amp_fp8')
+        trainer = Trainer(model=SimpleModel(), device='gpu', precision='amp_fp8')
+
         # Evaluate the model
-        dataset = ParityDataset(size=10).to('gpu')
-        trainer.eval(
-            eval_dataloader=DataLoader(
-                dataset=dataset,
-                batch_size=10,
-                sampler=dist.get_sampler(dataset),
-            ),
-        )
+        dataset = RandomClassificationDataset()
+        trainer.eval(eval_dataloader=DataLoader(
+            dataset=dataset,
+            batch_size=10,
+            sampler=dist.get_sampler(dataset),
+        ),)
 
     # Check that te.fp8_autocast was called with enabled=False and enabled=True in that order
     expected_calls = [call(enabled=False), call(enabled=True)]
