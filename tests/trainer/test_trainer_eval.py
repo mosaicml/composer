@@ -117,7 +117,9 @@ def test_fp8_autocast_called_with_enabled():
 
     # Check that te.fp8_autocast was called with enabled=False and enabled=True in that order
     expected_calls = [call(enabled=False), call(enabled=True)]
-    mock_fp8_autocast.assert_has_calls(expected_calls)
+    # Compare only the first two calls in the actual calls list
+    actual_calls = mock_fp8_autocast.call_args_list[:2]
+    assert actual_calls == expected_calls, f'Calls not found. Expected: {expected_calls}, Actual: {actual_calls}'
 
 def test_eval_call_with_trainer_evaluators():
     trainer_dataset = RandomClassificationDataset()
