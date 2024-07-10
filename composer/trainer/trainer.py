@@ -2742,7 +2742,6 @@ class Trainer:
             # Reset train_metrics on every batch
             # Placing reset here ensures that if auto grad accum catches an OOM, incomplete metric state is cleared
 
-            raise ValueError("broken")
             log.info("Iteration " + str(i) +": " + str(self.state.device_train_microbatch_size))
             i+=1
 
