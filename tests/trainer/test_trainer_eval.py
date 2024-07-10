@@ -103,7 +103,7 @@ def test_fp8_autocast_called_with_enabled():
             'Precision amp_fp8 requires transformer-engine to be installed',
         )
     # Mocking the te.fp8_autocast
-    with patch('te.fp8_autocast') as mock_fp8_autocast:
+    with patch('transformer_engine.pytorch.fp8_autocast') as mock_fp8_autocast:
         # Construct the trainer
         trainer = Trainer(model=ZeroModel(), device=device, precision='amp_fp8')
         # Evaluate the model
