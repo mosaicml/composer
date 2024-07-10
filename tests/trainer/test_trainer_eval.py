@@ -121,7 +121,7 @@ def test_fp8_autocast_called_with_enabled():
     # Compare only the first two calls in the actual calls list
     actual_calls = mock_fp8_autocast.call_args_list[:2]
     for expected_call, actual_call in zip(expected_calls, actual_calls):
-        assert expected_call.enabled == actual_call.enabled, "fp8_autocast was not called with the expected arguments {} {}".format(expected_cal, actual_call)
+        assert expected_call.enabled == actual_call.enabled, "fp8_autocast was not called with the expected arguments {} {}".format(expected_call, actual_call)
     assert actual_calls == expected_calls, f'Calls not found. Expected: {expected_calls}, Actual: {actual_calls}'
 
 def test_eval_call_with_trainer_evaluators():
