@@ -102,7 +102,8 @@ def test_fp8_autocast_called_with_enabled():
         pytest.skip(
             'Precision amp_fp8 requires transformer-engine to be installed',
         )
-    # Mocking the te.fp8_autocast
+
+    # Mocking the transformer_engine.pytorch.fp8_autocast
     with patch('transformer_engine.pytorch.fp8_autocast') as mock_fp8_autocast:
         # Construct the trainer
         trainer = Trainer(model=SimpleModel(), device='gpu', precision='amp_fp8')
@@ -119,6 +120,8 @@ def test_fp8_autocast_called_with_enabled():
     expected_calls = [call(enabled=False), call(enabled=True)]
     # Compare only the first two calls in the actual calls list
     actual_calls = mock_fp8_autocast.call_args_list[:2]
+    for expected_call, actual_call in zip(expected_calls, actual_calls):
+        assert expected_call.enabled == actual_call.enabled, "fp8_autocast was not called with the expected arguments"
     assert actual_calls == expected_calls, f'Calls not found. Expected: {expected_calls}, Actual: {actual_calls}'
 
 def test_eval_call_with_trainer_evaluators():
