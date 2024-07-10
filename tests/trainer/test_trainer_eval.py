@@ -107,7 +107,7 @@ def test_fp8_autocast_called_with_enabled():
         # Construct the trainer
         trainer = Trainer(model=ZeroModel(), device='gpu', precision='amp_fp8')
         # Evaluate the model
-        dataset = ParityDataset(size=10)
+        dataset = ParityDataset(size=10).to('gpu')
         trainer.eval(
             eval_dataloader=DataLoader(
                 dataset=dataset,
