@@ -97,7 +97,6 @@ from unittest.mock import call, patch
 def test_fp8_autocast_called_with_enabled():
     try:
         import transformer_engine.pytorch as te
-        import pdb; pdb.set_trace()
     except ImportError:
         pytest.skip(
             'Precision amp_fp8 requires transformer-engine to be installed',
