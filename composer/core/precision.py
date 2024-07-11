@@ -38,10 +38,9 @@ class Precision(StringEnum):
 
 def get_fp8_precision_context(
     fp8_autocast_enabled: bool = True,
-    onnx_export_enabled: bool = True,
     precision_config: Optional[dict[str, Any]] = None,
 ):
-    """Returns the relevant context managers for FP8 autocast and FP8 checkpointing export if the device and environment supports it."""
+    """Returns the relevant context manager for FP8 autocast if the device and environment supports it."""
     if te_installed and torch.cuda.get_device_capability() >= (8, 9):
         from transformer_engine.common.recipe import DelayedScaling, Format
         if precision_config is None:
@@ -51,10 +50,9 @@ def get_fp8_precision_context(
                 'amax_compute_algo': 'max',
             }
         fp8_recipe = DelayedScaling(**precision_config)
-        return te.fp8_autocast(enabled=fp8_autocast_enabled,
-                               fp8_recipe=fp8_recipe), te.onnx_export(enabled=onnx_export_enabled)
+        return te.fp8_autocast(enabled=fp8_autocast_enabled, fp8_recipe=fp8_recipe)
     else:
-        return contextlib.nullcontext(), contextlib.nullcontext()
+        return contextlib.nullcontext()
 
 
 @contextlib.contextmanager
@@ -100,10 +98,10 @@ def get_precision_context(
         if te_installed and torch.cuda.get_device_capability() >= (8, 9):
             with get_fp8_precision_context(
                 fp8_autocast_enabled=True,
-                onnx_export_enabled=True,
                 precision_config=precision_config,
-            ) as fp8_autocast_ctx, fp8_ckpt_ctx:
-                yield
+            ) as fp8_autocast_ctx:
+                with te.onnx_export(enabled=True):
+                    yield
         else:
             if te_installed:
                 raise RuntimeError('AMP_FP8 precision is used but current device does not support it.')
