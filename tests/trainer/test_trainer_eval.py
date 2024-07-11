@@ -120,6 +120,8 @@ def test_amp_fp8_eval_casts_to_bf16():
     expected_calls = [call(enabled=True), call(enabled=False)]
     # Compare only the first two calls in the actual calls list
     actual_calls = mock_fp8_autocast.call_args_list[:2]
+    import pdb
+    pdb.set_trace()
     for expected_call, actual_call in zip(expected_calls, actual_calls):
         assert expected_call.enabled == actual_call.enabled, 'fp8_autocast was not called with the expected arguments {} {}'.format(
             expected_call,
