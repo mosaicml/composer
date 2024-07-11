@@ -1652,6 +1652,7 @@ class Trainer:
 
         # TP wrap
         if self.state.tp_config is not None:
+            # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 prepare_tp_module(
                     model,
@@ -1660,6 +1661,7 @@ class Trainer:
 
         # FSDP wrap if not using monolith checkpoint on rank 0 only
         if self.state.fsdp_config is not None and self.state.fsdp_config.auto_wrap and not self.state.load_monolith_rank0_only:
+            # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 prepare_fsdp_module(
                     model,
@@ -1829,6 +1831,7 @@ class Trainer:
             not self.state.fsdp_enabled and self.state.fsdp_config is not None and self.state.fsdp_config.auto_wrap and
             self.state.load_monolith_rank0_only
         ):
+            # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
 
