@@ -36,25 +36,6 @@ class Precision(StringEnum):
     AMP_FP8 = 'amp_fp8'
 
 
-def get_fp8_precision_context(
-    fp8_autocast_enabled: bool = True,
-    precision_config: Optional[dict[str, Any]] = None,
-):
-    """Returns the relevant context manager for FP8 autocast if the device and environment supports it."""
-    if te_installed and torch.cuda.get_device_capability() >= (8, 9):
-        from transformer_engine.common.recipe import DelayedScaling, Format
-        if precision_config is None:
-            precision_config = {
-                'fp8_format': Format.HYBRID,
-                'amax_history_len': 16,
-                'amax_compute_algo': 'max',
-            }
-        fp8_recipe = DelayedScaling(**precision_config)
-        return te.fp8_autocast(enabled=fp8_autocast_enabled, fp8_recipe=fp8_recipe)
-    else:
-        return contextlib.nullcontext()
-
-
 @contextlib.contextmanager
 def get_precision_context(
     precision: Union[str, Precision],
