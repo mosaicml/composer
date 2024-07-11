@@ -116,14 +116,16 @@ def test_amp_fp8_eval_casts_to_bf16():
             sampler=dist.get_sampler(dataset),
         ),)
 
-    # Check that te.fp8_autocast was called with enabled=True and enabled=False in that order
+    # Check that te.fp8_autocast was called with enabled=True and enabled=False 
+    # This ensures that we disable the FP8 autocast context and use BF16 in eval
     expected_calls = [call(enabled=True), call(enabled=False)]
+
     # Compare only the first two calls in the actual calls list
     actual_calls = mock_fp8_autocast.call_args_list[:2]
-    import pdb
-    pdb.set_trace()
     for expected_call, actual_call in zip(expected_calls, actual_calls):
-        assert expected_call.enabled == actual_call.enabled, 'fp8_autocast was not called with the expected arguments {} {}'.format(
+        actual_call_args = actual_call._get_call_arguments()[1]
+        expected_call_args = expected_call._get_call_arguments()[1]
+        assert expected_call_args['enabled'] == actual_call_args['enabled'], 'fp8_autocast was not called with the expected arguments {} {}'.format(
             expected_call,
             actual_call,
         )
