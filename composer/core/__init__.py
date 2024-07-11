@@ -34,6 +34,7 @@ __all__ = [
     'Event',
     'Precision',
     'get_precision_context',
+    'get_fp8_precision_context',
     'Serializable',
     'State',
     'Time',

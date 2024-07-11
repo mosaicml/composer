@@ -23,7 +23,6 @@ from tests.common import (
     SimpleModel,
     SimpleTransformerMaskedLM,
     ZeroModel,
-    device,
     world_size,
 )
 
@@ -100,7 +99,7 @@ from unittest.mock import call, patch
 def test_amp_fp8_eval_casts_to_bf16():
     # Check that we can import FP8 with TE. If not, skip this test.
     try:
-        import transformer_engine
+        import transformer_engine  # pyright: ignore
     except ImportError:
         pytest.skip('Precision amp_fp8 requires transformer-engine to be installed',)
 
