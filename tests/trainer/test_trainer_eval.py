@@ -98,6 +98,7 @@ from unittest.mock import call, patch
 
 @pytest.mark.gpu
 def test_amp_fp8_eval_casts_to_bf16():
+    # Check that we can import FP8 precision
     try:
         import transformer_engine.pytorch as te
     except ImportError:
@@ -117,11 +118,11 @@ def test_amp_fp8_eval_casts_to_bf16():
         ),)
 
     # Check that te.fp8_autocast was called with enabled=True and enabled=False
-    # This ensures that we disable the FP8 autocast context and use BF16 in eval
+    # This ensures that we enable and then disable the FP8 autocast context.
     expected_calls = [call(enabled=True), call(enabled=False)]
-
     # Compare only the first two calls in the actual calls list
     actual_calls = mock_fp8_autocast.call_args_list[:2]
+    # Check that the expected calls match the actual calls
     for expected_call, actual_call in zip(expected_calls, actual_calls):
         actual_call_args = actual_call._get_call_arguments()[1]
         expected_call_args = expected_call._get_call_arguments()[1]
