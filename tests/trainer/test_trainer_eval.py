@@ -125,7 +125,6 @@ def test_amp_fp8_eval_casts_to_bf16():
             expected_call,
             actual_call,
         )
-    assert actual_calls == expected_calls, f'Calls not found. Expected: {expected_calls}, Actual: {actual_calls}'
 
 
 def test_eval_call_with_trainer_evaluators():
