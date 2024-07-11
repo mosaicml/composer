@@ -2676,10 +2676,12 @@ class Trainer:
         with torch.no_grad(),\
                 model_eval_mode(self.state.model),\
                 _get_precision_context(self.state.precision, self.state.precision_config, self.state.deepspeed_enabled):
-                # Disabling FP8 in eval metrics and defaulting to BF16.
-                # This is because FP8 in TE requires all eval data sizes to be divisible by (8, 16) which does not hold for all evaluation datasets.
-                with get_fp8_precision_context(fp8_autocast_enabled=False, onnx_export_enabled=False, precision_config=None):
-                    eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
+            # Disabling FP8 in eval metrics and defaulting to BF16.
+            # This is because FP8 in TE requires all eval data sizes to be divisible by (8, 16) which does not hold for all evaluation datasets.
+            with get_fp8_precision_context(
+                fp8_autocast_enabled=False, onnx_export_enabled=False, precision_config=None
+            ):
+                eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
             for metric in self.state.train_metrics.values():
                 self._original_model.update_metric(
                     device_batch,
@@ -3480,7 +3482,9 @@ class Trainer:
                             ):
                                 # Disabling FP8 in eval mode and defaulting to BF16.
                                 # This is because FP8 in TE requires all eval data sizes to be divisible by (8, 16) which does not hold for all evaluation datasets.
-                                with get_fp8_precision_context(fp8_autocast_enabled=False, onnx_export_enabled=False, precision_config=None):
+                                with get_fp8_precision_context(
+                                    fp8_autocast_enabled=False, onnx_export_enabled=False, precision_config=None
+                                ):
                                     self.state.outputs = self._original_model.eval_forward(self.state.batch)
 
                             self.engine.run_event(Event.EVAL_AFTER_FORWARD)

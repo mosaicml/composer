@@ -123,7 +123,8 @@ def test_fp8_eval_casts_to_bf16():
     for expected_call, actual_call in zip(expected_calls, actual_calls):
         print(expected_call.enabled, actual_call.enabled)
         assert expected_call.enabled == actual_call.enabled, 'fp8_autocast was not called with the expected arguments {} {}'.format(
-            expected_call, actual_call
+            expected_call,
+            actual_call,
         )
     assert actual_calls == expected_calls, f'Calls not found. Expected: {expected_calls}, Actual: {actual_calls}'
 

@@ -39,9 +39,9 @@ class Precision(StringEnum):
 def get_fp8_precision_context(
     fp8_autocast_enabled: bool = True,
     onnx_export_enabled: bool = True,
-    precision_config: Optional[dict[str, Any]] = None
+    precision_config: Optional[dict[str, Any]] = None,
 ):
-    """ Returns the relevant context managers for FP8 autocast and FP8 checkpointing export if the device and environment supports it. """
+    """Returns the relevant context managers for FP8 autocast and FP8 checkpointing export if the device and environment supports it."""
     if te_installed and torch.cuda.get_device_capability() >= (8, 9):
         from transformer_engine.common.recipe import DelayedScaling, Format
         if precision_config is None:
@@ -99,7 +99,9 @@ def get_precision_context(
     elif precision == Precision.AMP_FP8:
         if te_installed and torch.cuda.get_device_capability() >= (8, 9):
             with get_fp8_precision_context(
-                fp8_autocast_enabled=True, onnx_export_enabled=True, precision_config=precision_config
+                fp8_autocast_enabled=True,
+                onnx_export_enabled=True,
+                precision_config=precision_config,
             ):
                 yield
         else:
