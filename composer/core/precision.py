@@ -102,7 +102,7 @@ def get_precision_context(
                 fp8_autocast_enabled=True,
                 onnx_export_enabled=True,
                 precision_config=precision_config,
-            ):
+            ) as fp8_autocast_ctx, fp8_ckpt_ctx:
                 yield
         else:
             if te_installed:
