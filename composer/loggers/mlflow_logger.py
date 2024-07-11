@@ -308,7 +308,7 @@ class MLFlowLogger(LoggerDestination):
             assert isinstance(self._run_id, str)
             self._mlflow_client.log_artifact(
                 run_id=self._run_id,
-                local_file=file_path,
+                local_path=file_path,
             )
 
     def log_metrics(self, metrics: dict[str, Any], step: Optional[int] = None) -> None:
