@@ -98,17 +98,16 @@ from unittest.mock import call, patch
 
 @pytest.mark.gpu
 def test_amp_fp8_eval_casts_to_bf16():
-    # Check that we can import FP8 precision
+    # Check that we can import FP8 with TE. If not, skip this test.
     try:
         import transformer_engine.pytorch as te
     except ImportError:
         pytest.skip('Precision amp_fp8 requires transformer-engine to be installed',)
 
-    # Mocking the transformer_engine.pytorch.fp8_autocast
+    # Mocking the transformer_engine.pytorch.fp8_autocast and running eval
     with patch('transformer_engine.pytorch.fp8_autocast') as mock_fp8_autocast:
         # Construct the trainer
         trainer = Trainer(model=SimpleModel(), device='gpu', precision='amp_fp8')
-
         # Evaluate the model
         dataset = RandomClassificationDataset()
         trainer.eval(eval_dataloader=DataLoader(
