@@ -123,8 +123,8 @@ def test_amp_fp8_eval_casts_to_bf16():
     actual_calls = mock_fp8_autocast.call_args_list[:2]
     # Check that the expected calls match the actual calls
     for expected_call, actual_call in zip(expected_calls, actual_calls):
-        actual_call_args = actual_call._get_call_arguments()[1]
         expected_call_args = expected_call._get_call_arguments()[1]
+        actual_call_args = actual_call._get_call_arguments()[1]
         assert expected_call_args['enabled'] == actual_call_args[
             'enabled'], 'fp8_autocast was not called with the expected arguments {} {}'.format(
                 expected_call,
