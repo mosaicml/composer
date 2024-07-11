@@ -5,12 +5,14 @@
 
 from __future__ import annotations
 
+import atexit
 import fnmatch
 import logging
 import multiprocessing
 import os
 import pathlib
 import posixpath
+import sys
 import textwrap
 import time
 import warnings
@@ -42,22 +44,33 @@ class MlflowMonitorProcess(multiprocessing.Process):
         self.mlflow_run_id = mlflow_run_id
         self.mlflow_tracking_uri = mlflow_tracking_uri
         self.exit_event = multiprocessing.Event()
+        self.crashed = multiprocessing.Event()
 
     def run(self):
+        import psutil
         from mlflow import MlflowClient
-        while not self.exit_event.wait(70):
-            try:
-                os.kill(self.main_pid, 0)
-            except OSError:
-                print("GEEZ MAIN PROCESS IS NOT ALIVE!")
-                client = MlflowClient(self.mlflow_tracking_uri)
-                client.set_terminated(self.mlflow_run_id, status='FAILED')
-                break
-        print("Monitor process exiting gracefully.")
+
+        print('GEEZ START CHECKING STATUS!!')
+
+        while not self.exit_event.wait(10):
+            main_process = psutil.Process(self.main_pid)
+            if main_process.is_running() and main_process.status() != psutil.STATUS_ZOMBIE:
+                print('GEEZ MAIN PROCESS IS ALIVE!')
+                continue
+            print('GEEZ MAIN PROCESS IS NOT ALIVE!')
+            self.crashed.set()
+            break
+        if self.crashed.is_set():
+            client = MlflowClient(self.mlflow_tracking_uri)
+            client.set_terminated(self.mlflow_run_id, status='FAILED')
+        print('Monitor process exiting gracefully.')
 
     def stop(self):
         self.exit_event.set()
 
+    def crash(self):
+        self.crashed.set()
+        self.exit_event.set()
 
 
 class MLFlowLogger(LoggerDestination):
@@ -138,7 +151,8 @@ class MLFlowLogger(LoggerDestination):
         self.log_system_metrics = log_system_metrics
         self.rename_metrics = {} if rename_metrics is None else rename_metrics
         self.ignore_metrics = [] if ignore_metrics is None else ignore_metrics
-        self.ignore_hyperparameters = [] if ignore_hyperparameters is None else ignore_hyperparameters
+        self.ignore_hyperparameters = ([] if ignore_hyperparameters is None else ignore_hyperparameters)
+        self._is_in_atexit = False
         if self.model_registry_uri == 'databricks-uc':
             if len(self.model_registry_prefix.split('.')) != 2:
                 raise ValueError(
@@ -148,7 +162,7 @@ class MLFlowLogger(LoggerDestination):
         self.resume = resume
 
         if logging_buffer_seconds:
-            os.environ['MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS'] = str(logging_buffer_seconds)
+            os.environ['MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS'] = str(logging_buffer_seconds,)
 
         if log_system_metrics:
             # Set system metrics sampling interval and samples before logging so that system metrics
@@ -166,7 +180,7 @@ class MLFlowLogger(LoggerDestination):
         self.run_url = None
 
         if self._enabled:
-            if tracking_uri is None and os.getenv('DATABRICKS_TOKEN') is not None:
+            if True or (tracking_uri is None and os.getenv('DATABRICKS_TOKEN') is not None):
                 tracking_uri = 'databricks'
             if tracking_uri is None:
                 tracking_uri = mlflow.get_tracking_uri()
@@ -189,7 +203,7 @@ class MLFlowLogger(LoggerDestination):
             ) is not None and not self.experiment_name.startswith((
                 '/Users/',
                 '/Shared/',
-            )):
+            ),):
                 try:
                     from databricks.sdk import WorkspaceClient
                 except ImportError as e:
@@ -198,8 +212,12 @@ class MLFlowLogger(LoggerDestination):
                         conda_package='databricks-sdk',
                         conda_channel='conda-forge',
                     ) from e
-                databricks_username = WorkspaceClient().current_user.me().user_name or ''
-                self.experiment_name = os.path.join('/Users', databricks_username, self.experiment_name.strip('/'))
+                databricks_username = (WorkspaceClient().current_user.me().user_name or '')
+                self.experiment_name = os.path.join(
+                    '/Users',
+                    databricks_username,
+                    self.experiment_name.strip('/'),
+                )
 
             self._mlflow_client = MlflowClient(self.tracking_uri)
             # Set experiment
@@ -210,11 +228,11 @@ class MLFlowLogger(LoggerDestination):
             if env_exp_id is not None:
                 self._experiment_id = env_exp_id
             else:
-                exp_from_name = self._mlflow_client.get_experiment_by_name(name=self.experiment_name)
+                exp_from_name = self._mlflow_client.get_experiment_by_name(name=self.experiment_name,)
                 if exp_from_name is not None:
                     self._experiment_id = exp_from_name.experiment_id
                 else:
-                    self._experiment_id = (self._mlflow_client.create_experiment(name=self.experiment_name))
+                    self._experiment_id = self._mlflow_client.create_experiment(name=self.experiment_name,)
 
     def _start_mlflow_run(self, state):
         import mlflow
@@ -267,6 +285,8 @@ class MLFlowLogger(LoggerDestination):
             log_system_metrics=self.log_system_metrics,
         )
 
+        # multiprocessing.set_start_method('spawn', force=True)
+        print('GEEZ MAIN PROCESS PID: ', os.getpid())
         self.monitor_process = MlflowMonitorProcess(
             os.getpid(),
             self._run_id,
@@ -275,6 +295,7 @@ class MLFlowLogger(LoggerDestination):
         self.monitor_process.start()
 
     def init(self, state: State, logger: Logger) -> None:
+        print('GEEZ I AM INITING THE MLFLOW LOGGER!')
         del logger  # unused
 
         if self.run_name is None:
@@ -289,6 +310,7 @@ class MLFlowLogger(LoggerDestination):
 
         # Start run
         if self._enabled:
+            atexit.register(self._set_is_in_atexit)
             self._start_mlflow_run(state)
 
         # If rank zero only, broadcast the MLFlow experiment and run IDs to other ranks, so the MLFlow run info is
@@ -299,7 +321,10 @@ class MLFlowLogger(LoggerDestination):
             self._experiment_id, self._run_id = mlflow_ids_list
 
     def after_load(self, state: State, logger: Logger) -> None:
-        logger.log_hyperparameters({'mlflow_experiment_id': self._experiment_id, 'mlflow_run_id': self._run_id})
+        logger.log_hyperparameters({
+            'mlflow_experiment_id': self._experiment_id,
+            'mlflow_run_id': self._run_id,
+        },)
         self.run_url = posixpath.join(
             os.environ.get('DATABRICKS_HOST', ''),
             'ml',
@@ -339,6 +364,7 @@ class MLFlowLogger(LoggerDestination):
 
     def log_metrics(self, metrics: dict[str, Any], step: Optional[int] = None) -> None:
         from mlflow import log_metrics
+
         if self._enabled:
             # Convert all metrics to floats to placate mlflow.
             metrics = {
@@ -388,9 +414,10 @@ class MLFlowLogger(LoggerDestination):
             ModelVersion: The registered model.
         """
         if self._enabled:
-            full_name = f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name
+            full_name = (f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name)
 
             import mlflow
+
             return mlflow.register_model(
                 model_uri=model_uri,
                 name=full_name,
@@ -412,13 +439,16 @@ class MLFlowLogger(LoggerDestination):
         """
         if self._enabled:
             import mlflow
+
             if flavor == 'transformers':
                 mlflow.transformers.save_model(**kwargs)
             elif flavor == 'peft':
                 import transformers
 
                 # TODO: Remove after mlflow fixes the bug that makes this necessary
-                mlflow.store._unity_catalog.registry.rest_store.get_feature_dependencies = lambda *args, **kwargs: ''  # type: ignore
+                mlflow.store._unity_catalog.registry.rest_store.get_feature_dependencies = (
+                    lambda *args, **kwargs: ''
+                )  # type: ignore
 
                 # This is a temporary workaround until MLflow adds full support for saving PEFT models.
                 # https://github.com/mlflow/mlflow/issues/9256
@@ -427,7 +457,7 @@ class MLFlowLogger(LoggerDestination):
                 )
                 expected_keys = {'path', 'save_pretrained_dir'}
                 if not expected_keys.issubset(kwargs.keys()):
-                    raise ValueError(f'Expected keys {expected_keys} but got {kwargs.keys()}')
+                    raise ValueError(f'Expected keys {expected_keys} but got {kwargs.keys()}',)
 
                 # This does not implement predict for now, as we will wait for the full MLflow support
                 # for PEFT models.
@@ -447,7 +477,7 @@ class MLFlowLogger(LoggerDestination):
                 # This is faked for now, until MLflow adds full support for saving PEFT models.
                 input_schema = Schema([
                     ColSpec(DataType.string, 'fake_input'),
-                ])
+                ],)
                 output_schema = Schema([ColSpec(DataType.string)])
                 signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
@@ -477,6 +507,7 @@ class MLFlowLogger(LoggerDestination):
         """
         if self._enabled:
             import mlflow
+
             if flavor == 'transformers':
                 mlflow.transformers.log_model(**kwargs)
             else:
@@ -505,19 +536,19 @@ class MLFlowLogger(LoggerDestination):
                 ErrorCode,
             )
 
-            full_name = f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name
+            full_name = (f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name)
 
             # This try/catch code is copied from
             # https://github.com/mlflow/mlflow/blob/3ba1e50e90a38be19920cb9118593a43d7cfa90e/mlflow/tracking/_model_registry/fluent.py#L90-L103
             try:
-                create_model_response = self._mlflow_client.create_registered_model(full_name)
-                log.info(f'Successfully registered model {name} with {create_model_response.name}')
+                create_model_response = self._mlflow_client.create_registered_model(full_name,)
+                log.info(f'Successfully registered model {name} with {create_model_response.name}',)
             except MlflowException as e:
                 if e.error_code in (
                     ErrorCode.Name(RESOURCE_ALREADY_EXISTS),
                     ErrorCode.Name(ALREADY_EXISTS),
                 ):
-                    log.info(f'Registered model {name} already exists. Creating a new version of this model...')
+                    log.info(f'Registered model {name} already exists. Creating a new version of this model...',)
                 else:
                     raise e
 
@@ -535,11 +566,19 @@ class MLFlowLogger(LoggerDestination):
 
     def log_images(
         self,
-        images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
+        images: Union[np.ndarray,
+                      torch.Tensor,
+                      Sequence[Union[np.ndarray, torch.Tensor]],
+                     ],
         name: str = 'image',
         channels_last: bool = False,
         step: Optional[int] = None,
-        masks: Optional[dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
+        masks: Optional[dict[str,
+                             Union[np.ndarray,
+                                   torch.Tensor,
+                                   Sequence[Union[np.ndarray, torch.Tensor]],
+                                  ],
+                            ]] = None,
         mask_class_labels: Optional[dict[int, str]] = None,
         use_table: bool = True,
     ):
@@ -564,27 +603,52 @@ class MLFlowLogger(LoggerDestination):
                     step=step,
                 )
 
+    def _set_is_in_atexit(self):
+        self._is_in_atexit = True
+
     def post_close(self):
-        print("GEEZ EXECUTING POST CLOSE!")
+        print('GEEZ EXECUTING POST CLOSE!')
         if self._enabled:
             import mlflow
 
             assert isinstance(self._run_id, str)
+
+            if self._is_in_atexit:
+                # Don't call mlflow ending process if the script is in an atexit, if `post_close` is
+                # called from atexit, it means the script is exiting with errors, and MLflow status
+                # setting should be handled by `self.monitor_process`.
+                print('GEEZ I AM IN AT EXIT!')
+                import time
+                time.sleep(5)
+                self.monitor_process.crash()
+
+                return
+
             mlflow.flush_async_logging()
+            exc_tpe, exc_info, tb = sys.exc_info()
+            print('GEEZ SYS INFO: ', exc_tpe, exc_info, tb)
+            if (exc_tpe, exc_info, tb) == (None, None, None):
+                self._mlflow_client.set_terminated(self._run_id, status='FINISHED')
+            else:
+                # record there was an error
+                self._mlflow_client.set_terminated(self._run_id, status='FAILED')
             self.monitor_process.stop()
-            self._mlflow_client.set_terminated(self._run_id)
+
             mlflow.end_run()
 
             self.monitor_process.join()
 
 
-def _convert_to_mlflow_image(image: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:
+def _convert_to_mlflow_image(
+    image: Union[np.ndarray, torch.Tensor],
+    channels_last: bool,
+) -> np.ndarray:
     if isinstance(image, torch.Tensor):
         image = image.data.cpu().numpy()
 
     # Error out for empty arrays or weird arrays of dimension 0.
     if np.any(np.equal(image.shape, 0)):
-        raise ValueError(f'Got an image (shape {image.shape}) with at least one dimension being 0! ')
+        raise ValueError(f'Got an image (shape {image.shape}) with at least one dimension being 0! ',)
 
     # Squeeze any singleton dimensions and then add them back in if image dimension
     # less than 3.
@@ -602,12 +666,12 @@ def _convert_to_mlflow_image(image: Union[np.ndarray, torch.Tensor], channels_la
     if image.ndim != 3:
         raise ValueError(
             textwrap.dedent(
-                f'''Input image must be 3 dimensions, but instead
+                f"""Input image must be 3 dimensions, but instead
                             got {image.ndim} dims at shape: {image.shape}
                             Your input image was interpreted as a batch of {image.ndim}
                             -dimensional images because you either specified a
                             {image.ndim + 1}D image or a list of {image.ndim}D images.
-                            Please specify either a 4D image of a list of 3D images''',
+                            Please specify either a 4D image of a list of 3D images""",
             ),
         )
 
@@ -617,10 +681,10 @@ def _convert_to_mlflow_image(image: Union[np.ndarray, torch.Tensor], channels_la
     if image.shape[-1] not in [1, 3, 4]:
         raise ValueError(
             textwrap.dedent(
-                f'''Input image must have 1, 3, or 4 channels, but instead
+                f"""Input image must have 1, 3, or 4 channels, but instead
                             got {image.shape[-1]} channels at shape: {image.shape}
                             Please specify either a 1-, 3-, or 4-channel image or a list of
-                            1-, 3-, or 4-channel images''',
+                            1-, 3-, or 4-channel images""",
             ),
         )
     return image

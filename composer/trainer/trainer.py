@@ -50,11 +50,21 @@ from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
 
 if version.parse(torch.__version__) >= version.parse('2.3.0'):
-    from torch.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state  # type: ignore
+    from torch.amp.grad_scaler import (  # type: ignore
+        GradScaler,
+        _refresh_per_optimizer_state,
+    )
 else:
-    from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state  # type: ignore
+    from torch.cuda.amp.grad_scaler import (  # type: ignore
+        GradScaler, _refresh_per_optimizer_state,
+    )
 
-from composer.callbacks import CheckpointSaver, MemorySnapshot, OOMObserver, OptimizerMonitor
+from composer.callbacks import (
+    CheckpointSaver,
+    MemorySnapshot,
+    OOMObserver,
+    OptimizerMonitor,
+)
 from composer.core import (
     Algorithm,
     AlgorithmPass,
@@ -95,7 +105,10 @@ from composer.loggers import (
     RemoteUploaderDownloader,
     WandBLogger,
 )
-from composer.loggers.mosaicml_logger import MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR
+from composer.loggers.mosaicml_logger import (
+    MOSAICML_ACCESS_TOKEN_ENV_VAR,
+    MOSAICML_PLATFORM_ENV_VAR,
+)
 from composer.models import ComposerModel
 from composer.optim import ComposerScheduler, DecoupledSGDW, compile_composer_scheduler
 from composer.profiler import Profiler
@@ -2469,6 +2482,7 @@ class Trainer:
     def _train_loop(self) -> None:
         """Run training for the specified number of epochs and log results."""
         # Log training start
+        raise ValueError('whatever')
         log.info('Using precision %s', self.state.precision)
         self.logger.log_hyperparameters({
             'enabled_algorithms/' + algo.__class__.__name__: True for algo in self.state.algorithms
