@@ -2678,7 +2678,7 @@ class Trainer:
                 _get_precision_context(self.state.precision, self.state.precision_config, self.state.deepspeed_enabled):
             # Disabling FP8 in eval metrics and defaulting to BF16.
             # This is because FP8 in TE requires all eval data sizes to be divisible by 16 which does not hold for all evaluation datasets.
-            # See https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/examples/fp8_primer.html
+            # See https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/examples/fp8_primer.html for more info.
             with get_fp8_precision_context(
                 fp8_autocast_enabled=False,
                 precision_config=None,
@@ -3484,7 +3484,7 @@ class Trainer:
                             ):
                                 # Disabling FP8 in eval mode and defaulting to BF16.
                                 # This is because FP8 in TE requires all eval data sizes to be divisible by 16 which does not hold for all evaluation datasets.
-                                # See https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/examples/fp8_primer.html 
+                                # See https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/examples/fp8_primer.html for more info.
                                 with get_fp8_precision_context(
                                     fp8_autocast_enabled=False,
                                     precision_config=None,
