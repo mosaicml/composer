@@ -92,7 +92,7 @@ def test_eval_with_nondivisible_dataset(world_size: int, size: int, batch_size: 
     assert count.item() == size
 
 
-from unittest.mock import call, patch
+from unittest.mock import patch
 
 
 @pytest.mark.gpu
