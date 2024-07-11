@@ -97,7 +97,7 @@ from unittest.mock import call, patch
 
 
 @pytest.mark.gpu
-def test_fp8_eval_casts_to_bf16():
+def test_amp_fp8_eval_casts_to_bf16():
     try:
         import transformer_engine.pytorch as te
     except ImportError:
