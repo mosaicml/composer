@@ -23,8 +23,8 @@ from tests.common import (
     SimpleModel,
     SimpleTransformerMaskedLM,
     ZeroModel,
-    world_size,
     device,
+    world_size,
 )
 
 
@@ -92,16 +92,16 @@ def test_eval_with_nondivisible_dataset(world_size: int, size: int, batch_size: 
     dist.all_reduce(count)
     assert count.item() == size
 
+
 from unittest.mock import call, patch
 
+
 @pytest.mark.gpu
-def test_fp8_autocast_called_with_enabled():
+def test_fp8_eval_casts_to_bf16():
     try:
         import transformer_engine.pytorch as te
     except ImportError:
-        pytest.skip(
-            'Precision amp_fp8 requires transformer-engine to be installed',
-        )
+        pytest.skip('Precision amp_fp8 requires transformer-engine to be installed',)
 
     # Mocking the transformer_engine.pytorch.fp8_autocast
     with patch('transformer_engine.pytorch.fp8_autocast') as mock_fp8_autocast:
@@ -122,8 +122,11 @@ def test_fp8_autocast_called_with_enabled():
     actual_calls = mock_fp8_autocast.call_args_list[:2]
     for expected_call, actual_call in zip(expected_calls, actual_calls):
         print(expected_call.enabled, actual_call.enabled)
-        assert expected_call.enabled == actual_call.enabled, "fp8_autocast was not called with the expected arguments {} {}".format(expected_call, actual_call)
+        assert expected_call.enabled == actual_call.enabled, 'fp8_autocast was not called with the expected arguments {} {}'.format(
+            expected_call, actual_call
+        )
     assert actual_calls == expected_calls, f'Calls not found. Expected: {expected_calls}, Actual: {actual_calls}'
+
 
 def test_eval_call_with_trainer_evaluators():
     trainer_dataset = RandomClassificationDataset()

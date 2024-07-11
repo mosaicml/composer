@@ -36,6 +36,27 @@ class Precision(StringEnum):
     AMP_FP8 = 'amp_fp8'
 
 
+def get_fp8_precision_context(
+    fp8_autocast_enabled: bool = True,
+    onnx_export_enabled: bool = True,
+    precision_config: Optional[dict[str, Any]] = None
+):
+    """ Returns the relevant context managers for FP8 autocast and FP8 checkpointing export if the device and environment supports it. """
+    if te_installed and torch.cuda.get_device_capability() >= (8, 9):
+        from transformer_engine.common.recipe import DelayedScaling, Format
+        if precision_config is None:
+            precision_config = {
+                'fp8_format': Format.HYBRID,
+                'amax_history_len': 16,
+                'amax_compute_algo': 'max',
+            }
+        fp8_recipe = DelayedScaling(**precision_config)
+        return te.fp8_autocast(enabled=fp8_autocast_enabled,
+                               fp8_recipe=fp8_recipe), te.onnx_export(enabled=onnx_export_enabled)
+    else:
+        return contextlib.nullcontext(), contextlib.nullcontext()
+
+
 @contextlib.contextmanager
 def get_precision_context(
     precision: Union[str, Precision],
@@ -77,21 +98,10 @@ def get_precision_context(
             yield
     elif precision == Precision.AMP_FP8:
         if te_installed and torch.cuda.get_device_capability() >= (8, 9):
-            from transformer_engine.common.recipe import DelayedScaling, Format
-
-            if precision_config is None:
-                precision_config = {
-                    'fp8_format': Format.HYBRID,
-                    'amax_history_len': 16,
-                    'amax_compute_algo': 'max',
-                }
-            fp8_recipe = DelayedScaling(**precision_config)
-            with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-                # The te.onnx_export flag ensures that we save all fp8 buffers
-                # as tensors instead of bytes. This is necessary for proper
-                # saving and resumption of checkpoints.
-                with te.onnx_export(enabled=True):
-                    yield
+            with get_fp8_precision_context(
+                fp8_autocast_enabled=True, onnx_export_enabled=True, precision_config=precision_config
+            ):
+                yield
         else:
             if te_installed:
                 raise RuntimeError('AMP_FP8 precision is used but current device does not support it.')

@@ -73,6 +73,7 @@ from composer.core import (
     ensure_data_spec,
     ensure_evaluator,
     ensure_time,
+    get_fp8_precision_context,
     get_precision_context,
 )
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
@@ -2672,17 +2673,13 @@ class Trainer:
     def _eval_train_metrics(self, device_batch):
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
         assert self.state.train_metrics is not None, 'The train metrics should be set on __init__ or fit()'
-        if self.state.precision is Precision.AMP_FP8:
-            import transformer_engine.pytorch as te
-            log.info("Disabling AMP FP8 for train metrics evaluation")
-            fp8_ctx = te.fp8_autocast(enabled=False)
-        else: 
-            fp8_ctx = contextlib.nullcontext()
         with torch.no_grad(),\
                 model_eval_mode(self.state.model),\
                 _get_precision_context(self.state.precision, self.state.precision_config, self.state.deepspeed_enabled):
-            with fp8_ctx:
-                eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
+                # Disabling FP8 in eval metrics and defaulting to BF16.
+                # This is because FP8 in TE requires all eval data sizes to be divisible by (8, 16) which does not hold for all evaluation datasets.
+                with get_fp8_precision_context(fp8_autocast_enabled=False, onnx_export_enabled=False, precision_config=None):
+                    eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
             for metric in self.state.train_metrics.values():
                 self._original_model.update_metric(
                     device_batch,
@@ -3476,19 +3473,14 @@ class Trainer:
                                         )[0]
 
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
-                            if self.state.precision is Precision.AMP_FP8:
-                                import transformer_engine.pytorch as te
-                                log.info("Disabling AMP FP8 for eval loop")
-                                fp8_ctx = te.fp8_autocast(enabled=False)
-                            else: 
-                                fp8_ctx = contextlib.nullcontext()
-
                             with _get_precision_context(
                                 self.state.precision,
                                 self.state.precision_config,
                                 self.state.deepspeed_enabled,
                             ):
-                                with fp8_ctx:
+                                # Disabling FP8 in eval mode and defaulting to BF16.
+                                # This is because FP8 in TE requires all eval data sizes to be divisible by (8, 16) which does not hold for all evaluation datasets.
+                                with get_fp8_precision_context(fp8_autocast_enabled=False, onnx_export_enabled=False, precision_config=None):
                                     self.state.outputs = self._original_model.eval_forward(self.state.batch)
 
                             self.engine.run_event(Event.EVAL_AFTER_FORWARD)
