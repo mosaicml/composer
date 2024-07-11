@@ -460,7 +460,12 @@ def _get_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrateg
     return ddp_sync_strategy
 
 
-def _get_precision_context(precision: Precision, precision_config: Optional[dict[str, Any]], deepspeed_enabled: bool, fp8_autocast_enabled: bool = True):
+def _get_precision_context(
+    precision: Precision,
+    precision_config: Optional[dict[str, Any]],
+    deepspeed_enabled: bool,
+    fp8_autocast_enabled: bool = True
+):
     if deepspeed_enabled:
         return contextlib.nullcontext()
     return get_precision_context(precision, precision_config, fp8_autocast_enabled)
