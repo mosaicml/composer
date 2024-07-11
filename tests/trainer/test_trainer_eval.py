@@ -118,7 +118,6 @@ def test_amp_fp8_eval_casts_to_bf16():
     # Check that te.fp8_autocast was called with enabled=False.
     # This ensures that we disable the FP8 context on eval.
     actual_call = mock_fp8_autocast.call_args_list[0]
-    # Check that the expected calls match the actual calls
     actual_call_args = actual_call._get_call_arguments()[1]
     assert actual_call_args['enabled'] is False
 
