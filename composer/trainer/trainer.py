@@ -464,7 +464,7 @@ def _get_precision_context(
     precision: Precision,
     precision_config: Optional[dict[str, Any]],
     deepspeed_enabled: bool,
-    fp8_autocast_enabled: bool = True
+    fp8_autocast_enabled: bool = True,
 ):
     if deepspeed_enabled:
         return contextlib.nullcontext()
