@@ -303,6 +303,14 @@ class MLFlowLogger(LoggerDestination):
     def rename(self, key: str):
         return self.rename_metrics.get(key, key)
 
+    def upload_file(self, remote_file_name: str, file_path: str, overwrite: bool = False) -> None:
+        if self._enabled:
+            assert isinstance(self._run_id, str)
+            self._mlflow_client.log_artifact(
+                run_id=self._run_id,
+                local_file=file_path,
+            )
+
     def log_metrics(self, metrics: dict[str, Any], step: Optional[int] = None) -> None:
         from mlflow import log_metrics
         if self._enabled:
