@@ -15,7 +15,7 @@ from composer.core.engine import Engine, Trace
 from composer.core.evaluator import Evaluator, ensure_evaluator
 from composer.core.event import Event
 from composer.core.passes import AlgorithmPass
-from composer.core.precision import Precision, get_fp8_precision_context, get_precision_context
+from composer.core.precision import Precision, get_precision_context
 from composer.core.serializable import Serializable
 from composer.core.state import State
 from composer.core.time import Time, Timestamp, TimeUnit, ensure_time
@@ -34,7 +34,6 @@ __all__ = [
     'Event',
     'Precision',
     'get_precision_context',
-    'get_fp8_precision_context',
     'Serializable',
     'State',
     'Time',
