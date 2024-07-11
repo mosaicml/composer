@@ -117,7 +117,7 @@ def test_amp_fp8_eval_casts_to_bf16():
         ),)
 
     # Check that te.fp8_autocast was called with enabled=True and enabled=False.
-    # This ensures that we enable and then disable the FP8 autocast context.
+    # This ensures that we first enable and then disable the FP8 context.
     expected_calls = [call(enabled=True), call(enabled=False)]
     # Compare only the first two calls in the actual calls list
     actual_calls = mock_fp8_autocast.call_args_list[:2]
