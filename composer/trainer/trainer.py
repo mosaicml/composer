@@ -2682,7 +2682,7 @@ class Trainer:
             with get_fp8_precision_context(
                 fp8_autocast_enabled=False,
                 precision_config=None,
-            ) as fp8_autocast_ctx:
+            ):
                 eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
             for metric in self.state.train_metrics.values():
                 self._original_model.update_metric(
@@ -3488,7 +3488,7 @@ class Trainer:
                                 with get_fp8_precision_context(
                                     fp8_autocast_enabled=False,
                                     precision_config=None,
-                                ) as fp8_autocast_ctx:
+                                ):
                                     self.state.outputs = self._original_model.eval_forward(self.state.batch)
 
                             self.engine.run_event(Event.EVAL_AFTER_FORWARD)

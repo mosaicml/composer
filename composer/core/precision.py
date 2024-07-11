@@ -99,7 +99,7 @@ def get_precision_context(
             with get_fp8_precision_context(
                 fp8_autocast_enabled=True,
                 precision_config=precision_config,
-            ) as fp8_autocast_ctx:
+            ):
                 with te.onnx_export(enabled=True):
                     yield
         else:
