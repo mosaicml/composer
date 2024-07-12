@@ -2909,6 +2909,7 @@ class Trainer:
                 pass and False to only sync gradients after each device has finished
                 computing a gradient on it's entire set of microbatches. (default: ``True``)
         """
+        print("enter micro")
         if ddp_sync or not isinstance(self.state.model, DistributedDataParallel):
             context = contextlib.nullcontext
         else:
@@ -2945,8 +2946,10 @@ class Trainer:
                     except TypeError:
                         optimizer.zero_grad()
 
+            print("made it to grad accum")
             # Tracker for gradient accumulation
             if self.accumulate_train_batch_on_tokens:
+                print("if accum")
                 current_batch_size = sum([self._train_data_spec.get_num_tokens_in_batch(b) for b in microbatches])
                 if current_batch_size == 0:
                     raise ValueError(
@@ -2956,12 +2959,15 @@ class Trainer:
                         ),
                     )
             else:
+                print("else accum")
                 current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(b) for b in microbatches])
+           
+            print("made it to all reduce")
             # Average the current batch size across ranks, to ensure each rank contributes appropriately
             current_batch_size = self.state.device.tensor_to_device(torch.tensor(current_batch_size))
             dist.all_reduce(current_batch_size, reduce_operation='SUM')
             current_batch_size = current_batch_size.item() / dist.get_world_size()
-
+            print("finished all reduce")
             # Cache batch, which will be overwritten by microbatches. Restore after microbatches complete
             current_batch = self.state.batch
 
@@ -2969,13 +2975,13 @@ class Trainer:
                 is_final_microbatch = microbatch_idx + 1 == len(microbatches)
                 microbatch_loss_dict = self._train_microbatch(use_grad_scaling, current_batch_size, is_final_microbatch)
 
+                print("finished train microbatch")
                 # Aggregate each loss in microbatch_loss_dict into total_loss_dict
                 for k, microbatch_loss in microbatch_loss_dict.items():
                     loss_key = f'loss/train/{k}'
                     if loss_key not in total_loss_dict:
                         total_loss_dict[loss_key] = self.state.device.tensor_to_device(torch.zeros(size=(1,)))
                     total_loss_dict[loss_key] += microbatch_loss
-
             # Restore batch
             self.state.batch = current_batch
 
@@ -2985,8 +2991,9 @@ class Trainer:
                     self.state.scaler.unscale_(optimizer)
 
             self.engine.run_event(Event.AFTER_TRAIN_BATCH)
-
+            print("out micro")
             return total_loss_dict['loss/train/total']
+        
 
     def _train_microbatch(
         self,
