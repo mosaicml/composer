@@ -2754,10 +2754,13 @@ class Trainer:
             }
             found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
             try:
+                print("made it in try")
                 assert self.state.scaler is not None
                 assert self.state.device_train_microbatch_size is not None
                 microbatches = self._train_data_spec.split_batch(device_batch, self.state.device_train_microbatch_size)
+                print("split")
                 if self._use_closures():
+                    print("made it in if")
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
                             self.state.scaler.step(
@@ -2770,7 +2773,9 @@ class Trainer:
                                 closure=lambda loss_dict=total_loss_dict,
                                 **kwargs: self._train_microbatches(microbatches, loss_dict, **kwargs).item(),
                             )
+                    print("made it out if")
                 else:
+                    print("made it in else")
                     self._train_microbatches(microbatches, total_loss_dict)
                     if not self.state.deepspeed_enabled:
                         for optimizer in self.state.optimizers:
@@ -2778,6 +2783,8 @@ class Trainer:
                                 self.state.scaler.step(optimizer)
                             else:
                                 optimizer.step()
+                    print("made it out else")
+                print("made it out try")
             except RuntimeError as e:
                 if self.state.auto_microbatching and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
