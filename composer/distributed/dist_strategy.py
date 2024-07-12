@@ -20,8 +20,9 @@ from torch.distributed.fsdp import FullyShardedDataParallel, ShardingStrategy
 from torch.distributed.fsdp._common_utils import clean_tensor_name
 from torch.nn.parallel import DistributedDataParallel
 from torchmetrics import Metric, MetricCollection
-
+from composer.devices import Device, DeviceGPU
 from composer.core import Precision, State
+from composer.core.precision import _validate_precision
 from composer.devices import Device
 from composer.distributed.meta_safe_apply import meta_safe_apply
 from composer.distributed.mosaic_parallelism import (
@@ -31,7 +32,7 @@ from composer.distributed.mosaic_parallelism import (
     get_mixed_precision,
     set_custom_fsdp_module_kwargs,
 )
-from composer.utils import FSDPConfig, StringEnum, TPConfig, dist, ensure_tuple
+from composer.utils import FSDPConfig, StringEnum, TPConfig, dist, ensure_tuple, get_device
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare_fsdp_module', 'prepare_tp_module']
 
@@ -199,9 +200,9 @@ def prepare_fsdp_module(
     model: torch.nn.Module,
     optimizers: Optional[Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]]],
     fsdp_config: FSDPConfig,
-    precision: Precision,
-    device: Device,
-    auto_microbatching: bool,
+    precision: Optional[Union[str, Precision]] = None,
+    device: Optional[Union[str, Device]] = None,
+    auto_microbatching: bool = False,
     te_rng_seed: int = 1234,
 ) -> None:
     """Prepare a module (assumed ComposerModel) and optimizer for use with :class:`torch.distributed.fsdp.FullyShardedDataParallel`.
@@ -211,10 +212,19 @@ def prepare_fsdp_module(
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer for `model`, assumed to have a single param group := model.parameters().
         fsdp_config (FSDPConfig): The FSDP config.
         precision: (Precision): The precision being used by the Trainer, used to fill in defaults for FSDP `mixed_precision` settings.
-        device (Device): The device being used by the Trainer.
+        device  The device being used by the Trainer.
         auto_microbatching (bool, optional): Whether or not auto microbatching is enabled.
         te_rng_seed(int): The seed to use for the Transformer Engine activation checkpointing RNG. Defaults to 1234.
     """
+    device = get_device(device)
+    
+    if precision is None:
+        precision = Precision.AMP_FP16 if isinstance(device, DeviceGPU) else Precision.FP32
+    elif isinstance(precision, str):
+        precision = Precision(precision)
+    _validate_precision(precision, device)
+
+
     # Check sync_module_states is True for mixed initialization or HSDP
     if fsdp_config.sync_module_states == False:
         rank_on_meta = 1 if next(model.parameters()).device.type == 'meta' else 0
