@@ -2792,6 +2792,7 @@ class Trainer:
                 else:
                     raise
 
+            print("MADE IT HERE")
             if self.state.auto_microbatching:
                 all_ranks_finished = False
                 while not all_ranks_finished:
