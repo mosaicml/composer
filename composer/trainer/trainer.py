@@ -2763,16 +2763,20 @@ class Trainer:
                     print("made it in if")
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
+                            print("in grad")
                             self.state.scaler.step(
                                 optimizer,
                                 closure=lambda loss_dict=total_loss_dict,
                                 **kwargs: self._train_microbatches(microbatches, loss_dict, **kwargs),
                             )
+                            print("out grad")
                         else:
+                            print("in not grad")
                             optimizer.step(
                                 closure=lambda loss_dict=total_loss_dict,
                                 **kwargs: self._train_microbatches(microbatches, loss_dict, **kwargs).item(),
                             )
+                            print("out not grad")
                     print("made it out if")
                 else:
                     print("made it in else")
