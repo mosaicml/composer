@@ -3093,15 +3093,19 @@ class Trainer:
             microbatch_loss_dict = {}
             # If total loss key is present, copy loss
             if isinstance(self.state.loss, dict) and ('total' in self.state.loss):
+                print("microbatch_loss = self.state.loss['total'] ")
                 microbatch_loss = self.state.loss['total']  # type: ignore
                 microbatch_loss_dict = self.state.loss.copy()
+                print("microbatch_loss")
             # If total loss key is not present, sum individual losses
             else:
                 microbatch_loss = self.state.device.tensor_to_device(torch.zeros(size=(1,)))
+                print("microbatch_loss = self.state.device.tensor_to_device(torch.zeros(size=(1,))) ")
                 for loss in ensure_tuple(self.state.loss):
                     assert isinstance(loss, torch.Tensor)
                     microbatch_loss.add_(loss.mean())
 
+                print(microbatch_loss)
                 # Copy the loss if it is a dictionary
                 if isinstance(self.state.loss, dict):
                     microbatch_loss_dict = self.state.loss.copy()
