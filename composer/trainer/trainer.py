@@ -3067,6 +3067,7 @@ class Trainer:
                 all_ranks_finished_tensor = self.state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
                 dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
 
+                print("exiting block")
                 if found_cuda_oom == 1:
                     raise RuntimeError('CUDA out of memory encountered on a different rank')
 
