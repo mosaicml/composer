@@ -3128,7 +3128,9 @@ class Trainer:
             else:
                 print("e")
                 # Scale loss based on the number of samples in the microbatch to maintain gradient numerics
+                print(microbatch_size / current_batch_size)
                 microbatch_loss.mul_(microbatch_size / current_batch_size)
+                print("mul successful")
                 microbatch_loss.backward(create_graph=self._backwards_create_graph)
                 print("f")
             if self.state.device.dist_backend == 'xla':
