@@ -3136,7 +3136,13 @@ class Trainer:
                 print(microbatch_size / current_batch_size)
                 microbatch_loss.mul_(microbatch_size / current_batch_size)
                 print("mul successful")
+                for i in range(8):
+                    print(i)
+                    print(torch.cuda.memory_summary(device=i))
                 microbatch_loss.backward(create_graph=self._backwards_create_graph)
+                for i in range(8):
+                    print(i)
+                    print(torch.cuda.memory_summary(device=i))
                 print("f")
             if self.state.device.dist_backend == 'xla':
                 print("g")
