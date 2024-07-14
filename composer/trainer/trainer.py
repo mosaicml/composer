@@ -2759,7 +2759,6 @@ class Trainer:
                 assert self.state.device_train_microbatch_size is not None
                 microbatches = self._train_data_spec.split_batch(device_batch, self.state.device_train_microbatch_size)
                 print("split")
-                print(microbatches)
                 if self._use_closures():
                     print("made it in if")
                     for optimizer in self.state.optimizers:
@@ -3059,10 +3058,12 @@ class Trainer:
             # happen when close to memory limit or with uneven memory usage across ranks
             if self.state.auto_microbatching:
                 # Check if any other rank hit an OOM
+                print("blocking for OOM")
                 found_cuda_oom_tensor = self.state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
                 dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
                 found_cuda_oom = found_cuda_oom_tensor.item()
                 # Signal current rank is still in batch
+                print("blocking for finish")
                 all_ranks_finished_tensor = self.state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
                 dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
 
