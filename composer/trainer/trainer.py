@@ -3118,9 +3118,10 @@ class Trainer:
 
             print("a")
             if use_grad_scaling:
+                print("b")
                 microbatch_loss = cast(torch.Tensor, self.state.scaler.scale(microbatch_loss))  # type: ignore
 
-            print("b")
+            
             if self.state.deepspeed_enabled:
                 print("c")
                 self.state.deepspeed_model.backward(microbatch_loss)
