@@ -3073,6 +3073,7 @@ class Trainer:
 
             # Loss
             self.engine.run_event(Event.BEFORE_LOSS)
+            print("Before loss")
 
             with _get_precision_context(
                 self.state.precision,
@@ -3083,9 +3084,11 @@ class Trainer:
 
             assert self.state.loss is not None
             self.engine.run_event(Event.AFTER_LOSS)
+            print("After loss")
 
             # Backward Pass
             self.engine.run_event(Event.BEFORE_BACKWARD)
+            print("Before backward")
 
             microbatch_loss_dict = {}
             # If total loss key is present, copy loss
@@ -3108,7 +3111,7 @@ class Trainer:
 
                 # Include total loss
                 microbatch_loss_dict['total'] = microbatch_loss
-
+            print("mid")
             # For each loss to log: detach, clone, mean, then multiply by (microbatch size) / (batch size)
             for k, loss in microbatch_loss_dict.items():
                 microbatch_loss_dict[k] = loss.detach().clone().mean() * (microbatch_size / current_batch_size)
@@ -3129,7 +3132,7 @@ class Trainer:
                 xm.mark_step()
 
             self.engine.run_event(Event.AFTER_BACKWARD)
-
+            print("After backward")
             # Use microbatch outputs to update training metrics
             if (
                 self.state.train_metrics is not None and  # pyright: ignore[reportUnnecessaryComparison]
@@ -3140,7 +3143,7 @@ class Trainer:
 
         if self.state.deepspeed_enabled:
             self.state.deepspeed_model.step()
-
+        print("exit train microbatch")
         return microbatch_loss_dict
 
     def _increment_iteration(self):
