@@ -2876,6 +2876,19 @@ class Trainer:
                             median_microbatch_size =  int((first_non_oom_microbatch_size + last_oom_microbatch_size) // 2)
                             self.state.device_train_microbatch_size = median_microbatch_size
                             num_search_steps += 1
+                            
+                            # Clear gradients in case failure happened during backwards pass
+                            if hasattr(self.state, 'outputs'):
+                                del self.state.outputs
+                            if hasattr(self.state, 'loss'):
+                                del self.state.loss
+                            for optimizer in self.state.optimizers:
+                                optimizer.zero_grad(set_to_none=True)
+                            if self.state.scaler is not None:
+                                self.state.scaler._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
+                            _fsdp_reshard_and_cleanup(self.state.model)
+                            torch.cuda.empty_cache()
+                    
                             continue
                     
             
