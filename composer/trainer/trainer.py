@@ -2759,6 +2759,7 @@ class Trainer:
                 assert self.state.device_train_microbatch_size is not None
                 microbatches = self._train_data_spec.split_batch(device_batch, self.state.device_train_microbatch_size)
                 print("split")
+                print(microbatches)
                 if self._use_closures():
                     print("made it in if")
                     for optimizer in self.state.optimizers:
