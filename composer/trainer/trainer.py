@@ -2754,32 +2754,23 @@ class Trainer:
             }
             found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
             try:
-                print("made it in try")
                 assert self.state.scaler is not None
                 assert self.state.device_train_microbatch_size is not None
                 microbatches = self._train_data_spec.split_batch(device_batch, self.state.device_train_microbatch_size)
-                print("split")
                 if self._use_closures():
-                    print("made it in if")
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
-                            print("in grad")
                             self.state.scaler.step(
                                 optimizer,
                                 closure=lambda loss_dict=total_loss_dict,
                                 **kwargs: self._train_microbatches(microbatches, loss_dict, **kwargs),
                             )
-                            print("out grad")
                         else:
-                            print("in not grad")
                             optimizer.step(
                                 closure=lambda loss_dict=total_loss_dict,
                                 **kwargs: self._train_microbatches(microbatches, loss_dict, **kwargs).item(),
                             )
-                            print("out not grad")
-                    print("made it out if")
                 else:
-                    print("made it in else")
                     self._train_microbatches(microbatches, total_loss_dict)
                     if not self.state.deepspeed_enabled:
                         for optimizer in self.state.optimizers:
@@ -2787,8 +2778,6 @@ class Trainer:
                                 self.state.scaler.step(optimizer)
                             else:
                                 optimizer.step()
-                    print("made it out else")
-                print("made it out try")
             except RuntimeError as e:
                 if self.state.auto_microbatching and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
@@ -2803,7 +2792,6 @@ class Trainer:
                 else:
                     raise
 
-            print("MADE IT HERE")
             if self.state.auto_microbatching:
                 all_ranks_finished = False
                 while not all_ranks_finished:
@@ -2922,7 +2910,6 @@ class Trainer:
                 pass and False to only sync gradients after each device has finished
                 computing a gradient on it's entire set of microbatches. (default: ``True``)
         """
-        print("enter micro")
         if ddp_sync or not isinstance(self.state.model, DistributedDataParallel):
             context = contextlib.nullcontext
         else:
@@ -2959,10 +2946,8 @@ class Trainer:
                     except TypeError:
                         optimizer.zero_grad()
 
-            print("made it to grad accum")
             # Tracker for gradient accumulation
             if self.accumulate_train_batch_on_tokens:
-                print("if accum")
                 current_batch_size = sum([self._train_data_spec.get_num_tokens_in_batch(b) for b in microbatches])
                 if current_batch_size == 0:
                     raise ValueError(
@@ -2972,15 +2957,12 @@ class Trainer:
                         ),
                     )
             else:
-                print("else accum")
                 current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(b) for b in microbatches])
            
-            print("made it to all reduce")
             # Average the current batch size across ranks, to ensure each rank contributes appropriately
             current_batch_size = self.state.device.tensor_to_device(torch.tensor(current_batch_size))
             dist.all_reduce(current_batch_size, reduce_operation='SUM')
             current_batch_size = current_batch_size.item() / dist.get_world_size()
-            print("finished all reduce")
             # Cache batch, which will be overwritten by microbatches. Restore after microbatches complete
             current_batch = self.state.batch
 
@@ -2988,7 +2970,6 @@ class Trainer:
                 is_final_microbatch = microbatch_idx + 1 == len(microbatches)
                 microbatch_loss_dict = self._train_microbatch(use_grad_scaling, current_batch_size, is_final_microbatch)
 
-                print("finished train microbatch")
                 # Aggregate each loss in microbatch_loss_dict into total_loss_dict
                 for k, microbatch_loss in microbatch_loss_dict.items():
                     loss_key = f'loss/train/{k}'
@@ -3004,7 +2985,6 @@ class Trainer:
                     self.state.scaler.unscale_(optimizer)
 
             self.engine.run_event(Event.AFTER_TRAIN_BATCH)
-            print("out micro")
             return total_loss_dict['loss/train/total']
         
 
@@ -3071,22 +3051,18 @@ class Trainer:
             # happen when close to memory limit or with uneven memory usage across ranks
             if self.state.auto_microbatching:
                 # Check if any other rank hit an OOM
-                print("blocking for OOM")
                 found_cuda_oom_tensor = self.state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
                 dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
                 found_cuda_oom = found_cuda_oom_tensor.item()
                 # Signal current rank is still in batch
-                print("blocking for finish")
                 all_ranks_finished_tensor = self.state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
                 dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
 
-                print("exiting block")
                 if found_cuda_oom == 1:
                     raise RuntimeError('CUDA out of memory encountered on a different rank')
 
             # Loss
             self.engine.run_event(Event.BEFORE_LOSS)
-            print("Before loss")
 
             with _get_precision_context(
                 self.state.precision,
@@ -3097,28 +3073,22 @@ class Trainer:
 
             assert self.state.loss is not None
             self.engine.run_event(Event.AFTER_LOSS)
-            print("After loss")
 
             # Backward Pass
             self.engine.run_event(Event.BEFORE_BACKWARD)
-            print("Before backward")
 
             microbatch_loss_dict = {}
             # If total loss key is present, copy loss
             if isinstance(self.state.loss, dict) and ('total' in self.state.loss):
-                print("microbatch_loss = self.state.loss['total'] ")
                 microbatch_loss = self.state.loss['total']  # type: ignore
                 microbatch_loss_dict = self.state.loss.copy()
-                print("microbatch_loss")
             # If total loss key is not present, sum individual losses
             else:
                 microbatch_loss = self.state.device.tensor_to_device(torch.zeros(size=(1,)))
-                print("microbatch_loss = self.state.device.tensor_to_device(torch.zeros(size=(1,))) ")
                 for loss in ensure_tuple(self.state.loss):
                     assert isinstance(loss, torch.Tensor)
                     microbatch_loss.add_(loss.mean())
 
-                print(microbatch_loss)
                 # Copy the loss if it is a dictionary
                 if isinstance(self.state.loss, dict):
                     microbatch_loss_dict = self.state.loss.copy()
@@ -3128,42 +3098,27 @@ class Trainer:
 
                 # Include total loss
                 microbatch_loss_dict['total'] = microbatch_loss
-            print("mid")
             # For each loss to log: detach, clone, mean, then multiply by (microbatch size) / (batch size)
             for k, loss in microbatch_loss_dict.items():
                 microbatch_loss_dict[k] = loss.detach().clone().mean() * (microbatch_size / current_batch_size)
 
-            print("a")
             if use_grad_scaling:
-                print("b")
                 microbatch_loss = cast(torch.Tensor, self.state.scaler.scale(microbatch_loss))  # type: ignore
 
             
             if self.state.deepspeed_enabled:
-                print("c")
                 self.state.deepspeed_model.backward(microbatch_loss)
-                print("d")
             else:
-                print("e")
                 # Scale loss based on the number of samples in the microbatch to maintain gradient numerics
-                print(microbatch_size / current_batch_size)
                 microbatch_loss.mul_(microbatch_size / current_batch_size)
-                print("mul successful")
-                
-                print(torch.cuda.memory_summary(device=0))
+
                 microbatch_loss.backward(create_graph=self._backwards_create_graph)
-                print("backward successful")
-                print(torch.cuda.memory_summary(device=0))
-                print("f")
             if self.state.device.dist_backend == 'xla':
-                print("g")
                 # For xla devices, the program between any pair of mark_steps() calls is compiled. With out this, the
                 # microbatching loop is unrolled, drastically increasing compile time.
                 xm.mark_step()
-                print("h")
 
             self.engine.run_event(Event.AFTER_BACKWARD)
-            print("After backward")
             # Use microbatch outputs to update training metrics
             if (
                 self.state.train_metrics is not None and  # pyright: ignore[reportUnnecessaryComparison]
@@ -3174,7 +3129,6 @@ class Trainer:
 
         if self.state.deepspeed_enabled:
             self.state.deepspeed_model.step()
-        print("exit train microbatch")
         return microbatch_loss_dict
 
     def _increment_iteration(self):
