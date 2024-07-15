@@ -51,16 +51,21 @@ class MlflowMonitorProcess(multiprocessing.Process):
         from mlflow import MlflowClient
 
         print('GEEZ START CHECKING STATUS!!')
+        print('GEEZ START SHITTY DANCING!!')
 
         while not self.exit_event.wait(10):
-            main_process = psutil.Process(self.main_pid)
-            if main_process.is_running() and main_process.status() != psutil.STATUS_ZOMBIE:
+            try:
+                # Signal 0 does not kill the process but performs error checking
+                os.kill(self.main_pid, 0)
                 print('GEEZ MAIN PROCESS IS ALIVE!')
-                continue
-            print('GEEZ MAIN PROCESS IS NOT ALIVE!')
-            self.crashed.set()
-            break
-        if self.crashed.is_set():
+            except OSError:
+                print('GEEZ MAIN PROCESS IS NOT ALIVE!')
+                client = MlflowClient(self.mlflow_tracking_uri)
+                client.set_terminated(self.mlflow_run_id, status='FAILED')
+                break
+
+        if self.crashed.set():
+            print("GEEZ CRASH DETECED! SETTING MLFLOW STATUS AS FAILED")
             client = MlflowClient(self.mlflow_tracking_uri)
             client.set_terminated(self.mlflow_run_id, status='FAILED')
         print('Monitor process exiting gracefully.')
@@ -69,6 +74,7 @@ class MlflowMonitorProcess(multiprocessing.Process):
         self.exit_event.set()
 
     def crash(self):
+        print("GEEZ I AM CRASHING MLFLOW!")
         self.crashed.set()
         self.exit_event.set()
 
@@ -607,8 +613,17 @@ class MLFlowLogger(LoggerDestination):
         self._is_in_atexit = True
 
     def post_close(self):
-        print('GEEZ EXECUTING POST CLOSE!')
+        print('GEEZ I AM AT POST CLOSE WITH RANK: ', dist.get_global_rank())
+        print("GEEZ AM I AT EXIT? ", self._is_in_atexit)
+
+        if self._is_in_atexit:
+            print('GEEZ I AM IN AT EXIT!')
+            self.monitor_process.crash()
+            return
+
+
         if self._enabled:
+            print('GEEZ EXECUTING TRUE POST CLOSE!')
             import mlflow
 
             assert isinstance(self._run_id, str)
