@@ -1106,6 +1106,7 @@ class Trainer:
         # track batch and microbatch
         self.batch_number = 1
         self.microbatch_number =1 
+        self.iteration = 1
 
         self.auto_log_hparams = auto_log_hparams
         self.python_log_level = python_log_level
@@ -2746,11 +2747,11 @@ class Trainer:
         i = 1
 
         torch.cuda.memory._record_memory_history()
-        
+
         while True:
             # Reset train_metrics on every batch
             # Placing reset here ensures that if auto grad accum catches an OOM, incomplete metric state is cleared
-
+            self.iteration = i
             log.info("Iteration " + str(i) +": " + str(self.state.device_train_microbatch_size))
             i+=1
 
@@ -3126,8 +3127,8 @@ class Trainer:
                 os.makedirs(folder_name, exist_ok=True)
                 _, _, remote_path_in_bucket = parse_uri(remote_file_name)
 
-                filename_before = 'rank{rank}.memory_snapshot_before_ba_' + str(self.batch_number) + '_microba_' + str(self.microbatch_number) + '.html'
-                filename_after = 'rank{rank}.memory_snapshot_after_ba_' + str(self.batch_number) + '_microba_' + str(self.microbatch_number) + '.html'
+                filename_before = 'rank{rank}.memory_snapshot_before_ba_' + str(self.batch_number) + '_microba_' + str(self.microbatch_number) + "_iter_" + str(self.iteration) + '.html'
+                filename_after = 'rank{rank}.memory_snapshot_after_ba_' + str(self.batch_number) + '_microba_' + str(self.microbatch_number) + "_iter_" + str(self.iteration) + '.html'
                 filename_before = os.path.join(
                     folder_name,
                     format_name_with_dist_and_time(filename_before, run_name=self.state.run_name, timestamp=self.state.timestamp),
