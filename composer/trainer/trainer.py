@@ -3142,7 +3142,7 @@ class Trainer:
                 with open(filename_before, 'w+') as fd:
                     fd.write(torch.cuda._memory_viz.trace_plot(snapshot_before))  # type: ignore
                 remote_file_name = os.path.join(remote_path_in_bucket, os.path.basename(filename_before)).lstrip('/')
-                self.logger.upload_file(remote_file_name=remote_file_name, file_path=snapshot_before, overwrite=False)
+                self.logger.upload_file(remote_file_name=remote_file_name, file_path=filename_before, overwrite=False)
 
                 microbatch_loss.backward(create_graph=self._backwards_create_graph)
                 print("backward success")
@@ -3150,7 +3150,7 @@ class Trainer:
                 with open(filename_after, 'w+') as fd:
                     fd.write(torch.cuda._memory_viz.trace_plot(snapshot_after))  # type: ignore
                 remote_file_name = os.path.join(remote_path_in_bucket, os.path.basename(filename_after)).lstrip('/')
-                self.logger.upload_file(remote_file_name=remote_file_name, file_path=snapshot_after, overwrite=False)
+                self.logger.upload_file(remote_file_name=remote_file_name, file_path=filename_after, overwrite=False)
 
 
             
