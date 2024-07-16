@@ -134,6 +134,8 @@ from composer.utils import (
     reproducibility,
 )
 
+from composer.utils import format_name_with_dist_and_time
+
 if is_xla_installed():
     import torch_xla.core.xla_model as xm
     import torch_xla.distributed.parallel_loader as pl
@@ -1101,6 +1103,10 @@ class Trainer:
         # compile config for PyTorch 2.0 or higher
         compile_config: Optional[dict[str, Any]] = None,
     ):
+        # track batch and microbatch
+        self.batch_number = 1
+        self.microbatch_number =1 
+
         self.auto_log_hparams = auto_log_hparams
         self.python_log_level = python_log_level
         if self.python_log_level is not None:
@@ -2891,6 +2897,7 @@ class Trainer:
                 )
             self.logger.log_metrics({'trainer/device_train_microbatch_size': self.state.device_train_microbatch_size})
             self.first_batch_complete = True
+            self.batch_number += 1
             return total_loss_dict
 
 
@@ -2966,6 +2973,7 @@ class Trainer:
             # Cache batch, which will be overwritten by microbatches. Restore after microbatches complete
             current_batch = self.state.batch
 
+            self.microbatch_number = 1
             for microbatch_idx, self.state.batch in enumerate(microbatches):
                 is_final_microbatch = microbatch_idx + 1 == len(microbatches)
                 microbatch_loss_dict = self._train_microbatch(use_grad_scaling, current_batch_size, is_final_microbatch)
@@ -3109,10 +3117,43 @@ class Trainer:
             if self.state.deepspeed_enabled:
                 self.state.deepspeed_model.backward(microbatch_loss)
             else:
+                remote_file_name = self.state.run_name + "/torch_memory_traces"
+                folder = self.state.run_name + "/torch_traces"
+                folder_name = format_name_with_dist(folder, self.state.run_name)
+                os.makedirs(folder_name, exist_ok=True)
+                _, _, remote_path_in_bucket = parse_uri(remote_file_name)
+
+                filename_before = 'rank{rank}.memory_snapshot_before_ba_' + str(self.batch_number) + '_microba_' + str(self.microbatch_number) + '.html'
+                filename_after = 'rank{rank}.memory_snapshot_after_ba_' + str(self.batch_number) + '_microba_' + str(self.microbatch_number) + '.html'
+                filename_before = os.path.join(
+                    folder_name,
+                    format_name_with_dist_and_time(filename_before, run_name=self.state.run_name, timestamp=self.state.timestamp),
+                )
+                filename_after = os.path.join(
+                    folder_name,
+                    format_name_with_dist_and_time(filename_after, run_name=self.state.run_name, timestamp=self.state.timestamp),
+                )
+                
                 # Scale loss based on the number of samples in the microbatch to maintain gradient numerics
                 microbatch_loss.mul_(microbatch_size / current_batch_size)
 
+                print("mul success")
+                snapshot_before = torch.cuda.memory._snapshot()
+                with open(filename_before, 'w+') as fd:
+                    fd.write(torch.cuda._memory_viz.trace_plot(snapshot_before))  # type: ignore
+                remote_file_name = os.path.join(remote_path_in_bucket, os.path.basename(filename_before)).lstrip('/')
+                self.logger.upload_file(remote_file_name=remote_file_name, file_path=snapshot_before, overwrite=False)
+
                 microbatch_loss.backward(create_graph=self._backwards_create_graph)
+                print("backward success")
+                snapshot_after = torch.cuda.memory._snapshot()
+                with open(filename_after, 'w+') as fd:
+                    fd.write(torch.cuda._memory_viz.trace_plot(snapshot_after))  # type: ignore
+                remote_file_name = os.path.join(remote_path_in_bucket, os.path.basename(filename_after)).lstrip('/')
+                self.logger.upload_file(remote_file_name=remote_file_name, file_path=snapshot_after, overwrite=False)
+
+
+            
             if self.state.device.dist_backend == 'xla':
                 # For xla devices, the program between any pair of mark_steps() calls is compiled. With out this, the
                 # microbatching loop is unrolled, drastically increasing compile time.
@@ -3129,6 +3170,7 @@ class Trainer:
 
         if self.state.deepspeed_enabled:
             self.state.deepspeed_model.step()
+        self.microbatch_number += 1
         return microbatch_loss_dict
 
     def _increment_iteration(self):
