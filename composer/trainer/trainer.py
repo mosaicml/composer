@@ -2744,6 +2744,9 @@ class Trainer:
 
         # Retry until we successfully complete training and return loss
         i = 1
+
+        torch.cuda.memory._record_memory_history()
+        
         while True:
             # Reset train_metrics on every batch
             # Placing reset here ensures that if auto grad accum catches an OOM, incomplete metric state is cleared
