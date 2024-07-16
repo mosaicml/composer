@@ -724,7 +724,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         tensor_keys = ['input_ids', 'attention_mask']
         list_keys = ['labels']
         super().__init__(
-            padding_side='left',
+            padding_side='right',
             tokenize_labels=False,
             static_keys=static_keys,
             list_keys=list_keys,
