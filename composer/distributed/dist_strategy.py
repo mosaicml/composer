@@ -580,8 +580,8 @@ def prepare_fsdp_module(
                 for name, module in fsdp_obj.named_modules():
                     if isinstance(module, FullyShardedDataParallel):
                         log.info(f"bigning debug install hook for {name}")
-                        module.register_forward_pre_hook(sync_hook)
-                        module.register_full_backward_pre_hook(sync_hook)
+                        module.register_forward_pre_hook(sync_hook, prepend=True)
+                        module.register_full_backward_pre_hook(sync_hook, prepend=True)
 
             if hasattr(fsdp_obj, '_exec_order_data'):
                 if hasattr(fsdp_obj._exec_order_data, '_forward_prefetch_limit'):
