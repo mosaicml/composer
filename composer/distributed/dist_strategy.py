@@ -39,6 +39,7 @@ log = logging.getLogger(__name__)
 
 process_group_cache = {}
 
+sync_hook_counter = 0
 
 class DDPSyncStrategy(StringEnum):
     """How and when gradient synchronization should happen.
@@ -129,7 +130,7 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) ->
         if any((p.requires_grad for p in module.parameters())):
             log.debug('Wrapping model with DistributedDataParallel')
             ddp_model = DistributedDataParallel(module, find_unused_parameters=find_unused_parameters)
-            return ddp_model
+            return ddp_model 
         return module
     if dist.is_available():
         raise RuntimeError('Please call dist.initialize_dist() before calling ddp.prepare_module()')
@@ -237,15 +238,17 @@ def prepare_fsdp_module(
     def sync_hook(*args):
         # Check if any other rank hit an OOM
         found_cuda_oom_tensor = device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
-        
+        #print("waiting for OOM")
         dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
         found_cuda_oom = found_cuda_oom_tensor.item()
         # Signal current rank is still in batch
         all_ranks_finished_tensor = device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
-        
+        #print("waiting for finish")
         dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
-
-        
+        #print("done syncing")
+        global sync_hook_counter
+        sync_hook_counter += 1
+        print(sync_hook_counter)
         if found_cuda_oom == 1:
             raise RuntimeError('CUDA out of memory encountered on a different rank')
 
