@@ -2905,6 +2905,7 @@ class Trainer:
             self.logger.log_metrics({'trainer/device_train_microbatch_size': self.state.device_train_microbatch_size})
             self.first_batch_complete = True
             self.batch_number += 1
+            self.engine.run_event(Event.AFTER_TRAIN_BATCH)
             return total_loss_dict
 
 
@@ -2999,7 +3000,7 @@ class Trainer:
                 for optimizer in ensure_tuple(self.state.optimizers):
                     self.state.scaler.unscale_(optimizer)
 
-            self.engine.run_event(Event.AFTER_TRAIN_BATCH)
+            #self.engine.run_event(Event.AFTER_TRAIN_BATCH)
             return total_loss_dict['loss/train/total']
         
 
