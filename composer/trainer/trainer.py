@@ -2809,16 +2809,16 @@ class Trainer:
                     found_cuda_oom_tensor = self.state.device.tensor_to_device(
                         torch.tensor([found_cuda_oom], dtype=torch.uint8),
                     )
-                    print("waiting for OOM")
+                    print("waiting for OOM in train_batch")
                     dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
                     found_cuda_oom = found_cuda_oom_tensor.item()
                     # Check if any rank is still not done with the batch. This may happen if only a
                     # subset of ranks OOM, leaving some batches still in the forward pass
                     all_ranks_finished_tensor = self.state.device.tensor_to_device(torch.tensor([1], dtype=torch.uint8))
-                    print("waiting for finish")
+                    print("waiting for finish in train_batch")
                     dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
                     all_ranks_finished = all_ranks_finished_tensor.item() == 1
-                    print("done syncing")
+                    print("done syncing in train_batch")
                 if found_cuda_oom == 1:
                     last_oom_microbatch_size = self.state.device_train_microbatch_size
                     if num_search_steps == 0:
