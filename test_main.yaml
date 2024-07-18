@@ -1,0 +1,151 @@
+integrations:
+- integration_type: git_repo
+  git_repo: mosaicml/llm-foundry
+  git_branch: v0.10.0
+  pip_install: .[gpu-flash2]
+- integration_type: git_repo
+  git_repo: JackZ-db/composer
+  #git_branch: dev
+  git_branch: jz/auto_testing
+  #git_commit: 6df0e57
+  #git_branch: jz/dev_auto_profile
+  pip_install: .[all]
+
+scheduling:
+  priority: medium
+  preemptible: true
+
+
+command: |
+  cd llm-foundry/scripts
+  composer train/train.py /mnt/config/parameters.yaml
+  python inference/convert_composer_to_hf.py \
+    --composer_path ./mpt-125m-chinchilla-regression/checkpoints/latest-rank0.pt \
+    --hf_output_path ./hf-checkpoints/
+image: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
+name: mpt-30b-chinchilla-auto-sync
+
+#cluster: r1z2
+
+
+compute:
+  gpus: 8
+  cluster: r15z4p1
+  #cluster: r17z1p1
+
+parameters:
+  run_name: mpt-30b-chinchilla
+  
+  variables:
+    data_local: ./my-copy-c4
+    data_remote: oci://mosaicml-internal-regression-test/c4-copy/
+    max_seq_len: 4096
+    global_seed: 17
+
+  max_seq_len: ${variables.max_seq_len}
+  dist_timeout: 60
+
+  model:
+    name: mpt_causal_lm
+    init_device: meta
+    d_model: 7168
+    n_heads: 56
+    n_layers: 48
+    #d_model: 4096
+    #n_heads: 32
+    #n_layers: 32
+    expansion_ratio: 4
+    max_seq_len: ${variables.max_seq_len}
+    vocab_size: 50368
+    attn_config:
+      attn_impl: flash
+
+  tokenizer:
+    name: EleutherAI/gpt-neox-20b
+    kwargs:
+      model_max_length: ${variables.max_seq_len}
+
+  train_loader:
+    name: text
+    dataset:
+      local: ${variables.data_local}
+      remote: ${variables.data_remote}
+      split: train_small
+      shuffle: true
+      max_seq_len: ${variables.max_seq_len}
+      shuffle_seed: ${variables.global_seed}
+    drop_last: true
+    num_workers: 8
+
+  eval_loader:
+    name: text
+    dataset:
+      local: ${variables.data_local}
+      remote: ${variables.data_remote}
+      split: val_small
+      shuffle: false
+      max_seq_len: ${variables.max_seq_len}
+      shuffle_seed: ${variables.global_seed}
+    drop_last: false
+    num_workers: 8
+
+  scheduler:
+    name: cosine_with_warmup
+    t_warmup: 500ba
+    alpha_f: 0.1
+
+  optimizer:
+    name: decoupled_adamw
+    lr: 6.0e-4
+    betas:
+    - 0.9
+    - 0.95
+    eps: 1.0e-08
+    weight_decay: 0.0
+
+  algorithms:
+    gradient_clipping:
+      clipping_type: norm
+      clipping_threshold: 1.0
+
+  max_duration: 5ba
+  eval_interval: 50ba
+  eval_first: false
+  eval_subset_num_batches: -1
+  global_train_batch_size: 512
+
+  seed: ${variables.global_seed}
+  device_eval_batch_size: 16
+  device_train_microbatch_size: auto
+  precision: amp_bf16
+
+  fsdp_config:
+    sharding_strategy: FULL_SHARD
+    mixed_precision: PURE
+    activation_checkpointing: true
+    activation_checkpointing_reentrant: true
+    activation_cpu_offload: true
+    limit_all_gathers: true
+    verbose: false
+
+  progress_bar: false
+  log_to_console: true
+  console_log_interval: 1ba
+
+  callbacks:
+    speed_monitor:
+      window_size: 10
+    lr_monitor: {}
+    memory_monitor: {}
+    runtime_estimator: {}
+    #memory_snapshot: {}
+    #oom_observer: {}
+
+  save_interval: 500ba
+  save_folder: ./{run_name}/checkpoints
+
+  loggers:
+    mlflow: 
+      experiment_name: /Users/jack.zhang+intern@databricks.com/automicrobatch
+      run_name: 30b-h100-auto-branch-bf16-5ba-with-microsnaps-sync
+    #   group:   # Name of WandB group
