@@ -240,17 +240,17 @@ def prepare_fsdp_module(
         sync_hook_counter += 1
         # Check if any other rank hit an OOM
         found_cuda_oom_tensor = device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
-        if sync_hook_counter >= 500:
-            print("waiting for OOM sync hook " + str(sync_hook_counter)) 
+        #if sync_hook_counter >= 500:
+            #print("waiting for OOM sync hook " + str(sync_hook_counter)) 
         dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
         found_cuda_oom = found_cuda_oom_tensor.item()
         # Signal current rank is still in batch
         all_ranks_finished_tensor = device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
-        if sync_hook_counter >= 500:
-            print("waiting for finish sync hook " + str(sync_hook_counter))
+        #if sync_hook_counter >= 500:
+            #print("waiting for finish sync hook " + str(sync_hook_counter))
         dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
-        if sync_hook_counter >= 500:
-            print("done syncing sync hook " + str(sync_hook_counter))
+        #if sync_hook_counter >= 500:
+            #print("done syncing sync hook " + str(sync_hook_counter))
         
         if found_cuda_oom == 1:
             raise RuntimeError('CUDA out of memory encountered on a different rank')
