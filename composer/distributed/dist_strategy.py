@@ -580,22 +580,12 @@ def prepare_fsdp_module(
                 for name, module in fsdp_obj.named_modules():
                     if isinstance(module, FullyShardedDataParallel):
                         log.info(f"bigning debug install hook for {name}")
-                        # Wrap the original post_backward_hook with our sync_hook
-                        original_post_backward_hook = module._post_backward_hook
-                        def wrapped_post_backward_hook(*args, **kwargs):
-                            sync_hook()
-                            result = original_post_backward_hook(*args, **kwargs)
-                            sync_hook()
-                            return result
                         
-                        # Replace the original post_backward_hook with our wrapped version
-                        module._post_backward_hook = wrapped_post_backward_hook
-
-                        # Add other hooks as before
+                        
+                        module.register_full_backward_hook(sync_hook)
                         module.register_forward_pre_hook(sync_hook, prepend=True)
                         module.register_forward_hook(sync_hook)
                         module.register_full_backward_pre_hook(sync_hook, prepend=True)
-                        module.register_full_backward_hook(sync_hook)
 
             if hasattr(fsdp_obj, '_exec_order_data'):
                 if hasattr(fsdp_obj._exec_order_data, '_forward_prefetch_limit'):
