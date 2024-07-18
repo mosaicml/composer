@@ -92,6 +92,36 @@ def test_eval_with_nondivisible_dataset(world_size: int, size: int, batch_size: 
     assert count.item() == size
 
 
+from unittest.mock import patch
+
+
+@pytest.mark.gpu
+def test_amp_fp8_eval_casts_to_bf16():
+    # Check that we can import FP8 with TE. If not, skip this test.
+    try:
+        import transformer_engine  # pyright: ignore
+    except ImportError:
+        pytest.skip('Precision amp_fp8 requires transformer-engine to be installed',)
+
+    # Mocking the transformer_engine.pytorch.fp8_autocast and running model eval.
+    with patch('transformer_engine.pytorch.fp8_autocast') as mock_fp8_autocast:
+        # Construct the trainer
+        trainer = Trainer(model=SimpleModel(), device='gpu', precision='amp_fp8')
+        # Evaluate the model
+        dataset = RandomClassificationDataset()
+        trainer.eval(eval_dataloader=DataLoader(
+            dataset=dataset,
+            batch_size=10,
+            sampler=dist.get_sampler(dataset),
+        ),)
+
+    # Check that te.fp8_autocast was called with enabled=False.
+    # This ensures that we disable the FP8 context on eval.
+    actual_call = mock_fp8_autocast.call_args_list[0]
+    actual_call_args = actual_call._get_call_arguments()[1]
+    assert actual_call_args['enabled'] is False
+
+
 def test_eval_call_with_trainer_evaluators():
     trainer_dataset = RandomClassificationDataset()
     trainer_evaluator = Evaluator(

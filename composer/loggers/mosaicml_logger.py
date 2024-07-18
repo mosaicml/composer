@@ -97,10 +97,6 @@ class MosaicMLLogger(LoggerDestination):
     def log_metrics(self, metrics: dict[str, Any], step: Optional[int] = None) -> None:
         self.log_metadata(metrics)
 
-    def log_exception(self, exception: Exception):
-        self.log_metadata({'exception': exception_to_json_serializable_dict(exception)})
-        self._flush_metadata(force_flush=True)
-
     def after_load(self, state: State, logger: Logger) -> None:
         # Log model data downloaded and initialized for run events
         log.debug(f'Logging model initialized time to metadata')
@@ -137,6 +133,11 @@ class MosaicMLLogger(LoggerDestination):
         training_progress_data = self._get_training_progress_metrics(state)
         log.debug(f'\nLogging FINAL training progress data to metadata:\n{dict_to_str(training_progress_data)}')
         self.log_metadata(training_progress_data)
+        self._flush_metadata(force_flush=True)
+
+    def fit_start(self, state: State, logger: Logger) -> None:
+        # Log model training started time for run events
+        self.log_metadata({'train_started_time': time.time()})
         self._flush_metadata(force_flush=True)
 
     def eval_end(self, state: State, logger: Logger) -> None:
