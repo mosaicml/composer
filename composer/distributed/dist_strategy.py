@@ -521,9 +521,9 @@ def prepare_fsdp_module(
                         ret = obj.fsdp_wrap_fn(module)
                         if isinstance(ret, dict):
                             ret = set_custom_fsdp_module_kwargs(ret, process_group_cache)
-                    if ret and auto_microbatching:
-                        module.register_forward_hook(sync_hook)
-                        module.register_full_backward_hook(sync_hook)
+                    #if ret and auto_microbatching:
+                        #module.register_forward_hook(sync_hook)
+                        #module.register_full_backward_hook(sync_hook)
                     return ret
 
                 _auto_wrap_policy = CustomPolicy(lambda_fn)
@@ -540,9 +540,9 @@ def prepare_fsdp_module(
                     elif hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
                         should_be_wrapped = obj.fsdp_wrap_fn(module)
 
-                    if should_be_wrapped and auto_microbatching:
-                        module.register_forward_hook(sync_hook)
-                        module.register_full_backward_hook(sync_hook)
+                    #if should_be_wrapped and auto_microbatching:
+                        #module.register_forward_hook(sync_hook)
+                        #module.register_full_backward_hook(sync_hook)
                     return should_be_wrapped
 
                 def _auto_wrap_policy_new(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:
