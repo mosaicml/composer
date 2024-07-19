@@ -380,6 +380,8 @@ def parse_uri(uri: str) -> tuple[str, str, str]:
         tuple[str, str, str]: A tuple containing the backend (e.g. s3), bucket name, and path.
                               Backend name will be empty string if the input is a local path
     """
+    if isinstance(uri, pathlib.Path):
+        uri = str(uri)
     uri = uri.replace('AZURE_BLOBS', 'azure')  # urlparse does not support _ in scheme
     parse_result = urlparse(uri)
     backend, net_loc, path = parse_result.scheme, parse_result.netloc, parse_result.path

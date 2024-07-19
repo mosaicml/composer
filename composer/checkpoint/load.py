@@ -25,6 +25,11 @@ from composer.distributed import prepare_fsdp_module
 import pickle
 from composer.checkpoint.download import download_monolithic_checkpoint
 from pathlib import Path
+from torch.distributed.fsdp import FlatParameter
+from torch.optim import Optimizer
+from torch.distributed._tensor import DTensor
+from torch.distributed.fsdp import FlatParameter
+from torch.distributed._shard.sharded_tensor import ShardedTensor
 
 
 log = logging.getLogger(__name__)
@@ -40,7 +45,7 @@ class CheckpointLoadOptions:
     include_keys: Optional[Union[str, Sequence[str]]] = None
     ignore_keys: Optional[Union[str, Sequence[str]]] = None
     sharded_checkpoint: bool = False # TODO: Auto-detect sharded
-    shard_as_needed_during_load: bool
+    shard_as_needed_during_load: bool = False
     strict: bool = False
     # Load precision.
     precision: str = 'fp32'
@@ -85,7 +90,7 @@ def load_model_checkpoint(
     include_keys: Optional[Union[str, Sequence[str]]] = None,
     ignore_keys: Optional[Union[str, Sequence[str]]] = None,
     precision: str = 'fp32',
-    fsdp_config: Optional[FSDPConfig] = None,
+    fsdp_config: Optional[Union[FSDPConfig, dict]] = None,
     strict: bool = False,
     device_mesh: Optional[DeviceMesh]=None,
     sharded_checkpoint: bool = False,
@@ -106,11 +111,14 @@ def load_model_checkpoint(
         sharded_checkpoint (bool): If the checkpoint is sharded or not.
         planner (Optional[LoadPlanner]): The planner to use for loading the checkpoint.
     """
+    if fsdp_config is None:
+        fsdp_config = {}
     if include_keys is not None and ignore_keys is not None:
         raise ValueError("Only one of include_keys or ignore_keys can be specified.")
     
     if include_keys is not None or ignore_keys is not None:
         strict = True
+    #assert seed == 1, f"{sharded_checkpoint=}, sharded_model={_is_model_fsdp(model)}, {shard_as_needed_during_load=}"
     if sharded_checkpoint:
         if not _is_model_fsdp(model):
             if shard_as_needed_during_load:
@@ -126,11 +134,18 @@ def load_model_checkpoint(
         _load_unsharded_model_checkpoint(model, load_path, include_keys=include_keys, ignore_keys=ignore_keys, strict=strict, precision=precision)
         if optimizer is not None:
             _load_unsharded_optim_checkpoint(model, optimizer, load_path, precision=precision)
-        if shard_as_needed_during_load:
-            _shard_model_and_optimizer(model, optimizer, fsdp_config, precision, seed)
+
+        if shard_as_needed_during_load and not _is_model_fsdp(model):
+            if fsdp_config == {}:
+                fsdp_config = {'sync_module_states': True}
+            else:
+                fsdp_config.sync_module_states = True
+            _shard_model_and_optimizer(model, optimizer, fsdp_config, precision=precision, seed=seed)
 
 
 def _shard_model_and_optimizer(model, optimizer, fsdp_config, precision, seed):
+    if not isinstance(fsdp_config, FSDPConfig):
+        fsdp_config = FSDPConfig(**fsdp_config)
     with reproducibility.seed_context(seed):
         prepare_fsdp_module(
             model,
@@ -167,10 +182,10 @@ def _load_unsharded_model_checkpoint(model: ComposerModel,
                                     ignore_keys: Optional[Union[str, Sequence[str]]] = None,
                                     precision: str = 'fp32',
                                     strict: bool = False):
-    
-    if not _is_model_fsdp(model):
-        raise NotImplementedError("Model is sharded but checkpoint is not sharded. Please pass in an unwrapped model!")
-
+    if dist.get_global_rank() != 0:
+        return
+    if _is_model_fsdp(model):
+        raise ValueError("Model is sharded but checkpoint is not sharded. Please pass in a model not wrapped with FSDP.")
     load_path_is_remote = is_uri(load_path)
     download_dir_context = tempfile.TemporaryDirectory if load_path_is_remote else contextlib.nullcontext
     with download_dir_context() as download_dir:
@@ -180,20 +195,18 @@ def _load_unsharded_model_checkpoint(model: ComposerModel,
             file_path = os.path.join(download_dir, filename)
             download_monolithic_checkpoint(load_path, download_dir)
 
-        if dist.get_global_rank() == 0:
-            model_state_dict = _torch_load_with_validation(file_path)
-            if include_keys is not None:
-                model_state_dict = _extract_keys_from_state_dict(model_state_dict, include_keys)
-            if ignore_keys is not None:
-                model_state_dict = _remove_keys_from_state_dict(model_state_dict, ignore_keys)
-            # TODO: raise warning for unknown or missing keys.
-            if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
-                torch_set_model_state_dict(model, model_state_dict, strict=strict, options=StateDictOptions(cpu_offload=False, full_state_dict=True))
-            else:
-                if _is_model_fsdp(model):
-                    _load_model_state_dict_with_fsdp_context_manager(model, model_state_dict, sharded_state_dict=False, strict=strict)
-                else:
-                    model.load_state_dict(model_state_dict, strict=strict)
+
+        model_state_dict = _torch_load_with_validation(file_path, map_location='cpu')
+        model_state_dict = _cast_state_dict_to_precision(model_state_dict, precision)
+        if include_keys is not None:
+            model_state_dict = _extract_keys_from_state_dict(model_state_dict, include_keys)
+        if ignore_keys is not None:
+            model_state_dict = _remove_keys_from_state_dict(model_state_dict, ignore_keys)
+        # TODO: raise warning for unknown or missing keys.
+        if version.parse(torch.__version__) >= version.parse('2.3.0')  and dist.is_initialized():
+            torch_set_model_state_dict(model, model_state_dict, strict=strict, options=StateDictOptions(cpu_offload=False, full_state_dict=True))
+        else:
+            model.load_state_dict(model_state_dict, strict=strict)
 
 
 def load_optim_checkpoint(
@@ -227,6 +240,10 @@ def _load_sharded_optim_checkpoint(
     device_mesh: Optional[DeviceMesh]=None,
     planner: Optional[LoadPlanner] = None,
 ):
+    if not _is_model_fsdp(model):
+        raise ValueError("Model is not sharded but checkpoint is sharded. Please either use load_model_checkpoint(model, load_path, optimizer, shard_as_needed_during_load=True) or pass in a model wrapped with FSDP.")
+    # if not _is_optimizer_sharded(optim):
+    #     raise ValueError("Optimizer is not sharded but checkpoint is sharded. Please pass in a sharded optimizer by passing a sharded model's parameters to an optimizer constructor.")
     optim_state_dict = get_optim_state_dict(model, optim, sharded_state_dict=True)
     optim_state_dict = download_and_load_sharded_state_dict(load_path, device_mesh, optim_state_dict, planner)
     for param_key, param_state_dict in optim_state_dict['state'].items():
@@ -238,8 +255,11 @@ def _load_unsharded_optim_checkpoint(
     optim: torch.optim.Optimizer,
     load_path: str,
     precision: str = 'fp32',
-    strict: bool = False
 ):
+    if _is_model_fsdp(model):
+        raise ValueError("Model is sharded, but checkpoint is not sharded. Please pass in a model unwrapped from FSDP.")
+    # if _is_optimizer_sharded(optim):
+    #     raise ValueError("Optimizer is sharded, but checkpoint is not sharded. Please pass in an unsharded optimizer by passing an unsharded model's parameters to an optimizer constructor.")
     load_path_is_remote = is_uri(load_path)
     download_dir_context = tempfile.TemporaryDirectory if load_path_is_remote else contextlib.nullcontext
     with download_dir_context() as download_dir:
@@ -250,10 +270,10 @@ def _load_unsharded_optim_checkpoint(
             download_monolithic_checkpoint(load_path, file_path)
 
         if dist.get_global_rank() == 0:
-            optim_state_dict = _torch_load_with_validation(file_path)
+            optim_state_dict = _torch_load_with_validation(file_path, map_location='cpu')
             for param_key, param_state_dict in optim_state_dict['state'].items():
                 optim_state_dict['state'][param_key] = _cast_state_dict_to_precision(param_state_dict, precision)
-            optim.load_state_dict(optim_state_dict, strict=strict)
+            optim.load_state_dict(optim_state_dict)
 
 
 def _preprocess_local_load_path(load_path: str):
@@ -341,7 +361,8 @@ def download_and_load_sharded_state_dict(load_path: str, device_mesh: Optional[D
 
 
 def load_resumption_checkpoint(state: State, load_path: str):
-    resumption_state_dict = pickle.load(_ensure_valid_checkpoint(load_path))
+    load_path = _ensure_valid_checkpoint(load_path)
+    resumption_state_dict = pickle.load(open(load_path, 'rb'))
     if 'dataset_state' in resumption_state_dict:
         state._load_dataset_state(resumption_state_dict['dataset_state'])
     if 'timestamp' in resumption_state_dict:
@@ -356,15 +377,14 @@ def load_resumption_checkpoint(state: State, load_path: str):
     if 'algorithms' in resumption_state_dict:
         for algorithm in state.algorithms:
             fqn = type(algorithm).__qualname__
-            algorithm.load_state_dict(resumption_state_dict['algorithms'][fqn])
+            algorithm.load_state_dict(dict(resumption_state_dict['algorithms'])[fqn])
 
     if 'callbacks' in resumption_state_dict:
         for callback in state.callbacks:
             fqn = type(callback).__qualname__
-            callback.load_state_dict(resumption_state_dict['callbacks'][fqn])
+            callback.load_state_dict(dict(resumption_state_dict['callbacks'])[fqn])
 
     if 'scaler' in resumption_state_dict:
         fqn = type(state.scaler).__qualname__
         state.scaler.load_state_dict(resumption_state_dict['scaler'][fqn])
     
-

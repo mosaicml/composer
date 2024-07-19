@@ -1,0 +1,173 @@
+# Copyright 2024 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
+import os
+import uuid
+from pathlib import Path
+
+import pytest
+import torch
+from packaging import version
+
+from composer.checkpoint.load import load_model_checkpoint, load_optim_checkpoint
+from composer.checkpoint.save import save_model_to_disk, save_optim_to_disk
+from composer.checkpoint.state_dict import get_model_state_dict, _is_model_fsdp, get_optim_state_dict
+from composer.utils import dist
+from tests.checkpoint.helpers import init_model, init_model_and_optimizer
+from tests.common.compare import deep_compare
+from tests.common.markers import world_size
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+import contextlib
+from composer.checkpoint.load import load_resumption_checkpoint
+from composer.checkpoint.save import save_resumption_state_to_disk
+from tests.common.markers import world_size
+from tests.common.compare import deep_compare
+from tests.checkpoint.helpers import init_state
+import pickle
+
+from pathlib import Path
+
+from composer.core import  Time, TimeUnit
+from composer.utils import dist
+
+@pytest.mark.gpu
+@pytest.mark.parametrize(
+    'world_size,sharded_model,sharded_checkpoint,shard_as_needed_during_load',
+    [
+        #Loading an unsharded checkpoint into an unsharded model on a single GPU (not sharding after)
+        pytest.param(1, False, False, False, marks=pytest.mark.world_size(1)),
+        
+        # Loading a sharded checkpoint into a sharded model in distributed setting
+        pytest.param(2, True, True, False, marks=pytest.mark.world_size(2)),
+        
+        # SHOULD FAIL: Loading an unsharded checkpoint into a sharded model
+        pytest.param(2, True, False, False, marks=pytest.mark.world_size(2)),
+
+        # SHOULD FAIL: Attempting to load a sharded checkpoint into an unsharded model without sharding
+        pytest.param(2, False, True, False, marks=pytest.mark.world_size(2)),
+        
+        # Loading a sharded checkpoint into an unsharded model (sharding it before load)
+        pytest.param(2, False, True, True, marks=pytest.mark.world_size(2)),
+        
+        # Loading an unsharded checkpoint into an unsharded model and sharding it after.
+        pytest.param(2, False, False, True, marks=pytest.mark.world_size(2)),
+
+        # The other three permutations of the above tests are:
+        # 2 gpu, Sharded model, sharded checkpoint, with additional sharding -> no need to shard already sharded model
+        # 2 gpu, Sharded model, unsharded checkpoint, with additional sharding -> no need to shard already sharded model
+        # 2 gpu, Unsharded model, unsharded checkpoint, without additional sharding -> no need to try this on 2 gpus
+
+    ],
+)
+def test_load_model_checkpoint(
+    world_size: int,
+    tmp_path: Path,
+    sharded_model: bool,
+    sharded_checkpoint: bool,
+    shard_as_needed_during_load: bool
+):
+    if sharded_model and not sharded_checkpoint:
+        pytest.xfail("Loading an unsharded checkpoint into a sharded model is not supported and causes OOMs when running with these tests")
+    # Ensure all ranks use the same path
+    destination_dir = os.path.join(tmp_path, str(uuid.uuid4())[:8])
+    destination_dir = dist.all_gather_object(destination_dir)[0]
+    
+    # Save a model checkpoint
+    model, _ = init_model(use_fsdp=sharded_checkpoint, device='cuda')
+    save_path = os.path.join(destination_dir, 'model.pt') if not sharded_checkpoint else destination_dir
+    saved_path = save_model_to_disk(model, save_path, sharded_checkpoint=sharded_checkpoint)
+    
+    # Get the original model's state dict
+    original_state_dict = get_model_state_dict(model, sharded_state_dict=False)
+
+    # Load the model checkpoint
+    new_model, _ = init_model(use_fsdp=sharded_model, device='cuda')
+    load_path = saved_path if not sharded_checkpoint else str(Path(saved_path).parent)
+ 
+    if not sharded_model and sharded_checkpoint and not shard_as_needed_during_load:
+        context_manager = pytest.raises(ValueError)
+    else:
+        context_manager = contextlib.nullcontext()
+
+    with context_manager:
+        load_model_checkpoint(
+            new_model, 
+            load_path=load_path, 
+            sharded_checkpoint=sharded_checkpoint,
+            shard_as_needed_during_load=shard_as_needed_during_load
+        )
+
+        # Check if model is sharded when it should be
+        if shard_as_needed_during_load:
+            assert _is_model_fsdp(new_model), "Model should be sharded after load"
+
+        # Get the new model's state dict
+        new_state_dict = get_model_state_dict(new_model, sharded_state_dict=False)
+
+        if dist.get_global_rank() == 0:
+            deep_compare(original_state_dict, new_state_dict)
+
+
+
+
+@pytest.mark.filterwarnings('ignore:SWA has')
+def test_load_resumption_checkpoint( tmp_path: Path):
+    # Ensure all ranks use the same path
+    destination_dir = os.path.join(tmp_path, str(uuid.uuid4())[:8])
+    destination_dir = dist.all_gather_object(destination_dir)[0]
+    
+    # Create an initial state using the helper function
+    initial_state = init_state(
+        device='cpu',  # or 'cuda' if you want to test on GPU
+        include_schedulers=True,
+        include_algorithms=True,
+        include_callbacks=True,
+        use_grad_scaler=True,
+        rank_zero_seed=42,
+        run_name="test_run"
+    )
+    
+    # Modify some values to ensure they're changed
+    initial_state.timestamp.to_next_batch()
+    initial_state.dataset_state = {'train': {'some_key': 'some_value'}}
+    
+    # Save the resumption state
+    save_path = os.path.join(destination_dir, 'resumption.pkl')
+    save_resumption_state_to_disk(initial_state, save_path)
+
+    
+    # Create a new state
+    new_state = init_state(
+        device='cpu',  # or 'cuda' if you want to test on GPU
+        include_schedulers=True,
+        include_algorithms=True,
+        include_callbacks=True,
+        use_grad_scaler=True,
+        rank_zero_seed=42,
+        run_name="test_run"
+    )
+    import time
+    time.sleep(1)
+    # Load the resumption checkpoint
+    load_resumption_checkpoint(new_state, save_path)
+    
+    # Check that the loaded state matches the initial state
+    assert new_state.timestamp == initial_state.timestamp
+    assert new_state.rank_zero_seed == initial_state.rank_zero_seed
+    assert new_state.run_name == initial_state.run_name
+    
+    # Check schedulers, algorithms, callbacks, and scaler
+    if initial_state.schedulers:
+        for init_scheduler, new_scheduler in zip(initial_state.schedulers, new_state.schedulers):
+            deep_compare(init_scheduler.state_dict(), new_scheduler.state_dict())
+    
+    if initial_state.algorithms:
+        for init_algo, new_algo in zip(initial_state.algorithms, new_state.algorithms):
+            deep_compare(init_algo.state_dict(), new_algo.state_dict())
+    
+    if initial_state.callbacks:
+        for init_callback, new_callback in zip(initial_state.callbacks, new_state.callbacks):
+            deep_compare(init_callback.state_dict(), new_callback.state_dict())
+    
+    if initial_state.scaler:
+        deep_compare(initial_state.scaler.state_dict(), new_state.scaler.state_dict())
