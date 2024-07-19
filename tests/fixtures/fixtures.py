@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 from composer.core import State
 from composer.devices import DeviceCPU, DeviceGPU
 from composer.loggers import Logger
-from composer.utils import dist, retry
+from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel
 from tests.conftest import _get_option
 
@@ -310,7 +310,6 @@ def _session_tiny_t5_config():  # type: ignore
     return tiny_t5_config_helper()
 
 
-@retry(num_attempts=3)
 def tiny_t5_tokenizer_helper():
     transformers = pytest.importorskip('transformers')
 
