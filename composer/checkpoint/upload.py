@@ -10,6 +10,7 @@ import tempfile
 import pathlib
 from typing import Optional
 from concurrent.futures import Future
+from composer.core import Callback
 
 from composer.utils import (
     RemoteUploader,
@@ -18,39 +19,104 @@ from composer.utils import (
 
 log = logging.getLogger(__name__)
 
-class CheckpointUploadAwaitable:
+class CheckpointUploadCallback(Callback):
     def __init__(
         self,
         remote_uploader: RemoteUploader,
+        upload_timeout_in_seconds: int=3600,
+    ):
+        self.remote_uploader = remote_uploader
+        if dist.get_global_rank == 0:
+            self.rank_saves_symlinks = True
+        else:
+            self.rank_saves_symlinks = False
+
+        self.symlink_upload_tasks: list[tuple[Future, str, str]] = []
+        self.upload_timeout_in_seconds: int = upload_timeout_in_seconds
+
+        # Allow unit test to override this to make it faster
+        self._symlink_upload_wait_before_next_try_in_seconds = 30.0
+
+    def add_symlink_upload_task(
+        self,
         remote_file_names: list[str],
-        file_upload_future: Optional[Future] = None,
         symlink_file_name: Optional[str] = None,
         symlink_remote_file_name: Optional[str] = None
     ):
-        self.remote_file_names = remote_file_names
-        self.remote_uploader = remote_uploader
-        self.file_upload_future = file_upload_futures
-        self.symlink_file_name = symlink_file_name
-        self.symlink_remote_file_name = symlink_remote_file_name
+        check_remote_files_exist_future = None
+        if self.rank_saves_symlinks and symlink_file_name is not None:
+            check_remote_files_exist_future = remote_uploader.check_remote_files_exist_async(
+                remote_checkpoint_file_names=remote_file_names,
+                max_wait_time_in_seconds=self.upload_timeout_in_seconds,
+                wait_before_next_try_in_seconds=self._symlink_upload_wait_before_next_try_in_seconds,
+            )
+            self.symlink_upload_tasks.append((check_remote_files_exist_future, symlink_file_name, symlink_remote_file_name))
 
-    def wait(self):
-        log.debug(f'Waiting for uploading checkpoint file on current rank')
-        if self.file_upload_future is not None:
-            self.file_upload_future.result()
-        log.debug(f'Current rank checkpoint uploading finishes')
-        if self.symlink_file_name is None:
+    def _log_checkpoint_upload(self, logger: Logger):
+        for destination in logger.destinations:
+            if isinstance(destination, MosaicMLLogger):
+                destination.log_metadata({'checkpoint_uploaded_time': time.time()}, force_flush=True)
+
+    def batch_end(self, state: State, logger: Logger) -> None:
+        del state  # unused
+        self.remote_uploader.check_workers()
+        if not self.rank_saves_symlinks:
             return
-        log.debug(f'Checking if all ranks finish uploading')
-        remote_uploader.check_remote_files_exist_async(
-            remote_checkpoint_file_names = self.remote_file_names
-        ).result()
-        log.debug(f'All ranks finish checkpoint uploading, start to upload symlink file')
-        symlink_upload_future = remote_uploader.upload_file_async(
-            remote_file_name=self.symlink_remote_file_name
-            file_path=self.symlink_file_name,
-            overwrite=True,
-        ).result()
-        log.debug(f'Symlink file uploading finishes!')
+        undone_symlink_upload_tasks = []
+        for (check_remote_files_exist_future, local_symlink_file,
+             remote_symlink_file) in reversed(self.symlink_upload_tasks):
+            if not check_remote_files_exist_future.done():
+                undone_symlink_upload_tasks.insert(
+                    0,
+                    (check_remote_files_exist_future, local_symlink_file, remote_symlink_file),
+                )
+                continue
+            else:
+                result = check_remote_files_exist_future.result()
+                if result == RemoteFilesExistingCheckStatus.EXIST:
+                    self.remote_uploader.upload_file_async(
+                        remote_file_name=remote_symlink_file,
+                        file_path=local_symlink_file,
+                        overwrite=True,
+                    )
+                    self._log_checkpoint_upload(logger)
+                    break
+                else:
+                    raise RuntimeError(f'Failed to check if checkpoint files upload finish: {result}')
+        self.symlink_upload_tasks = undone_symlink_upload_tasks
+    
+    def wait(self, logger: Logger) -> None:
+        log.info('Waiting for checkpoint uploading to finish')
+        self.remote_uploader.wait()
+        if self.rank_saves_symlinks and len(self.symlink_upload_tasks) > 0:
+            log.debug('Uploading symlink to the latest checkpoint')
+            # We only need to upload a symlink pointing to the latest checkpoint files, so we can ignore successful uploads of older checkpoints.
+            check_remote_files_exist_future, local_symlink_file, remote_symlink_file = self.symlink_upload_tasks[-1]
+            result = check_remote_files_exist_future.result()
+            if result == RemoteFilesExistingCheckStatus.EXIST:
+                symlink_upload_future = self.remote_uploader.upload_file_async(
+                    remote_file_name=remote_symlink_file,
+                    file_path=local_symlink_file,
+                    overwrite=True,
+                )
+                symlink_upload_future.result()
+                self._log_checkpoint_upload(logger)
+            else:
+                raise RuntimeError(f'Failed to check if checkpoint files upload finish: {result}')
+            self.symlink_upload_tasks = []
+        log.info('Checkpoint uploading finished!') 
+
+    def fit_end(self, state: State, logger: Logger) -> None:
+        del state  # unused
+        self.wait(logger)
+
+    def post_close(self):
+        # Wait the symlink file upload to finish and close remote uploader
+        try:
+            self.remote_uploader.wait_and_close()
+        except Exception as e:
+            log.error(f'RemoteUploader run into exception {e}')
+
 
 
 def upload_file(
@@ -100,29 +166,34 @@ def upload_file(
             file_path=dest_path,
             overwrite=overwrite,
         )
-
-    
-    symlink_remote_file_name = os.path.join(dest_dir, symlink_name)
+    symlink_remote_file_name = None
     if dist.get_global_rank() == 0:     
-        if symlink_granularity == 'file':
-            create_symlink_file(dest_path, symlink_name)
-        elif symlink_granularity == 'dir':
-            create_symlink_file(str(pathlib.Path(dest_path).parent), symlink_name)
-        elif symlink_granularity is not None:
-            raise ValueError(f'Unrecognized symlink granularity: {symlink_granularity}')
+        if symlink_name is not None:
+            symlink_remote_file_name = os.path.join(dest_dir, symlink_name)
+            if symlink_granularity == 'file':
+                create_symlink_file(dest_path, symlink_name)
+            elif symlink_granularity == 'dir':
+                create_symlink_file(str(pathlib.Path(dest_path).parent), symlink_name)
+            elif symlink_granularity is not None:
+                raise ValueError(f'Unrecognized symlink granularity: {symlink_granularity}')
     else:
         symlink_remote_file_name = None
         symlink_name = None
 
-    upload_awaitable = CheckpointUploadAwaitable(
-        remote_uploader=remote_uploader,
+    upload_callback = None
+    if state is not None:
+        for callback in state.callbacks:
+            if isinstance(callback, CheckpointUploadCallback):
+                upload_callback = callback
+                break
+    if upload_callback is None:
+        upload_callback = CheckpointUploadCallback(remote_uploader=remote_uploader)
+        state.callbacks.append(upload_callback)
+    upload_callback.add_symlink_upload_task(
         remote_file_names=all_dest_paths_list,
-        file_upload_future=checkpoint_file_upload_future,
-        symlink_file_name=symlink_file_name,
+        symlink_file_name=symlink_name,
         symlink_remote_file_name=symlink_remote_file_name,
     )
 
-    if async_upload:
-        return upload_awaitable
-    else:
-        upload_awaitable.wait()
+    if not async_upload:
+        upload_callback.wait()
