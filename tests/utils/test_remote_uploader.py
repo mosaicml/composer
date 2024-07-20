@@ -43,6 +43,7 @@ class DummyObjectStore(ObjectStore):
         dest_filename = pathlib.Path(self.root) / object_name
         os.makedirs(os.path.dirname(dest_filename), exist_ok=True)
         shutil.copy2(filename, dest_filename)
+        print(f"bigning debug {dest_filename=}")
         self.dest_filename = dest_filename
 
     def get_object_size(self, object_name: str) -> int:
