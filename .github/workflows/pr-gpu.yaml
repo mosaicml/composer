@@ -1,88 +1,84 @@
 name: PR GPU tests
 on:
-  pull_request_target:
+  push:
+    branches:
+    - main
+    - release/*
+  pull_request:
+    branches:
+    - main
+    - release/**
   workflow_dispatch:
-# Cancel old runs when a new commit is pushed to the same branch if not on main
-# or dev
+# Cancel old runs when a new commit is pushed to the same branch if not on main or dev
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/dev' }}
 jobs:
   pytest-gpu-1:
-    uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml@v0.0.9
+    name: ${{ matrix.name }}
+    runs-on: linux-ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
-        - name: gpu-3.11-2.3-1
-          container: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
-          markers: not daily and not remote and gpu and (doctest or not doctest)
-          pytest_command: coverage run -m pytest
-          composer_package_name: mosaicml
-    name: ${{ matrix.name }}
-    if: github.repository_owner == 'mosaicml'
-    with:
-      composer_package_name: ${{ matrix.composer_package_name }}
-      container: ${{ matrix.container }}
-      git_repo: mosaicml/composer
-      mcloud-timeout: 2250
-      name: ${{ matrix.name }}
-      pip_deps: "[all]"
-      pytest-command: ${{ matrix.pytest_command }}
-      pytest-markers: ${{ matrix.markers }}
-      python-version: 3.9
-      gpu_num: 1
-    secrets:
-      mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
-
+        - name: "gpu-2.3.1-1"
+          container: mosaicml/llm-foundry:2.3.1_cu121-latest
+          markers: "gpu and not only_release"
+          pip_deps: "[gpu]"
+          pytest_command: "coverage run -m pytest"
+          ci_repo_gpu_test_ref: v0.1.0
+        - name: "gpu-2.3.1-released-1"
+          container: mosaicml/llm-foundry:2.3.1_cu121-latest
+          markers: "gpu and not dev"
+          pip_deps: "[released]"
+          pytest_command: "coverage run -m pytest"
+          ci_repo_gpu_test_ref: v0.1.0
+    steps:
+    - name: Run PR GPU Tests
+      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.1.0
+      with:
+        container: ${{ matrix.container }}
+        git_repo: databricks-mosaic/runtime-private-plugins
+        mcloud_timeout: 1800
+        name: ${{ matrix.name }}
+        pip_deps: ${{ matrix.pip_deps }}
+        pytest_command: ${{ matrix.pytest_command }}
+        pytest_markers: ${{ matrix.markers }}
+        python_version: 3.9
+        gpu_num: 1
+        mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
+        ci_repo_gpu_test_ref: ${{ matrix.ci_repo_gpu_test_ref }}
   pytest-gpu-2:
-    uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml@v0.0.9
+    name: ${{ matrix.name }}
+    runs-on: linux-ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
-        - name: gpu-3.11-2.3-2
-          container: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
-          markers: not daily and not remote and gpu and (doctest or not doctest)
-          pytest_command: coverage run -m pytest
-          composer_package_name: mosaicml
-    name: ${{ matrix.name }}
-    if: github.repository_owner == 'mosaicml'
-    with:
-      composer_package_name: ${{ matrix.composer_package_name }}
-      container: ${{ matrix.container }}
-      git_repo: mosaicml/composer
-      mcloud-timeout: 2250
-      name: ${{ matrix.name }}
-      pip_deps: "[all]"
-      pytest-command: ${{ matrix.pytest_command }}
-      pytest-markers: ${{ matrix.markers }}
-      python-version: 3.9
-      gpu_num: 2
-    secrets:
-      mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
-
-
-  pytest-gpu-4:
-    uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml@v0.0.9
-    strategy:
-      matrix:
-        include:
-        - name: gpu-3.11-2.3-4
-          container: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
-          markers: not daily and not remote and gpu and (doctest or not doctest)
-          pytest_command: coverage run -m pytest
-          composer_package_name: mosaicml
-    name: ${{ matrix.name }}
-    if: github.repository_owner == 'mosaicml'
-    with:
-      composer_package_name: ${{ matrix.composer_package_name }}
-      container: ${{ matrix.container }}
-      git_repo: mosaicml/composer
-      mcloud-timeout: 2250
-      name: ${{ matrix.name }}
-      pip_deps: "[all]"
-      pytest-command: ${{ matrix.pytest_command }}
-      pytest-markers: ${{ matrix.markers }}
-      python-version: 3.9
-      gpu_num: 4
-    secrets:
-      mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
+        - name: "gpu-2.3.1-2"
+          container: mosaicml/llm-foundry:2.3.1_cu121-latest
+          markers: "gpu and not only_release"
+          pip_deps: "[gpu]"
+          pytest_command: "coverage run -m pytest"
+          ci_repo_gpu_test_ref: v0.1.0
+        - name: "gpu-2.3.1-released-2"
+          container: mosaicml/llm-foundry:2.3.1_cu121-latest
+          markers: "gpu and not dev"
+          pip_deps: "[released]"
+          pytest_command: "coverage run -m pytest"
+          ci_repo_gpu_test_ref: v0.1.0
+    steps:
+    - name: Run PR GPU Tests
+      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.1.0
+      with:
+        container: ${{ matrix.container }}
+        git_repo: databricks-mosaic/runtime-private-plugins
+        mcloud_timeout: 1800
+        name: ${{ matrix.name }}
+        pip_deps: ${{ matrix.pip_deps }}
+        pytest_command: ${{ matrix.pytest_command }}
+        pytest_markers: ${{ matrix.markers }}
+        python_version: 3.9
+        gpu_num: 2
+        mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
+        ci_repo_gpu_test_ref: ${{ matrix.ci_repo_gpu_test_ref }}
