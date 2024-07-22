@@ -117,7 +117,7 @@ extra_deps['dev'] = [
     # https://myst-parser.readthedocs.io/en/latest/sphinx/use.html?highlight=parser#include-markdown-files-into-an-rst-file
     'docutils==0.17.1',
     'sphinx_markdown_tables==0.0.17',
-    'sphinx-argparse==0.4.0',
+    'sphinx-argparse==0.5.2',
     'sphinxcontrib.katex==0.9.10',
     'sphinxcontrib-applehelp==1.0.0',
     'sphinxcontrib-devhelp==1.0.0',
