@@ -206,7 +206,49 @@ class TestTrainerInit():
         eval_metric_names = trainer.state.eval_metrics['eval'].keys()
         assert len(eval_metric_names) == 1
         assert next(iter(eval_metric_names)) == single_metric
+    
+    @pytest.mark.gpu
+    def test_memory_usage_with_diff_batch_sizes(self):
+        
+        def train_and_track_memory(global_batch_size):
 
+            class MiniMemoryMonitor(Callback):
+                def __init__(self):
+                    self.batch_memory_usages = []
+                
+                def after_train_batch(self, state: State, logger):
+                    current_alloc_memory = torch.cuda.max_memory_allocated() // (2 ** 30)  # Convert to GB
+                    self.batch_memory_usages.append(current_alloc_memory)
+                    torch.cuda.reset_peak_memory_stats()
+
+            model = SimpleModel()
+            microbatch_size = 4
+            dataset = RandomClassificationDataset(size=128)
+            train_dataloader = DataLoader(dataset, batch_size=global_batch_size)
+            mini_memory_monitor = MiniMemoryMonitor()
+
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                max_duration="4ba",
+                device="gpu",
+                device_train_microbatch_size=microbatch_size,
+                callbacks=[mini_memory_monitor]
+            )
+
+            trainer.fit()
+            return mini_memory_monitor.batch_memory_usages[-1]
+
+        memory_across_diff_batch_sizes = []
+        for global_batch_size in [4, 8, 16, 32]:
+            memory_across_diff_batch_sizes.append(train_and_track_memory(global_batch_size))
+            assert (
+                max(memory_across_diff_batch_sizes) - min(memory_across_diff_batch_sizes) < 0.2
+            ), (
+                f"Memory usage varied by more than 0.2GB across different global batch sizes with same microbatch size. "
+            )
+
+            
 
 def _assert_optimizer_is_on_device(optimizer: torch.optim.Optimizer):
     for state in optimizer.state.values():
