@@ -11,6 +11,7 @@ jobs:
   pytest-cpu:
     name: ${{ matrix.name }}
     runs-on: linux-ubuntu-latest
+    if: github.repository_owner == 'mosaicml'
     strategy:
       matrix:
         include:
