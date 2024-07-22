@@ -48,3 +48,5 @@ jobs:
     name: Coverage Results
     if: github.repository_owner == 'mosaicml'
     needs: [pytest-cpu]
+    with:
+      download-path: artifacts
