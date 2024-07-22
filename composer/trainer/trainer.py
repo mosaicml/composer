@@ -3431,7 +3431,7 @@ class Trainer:
                         )
 
             for self.state.batch in self._iter_dataloader(TrainerMode.EVAL):
-                
+
                 # Count the batch size and num tokens before any events run
                 rank_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
                 rank_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
