@@ -2523,8 +2523,6 @@ class Trainer:
                         self._rng_state = None
                     continue
 
-                self.state.batch = self.state.device.batch_to_device(self.state.batch)
-                self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
                 rank_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
                 rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
 
@@ -2883,6 +2881,8 @@ class Trainer:
             current_batch = self.state.batch
 
             for microbatch_idx, self.state.batch in enumerate(microbatches):
+                self.state.batch = self.state.device.batch_to_device(self.state.batch)
+                self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
                 is_final_microbatch = microbatch_idx + 1 == len(microbatches)
                 microbatch_loss_dict = self._train_microbatch(use_grad_scaling, current_batch_size, is_final_microbatch)
 
@@ -3431,9 +3431,7 @@ class Trainer:
                         )
 
             for self.state.batch in self._iter_dataloader(TrainerMode.EVAL):
-                self.state.batch = self.state.device.batch_to_device(self.state.batch)
-                self.state.batch = data_spec.device_transforms(self.state.batch)
-
+                
                 # Count the batch size and num tokens before any events run
                 rank_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
                 rank_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
@@ -3461,6 +3459,8 @@ class Trainer:
                     try:
                         microbatches = data_spec.split_batch(device_batch, evaluator.device_eval_microbatch_size)
                         for i, self.state.batch in enumerate(microbatches):
+                            self.state.batch = self.state.device.batch_to_device(self.state.batch)
+                            self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
                             last_microbatch = i == len(microbatches) - 1
                             skip_metric_update = False
                             # Distributed samplers pad batches to be the same size. If using a
