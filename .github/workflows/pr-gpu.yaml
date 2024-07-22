@@ -21,22 +21,23 @@ jobs:
           composer_package_name: mosaicml
     if: github.repository_owner == 'mosaicml'
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-      - name: Run PR GPU Tests
-        uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.1.0
-        with:
-          composer_package_name: ${{ matrix.composer_package_name }}
-          container: ${{ matrix.container }}
-          git_repo: mosaicml/composer
-          mcloud_timeout: 2250
-          name: ${{ matrix.name }}
-          pip_deps: "[all]"
-          pytest_command: ${{ matrix.pytest_command }}
-          pytest_markers: ${{ matrix.markers }}
-          python_version: 3.9
-          gpu_num: 1
-          mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
+    - name: Checkout code
+      uses: actions/checkout@v3
+    - name: Run PR GPU Tests
+      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.1.0
+      with:
+        composer_package_name: ${{ matrix.composer_package_name }}
+        container: ${{ matrix.container }}
+        git_repo: mosaicml/composer
+        mcloud_timeout: 2250
+        name: ${{ matrix.name }}
+        pip_deps: "[all]"
+        pytest_command: ${{ matrix.pytest_command }}
+        pytest_markers: ${{ matrix.markers }}
+        python_version: 3.9
+        gpu_num: 1
+        mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
+        ci_repo_gpu_test_ref: v0.1.0
   pytest-gpu-2:
     name: ${{ matrix.name }}
     runs-on: linux-ubuntu-latest
@@ -50,22 +51,23 @@ jobs:
           composer_package_name: mosaicml
     if: github.repository_owner == 'mosaicml'
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-      - name: Run PR GPU Tests
-        uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.1.0
-        with:
-          composer_package_name: ${{ matrix.composer_package_name }}
-          container: ${{ matrix.container }}
-          git_repo: mosaicml/composer
-          mcloud_timeout: 2250
-          name: ${{ matrix.name }}
-          pip_deps: "[all]"
-          pytest_command: ${{ matrix.pytest_command }}
-          pytest_markers: ${{ matrix.markers }}
-          python_version: 3.9
-          gpu_num: 2
-          mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
+    - name: Checkout code
+      uses: actions/checkout@v3
+    - name: Run PR GPU Tests
+      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.1.0
+      with:
+        composer_package_name: ${{ matrix.composer_package_name }}
+        container: ${{ matrix.container }}
+        git_repo: mosaicml/composer
+        mcloud_timeout: 2250
+        name: ${{ matrix.name }}
+        pip_deps: "[all]"
+        pytest_command: ${{ matrix.pytest_command }}
+        pytest_markers: ${{ matrix.markers }}
+        python_version: 3.9
+        gpu_num: 2
+        mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
+        ci_repo_gpu_test_ref: v0.1.0
 
 
   pytest-gpu-4:
@@ -81,19 +83,20 @@ jobs:
           composer_package_name: mosaicml
     if: github.repository_owner == 'mosaicml'
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-      - name: Run PR GPU Tests
-        uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.1.0
-        with:
-          composer_package_name: ${{ matrix.composer_package_name }}
-          container: ${{ matrix.container }}
-          git_repo: mosaicml/composer
-          mcloud_timeout: 2250
-          name: ${{ matrix.name }}
-          pip_deps: "[all]"
-          pytest_command: ${{ matrix.pytest_command }}
-          pytest_markers: ${{ matrix.markers }}
-          python_version: 3.9
-          gpu_num: 4
-          mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
+    - name: Checkout code
+      uses: actions/checkout@v3
+    - name: Run PR GPU Tests
+      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.1.0
+      with:
+        composer_package_name: ${{ matrix.composer_package_name }}
+        container: ${{ matrix.container }}
+        git_repo: mosaicml/composer
+        mcloud_timeout: 2250
+        name: ${{ matrix.name }}
+        pip_deps: "[all]"
+        pytest_command: ${{ matrix.pytest_command }}
+        pytest_markers: ${{ matrix.markers }}
+        python_version: 3.9
+        gpu_num: 4
+        mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
+        ci_repo_gpu_test_ref: v0.1.0

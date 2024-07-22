@@ -31,18 +31,18 @@ jobs:
           markers: not daily and not remote and not gpu and doctest
           pytest_command: coverage run -m pytest tests/test_docs.py
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Run PR CPU Tests
-        uses: mosaicml/ci-testing/.github/actions/pytest-cpu@v0.1.0
-        with:
-          container: ${{ matrix.container }}
-          name: ${{ matrix.name }}
-          pip_deps: "[all]"
-          pytest_command: ${{ matrix.pytest_command }}
-          pytest_markers: ${{ matrix.markers }}
-          safe_directory: composer
-          composer_package_name: mosaicml
+    - name: Checkout code
+      uses: actions/checkout@v2
+    - name: Run PR CPU Tests
+      uses: mosaicml/ci-testing/.github/actions/pytest-cpu@v0.1.0
+      with:
+        container: ${{ matrix.container }}
+        name: ${{ matrix.name }}
+        pip_deps: "[all]"
+        pytest_command: ${{ matrix.pytest_command }}
+        pytest_markers: ${{ matrix.markers }}
+        safe_directory: composer
+        composer_package_name: mosaicml
   coverage:
     uses: ./.github/workflows/coverage.yaml
     name: Coverage Results
