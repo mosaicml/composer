@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Sequence, 
 
 import numpy as np
 import torch
+import posixpath
 
 from composer.core.state import State
 from composer.loggers.logger import Logger
@@ -104,6 +105,7 @@ class MLFlowLogger(LoggerDestination):
         self._last_flush_time = time.time()
         self._flush_interval = flush_interval
 
+        self.run_url = None
         self._experiment_id: Optional[str] = None
         self._run_id = None
 
@@ -176,6 +178,14 @@ class MLFlowLogger(LoggerDestination):
                 run_id=self._run_id,
                 tags=self.tags,
                 log_system_metrics=self.log_system_metrics,
+            )
+            self.run_url = posixpath.join(
+                os.environ.get('DATABRICKS_HOST', ''),
+                'ml',
+                'experiments',
+                str(self._experiment_id),
+                'runs',
+                str(self._run_id),
             )
 
         # If rank zero only, broadcast the MLFlow experiment and run IDs to other ranks, so the MLFlow run info is
