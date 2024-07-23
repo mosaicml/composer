@@ -135,6 +135,11 @@ class MosaicMLLogger(LoggerDestination):
         self.log_metadata(training_progress_data)
         self._flush_metadata(force_flush=True)
 
+    def fit_start(self, state: State, logger: Logger) -> None:
+        # Log model training started time for run events
+        self.log_metadata({'train_started_time': time.time()})
+        self._flush_metadata(force_flush=True)
+
     def eval_end(self, state: State, logger: Logger) -> None:
         self._flush_metadata(force_flush=True)
 
