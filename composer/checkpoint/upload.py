@@ -82,6 +82,7 @@ class CheckpointUploadCallback(Callback):
             else:
                 result = check_remote_files_exist_future.result()
                 if result == RemoteFilesExistingCheckStatus.EXIST:
+                    assert remote_symlink_file is not None
                     self.remote_uploader.upload_file_async(
                         remote_file_name=remote_symlink_file,
                         file_path=pathlib.Path(local_symlink_file),
@@ -102,6 +103,7 @@ class CheckpointUploadCallback(Callback):
             check_remote_files_exist_future, local_symlink_file, remote_symlink_file = self.symlink_upload_tasks[-1]
             result = check_remote_files_exist_future.result()
             if result == RemoteFilesExistingCheckStatus.EXIST:
+                assert remote_symlink_file is not None
                 symlink_upload_future = self.remote_uploader.upload_file_async(
                     remote_file_name=remote_symlink_file,
                     file_path=pathlib.Path(local_symlink_file),
