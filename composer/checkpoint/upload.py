@@ -37,7 +37,7 @@ class CheckpointUploadCallback(Callback):
         else:
             self.rank_saves_symlinks = False
 
-        self.symlink_upload_tasks: list[tuple[Future, str, str]] = []
+        self.symlink_upload_tasks: list[tuple[Future[RemoteFilesExistingCheckStatus], str, Optional[str]]] = []
         self.upload_timeout_in_seconds: int = upload_timeout_in_seconds
 
         # Allow unit test to override this to make it faster
@@ -84,7 +84,7 @@ class CheckpointUploadCallback(Callback):
                 if result == RemoteFilesExistingCheckStatus.EXIST:
                     self.remote_uploader.upload_file_async(
                         remote_file_name=remote_symlink_file,
-                        file_path=local_symlink_file,
+                        file_path=pathlib.Path(local_symlink_file),
                         overwrite=True,
                     )
                     self._log_checkpoint_upload(logger)
@@ -104,7 +104,7 @@ class CheckpointUploadCallback(Callback):
             if result == RemoteFilesExistingCheckStatus.EXIST:
                 symlink_upload_future = self.remote_uploader.upload_file_async(
                     remote_file_name=remote_symlink_file,
-                    file_path=local_symlink_file,
+                    file_path=pathlib.Path(local_symlink_file),
                     overwrite=True,
                 )
                 symlink_upload_future.result()
@@ -167,9 +167,10 @@ def upload_file(
 
     if source_path is not None:
         assert remote_uploader is not None
+        assert remote_file_name is not None
         remote_uploader.upload_file_async(
             remote_file_name=remote_file_name,
-            file_path=source_path,
+            file_path=pathlib.Path(source_path),
             overwrite=overwrite,
         )
     symlink_remote_file_name = None
