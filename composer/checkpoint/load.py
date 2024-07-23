@@ -267,9 +267,9 @@ def load_optim_checkpoint(
     elif isinstance(load_options, dict):
             load_options = CheckpointLoadOptions(**load_options)
     if load_options.sharded_checkpoint:
-        _load_sharded_optim_checkpoint(model, optim, load_options)
+        _load_sharded_optim_checkpoint(model=model, optim=optim, load_path=load_path, load_options=load_options)
     else:
-        _load_unsharded_optim_checkpoint(model, optim, load_path, load_options.precision)
+        _load_unsharded_optim_checkpoint(model=model, optim=optim, load_path=load_path, precision=load_options.precision)
 
 
 def _load_sharded_optim_checkpoint(
@@ -283,7 +283,9 @@ def _load_sharded_optim_checkpoint(
     # if not _is_optimizer_sharded(optim):
     #     raise ValueError("Optimizer is not sharded but checkpoint is sharded. Please pass in a sharded optimizer by passing a sharded model's parameters to an optimizer constructor.")
     optim_state_dict = get_optim_state_dict(model, optim, sharded_state_dict=True)
-    optim_state_dict = download_and_load_sharded_state_dict(load_path, load_options.device_mesh, optim_state_dict, load_options.load_planner)
+    optim_state_dict = download_and_load_sharded_state_dict(load_path=load_path,
+                                                            device_mesh=load_options.device_mesh,
+                                                            state_dict=optim_state_dict, load_planner=load_options.load_planner)
     for param_key, param_state_dict in optim_state_dict['state'].items():
         optim_state_dict['state'][param_key] = _cast_state_dict_to_precision(param_state_dict, load_options.precision)
     if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
@@ -411,14 +413,15 @@ def torch_set_optimizer_state_dict(model: torch.nn.Module,
             )
     
 
-def download_and_load_sharded_state_dict(load_path: str, device_mesh: Optional[DeviceMesh], state_dict: dict, planner: Optional[LoadPlanner] = None):
+def download_and_load_sharded_state_dict(load_path: str, device_mesh: Optional[DeviceMesh], state_dict: dict, load_planner: Optional[LoadPlanner] = None):
     load_path_is_remote = is_uri(load_path)
     download_dir_context = tempfile.TemporaryDirectory if load_path_is_remote else contextlib.nullcontext
     with download_dir_context() as download_dir:
         if load_path_is_remote:
             storage_reader = DistCPObjectStoreReader(source_path=load_path,
                                                      destination_path=download_dir,
-                                                     device_mesh=device_mesh)
+                                                     device_mesh=device_mesh,
+                                                     )
         else:
             load_path = _preprocess_local_load_path(load_path)
             storage_reader = FileSystemReaderWithValidation(load_path)
@@ -438,11 +441,11 @@ def download_and_load_sharded_state_dict(load_path: str, device_mesh: Optional[D
         if version.parse(torch.__version__) < version.parse('2.2.0'):
             DCP.load_state_dict(state_dict=state_dict,
                                 storage_reader=storage_reader,
-                                planner=planner)
+                                planner=load_planner)
         else:
             DCP.load(state_dict=state_dict,
                      storage_reader=storage_reader,
-                     planner=planner)
+                     planner=load_planner)
     return state_dict
 
 

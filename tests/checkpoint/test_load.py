@@ -4,30 +4,23 @@
 import os
 import uuid
 from pathlib import Path
+import contextlib
 
 import pytest
 import torch
 from packaging import version
 
 from composer.checkpoint.load import load_model_checkpoint, load_optim_checkpoint, load_resumption_checkpoint, CheckpointLoadOptions
-from composer.checkpoint.save import save_model_to_disk, save_optim_to_disk
+from composer.checkpoint.save import save_model_to_disk, save_optim_to_disk, save_resumption_state_to_disk
 from composer.checkpoint.state_dict import get_model_state_dict, _is_model_fsdp, get_optim_state_dict
 from composer.utils import dist
-from tests.checkpoint.helpers import init_model, init_model_and_optimizer
+from composer.core import Time, TimeUnit
+
+from tests.checkpoint.helpers import init_model, init_model_and_optimizer, init_state
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
+
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-import contextlib
-from composer.checkpoint.save import save_resumption_state_to_disk
-from tests.common.markers import world_size
-from tests.common.compare import deep_compare
-from tests.checkpoint.helpers import init_state
-import pickle
-
-from pathlib import Path
-
-from composer.core import  Time, TimeUnit
-from composer.utils import dist
 
 @pytest.mark.gpu
 @pytest.mark.parametrize(
@@ -107,7 +100,78 @@ def test_load_model_checkpoint(
             deep_compare(original_state_dict, new_state_dict)
 
 
+@pytest.mark.gpu
+@pytest.mark.parametrize(
+    'world_size,sharded_optimizer,sharded_checkpoint,shard_as_needed_during_load',
+    [
+        # Loading an unsharded checkpoint into an unsharded optimizer on a single GPU (not sharding after)
+        pytest.param(1, False, False, False, marks=pytest.mark.world_size(1)),
+        
+        # Loading a sharded checkpoint into a sharded optimizer in distributed setting
+        pytest.param(2, True, True, False, marks=pytest.mark.world_size(2)),
+        
+        # # SHOULD FAIL: Loading an unsharded checkpoint into a sharded optimizer
+        # pytest.param(2, True, False, False, marks=pytest.mark.world_size(2)),
 
+        # # SHOULD FAIL: Attempting to load a sharded checkpoint into an unsharded optimizer without sharding
+        # pytest.param(2, False, True, False, marks=pytest.mark.world_size(2)),
+        
+        # # Loading a sharded checkpoint into an unsharded optimizer (sharding it before load)
+        # pytest.param(2, False, True, True, marks=pytest.mark.world_size(2)),
+        
+        # # Loading an unsharded checkpoint into an unsharded optimizer and sharding it after.
+        # pytest.param(2, False, False, True, marks=pytest.mark.world_size(2)),
+    ],
+)
+def test_load_optim_checkpoint(
+    world_size: int,
+    tmp_path: Path,
+    sharded_optimizer: bool,
+    sharded_checkpoint: bool,
+    shard_as_needed_during_load: bool
+):
+    if sharded_optimizer and not sharded_checkpoint:
+        pytest.xfail("Loading an unsharded checkpoint into a sharded optimizer is not supported and causes OOMs when running with these tests")
+
+    # Ensure all ranks use the same path
+    destination_dir = os.path.join(tmp_path, str(uuid.uuid4())[:8])
+    destination_dir = dist.all_gather_object(destination_dir)[0]
+    
+    # Save an optimizer checkpoint
+    model, optimizer = init_model_and_optimizer(use_fsdp=sharded_checkpoint, device='cuda')
+    save_path = os.path.join(destination_dir, 'optim.pt') if not sharded_checkpoint else destination_dir
+    saved_path = save_optim_to_disk(model, optimizer, save_path, sharded_checkpoint=sharded_checkpoint)
+    
+    # Get the original optimizer's state dict
+    original_state_dict = get_optim_state_dict(model, optimizer, sharded_state_dict=False)
+
+    # Load the optimizer checkpoint
+    new_model, new_optimizer = init_model_and_optimizer(use_fsdp=sharded_optimizer, device='cuda')
+    load_path = saved_path if not sharded_checkpoint else str(Path(saved_path).parent)
+ 
+    if not sharded_optimizer and sharded_checkpoint and not shard_as_needed_during_load:
+        context_manager = pytest.raises(ValueError)
+    else:
+        context_manager = contextlib.nullcontext()
+
+    with context_manager:
+        load_optim_checkpoint(
+            new_model,
+            new_optimizer, 
+            load_path=load_path, 
+            load_options=dict(sharded_checkpoint=sharded_checkpoint,
+                            shard_as_needed_during_load=shard_as_needed_during_load)
+        )
+
+        # Check if optimizer is sharded when it should be
+        if shard_as_needed_during_load:
+            assert _is_model_fsdp(new_model), "Optimizer should be sharded after load"
+
+        # Get the new optimizer's state dict
+        new_state_dict = get_optim_state_dict(new_model, new_optimizer, sharded_state_dict=False)
+
+        if dist.get_global_rank() == 0:
+            deep_compare(original_state_dict, new_state_dict)
 
 
 
