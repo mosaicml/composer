@@ -97,12 +97,13 @@ class Device(ABC):
         when possible; otherwise, sequences are converted to lists, and mappings are converted to dictionaries.
 
         Args:
-            batch (Any): The batch to be decoded from BatchEncoding. 
+            batch (Any): The batch to be decoded from BatchEncoding.
 
         Returns:
             Batch: The batch after being decoded from BatchEncoding.
         """
         return _map_batch(batch, lambda x: x)
+
 
 def _map_batch(batch: Any, map_fn: Callable) -> Any:
     """Recursively maps a function to all items in a batch.
