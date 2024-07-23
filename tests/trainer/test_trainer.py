@@ -208,7 +208,7 @@ class TestTrainerInit():
         assert next(iter(eval_metric_names)) == single_metric
 
     @pytest.mark.gpu
-    def test_memory_usage_with_diff_batch_sizes(self):
+    def test_memory_usage_with_diff_batch_sizes(self, model: ComposerModel):
 
         def train_and_track_memory(global_batch_size):
 
@@ -222,7 +222,6 @@ class TestTrainerInit():
                     self.batch_memory_usages.append(current_alloc_memory)
                     torch.cuda.reset_peak_memory_stats()
 
-            model = SimpleModel()
             microbatch_size = 4
             input_shape = (1000000,)
             dataset = RandomClassificationDataset(shape=input_shape, size=4096)
