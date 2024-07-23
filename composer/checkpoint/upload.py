@@ -6,7 +6,7 @@
 import logging
 import os
 import pathlib
-import tempfile
+import time
 from concurrent.futures import Future
 from typing import Optional
 
@@ -14,16 +14,17 @@ import composer.utils.dist as dist
 from composer.core import Callback, State
 from composer.loggers import Logger, MosaicMLLogger
 from composer.utils import (
+    RemoteFilesExistingCheckStatus,
     RemoteUploader,
     create_symlink_file,
     parse_uri,
-    RemoteFilesExistingCheckStatus,
 )
 
 log = logging.getLogger(__name__)
 
 
 class CheckpointUploadCallback(Callback):
+    """Callback class for async checkpoint uploading."""
 
     def __init__(
         self,
@@ -56,7 +57,7 @@ class CheckpointUploadCallback(Callback):
                 wait_before_next_try_in_seconds=self._symlink_upload_wait_before_next_try_in_seconds,
             )
             self.symlink_upload_tasks.append(
-                (check_remote_files_exist_future, symlink_file_name, symlink_remote_file_name)
+                (check_remote_files_exist_future, symlink_file_name, symlink_remote_file_name),
             )
 
     def _log_checkpoint_upload(self, logger: Logger):
@@ -136,8 +137,8 @@ def upload_file(
     overwrite: bool = False,
 ):
     """Standalone function for uploading a checkpoint file.
+
     This function does not actually upload the checkpoint; it initiates the RemoteUploader's uploading of it
-    Gets from state.callbacks or intializes RUD (and adds to callbacks) and calls upload_file
     Args:
         source_path (str): The path to the file to upload.
         dest_dir (str): The directory/uri to upload the file to.
@@ -151,8 +152,7 @@ def upload_file(
         state (Optional[State]): If async_upload is True, then state must be specified so that the remote_uploader can be
             either extracted from state.callbacks or initialized and added to state.callbacks.
         overwrite (bool): If allow overwrite existing remote checkpoint files
-"""
-
+    """
     remote_uploader = RemoteUploader(remote_folder=dest_dir)
     dest_path = ''
     if source_path is not None:
@@ -163,12 +163,11 @@ def upload_file(
     all_remote_file_names = dist.all_gather_object([remote_file_name] if remote_file_name is not None else [])
     remote_file_names = []
     for filenames in all_remote_file_names:
-        remote_file_names += filenames 
+        remote_file_names += filenames
 
-    checkpoint_file_upload_future = None
     if source_path is not None:
         assert remote_uploader is not None
-        checkpoint_file_upload_future = remote_uploader.upload_file_async(
+        remote_uploader.upload_file_async(
             remote_file_name=remote_file_name,
             file_path=source_path,
             overwrite=overwrite,
@@ -178,6 +177,7 @@ def upload_file(
         if symlink_name is not None:
             symlink_remote_file_name = os.path.join(dest_path, symlink_name)
             if symlink_granularity == 'file':
+                print(f'bigning debug {dest_path=}')
                 create_symlink_file(dest_path, symlink_name)
             elif symlink_granularity == 'dir':
                 create_symlink_file(str(pathlib.Path(dest_path).parent), symlink_name)
