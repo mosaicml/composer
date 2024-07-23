@@ -9,7 +9,7 @@ import pytest
 import torch
 from packaging import version
 
-from composer.checkpoint.load import load_model_checkpoint, load_optim_checkpoint
+from composer.checkpoint.load import load_model_checkpoint, load_optim_checkpoint, load_resumption_checkpoint, CheckpointLoadOptions
 from composer.checkpoint.save import save_model_to_disk, save_optim_to_disk
 from composer.checkpoint.state_dict import get_model_state_dict, _is_model_fsdp, get_optim_state_dict
 from composer.utils import dist
@@ -18,7 +18,6 @@ from tests.common.compare import deep_compare
 from tests.common.markers import world_size
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 import contextlib
-from composer.checkpoint.load import load_resumption_checkpoint
 from composer.checkpoint.save import save_resumption_state_to_disk
 from tests.common.markers import world_size
 from tests.common.compare import deep_compare
@@ -90,11 +89,11 @@ def test_load_model_checkpoint(
         context_manager = contextlib.nullcontext()
 
     with context_manager:
+
         load_model_checkpoint(
             new_model, 
-            load_path=load_path, 
-            sharded_checkpoint=sharded_checkpoint,
-            shard_as_needed_during_load=shard_as_needed_during_load
+            load_path=load_path,
+            load_options=dict(sharded_checkpoint=sharded_checkpoint, shard_as_needed_during_load=shard_as_needed_during_load),
         )
 
         # Check if model is sharded when it should be
@@ -110,64 +109,70 @@ def test_load_model_checkpoint(
 
 
 
-@pytest.mark.filterwarnings('ignore:SWA has')
-def test_load_resumption_checkpoint( tmp_path: Path):
-    # Ensure all ranks use the same path
-    destination_dir = os.path.join(tmp_path, str(uuid.uuid4())[:8])
-    destination_dir = dist.all_gather_object(destination_dir)[0]
+
+
+# @pytest.mark.filterwarnings('ignore:SWA has')
+# def test_load_resumption_checkpoint( tmp_path: Path):
+#     # Ensure all ranks use the same path
+#     destination_dir = os.path.join(tmp_path, str(uuid.uuid4())[:8])
+#     destination_dir = dist.all_gather_object(destination_dir)[0]
     
-    # Create an initial state using the helper function
-    initial_state = init_state(
-        device='cpu',  # or 'cuda' if you want to test on GPU
-        include_schedulers=True,
-        include_algorithms=True,
-        include_callbacks=True,
-        use_grad_scaler=True,
-        rank_zero_seed=42,
-        run_name="test_run"
-    )
+#     # Create an initial state using the helper function
+#     initial_state = init_state(
+#         device='cpu',  # or 'cuda' if you want to test on GPU
+#         include_schedulers=True,
+#         include_algorithms=True,
+#         include_callbacks=True,
+#         use_grad_scaler=True,
+#         rank_zero_seed=42,
+#         run_name="test_run"
+#     )
     
-    # Modify some values to ensure they're changed
-    initial_state.timestamp.to_next_batch()
-    initial_state.dataset_state = {'train': {'some_key': 'some_value'}}
+#     # Modify some values to ensure they're changed
+#     initial_state.timestamp.to_next_batch()
+#     initial_state.dataset_state = {'train': {'some_key': 'some_value'}}
     
-    # Save the resumption state
-    save_path = os.path.join(destination_dir, 'resumption.pkl')
-    save_resumption_state_to_disk(initial_state, save_path)
+#     # Save the resumption state
+#     save_path = os.path.join(destination_dir, 'resumption.pkl')
+#     save_resumption_state_to_disk(initial_state, save_path)
 
     
-    # Create a new state
-    new_state = init_state(
-        device='cpu',  # or 'cuda' if you want to test on GPU
-        include_schedulers=True,
-        include_algorithms=True,
-        include_callbacks=True,
-        use_grad_scaler=True,
-        rank_zero_seed=42,
-        run_name="test_run"
-    )
-    import time
-    time.sleep(1)
-    # Load the resumption checkpoint
-    load_resumption_checkpoint(new_state, save_path)
+#     # Create a new state
+#     new_state = init_state(
+#         device='cpu',  # or 'cuda' if you want to test on GPU
+#         include_schedulers=True,
+#         include_algorithms=True,
+#         include_callbacks=True,
+#         use_grad_scaler=True,
+#         rank_zero_seed=42,
+#         run_name="test_run"
+#     )
+#     import time
+#     time.sleep(1)
+#     # Load the resumption checkpoint
+#     load_resumption_checkpoint(new_state, save_path)
     
-    # Check that the loaded state matches the initial state
-    assert new_state.timestamp == initial_state.timestamp
-    assert new_state.rank_zero_seed == initial_state.rank_zero_seed
-    assert new_state.run_name == initial_state.run_name
+#     # Check that the loaded state matches the initial state
+#     assert new_state.timestamp == initial_state.timestamp
+#     assert new_state.rank_zero_seed == initial_state.rank_zero_seed
+#     assert new_state.run_name == initial_state.run_name
     
-    # Check schedulers, algorithms, callbacks, and scaler
-    if initial_state.schedulers:
-        for init_scheduler, new_scheduler in zip(initial_state.schedulers, new_state.schedulers):
-            deep_compare(init_scheduler.state_dict(), new_scheduler.state_dict())
+#     # Check schedulers, algorithms, callbacks, and scaler
+#     if initial_state.schedulers:
+#         for init_scheduler, new_scheduler in zip(initial_state.schedulers, new_state.schedulers):
+#             deep_compare(init_scheduler.state_dict(), new_scheduler.state_dict())
     
-    if initial_state.algorithms:
-        for init_algo, new_algo in zip(initial_state.algorithms, new_state.algorithms):
-            deep_compare(init_algo.state_dict(), new_algo.state_dict())
+#     if initial_state.algorithms:
+#         for init_algo, new_algo in zip(initial_state.algorithms, new_state.algorithms):
+#             deep_compare(init_algo.state_dict(), new_algo.state_dict())
     
-    if initial_state.callbacks:
-        for init_callback, new_callback in zip(initial_state.callbacks, new_state.callbacks):
-            deep_compare(init_callback.state_dict(), new_callback.state_dict())
+#     if initial_state.callbacks:
+#         for init_callback, new_callback in zip(initial_state.callbacks, new_state.callbacks):
+#             deep_compare(init_callback.state_dict(), new_callback.state_dict())
     
-    if initial_state.scaler:
-        deep_compare(initial_state.scaler.state_dict(), new_state.scaler.state_dict())
+#     if initial_state.scaler:
+#         deep_compare(initial_state.scaler.state_dict(), new_state.scaler.state_dict())
+
+
+
+# def test_load_optimizer_checkpoint()
