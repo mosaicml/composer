@@ -231,7 +231,7 @@ class TestTrainerInit():
             trainer = Trainer(
                 model=model,
                 train_dataloader=train_dataloader,
-                max_duration='3ba',
+                max_duration='2ba',
                 device='gpu',
                 device_train_microbatch_size=microbatch_size,
                 callbacks=[mini_memory_monitor],
@@ -243,8 +243,8 @@ class TestTrainerInit():
         memory_across_diff_batch_sizes = []
         for global_batch_size in [8, 16, 32]:
             memory_across_diff_batch_sizes.append(train_and_track_memory(global_batch_size))
-            assert (max(memory_across_diff_batch_sizes) - min(memory_across_diff_batch_sizes) < 0.2), (
-                f'Memory usage varied by more than 0.2GB across different global batch sizes with same microbatch size. '
+            assert (max(memory_across_diff_batch_sizes) - min(memory_across_diff_batch_sizes) < 0.1), (
+                f'Memory usage varied by more than 0.1GB across different global batch sizes with same microbatch size. '
             )
 
 
