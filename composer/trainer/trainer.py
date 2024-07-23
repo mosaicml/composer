@@ -76,7 +76,6 @@ from composer.core import (
     get_precision_context,
 )
 from composer.core.precision import _validate_precision
-
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.distributed import (
     DDPSyncStrategy,

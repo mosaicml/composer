@@ -9,8 +9,9 @@ from typing import Any, Generator, Optional, Union
 
 import torch
 
-from composer.utils import StringEnum, is_xla_installed
 from composer.devices import Device, DeviceCPU
+from composer.utils import StringEnum, is_xla_installed
+
 try:
     import transformer_engine.pytorch as te
     te_installed = True
@@ -39,7 +40,7 @@ class Precision(StringEnum):
 def _validate_precision(precision: Precision, device: Device):
     if isinstance(device, DeviceCPU) and precision != Precision.FP32:
         raise ValueError(f'{precision} is not supported for CPU training.')
-    
+
 
 @contextlib.contextmanager
 def get_precision_context(

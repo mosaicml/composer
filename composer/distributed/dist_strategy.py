@@ -20,10 +20,10 @@ from torch.distributed.fsdp import FullyShardedDataParallel, ShardingStrategy
 from torch.distributed.fsdp._common_utils import clean_tensor_name
 from torch.nn.parallel import DistributedDataParallel
 from torchmetrics import Metric, MetricCollection
-from composer.devices import Device, DeviceGPU
+
 from composer.core import Precision, State
 from composer.core.precision import _validate_precision
-from composer.devices import Device
+from composer.devices import Device, DeviceGPU
 from composer.distributed.meta_safe_apply import meta_safe_apply
 from composer.distributed.mosaic_parallelism import (
     BACKWARD_PREFETCH_MAP,
@@ -217,13 +217,12 @@ def prepare_fsdp_module(
         te_rng_seed(int): The seed to use for the Transformer Engine activation checkpointing RNG. Defaults to 1234.
     """
     device = get_device(device)
-    
+
     if precision is None:
         precision = Precision.AMP_FP16 if isinstance(device, DeviceGPU) else Precision.FP32
     elif isinstance(precision, str):
         precision = Precision(precision)
     _validate_precision(precision, device)
-
 
     # Check sync_module_states is True for mixed initialization or HSDP
     if fsdp_config.sync_module_states == False:

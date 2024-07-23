@@ -123,11 +123,11 @@ def save_checkpoint_to_disk(
         )
     if options.save_optimizer:
         optim_save_path = os.path.join(destination_dir,
-                                        OPTIM_CHECKPOINT_DIRECTORY_NAME) if options.sharded_checkpoint else os.path.join(
-                                            destination_dir,
-                                            OPTIM_CHECKPOINT_DIRECTORY_NAME,
-                                            OPTIM_MONO_CHECKPOINT_FILENAME,
-                                        )
+                                       OPTIM_CHECKPOINT_DIRECTORY_NAME) if options.sharded_checkpoint else os.path.join(
+                                           destination_dir,
+                                           OPTIM_CHECKPOINT_DIRECTORY_NAME,
+                                           OPTIM_MONO_CHECKPOINT_FILENAME,
+                                       )
         optimizer = state.optimizers[0]
         save_optim_to_disk(
             state.model,
@@ -264,7 +264,6 @@ def save_composer_metadata_to_disk(
         device_train_microbatch_size,
     )
     os.makedirs(destination_file_path, exist_ok=True)
-    
 
     if dist.get_global_rank() == 0:
         with open(destination_file_path, 'w') as f:
