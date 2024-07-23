@@ -130,6 +130,7 @@ def load_model_checkpoint(
     load_path: str,
     load_options: Optional[Union[CheckpointLoadOptions, Dict]]=None,
     optimizer: Optional[torch.optim.Optimizer] = None,
+    optim_load_path: Optional[str] = None,
     seed: Optional[int] = 42,
 ):
     """
@@ -150,19 +151,14 @@ def load_model_checkpoint(
     if load_options.sharded_checkpoint:
         if not _is_model_fsdp(model):
             if load_options.shard_as_needed_during_load:
-                _shard_model_and_optimizer(model, 
-                                           optimizer=optimizer,
-                                           fsdp_config=load_options.fsdp_config,
-                                           precision=load_options.precision, seed=seed)
+                _shard_model(model, 
+                             fsdp_config=load_options.fsdp_config,
+                             precision=load_options.precision, seed=seed)
             else:
                 raise ValueError("Model is not sharded but checkpoint is sharded. Please pass in a model wrapped with FSDP or set shard_model_as_needed_during_load to True.")   
         _load_sharded_model_checkpoint(model, load_path=load_path, load_options=load_options)
-        if optimizer is not None:
-            _load_sharded_optim_checkpoint(model, optimizer, load_path, precision=load_options.precision)
     else:
         _load_unsharded_model_checkpoint(model, load_path=load_path, load_options=load_options)
-        if optimizer is not None:
-            _load_unsharded_optim_checkpoint(model, optimizer, load_path, precision=load_options.precision)
 
         if load_options.shard_as_needed_during_load and not _is_model_fsdp(model):
             if load_options.fsdp_config is None:
@@ -171,15 +167,13 @@ def load_model_checkpoint(
                 load_options.fsdp_config.update({'sync_module_states': True})
             else:
                 load_options.fsdp_config.sync_module_states = True
-            _shard_model_and_optimizer(model, 
-                                        optimizer=optimizer,
-                                        fsdp_config=load_options.fsdp_config,
-                                        precision=load_options.precision, seed=seed)
+            _shard_model(model, 
+                         fsdp_config=load_options.fsdp_config,
+                         precision=load_options.precision, seed=seed)
 
 
-def _shard_model_and_optimizer(model: ComposerModel,
+def _shard_model(model: ComposerModel,
                                fsdp_config: Optional[Union[FSDPConfig, dict]] = None,
-                               optimizer: Optional[Optimizer] = None,
                                precision: Optional[str]=None,
                                seed: Optional[int] = 42):
     if fsdp_config is None:
@@ -189,7 +183,7 @@ def _shard_model_and_optimizer(model: ComposerModel,
     with reproducibility.seed_context(seed):
         prepare_fsdp_module(
             model,
-            optimizers=[optimizer] if optimizer is not None else None,
+            optimizers=None,
             fsdp_config=fsdp_config,
             precision=precision,
         )
@@ -266,6 +260,13 @@ def load_optim_checkpoint(
         load_options = CheckpointLoadOptions()
     elif isinstance(load_options, dict):
             load_options = CheckpointLoadOptions(**load_options)
+    if load_options.sharded_checkpoint and not _is_model_fsdp(model):
+        raise ValueError(textwrap.dedent("""Model/Optim is not sharded but checkpoint is sharded. 
+                                         Please  pass in a model/optim wrapped with FSDP."""))
+    if not load_options.sharded_checkpoint and not _is_model_fsdp(model) and load_options.shard_as_needed_during_load:
+        raise ValueError(textwrap.dedent("""Neither model nor optim nor checkpoint is sharded, but shard_as_needed_during_load is set.
+                                         Sharding the optim after load is not supported. please set shard_as_needed_during_load to False.
+                                         """))
     if load_options.sharded_checkpoint:
         _load_sharded_optim_checkpoint(model=model, optim=optim, load_path=load_path, load_options=load_options)
     else:

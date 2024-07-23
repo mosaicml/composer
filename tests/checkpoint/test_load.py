@@ -11,7 +11,7 @@ import torch
 from packaging import version
 
 from composer.checkpoint.load import load_model_checkpoint, load_optim_checkpoint, load_resumption_checkpoint, CheckpointLoadOptions
-from composer.checkpoint.save import save_model_to_disk, save_optim_to_disk, save_resumption_state_to_disk
+from composer.checkpoint.save import save_model_to_disk, save_optim_to_disk, save_resumption_state_to_disk, save_checkpoint_to_disk
 from composer.checkpoint.state_dict import get_model_state_dict, _is_model_fsdp, get_optim_state_dict
 from composer.utils import dist
 from composer.core import Time, TimeUnit
@@ -116,10 +116,10 @@ def test_load_model_checkpoint(
         # # SHOULD FAIL: Attempting to load a sharded checkpoint into an unsharded optimizer without sharding
         # pytest.param(2, False, True, False, marks=pytest.mark.world_size(2)),
         
-        # # Loading a sharded checkpoint into an unsharded optimizer (sharding it before load)
+        # # SHOULD FAIL Loading a sharded checkpoint into an unsharded optimizer (sharding it before load)
         # pytest.param(2, False, True, True, marks=pytest.mark.world_size(2)),
         
-        # # Loading an unsharded checkpoint into an unsharded optimizer and sharding it after.
+        # # SHOULD FAIL Loading an unsharded checkpoint into an unsharded optimizer and sharding it after.
         # pytest.param(2, False, False, True, marks=pytest.mark.world_size(2)),
     ],
 )
@@ -172,7 +172,6 @@ def test_load_optim_checkpoint(
 
         if dist.get_global_rank() == 0:
             deep_compare(original_state_dict, new_state_dict)
-
 
 
 # @pytest.mark.filterwarnings('ignore:SWA has')
