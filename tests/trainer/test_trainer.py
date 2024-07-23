@@ -222,9 +222,10 @@ class TestTrainerInit():
                     self.batch_memory_usages.append(current_alloc_memory)
                     torch.cuda.reset_peak_memory_stats()
 
-            model = SimpleModel(feature_size=10**6)
+            model = SimpleModel()
             microbatch_size = 4
-            dataset = RandomClassificationDataset(size=4096)
+            input_shape = (1000000,)
+            dataset = RandomClassificationDataset(shape=input_shape, size=4096)
             train_dataloader = DataLoader(dataset, batch_size=global_batch_size)
             mini_memory_monitor = MiniMemoryMonitor()
 
