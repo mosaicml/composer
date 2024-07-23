@@ -177,7 +177,6 @@ def upload_file(
         if symlink_name is not None:
             symlink_remote_file_name = os.path.join(dest_path, symlink_name)
             if symlink_granularity == 'file':
-                print(f'bigning debug {dest_path=}')
                 create_symlink_file(dest_path, symlink_name)
             elif symlink_granularity == 'dir':
                 create_symlink_file(str(pathlib.Path(dest_path).parent), symlink_name)
