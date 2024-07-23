@@ -2523,7 +2523,7 @@ class Trainer:
                         self._rng_state = None
                     continue
 
-                self.state.batch = self.state.device.cast_to_device_batch_type(self.state.batch)
+                self.state.batch = self.state.device.decode_batch_to_dict(self.state.batch)
                 self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
                 rank_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
                 rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
@@ -3433,7 +3433,7 @@ class Trainer:
                         )
 
             for self.state.batch in self._iter_dataloader(TrainerMode.EVAL):
-                self.state.batch = self.state.device.cast_to_device_batch_type(self.state.batch)
+                self.state.batch = self.state.device.decode_batch_to_dict(self.state.batch)
                 self.state.batch = data_spec.device_transforms(self.state.batch)
                 # Count the batch size and num tokens before any events run
                 rank_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
