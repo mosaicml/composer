@@ -217,7 +217,7 @@ class TestTrainerInit():
                 def __init__(self):
                     self.batch_memory_usages = []
 
-                def after_train_batch(self, state: State, logger):
+                def after_train_batch(self, state: State, logger: Logger):
                     current_alloc_memory = torch.cuda.max_memory_allocated() // (2**30)  # Convert to GB
                     self.batch_memory_usages.append(current_alloc_memory)
                     torch.cuda.reset_peak_memory_stats()
