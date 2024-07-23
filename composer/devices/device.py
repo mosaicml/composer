@@ -90,6 +90,8 @@ class Device(ABC):
                     state[k] = self.tensor_to_device(v)
         return optimizer
 
+    def cast_to_device_batch_type(self, batch: T_Batch) -> T_Batch:
+        return _map_batch(batch, lambda x: x)
 
 def _map_batch(batch: Any, map_fn: Callable) -> Any:
     """Recursively maps a function to all items in a batch.

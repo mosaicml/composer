@@ -250,9 +250,7 @@ class DataSpec:
         if isinstance(batch, (list, tuple)):
             for tensors in batch:
                 for t in ensure_tuple(tensors):
-                    if isinstance(t, torch.Tensor):
-                        dim0_sizes.append(t.shape[0])
-                    else:
+                    if not hasattr(t, 'shape'):
                         raise ValueError(
                             'Unable to determine the batch size, batch contains'
                             f'an element of type {type(t)}, which does not have a'
@@ -273,9 +271,6 @@ class DataSpec:
                         'or list. Please use a DataSpec and provide a '
                         '`get_num_samples_in_batch(your_batch) -> int` method.',
                     )
-        
-        if not dim0_sizes:
-            raise ValueError(f'Unable to determine batch size. Batch structure: {type(batch)}')
 
         if len(set(dim0_sizes)) == 1:
             return dim0_sizes[0]
@@ -292,11 +287,8 @@ class DataSpec:
     def _default_get_num_tokens_in_batch(self, batch: Batch) -> int:
         # First try HuggingFace-style input dicts
         if isinstance(batch, Mapping) and 'input_ids' in batch:
-            if isinstance(batch['input_ids'], torch.Tensor):
-                samples_per_batch = batch['input_ids'].shape[0]
-                return batch['input_ids'].shape[1] * samples_per_batch
-            else:
-                raise ValueError(f"Expected 'input_ids' to be a tensor, but got {type(input_ids)}")
+            samples_per_batch = batch['input_ids'].shape[0]
+            return batch['input_ids'].shape[1] * samples_per_batch
         # Then try dataset.max_seq_len
         elif hasattr(self.dataloader, 'dataset') and hasattr(self.dataloader.dataset, 'max_seq_len'):  # type: ignore
             samples_per_batch = self.get_num_samples_in_batch(batch)
