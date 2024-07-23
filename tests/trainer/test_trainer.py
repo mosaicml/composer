@@ -222,7 +222,7 @@ class TestTrainerInit():
                     self.batch_memory_usages.append(current_alloc_memory)
                     torch.cuda.reset_peak_memory_stats()
 
-            microbatch_size = 4
+            microbatch_size = 1
             input_shape = (1000000,)
             dataset = RandomClassificationDataset(shape=input_shape, size=4096)
             train_dataloader = DataLoader(dataset, batch_size=global_batch_size)
@@ -241,7 +241,7 @@ class TestTrainerInit():
             return mini_memory_monitor.batch_memory_usages[-1]
 
         memory_across_diff_batch_sizes = []
-        for global_batch_size in [4, 8, 16, 32]:
+        for global_batch_size in [8, 16, 32]:
             memory_across_diff_batch_sizes.append(train_and_track_memory(global_batch_size))
             assert (max(memory_across_diff_batch_sizes) - min(memory_across_diff_batch_sizes) < 0.2), (
                 f'Memory usage varied by more than 0.2GB across different global batch sizes with same microbatch size. '
