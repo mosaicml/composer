@@ -1986,7 +1986,7 @@ class Trainer:
 
             signal_file_path = os.path.join(
                 os.path.dirname(latest_checkpoint_path),
-                f'.node_{dist.get_node_rank()}_local_rank0_completed_autoresume',
+                dist.get_node_signal_file_name(),
             )
             if dist.get_local_rank() == 0:
                 os.makedirs(os.path.dirname(signal_file_path), exist_ok=True)

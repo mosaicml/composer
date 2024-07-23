@@ -819,7 +819,7 @@ def download_checkpoint(
         if not checkpoint_is_sharded:
             signal_file_path = os.path.join(
                 node_checkpoint_folder,
-                f'.node_{dist.get_node_rank()}_local_rank0_completed',
+                dist.get_node_signal_file_name(),
             )
             if dist.get_local_rank() == 0:
                 with open(signal_file_path, 'wb') as f:
