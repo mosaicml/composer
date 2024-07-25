@@ -13,6 +13,7 @@ import torch
 import torch.utils.data
 from torch.utils.data.distributed import DistributedSampler
 
+import transformers
 from transformers.tokenization_utils_base import BatchEncoding
 
 from composer.utils import dist, ensure_tuple
