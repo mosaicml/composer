@@ -35,6 +35,8 @@ __all__ = ['MLFlowLogger']
 
 DEFAULT_MLFLOW_EXPERIMENT_NAME = 'my-mlflow-experiment'
 
+print("GEEZ MOLY!")
+
 
 class MlflowMonitorProcess(multiprocessing.Process):
 
@@ -50,8 +52,9 @@ class MlflowMonitorProcess(multiprocessing.Process):
         import psutil
         from mlflow import MlflowClient
 
-        print('GEEZ START CHECKING STATUS!!')
-        print('GEEZ START SHITTY DANCING!!')
+        os.setsid()
+
+        print('GEEZ START CHECKING STATUS ON PID: ', os.getpid())
 
         while not self.exit_event.wait(10):
             try:
@@ -64,7 +67,8 @@ class MlflowMonitorProcess(multiprocessing.Process):
                 client.set_terminated(self.mlflow_run_id, status='FAILED')
                 break
 
-        if self.crashed.set():
+        print("GEEZ IS MY MAIN PROCESS CRASHED? ", self.crashed.is_set())
+        if self.crashed.is_set():
             print("GEEZ CRASH DETECED! SETTING MLFLOW STATUS AS FAILED")
             client = MlflowClient(self.mlflow_tracking_uri)
             client.set_terminated(self.mlflow_run_id, status='FAILED')
@@ -618,6 +622,8 @@ class MLFlowLogger(LoggerDestination):
 
         if self._is_in_atexit:
             print('GEEZ I AM IN AT EXIT!')
+            exc_tpe, exc_info, tb = sys.exc_info()
+            print('GEEZ SYS INFO: ', exc_tpe, exc_info, tb)
             self.monitor_process.crash()
             return
 
