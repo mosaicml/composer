@@ -90,21 +90,6 @@ class Device(ABC):
                     state[k] = self.tensor_to_device(v)
         return optimizer
 
-    def decode_batch_to_dict(self, batch: T_Batch) -> T_Batch:
-        """Invoked by the :class:`.Trainer` before a batch is moved onto a device, in order to find the number of samples and tokens in it.
-
-        Supports nested sequences and mappings of tensors. Ignores non-tensor items. Preserves sequence and mapping types
-        when possible; otherwise, sequences are converted to lists, and mappings are converted to dictionaries.
-
-        Args:
-            batch (Any): The batch to be decoded from BatchEncoding.
-
-        Returns:
-            Batch: The batch after being decoded from BatchEncoding.
-        """
-        return _map_batch(batch, lambda x: x)
-
-
 def _map_batch(batch: Any, map_fn: Callable) -> Any:
     """Recursively maps a function to all items in a batch.
 
