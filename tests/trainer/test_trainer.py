@@ -208,18 +208,18 @@ class TestTrainerInit():
         assert next(iter(eval_metric_names)) == single_metric
 
     @pytest.mark.gpu
-    def test_memory_usage_with_diff_batch_sizes(self, model: ComposerModel):
+    def test_memory_after_dataloader(self, model: ComposerModel):
 
-        def train_and_track_memory(global_batch_size):
+        def track_memory_after_dataloader(global_batch_size):
 
             class MiniMemoryMonitor(Callback):
 
                 def __init__(self):
                     self.batch_memory_usages = []
 
-                def after_train_batch(self, state: State, logger: Logger):
-                    current_alloc_memory = torch.cuda.max_memory_allocated() // (2**30)  # Convert to GB
-                    self.batch_memory_usages.append(current_alloc_memory)
+                def after_dataloader(self, state: State, logger: Logger):
+                    current_alloc_memory = torch.cuda.memory_allocated() // 2**20 # Convert to MiB
+                    self.batch_memory_usages.append(current_alloc_memory) 
                     torch.cuda.reset_peak_memory_stats()
 
             microbatch_size = 1
@@ -231,7 +231,7 @@ class TestTrainerInit():
             trainer = Trainer(
                 model=model,
                 train_dataloader=train_dataloader,
-                max_duration='2ba',
+                max_duration='1ba',
                 device='gpu',
                 device_train_microbatch_size=microbatch_size,
                 callbacks=[mini_memory_monitor],
@@ -242,10 +242,13 @@ class TestTrainerInit():
 
         memory_across_diff_batch_sizes = []
         for global_batch_size in [8, 32]:
-            memory_across_diff_batch_sizes.append(train_and_track_memory(global_batch_size))
-            assert (max(memory_across_diff_batch_sizes) - min(memory_across_diff_batch_sizes) < 0.1), (
-                f'Memory usage varied by more than 0.1GB across different global batch sizes with same microbatch size. '
-            )
+            memory_across_diff_batch_sizes.append(track_memory_after_dataloader(global_batch_size))
+        max_val = max(memory_across_diff_batch_sizes)
+        min_val = min(memory_across_diff_batch_sizes)
+        assert (max(memory_across_diff_batch_sizes) - min(memory_across_diff_batch_sizes) < 10), (
+            f'Memory usage varied by more than 10 MiB across different global batch sizes with same microbatch size. '
+            f'Global Batch Size = 32: {max_val} MiB, Global Batch Size = 8: {min_val} MiB'
+        )
 
 
 def _assert_optimizer_is_on_device(optimizer: torch.optim.Optimizer):
