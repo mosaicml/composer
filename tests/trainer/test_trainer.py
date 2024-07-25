@@ -218,12 +218,12 @@ class TestTrainerInit():
                     self.batch_memory_usages = []
 
                 def epoch_start(self, state: State, logger: Logger) -> None:
-                    current_alloc_memory = torch.cuda.memory_allocated() // 2**20 # Convert to MiB
-                    self.batch_memory_usages.append(current_alloc_memory) 
-                
+                    current_alloc_memory = torch.cuda.memory_allocated() // 2**20  # Convert to MiB
+                    self.batch_memory_usages.append(current_alloc_memory)
+
                 def after_dataloader(self, state: State, logger: Logger):
-                    current_alloc_memory = torch.cuda.memory_allocated() // 2**20 # Convert to MiB
-                    self.batch_memory_usages.append(current_alloc_memory) 
+                    current_alloc_memory = torch.cuda.memory_allocated() // 2**20  # Convert to MiB
+                    self.batch_memory_usages.append(current_alloc_memory)
 
             microbatch_size = 1
             input_shape = (100000,)
@@ -249,6 +249,7 @@ class TestTrainerInit():
             f'Memory increased between epoch start and after dataloader by more than 1 MiB: {mem_change_epoch_start_and_after_dataloader} MiB. '
             f'None of the samples should be moved onto a GPU until the batch has already been divided into microbatches.'
         )
+
 
 def _assert_optimizer_is_on_device(optimizer: torch.optim.Optimizer):
     for state in optimizer.state.values():
