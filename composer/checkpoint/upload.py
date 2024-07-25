@@ -37,6 +37,10 @@ class CheckpointUploadCallback(Callback):
         else:
             self.rank_saves_symlinks = False
 
+        # Each Tuple contains information of:
+        # the future of checking if checkpoint files upload finish
+        # local symlink file name
+        # remote symlink file name
         self.symlink_upload_tasks: list[tuple[Future[RemoteFilesExistingCheckStatus], str, Optional[str]]] = []
         self.upload_timeout_in_seconds: int = upload_timeout_in_seconds
 
