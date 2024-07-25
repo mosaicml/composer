@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pytest
 import torch
 
-from composer.checkpoint import download_monolithic_checkpoint
+from composer.checkpoint import download_monolithic_checkpoint, get_model_state_dict
 from composer.utils import dist
 from tests.checkpoint.helpers import init_model
 from tests.common.markers import world_size
@@ -26,8 +26,7 @@ def test_download_monolithic_checkpoint(world_size: int, rank_zero_only: bool):
         use_fsdp = True
     fsdp_model, _ = init_model(use_fsdp=use_fsdp)
 
-    from torch.distributed.checkpoint.state_dict import StateDictOptions, get_model_state_dict
-    state = get_model_state_dict(fsdp_model, options=StateDictOptions(full_state_dict=True))
+    state = get_model_state_dict(fsdp_model, sharded_state_dict=False)
 
     checkpoint_filename = 'state_dict'
     save_filename = os.path.join(tmp_dir.name, checkpoint_filename)
