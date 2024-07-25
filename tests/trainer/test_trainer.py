@@ -246,8 +246,8 @@ class TestTrainerInit():
         global_batch_size = 32
         mem_change_epoch_start_and_after_dataloader = track_memory_after_dataloader(global_batch_size)
         assert (mem_change_epoch_start_and_after_dataloader < 1), (
-            f'Memory increased between epoch start and after dataloader by more than 1 MiB: {mem_change_epoch_start_and_after_dataloader} MiB. None of the samples
-            should be moved onto a GPU until the batch has already been divided into microbatches.'
+            f'Memory increased between epoch start and after dataloader by more than 1 MiB: {mem_change_epoch_start_and_after_dataloader} MiB. '
+            f'None of the samples should be moved onto a GPU until the batch has already been divided into microbatches.'
         )
 
 def _assert_optimizer_is_on_device(optimizer: torch.optim.Optimizer):
