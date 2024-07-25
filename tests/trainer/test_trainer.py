@@ -217,10 +217,13 @@ class TestTrainerInit():
                 def __init__(self):
                     self.batch_memory_usages = []
 
+                def epoch_start(self, state: State, logger: Logger) -> None:
+                    current_alloc_memory = torch.cuda.memory_allocated() // 2**20 # Convert to MiB
+                    self.batch_memory_usages.append(current_alloc_memory) 
+                
                 def after_dataloader(self, state: State, logger: Logger):
                     current_alloc_memory = torch.cuda.memory_allocated() // 2**20 # Convert to MiB
                     self.batch_memory_usages.append(current_alloc_memory) 
-                    torch.cuda.reset_peak_memory_stats()
 
             microbatch_size = 1
             input_shape = (100000,)
@@ -238,18 +241,20 @@ class TestTrainerInit():
             )
 
             trainer.fit()
-            return mini_memory_monitor.batch_memory_usages[-1]
+            return mini_memory_monitor.batch_memory_usages[1] - mini_memory_monitor.batch_memory_usages[0]
 
-        memory_across_diff_batch_sizes = []
+        memory_changes_across_diff_batch_sizes = []
         for global_batch_size in [8, 32]:
-            memory_across_diff_batch_sizes.append(track_memory_after_dataloader(global_batch_size))
-        max_val = max(memory_across_diff_batch_sizes)
-        min_val = min(memory_across_diff_batch_sizes)
-        assert (max(memory_across_diff_batch_sizes) - min(memory_across_diff_batch_sizes) < 10), (
-            f'Memory usage varied by more than 10 MiB across different global batch sizes with same microbatch size. '
+            memory_changes_across_diff_batch_sizes.append(track_memory_after_dataloader(global_batch_size))
+        max_val = max(memory_changes_across_diff_batch_sizes)
+        min_val = min(memory_changes_across_diff_batch_sizes)
+        assert (max(memory_changes_across_diff_batch_sizes) - min(memory_changes_across_diff_batch_sizes) < 10), (
+            f'Memory increase after dataloader varied by more than 10 MiB across different global batch sizes with same microbatch size. '
             f'Global Batch Size = 32: {max_val} MiB, Global Batch Size = 8: {min_val} MiB'
         )
-
+        print(max_val)
+        print(min_val)
+        assert False
 
 def _assert_optimizer_is_on_device(optimizer: torch.optim.Optimizer):
     for state in optimizer.state.values():
