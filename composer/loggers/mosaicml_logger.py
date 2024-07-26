@@ -145,8 +145,7 @@ class MosaicMLLogger(LoggerDestination):
 
     def eval_after_all(self, state: State, logger: Logger) -> None:
         # Log model evaluation finished time for run events
-        self.log_metadata({'eval_after_all_time': time.time()})
-        self._flush_metadata(force_flush=True)
+        self.log_metadata({'eval_after_all_time': time.time()}, force_flush=True)
 
     def predict_end(self, state: State, logger: Logger) -> None:
         self._flush_metadata(force_flush=True)
