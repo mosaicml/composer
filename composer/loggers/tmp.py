@@ -2,6 +2,15 @@ import multiprocessing
 import os
 import time
 import atexit
+import sys
+
+exception_occurred = False
+
+def global_exception_handler(exctype, value, traceback):
+    global exception_occurred
+    exception_occurred = True
+    print("Global exception handler called.")
+    sys.__excepthook__(exctype, value, traceback)
 
 class MonitorProcess(multiprocessing.Process):
 
@@ -25,8 +34,6 @@ class MonitorProcess(multiprocessing.Process):
                 print('GEEZ MAIN PROCESS IS NOT ALIVE!')
                 break
 
-        if self.crashed.set():
-            print("GEEZ CRASH DETECED!")
 
         print('Monitor process exiting gracefully.')
 
@@ -53,9 +60,18 @@ class MainProcess:
 
     def atexit_handler(self):
         print("GEEZ I AM CALLING ATEXIT HANDLER!")
+
+        global exception_occured
+        if exception_occurred:
+            print("GEEZ MOLY EXCEPTION OCCURED!")
+        else:
+            print("GEEZ COME ON THIS IS JUST A NORMAL FINISH!")
+
         # self.monitor_process.crash()
 
 
 if __name__ == "__main__":
+    sys.excepthook = global_exception_handler
+
     process = MainProcess()
     process.run()

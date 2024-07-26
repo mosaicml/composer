@@ -150,6 +150,7 @@ class MLFlowLogger(LoggerDestination):
                 conda_channel='conda-forge',
             ) from e
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
+        self._global_exception_occurred = False
 
         self.experiment_name = experiment_name
         self.run_name = run_name
@@ -304,6 +305,12 @@ class MLFlowLogger(LoggerDestination):
         )
         self.monitor_process.start()
 
+    def _global_exception_handler(self, exc_type, exc_value, exc_traceback):
+        print("GEEZ global exception handler called.")
+        self._global_exception_occurred = True
+        
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+
     def init(self, state: State, logger: Logger) -> None:
         print('GEEZ I AM INITING THE MLFLOW LOGGER!')
         del logger  # unused
@@ -320,6 +327,7 @@ class MLFlowLogger(LoggerDestination):
 
         # Start run
         if self._enabled:
+            sys.excepthook = self._global_exception_handler
             atexit.register(self._set_is_in_atexit)
             self._start_mlflow_run(state)
 
@@ -620,13 +628,10 @@ class MLFlowLogger(LoggerDestination):
         print('GEEZ I AM AT POST CLOSE WITH RANK: ', dist.get_global_rank())
         print("GEEZ AM I AT EXIT? ", self._is_in_atexit)
 
-        if self._is_in_atexit:
-            print('GEEZ I AM IN AT EXIT!')
-            exc_tpe, exc_info, tb = sys.exc_info()
-            print('GEEZ SYS INFO: ', exc_tpe, exc_info, tb)
+        if self._global_exception_occurred:
+            print('GEEZ DETECTED GLOBAL EXCEPTION!')
             self.monitor_process.crash()
             return
-
 
         if self._enabled:
             print('GEEZ EXECUTING TRUE POST CLOSE!')
@@ -634,16 +639,16 @@ class MLFlowLogger(LoggerDestination):
 
             assert isinstance(self._run_id, str)
 
-            if self._is_in_atexit:
-                # Don't call mlflow ending process if the script is in an atexit, if `post_close` is
-                # called from atexit, it means the script is exiting with errors, and MLflow status
-                # setting should be handled by `self.monitor_process`.
-                print('GEEZ I AM IN AT EXIT!')
-                import time
-                time.sleep(5)
-                self.monitor_process.crash()
+            # if self._is_in_atexit:
+            #     # Don't call mlflow ending process if the script is in an atexit, if `post_close` is
+            #     # called from atexit, it means the script is exiting with errors, and MLflow status
+            #     # setting should be handled by `self.monitor_process`.
+            #     print('GEEZ I AM IN AT EXIT!')
+            #     import time
+            #     time.sleep(5)
+            #     self.monitor_process.crash()
 
-                return
+            #     return
 
             mlflow.flush_async_logging()
             exc_tpe, exc_info, tb = sys.exc_info()
