@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Se
 import torch
 import torch.utils.data
 from torch.utils.data.distributed import DistributedSampler
-from transformers.tokenization_utils_base import BatchEncoding
 
 from composer.utils import dist, ensure_tuple
 
