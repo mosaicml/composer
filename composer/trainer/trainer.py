@@ -370,6 +370,9 @@ def _adjust_device_train_microbatch_size_lb(state: State):
                 f'UB = {state.device_train_microbatch_size_ub}; LB = {state.device_train_microbatch_size_lb}',
             ),
         )
+        # Re-shard and cleanup when changing the microbatch size
+        _fsdp_reshard_and_cleanup(state.model)
+        torch.cuda.empty_cache()
 
 
 def _adjust_device_train_microbatch_size_ub(state: State):
