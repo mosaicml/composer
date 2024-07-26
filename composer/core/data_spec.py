@@ -19,10 +19,10 @@ if TYPE_CHECKING:
     from composer.core.types import Batch
 
 try:
-  from transformers.tokenization_utils_base import BatchEncoding
-  _TRANSFORMERS_INSTALLED = True
+    from transformers.tokenization_utils_base import BatchEncoding
+    _TRANSFORMERS_INSTALLED = True
 except:
-  _TRANSFORMERS_INSTALLED = False
+    _TRANSFORMERS_INSTALLED = False
 
 __all__ = ['DataSpec', 'ensure_data_spec']
 
