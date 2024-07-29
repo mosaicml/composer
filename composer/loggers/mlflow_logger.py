@@ -150,7 +150,6 @@ class MLFlowLogger(LoggerDestination):
                 conda_channel='conda-forge',
             ) from e
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
-        self._global_exception_occurred = False
 
         self.experiment_name = experiment_name
         self.run_name = run_name
@@ -307,7 +306,7 @@ class MLFlowLogger(LoggerDestination):
 
     def _global_exception_handler(self, exc_type, exc_value, exc_traceback):
         print("GEEZ global exception handler called.")
-        self._global_exception_occurred = True
+        self._global_exception_occurred += 1
         
         sys.__excepthook__(exc_type, exc_value, exc_traceback)
 
@@ -318,6 +317,10 @@ class MLFlowLogger(LoggerDestination):
         if self.run_name is None:
             self.run_name = state.run_name
 
+        self._global_exception_occurred = state.device.tensor_to_device(
+            torch.tensor([False], dtype=torch.uint8),
+        )
+
         # Store the Composer run name in the MLFlow run tags so it can be retrieved for autoresume
         self.tags['run_name'] = os.environ.get('RUN_NAME', state.run_name)
 
@@ -325,9 +328,9 @@ class MLFlowLogger(LoggerDestination):
         if not self._rank_zero_only:
             self.run_name += f'-rank{dist.get_global_rank()}'
 
+        sys.excepthook = self._global_exception_handler
         # Start run
         if self._enabled:
-            sys.excepthook = self._global_exception_handler
             atexit.register(self._set_is_in_atexit)
             self._start_mlflow_run(state)
 
@@ -624,11 +627,32 @@ class MLFlowLogger(LoggerDestination):
     def _set_is_in_atexit(self):
         self._is_in_atexit = True
 
+    def check_for_nccl_errors(self):
+        try:
+            # Attempt a barrier to check for errors in the process group
+            dist.barrier()
+        except RuntimeError as e:
+            # Handle the NCCL timeout or other distributed errors
+            print(f"NCCL or distributed error detected: {e}")
+            return True
+        return False
+
     def post_close(self):
         print('GEEZ I AM AT POST CLOSE WITH RANK: ', dist.get_global_rank())
         print("GEEZ AM I AT EXIT? ", self._is_in_atexit)
 
-        if self._global_exception_occurred:
+        dist.all_reduce(self._global_exception_occurred, reduce_operation='MAX')
+
+        finish_with_exception = (self._global_exception_occurred == 1).item()      
+          
+        # Check for NCCL errors after the operation
+        if self.check_for_nccl_errors():
+            finish_with_exception = True
+            print("GEEZ NCCL ERROR DETECTED AFTER ALL REDUCE!")
+        else:
+            finish_with_exception = (self._global_exception_occurred == 1).item()      
+            print("GEEZ finish_with_exception IS: ", finish_with_exception)
+        if finish_with_exception:
             print('GEEZ DETECTED GLOBAL EXCEPTION!')
             self.monitor_process.crash()
             return
@@ -654,7 +678,9 @@ class MLFlowLogger(LoggerDestination):
             exc_tpe, exc_info, tb = sys.exc_info()
             print('GEEZ SYS INFO: ', exc_tpe, exc_info, tb)
             if (exc_tpe, exc_info, tb) == (None, None, None):
-                self._mlflow_client.set_terminated(self._run_id, status='FINISHED')
+                current_status = self._mlflow_client.get_run(self._run_id).status
+                if current_status == 'RUNNING':
+                    self._mlflow_client.set_terminated(self._run_id, status='FINISHED')
             else:
                 # record there was an error
                 self._mlflow_client.set_terminated(self._run_id, status='FAILED')

@@ -502,7 +502,7 @@ def is_initialized():
     return dist.is_initialized()
 
 
-def initialize_dist(device: Union[str, Device], timeout: float = 300.0) -> None:
+def initialize_dist(device: Union[str, Device], timeout: float = 10.0) -> None:
     """Initialize the default PyTorch distributed process group.
 
     This function assumes that the following environment variables are set:
