@@ -36,9 +36,9 @@ from composer.utils.file_helpers import (
     format_name_with_dist_and_time,
     get_file,
     is_tar,
-    parse_uri,
     is_uri,
-    maybe_create_object_store_from_uri
+    maybe_create_object_store_from_uri,
+    parse_uri,
 )
 from composer.utils.misc import ParallelismType, is_model_deepspeed, partial_format
 from composer.utils.object_store import ObjectStore
@@ -219,7 +219,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         object_store: Optional[Union[ObjectStore, LoggerDestination]],
         device_mesh: Optional[DeviceMesh],
     ):
-    
+
         if object_store is None:
             if not is_uri(source_path):
                 raise ValueError('When object_store is None, source_path must be a URI.')
@@ -828,7 +828,7 @@ def download_checkpoint(
         if not checkpoint_is_sharded:
             signal_file_path = os.path.join(
                 node_checkpoint_folder,
-                f'.node_{dist.get_node_rank()}_local_rank0_completed',
+                dist.get_node_signal_file_name(),
             )
             if dist.get_local_rank() == 0:
                 with open(signal_file_path, 'wb') as f:

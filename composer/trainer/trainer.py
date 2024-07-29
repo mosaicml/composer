@@ -76,7 +76,6 @@ from composer.core import (
     get_precision_context,
 )
 from composer.core.precision import _validate_precision
-
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.distributed import (
     DDPSyncStrategy,
@@ -457,10 +456,15 @@ def _get_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrateg
     return ddp_sync_strategy
 
 
-def _get_precision_context(precision: Precision, precision_config: Optional[dict[str, Any]], deepspeed_enabled: bool):
+def _get_precision_context(
+    precision: Precision,
+    precision_config: Optional[dict[str, Any]],
+    deepspeed_enabled: bool,
+    fp8_autocast_enabled: bool = True,
+):
     if deepspeed_enabled:
         return contextlib.nullcontext()
-    return get_precision_context(precision, precision_config)
+    return get_precision_context(precision, precision_config, fp8_autocast_enabled)
 
 
 def _generate_run_name() -> str:
@@ -1649,6 +1653,7 @@ class Trainer:
 
         # TP wrap
         if self.state.tp_config is not None:
+            # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 prepare_tp_module(
                     model,
@@ -1657,6 +1662,7 @@ class Trainer:
 
         # FSDP wrap if not using monolith checkpoint on rank 0 only
         if self.state.fsdp_config is not None and self.state.fsdp_config.auto_wrap and not self.state.load_monolith_rank0_only:
+            # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 prepare_fsdp_module(
                     model,
@@ -1826,6 +1832,7 @@ class Trainer:
             not self.state.fsdp_enabled and self.state.fsdp_config is not None and self.state.fsdp_config.auto_wrap and
             self.state.load_monolith_rank0_only
         ):
+            # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
 
@@ -1975,7 +1982,7 @@ class Trainer:
 
             signal_file_path = os.path.join(
                 os.path.dirname(latest_checkpoint_path),
-                f'.node_{dist.get_node_rank()}_local_rank0_completed_autoresume',
+                dist.get_node_signal_file_name(),
             )
             if dist.get_local_rank() == 0:
                 os.makedirs(os.path.dirname(signal_file_path), exist_ok=True)
@@ -2669,10 +2676,15 @@ class Trainer:
     def _eval_train_metrics(self, device_batch):
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
         assert self.state.train_metrics is not None, 'The train metrics should be set on __init__ or fit()'
-
+        # We disable FP8 autocast in eval metrics and default to the activation dtype for the forward pass
+        # This is because FP8 in TE requires all eval data sizes to be divisible by 16 which does not hold for all evaluation datasets.
+        # See https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/examples/fp8_primer.html for more info.
+        # Note: the activation dtype is BF16 if FSDP Mixed Precision PURE is enabled and FP32 if FSDP Mixed Precision FULL is enabled.
+        # See https://github.com/NVIDIA/TransformerEngine/blob/8e039fdcd98fc56582d81e373880c1509c2b8f73/transformer_engine/pytorch/module/linear.py#L250-L252 and \
+        # https://github.com/NVIDIA/TransformerEngine/blob/8e039fdcd98fc56582d81e373880c1509c2b8f73/transformer_engine/pytorch/module/base.py#L495-L513 for more info.
         with torch.no_grad(),\
                 model_eval_mode(self.state.model),\
-                _get_precision_context(self.state.precision, self.state.precision_config, self.state.deepspeed_enabled):
+                _get_precision_context(self.state.precision, self.state.precision_config, self.state.deepspeed_enabled, fp8_autocast_enabled=False):
             eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
             for metric in self.state.train_metrics.values():
                 self._original_model.update_metric(
@@ -3467,11 +3479,17 @@ class Trainer:
                                         )[0]
 
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
-
+                            # We disable FP8 autocast in eval mode and default to the activation dtype for the forward pass
+                            # This is because FP8 in TE requires all eval data sizes to be divisible by 16 which does not hold for all evaluation datasets.
+                            # See https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/examples/fp8_primer.html for more info.
+                            # Note: the activation dtype is BF16 if FSDP Mixed Precision PURE is enabled and FP32 if FSDP Mixed Precision FULL is enabled.
+                            # See https://github.com/NVIDIA/TransformerEngine/blob/8e039fdcd98fc56582d81e373880c1509c2b8f73/transformer_engine/pytorch/module/linear.py#L250-L252 and \
+                            # https://github.com/NVIDIA/TransformerEngine/blob/8e039fdcd98fc56582d81e373880c1509c2b8f73/transformer_engine/pytorch/module/base.py#L495-L513 for more info.
                             with _get_precision_context(
                                 self.state.precision,
                                 self.state.precision_config,
                                 self.state.deepspeed_enabled,
+                                fp8_autocast_enabled=False,
                             ):
                                 self.state.outputs = self._original_model.eval_forward(self.state.batch)
 

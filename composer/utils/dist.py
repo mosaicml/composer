@@ -644,7 +644,7 @@ def get_node_signal_file_name(rng: Optional[random.Random] = None) -> str:
     random_string = ''.join(rng.choices(string.ascii_letters + string.digits, k=6))
     node_rank = get_node_rank()
     file_name_list = [f'._signal_file_node{node_rank}_{random_string}']
-    dist.broadcast_object_list(file_name_list, src=0)
+    broadcast_object_list(file_name_list, src=0)
     return file_name_list[0]
 
 

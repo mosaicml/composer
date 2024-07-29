@@ -9,8 +9,9 @@ from typing import Any, Generator, Optional, Union
 
 import torch
 
-from composer.utils import StringEnum, is_xla_installed
 from composer.devices import Device, DeviceCPU
+from composer.utils import StringEnum, is_xla_installed
+
 try:
     import transformer_engine.pytorch as te
     te_installed = True
@@ -39,12 +40,13 @@ class Precision(StringEnum):
 def _validate_precision(precision: Precision, device: Device):
     if isinstance(device, DeviceCPU) and precision != Precision.FP32:
         raise ValueError(f'{precision} is not supported for CPU training.')
-    
+
 
 @contextlib.contextmanager
 def get_precision_context(
     precision: Union[str, Precision],
     precision_config: Optional[dict[str, Any]] = None,
+    fp8_autocast_enabled: bool = True,
 ) -> Generator[None, None, None]:
     """Returns a context manager to automatically cast to a specific precision.
 
@@ -52,6 +54,7 @@ def get_precision_context(
         precision (str | Precision): Precision for the context
         precision_config (Optional[dict[str, Any]]): Config for FP8 scaling strategy. See parameters for
             `DelayedScaling <https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/common.html?highlight=delayedscaling#transformer_engine.common.recipe.DelayedScaling>`_.
+        fp8_autocast_enabled (bool): Whether to enable FP8 autocast. Defaults to True.
     """
     precision = Precision(precision)
     if precision == Precision.FP32:
@@ -91,7 +94,7 @@ def get_precision_context(
                     'amax_compute_algo': 'max',
                 }
             fp8_recipe = DelayedScaling(**precision_config)
-            with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+            with te.fp8_autocast(enabled=fp8_autocast_enabled, fp8_recipe=fp8_recipe):
                 # The te.onnx_export flag ensures that we save all fp8 buffers
                 # as tensors instead of bytes. This is necessary for proper
                 # saving and resumption of checkpoints.

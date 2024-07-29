@@ -321,6 +321,7 @@ def test_run_events_logged(monkeypatch):
     assert metadata['mosaicml/training_progress'] == '[batch=4/4]'
     assert 'mosaicml/training_sub_progress' not in metadata
     assert isinstance(metadata['mosaicml/train_finished_time'], float)
+    assert isinstance(metadata['mosaicml/train_started_time'], float)
 
 
 def test_token_training_progress_metrics():
