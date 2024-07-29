@@ -23,7 +23,7 @@ from torch.distributed.fsdp import FlatParameter
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.optim import Optimizer
 
-from composer.checkpoint.download import download_monolithic_checkpoint
+from composer.checkpoint.download import download_monolithic_checkpoint, download_and_extract_symlink
 from composer.checkpoint.state_dict import (_cast_state_dict_to_precision, _extract_keys_from_state_dict,
                                             _is_model_fsdp, _remove_keys_from_state_dict, get_model_state_dict,
                                             get_optim_state_dict,)
@@ -339,6 +339,8 @@ def _load_unsharded_optim_checkpoint(
     load_path: str,
     precision: str = 'fp32',
 ):
+    if dist.get_global_rank() == 0:
+        return
     if _is_model_fsdp(model):
         raise ValueError('Model is sharded, but checkpoint is not sharded. Please pass in a model unwrapped from FSDP.')
     # if _is_optimizer_sharded(optim):
@@ -352,11 +354,11 @@ def _load_unsharded_optim_checkpoint(
             file_path = os.path.join(download_dir, filename)
             download_monolithic_checkpoint(load_path, file_path)
 
-        if dist.get_global_rank() == 0:
-            optim_state_dict = _torch_load_with_validation(file_path, map_location='cpu')
-            for param_key, param_state_dict in optim_state_dict['state'].items():
-                optim_state_dict['state'][param_key] = _cast_state_dict_to_precision(param_state_dict, precision)
-            optim.load_state_dict(optim_state_dict)
+
+        optim_state_dict = _torch_load_with_validation(file_path, map_location='cpu')
+        for param_key, param_state_dict in optim_state_dict['state'].items():
+            optim_state_dict['state'][param_key] = _cast_state_dict_to_precision(param_state_dict, precision)
+        optim.load_state_dict(optim_state_dict)
 
 
 def _preprocess_local_load_path(load_path: str):
@@ -462,9 +464,13 @@ def download_and_load_sharded_state_dict(
     download_dir_context = tempfile.TemporaryDirectory if load_path_is_remote else contextlib.nullcontext
     with download_dir_context() as download_dir:
         if load_path_is_remote:
+            local_rank0_index = dist.get_global_rank() - dist.get_local_rank()
+            rank0_download_tempdir = str(dist.all_gather_object(download_dir)[local_rank0_index])
+            if load_path.endswith('.symlink'):
+                load_path = download_and_extract_symlink(load_path)
             storage_reader = DistCPObjectStoreReader(
                 source_path=load_path,
-                destination_path=download_dir,
+                destination_path=str(Path(rank0_download_tempdir) / Path('checkpoints')),
                 device_mesh=device_mesh,
             )
         else:
