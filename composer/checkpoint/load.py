@@ -127,12 +127,18 @@ def load_checkpoint(
     if load_options.load_resumption_state and state is None:
         raise ValueError('State must be provided if loading resumption state.')
 
-
-    load_model_checkpoint(model, load_path=model_load_path, load_options=load_options)
-    if load_options.load_optimizer:
-        load_optim_checkpoint(
-            state.model, state.optimizers[0], optim_load_path, sharded_checkpoint=load_options.sharded_checkpoint
+    # If you want to shard the model and optimizer as needeed during load, you must do it together.
+    if load_options.load_model and load_options.load_optimizer and load_options.shard_as_needed_during_load:
+        load_both_model_and_optim_checkpoint(
+            model, optim, model_load_path, optim_load_path, load_options
         )
+    else:
+        if load_options.load_model:
+            load_model_checkpoint(model, load_path=model_load_path, load_options=load_options)
+        if load_options.load_optimizer:
+            load_optim_checkpoint(
+                state.model, state.optimizers[0], optim_load_path, sharded_checkpoint=load_options.sharded_checkpoint
+            )
 
     if load_options.load_resumption_state:
         load_resumption_checkpoint(state)
@@ -161,7 +167,7 @@ def load_model_checkpoint(
     if load_options.sharded_checkpoint:
         if not _is_model_fsdp(model):
             if load_options.shard_as_needed_during_load:
-                _shard_model(model, fsdp_config=load_options.fsdp_config, precision=load_options.precision, seed=seed)
+                _shard_with_fsdp(model, fsdp_config=load_options.fsdp_config, precision=load_options.precision, seed=seed)
             else:
                 raise ValueError(
                     'Model is not sharded but checkpoint is sharded. Please pass in a model wrapped with FSDP or set shard_model_as_needed_during_load to True.'
@@ -177,11 +183,50 @@ def load_model_checkpoint(
                 load_options.fsdp_config.update({'sync_module_states': True})
             else:
                 load_options.fsdp_config.sync_module_states = True
-            _shard_model(model, fsdp_config=load_options.fsdp_config, precision=load_options.precision, seed=seed)
+            _shard_with_fsdp(model, fsdp_config=load_options.fsdp_config, precision=load_options.precision, seed=seed)
 
 
-def _shard_model(
+def load_both_model_and_optim_checkpoint(model, optim, model_load_path, optim_load_path, load_options):
+    """
+    Load both model and optimizer checkpoints from the specified paths into the model and optimizer.
+
+    Mostly useful for if you want to shard both model AND optim as needed during load.
+    If you want to shard just model as needed during load, you can use load_model_checkpoint with shard_as_needed_during_load=True.
+    Or if you want to load both model and optim, but not use shard_as_needed_during_load, you can use load_model_checkpoint and load_optim_checkpoint separately.
+    
+    Args:
+        model (ComposerModel): The model to load the checkpoint into.
+        optim (torch.optim.Optimizer): The optimizer to load the checkpoint into.
+        model_load_path (str): The path to the model checkpoint to load.
+        optim_load_path (str): The path to the optimizer checkpoint to load.
+        load_options (Optional[Union[CheckpointLoadOptions, Dict]]): The options for loading the checkpoint.
+    """
+    if load_options.sharded_checkpoint and not _is_model_fsdp(model) and load_options.shard_as_needed_during_load:
+        _shard_with_fsdp(model, optim, fsdp_config=load_options.fsdp_config, precision=load_options.precision, seed=load_options.seed)   
+    
+    # Load model and optim without sharding.
+    with _set_load_options(load_options, shard_as_needed_during_load=False):
+        load_model_checkpoint(model, model_load_path, load_options)
+        load_optim_checkpoint(model, optim, optim_load_path, load_options)
+        
+    if not load_options.sharded_checkpoint and not _is_model_fsdp(model) and load_options.shard_as_needed_during_load:
+        _shard_with_fsdp(model, optim, fsdp_config=load_options.fsdp_config, precision=load_options.precision, seed=load_options.seed)
+
+
+@contextlib.contextmanager
+def _set_load_options(load_options, **overrides):
+    original_options = load_options
+    load_options = CheckpointLoadOptions(**load_options.__dict__)
+    try:
+        for key, value in overrides.items():
+            setattr(load_options, key, value)
+        yield load_options
+    finally:
+        load_options = original_options
+
+def _shard_with_fsdp(
     model: ComposerModel,
+    optimizer: Optional[Optimizer] = None,
     fsdp_config: Optional[Union[FSDPConfig, dict]] = None,
     precision: Optional[str] = None,
     seed: Optional[int] = 42
@@ -193,7 +238,7 @@ def _shard_model(
     with reproducibility.seed_context(seed):
         prepare_fsdp_module(
             model,
-            optimizers=None,
+            optimizers=optimizer,
             fsdp_config=fsdp_config,
             precision=precision,
         )
