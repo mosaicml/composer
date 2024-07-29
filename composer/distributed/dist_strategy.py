@@ -171,9 +171,14 @@ def _recreate_fsdp_param_groups_from_unwrapped_opt_info(
     for fsdp_name, param in fsdp_wrapped_named_params:
 
         unwrapped_name = clean_tensor_name(fsdp_name)
-        # need to have a 1:1 mapping between a fsdp param name and the non-wrapped vanilla param name
-        retrieved_group_num = non_wrapped_param_names_to_group_num[unwrapped_name]
-        group_num_to_optimizer_info[retrieved_group_num]['params'].append(param)
+
+        # since we are iterating over all model.named_parameters() after fsdp wrapping, we need to check
+        # if the parameter was included in the optimizer param_group pre fsdp wrapping, in order to support
+        # passing a subset of variables
+        if unwrapped_name in non_wrapped_param_names_to_group_num:
+            # need to have a 1:1 mapping between a fsdp param name and the non-wrapped vanilla param name
+            retrieved_group_num = non_wrapped_param_names_to_group_num[unwrapped_name]
+            group_num_to_optimizer_info[retrieved_group_num]['params'].append(param)
 
     # return sorted optimizer info groups
     return [group_num_to_optimizer_info[num] for num in sorted(group_num_to_optimizer_info.keys())]
@@ -247,7 +252,6 @@ def prepare_fsdp_module(
             raise RuntimeError('CUDA out of memory encountered on a different rank')
 
     # Necessary variables for optimizers with multiple param groups in FSDP
-    num_param_groups = None
     param_name_to_group_num = None
     group_num_to_param_group_info = None
 
@@ -261,18 +265,13 @@ def prepare_fsdp_module(
         # that will be recreated at the end of prepare_fsdp_module
         optim = optimizers_tuple[0]
 
-        num_param_groups = len(optim.param_groups)
-        if num_param_groups > 1:
-            if not fsdp_config.use_orig_params:
-                raise RuntimeError(
-                    'Multiple optimizer groups with FSDP are only supported with '
-                    'use_orig_params=True.',
-                )
+        if fsdp_config.use_orig_params:
             # optimizer.param_groups do not contain parameter names which are needed
             # to keep track of the different parameters in each group
             # so we use the pointers between model.parameters() and model.named_parameters()
             # to get the names of the parameters within optimizer.param_groups
             param_pointer_to_param_name = {id(p): n for n, p in model.named_parameters()}
+
             param_name_to_group_num = {}
             group_num_to_param_group_info = {}
             for group_num in range(len(optim.param_groups)):
@@ -281,9 +280,13 @@ def prepare_fsdp_module(
                 for param_num in range(len(optim.param_groups[group_num]['params'])):
                     # Need to in-line to avoid a reference which causes FSDP to allocate extra GPU memory
                     # param = optim.param_groups[group_num]['params'][param_num]
-                    param_name_to_group_num[param_pointer_to_param_name[id(
-                        optim.param_groups[group_num]['params'][param_num],
-                    )]] = group_num
+
+                    pointer_to_param = id(optim.param_groups[group_num]['params'][param_num])
+
+                    if pointer_to_param not in param_pointer_to_param_name:
+                        raise ValueError('The same model must be passed to the optimizer and trainer.')
+
+                    param_name_to_group_num[param_pointer_to_param_name[pointer_to_param]] = group_num
 
                 # this includes optimizer-specific values like lr, eps
                 # this will be used as the kwargs for the optim param groups later
@@ -292,6 +295,16 @@ def prepare_fsdp_module(
                 }
                 group_num_to_param_group_info[group_num] = optimizer_specific_group_info
         else:
+            if len(optim.param_groups) > 1:
+                raise RuntimeError(
+                    'Multiple optimizer groups with FSDP are only supported with '
+                    'use_orig_params=True.',
+                )
+
+            if len(optim.param_groups[0].items()) != len(list(model.parameters())):
+                raise ValueError(
+                    'Passing in a subset of model parameters to the optimizer is only supported with use_orig_params=True.',
+                )
             optimizer_specific_info = {k: v for k, v in optim.param_groups[0].items() if k != 'params'}
 
         optim.param_groups.clear()
@@ -711,8 +724,7 @@ def prepare_fsdp_module(
         optim = ensure_tuple(optimizers)[0]
         optim.param_groups.clear()
 
-        assert num_param_groups is not None
-        if num_param_groups > 1:
+        if fsdp_config.use_orig_params:
             assert param_name_to_group_num is not None
             assert group_num_to_param_group_info is not None
 
