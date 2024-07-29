@@ -147,7 +147,6 @@ def load_model_checkpoint(
     
     if load_options.include_keys is not None or load_options.ignore_keys is not None:
         load_options.strict = True
-    #assert seed == 1, f"{sharded_checkpoint=}, sharded_model={_is_model_fsdp(model)}, {shard_as_needed_during_load=}"
     if load_options.sharded_checkpoint:
         if not _is_model_fsdp(model):
             if load_options.shard_as_needed_during_load:
