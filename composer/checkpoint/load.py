@@ -49,7 +49,7 @@ class CheckpointLoadOptions:
     ignore_keys: Optional[Union[str, Sequence[str]]] = None
     sharded_checkpoint: bool = False  # TODO: Auto-detect sharded
     shard_as_needed_during_load: bool = False
-    strict: bool = False
+    strict: bool = True
     precision: str = 'fp32'
     cpu_offload: bool = True
     load_planner: Optional[LoadPlanner] = None
