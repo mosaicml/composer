@@ -75,7 +75,6 @@ class CheckpointLoadOptions:
         fsdp_config (Optional[Union[FSDPConfig, dict]]): The FSDP config to use for sharding the model and optimizer.
         device_mesh (Optional[DeviceMesh]): The device mesh to use for loading the checkpoint.
         seed (Optional[int]): The seed to use for sharding the model and optimizer.
-
     """
 
 
@@ -85,6 +84,8 @@ def load_checkpoint(
     model: Optional[ComposerModel] = None,
     optim: Optional[Optimizer] = None,
     state: Optional[State] = None,
+    model_child_path: Optional[str] = None,
+    optim_child_path: Optional[str] = None,
 ):
     """
     Optionally download and load a checkpoint according to the options into specified state.
@@ -95,35 +96,43 @@ def load_checkpoint(
         model (Optional[ComposerModel]): The model to load the checkpoint into. If not provided, the model from the state will be used.
         optim (Optional[Optimizer]): The optimizer to load the checkpoint into. If not provided, the optimizer from the state will be used.
         state (Optional[State]): The state to load the checkpoint. If not provided, the model and optimizer must be provided.
+        model_child_path (Optional[str]): The path to the model checkpoint within the load_path. 
+            E.g. if your checkpoints are unsharded and saved in load_path/my_cool_model/my_model.pt, set model_child_path='my_cool_model/my_model.pt'. If not specified, 'model/model.pt' is used.
+            if your checkpoints are sharded and saved in load_path/my_sharded_model/ then set model_child_path='my_sharded_model'. If not specified, 'model' is used.
+        optim_child_path (Optional[str]): The path to the optimizer checkpoint within the load_path. 
+            e.g. if your checkpoints are unsharded and saved in load_path/my_cool_optim/my_optim.pt, set optim_child_path='my_cool_optim/my_optim.pt'. If not specified, 'optim/optim.pt' is used.
+            if your checkpoints are sharded and saved in load_path/my_sharded_optim/ then set optim_child_path='my_sharded_optim'. If not specified, 'optim' is used.
     """
     if isinstance(load_options, dict):
         load_options = CheckpointLoadOptions(**load_options)
+
     if load_options.load_model:
         if model is None:
             if state is None:
                 raise ValueError('Model or state must be provided if loading model checkpoint.')
             model = state.model
+        if model_child_path is None:
+            model_child_path = 'model' if load_options.sharded_checkpoint else 'model/model.pt'
+        model_load_path = os.path.join(load_path, model_child_path)
 
     if load_options.load_optimizer:
         if optim is None:
             if state is None:
                 raise ValueError('Optimizer or state must be provided if loading optimizer checkpoint.')
             optim = state.optimizers[0]
+        if optim_child_path is None:
+            optim_child_path = 'optim' if load_options.sharded_checkpoint else 'optim/optim.pt'
+        optim_load_path = os.path.join(load_path, optim_child_path)
 
     if load_options.load_resumption_state and state is None:
         raise ValueError('State must be provided if loading resumption state.')
 
-    load_model_and_optim_together = (load_options.load_optimizer and load_options.load_model
-                                    ) and (load_options.sharded_checkpoint or load_options.shard_as_needed_during_load)
-    if load_model_and_optim_together:
-        load_model_checkpoint(model, load_path=load_path, optimizer=optim, load_options=load_options)
 
-    else:
-        load_model_checkpoint(model, load_path=load_path, load_options=load_options)
-        if load_options.load_optimizer:
-            load_optim_checkpoint(
-                state.model, state.optimizers[0], load_path, sharded_checkpoint=load_options.sharded_checkpoint
-            )
+    load_model_checkpoint(model, load_path=model_load_path, load_options=load_options)
+    if load_options.load_optimizer:
+        load_optim_checkpoint(
+            state.model, state.optimizers[0], optim_load_path, sharded_checkpoint=load_options.sharded_checkpoint
+        )
 
     if load_options.load_resumption_state:
         load_resumption_checkpoint(state)
