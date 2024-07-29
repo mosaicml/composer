@@ -133,8 +133,6 @@ def load_model_checkpoint(
     model: ComposerModel,
     load_path: str,
     load_options: Optional[Union[CheckpointLoadOptions, Dict]] = None,
-    optimizer: Optional[torch.optim.Optimizer] = None,
-    optim_load_path: Optional[str] = None,
     seed: Optional[int] = 42,
 ):
     """
