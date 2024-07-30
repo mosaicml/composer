@@ -9,16 +9,16 @@ from composer.utils.auto_log_hparams import (
     extract_hparams,
 )
 from composer.utils.automicrobatching import (
-    _create_sync_hook,
+    # _create_sync_hook,
     _fsdp_reshard_and_cleanup,
-    _double_device_train_microbatch_size,
-    _closest_lower_power_of_2,
-    _clear_incomplete_train_states,
-    _found_ooms_across_ranks,
-    _update_num_consecutive_thrashes,
-    _handle_downward_search_in_automicrobatching,
-    _handle_upward_search_in_automicrobatching,
-    _handle_thrashing_in_automicrobatching,
+    # _double_device_train_microbatch_size,
+     _closest_lower_power_of_2,
+    # _clear_incomplete_train_states,
+    # _found_ooms_across_ranks,
+    # _update_num_consecutive_thrashes,
+    # _handle_downward_search_in_automicrobatching,
+    # _handle_upward_search_in_automicrobatching,
+    # _handle_thrashing_in_automicrobatching,
 )
 from composer.utils.batch_helpers import batch_get, batch_set
 from composer.utils.checkpoint import (
@@ -176,14 +176,14 @@ __all__ = [
     'validate_credentials',
     'build_remote_backend',
     'RemoteFilesExistingCheckStatus',
-    '_create_sync_hook',
+    # '_create_sync_hook',
     '_fsdp_reshard_and_cleanup',
-    '_double_device_train_microbatch_size',
+    # '_double_device_train_microbatch_size',
     '_closest_lower_power_of_2',
-    '_clear_incomplete_train_states',
-    '_found_ooms_across_ranks',
-    '_update_num_consecutive_thrashes',
-    '_handle_downward_search_in_automicrobatching',
-    '_handle_upward_search_in_automicrobatching',
-    '_handle_thrashing_in_automicrobatching'
+    # '_clear_incomplete_train_states',
+    # '_found_ooms_across_ranks',
+    # '_update_num_consecutive_thrashes',
+    # '_handle_downward_search_in_automicrobatching',
+    # '_handle_upward_search_in_automicrobatching',
+    # '_handle_thrashing_in_automicrobatching'
 ]
