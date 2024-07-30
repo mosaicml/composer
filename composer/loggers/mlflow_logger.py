@@ -189,6 +189,8 @@ class MLFlowLogger(LoggerDestination):
         self._run_id = None
         self.run_url = None
 
+        self._global_exception_occurred = False
+
         if self._enabled:
             if True or (tracking_uri is None and os.getenv('DATABRICKS_TOKEN') is not None):
                 tracking_uri = 'databricks'
@@ -306,7 +308,7 @@ class MLFlowLogger(LoggerDestination):
 
     def _global_exception_handler(self, exc_type, exc_value, exc_traceback):
         print("GEEZ global exception handler called.")
-        self._global_exception_occurred += 1
+        self._global_exception_occurred = True
         
         sys.__excepthook__(exc_type, exc_value, exc_traceback)
 
@@ -316,10 +318,6 @@ class MLFlowLogger(LoggerDestination):
 
         if self.run_name is None:
             self.run_name = state.run_name
-
-        self._global_exception_occurred = state.device.tensor_to_device(
-            torch.tensor([False], dtype=torch.uint8),
-        )
 
         # Store the Composer run name in the MLFlow run tags so it can be retrieved for autoresume
         self.tags['run_name'] = os.environ.get('RUN_NAME', state.run_name)
@@ -640,25 +638,14 @@ class MLFlowLogger(LoggerDestination):
     def post_close(self):
         print('GEEZ I AM AT POST CLOSE WITH RANK: ', dist.get_global_rank())
         print("GEEZ AM I AT EXIT? ", self._is_in_atexit)
-
-        dist.all_reduce(self._global_exception_occurred, reduce_operation='MAX')
-
-        finish_with_exception = (self._global_exception_occurred == 1).item()      
           
-        # Check for NCCL errors after the operation
-        if self.check_for_nccl_errors():
-            finish_with_exception = True
-            print("GEEZ NCCL ERROR DETECTED AFTER ALL REDUCE!")
-        else:
-            finish_with_exception = (self._global_exception_occurred == 1).item()      
-            print("GEEZ finish_with_exception IS: ", finish_with_exception)
-        if finish_with_exception:
+        if self._global_exception_occurred:
             print('GEEZ DETECTED GLOBAL EXCEPTION!')
             self.monitor_process.crash()
             return
 
         if self._enabled:
-            print('GEEZ EXECUTING TRUE POST CLOSE!')
+            print("GEEZ EXECUTING POST CLOSE ON RANK 0!")
             import mlflow
 
             assert isinstance(self._run_id, str)
@@ -678,7 +665,7 @@ class MLFlowLogger(LoggerDestination):
             exc_tpe, exc_info, tb = sys.exc_info()
             print('GEEZ SYS INFO: ', exc_tpe, exc_info, tb)
             if (exc_tpe, exc_info, tb) == (None, None, None):
-                current_status = self._mlflow_client.get_run(self._run_id).status
+                current_status = self._mlflow_client.get_run(self._run_id).info.status
                 if current_status == 'RUNNING':
                     self._mlflow_client.set_terminated(self._run_id, status='FINISHED')
             else:
