@@ -100,7 +100,7 @@ class MosaicMLLogger(LoggerDestination):
     def after_load(self, state: State, logger: Logger) -> None:
         # If model was resumed from checkpoint, log the checkpoint path
         if int(state.timestamp.batch) > 0 and state.load_path is not None:
-            log.debug(f'Logging checkpoint path to metadata: ', state.load_path)
+            log.debug(f'Logging checkpoint path to metadata: {state.load_path}')
             self.log_metadata({'checkpoint_resumed_path': state.load_path})
 
         # Log model data downloaded and initialized for run events
