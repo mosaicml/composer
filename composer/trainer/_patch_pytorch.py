@@ -32,6 +32,8 @@ from torch.distributed.fsdp._fsdp_extensions import _ext_pre_load_state_dict_tra
 from torch.distributed.utils import _replace_by_prefix
 from torch.distributed.fsdp._flat_param import FlatParamHandle
 
+from composer.utils import dist
+
 log = logging.getLogger(__name__)
 
 def patch_unshard_for_automicrobatching(auto_microbatch_size_found=False):
