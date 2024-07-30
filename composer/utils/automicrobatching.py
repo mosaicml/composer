@@ -2,12 +2,6 @@ import torch
 import logging
 from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.distributed.fsdp._runtime_utils import _post_backward_final_callback
-from packaging import version
-
-if version.parse(torch.__version__) >= version.parse('2.3.0'):
-    from torch.amp.grad_scaler import _refresh_per_optimizer_state  # type: ignore
-else:
-    from torch.cuda.amp.grad_scaler import _refresh_per_optimizer_state  # type: ignore
 
 log = logging.getLogger(__name__)
 
