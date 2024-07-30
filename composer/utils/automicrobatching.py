@@ -1,10 +1,7 @@
 import torch
 import logging
-from composer.core import State
-from composer.utils import dist
 from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.distributed.fsdp._runtime_utils import _post_backward_final_callback
-from collections import defaultdict
 from packaging import version
 
 if version.parse(torch.__version__) >= version.parse('2.3.0'):
