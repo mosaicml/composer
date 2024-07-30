@@ -250,6 +250,7 @@ class SimpleMLPForTestingOOM(ComposerModel):
         return torch.sum(outputs)
 
 @pytest.mark.gpu
+@pytest.mark.parametrize('device', _INIT_DEVICES)
 @world_size(2)
 def test_automicrobatching_fsdp(world_size: int):
     model = SimpleMLPForTestingOOM()
