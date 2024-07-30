@@ -30,18 +30,18 @@ from torch.distributed._shard.sharding_spec._internals import get_chunked_dim_si
 from torch.distributed.fsdp import FullyShardedDataParallel, ShardingStrategy
 from torch.distributed.fsdp._fsdp_extensions import _ext_pre_load_state_dict_transform
 from torch.distributed.utils import _replace_by_prefix
-from torch.distributed.fsdp._flat_param import FlatParamHandle
 
 from composer.utils import dist
 
 log = logging.getLogger(__name__)
 
 def patch_unshard_for_automicrobatching(auto_microbatch_size_found=False):
-    if auto_microbatch_size_found:
-        FlatParamHandle.unshard = (unshard)
-        print("dropping monkey")
-    else:
-        FlatParamHandle.unshard = (unshard_with_sync)
+    if version.parse(torch.__version__ >= version.parse('2.3.1')):
+        from torch.distributed.fsdp._flat_param import FlatParamHandle
+        if auto_microbatch_size_found:
+            FlatParamHandle.unshard = (unshard)
+        else:
+            FlatParamHandle.unshard = (unshard_with_sync)
 
 def patch_pytorch():
     """Monkey patches pytorch functions based on pytorch version."""
