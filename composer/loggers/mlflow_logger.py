@@ -11,6 +11,7 @@ import logging
 import multiprocessing
 import os
 import pathlib
+import signal
 import posixpath
 import sys
 import textwrap
@@ -48,6 +49,14 @@ class MlflowMonitorProcess(multiprocessing.Process):
         self.exit_event = multiprocessing.Event()
         self.crashed = multiprocessing.Event()
 
+    def handle_sigterm(self, signum, frame):
+        print('GEEZ GOT A SIGTERM!')
+        from mlflow import MlflowClient
+        client = MlflowClient(self.mlflow_tracking_uri)
+        current_status = client.get_run(self.mlflow_run_id).info.status
+        if current_status == 'RUNNING':
+            client.set_terminated(self.mlflow_run_id, status='KILLED')
+
     def run(self):
         import psutil
         from mlflow import MlflowClient
@@ -55,6 +64,9 @@ class MlflowMonitorProcess(multiprocessing.Process):
         os.setsid()
 
         print('GEEZ START CHECKING STATUS ON PID: ', os.getpid())
+
+        # Register the signal handler in the child process
+        signal.signal(signal.SIGTERM, self.handle_sigterm)
 
         while not self.exit_event.wait(10):
             try:
@@ -306,6 +318,10 @@ class MLFlowLogger(LoggerDestination):
         )
         self.monitor_process.start()
 
+        import time
+        time.sleep(3)
+        os.kill(self.monitor_process.pid, signal.SIGTERM)
+
     def _global_exception_handler(self, exc_type, exc_value, exc_traceback):
         print("GEEZ global exception handler called.")
         # self._global_exception_occurred = True
@@ -319,10 +335,13 @@ class MLFlowLogger(LoggerDestination):
 
         if self.run_name is None:
             self.run_name = state.run_name
-
-        self._global_exception_occurred = state.device.tensor_to_device(
-            torch.tensor([False], dtype=torch.uint8),
-        )
+        
+        if hasattr(state, "device"):
+            self._global_exception_occurred = state.device.tensor_to_device(
+                torch.tensor([False], dtype=torch.uint8),
+            )
+        else:
+            self._global_exception_occurred = 0
 
         # Store the Composer run name in the MLFlow run tags so it can be retrieved for autoresume
         self.tags['run_name'] = os.environ.get('RUN_NAME', state.run_name)
@@ -647,8 +666,11 @@ class MLFlowLogger(LoggerDestination):
 
         if self._enabled:
 
-            dist.all_reduce(self._global_exception_occurred, reduce_operation='MAX')
-            finish_with_exception = (self._global_exception_occurred == 1).item()
+            if isinstance(self._global_exception_occurred, torch.Tensor):
+                dist.all_reduce(self._global_exception_occurred, reduce_operation='MAX')
+                finish_with_exception = (self._global_exception_occurred == 1).item()
+            else:
+                finish_with_exception = (self._global_exception_occurred == 1)
             if finish_with_exception:
                 print('GEEZ DETECTED GLOBAL EXCEPTION!')
                 self.monitor_process.crash()
