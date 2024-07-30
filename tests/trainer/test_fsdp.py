@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import copy
+import gc
 from unittest.mock import MagicMock
 
 import pytest
@@ -232,6 +234,63 @@ def test_fsdp_process_group(world_size: int):
     )
 
     trainer.fit()
+
+
+@pytest.mark.gpu
+@world_size(2)
+@pytest.mark.skipif(
+    version.parse(torch.__version__) < version.parse('2'),
+    reason='FSDP use_orig_params requires torch 2.0 or higher',
+)
+def test_fsdp_subset_of_params_in_opt(world_size: int):
+    model = SimpleModel()
+    dataset = RandomClassificationDataset(size=10)
+    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
+    optimizer = torch.optim.SGD(model.fc1.parameters(), lr=0.01)
+    unwrapped_optimizer = copy.deepcopy(optimizer)
+
+    trainer = Trainer(
+        model=model,
+        optimizers=optimizer,
+        train_dataloader=dataloader,
+        parallelism_config={
+            'fsdp': {
+                'use_orig_params': True,
+            },
+        },
+        max_duration='3ba',
+    )
+
+    with trainer.state.model.module.summon_full_params(trainer.state.model.module):
+        nb_parameters_before_fsdp = len(unwrapped_optimizer.param_groups[0]['params'])
+        nb_parameters_after_fsdp = len(trainer.state.optimizers[0].param_groups[0]['params'])
+
+        assert nb_parameters_before_fsdp == nb_parameters_after_fsdp
+
+
+@pytest.mark.gpu
+@world_size(2)
+def test_fsdp_subset_of_params_in_opt_without_orig_params(world_size: int):
+    model = SimpleModel()
+    dataset = RandomClassificationDataset(size=10)
+    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
+    optimizer = torch.optim.SGD(model.fc1.parameters(), lr=0.01)
+
+    expected_error = 'Passing in a subset of model parameters to the optimizer is only supported with use_orig_params=True.'
+
+    with pytest.raises(ValueError, match=expected_error):
+        _ = Trainer(
+            model=model,
+            optimizers=optimizer,
+            train_dataloader=dataloader,
+            parallelism_config={
+                'fsdp': {
+                    'use_orig_params': False,
+                },
+            },
+            max_duration='3ba',
+        )
+    gc.collect()
 
 
 class SimpleMLP(ComposerModel):
