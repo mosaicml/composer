@@ -86,7 +86,7 @@ jobs:
         echo "IMAGE_CACHE=${IMAGE_CACHE}" >> ${GITHUB_ENV}
 
     - name: IMAGE_TAG = ${{ env.IMAGE_TAG }}
-      run: | 
+      run: |
         echo ${{ env.IMAGE_TAG }}
         echo ${{ env.GHCR_IMAGE_TAG }}
 
