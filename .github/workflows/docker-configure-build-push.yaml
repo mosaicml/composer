@@ -75,8 +75,7 @@ jobs:
         if [ "${{ inputs.staging }}" = "true" ]; then
           STAGING_REPO=${{ inputs.staging-repo }}
           GHCR_STAGING_REPO=${{ inputs.ghcr-staging-repo }}
-          IMAGE_TAG=${STAGING_REPO}:${{ inputs.image-uuid }}
-          GHCR_IMAGE_TAG=${GHCR_STAGING_REPO}:${{ inputs.image-uuid }}
+          IMAGE_TAG=${STAGING_REPO}:${{ inputs.image-uuid }},${GHCR_STAGING_REPO}:${{ inputs.image-uuid }}
           IMAGE_CACHE="${STAGING_REPO}:${{ inputs.image-name }}-buildcache"
         else
           IMAGE_TAG=${{ inputs.tags }}
@@ -95,7 +94,7 @@ jobs:
       uses: docker/build-push-action@v3
       with:
         context: ${{ inputs.context }}
-        tags: ${{ env.IMAGE_TAG }}, ${{ env.GHCR_IMAGE_TAG }}
+        tags: ${{ env.IMAGE_TAG }}
         target: ${{ inputs.target }}
         push: ${{ inputs.push }}
         cache-from: type=registry,ref=${{ env.IMAGE_CACHE }}
