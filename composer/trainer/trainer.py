@@ -1335,7 +1335,7 @@ class Trainer:
         self.auto_microbatch_size_found = False
         self.num_alloc_retries = 0
         self.num_consecutive_thrashes = 0
-        self.auto_microbatch_hooks = []
+
         if auto_microbatching and profiler:
             raise ValueError(
                 "`device_train_microbatch_size='auto'` is not compatible with the profiler. It is "
@@ -2985,7 +2985,7 @@ class Trainer:
                     self.num_consecutive_thrashes = 0
 
                     # Readd sync hooks if they were previously turned off
-                    if len(self.auto_microbatch_hooks) == 0:
+                    if len(self.automicrobatch_hook_handless) == 0:
                         print("readding hooks for OOM")
                         patch_unshard_for_automicrobatching(False)
                         for _, module in self.fsdp_modules.items():
@@ -3019,7 +3019,7 @@ class Trainer:
                         lowest_oom_microbatch_size, highest_non_oom_microbatch_size, lower_bound_microbatch_size = _handle_thrashing_in_automicrobatching(self.state)
                         
                         # Readd sync hooks if they were previously turned off
-                        if len(self.auto_microbatch_hooks) == 0:
+                        if len(self.automicrobatch_hook_handles) == 0:
                             print("readd hooks from thrashing")
                             patch_unshard_for_automicrobatching(False)
                             for _, module in self.fsdp_modules.items():
@@ -3046,12 +3046,12 @@ class Trainer:
                         f'{original_microbatch_size} -> {self.state.device_train_microbatch_size}.',
                         ),
                 )
-            if len(self.auto_microbatch_hooks) > 0:
+            if len(self.automicrobatch_hook_handles) > 0:
                 print("remove hooks from batch completion")
                 patch_unshard_for_automicrobatching(True)
-                for handle in self.auto_microbatch_hooks:
+                for handle in self.automicrobatch_hook_handles:
                     handle.remove()
-                self.auto_microbatch_hooks.clear()
+                self.automicrobatch_hook_handles.clear()
             self.auto_microbatch_size_found = True
             if torch.cuda.is_available():
                 memory_stats = torch.cuda.memory_stats()
