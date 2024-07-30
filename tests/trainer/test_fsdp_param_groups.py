@@ -140,10 +140,12 @@ def test_fsdp_with_param_groups_with_subset_of_params_in_opt(
     world_size: int,
 ):
     """
-    Test whether an optimizer with multiple param groups maintains the same param groups when
-    wrapped with FSDP.
+    Test whether an optimizer with param groups and a subset of model variables in the param groups is correctly fsdp wrapped.
     """
     num_classes = 10
+
+    # Note that the EmbeddedWeightTiedModel is used instead of SimpleModel to ensure that some of the model parameters
+    # are excluded from the optimzier
     model = EmbeddedWeightTiedModel(num_features=num_classes)
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
