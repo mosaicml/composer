@@ -2986,6 +2986,7 @@ class Trainer:
 
                     # Readd sync hooks if they were previously turned off
                     if len(self.auto_microbatch_hooks) == 0:
+                        print("readding hooks for OOM")
                         patch_unshard_for_automicrobatching(False)
                         for _, module in self.fsdp_modules.items():
                             if isinstance(module, FullyShardedDataParallel):
@@ -3019,6 +3020,7 @@ class Trainer:
                         
                         # Readd sync hooks if they were previously turned off
                         if len(self.auto_microbatch_hooks) == 0:
+                            print("readd hooks from thrashing")
                             patch_unshard_for_automicrobatching(False)
                             for _, module in self.fsdp_modules.items():
                                 if isinstance(module, FullyShardedDataParallel):
@@ -3045,6 +3047,7 @@ class Trainer:
                         ),
                 )
             if len(self.auto_microbatch_hooks) > 0:
+                print("remove hooks from batch completion")
                 patch_unshard_for_automicrobatching(True)
                 for handle in self.auto_microbatch_hooks:
                     handle.remove()
@@ -3641,6 +3644,7 @@ class Trainer:
 
         with torch.no_grad(), model_eval_mode(self.state.model):
             if self.first_batch_complete:
+                print("readd hooks for eval")
                 patch_unshard_for_automicrobatching(False)
                 for _ , module in self.fsdp_modules.items():
                     if isinstance(module, FullyShardedDataParallel):
