@@ -18,6 +18,8 @@ from composer.core import State
 from composer.devices import Device, DeviceCPU, DeviceGPU
 from composer.models import ComposerModel
 from tests.common.models import EvenSimplerMLP, SimpleComposerMLP
+from composer.utils.parallelism import FSDPConfig
+from composer.distributed import prepare_fsdp_module
 
 __all__ = [
     'init_model_and_optimizer',
@@ -25,7 +27,6 @@ __all__ = [
     'init_optimizer',
     'init_state',
 ]
-
 
 def init_state(
     use_fsdp: bool = False,
@@ -133,7 +134,6 @@ def init_model(
             use_orig_params=True,
             sync_module_states=sync_module_states,  # To enable easy comparison between rank 0 unsharded model and full state dict
             cpu_offload=CPUOffload(offload_params=True) if cpu_offload else None,
-            device_id=torch.device('cpu') if device == 'cpu' else None,
         )
 
         if tensor_type == 'dtensor':
@@ -141,10 +141,7 @@ def init_model(
             device_mesh = init_device_mesh('cuda', (2,))
             fsdp_kwargs['device_mesh'] = device_mesh
 
-        model = FSDP(
-            model,
-            **fsdp_kwargs,
-        )
+        prepare_fsdp_module(model, optimizers=None, fsdp_config=FSDPConfig(**fsdp_kwargs), )
 
     return model, loss_fn
 

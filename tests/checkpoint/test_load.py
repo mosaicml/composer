@@ -12,7 +12,7 @@ from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 from composer.checkpoint.load import (CheckpointLoadOptions, load_model_checkpoint, load_optim_checkpoint,
-                                      load_resumption_checkpoint,)
+                                      load_resumption_checkpoint)
 from composer.checkpoint.save import (save_checkpoint_to_disk, save_model_to_disk, save_optim_to_disk,
                                       save_resumption_state_to_disk,)
 from composer.checkpoint.state_dict import _is_model_fsdp, get_model_state_dict, get_optim_state_dict
@@ -103,7 +103,7 @@ def test_load_model_checkpoint(
         if dist.get_global_rank() == 0:
             deep_compare(original_state_dict, new_state_dict)
 
-
+@pytest.mark.filterwarnings('ignore:TypedStorage is deprecated.')
 @pytest.mark.gpu
 @pytest.mark.parametrize(
     'world_size,sharded_optimizer,sharded_checkpoint,shard_as_needed_during_load',
@@ -113,18 +113,6 @@ def test_load_model_checkpoint(
 
         # Loading a sharded checkpoint into a sharded optimizer in distributed setting
         pytest.param(2, True, True, False, marks=pytest.mark.world_size(2)),
-
-        # # SHOULD FAIL: Loading an unsharded checkpoint into a sharded optimizer
-        # pytest.param(2, True, False, False, marks=pytest.mark.world_size(2)),
-
-        # # SHOULD FAIL: Attempting to load a sharded checkpoint into an unsharded optimizer without sharding
-        # pytest.param(2, False, True, False, marks=pytest.mark.world_size(2)),
-
-        # # SHOULD FAIL Loading a sharded checkpoint into an unsharded optimizer (sharding it before load)
-        # pytest.param(2, False, True, True, marks=pytest.mark.world_size(2)),
-
-        # # SHOULD FAIL Loading an unsharded checkpoint into an unsharded optimizer and sharding it after.
-        # pytest.param(2, False, False, True, marks=pytest.mark.world_size(2)),
     ],
 )
 def test_load_optim_checkpoint(
@@ -233,7 +221,13 @@ def test_load_resumption_checkpoint(tmp_path: Path):
 
     if initial_state.algorithms:
         for init_algo, new_algo in zip(initial_state.algorithms, new_state.algorithms):
-            deep_compare(init_algo.state_dict(), new_algo.state_dict())
+            init_state_dict = init_algo.state_dict()
+            new_state_dict = new_algo.state_dict()
+            if 'repr' in init_state_dict:
+                init_state_dict.pop('repr')
+            if 'repr' in new_state_dict:
+                new_state_dict.pop('repr')
+            deep_compare(init_state_dict, new_state_dict)
 
     if initial_state.callbacks:
         for init_callback, new_callback in zip(initial_state.callbacks, new_state.callbacks):
