@@ -174,7 +174,7 @@ def _recreate_fsdp_param_groups_from_unwrapped_opt_info(
 
         # since we are iterating over all model.named_parameters() after fsdp wrapping, we need to check
         # if the parameter was included in the optimizer param_group pre fsdp wrapping, in order to support
-        # passing a subset of variables
+        # passing a subset of model params in the optimizer
         if unwrapped_name in non_wrapped_param_names_to_group_num:
             # need to have a 1:1 mapping between a fsdp param name and the non-wrapped vanilla param name
             retrieved_group_num = non_wrapped_param_names_to_group_num[unwrapped_name]
@@ -271,7 +271,6 @@ def prepare_fsdp_module(
             # so we use the pointers between model.parameters() and model.named_parameters()
             # to get the names of the parameters within optimizer.param_groups
             param_pointer_to_param_name = {id(p): n for n, p in model.named_parameters()}
-
             param_name_to_group_num = {}
             group_num_to_param_group_info = {}
             for group_num in range(len(optim.param_groups)):
@@ -280,12 +279,9 @@ def prepare_fsdp_module(
                 for param_num in range(len(optim.param_groups[group_num]['params'])):
                     # Need to in-line to avoid a reference which causes FSDP to allocate extra GPU memory
                     # param = optim.param_groups[group_num]['params'][param_num]
-
                     pointer_to_param = id(optim.param_groups[group_num]['params'][param_num])
-
                     if pointer_to_param not in param_pointer_to_param_name:
                         raise ValueError('The same model must be passed to the optimizer and trainer.')
-
                     param_name_to_group_num[param_pointer_to_param_name[pointer_to_param]] = group_num
 
                 # this includes optimizer-specific values like lr, eps
