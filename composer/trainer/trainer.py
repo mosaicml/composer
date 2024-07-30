@@ -2986,7 +2986,7 @@ class Trainer:
                     self.num_consecutive_thrashes = 0
 
                     # Readd sync hooks if they were previously turned off
-                    if len(self.automicrobatch_fsdp_hook_handless) == 0:
+                    if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handless) == 0:
                         print("readding hooks for OOM")
                         patch_unshard_for_automicrobatching(False)
                         for _, module in self.fsdp_modules.items():
@@ -3020,7 +3020,7 @@ class Trainer:
                         lowest_oom_microbatch_size, highest_non_oom_microbatch_size, lower_bound_microbatch_size = _handle_thrashing_in_automicrobatching(self.state)
                         
                         # Readd sync hooks if they were previously turned off
-                        if len(self.automicrobatch_fsdp_hook_handles) == 0:
+                        if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) == 0:
                             print("readd hooks from thrashing")
                             patch_unshard_for_automicrobatching(False)
                             for _, module in self.fsdp_modules.items():
@@ -3047,7 +3047,7 @@ class Trainer:
                         f'{original_microbatch_size} -> {self.state.device_train_microbatch_size}.',
                         ),
                 )
-            if len(self.automicrobatch_fsdp_hook_handles) > 0:
+            if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) > 0:
                 print("remove hooks from batch completion")
                 patch_unshard_for_automicrobatching(True)
                 for handle in self.automicrobatch_fsdp_hook_handles:
@@ -3644,7 +3644,7 @@ class Trainer:
         sync_hook = _create_sync_hook(self.state)
 
         with torch.no_grad(), model_eval_mode(self.state.model):
-            if self.first_batch_complete:
+            if self.state.fsdp_enabled and self.first_batch_complete:
                 print("readd hooks for eval")
                 patch_unshard_for_automicrobatching(False)
                 for _ , module in self.fsdp_modules.items():
