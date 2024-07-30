@@ -223,10 +223,11 @@ class SpeedMonitor(Callback):
     | `throughput/device/flops_per_sec`   | logged when model has attribute `flops_per_batch`         |
     |                                     |                                                           |
     +-------------------------------------+-----------------------------------------------------------+
-    |                                     | `throughput/device/flops_per_sec` divided by world size.  |
-    | `throughput/device/mfu`             | Only logged when model has attribute `flops_per_batch`    |
-    |                                     | and `gpu_flops_available`, which can be passed as an      |
-    |                                     | argument if not automatically determined by SpeedMonitor  |
+    |                                     | `throughput/device/flops_per_sec` divided by flops        |
+    |                                     | available on the GPU device. Only logged when model has   |
+    | `throughput/device/mfu`             | attribute `flops_per_batch` and `gpu_flops_available`,    |
+    |                                     | which can be passed as an argument if not automatically   |
+    |                                     | determined by SpeedMonitor                                |
     +-------------------------------------+-----------------------------------------------------------+
     | `time/train`                        | Total elapsed training time                               |
     +-------------------------------------+-----------------------------------------------------------+
