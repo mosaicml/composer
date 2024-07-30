@@ -65,6 +65,7 @@ jobs:
       push: true
       staging: true
       staging-repo: mosaicml/ci-staging
+      ghcr-staging-repo: ghcr.io/databricks-mosaic/ci-staging
       tags: ${{ matrix.TAGS }}
       target: ${{ matrix.TARGET }}
     secrets:
