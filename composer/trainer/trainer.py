@@ -2986,7 +2986,7 @@ class Trainer:
                     self.num_consecutive_thrashes = 0
 
                     # Readd sync hooks if they were previously turned off
-                    if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handless) == 0:
+                    if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) == 0:
                         print("readding hooks for OOM")
                         patch_unshard_for_automicrobatching(False)
                         for _, module in self.fsdp_modules.items():
