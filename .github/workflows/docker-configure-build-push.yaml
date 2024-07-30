@@ -43,7 +43,7 @@ on:
         required: true
 jobs:
   configure-build-push:
-    runs-on: ubuntu-latest
+    runs-on: linux-ubuntu-latest
     steps:
     - name: Maximize Build Space on Worker
       uses: easimon/maximize-build-space@v4
@@ -99,6 +99,17 @@ jobs:
       run: | 
         echo ${{ env.IMAGE_TAG }}
         echo ${{ env.GHCR_IMAGE_TAG }}
+
+    - name: Build and Push the Docker Image
+      uses: docker/build-push-action@v3
+      with:
+        context: ${{ inputs.context }}
+        tags: ${{ env.IMAGE_TAG }}, ${{ env.GHCR_IMAGE_TAG }}
+        target: ${{ inputs.target }}
+        push: ${{ inputs.push }}
+        cache-from: type=registry,ref=${{ env.IMAGE_CACHE }}
+        cache-to: type=registry,ref=${{ env.IMAGE_CACHE }},mode=max
+        build-args: ${{ inputs.build-args }}
 
     - name: Build and Push the Docker Image
       uses: docker/build-push-action@v3
