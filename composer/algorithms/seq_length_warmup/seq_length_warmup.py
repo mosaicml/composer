@@ -5,6 +5,8 @@
 
 import logging
 import textwrap
+import warnings
+from collections import defaultdict
 from typing import Mapping, Optional
 
 import torch
@@ -284,7 +286,32 @@ class SeqLengthWarmup(Algorithm):
             batch_clone[k] = v[:, :self.max_seq_length].contiguous()
 
         # In-line to avoid circular dependency
-        from composer.trainer.trainer import _adjust_device_train_microbatch_size, _is_cuda_oom
+        from composer.trainer.trainer import _clear_incomplete_train_states, _is_cuda_oom
+
+        def _adjust_device_train_microbatch_size(state: State):
+            """Adjust device_train_microbatch_size if we encounter OOM.
+
+            Args:
+                state (State): State of trainer.
+            """
+            # If any rank hit CUDA OOM, update device_train_microbatch_size and retry. Raise runtime error
+            # if training 1 sample at a time still resulted in CUDA out of memory.
+            assert state.device_train_microbatch_size is not None
+            if state.device_train_microbatch_size == 1:
+                raise RuntimeError((
+                    'CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
+                    'The GPU does not have enough memory to process even 1 sample during train.'
+                ))
+            else:
+                original_microbatch_size = state.device_train_microbatch_size
+                state.device_train_microbatch_size = max(int(original_microbatch_size / 2), 1)
+                warnings.warn(
+                    RuntimeWarning(
+                        'CUDA out of memory detected. Train microbatch size will be decreased from '
+                        f'{original_microbatch_size} -> {state.device_train_microbatch_size}.',
+                    ),
+                )
+            _clear_incomplete_train_states
 
         # This loop tries to do a forward/backward pass using the current microbatch size.
         # If it hits an OOM error, it halves `state.device_train_microbatch_size` and tries again
