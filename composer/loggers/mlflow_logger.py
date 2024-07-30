@@ -189,7 +189,7 @@ class MLFlowLogger(LoggerDestination):
         self._run_id = None
         self.run_url = None
 
-        self._global_exception_occurred = False
+        # self._global_exception_occurred = False
 
         if self._enabled:
             if True or (tracking_uri is None and os.getenv('DATABRICKS_TOKEN') is not None):
@@ -308,7 +308,8 @@ class MLFlowLogger(LoggerDestination):
 
     def _global_exception_handler(self, exc_type, exc_value, exc_traceback):
         print("GEEZ global exception handler called.")
-        self._global_exception_occurred = True
+        # self._global_exception_occurred = True
+        self._global_exception_occurred += 1
         
         sys.__excepthook__(exc_type, exc_value, exc_traceback)
 
@@ -318,6 +319,10 @@ class MLFlowLogger(LoggerDestination):
 
         if self.run_name is None:
             self.run_name = state.run_name
+
+        self._global_exception_occurred = state.device.tensor_to_device(
+            torch.tensor([False], dtype=torch.uint8),
+        )
 
         # Store the Composer run name in the MLFlow run tags so it can be retrieved for autoresume
         self.tags['run_name'] = os.environ.get('RUN_NAME', state.run_name)
@@ -638,13 +643,17 @@ class MLFlowLogger(LoggerDestination):
     def post_close(self):
         print('GEEZ I AM AT POST CLOSE WITH RANK: ', dist.get_global_rank())
         print("GEEZ AM I AT EXIT? ", self._is_in_atexit)
-          
-        if self._global_exception_occurred:
-            print('GEEZ DETECTED GLOBAL EXCEPTION!')
-            self.monitor_process.crash()
-            return
+
 
         if self._enabled:
+
+            dist.all_reduce(self._global_exception_occurred, reduce_operation='MAX')
+            finish_with_exception = (self._global_exception_occurred == 1).item()
+            if finish_with_exception:
+                print('GEEZ DETECTED GLOBAL EXCEPTION!')
+                self.monitor_process.crash()
+                return
+
             print("GEEZ EXECUTING POST CLOSE ON RANK 0!")
             import mlflow
 
