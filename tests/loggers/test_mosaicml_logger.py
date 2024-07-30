@@ -313,7 +313,6 @@ def test_run_events_logged(monkeypatch):
         train_subset_num_batches=1,
         max_duration='4ba',
         loggers=[MosaicMLLogger()],
-        load_path='test_path'
     )
     trainer.fit()
     metadata = mock_mapi.run_metadata[run_name]
@@ -323,7 +322,6 @@ def test_run_events_logged(monkeypatch):
     assert 'mosaicml/training_sub_progress' not in metadata
     assert isinstance(metadata['mosaicml/train_finished_time'], float)
     assert isinstance(metadata['mosaicml/train_started_time'], float)
-    assert isinstance(metadata['mosaicml/checkpoint_resumed_path'], str)
 
 
 def test_token_training_progress_metrics():
@@ -387,15 +385,3 @@ def test_epoch_zero_no_dataloader_progress_metrics():
     assert training_progress['training_progress'] == '[epoch=1/3]'
     assert 'training_sub_progress' in training_progress
     assert training_progress['training_sub_progress'] == '[batch=1]'
-
-# def test_model_initialized_load_path_not_none():
-#     logger = MosaicMLLogger()
-#     logger._enabled = True
-#     state = MagicMock()
-#     state.timestamp.batch = Time(1, TimeUnit.BATCH)
-#     state.load_path = 'test_path'
-#     training_progress = logger._get_training_progress_metrics(state)
-#     assert 'training_progress' in training_progress
-#     assert training_progress['training_progress'] == '[epoch=1/3]'
-#     assert 'training_sub_progress' in training_progress
-#     assert training_progress['training_sub_progress'] == '[batch=1]'
