@@ -92,6 +92,7 @@ jobs:
         fi
 
         echo "IMAGE_TAG=${IMAGE_TAG}" >> ${GITHUB_ENV}
+        echo "GHCR_IMAGE_TAG=${GHCR_IMAGE_TAG}" >> ${GITHUB_ENV}
         echo "IMAGE_CACHE=${IMAGE_CACHE}" >> ${GITHUB_ENV}
 
     - name: IMAGE_TAG = ${{ env.IMAGE_TAG }}
