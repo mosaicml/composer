@@ -36,7 +36,7 @@ from composer.utils import dist
 log = logging.getLogger(__name__)
 
 def patch_unshard_for_automicrobatching(auto_microbatch_size_found=False):
-    if version.parse(torch.__version__ >= version.parse('2.3.1')):
+    if version.parse(torch.__version__) >= version.parse('2.3.1'):
         from torch.distributed.fsdp._flat_param import FlatParamHandle
         if auto_microbatch_size_found:
             FlatParamHandle.unshard = (unshard)
