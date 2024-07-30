@@ -7,20 +7,21 @@ import uuid
 from pathlib import Path
 
 import pytest
-import torch
-from packaging import version
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
-from composer.checkpoint.load import (CheckpointLoadOptions, load_model_checkpoint, load_optim_checkpoint,
-                                      load_resumption_checkpoint)
-from composer.checkpoint.save import (save_checkpoint_to_disk, save_model_to_disk, save_optim_to_disk,
-                                      save_resumption_state_to_disk,)
+from composer.checkpoint.load import (
+    load_model_checkpoint,
+    load_optim_checkpoint,
+    load_resumption_checkpoint,
+)
+from composer.checkpoint.save import (
+    save_model_to_disk,
+    save_optim_to_disk,
+    save_resumption_state_to_disk,
+)
 from composer.checkpoint.state_dict import _is_model_fsdp, get_model_state_dict, get_optim_state_dict
-from composer.core import Time, TimeUnit
 from composer.utils import dist
 from tests.checkpoint.helpers import init_model, init_model_and_optimizer, init_state
 from tests.common.compare import deep_compare
-from tests.common.markers import world_size
 
 
 @pytest.mark.gpu
@@ -60,7 +61,7 @@ def test_load_model_checkpoint(
 ):
     if sharded_model and not sharded_checkpoint:
         pytest.xfail(
-            'Loading an unsharded checkpoint into a sharded model is not supported and causes OOMs when running with these tests'
+            'Loading an unsharded checkpoint into a sharded model is not supported and causes OOMs when running with these tests',
         )
     # Ensure all ranks use the same path
     destination_dir = os.path.join(tmp_path, str(uuid.uuid4())[:8])
@@ -89,7 +90,8 @@ def test_load_model_checkpoint(
             new_model,
             load_path=load_path,
             load_options=dict(
-                sharded_checkpoint=sharded_checkpoint, shard_as_needed_during_load=shard_as_needed_during_load
+                sharded_checkpoint=sharded_checkpoint,
+                shard_as_needed_during_load=shard_as_needed_during_load,
             ),
         )
 
@@ -102,6 +104,7 @@ def test_load_model_checkpoint(
 
         if dist.get_global_rank() == 0:
             deep_compare(original_state_dict, new_state_dict)
+
 
 @pytest.mark.filterwarnings('ignore:TypedStorage is deprecated.')
 @pytest.mark.gpu
@@ -124,7 +127,7 @@ def test_load_optim_checkpoint(
 ):
     if sharded_optimizer and not sharded_checkpoint:
         pytest.xfail(
-            'Loading an unsharded checkpoint into a sharded optimizer is not supported and causes OOMs when running with these tests'
+            'Loading an unsharded checkpoint into a sharded optimizer is not supported and causes OOMs when running with these tests',
         )
 
     # Ensure all ranks use the same path
@@ -154,7 +157,8 @@ def test_load_optim_checkpoint(
             new_optimizer,
             load_path=load_path,
             load_options=dict(
-                sharded_checkpoint=sharded_checkpoint, shard_as_needed_during_load=shard_as_needed_during_load
+                sharded_checkpoint=sharded_checkpoint,
+                shard_as_needed_during_load=shard_as_needed_during_load,
             ),
         )
 
@@ -210,7 +214,7 @@ def test_load_resumption_checkpoint(tmp_path: Path):
     load_resumption_checkpoint(new_state, save_path)
 
     # Check that the loaded state matches the initial state
-    assert new_state.timestamp == initial_state.timestamp
+    deep_compare(new_state.timestamp, initial_state.timestamp)
     assert new_state.rank_zero_seed == initial_state.rank_zero_seed
     assert new_state.run_name == initial_state.run_name
 
@@ -234,4 +238,6 @@ def test_load_resumption_checkpoint(tmp_path: Path):
             deep_compare(init_callback.state_dict(), new_callback.state_dict())
 
     if initial_state.scaler:
+        assert initial_state.scaler is not None
+        assert new_state.scaler is not None
         deep_compare(initial_state.scaler.state_dict(), new_state.scaler.state_dict())

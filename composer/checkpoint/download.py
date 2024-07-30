@@ -67,7 +67,7 @@ def download_and_extract_symlink(source_uri) -> str:
     Returns:
         str: The path the symlink points to.
     """
-    
+
     object_store = maybe_create_object_store_from_uri(source_uri)
     _, _, source_path = parse_uri(source_uri)
     source_path = extract_path_from_symlink(source_path, object_store)

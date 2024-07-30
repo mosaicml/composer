@@ -16,10 +16,10 @@ from composer.algorithms import SWA
 from composer.callbacks import SpeedMonitor
 from composer.core import State
 from composer.devices import Device, DeviceCPU, DeviceGPU
-from composer.models import ComposerModel
-from tests.common.models import EvenSimplerMLP, SimpleComposerMLP
-from composer.utils.parallelism import FSDPConfig
 from composer.distributed import prepare_fsdp_module
+from composer.models import ComposerModel
+from composer.utils.parallelism import FSDPConfig
+from tests.common.models import EvenSimplerMLP, SimpleComposerMLP
 
 __all__ = [
     'init_model_and_optimizer',
@@ -27,6 +27,7 @@ __all__ = [
     'init_optimizer',
     'init_state',
 ]
+
 
 def init_state(
     use_fsdp: bool = False,
@@ -141,7 +142,11 @@ def init_model(
             device_mesh = init_device_mesh('cuda', (2,))
             fsdp_kwargs['device_mesh'] = device_mesh
 
-        prepare_fsdp_module(model, optimizers=None, fsdp_config=FSDPConfig(**fsdp_kwargs), )
+        prepare_fsdp_module(
+            model,
+            optimizers=None,
+            fsdp_config=FSDPConfig(**fsdp_kwargs),
+        )
 
     return model, loss_fn
 

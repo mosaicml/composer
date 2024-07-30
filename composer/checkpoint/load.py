@@ -9,29 +9,37 @@ import tempfile
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Union, TYPE_CHECKING, Any
+from typing import Any, Dict, Optional, Sequence, Union
 
 import torch
 import torch.distributed.checkpoint as DCP
 from packaging import version
 from torch import nn
-
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.optim import Optimizer
-from composer.checkpoint.download import download_monolithic_checkpoint, download_and_extract_symlink
-from composer.checkpoint.state_dict import (_cast_state_dict_to_precision, _extract_keys_from_state_dict,
-                                            _is_model_fsdp, _remove_keys_from_state_dict, get_model_state_dict,
-                                            get_optim_state_dict,)
+
+from composer.checkpoint.download import download_and_extract_symlink, download_monolithic_checkpoint
+from composer.checkpoint.state_dict import (
+    _cast_state_dict_to_precision,
+    _extract_keys_from_state_dict,
+    _is_model_fsdp,
+    _remove_keys_from_state_dict,
+    get_model_state_dict,
+    get_optim_state_dict,
+)
 from composer.core.state import State
 from composer.distributed import prepare_fsdp_module
 from composer.models import ComposerModel
 from composer.utils import FSDPConfig, dist, reproducibility
-from composer.utils.checkpoint import (DistCPObjectStoreReader, FileSystemReaderWithValidation,
-                                       _ensure_valid_checkpoint, _torch_load_with_validation)
+from composer.utils.checkpoint import (
+    DistCPObjectStoreReader,
+    FileSystemReaderWithValidation,
+    _ensure_valid_checkpoint,
+    _torch_load_with_validation,
+)
 from composer.utils.file_helpers import is_uri
 
 log = logging.getLogger(__name__)
-
 
 
 @dataclass
@@ -77,7 +85,7 @@ class CheckpointLoadOptions:
 def load_checkpoint(
     load_path: str,
     load_options: Optional[Union[CheckpointLoadOptions, Dict]],
-    model: Optional[ComposerModel] = None,
+    model: Optional[Union[ComposerModel, nn.Module]] = None,
     optim: Optional[Optimizer] = None,
     state: Optional[State] = None,
     model_child_path: Optional[str] = None,
@@ -92,13 +100,15 @@ def load_checkpoint(
         model (Optional[ComposerModel]): The model to load the checkpoint into. If not provided, the model from the state will be used.
         optim (Optional[Optimizer]): The optimizer to load the checkpoint into. If not provided, the optimizer from the state will be used.
         state (Optional[State]): The state to load the checkpoint. If not provided, the model and optimizer must be provided.
-        model_child_path (Optional[str]): The path to the model checkpoint within the load_path. 
+        model_child_path (Optional[str]): The path to the model checkpoint within the load_path.
             E.g. if your checkpoints are unsharded and saved in load_path/my_cool_model/my_model.pt, set model_child_path='my_cool_model/my_model.pt'. If not specified, 'model/model.pt' is used.
             if your checkpoints are sharded and saved in load_path/my_sharded_model/ then set model_child_path='my_sharded_model'. If not specified, 'model' is used.
-        optim_child_path (Optional[str]): The path to the optimizer checkpoint within the load_path. 
+        optim_child_path (Optional[str]): The path to the optimizer checkpoint within the load_path.
             e.g. if your checkpoints are unsharded and saved in load_path/my_cool_optim/my_optim.pt, set optim_child_path='my_cool_optim/my_optim.pt'. If not specified, 'optim/optim.pt' is used.
             if your checkpoints are sharded and saved in load_path/my_sharded_optim/ then set optim_child_path='my_sharded_optim'. If not specified, 'optim' is used.
     """
+    if load_options is None:
+        load_options = CheckpointLoadOptions()
     if isinstance(load_options, dict):
         load_options = CheckpointLoadOptions(**load_options)
 
@@ -109,7 +119,6 @@ def load_checkpoint(
             model = state.model
         if model_child_path is None:
             model_child_path = 'model' if load_options.sharded_checkpoint else 'model/model.pt'
-        model_load_path = os.path.join(load_path, model_child_path)
 
     if load_options.load_optimizer:
         if optim is None:
@@ -118,27 +127,32 @@ def load_checkpoint(
             optim = state.optimizers[0]
         if optim_child_path is None:
             optim_child_path = 'optim' if load_options.sharded_checkpoint else 'optim/optim.pt'
-        optim_load_path = os.path.join(load_path, optim_child_path)
-
-    if load_options.load_resumption_state and state is None:
-        raise ValueError('State must be provided if loading resumption state.')
-
-    if load_options.load_model:
-        load_model_checkpoint(model, load_path=model_load_path, load_options=load_options)
-    if load_options.load_optimizer:
-        load_optim_checkpoint(
-            state.model, state.optimizers[0], optim_load_path, sharded_checkpoint=load_options.sharded_checkpoint
-        )
 
     if load_options.load_resumption_state:
-        load_resumption_checkpoint(state)
+        if state is None:
+            raise ValueError('State must be provided if loading resumption state.')
+        load_resumption_checkpoint(state, load_path)
+
+    if load_options.load_model:
+        assert model is not None
+        model_load_path = os.path.join(load_path, model_child_path)
+        load_model_checkpoint(model, load_path=model_load_path, load_options=load_options)
+    if load_options.load_optimizer:
+        optim_load_path = os.path.join(load_path, optim_child_path)
+        assert model is not None
+        assert optim is not None
+        load_optim_checkpoint(
+            model,
+            optim,
+            optim_load_path,
+        )
 
 
 def load_model_checkpoint(
-    model: ComposerModel,
-    load_path: str,
+    model: Union[ComposerModel, nn.Module],
+    load_path: Optional[str] = None,
     load_options: Optional[Union[CheckpointLoadOptions, Dict]] = None,
-    seed: Optional[int] = 42,
+    seed: int = 42,
 ):
     """
     Load a a model checkpoint from the specified path into the model.
@@ -157,14 +171,22 @@ def load_model_checkpoint(
     if load_options.sharded_checkpoint:
         if not _is_model_fsdp(model):
             if load_options.shard_as_needed_during_load:
-                _shard_with_fsdp(model, fsdp_config=load_options.fsdp_config, precision=load_options.precision, seed=seed)
+                _shard_with_fsdp(
+                    model,
+                    fsdp_config=load_options.fsdp_config,
+                    precision=load_options.precision,
+                    seed=seed,
+                )
             else:
                 raise ValueError(
-                    'Model is not sharded but checkpoint is sharded. Please pass in a model wrapped with FSDP or set shard_model_as_needed_during_load to True.'
+                    'Model is not sharded but checkpoint is sharded. Please pass in a model wrapped with FSDP or set shard_model_as_needed_during_load to True.',
                 )
+        assert load_path is not None
         _load_sharded_model_checkpoint(model, load_path=load_path, load_options=load_options)
     else:
-        _load_unsharded_model_checkpoint(model, load_path=load_path, load_options=load_options)
+        if dist.get_global_rank() != 0:
+            assert load_path is not None
+            _load_unsharded_model_checkpoint(model, load_path=load_path, load_options=load_options)
 
         if load_options.shard_as_needed_during_load and not _is_model_fsdp(model):
             if load_options.fsdp_config is None:
@@ -177,11 +199,11 @@ def load_model_checkpoint(
 
 
 def _shard_with_fsdp(
-    model: ComposerModel,
+    model: Union[ComposerModel, nn.Module],
     optimizer: Optional[Optimizer] = None,
     fsdp_config: Optional[Union[FSDPConfig, dict]] = None,
     precision: Optional[str] = None,
-    seed: Optional[int] = 42
+    seed: int = 42,
 ):
     if fsdp_config is None:
         fsdp_config = FSDPConfig()
@@ -197,7 +219,7 @@ def _shard_with_fsdp(
 
 
 def _load_sharded_model_checkpoint(
-    model: ComposerModel,
+    model: Union[ComposerModel, nn.Module],
     load_path: str,
     load_options: Optional[Union[CheckpointLoadOptions, Dict]],
 ):
@@ -206,10 +228,16 @@ def _load_sharded_model_checkpoint(
     elif isinstance(load_options, dict):
         load_options = CheckpointLoadOptions(**load_options)
     model_state_dict = get_model_state_dict(
-        model, sharded_state_dict=True, include_keys=load_options.include_keys, ignore_keys=load_options.ignore_keys
+        model,
+        sharded_state_dict=True,
+        include_keys=load_options.include_keys,
+        ignore_keys=load_options.ignore_keys,
     )
     model_state_dict = download_and_load_sharded_state_dict(
-        load_path, load_options.device_mesh, model_state_dict, load_options.load_planner
+        load_path,
+        load_options.device_mesh,
+        model_state_dict,
+        load_options.load_planner,
     )
     model_state_dict = _cast_state_dict_to_precision(model_state_dict, load_options.precision)
     # TODO: raise warning for unknown or missing keys.
@@ -220,16 +248,21 @@ def _load_sharded_model_checkpoint(
             model_state_dict,
             strict=load_options.strict,
             cpu_offload=load_options.cpu_offload,
-            sharded_state_dict=True
+            sharded_state_dict=True,
         )
     else:
         _load_model_state_dict_with_fsdp_context_manager(
-            model, model_state_dict, sharded_state_dict=True, strict=load_options.strict
+            model,
+            model_state_dict,
+            sharded_state_dict=True,
+            strict=load_options.strict,
         )
 
 
 def _load_unsharded_model_checkpoint(
-    model: ComposerModel, load_path: str, load_options: Optional[Union[CheckpointLoadOptions, Dict]] = None
+    model: Union[ComposerModel, nn.Module],
+    load_path: str,
+    load_options: Optional[Union[CheckpointLoadOptions, Dict]] = None,
 ):
     if dist.get_global_rank() != 0:
         return
@@ -239,7 +272,7 @@ def _load_unsharded_model_checkpoint(
         load_options = CheckpointLoadOptions(**load_options)
     if _is_model_fsdp(model):
         raise ValueError(
-            'Model is sharded but checkpoint is not sharded. Please pass in a model not wrapped with FSDP.'
+            'Model is sharded but checkpoint is not sharded. Please pass in a model not wrapped with FSDP.',
         )
     load_path_is_remote = is_uri(load_path)
     download_dir_context = tempfile.TemporaryDirectory if load_path_is_remote else contextlib.nullcontext
@@ -247,6 +280,7 @@ def _load_unsharded_model_checkpoint(
         file_path = load_path
         if load_path_is_remote:
             filename = Path(load_path).name
+            assert download_dir is not None
             file_path = os.path.join(download_dir, filename)
             download_monolithic_checkpoint(load_path, download_dir)
 
@@ -260,7 +294,7 @@ def _load_unsharded_model_checkpoint(
 
 
 def load_optim_checkpoint(
-    model: ComposerModel,
+    model: Union[ComposerModel, nn.Module],
     optim: torch.optim.Optimizer,
     load_path: Optional[str] = None,
     load_options: Optional[Union[CheckpointLoadOptions, Dict]] = None,
@@ -269,7 +303,7 @@ def load_optim_checkpoint(
     Load an optimizer checkpoint from the specified path into the optimizer.
 
     Args:
-        model (ComposerModel): The model to load the optimizer checkpoint into.
+        model (Union[ComposerModel, nn.Module]): The model to load the optimizer checkpoint into.
         optim (torch.optim.Optimizer): The optimizer to load the checkpoint into.
         load_path (Optional[str]): The path to the checkpoint to load.
         load_options (Optional[Union[CheckpointLoadOptions, Dict]]): The options for loading the checkpoint.
@@ -282,34 +316,37 @@ def load_optim_checkpoint(
         raise ValueError(
             textwrap.dedent(
                 """Model/Optim is not sharded but checkpoint is sharded.
-                                         Please  pass in a model/optim wrapped with FSDP."""
-            )
+                                         Please  pass in a model/optim wrapped with FSDP.""",
+            ),
         )
     if not load_options.sharded_checkpoint and not _is_model_fsdp(model) and load_options.shard_as_needed_during_load:
         raise ValueError(
             textwrap.dedent(
                 """Neither model nor optim nor checkpoint is sharded, but shard_as_needed_during_load is set.
                                          Sharding the optim after load is not supported. please set shard_as_needed_during_load to False.
-                                         """
-            )
+                                         """,
+            ),
         )
     if load_options.sharded_checkpoint:
         _load_sharded_optim_checkpoint(model=model, optim=optim, load_path=load_path, load_options=load_options)
     else:
         _load_unsharded_optim_checkpoint(
-            model=model, optim=optim, load_path=load_path, precision=load_options.precision
+            model=model,
+            optim=optim,
+            load_path=load_path,
+            precision=load_options.precision,
         )
 
 
 def _load_sharded_optim_checkpoint(
-    model: ComposerModel,
+    model: Union[ComposerModel, nn.Module],
     optim: torch.optim.Optimizer,
     load_path: str,
-    load_options: Optional[Union[CheckpointLoadOptions, Dict]] = None,
+    load_options: CheckpointLoadOptions,
 ):
     if not _is_model_fsdp(model):
         raise ValueError(
-            'Model is not sharded but checkpoint is sharded. Please either use load_model_checkpoint(model, load_path, optimizer, shard_as_needed_during_load=True) or pass in a model wrapped with FSDP.'
+            'Model is not sharded but checkpoint is sharded. Please either use load_model_checkpoint(model, load_path, optimizer, shard_as_needed_during_load=True) or pass in a model wrapped with FSDP.',
         )
     # if not _is_optimizer_sharded(optim):
     #     raise ValueError("Optimizer is not sharded but checkpoint is sharded. Please pass in a sharded optimizer by passing a sharded model's parameters to an optimizer constructor.")
@@ -318,7 +355,7 @@ def _load_sharded_optim_checkpoint(
         load_path=load_path,
         device_mesh=load_options.device_mesh,
         state_dict=optim_state_dict,
-        load_planner=load_options.load_planner
+        load_planner=load_options.load_planner,
     )
     for param_key, param_state_dict in optim_state_dict['state'].items():
         optim_state_dict['state'][param_key] = _cast_state_dict_to_precision(param_state_dict, load_options.precision)
@@ -329,16 +366,20 @@ def _load_sharded_optim_checkpoint(
             optim_state_dict,
             strict=load_options.strict,
             cpu_offload=load_options.cpu_offload,
-            sharded_state_dict=True
+            sharded_state_dict=True,
         )
     else:
         _load_optim_state_dict_with_fsdp_context_manager(
-            model, optim, optim_state_dict, sharded_state_dict=True, strict=load_options.strict
+            model,
+            optim,
+            optim_state_dict,
+            sharded_state_dict=True,
+            strict=load_options.strict,
         )
 
 
 def _load_unsharded_optim_checkpoint(
-    model: ComposerModel,
+    model: Union[ComposerModel, nn.Module],
     optim: torch.optim.Optimizer,
     load_path: str,
     precision: str = 'fp32',
@@ -358,7 +399,6 @@ def _load_unsharded_optim_checkpoint(
             file_path = os.path.join(download_dir, filename)
             download_monolithic_checkpoint(load_path, file_path)
 
-
         optim_state_dict = _torch_load_with_validation(file_path, map_location='cpu')
         for param_key, param_state_dict in optim_state_dict['state'].items():
             optim_state_dict['state'][param_key] = _cast_state_dict_to_precision(param_state_dict, precision)
@@ -377,14 +417,21 @@ def _preprocess_local_load_path(load_path: str):
 
 
 def _load_model_state_dict_with_fsdp_context_manager(
-    model: nn.Module, model_state_dict: dict, sharded_state_dict: bool, strict: bool
+    model: nn.Module,
+    model_state_dict: dict,
+    sharded_state_dict: bool,
+    strict: bool,
 ):
-    from torch.distributed.fsdp.fully_sharded_data_parallel import (FullStateDictConfig, ShardedStateDictConfig,
-                                                                    StateDictType,)
+    from torch.distributed.fsdp.fully_sharded_data_parallel import (
+        FullStateDictConfig,
+        ShardedStateDictConfig,
+        StateDictType,
+    )
     state_dict_type = StateDictType.SHARDED_STATE_DICT if sharded_state_dict else StateDictType.FULL_STATE_DICT
-    state_dict_config = ShardedStateDictConfig(
-        offload_to_cpu=True
-    ) if sharded_state_dict else FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
+    state_dict_config = ShardedStateDictConfig(offload_to_cpu=True,) if sharded_state_dict else FullStateDictConfig(
+        offload_to_cpu=True,
+        rank0_only=True,
+    )
     with FSDP.state_dict_type(model, state_dict_type=state_dict_type, state_dict_config=state_dict_config):
         missing_keys, unexpected_keys = model.load_state_dict(
             model_state_dict,
@@ -398,10 +445,17 @@ def _load_model_state_dict_with_fsdp_context_manager(
 
 
 def _load_optim_state_dict_with_fsdp_context_manager(
-    model: nn.Module, optim, optim_state_dict: dict, sharded_state_dict: bool, strict: bool
+    model: nn.Module,
+    optim,
+    optim_state_dict: dict,
+    sharded_state_dict: bool,
+    strict: bool,
 ):
-    from torch.distributed.fsdp.fully_sharded_data_parallel import (FullOptimStateDictConfig,
-                                                                    ShardedOptimStateDictConfig, StateDictType,)
+    from torch.distributed.fsdp.fully_sharded_data_parallel import (
+        FullOptimStateDictConfig,
+        ShardedOptimStateDictConfig,
+        StateDictType,
+    )
     state_dict_type = StateDictType.SHARDED_STATE_DICT if sharded_state_dict else StateDictType.FULL_STATE_DICT
     optim_state_dict_config = optim_state_dict_config = ShardedOptimStateDictConfig(
     ) if sharded_state_dict else FullOptimStateDictConfig(offload_to_cpu=True, rank0_only=True)
@@ -414,31 +468,39 @@ def _load_optim_state_dict_with_fsdp_context_manager(
 
 
 def torch_set_model_state_dict(
-    model: torch.nn.Module, model_state_dict: dict, strict: bool, cpu_offload: bool, sharded_state_dict: bool = True
+    model: torch.nn.Module,
+    model_state_dict: dict,
+    strict: bool,
+    cpu_offload: bool,
+    sharded_state_dict: bool = True,
 ):
     if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
         from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
-    try:
-        set_model_state_dict(
-            model,
-            model_state_dict,
-            options=StateDictOptions(strict=strict, cpu_offload=cpu_offload, full_state_dict=not sharded_state_dict)
-        )
-    except AttributeError as e:
-        # Issue: https://github.com/pytorch/pytorch/issues/127351
-        if "ShardedTensor' object has no attribute 'placements'" in str(e):
-            raise RuntimeError(
-                textwrap.dedent(
-                    'PyTorch DTensor broke backwards compatibility in older checkpoints '
-                    'with ShardedTensor, which is now deprecated. To load old checkpoints, '
-                    'either downgrade to PyTorch <2.3.0 or explicitly pass process groups '
-                    'in the Trainer constructor via '
-                    "`parallelism_config = {'fsdp': {'process_group': 'mod1'}}`. We can "
-                    'provide assistance at https://github.com/mosaicml/composer/issues.',
+        try:
+            set_model_state_dict(
+                model,
+                model_state_dict,
+                options=StateDictOptions(
+                    strict=strict,
+                    cpu_offload=cpu_offload,
+                    full_state_dict=not sharded_state_dict,
                 ),
-            ) from e
-        else:
-            raise e
+            )
+        except AttributeError as e:
+            # Issue: https://github.com/pytorch/pytorch/issues/127351
+            if "ShardedTensor' object has no attribute 'placements'" in str(e):
+                raise RuntimeError(
+                    textwrap.dedent(
+                        'PyTorch DTensor broke backwards compatibility in older checkpoints '
+                        'with ShardedTensor, which is now deprecated. To load old checkpoints, '
+                        'either downgrade to PyTorch <2.3.0 or explicitly pass process groups '
+                        'in the Trainer constructor via '
+                        "`parallelism_config = {'fsdp': {'process_group': 'mod1'}}`. We can "
+                        'provide assistance at https://github.com/mosaicml/composer/issues.',
+                    ),
+                ) from e
+            else:
+                raise e
 
 
 def torch_set_optimizer_state_dict(
@@ -447,7 +509,7 @@ def torch_set_optimizer_state_dict(
     optim_state_dict: dict,
     strict: bool,
     cpu_offload: bool,
-    sharded_state_dict: bool = True
+    sharded_state_dict: bool = True,
 ):
     if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
         from torch.distributed.checkpoint.state_dict import StateDictOptions, set_optimizer_state_dict
@@ -464,7 +526,10 @@ def torch_set_optimizer_state_dict(
 
 
 def download_and_load_sharded_state_dict(
-    load_path: str, device_mesh: Optional[Any], state_dict: dict, load_planner: Optional[Any] = None
+    load_path: str,
+    device_mesh: Optional[Any],
+    state_dict: dict,
+    load_planner: Optional[Any] = None,
 ):
     load_path_is_remote = is_uri(load_path)
     download_dir_context = tempfile.TemporaryDirectory if load_path_is_remote else contextlib.nullcontext
@@ -503,7 +568,7 @@ def download_and_load_sharded_state_dict(
 
 
 def load_resumption_checkpoint(state: State, load_path: str):
-    load_path = _ensure_valid_checkpoint(load_path)
+    load_path = str(_ensure_valid_checkpoint(load_path))
     resumption_state_dict = pickle.load(open(load_path, 'rb'))
     if 'dataset_state' in resumption_state_dict:
         state._load_dataset_state(resumption_state_dict['dataset_state'])
@@ -527,4 +592,5 @@ def load_resumption_checkpoint(state: State, load_path: str):
 
     if 'scaler' in resumption_state_dict:
         fqn = type(state.scaler).__qualname__
+        assert state.scaler is not None
         state.scaler.load_state_dict(resumption_state_dict['scaler'][fqn])
