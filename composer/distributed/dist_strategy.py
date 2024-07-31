@@ -176,7 +176,7 @@ def _recreate_fsdp_param_groups_from_unwrapped_opt_info(
         # if the parameter was included in the optimizer param_group pre fsdp wrapping, in order to support
         # passing a subset of model params in the optimizer
         if unwrapped_name in non_wrapped_param_names_to_group_num:
-            # need to have a 1:1 mapping between a fsdp param name and the non-wrapped vanilla param name
+            # Need to have a 1:1 mapping between a fsdp param name and the non-wrapped vanilla param name
             retrieved_group_num = non_wrapped_param_names_to_group_num[unwrapped_name]
             group_num_to_optimizer_info[retrieved_group_num]['params'].append(param)
 
