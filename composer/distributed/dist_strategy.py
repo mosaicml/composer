@@ -7,7 +7,7 @@ import collections
 import logging
 import warnings
 from contextlib import contextmanager, nullcontext
-from typing import Any, Callable, ContextManager, Iterator, Optional, Sequence, Union, cast
+from typing import Any, Callable, ContextManager, Iterator, Optional, Sequence, Union, Tuple, cast 
 
 import torch
 from packaging import version
@@ -203,7 +203,7 @@ def prepare_fsdp_module(
     device: Device,
     auto_microbatching: bool,
     te_rng_seed: int = 1234,
-) -> None:
+) -> Tuple[list, dict]:
     """Prepare a module (assumed ComposerModel) and optimizer for use with :class:`torch.distributed.fsdp.FullyShardedDataParallel`.
 
     Args:
@@ -229,6 +229,9 @@ def prepare_fsdp_module(
                 "device or set parallelism_config['fsdp']['sync_module_states'] = True. Otherwise, "
                 'some weights may be randomly initialized when loading a checkpoint.',
             )
+
+    # Handles of FSDP sync hooks if automicrobatching is on
+    hook_handles = []
 
     # Check if other ranks OOMed after forward/backward pass when using auto microbatching. This
     # may happen when close to memory limit or with uneven memory usage across ranks. Since we
@@ -512,9 +515,6 @@ def prepare_fsdp_module(
                         ret = obj.fsdp_wrap_fn(module)
                         if isinstance(ret, dict):
                             ret = set_custom_fsdp_module_kwargs(ret, process_group_cache)
-                    if ret and auto_microbatching:
-                        module.register_forward_hook(sync_hook)
-                        module.register_full_backward_hook(sync_hook)
                     return ret
 
                 _auto_wrap_policy = CustomPolicy(lambda_fn)
@@ -531,9 +531,6 @@ def prepare_fsdp_module(
                     elif hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
                         should_be_wrapped = obj.fsdp_wrap_fn(module)
 
-                    if should_be_wrapped and auto_microbatching:
-                        module.register_forward_hook(sync_hook)
-                        module.register_full_backward_hook(sync_hook)
                     return should_be_wrapped
 
                 def _auto_wrap_policy_new(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:
@@ -566,6 +563,15 @@ def prepare_fsdp_module(
                     raise ModuleNotFoundError('Please install transformer-engine to use prepare_te_modules_for_fsdp')
                 log.info(f'Calling prepare_te_modules_for_fsdp to enable TE weights sharding')
                 prepare_te_modules_for_fsdp(fsdp_obj)
+
+
+            if auto_microbatching:
+                for _, module in fsdp_obj.named_modules():
+                    if isinstance(module, FullyShardedDataParallel):
+                        hook_handles.append(module.register_forward_pre_hook(sync_hook, prepend=True))
+                        hook_handles.append(module.register_full_backward_pre_hook(sync_hook, prepend=True))
+                    else:
+                        hook_handles.append(module.register_full_backward_hook(sync_hook))
 
             if hasattr(fsdp_obj, '_exec_order_data'):
                 if hasattr(fsdp_obj._exec_order_data, '_forward_prefetch_limit'):
@@ -727,3 +733,5 @@ def prepare_fsdp_module(
             assert optimizer_specific_info is not None
             optimizer_specific_info.update({'params': list(model.parameters())})
             optim.add_param_group(optimizer_specific_info)
+            
+    return hook_handles, dict(fsdp_obj.named_modules())
