@@ -172,7 +172,7 @@ def _recreate_fsdp_param_groups_from_unwrapped_opt_info(
 
         unwrapped_name = clean_tensor_name(fsdp_name)
 
-        # since we are iterating over all model.named_parameters() after fsdp wrapping, we need to check
+        # Since we are iterating over all model.named_parameters() after fsdp wrapping, we need to check
         # if the parameter was included in the optimizer param_group pre fsdp wrapping, in order to support
         # passing a subset of model params in the optimizer
         if unwrapped_name in non_wrapped_param_names_to_group_num:
