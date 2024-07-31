@@ -2482,7 +2482,7 @@ class Trainer:
     def _train_loop(self) -> None:
         """Run training for the specified number of epochs and log results."""
         # Log training start
-        # if dist.get_global_rank() == 1:
+        # if dist.get_global_rank() == 2:
         #     import time
         #     time.sleep(2)
         #     raise ValueError('test mlflow')

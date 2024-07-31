@@ -36,8 +36,6 @@ __all__ = ['MLFlowLogger']
 
 DEFAULT_MLFLOW_EXPERIMENT_NAME = 'my-mlflow-experiment'
 
-print("GEEZ MOLY!")
-
 
 class MlflowMonitorProcess(multiprocessing.Process):
 
@@ -47,14 +45,15 @@ class MlflowMonitorProcess(multiprocessing.Process):
         self.mlflow_run_id = mlflow_run_id
         self.mlflow_tracking_uri = mlflow_tracking_uri
         self.exit_event = multiprocessing.Event()
-        self.crashed = multiprocessing.Event()
+        self.crash_event = multiprocessing.Event()
 
     def handle_sigterm(self, signum, frame):
-        print('GEEZ GOT A SIGTERM!')
         from mlflow import MlflowClient
         client = MlflowClient(self.mlflow_tracking_uri)
         current_status = client.get_run(self.mlflow_run_id).info.status
         if current_status == 'RUNNING':
+            # Set the run status as KILLED if SIGTERM is received while the MLflow run is still
+            # in status RUNNING.
             client.set_terminated(self.mlflow_run_id, status='KILLED')
 
     def run(self):
@@ -62,9 +61,6 @@ class MlflowMonitorProcess(multiprocessing.Process):
         from mlflow import MlflowClient
 
         os.setsid()
-
-        print('GEEZ START CHECKING STATUS ON PID: ', os.getpid())
-
         # Register the signal handler in the child process
         signal.signal(signal.SIGTERM, self.handle_sigterm)
 
@@ -72,26 +68,20 @@ class MlflowMonitorProcess(multiprocessing.Process):
             try:
                 # Signal 0 does not kill the process but performs error checking
                 os.kill(self.main_pid, 0)
-                print('GEEZ MAIN PROCESS IS ALIVE!')
             except OSError:
-                print('GEEZ MAIN PROCESS IS NOT ALIVE!')
                 client = MlflowClient(self.mlflow_tracking_uri)
                 client.set_terminated(self.mlflow_run_id, status='FAILED')
                 break
 
-        print("GEEZ IS MY MAIN PROCESS CRASHED? ", self.crashed.is_set())
-        if self.crashed.is_set():
-            print("GEEZ CRASH DETECED! SETTING MLFLOW STATUS AS FAILED")
+        if self.crash_event.is_set():
             client = MlflowClient(self.mlflow_tracking_uri)
             client.set_terminated(self.mlflow_run_id, status='FAILED')
-        print('Monitor process exiting gracefully.')
 
     def stop(self):
         self.exit_event.set()
 
     def crash(self):
-        print("GEEZ I AM CRASHING MLFLOW!")
-        self.crashed.set()
+        self.crash_event.set()
         self.exit_event.set()
 
 
@@ -201,8 +191,6 @@ class MLFlowLogger(LoggerDestination):
         self._run_id = None
         self.run_url = None
 
-        # self._global_exception_occurred = False
-
         if self._enabled:
             if True or (tracking_uri is None and os.getenv('DATABRICKS_TOKEN') is not None):
                 tracking_uri = 'databricks'
@@ -308,9 +296,7 @@ class MLFlowLogger(LoggerDestination):
             tags=self.tags,
             log_system_metrics=self.log_system_metrics,
         )
-
-        # multiprocessing.set_start_method('spawn', force=True)
-        print('GEEZ MAIN PROCESS PID: ', os.getpid())
+        # Start a background process to monitor the job in order to report the job status to MLflow.
         self.monitor_process = MlflowMonitorProcess(
             os.getpid(),
             self._run_id,
@@ -318,19 +304,12 @@ class MLFlowLogger(LoggerDestination):
         )
         self.monitor_process.start()
 
-        import time
-        time.sleep(3)
-        os.kill(self.monitor_process.pid, signal.SIGTERM)
-
     def _global_exception_handler(self, exc_type, exc_value, exc_traceback):
-        print("GEEZ global exception handler called.")
-        # self._global_exception_occurred = True
+        """Catch global exception."""
         self._global_exception_occurred += 1
-        
         sys.__excepthook__(exc_type, exc_value, exc_traceback)
 
     def init(self, state: State, logger: Logger) -> None:
-        print('GEEZ I AM INITING THE MLFLOW LOGGER!')
         del logger  # unused
 
         if self.run_name is None:
@@ -338,7 +317,7 @@ class MLFlowLogger(LoggerDestination):
         
         if hasattr(state, "device"):
             self._global_exception_occurred = state.device.tensor_to_device(
-                torch.tensor([False], dtype=torch.uint8),
+                torch.tensor([0], dtype=torch.uint8),
             )
         else:
             self._global_exception_occurred = 0
@@ -350,6 +329,7 @@ class MLFlowLogger(LoggerDestination):
         if not self._rank_zero_only:
             self.run_name += f'-rank{dist.get_global_rank()}'
 
+        # Register the global exception handler so that uncaught exception is tracked.
         sys.excepthook = self._global_exception_handler
         # Start run
         if self._enabled:
@@ -660,41 +640,28 @@ class MLFlowLogger(LoggerDestination):
         return False
 
     def post_close(self):
-        print('GEEZ I AM AT POST CLOSE WITH RANK: ', dist.get_global_rank())
-        print("GEEZ AM I AT EXIT? ", self._is_in_atexit)
-
-
         if self._enabled:
-
+            # Check if there is an uncaught exception, which means `post_close()` is triggered
+            # due to program crash.
+            finish_with_exception = False
+            
             if isinstance(self._global_exception_occurred, torch.Tensor):
                 dist.all_reduce(self._global_exception_occurred, reduce_operation='MAX')
                 finish_with_exception = (self._global_exception_occurred == 1).item()
             else:
                 finish_with_exception = (self._global_exception_occurred == 1)
             if finish_with_exception:
-                print('GEEZ DETECTED GLOBAL EXCEPTION!')
                 self.monitor_process.crash()
                 return
 
-            print("GEEZ EXECUTING POST CLOSE ON RANK 0!")
+            # Stop the monitor process since it's entering the cleanup phase.
+            self.monitor_process.stop() 
             import mlflow
 
             assert isinstance(self._run_id, str)
 
-            # if self._is_in_atexit:
-            #     # Don't call mlflow ending process if the script is in an atexit, if `post_close` is
-            #     # called from atexit, it means the script is exiting with errors, and MLflow status
-            #     # setting should be handled by `self.monitor_process`.
-            #     print('GEEZ I AM IN AT EXIT!')
-            #     import time
-            #     time.sleep(5)
-            #     self.monitor_process.crash()
-
-            #     return
-
             mlflow.flush_async_logging()
             exc_tpe, exc_info, tb = sys.exc_info()
-            print('GEEZ SYS INFO: ', exc_tpe, exc_info, tb)
             if (exc_tpe, exc_info, tb) == (None, None, None):
                 current_status = self._mlflow_client.get_run(self._run_id).info.status
                 if current_status == 'RUNNING':
@@ -702,10 +669,8 @@ class MLFlowLogger(LoggerDestination):
             else:
                 # record there was an error
                 self._mlflow_client.set_terminated(self._run_id, status='FAILED')
-            self.monitor_process.stop()
-
+            
             mlflow.end_run()
-
             self.monitor_process.join()
 
 
