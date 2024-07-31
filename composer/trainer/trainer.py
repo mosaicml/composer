@@ -1324,7 +1324,7 @@ class Trainer:
         if parallelism_config is not None:
             # Patch PyTorch to fix distributed bugs
             patch_pytorch()
-            patch_unshard_for_automicrobatching(self.auto_microbatch_size_found)
+            patch_unshard_for_automicrobatching(False)
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, device)
