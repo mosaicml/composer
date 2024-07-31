@@ -65,7 +65,6 @@ class CheckpointSaveOptions:
         include_keys (Optional[Union[str, Sequence[str]]]): Keys to include in the saved model.
         ignore_keys (Optional[Union[str, Sequence[str]]]): Keys to ignore in the saved model.
     """
-    destination_dir: str
     save_frequency: Union[str, int, Time] = '1ep'
     dir_prefix: str = 'ep{epoch}-ba{batch}'
     overwrite: bool = False
@@ -81,9 +80,9 @@ class CheckpointSaveOptions:
 
 
 def save_checkpoint_to_disk(
+    destination_dir: str,
     state: State,
     options: Optional[Union[CheckpointSaveOptions, Dict]] = None,
-    destination_dir: Optional[str] = None,
 ):
     """Saves a checkpoint to disk.
 
@@ -92,24 +91,21 @@ def save_checkpoint_to_disk(
         options (Optional[Union[CheckpointSaveOptions, Dict]]): The options for saving the checkpoint.
             If None, destination_dir must be provided.
         destination_dir (Optional[str]): The directory to save the checkpoint to.
-            If options is provided, this will overwrite options.destination_dir.
+            If options is provided, this will overwrite save_path.
     """
     if options is None:
-        if destination_dir is None:
-            raise ValueError('destination_dir must be provided if options is None')
-        options = CheckpointSaveOptions(destination_dir=destination_dir)
+        options = CheckpointSaveOptions()
     else:
         if isinstance(options, Dict):
             options = CheckpointSaveOptions(**options)
-        if destination_dir is not None:
-            options.destination_dir = destination_dir
-    save_path = os.path.join(options.destination_dir, options.dir_prefix)
+    
+    save_path = os.path.join(destination_dir, options.dir_prefix)
     save_path = format_name_with_dist_and_time(save_path, state.run_name, state.timestamp)
     os.makedirs(save_path, exist_ok=True)
     if options.save_model:
         model_save_path = (
-            os.path.join(destination_dir, MODEL_CHECKPOINT_DIRECTORY_NAME) if options.sharded_checkpoint else
-            os.path.join(destination_dir, MODEL_CHECKPOINT_DIRECTORY_NAME, MONOLITHIC_MODEL_CHECKPOINT_FILENAME)
+            os.path.join(save_path, MODEL_CHECKPOINT_DIRECTORY_NAME) if options.sharded_checkpoint else
+            os.path.join(save_path, MODEL_CHECKPOINT_DIRECTORY_NAME, MONOLITHIC_MODEL_CHECKPOINT_FILENAME)
         )
         save_model_to_disk(
             state.model,
@@ -122,9 +118,9 @@ def save_checkpoint_to_disk(
             options.save_format,
         )
     if options.save_optimizer:
-        optim_save_path = os.path.join(destination_dir,
+        optim_save_path = os.path.join(save_path,
                                        OPTIM_CHECKPOINT_DIRECTORY_NAME) if options.sharded_checkpoint else os.path.join(
-                                           destination_dir,
+                                           save_path,
                                            OPTIM_CHECKPOINT_DIRECTORY_NAME,
                                            OPTIM_MONO_CHECKPOINT_FILENAME,
                                        )
@@ -139,10 +135,10 @@ def save_checkpoint_to_disk(
             options.save_format,
         )
     if options.save_resumption_state:
-        resumption_save_path = os.path.join(destination_dir, RESUMPTION_CHECKPOINT_FILENAME)
+        resumption_save_path = os.path.join(save_path, RESUMPTION_CHECKPOINT_FILENAME)
         save_resumption_state_to_disk(state, resumption_save_path)
 
-    md_save_path = os.path.join(destination_dir, METADATA_CHECKPOINT_FILENAME)
+    md_save_path = os.path.join(save_path, METADATA_CHECKPOINT_FILENAME)
     save_composer_metadata_to_disk(
         md_save_path,
         state.model,
@@ -215,7 +211,7 @@ def save_optim_to_disk(
         model (Union[ComposerModel, torch.nn.Module]): The model to save.
         optimizer (torch.optim.Optimizer): The optimizer to save.
         destination_dir (str): The directory to save the optimizer to.
-            Optimizer will be saved as destination_dir/optim.pt if sharded_checkpoint is False,
+            Optimizer will be saved as destination_dir if sharded_checkpoint is False,
             otherwise all shards will be saved as destination_dir/__<rank>_0.distcp along with a metadata file (destination_dir/.metadata).
         sharded_checkpoint (bool): Whether to save the optimizer as a sharded checkpoint.
         precision (str): The precision to save the optimizer in. One of 'bf16', 'fp32', 'fp16', 'fp64'.
@@ -263,7 +259,7 @@ def save_composer_metadata_to_disk(
         device,
         device_train_microbatch_size,
     )
-    os.makedirs(destination_file_path, exist_ok=True)
+    os.makedirs(str(Path(destination_file_path).parent), exist_ok=True)
 
     if dist.get_global_rank() == 0:
         with open(destination_file_path, 'w') as f:
