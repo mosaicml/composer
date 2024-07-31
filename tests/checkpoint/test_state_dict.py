@@ -2,29 +2,23 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import datetime
-from typing import Any, Dict
-from unittest.mock import MagicMock
+from typing import Any
 
 import pytest
 import torch
 import torch.distributed as torch_dist
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.optim import adam
-from torch.optim.lr_scheduler import StepLR
-from torch.utils.data import DataLoader
 
-from composer.algorithms import SWA
-from composer.callbacks import SpeedMonitor
 from composer.checkpoint import (
     get_metadata_state_dict,
     get_model_state_dict,
     get_optim_state_dict,
     get_resumption_state_dict,
 )
-from composer.core import State
-from composer.devices import DeviceCPU, DeviceGPU
+from composer.devices import DeviceGPU
 from composer.utils import dist, reproducibility
+from tests.checkpoint.helpers import init_model_and_optimizer, init_state
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
 from tests.common.models import EvenSimplerMLP, SimpleComposerMLP, configure_tiny_gpt2_hf_model
@@ -247,101 +241,10 @@ def test_get_model_state_dict_precision_unsharded_model(precision: str, use_comp
         assert tens.dtype == precision
 
 
-def _init_model_and_optimizer(
-    use_composer_model: bool,
-    num_classes=3,
-    batch_size=5,
-    num_features=8,
-    take_step=True,
-    use_fsdp=False,
-    tensor_type='sharded_tensor',
-    device='cuda',
-):
-    model, loss_fn = _init_model(
-        use_composer_model,
-        num_classes=num_classes,
-        batch_size=batch_size,
-        num_features=num_features,
-        use_fsdp=use_fsdp,
-        tensor_type=tensor_type,
-        device=device,
-    )
-
-    optimizer = _init_optimizer(
-        model,
-        loss_fn,
-        use_composer_model=use_composer_model,
-        num_classes=num_classes,
-        batch_size=batch_size,
-        num_features=num_features,
-        take_step=take_step,
-        device=device,
-    )
-
-    return model, optimizer
-
-
-def _init_model(
-    use_composer_model: bool = False,
-    num_classes=3,
-    batch_size=5,
-    num_features=8,
-    use_fsdp=False,
-    device='cuda',
-    tensor_type='sharded_tensor',
-):
-    if use_composer_model:
-        model = SimpleComposerMLP(num_features=num_features, num_classes=num_classes, device=device)
-        loss_fn = model._loss_fn
-    else:
-        model = EvenSimplerMLP(num_features=num_features, num_out_features=num_classes, device=device)
-        loss_fn = torch.nn.CrossEntropyLoss()
-
-    if use_fsdp:
-        fsdp_kwargs: Dict[str, Any] = dict(
-            use_orig_params=True,
-            sync_module_states=True,  # To enable easy comparison between rank 0 unsharded model and full state dict
-        )
-
-        if tensor_type == 'dtensor':
-            from torch.distributed.device_mesh import init_device_mesh
-            device_mesh = init_device_mesh('cuda', (2,))
-            fsdp_kwargs['device_mesh'] = device_mesh
-
-        model = FSDP(
-            model,
-            **fsdp_kwargs,
-        )
-
-    return model, loss_fn
-
-
-def _init_optimizer(
-    model,
-    loss_fn,
-    use_composer_model: bool = False,
-    num_classes=3,
-    batch_size=5,
-    num_features=8,
-    take_step=True,
-    device='cuda',
-):
-    inputs = torch.randn(batch_size, num_features, device=device)
-    targets = torch.randint(low=0, high=num_classes, size=(batch_size,), device=device, dtype=torch.long)
-    batch = (inputs, targets) if use_composer_model else inputs
-    optimizer = adam.Adam(model.parameters())
-    outputs = model(batch)
-    loss = loss_fn(outputs, targets)
-    loss.backward()
-    if take_step:
-        optimizer.step()
-    return optimizer
-
-
 @pytest.mark.gpu
 @pytest.mark.parametrize('use_composer_model', [True, False])
 def test_get_optim_state_dict_unsharded_model(use_composer_model: bool):
-    model, optimizer = _init_model_and_optimizer(use_composer_model=use_composer_model, take_step=True)
+    model, optimizer = init_model_and_optimizer(use_composer_model=use_composer_model, take_step=True)
     optim_state_dict = get_optim_state_dict(model, optimizer)
 
     # Dict mapping parameter index to optimizer state for that parameter.
@@ -385,7 +288,7 @@ def test_get_optim_state_dict_unsharded_model(use_composer_model: bool):
 )
 @pytest.mark.parametrize('use_composer_model', [True, False])
 def test_get_optim_state_dict_precision_unsharded_model(precision: str, use_composer_model: bool):
-    model, optimizer = _init_model_and_optimizer(use_composer_model=use_composer_model, take_step=True)
+    model, optimizer = init_model_and_optimizer(use_composer_model=use_composer_model, take_step=True)
     optim_state_dict = get_optim_state_dict(model, optimizer, precision=precision)
     for param_state in optim_state_dict['state'].values():
         assert param_state['exp_avg'].dtype == precision
@@ -400,7 +303,7 @@ def test_get_optim_dict_full_for_sharded_model(world_size, tensor_type, use_comp
     if tensor_type == 'dtensor' and version.parse(torch.__version__) < version.parse('2.2.0'):
         pytest.skip('DTensor is only supported in PyTorch >= 2.2.0')
 
-    model, optimizer = _init_model_and_optimizer(
+    model, optimizer = init_model_and_optimizer(
         use_composer_model=use_composer_model,
         take_step=True,
         use_fsdp=True,
@@ -427,7 +330,7 @@ def test_get_optim_dict_sharded_for_sharded_model(world_size, tensor_type, use_c
     if tensor_type == 'dtensor' and version.parse(torch.__version__) < version.parse('2.2.0'):
         pytest.skip('DTensor is only supported in PyTorch >= 2.2.0')
 
-    model, optimizer = _init_model_and_optimizer(
+    model, optimizer = init_model_and_optimizer(
         use_composer_model=use_composer_model,
         take_step=True,
         use_fsdp=True,
@@ -539,27 +442,17 @@ def test_get_metadata_sharded_model(model_type: str, tensor_type: str, world_siz
 
 @pytest.mark.filterwarnings('ignore:SWA has')
 def test_get_resumption_state_dict():
-
-    model, optimizer = _init_model_and_optimizer(use_composer_model=True, take_step=True, device='cpu')
-
-    rank_zero_seed = 10
     run_name = 'test_run'
-    device = DeviceCPU()
-    test_dataset_sd = {'foo': 0}
-    dataloader = MagicMock(spec=DataLoader)
-    dataloader.dataset = MagicMock()
-    dataloader.dataset.state_dict = MagicMock(return_value=test_dataset_sd)
-    swa = SWA()
-    state = State(
-        model=model,
+    rank_zero_seed = 10
+    state = init_state(
+        device='cpu',
+        include_algorithms=True,
+        include_callbacks=True,
+        include_schedulers=True,
         rank_zero_seed=rank_zero_seed,
         run_name=run_name,
-        device=device,
-        train_dataloader=dataloader,
-        algorithms=[swa],
-        callbacks=[SpeedMonitor(), SpeedMonitor()],
     )
-    state.schedulers = StepLR(optimizer=optimizer, step_size=2)
+    test_dataset_sd = {'test': 0}
     rsd = get_resumption_state_dict(state)
 
     assert rsd['rank_zero_seed'] == rank_zero_seed
@@ -600,27 +493,7 @@ def test_get_resumption_state_dict():
 
 @pytest.mark.gpu
 def test_get_resumption_state_dict_gpu():
-    if version.parse(torch.__version__) >= version.parse('2.3.0'):
-        from torch.amp.grad_scaler import GradScaler
-    else:
-        from torch.cuda.amp.grad_scaler import GradScaler
-
-    model, _ = _init_model_and_optimizer(use_composer_model=True, take_step=False, device='cuda')
-
-    rank_zero_seed = 10
-    run_name = 'test_run'
-    device = DeviceCPU()
-    test_dataset_sd = {'test': 0}
-    dataloader = MagicMock()
-    dataloader.dataset = MagicMock()
-    dataloader.dataset.state_dict = MagicMock(return_value=test_dataset_sd)
-    state = State(
-        model=model,
-        rank_zero_seed=rank_zero_seed,
-        run_name=run_name,
-        device=device,
-        scaler=GradScaler(),
-    )
+    state = init_state(device='cuda', use_grad_scaler=True)
     rsd = get_resumption_state_dict(state)
     assert 'scaler' in rsd
     assert set(

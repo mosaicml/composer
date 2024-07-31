@@ -460,10 +460,15 @@ def _get_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrateg
     return ddp_sync_strategy
 
 
-def _get_precision_context(precision: Precision, precision_config: Optional[dict[str, Any]], deepspeed_enabled: bool):
+def _get_precision_context(
+    precision: Precision,
+    precision_config: Optional[dict[str, Any]],
+    deepspeed_enabled: bool,
+    fp8_autocast_enabled: bool = True,
+):
     if deepspeed_enabled:
         return contextlib.nullcontext()
-    return get_precision_context(precision, precision_config)
+    return get_precision_context(precision, precision_config, fp8_autocast_enabled)
 
 
 def _generate_run_name() -> str:
@@ -1231,7 +1236,7 @@ class Trainer:
                 if isinstance(parallelism_config['tp'], TPConfig):
                     parallelism_config_args['tp'] = parallelism_config['tp']
                 else:
-                    parallelism_config['tp'] = TPConfig(**parallelism_config['tp'])
+                    parallelism_config_args['tp'] = TPConfig(**parallelism_config['tp'])
             parallelism_config = ParallelismConfig(
                 **parallelism_config_args,
             ) if len(parallelism_config_args) > 0 else None
@@ -1387,16 +1392,6 @@ class Trainer:
             mosaicml_logger = MosaicMLLogger()
             loggers.append(mosaicml_logger)
 
-        # Remote Uploader Downloader
-        # Keep the ``RemoteUploaderDownloader`` below client-provided loggers so the loggers init callbacks run before
-        # the ``RemoteUploaderDownloader`` init. This is necessary to use an ``MLFlowObjectStore`` to log objects to a
-        # run managed by an ``MLFlowLogger``, as the ``MLFlowObjectStore`` relies on the ``MLFlowLogger`` to initialize
-        # the active MLFlow run.
-        if save_folder is not None:
-            remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
-            if remote_ud is not None:
-                loggers.append(remote_ud)
-
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)
 
@@ -1451,14 +1446,12 @@ class Trainer:
             # path then we assume they just want their checkpoints saved directly in their
             # bucket.
             if parsed_save_folder == '':
-                folder = '.'
                 remote_file_name = save_filename
                 latest_remote_file_name = save_latest_filename
 
             # If they actually specify a path, then we use that for their local save path
             # and we prefix save_filename with that path for remote_file_name.
             else:
-                folder = parsed_save_folder
                 remote_file_name = str(Path(parsed_save_folder) / Path(save_filename))
                 if save_latest_filename is not None:
                     latest_remote_file_name = str(Path(parsed_save_folder) / Path(save_latest_filename))
@@ -1466,7 +1459,7 @@ class Trainer:
                     latest_remote_file_name = None
 
             self._checkpoint_saver = CheckpointSaver(
-                folder=folder,
+                folder=save_folder,
                 filename=save_filename,
                 remote_file_name=remote_file_name,
                 latest_filename=save_latest_filename,
@@ -1664,6 +1657,7 @@ class Trainer:
 
         # TP wrap
         if self.state.tp_config is not None:
+            # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 prepare_tp_module(
                     model,
@@ -1672,6 +1666,7 @@ class Trainer:
 
         # FSDP wrap if not using monolith checkpoint on rank 0 only
         if self.state.fsdp_config is not None and self.state.fsdp_config.auto_wrap and not self.state.load_monolith_rank0_only:
+            # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 prepare_fsdp_module(
                     model,
@@ -1732,11 +1727,6 @@ class Trainer:
             error_message = ''
             if save_folder is None:
                 error_message += 'The `save_folder` must be specified when autoresume is enabled. '
-            if save_overwrite:
-                error_message += textwrap.dedent(
-                    'The flag `save_overwrite` must be False when autoresume is enabled as autoresume always loads the '
-                    'latest existing checkpoint in `save_folder`. ',
-                )
             if save_latest_filename is None:
                 error_message += 'The `save_latest_filename` must be specified so autoresume knows where to load checkpoints from. '
             if error_message != '':
@@ -1846,6 +1836,7 @@ class Trainer:
             not self.state.fsdp_enabled and self.state.fsdp_config is not None and self.state.fsdp_config.auto_wrap and
             self.state.load_monolith_rank0_only
         ):
+            # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
 
@@ -1894,14 +1885,17 @@ class Trainer:
         self,
         latest_checkpoint_path: str,
         save_latest_remote_file_name: str,
-        loggers: Sequence[LoggerDestination],
+        loggers: Sequence[Union[LoggerDestination, ObjectStore]],
         load_progress_bar: bool,
     ) -> None:
         """Attempts to download the checkpoint from the logger destinations."""
         log.debug(
             f'Trying to download {save_latest_remote_file_name} to {latest_checkpoint_path} on rank {dist.get_global_rank()}',
         )
-        for logger in loggers:
+        remote_destination = list(loggers)
+        if self._checkpoint_saver is not None and self._checkpoint_saver.remote_uploader is not None:
+            remote_destination.append(self._checkpoint_saver.remote_uploader.remote_backend)
+        for logger in remote_destination:
             try:
                 # Fetch from logger. If it succeeds, stop trying the rest of the loggers
                 get_file(
@@ -1943,7 +1937,7 @@ class Trainer:
             f'Looking for autoresume checkpoint: {save_latest_remote_file_name} (remote), {latest_checkpoint_path} (local)',
         )
 
-        if self.state.deepspeed_enabled or self.state.fsdp_sharded_state_dict_enabled:
+        if self.state.deepspeed_enabled:
             # If latest checkpoint is not saved locally, try to fetch from loggers
             if not os.path.exists(latest_checkpoint_path):
                 log.debug(f'Attempting to download the checkpoint on to rank {dist.get_global_rank()}')
@@ -1992,7 +1986,7 @@ class Trainer:
 
             signal_file_path = os.path.join(
                 os.path.dirname(latest_checkpoint_path),
-                f'.node_{dist.get_node_rank()}_local_rank0_completed_autoresume',
+                dist.get_node_signal_file_name(),
             )
             if dist.get_local_rank() == 0:
                 os.makedirs(os.path.dirname(signal_file_path), exist_ok=True)
@@ -2529,8 +2523,6 @@ class Trainer:
                         self._rng_state = None
                     continue
 
-                self.state.batch = self.state.device.batch_to_device(self.state.batch)
-                self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
                 rank_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
                 rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
 
@@ -2686,10 +2678,15 @@ class Trainer:
     def _eval_train_metrics(self, device_batch):
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
         assert self.state.train_metrics is not None, 'The train metrics should be set on __init__ or fit()'
-
+        # We disable FP8 autocast in eval metrics and default to the activation dtype for the forward pass
+        # This is because FP8 in TE requires all eval data sizes to be divisible by 16 which does not hold for all evaluation datasets.
+        # See https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/examples/fp8_primer.html for more info.
+        # Note: the activation dtype is BF16 if FSDP Mixed Precision PURE is enabled and FP32 if FSDP Mixed Precision FULL is enabled.
+        # See https://github.com/NVIDIA/TransformerEngine/blob/8e039fdcd98fc56582d81e373880c1509c2b8f73/transformer_engine/pytorch/module/linear.py#L250-L252 and \
+        # https://github.com/NVIDIA/TransformerEngine/blob/8e039fdcd98fc56582d81e373880c1509c2b8f73/transformer_engine/pytorch/module/base.py#L495-L513 for more info.
         with torch.no_grad(),\
                 model_eval_mode(self.state.model),\
-                _get_precision_context(self.state.precision, self.state.precision_config, self.state.deepspeed_enabled):
+                _get_precision_context(self.state.precision, self.state.precision_config, self.state.deepspeed_enabled, fp8_autocast_enabled=False):
             eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
             for metric in self.state.train_metrics.values():
                 self._original_model.update_metric(
@@ -2884,6 +2881,8 @@ class Trainer:
             current_batch = self.state.batch
 
             for microbatch_idx, self.state.batch in enumerate(microbatches):
+                self.state.batch = self.state.device.batch_to_device(self.state.batch)
+                self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
                 is_final_microbatch = microbatch_idx + 1 == len(microbatches)
                 microbatch_loss_dict = self._train_microbatch(use_grad_scaling, current_batch_size, is_final_microbatch)
 
@@ -3432,9 +3431,6 @@ class Trainer:
                         )
 
             for self.state.batch in self._iter_dataloader(TrainerMode.EVAL):
-                self.state.batch = self.state.device.batch_to_device(self.state.batch)
-                self.state.batch = data_spec.device_transforms(self.state.batch)
-
                 # Count the batch size and num tokens before any events run
                 rank_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
                 rank_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
@@ -3462,6 +3458,8 @@ class Trainer:
                     try:
                         microbatches = data_spec.split_batch(device_batch, evaluator.device_eval_microbatch_size)
                         for i, self.state.batch in enumerate(microbatches):
+                            self.state.batch = self.state.device.batch_to_device(self.state.batch)
+                            self.state.batch = data_spec.device_transforms(self.state.batch)
                             last_microbatch = i == len(microbatches) - 1
                             skip_metric_update = False
                             # Distributed samplers pad batches to be the same size. If using a
@@ -3484,11 +3482,17 @@ class Trainer:
                                         )[0]
 
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
-
+                            # We disable FP8 autocast in eval mode and default to the activation dtype for the forward pass
+                            # This is because FP8 in TE requires all eval data sizes to be divisible by 16 which does not hold for all evaluation datasets.
+                            # See https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/examples/fp8_primer.html for more info.
+                            # Note: the activation dtype is BF16 if FSDP Mixed Precision PURE is enabled and FP32 if FSDP Mixed Precision FULL is enabled.
+                            # See https://github.com/NVIDIA/TransformerEngine/blob/8e039fdcd98fc56582d81e373880c1509c2b8f73/transformer_engine/pytorch/module/linear.py#L250-L252 and \
+                            # https://github.com/NVIDIA/TransformerEngine/blob/8e039fdcd98fc56582d81e373880c1509c2b8f73/transformer_engine/pytorch/module/base.py#L495-L513 for more info.
                             with _get_precision_context(
                                 self.state.precision,
                                 self.state.precision_config,
                                 self.state.deepspeed_enabled,
+                                fp8_autocast_enabled=False,
                             ):
                                 self.state.outputs = self._original_model.eval_forward(self.state.batch)
 
@@ -3640,6 +3644,11 @@ class Trainer:
         else:
             dataloader_iter = itertools.islice(self.state.dataloader, int(self.state.dataloader_len))
 
+        # Track if iteration has finished (used for distributed training when we have variable length dataloaders)
+        # 0 = not finished, 1 = finished (using integer tensors so we can use dist.all_reduce)
+        iter_finished = self.state.device.tensor_to_device(torch.zeros(1, dtype=torch.uint8))
+
+        batch = None
         while True:
             try:
                 # [BEFORE/AFTER]_DATALOADER only runs while training
@@ -3655,7 +3664,15 @@ class Trainer:
                     # Otherwise, we will encounter an error at the start of the next epoch when
                     # Event.BEFORE_DATALOADER tries to start an unfinished marker.
                     self.engine.run_marker_only_event(Event.AFTER_DATALOADER)
+                # Mark iteration as finished - don't break yet as we need to sync across ranks
+                iter_finished += 1
+
+            # Sync iter finished across ranks
+            dist.all_reduce(iter_finished, reduce_operation='MAX')
+            # If any rank has finished, stop all rank iterations
+            if iter_finished.item() == 1:
                 break
+
             yield batch
 
     def _use_closures(self) -> bool:

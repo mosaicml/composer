@@ -53,6 +53,7 @@ __all__ = ['get_save_filename', 'load_checkpoint', 'save_checkpoint', 'download_
 _COMPOSER_STATES_FILENAME = 'composer_states.pt'
 _DEEPSPEED_TAG = 'deepspeed'  # always tag with the same, deterministic name. We'll rename the tarball to the appropriate name.
 _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME = f'__{dist.get_global_rank()}_0.distcp'
+_TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME = '.metadata'
 
 
 def _get_checkpoint_validation_function(
@@ -818,7 +819,7 @@ def download_checkpoint(
         if not checkpoint_is_sharded:
             signal_file_path = os.path.join(
                 node_checkpoint_folder,
-                f'.node_{dist.get_node_rank()}_local_rank0_completed',
+                dist.get_node_signal_file_name(),
             )
             if dist.get_local_rank() == 0:
                 with open(signal_file_path, 'wb') as f:

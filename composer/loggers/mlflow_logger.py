@@ -123,6 +123,13 @@ class MLFlowLogger(LoggerDestination):
         if logging_buffer_seconds:
             os.environ['MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS'] = str(logging_buffer_seconds)
 
+        if log_system_metrics:
+            # Set system metrics sampling interval and samples before logging so that system metrics
+            # are collected every 5s, and aggregated over 3 samples before being logged
+            # (logging per 15s).
+            mlflow.set_system_metrics_samples_before_logging(3)
+            mlflow.set_system_metrics_sampling_interval(5)
+
         self._rank_zero_only = rank_zero_only
         self._last_flush_time = time.time()
         self._flush_interval = flush_interval
@@ -150,7 +157,12 @@ class MLFlowLogger(LoggerDestination):
                 )
             assert self.experiment_name is not None  # type hint
 
-            if os.getenv('DATABRICKS_TOKEN') is not None and not self.experiment_name.startswith('/Users/'):
+            if os.getenv(
+                'DATABRICKS_TOKEN',
+            ) is not None and not self.experiment_name.startswith((
+                '/Users/',
+                '/Shared/',
+            )):
                 try:
                     from databricks.sdk import WorkspaceClient
                 except ImportError as e:
@@ -160,7 +172,7 @@ class MLFlowLogger(LoggerDestination):
                         conda_channel='conda-forge',
                     ) from e
                 databricks_username = WorkspaceClient().current_user.me().user_name or ''
-                self.experiment_name = '/' + os.path.join('Users', databricks_username, self.experiment_name)
+                self.experiment_name = os.path.join('/Users', databricks_username, self.experiment_name.strip('/'))
 
             self._mlflow_client = MlflowClient(self.tracking_uri)
             # Set experiment
@@ -180,6 +192,9 @@ class MLFlowLogger(LoggerDestination):
     def _start_mlflow_run(self, state):
         import mlflow
 
+        # This function is only called if self._enabled is True, and therefore self._experiment_id is not None.
+        assert self._experiment_id is not None
+
         env_run_id = os.getenv(
             mlflow.environment_variables.MLFLOW_RUN_ID.name,  # pyright: ignore[reportGeneralTypeIssues]
             None,
@@ -188,7 +203,6 @@ class MLFlowLogger(LoggerDestination):
             self._run_id = env_run_id
         elif self.resume:
             # Search for an existing run tagged with this Composer run if `self.resume=True`.
-            assert self._experiment_id is not None
             run_name = self.tags['run_name']
             existing_runs = mlflow.search_runs(
                 experiment_ids=[self._experiment_id],
@@ -507,8 +521,9 @@ class MLFlowLogger(LoggerDestination):
                 assert isinstance(self._run_id, str)
                 self._mlflow_client.log_image(
                     image=image,
-                    artifact_file=f'{name}_{step}_{im_ind}.png',
+                    key=f'{name}_{step}_{im_ind}',
                     run_id=self._run_id,
+                    step=step,
                 )
 
     def post_close(self):

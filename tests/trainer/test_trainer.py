@@ -207,6 +207,49 @@ class TestTrainerInit():
         assert len(eval_metric_names) == 1
         assert next(iter(eval_metric_names)) == single_metric
 
+    @pytest.mark.gpu
+    def test_memory_after_dataloader(self, model: ComposerModel):
+
+        def track_memory_after_dataloader(global_batch_size):
+
+            class MiniMemoryMonitor(Callback):
+
+                def __init__(self):
+                    self.batch_memory_usages = []
+
+                def epoch_start(self, state: State, logger: Logger) -> None:
+                    current_alloc_memory = torch.cuda.memory_allocated() // 2**20  # Convert to MiB
+                    self.batch_memory_usages.append(current_alloc_memory)
+
+                def after_dataloader(self, state: State, logger: Logger):
+                    current_alloc_memory = torch.cuda.memory_allocated() // 2**20  # Convert to MiB
+                    self.batch_memory_usages.append(current_alloc_memory)
+
+            microbatch_size = 1
+            input_shape = (100000,)
+            dataset = RandomClassificationDataset(shape=input_shape, size=1024)
+            train_dataloader = DataLoader(dataset, batch_size=global_batch_size)
+            mini_memory_monitor = MiniMemoryMonitor()
+
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                max_duration='1ba',
+                device='gpu',
+                device_train_microbatch_size=microbatch_size,
+                callbacks=[mini_memory_monitor],
+            )
+
+            trainer.fit()
+            return mini_memory_monitor.batch_memory_usages[1] - mini_memory_monitor.batch_memory_usages[0]
+
+        global_batch_size = 32
+        mem_change_epoch_start_and_after_dataloader = track_memory_after_dataloader(global_batch_size)
+        assert (mem_change_epoch_start_and_after_dataloader < 1), (
+            f'Memory increased between epoch start and after dataloader by more than 1 MiB: {mem_change_epoch_start_and_after_dataloader} MiB. '
+            f'None of the samples should be moved onto a GPU until the batch has already been divided into microbatches.'
+        )
+
 
 def _assert_optimizer_is_on_device(optimizer: torch.optim.Optimizer):
     for state in optimizer.state.values():
@@ -1249,6 +1292,43 @@ class TestTrainerInitOrFit:
         assert num_samples_accum == num_samples * 2
         assert num_tokens_accum == num_tokens * 2
         assert batch_time_accum == datetime.timedelta(seconds=0.1 * (1 + 0))
+
+    @pytest.mark.world_size(2)
+    def test_rank_dependent_dataloader_lengths(
+        self,
+        model: ComposerModel,
+        max_duration: Time[int],
+    ):
+        # Change rank 1 dataloader size to create different sized dataloaders on each rank
+        batch_size = 4
+        orig_num_samples = 16
+        rank_num_samples = orig_num_samples + 8 if dist.get_local_rank() == 1 else orig_num_samples
+        # Create train and eval dataloaders (will have rank-dependent lengths)
+        train_dataset = RandomClassificationDataset(size=rank_num_samples)
+        train_dataloader = DataLoader(
+            dataset=train_dataset,
+            batch_size=batch_size,
+            sampler=dist.get_sampler(train_dataset),
+        )
+        eval_dataset = RandomClassificationDataset(size=rank_num_samples)
+        eval_dataloader = DataLoader(
+            dataset=eval_dataset,
+            batch_size=batch_size,
+            sampler=dist.get_sampler(eval_dataset),
+        )
+        # Fit (train + eval)
+        trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            eval_dataloader=eval_dataloader,
+        )
+        trainer.fit()
+        # Check the correct number of samples and batches have been processed
+        assert trainer.state.timestamp.sample.value == orig_num_samples
+        assert trainer.state.timestamp.batch.value == orig_num_samples / batch_size / 2
+        assert trainer.state.eval_timestamp.sample.value == orig_num_samples
+        assert trainer.state.eval_timestamp.batch.value == orig_num_samples / batch_size / 2
 
 
 @world_size(1, 2)
