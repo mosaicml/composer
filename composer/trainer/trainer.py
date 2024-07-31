@@ -1335,6 +1335,7 @@ class Trainer:
         self.auto_microbatch_size_found = False
         self.num_alloc_retries = 0
         self.num_consecutive_thrashes = 0
+        self.num_consecutive_non_OOM_batches = 0
         self.automicrobatch_fsdp_hook_handles = []
 
         if auto_microbatching and profiler:
@@ -2984,6 +2985,7 @@ class Trainer:
                     _clear_incomplete_train_states(self.state)
                     self.auto_microbatch_size_found = False
                     self.num_consecutive_thrashes = 0
+                    self.num_consecutive_non_OOM_batches = 0
 
                     # Readd sync hooks if they were previously turned off
                     if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) == 0:
@@ -3047,7 +3049,8 @@ class Trainer:
                         f'{original_microbatch_size} -> {self.state.device_train_microbatch_size}.',
                         ),
                 )
-            if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) > 0:
+            self.num_consecutive_non_OOM_batches += 1
+            if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) > 0 and self.num_consecutive_non_OOM_batches >= 3:
                 print("remove hooks from batch completion")
                 patch_unshard_for_automicrobatching(True)
                 for handle in self.automicrobatch_fsdp_hook_handles:
