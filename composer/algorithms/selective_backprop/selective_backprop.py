@@ -272,8 +272,6 @@ class SelectiveBackprop(Algorithm):
                     raise RuntimeError('Model must be of type ComposerModel')
                 self._loss_fn = state.model.loss
             return
-
-        state.batch = state.device.batch_to_device(state.batch)
         input, target = state.batch_get_item(key=self.input_key), state.batch_get_item(key=self.target_key)
         assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
             'Multiple tensors not supported for this method yet.'

@@ -18,12 +18,6 @@ from composer.utils import dist, ensure_tuple
 if TYPE_CHECKING:
     from composer.core.types import Batch
 
-try:
-    from transformers.tokenization_utils_base import BatchEncoding
-    _TRANSFORMERS_INSTALLED = True
-except:
-    _TRANSFORMERS_INSTALLED = False
-
 __all__ = ['DataSpec', 'ensure_data_spec']
 
 
@@ -252,9 +246,6 @@ class DataSpec:
         if isinstance(batch, torch.Tensor):
             return batch.shape[0]
 
-        if _TRANSFORMERS_INSTALLED and isinstance(batch, BatchEncoding):
-            batch = dict(batch)
-
         dim0_sizes = []
         if isinstance(batch, (list, tuple)):
             for tensors in batch:
@@ -295,8 +286,6 @@ class DataSpec:
 
     def _default_get_num_tokens_in_batch(self, batch: Batch) -> int:
         # First try HuggingFace-style input dicts
-        if _TRANSFORMERS_INSTALLED and isinstance(batch, BatchEncoding):
-            batch = dict(batch)
         if isinstance(batch, Mapping) and 'input_ids' in batch:
             samples_per_batch = batch['input_ids'].shape[0]
             return batch['input_ids'].shape[1] * samples_per_batch
