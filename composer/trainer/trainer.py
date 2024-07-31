@@ -3718,7 +3718,7 @@ class Trainer:
             self.state.dataloader_len = original_num_batches
         
         # If training occurs after evaluation, readd hooks in case of memory spike
-        sync_hook = _create_sync_hook()
+        sync_hook = _create_sync_hook(self.state)
         if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) == 0:
             self.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(self.fsdp_modules, sync_hook)
         self.num_consecutive_non_OOM_batches = 0
