@@ -31,7 +31,7 @@ def test_fsdp_param_groups_without_orig_params(mixed_precision: str, device: str
     param_groups = [{'params': param, 'lr': (0.1 + 0.1 * i)} for i, param in enumerate(model.parameters())]
     optimizer = torch.optim.SGD(param_groups, lr=0)
 
-    expected_error = 'Multiple optimizer groups with FSDP are only supported with use_orig_params=True.'
+    expected_error = 'Multiple optimizer groups with FSDP are not supported with tensor parallelism and/or use_orig_params=False.'
 
     with pytest.raises(RuntimeError, match=expected_error):
         _ = Trainer(

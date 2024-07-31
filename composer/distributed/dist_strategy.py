@@ -207,6 +207,7 @@ def prepare_fsdp_module(
     precision: Precision,
     device: Device,
     auto_microbatching: bool,
+    using_tp: bool = False,
     te_rng_seed: int = 1234,
 ) -> None:
     """Prepare a module (assumed ComposerModel) and optimizer for use with :class:`torch.distributed.fsdp.FullyShardedDataParallel`.
@@ -218,6 +219,7 @@ def prepare_fsdp_module(
         precision: (Precision): The precision being used by the Trainer, used to fill in defaults for FSDP `mixed_precision` settings.
         device (Device): The device being used by the Trainer.
         auto_microbatching (bool, optional): Whether or not auto microbatching is enabled.
+        using_tp (bool, optional): Whether the model has been wrapped with Tensor Parallelism, in which case only a single optimizer param group is supported.
         te_rng_seed(int): The seed to use for the Transformer Engine activation checkpointing RNG. Defaults to 1234.
     """
     # Check sync_module_states is True for mixed initialization or HSDP
@@ -265,11 +267,12 @@ def prepare_fsdp_module(
         # that will be recreated at the end of prepare_fsdp_module
         optim = optimizers_tuple[0]
 
-        if fsdp_config.use_orig_params:
-            # optimizer.param_groups do not contain parameter names which are needed
-            # to keep track of the different parameters in each group
-            # so we use the pointers between model.parameters() and model.named_parameters()
-            # to get the names of the parameters within optimizer.param_groups
+        if fsdp_config.use_orig_params and not using_tp:
+            # this code block stores information about param groups pre-fsdp wrapping in order to recreate them post-wrapping
+            # to do so, it relies on the ptrs of the model.parameters() in a model and the names of the params
+            # for this to work, use_orig_params=True, as we need the names of the params post-wrapping
+            # TP is not supported, as the underlying parameters in the model differ from the params in the param groups after being dtensorified
+
             ptr_to_param_name = {id(p): n for n, p in model.named_parameters()}
             param_name_to_group_num = {}
             group_num_to_opt_group_info = {}
@@ -277,7 +280,6 @@ def prepare_fsdp_module(
                 # Need to in-line to avoid a reference which causes FSDP to allocate extra GPU memory
                 # group = optim.param_groups[group_num]
                 for param_num in range(len(optim.param_groups[group_num]['params'])):
-                    # Need to in-line to avoid a reference which causes FSDP to allocate extra GPU memory
                     param_ptr = id(optim.param_groups[group_num]['params'][param_num])
                     if param_ptr not in ptr_to_param_name:
                         raise ValueError('The same model must be passed to the optimizer and trainer.')
@@ -292,14 +294,14 @@ def prepare_fsdp_module(
         else:
             if len(optim.param_groups) > 1:
                 raise RuntimeError(
-                    'Multiple optimizer groups with FSDP are only supported with '
-                    'use_orig_params=True.',
+                    'Multiple optimizer groups with FSDP are not supported with tensor parallelism and/or use_orig_params=False.',
                 )
 
             if len(optim.param_groups[0]['params']) != len(list(model.parameters())):
                 raise ValueError(
-                    'Passing in a subset of model parameters to the optimizer is only supported with use_orig_params=True.',
+                    'Passing in a subset of model parameters to the optimizer is not supported with tensor parallelism and/or use_orig_params=False.',
                 )
+
             optimizer_specific_info = {k: v for k, v in optim.param_groups[0].items() if k != 'params'}
 
         optim.param_groups.clear()
@@ -719,7 +721,7 @@ def prepare_fsdp_module(
         optim = ensure_tuple(optimizers)[0]
         optim.param_groups.clear()
 
-        if fsdp_config.use_orig_params:
+        if fsdp_config.use_orig_params and not using_tp:
             assert param_name_to_group_num is not None
             assert group_num_to_opt_group_info is not None
 
