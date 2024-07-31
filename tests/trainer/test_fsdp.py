@@ -250,7 +250,7 @@ class SimpleMLPForTestingOOM(ComposerModel):
         return torch.sum(outputs)
 
 @pytest.mark.gpu
-@pytest.mark.filterwarnings("ignore:device_train_microbatch_size='auto'")
+@pytest.mark.filterwarnings("ignore:`device_train_microbatch_size='auto'` may potentially fail with unexpected.*")
 @world_size(2)
 def test_automicrobatching_fsdp(world_size: int):
     model = SimpleMLPForTestingOOM()
