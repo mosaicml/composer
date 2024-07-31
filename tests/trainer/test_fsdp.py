@@ -257,7 +257,7 @@ def test_automicrobatching_fsdp(world_size: int):
     model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
     model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
     dataset = SimpleDatasetForAuto(size=256, feature_size=128)
-    train_dataloader = DataLoader(dataset, batch_size=64)
+    train_dataloader = DataLoader(dataset, batch_size=64, sampler=dist.get_sampler(dataset))
     trainer = Trainer(
         model=model,
         train_dataloader=train_dataloader,
