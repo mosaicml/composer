@@ -252,6 +252,7 @@ class SimpleMLPForTestingOOM(ComposerModel):
 @pytest.mark.gpu
 @pytest.mark.filterwarnings("ignore:`device_train_microbatch_size='auto'` may potentially fail with unexpected.*")
 @pytest.mark.filterwarnings("ignore:Automicrobatching changed the microbatch size from*")
+@pytest.mark.filterwarnings("ignore:CUDA out of memory detected*")
 @world_size(2)
 def test_automicrobatching_fsdp(world_size: int):
     model = SimpleMLPForTestingOOM()

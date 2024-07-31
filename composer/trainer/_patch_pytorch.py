@@ -36,6 +36,7 @@ from composer.utils import dist
 log = logging.getLogger(__name__)
 
 def patch_unshard_for_automicrobatching(auto_microbatch_size_found=False):
+    """Monkey patches sync hook into unshard when searching during automicrobatching."""
     if version.parse(torch.__version__) >= version.parse('2.3.1'):
         from torch.distributed.fsdp._flat_param import FlatParamHandle
         if auto_microbatch_size_found:
@@ -1055,8 +1056,8 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
     
     @no_type_check
     def unshard(self):
-        """
-        Run the unshard logic. 
+        """Run the unshard logic. 
+        
         This is an unpatched method from pytorch, meant to be reverted to 
         whenever automicrobatching turns off its hooks for increased throughput.
         This includes all-gathering the flat parameter
@@ -1082,9 +1083,9 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
 
     @no_type_check
     def unshard_with_sync(self):
-        """
-        Run the unshard logic, but with a sync after a :meth:`_alloc_padded_unsharded_flat_param`
-        to prevent deadlocks when some ranks OOM after the alloc call and others do not.
+        """ Run the unshard logic, but with a sync after a :meth:`_alloc_padded_unsharded_flat_param`.
+
+        This prevents deadlocks when some ranks OOM after the alloc call and others do not.
         This is a patched method from pytorch, meant to be called when automicrobatching
         turns on hooks in its search process for the optimal non-OOMing microbatch size.
         This includes all-gathering the flat parameter

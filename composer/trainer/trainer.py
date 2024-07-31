@@ -339,6 +339,7 @@ def _fsdp_reshard_and_cleanup(model: torch.nn.Module):
 
 def _clear_incomplete_train_states(state: State):
     """Manually clear gradients when automicrobatching reruns a batch.
+
     Before automicrobatching tries a lower microbatch size, clear the
     training states and memory of the previous run of the batch to reset the memory to 
     before the batch was run. 
@@ -408,6 +409,7 @@ def _adjust_device_eval_microbatch_size(evaluator: Evaluator):
 
 def _update_num_consecutive_thrashes(state: State, num_consecutive_thrashes: int, num_alloc_retries: int):
     """Update the number of consecutive batches where we experienced alloc retries.
+
     Consecutive alloc retries in GPU memory usually indicate thrashing, where GPU memory usage is so close
     to the memory limit that it hinders throughput.
     """
@@ -434,8 +436,9 @@ def _update_num_consecutive_thrashes(state: State, num_consecutive_thrashes: int
     return num_consecutive_thrashes
 
 def _create_sync_hook(state: State):
-    """Check if other ranks OOMed after forward/backward pass when using auto microbatching. This
-    may happen when close to memory limit or with uneven memory usage across ranks. Since we
+    """Check if other ranks OOMed after forward/backward pass when using auto microbatching. 
+    
+    This may happen when close to memory limit or with uneven memory usage across ranks. Since we
     need to do this before the model weights are gathered for the next FSDP block, we wrap every
     FSPD block with a hook that checks if any other rank OOMed.
     """
@@ -453,9 +456,10 @@ def _create_sync_hook(state: State):
 
     return sync_hook
 
-def _readd_fsdp_sync_hooks(fsdp_modules: torch.nn.module, sync_hook):
-    """Readds previously removed sync hooks to FSDP module when preparing to search for or searching for 
-    new microbatch size during automicrobatching.
+def _readd_fsdp_sync_hooks(fsdp_modules: torch.nn.Module, sync_hook):
+    """Readds previously removed sync hooks back to FSDP modules. 
+    
+    Called when preparing to search for or searching for new microbatch size during automicrobatching.
     """
     automicrobatch_fsdp_hook_handles = []
     patch_unshard_for_automicrobatching(False)
