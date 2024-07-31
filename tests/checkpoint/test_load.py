@@ -22,7 +22,7 @@ from composer.checkpoint.state_dict import _is_model_fsdp, get_model_state_dict,
 from composer.utils import dist
 from tests.checkpoint.helpers import init_model, init_model_and_optimizer, init_state
 from tests.common.compare import deep_compare
-
+import torch
 
 @pytest.mark.gpu
 @pytest.mark.parametrize(
@@ -74,7 +74,6 @@ def test_load_model_checkpoint(
 
     # Get the original model's state dict
     original_state_dict = get_model_state_dict(model, sharded_state_dict=False)
-
     # Load the model checkpoint
     new_model, _ = init_model(use_fsdp=sharded_model, device='cuda')
     load_path = saved_path if not sharded_checkpoint else str(Path(saved_path).parent)
@@ -85,7 +84,6 @@ def test_load_model_checkpoint(
         context_manager = contextlib.nullcontext()
 
     with context_manager:
-
         load_model_checkpoint(
             new_model,
             load_path=load_path,
@@ -94,7 +92,6 @@ def test_load_model_checkpoint(
                 shard_as_needed_during_load=shard_as_needed_during_load,
             ),
         )
-
         # Check if model is sharded when it should be
         if shard_as_needed_during_load:
             assert _is_model_fsdp(new_model), 'Model should be sharded after load'
@@ -214,7 +211,7 @@ def test_load_resumption_checkpoint(tmp_path: Path):
     load_resumption_checkpoint(new_state, save_path)
 
     # Check that the loaded state matches the initial state
-    deep_compare(new_state.timestamp, initial_state.timestamp)
+    deep_compare(new_state.timestamp.state_dict(), initial_state.timestamp.state_dict())
     assert new_state.rank_zero_seed == initial_state.rank_zero_seed
     assert new_state.run_name == initial_state.run_name
 

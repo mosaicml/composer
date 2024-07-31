@@ -184,7 +184,7 @@ def load_model_checkpoint(
         assert load_path is not None
         _load_sharded_model_checkpoint(model, load_path=load_path, load_options=load_options)
     else:
-        if dist.get_global_rank() != 0:
+        if dist.get_global_rank() == 0:
             assert load_path is not None
             _load_unsharded_model_checkpoint(model, load_path=load_path, load_options=load_options)
 
