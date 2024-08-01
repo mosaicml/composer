@@ -276,7 +276,7 @@ def test_fsdp_subset_of_params_in_opt_without_orig_params(world_size: int):
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
     optimizer = torch.optim.SGD(model.fc1.parameters(), lr=0.01)
 
-    expected_error = 'Passing in a subset of model parameters to the optimizer is not supported with tensor parallelism and/or use_orig_params=False.'
+    expected_error = 'Passing in a subset of model parameters to the optimizer is not supported with use_orig_params=False.'
 
     with pytest.raises(ValueError, match=expected_error):
         _ = Trainer(

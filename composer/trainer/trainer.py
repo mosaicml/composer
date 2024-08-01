@@ -1661,6 +1661,7 @@ class Trainer:
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 prepare_tp_module(
                     model,
+                    optimizers,
                     self.state.tp_config,
                 )
 
@@ -1675,7 +1676,6 @@ class Trainer:
                     precision,
                     device,
                     auto_microbatching,
-                    self.state.tp_config is not None,
                     self.state.seed,
                 )
 
@@ -1839,15 +1839,7 @@ class Trainer:
         ):
             # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
-                prepare_fsdp_module(
-                    model,
-                    optimizers,
-                    self.state.fsdp_config,
-                    precision,
-                    device,
-                    auto_microbatching,
-                    self.state.tp_config is not None,
-                )
+                prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
 
         self.engine.run_event(Event.AFTER_LOAD)
 

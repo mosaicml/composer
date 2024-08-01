@@ -186,9 +186,23 @@ def _recreate_fsdp_param_groups_from_unwrapped_opt_info(
 
 def prepare_tp_module(
     model: torch.nn.Module,
+    optimizers: Optional[Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]]],
     tp_config: TPConfig,
 ) -> None:
     """Prepare a module (assumed ComposerModel) for use with tensor parallel."""
+    optimizers_tuple = ensure_tuple(optimizers)
+    if len(optimizers_tuple) != 1:
+        raise NotImplementedError(f'Only one optimizer is supported; found {len(optimizers_tuple)} optimizers')
+
+    optim = optimizers_tuple[0]
+    if len(optim.param_groups) > 1:
+        raise RuntimeError('Multiple optimizer groups are not supported with tensor parallelism.',)
+
+    if len(optim.param_groups[0]['params']) != len(list(model.parameters())):
+        raise ValueError(
+            'Passing in a subset of model parameters to the optimizer is not supported with tensor parallelism.',
+        )
+
     from torch.distributed.tensor.parallel import parallelize_module
 
     device_mesh = tp_config.device_mesh
@@ -207,7 +221,6 @@ def prepare_fsdp_module(
     precision: Precision,
     device: Device,
     auto_microbatching: bool,
-    using_tp: bool = False,
     te_rng_seed: int = 1234,
 ) -> None:
     """Prepare a module (assumed ComposerModel) and optimizer for use with :class:`torch.distributed.fsdp.FullyShardedDataParallel`.
@@ -219,7 +232,6 @@ def prepare_fsdp_module(
         precision: (Precision): The precision being used by the Trainer, used to fill in defaults for FSDP `mixed_precision` settings.
         device (Device): The device being used by the Trainer.
         auto_microbatching (bool, optional): Whether or not auto microbatching is enabled.
-        using_tp (bool, optional): Whether the model has been wrapped with Tensor Parallelism, in which case only a single optimizer param group is supported.
         te_rng_seed(int): The seed to use for the Transformer Engine activation checkpointing RNG. Defaults to 1234.
     """
     # Check sync_module_states is True for mixed initialization or HSDP
@@ -256,7 +268,7 @@ def prepare_fsdp_module(
     # Necessary variables for optimizers with multiple param groups in FSDP
     param_name_to_group_num = None
     group_num_to_opt_group_info = None
-    optimizer_specific_info = None
+    single_param_group_opt_info = None
 
     if optimizers:
         optimizers_tuple = ensure_tuple(optimizers)
@@ -267,7 +279,10 @@ def prepare_fsdp_module(
         # that will be recreated at the end of prepare_fsdp_module
         optim = optimizers_tuple[0]
 
-        if fsdp_config.use_orig_params and not using_tp:
+        # Simplest case - single param group & all model params stored in optimizer
+        if len(optim.param_groups) == 1 and len(optim.param_groups[0]['params']) == len(list(model.parameters())):
+            single_param_group_opt_info = {k: v for k, v in optim.param_groups[0].items() if k != 'params'}
+        elif fsdp_config.use_orig_params:
             # this code block stores information about param groups pre-fsdp wrapping in order to recreate them post-wrapping
             # to do so, it relies on the ptrs of the model.parameters() in a model and the names of the params
             # for this to work, use_orig_params=True, as we need the names of the params post-wrapping
@@ -293,16 +308,12 @@ def prepare_fsdp_module(
                 group_num_to_opt_group_info[group_num] = optimizer_specific_group_info
         else:
             if len(optim.param_groups) > 1:
-                raise RuntimeError(
-                    'Multiple optimizer groups with FSDP are not supported with tensor parallelism and/or use_orig_params=False.',
-                )
+                raise RuntimeError('Multiple optimizer groups with FSDP are not supported with use_orig_params=False.',)
 
             if len(optim.param_groups[0]['params']) != len(list(model.parameters())):
                 raise ValueError(
-                    'Passing in a subset of model parameters to the optimizer is not supported with tensor parallelism and/or use_orig_params=False.',
+                    'Passing in a subset of model parameters to the optimizer is not supported with use_orig_params=False.',
                 )
-
-            optimizer_specific_info = {k: v for k, v in optim.param_groups[0].items() if k != 'params'}
 
         optim.param_groups.clear()
         optim.state.clear()
@@ -721,7 +732,10 @@ def prepare_fsdp_module(
         optim = ensure_tuple(optimizers)[0]
         optim.param_groups.clear()
 
-        if fsdp_config.use_orig_params and not using_tp:
+        if single_param_group_opt_info is not None:
+            single_param_group_opt_info.update({'params': list(model.parameters())})
+            optim.add_param_group(single_param_group_opt_info)
+        elif fsdp_config.use_orig_params:
             assert param_name_to_group_num is not None
             assert group_num_to_opt_group_info is not None
 
@@ -732,7 +746,3 @@ def prepare_fsdp_module(
             )
             for param_group in param_groups:
                 optim.add_param_group(param_group)
-        else:
-            assert optimizer_specific_info is not None
-            optimizer_specific_info.update({'params': list(model.parameters())})
-            optim.add_param_group(optimizer_specific_info)
