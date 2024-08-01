@@ -49,8 +49,7 @@ class MlflowMonitorProcess(multiprocessing.Process):
     def handle_sigterm(self, signum, frame):
         from mlflow import MlflowClient
         client = MlflowClient(self.mlflow_tracking_uri)
-        current_status = client.get_run(self.mlflow_run_id).info.status
-        if current_status == 'RUNNING':
+        if client.get_run(self.mlflow_run_id).info.status == 'RUNNING':
             # Set the run status as KILLED if SIGTERM is received while the MLflow run is still
             # in status RUNNING.
             client.set_terminated(self.mlflow_run_id, status='KILLED')
@@ -221,7 +220,7 @@ class MLFlowLogger(LoggerDestination):
                         conda_package='databricks-sdk',
                         conda_channel='conda-forge',
                     ) from e
-                databricks_username = (WorkspaceClient().current_user.me().user_name or '')
+                databricks_username = WorkspaceClient().current_user.me().user_name or ''
                 self.experiment_name = os.path.join(
                     '/Users',
                     databricks_username,
@@ -553,14 +552,14 @@ class MLFlowLogger(LoggerDestination):
             # This try/catch code is copied from
             # https://github.com/mlflow/mlflow/blob/3ba1e50e90a38be19920cb9118593a43d7cfa90e/mlflow/tracking/_model_registry/fluent.py#L90-L103
             try:
-                create_model_response = self._mlflow_client.create_registered_model(full_name,)
+                create_model_response = self._mlflow_client.create_registered_model(full_name)
                 log.info(f'Successfully registered model {name} with {create_model_response.name}')
             except MlflowException as e:
                 if e.error_code in (
                     ErrorCode.Name(RESOURCE_ALREADY_EXISTS),
                     ErrorCode.Name(ALREADY_EXISTS),
                 ):
-                    log.info(f'Registered model {name} already exists. Creating a new version of this model...',)
+                    log.info(f'Registered model {name} already exists. Creating a new version of this model...')
                 else:
                     raise e
 
@@ -634,7 +633,7 @@ class MLFlowLogger(LoggerDestination):
                 if current_status == 'RUNNING':
                     self._mlflow_client.set_terminated(self._run_id, status='FINISHED')
             else:
-                # record there was an error
+                # Record there was an error
                 self._mlflow_client.set_terminated(self._run_id, status='FAILED')
 
             mlflow.end_run()
