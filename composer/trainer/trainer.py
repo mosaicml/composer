@@ -2948,6 +2948,9 @@ class Trainer:
                 self.cumulative_alloc_retries = memory_stats['num_alloc_retries']
             self.logger.log_metrics({'trainer/device_train_microbatch_size': self.state.device_train_microbatch_size})
             self.first_batch_complete = True
+            print(len(
+                self.automicrobatch_fsdp_hook_handles
+            ))
             return total_loss_dict
 
     def _train_microbatches(
