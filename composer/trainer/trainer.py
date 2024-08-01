@@ -1661,6 +1661,7 @@ class Trainer:
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 prepare_tp_module(
                     model,
+                    optimizers,
                     self.state.tp_config,
                 )
 
