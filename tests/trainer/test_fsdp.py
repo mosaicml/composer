@@ -290,7 +290,7 @@ class SimpleMLPForTestingHooks(ComposerModel):
 
     def forward(self, x):
         x = self.fc1(x)
-        if self.iter == 3 and self.rank == 0 and x.shape[0] >= 64:
+        if self.iter == 3 and x.shape[0] >= 64:
             raise RuntimeError('CUDA out of memory')
         x = self.fc2(x)
         x = self.fc3(x)
@@ -316,10 +316,14 @@ def test_fsdp_automicrobatching_sync_hooks(world_size: int):
         trainer = Trainer(
             model=model,
             train_dataloader=train_dataloader,
+            fsdp_config={
+                'forward_prefetch_limit': 1,
+                'backward_prefetch_limit': 1,
+            },
             max_duration='4ba',
             device='gpu',
             device_train_microbatch_size='auto',
-            fsdp_config={},
+            dist_timeout=20,
         )
         trainer.fit()
         
