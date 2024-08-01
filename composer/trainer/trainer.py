@@ -369,7 +369,7 @@ def _adjust_device_train_microbatch_size(state: State):
     assert state.device_train_microbatch_size is not None
     if state.device_train_microbatch_size == 1:
         raise RuntimeError((
-            'CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
+            'CUDA out of memory or excessive memory allocation retries detected. The train loop failed with an internal microbatch of size 1.'
             'The GPU does not have enough memory to process even 1 sample during train.'
         ))
     else:
@@ -377,7 +377,7 @@ def _adjust_device_train_microbatch_size(state: State):
         state.device_train_microbatch_size = max(int(original_microbatch_size / 2), 1)
         warnings.warn(
             RuntimeWarning(
-                'CUDA out of memory detected. Train microbatch size will be decreased from '
+                'CUDA out of memory or excessive memory allocation retries detected. Train microbatch size will be decreased from '
                 f'{original_microbatch_size} -> {state.device_train_microbatch_size}.',
             ),
         )
@@ -435,7 +435,6 @@ def _update_num_consecutive_thrashes(state: State, num_consecutive_thrashes: int
         num_consecutive_thrashes += 1
     else:
         num_consecutive_thrashes = 0
-    print(num_consecutive_thrashes)
     return num_consecutive_thrashes
 
 
@@ -468,7 +467,7 @@ def _readd_fsdp_sync_hooks(fsdp_modules: Dict[str, torch.nn.Module], sync_hook):
     Called when preparing to search for or searching for new microbatch size during automicrobatching.
     """
     automicrobatch_fsdp_hook_handles = []
-    patch_unshard_for_automicrobatching(False)
+    patch_unshard_for_automicrobatching(auto_microbatch_size_found=False)
     for module in fsdp_modules.values():
         if isinstance(module, FullyShardedDataParallel):
             automicrobatch_fsdp_hook_handles.append(module.register_forward_pre_hook(sync_hook, prepend=True))
@@ -1335,7 +1334,8 @@ class Trainer:
         if parallelism_config is not None:
             # Patch PyTorch to fix distributed bugs
             patch_pytorch()
-            patch_unshard_for_automicrobatching(False)
+            if auto_microbatching:
+                patch_unshard_for_automicrobatching(auto_microbatch_size_found=False)
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, device)
@@ -2939,8 +2939,7 @@ class Trainer:
             if self.state.fsdp_enabled and len(
                 self.automicrobatch_fsdp_hook_handles,
             ) > 0 and self.num_consecutive_non_OOM_batches >= 3:
-                print('remove hooks from batch completion')
-                patch_unshard_for_automicrobatching(True)
+                patch_unshard_for_automicrobatching(auto_microbatch_size_found=True)
                 for handle in self.automicrobatch_fsdp_hook_handles:
                     handle.remove()
                 self.automicrobatch_fsdp_hook_handles.clear()

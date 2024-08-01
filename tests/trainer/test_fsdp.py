@@ -4,6 +4,7 @@
 from unittest.mock import MagicMock
 
 import pytest
+from unittest.mock import patch
 import torch
 from packaging import version
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import CheckpointWrapper
@@ -251,7 +252,6 @@ class SimpleMLPForTestingOOM(ComposerModel):
     def loss(self, outputs, batch):
         return torch.sum(outputs)
 
-
 @pytest.mark.gpu
 @pytest.mark.filterwarnings("ignore:`device_train_microbatch_size='auto'` may potentially fail with unexpected.*")
 @pytest.mark.filterwarnings('ignore:Automicrobatching changed the microbatch size from*')
@@ -277,6 +277,57 @@ def test_automicrobatching_fsdp(world_size: int):
     )
     trainer.fit()
 
+class SimpleMLPForTestingHooks(ComposerModel):
+
+    def __init__(self, num_features: int = 128, device: str = 'cuda'):
+        super().__init__()
+        self.device = device
+        self.fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.fc3 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.rank = dist.get_global_rank()
+        self.iter = 0
+
+    def forward(self, x):
+        x = self.fc1(x)
+        if self.iter == 3 and self.rank == 0 and x.shape[0] >= 64:
+            raise RuntimeError('CUDA out of memory')
+        x = self.fc2(x)
+        x = self.fc3(x)
+        self.iter += 1
+        return x
+
+    def loss(self, outputs, batch):
+        return torch.sum(outputs)
+    
+@pytest.mark.gpu
+@pytest.mark.filterwarnings("ignore:`device_train_microbatch_size='auto'` may potentially fail with unexpected.*")
+@pytest.mark.filterwarnings('ignore:Automicrobatching changed the microbatch size from*')
+@pytest.mark.filterwarnings('ignore:CUDA out of memory detected*')
+@world_size(2)
+def test_fsdp_automicrobatching_sync_hooks(world_size: int):
+    model = SimpleMLPForTestingHooks()
+    model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    dataset = SimpleDatasetForAuto(size=256, feature_size=128)
+    train_dataloader = DataLoader(dataset, batch_size=64, sampler=dist.get_sampler(dataset))
+    
+    with patch('composer.trainer.trainer._readd_fsdp_sync_hooks') as mock_readd_hooks:
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            max_duration='4ba',
+            device='gpu',
+            device_train_microbatch_size='auto',
+            fsdp_config={},
+        )
+        trainer.fit()
+        
+        # OOM occurs during the 4th batch, so check that sync hooks were readded at the end
+        mock_readd_hooks.assert_called_once()
+
+        # Check that list of sync hook handles are altered when hooks are readded
+        assert len(trainer.automicrobatch_fsdp_hook_handles) > 0
 
 @pytest.mark.gpu
 @world_size(2)

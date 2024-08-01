@@ -40,7 +40,8 @@ def patch_unshard_for_automicrobatching(auto_microbatch_size_found=False):
     if version.parse(torch.__version__) >= version.parse('2.3.1'):
         from torch.distributed.fsdp._flat_param import FlatParamHandle
         if auto_microbatch_size_found:
-            FlatParamHandle.unshard = (unshard)
+            global original_unshard
+            FlatParamHandle.unshard = (original_unshard)
         else:
             FlatParamHandle.unshard = (unshard_with_sync)
 
@@ -1054,32 +1055,10 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             submesh = _mesh_resources.create_child_mesh(self, mesh_dim_names)
             return submesh
 
-    @no_type_check
-    def unshard(self):
-        """Run the unshard logic.
 
-        This is an unpatched method from pytorch, meant to be reverted to
-        whenever automicrobatching turns off its hooks for increased throughput.
-        This includes all-gathering the flat parameter
-        and switching to using the unsharded flat parameter. If the handle does
-        not need unsharding, then this only switches to using the unsharded
-        flat parameter. For ``NO_SHARD``, this is a no-op.
-        If FSDP is in :meth:`summon_full_params` and the handle uses parameter
-        mixed precision, then the parameter is forced to full precision.
-        """
-        if not self.needs_unshard():
-            # Even when not needing an unshard, we should switch to using
-            # the unsharded flat parameter
-            unsharded_flat_param = (
-                self._get_padded_unsharded_flat_param()
-                if self.uses_sharded_strategy
-                else self.flat_param
-            )
-            self._use_unsharded_flat_param(unsharded_flat_param)
-            return
-        unsharded_flat_param = self._alloc_padded_unsharded_flat_param()
-        padded_unsharded_flat_param = self._all_gather_flat_param(unsharded_flat_param)
-        self._use_unsharded_flat_param(padded_unsharded_flat_param)
+    # Save original FlatParamHandle.unshard to revert back to when dropping automicrobatching hooks
+    from torch.distributed.fsdp._flat_param import FlatParamHandle
+    original_unshard = FlatParamHandle.unshard
 
     @no_type_check
     def unshard_with_sync(self):
