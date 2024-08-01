@@ -88,7 +88,6 @@ jobs:
     - name: IMAGE_TAG = ${{ env.IMAGE_TAG }}
       run: |
         echo ${{ env.IMAGE_TAG }}
-        echo ${{ env.GHCR_IMAGE_TAG }}
 
     - name: Build and Push the Docker Image
       uses: docker/build-push-action@v3
