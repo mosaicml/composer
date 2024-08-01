@@ -146,6 +146,7 @@ __all__ = ['Trainer']
 # syntax to shorten the Scheduler type annotations
 Scheduler = Union[ComposerScheduler, LRScheduler]
 
+OOM_FOUND_ON_OTHER_RANK = 'CUDA out of memory encountered on a different rank'
 
 def _raise_missing_argument_exception(arg_name: str):
     raise ValueError((
@@ -323,7 +324,6 @@ def _is_cuda_oom(e: RuntimeError):
         return True
     return False
 
-
 def _fsdp_reshard_and_cleanup(model: torch.nn.Module):
     """Manually reshard and clean up FSDP model.
 
@@ -459,7 +459,7 @@ def _create_sync_hook(state: State):
         dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
 
         if found_cuda_oom == 1:
-            raise RuntimeError('CUDA out of memory encountered on a different rank')
+            raise RuntimeError()
 
     return sync_hook
 
@@ -2876,7 +2876,7 @@ class Trainer:
                             else:
                                 optimizer.step()
             except RuntimeError as e:
-                if self.state.auto_microbatching and str(e) == 'CUDA out of memory encountered on a different rank':
+                if self.state.auto_microbatching and str(e) == OOM_FOUND_ON_OTHER_RANK:
                     log.debug((f"A Different Rank OOM'd."))
                     found_cuda_oom = 1
                 elif self.state.auto_microbatching and _is_cuda_oom(e):
@@ -3119,7 +3119,7 @@ class Trainer:
                 dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
 
                 if found_cuda_oom == 1:
-                    raise RuntimeError('CUDA out of memory encountered on a different rank')
+                    raise RuntimeError(OOM_FOUND_ON_OTHER_RANK)
 
             # Loss
             self.engine.run_event(Event.BEFORE_LOSS)
