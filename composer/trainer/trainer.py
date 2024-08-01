@@ -1106,6 +1106,14 @@ class Trainer:
         # compile config for PyTorch 2.0 or higher
         compile_config: Optional[dict[str, Any]] = None,
     ):
+        if deepspeed_config is not None:
+            raise VersionedDeprecationWarning(
+                'The use of DeepSpeed in Composer is deprecated. Composer is tightly integrated with PyTorch FSDP ' +
+                'which provides similar functionality. Please use the `parallelism_config` parameter instead. Please open '
+                + 'a GitHub issue if you need help migrating from DeepSpeed to FSDP.',
+                remove_version='0.28.0',
+            )
+
         self.auto_log_hparams = auto_log_hparams
         self.python_log_level = python_log_level
         if self.python_log_level is not None:
