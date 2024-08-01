@@ -1829,6 +1829,7 @@ class Trainer:
                 algorithm_passes=self.engine.algorithm_passes,
             )
             self.state.run_name = run_name
+            self.state.load_path = load_path
 
         # FSDP wrap if model is not yet wrapped and FSDP is enabled. This can happen if
         # load_monolith_rank0_only=True but no checkpoint was loaded.
