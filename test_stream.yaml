@@ -1,0 +1,124 @@
+name: resnet-imagenet1k-1-node-convergence
+gpu_type: h100_80gb
+gpu_num: 8
+cluster: r14z3p2
+image: mosaicml/pytorch:2.1.0_cu121-python3.10-ubuntu20.04
+
+scheduling:
+  priority: low
+
+integrations:
+  - integration_type: git_repo
+    git_repo: mosaicml/examples
+    git_branch: resnet50_regression_testing
+    pip_install: -r examples/resnet_imagenet/requirements.txt
+  - integration_type: git_repo
+    git_repo: mosaicml/composer
+    git_branch: resnet-regression-testing
+    pip_install: '-e ".[mlflow, databricks]"'
+  - integration_type: git_repo
+    git_repo: mosaicml/streaming
+    git_branch: main
+    pip_install: '--upgrade -e .'
+
+command: |
+  cd examples
+  pip install -e .
+  cd examples/resnet_imagenet
+  composer main.py /mnt/config/parameters.yaml
+
+# Configuration copied from baseline.yaml
+parameters:
+  run_name: r50_i1k_baseline     # Name of the training run used for checkpointing and other logging
+  is_train: true             # Trains the model if true, otherwise runs evaluation
+  seed: 17                   # Random seed
+  max_duration: 90ep         # Duration to train specified as a Time string
+  device_train_microbatch_size: auto
+  # set it to 0 to disable eval
+  # eval_interval: 0
+  num_canonical_nodes: 64
+  cache_limit: null
+  predownload: 8192
+  remote_path: oci://mosaicml-internal-datasets/imagenet1k/mds/2/
+  local_path: /tmp/imagenet1k/
+
+  # Model
+  model:
+    name: resnet50           # Name of the ResNet model to train either resnet{18, 34, 50, 101, 152}
+    loss_name: cross_entropy # Name of the loss function either 'cross_entropy' or 'binary_cross_entropy'
+    num_classes: 1000        # Number of classes in the classification task
+
+  # Training Dataset Parameters
+  train_dataset:
+    is_streaming: true                    # Whether or not your data is in a remote location (e.g. a S3 bucket)
+    path: ${remote_path}     # Path to S3 bucket if streaming, otherwise path to local data directory
+    local: ${local_path} # Local cache when streaming data
+    resize_size: -1                       # Training image resize size before crop, -1 means no resize
+    crop_size: 224                        # Training image crop size
+    batch_size: 2048                      # Training dataloader batch size per device
+    cache_limit: ${cache_limit}
+    predownload: ${predownload}
+    num_canonical_nodes: ${num_canonical_nodes}
+
+  # Validation Dataset Parameters
+  eval_dataset:
+    is_streaming: true                    # Whether or not your data is in a remote location (e.g. a S3 bucket)
+    path: ${remote_path}      # S3 bucket if streaming, otherwise path to local data
+    local: ${local_path} # Local cache when streaming data
+    resize_size: 256                      # Evaluation image resize size before crop
+    crop_size: 224                        # Evaluation image crop size
+    batch_size: 2048                      # Evaluation dataloader batch size per device
+    cache_limit: ${cache_limit}
+    predownload: ${predownload}
+    num_canonical_nodes: ${num_canonical_nodes}
+
+  # Optimizer Parameters
+  optimizer:
+    lr: 2.048
+    momentum: 0.875
+    weight_decay: 5.0e-4
+
+  # LR Scheduler Parameters
+  scheduler:
+    t_warmup: 8ep # Duration of learning rate warmup specified as a Time string
+    alpha_f: 0.0  # Base learning rate multiplier to decay to
+
+  loggers:
+    progress_bar: {}
+    mlflow:
+      tracking_uri: databricks
+      experiment_name: /Shared/Runtime/regression-testing/streaming-regression
+
+  # Set to null for baseline or for recipe, either ["mild", "medium", "hot"] for increasing training time and accuracy
+  recipe_name: mild
+
+  # Updated parameters for mild recipe
+  mild:
+    model.loss_name: binary_cross_entropy
+    train_dataset.crop_size: 176
+    eval_dataset.resize_size: 232
+    max_duration: 20ep
+
+  # Updated parameters for medium recipe
+  medium:
+    model.loss_name: binary_cross_entropy
+    train_dataset.crop_size: 176
+    eval_dataset.resize_size: 232
+    max_duration: 135ep
+
+  # Updated parameters for hot recipe
+  hot:
+    model.loss_name: binary_cross_entropy
+    train_dataset.crop_size: 176
+    eval_dataset.resize_size: 232
+    max_duration: 270ep
+
+  # Save checkpoint parameters
+  # save_folder:      # e.g. './{run_name}/ckpt' (local) or 's3://mybucket/mydir/{run_name}/ckpt' (remote)
+  # save_interval: 10ep # Interval to checkpoint based on time string
+  # save_num_checkpoints_to_keep: 1 # Cleans up checkpoints saved locally only!
+
+  # Load checkpoint parameters
+  # example values: './ckpt/latest-rank{rank}.pt' (local) or
+  # 's3://mybucket/mydir/ckpt/latest-rank{rank}.pt' (remote)
+  # load_path:

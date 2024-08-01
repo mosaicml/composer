@@ -24,6 +24,7 @@ from typing import (
     Any,
     Callable,
     ContextManager,
+    Dict,
     Iterable,
     Mapping,
     Optional,
@@ -436,7 +437,7 @@ def _update_num_consecutive_thrashes(state: State, num_consecutive_thrashes: int
     return num_consecutive_thrashes
 
 def _create_sync_hook(state: State):
-    """Check if other ranks OOMed after forward/backward pass when using auto microbatching. 
+    """Check if other ranks OOMed after forward/backward pass when using auto microbatching.
     
     This may happen when close to memory limit or with uneven memory usage across ranks. Since we
     need to do this before the model weights are gathered for the next FSDP block, we wrap every
@@ -457,7 +458,7 @@ def _create_sync_hook(state: State):
     return sync_hook
 
 def _readd_fsdp_sync_hooks(fsdp_modules: Dict[str, torch.nn.Module], sync_hook):
-    """Readds previously removed sync hooks back to FSDP modules. 
+    """Readds previously removed sync hooks back to FSDP modules.
     
     Called when preparing to search for or searching for new microbatch size during automicrobatching.
     """
