@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import atexit
 import fnmatch
 import logging
 import multiprocessing
@@ -57,7 +56,6 @@ class MlflowMonitorProcess(multiprocessing.Process):
             client.set_terminated(self.mlflow_run_id, status='KILLED')
 
     def run(self):
-        import psutil
         from mlflow import MlflowClient
 
         os.setsid()
@@ -164,7 +162,6 @@ class MLFlowLogger(LoggerDestination):
         self.rename_metrics = {} if rename_metrics is None else rename_metrics
         self.ignore_metrics = [] if ignore_metrics is None else ignore_metrics
         self.ignore_hyperparameters = ([] if ignore_hyperparameters is None else ignore_hyperparameters)
-        self._is_in_atexit = False
         if self.model_registry_uri == 'databricks-uc':
             if len(self.model_registry_prefix.split('.')) != 2:
                 raise ValueError(
@@ -192,7 +189,7 @@ class MLFlowLogger(LoggerDestination):
         self.run_url = None
 
         if self._enabled:
-            if True or (tracking_uri is None and os.getenv('DATABRICKS_TOKEN') is not None):
+            if tracking_uri is None and os.getenv('DATABRICKS_TOKEN') is not None:
                 tracking_uri = 'databricks'
             if tracking_uri is None:
                 tracking_uri = mlflow.get_tracking_uri()
@@ -331,7 +328,6 @@ class MLFlowLogger(LoggerDestination):
         sys.excepthook = self._global_exception_handler
         # Start run
         if self._enabled:
-            atexit.register(self._set_is_in_atexit)
             self._start_mlflow_run(state)
 
         # If rank zero only, broadcast the MLFlow experiment and run IDs to other ranks, so the MLFlow run info is
@@ -623,9 +619,6 @@ class MLFlowLogger(LoggerDestination):
                     run_id=self._run_id,
                     step=step,
                 )
-
-    def _set_is_in_atexit(self):
-        self._is_in_atexit = True
 
     def check_for_nccl_errors(self):
         try:
