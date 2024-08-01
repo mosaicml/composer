@@ -330,6 +330,8 @@ def test_fsdp_automicrobatching_sync_hooks(world_size: int):
         # OOM occurs during the 4th batch, so check that sync hooks were readded at the end
         mock_readd_hooks.assert_called_once()
 
+        print("Call count: " + str(mock_readd_hooks.call_count))
+
         # Check that list of sync hook handles are altered when hooks are readded
         assert len(trainer.automicrobatch_fsdp_hook_handles) > 0
 
