@@ -1,10 +1,9 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-from unittest.mock import patch
 import torch
 from packaging import version
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import CheckpointWrapper
@@ -252,6 +251,7 @@ class SimpleMLPForTestingOOM(ComposerModel):
     def loss(self, outputs, batch):
         return torch.sum(outputs)
 
+
 @pytest.mark.gpu
 @pytest.mark.filterwarnings("ignore:`device_train_microbatch_size='auto'` may potentially fail with unexpected.*")
 @pytest.mark.filterwarnings('ignore:Automicrobatching changed the microbatch size from*')
@@ -277,6 +277,7 @@ def test_automicrobatching_fsdp(world_size: int):
     )
     trainer.fit()
 
+
 class SimpleMLPForTestingHooks(ComposerModel):
 
     def __init__(self, num_features: int = 128, device: str = 'cuda'):
@@ -299,7 +300,8 @@ class SimpleMLPForTestingHooks(ComposerModel):
 
     def loss(self, outputs, batch):
         return torch.sum(outputs)
-    
+
+
 @pytest.mark.gpu
 @pytest.mark.filterwarnings("ignore:`device_train_microbatch_size='auto'` may potentially fail with unexpected.*")
 @pytest.mark.filterwarnings('ignore:Automicrobatching changed the microbatch size from*')
@@ -311,7 +313,7 @@ def test_fsdp_automicrobatching_sync_hooks(world_size: int):
     model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
     dataset = SimpleDatasetForAuto(size=256, feature_size=128)
     train_dataloader = DataLoader(dataset, batch_size=64, sampler=dist.get_sampler(dataset))
-    
+
     with patch('composer.trainer.trainer._readd_fsdp_sync_hooks') as mock_readd_hooks:
         trainer = Trainer(
             model=model,
@@ -326,9 +328,10 @@ def test_fsdp_automicrobatching_sync_hooks(world_size: int):
             dist_timeout=20,
         )
         trainer.fit()
-        
+
         # OOM occurs during the 4th batch, so check that sync hooks were readded at the end
         mock_readd_hooks.assert_called_once()
+
 
 @pytest.mark.gpu
 @world_size(2)
