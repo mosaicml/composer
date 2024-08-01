@@ -1,4 +1,4 @@
-name: PR Docker
+name: PR Docker/GHCR
 on:
   pull_request:
     branches:
