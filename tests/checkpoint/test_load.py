@@ -175,6 +175,7 @@ def test_load_optim_checkpoint(
             deep_compare(original_state_dict, new_state_dict)
 
 
+@pytest.mark.gpu
 @pytest.mark.filterwarnings('ignore:SWA has')
 def test_load_resumption_checkpoint(tmp_path: Path):
     # Ensure all ranks use the same path
