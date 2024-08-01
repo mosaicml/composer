@@ -2945,6 +2945,7 @@ class Trainer:
                 for handle in self.automicrobatch_fsdp_hook_handles:
                     handle.remove()
                 self.automicrobatch_fsdp_hook_handles.clear()
+                print("removed " + str(self.state.timestamp.batch))
             if torch.cuda.is_available():
                 memory_stats = torch.cuda.memory_stats()
                 self.cumulative_alloc_retries = memory_stats['num_alloc_retries']
