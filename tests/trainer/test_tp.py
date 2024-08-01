@@ -1,8 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-import gc
-
 import pytest
 import torch
 from packaging import version
@@ -90,7 +88,6 @@ def test_tp_with_param_groups(world_size: int):
             },
             max_duration='3ba',
         )
-    gc.collect()
 
 
 @pytest.mark.gpu
@@ -125,4 +122,3 @@ def test_tp_with_subset_of_params(world_size: int):
             },
             max_duration='3ba',
         )
-    gc.collect()

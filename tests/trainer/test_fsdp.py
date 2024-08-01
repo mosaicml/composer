@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
-import gc
 from unittest.mock import MagicMock
 
 import pytest
@@ -290,7 +289,6 @@ def test_fsdp_subset_of_params_in_opt_without_orig_params(world_size: int):
             },
             max_duration='3ba',
         )
-    gc.collect()
 
 
 class SimpleMLP(ComposerModel):

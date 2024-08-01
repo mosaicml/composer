@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
-import gc
 
 import pytest
 import torch
@@ -48,7 +47,6 @@ def test_fsdp_param_groups_without_orig_params(mixed_precision: str, device: str
             max_duration='3ba',
             device=device,
         )
-    gc.collect()
 
 
 @pytest.mark.parametrize('mixed_precision', ['FULL', 'DEFAULT', 'PURE'])
