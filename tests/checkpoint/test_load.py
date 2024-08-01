@@ -12,17 +12,22 @@ from composer.checkpoint.load import (
     load_model_checkpoint,
     load_optim_checkpoint,
     load_resumption_checkpoint,
+    load_checkpoint
 )
 from composer.checkpoint.save import (
     save_model_to_disk,
     save_optim_to_disk,
     save_resumption_state_to_disk,
+    save_checkpoint_to_disk,
 )
 from composer.checkpoint.state_dict import _is_model_fsdp, get_model_state_dict, get_optim_state_dict
 from composer.utils import dist
 from tests.checkpoint.helpers import init_model, init_model_and_optimizer, init_state
 from tests.common.compare import deep_compare
 import torch
+
+
+
 
 @pytest.mark.gpu
 @pytest.mark.parametrize(
@@ -238,3 +243,24 @@ def test_load_resumption_checkpoint(tmp_path: Path):
         assert initial_state.scaler is not None
         assert new_state.scaler is not None
         deep_compare(initial_state.scaler.state_dict(), new_state.scaler.state_dict())
+
+
+# @pytest.mark.gpu
+# def test_load_checkpoint(world_size: int,
+#                          tmp_path: Path,
+#                          sharded_model: bool,
+#                          sharded_checkpoint: bool,
+#                          shard_as_needed_during_load: bool,):
+#     # Ensure all ranks use the same path
+#     destination_dir = os.path.join(tmp_path, str(uuid.uuid4())[:8])
+#     destination_dir = dist.all_gather_object(destination_dir)[0]
+
+#     # Save an optimizer checkpoint
+#     state = init_state(use_fsdp=sharded_checkpoint, device='cuda')
+#     save_checkpoint_to_disk(destination_dir=destination_dir, state=state, save_options={'sharded_checkpoint': sharded_checkpoint,
+#                                                                                          'save_model': True,
+#                                                                                          'save_optim': True,
+#                                                                                          'save_resumption': True})
+#     new_state = init_state(use_fsdp=sharded_model, device='cuda')
+#     load_checkpoint(destination_dir=destination_dir, state=new_state, load_options={'sharded_checkpoint': sharded_checkpoint,
+    

@@ -39,12 +39,14 @@ def init_state(
     rank_zero_seed=10,
     run_name='test_run',
     take_step=False,
+    wrap_with_raw_fsdp=False,
 ) -> State:
     model, optimizer = init_model_and_optimizer(
         use_fsdp=use_fsdp,
         use_composer_model=True,
         take_step=take_step,
         device=device,
+        wrap_with_raw_fsdp=wrap_with_raw_fsdp,
     )
 
     test_dataset_sd = {'test': 0}
@@ -89,6 +91,7 @@ def init_model_and_optimizer(
     use_fsdp=False,
     tensor_type='sharded_tensor',
     device='cuda',
+    wrap_with_raw_fsdp=False,
 ) -> Tuple[Union[ComposerModel, torch.nn.Module], torch.optim.Optimizer]:
     model, loss_fn = init_model(
         use_composer_model,
@@ -97,6 +100,7 @@ def init_model_and_optimizer(
         use_fsdp=use_fsdp,
         tensor_type=tensor_type,
         device=device,
+        wrap_with_raw_fsdp=wrap_with_raw_fsdp,
     )
 
     optimizer = init_optimizer(
@@ -122,6 +126,7 @@ def init_model(
     tensor_type='sharded_tensor',
     sync_module_states=True,
     cpu_offload=False,
+    wrap_with_raw_fsdp=False,
 ) -> Tuple[Union[ComposerModel, torch.nn.Module], Any]:
     if use_composer_model:
         model = SimpleComposerMLP(num_features=num_features, num_classes=num_classes, device=device)
@@ -142,11 +147,14 @@ def init_model(
             device_mesh = init_device_mesh('cuda', (2,))
             fsdp_kwargs['device_mesh'] = device_mesh
 
-        prepare_fsdp_module(
-            model,
-            optimizers=None,
-            fsdp_config=FSDPConfig(**fsdp_kwargs),
-        )
+        if wrap_with_raw_fsdp:
+            model = FSDP(model, **fsdp_kwargs)
+        else:
+            prepare_fsdp_module(
+                model,
+                optimizers=None,
+                fsdp_config=FSDPConfig(**fsdp_kwargs),
+            )
 
     return model, loss_fn
 
