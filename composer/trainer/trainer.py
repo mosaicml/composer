@@ -17,7 +17,6 @@ import tempfile
 import textwrap
 import time
 import warnings
-from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
 from typing import (
@@ -39,11 +38,11 @@ import torch.distributed
 import torch.nn as nn
 import torch.utils.data
 from packaging import version
+from collections import defaultdict
 from torch._dynamo import OptimizedModule
 from torch.cuda.amp.grad_scaler import GradScaler
-from torch.distributed.fsdp import FullyShardedDataParallel
-from torch.distributed.fsdp._runtime_utils import _post_backward_final_callback
 from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
+from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader, DistributedSampler
@@ -99,7 +98,7 @@ from composer.loggers.mosaicml_logger import MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSA
 from composer.models import ComposerModel
 from composer.optim import ComposerScheduler, DecoupledSGDW, compile_composer_scheduler
 from composer.profiler import Profiler
-from composer.trainer._patch_pytorch import patch_pytorch
+from composer.trainer._patch_pytorch import patch_pytorch, patch_unshard_for_automicrobatching
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.utils import (
@@ -132,6 +131,8 @@ from composer.utils import (
     parse_uri,
     partial_format,
     reproducibility,
+    _fsdp_reshard_and_cleanup,
+    _closest_lower_power_of_2
 )
 
 if is_xla_installed():
@@ -322,24 +323,8 @@ def _is_cuda_oom(e: RuntimeError):
         return True
     return False
 
-
-def _fsdp_reshard_and_cleanup(model: torch.nn.Module):
-    """Manually reshard and clean up FSDP model.
-
-    When an exception like OOM happens, _post_backward_final_callback, which
-    is registered as a backward callback, will not run. We manually call it to cleanup
-    loose memory.
-    """
-    for __, module in model.named_modules():
-        if isinstance(module, FullyShardedDataParallel):
-            if module.check_is_root():
-                # Only call _post_backward_final_callback on root module. It will
-                # traverse and reshard all FSDP sub-modules
-                _post_backward_final_callback(module, module)
-
-
-def _adjust_device_train_microbatch_size(state: State):
-    """Adjust device_train_microbatch_size if we encounter OOM.
+def _double_device_train_microbatch_size(state: State):
+    """Double device_train_microbatch_size when automicrobatching searches upward for a higher non-OOM microbatch size.
 
     Args:
         state (State): State of trainer.
@@ -347,21 +332,185 @@ def _adjust_device_train_microbatch_size(state: State):
     # If any rank hit CUDA OOM, update device_train_microbatch_size and retry. Raise runtime error
     # if training 1 sample at a time still resulted in CUDA out of memory.
     assert state.device_train_microbatch_size is not None
-    if state.device_train_microbatch_size == 1:
-        raise RuntimeError((
-            'CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
-            'The GPU does not have enough memory to process even 1 sample during train.'
-        ))
-    else:
-        original_microbatch_size = state.device_train_microbatch_size
-        state.device_train_microbatch_size = max(int(original_microbatch_size / 2), 1)
-        warnings.warn(
-            RuntimeWarning(
-                'CUDA out of memory detected. Train microbatch size will be decreased from '
-                f'{original_microbatch_size} -> {state.device_train_microbatch_size}.',
-            ),
+    assert state.train_dataloader is not None
+
+    try:
+        batch_size = getattr(state.train_dataloader, 'batch_size')
+    except AttributeError as e:
+        # Error message when `device_train_microbatch_size` is 'auto'
+        raise AttributeError(
+            "`device_train_microbatch_size='auto'` requires the `state.train_dataloader` to have a `batch_size` attribute.",
+        ) from e
+
+    original_microbatch_size = state.device_train_microbatch_size
+    # Device train microbatch size can't be greater than the device train batch size
+    state.device_train_microbatch_size = min(int(original_microbatch_size * 2), batch_size)
+
+def _found_ooms_across_ranks(state: State, found_cuda_oom: bool):
+    """Check if at least one rank, including the local rank, OOM'd in the forward/backward pass
+    when using automicrobatching. This may happen when close to memory limit or with uneven memory 
+    usage across ranks. 
+    
+    Ensure that all ranks are out of microbatch training before completing batch training or finding
+    a new microbatch size. Return whether at least one rank OOM'd.
+    """
+    
+    all_ranks_finished = False
+    while not all_ranks_finished:
+        # Propagate across all ranks if any rank hit CUDA OOM
+        found_cuda_oom_tensor = state.device.tensor_to_device(
+            torch.tensor([found_cuda_oom], dtype=torch.uint8),
         )
-    # Clear gradients in case failure happened during backwards pass
+        dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
+        found_cuda_oom = found_cuda_oom_tensor.item()
+        # Check if any rank is still not done with the batch. This may happen if only a
+        # subset of ranks OOM, leaving some batches still in the forward pass
+        all_ranks_finished_tensor = state.device.tensor_to_device(torch.tensor([1], dtype=torch.uint8))
+        dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
+        all_ranks_finished = all_ranks_finished_tensor.item() == 1
+    return found_cuda_oom
+
+def _update_num_consecutive_thrashes(state: State, num_consecutive_thrashes: int, num_alloc_retries: int):
+    """Update the number of consecutive batches where we experienced alloc retries.
+    Consecutive alloc retries in GPU memory usually indicate thrashing, where GPU memory usage is so close
+    to the memory limit that it hinders throughput.
+    """
+    # Check for alloc retries between batches
+    stats = torch.cuda.memory_stats()
+    cur_num_alloc_retries = stats["num_alloc_retries"]
+
+    if cur_num_alloc_retries - num_alloc_retries > 0:
+        alloc_retry_this_batch = 1
+        log.info("Found alloc retries this batch: " +  str(num_alloc_retries) + " to " + str(cur_num_alloc_retries))
+    else:
+        alloc_retry_this_batch = 0
+
+    # Propagate across all ranks if any rank had alloc retries this batch
+    alloc_retry_tensor = state.device.tensor_to_device(
+            torch.tensor([alloc_retry_this_batch], dtype=torch.uint8),
+        )
+    dist.all_reduce(alloc_retry_tensor, reduce_operation='MAX')
+    alloc_retry_this_batch = alloc_retry_tensor.item() == 1
+    if alloc_retry_this_batch:
+        num_consecutive_thrashes += 1
+    else:
+        num_consecutive_thrashes = 0
+    return num_consecutive_thrashes
+
+def _handle_downward_search_in_automicrobatching(state: State, lowest_oom_microbatch_size: int, highest_non_oom_microbatch_size: int, lower_bound_microbatch_size: int, num_search_steps: int, max_search_steps: int):
+    """Search downward for the highest non-OOMing microbatch size. 
+    
+    This method is only called when an OOM was seen this batch with the current state.device_train_microbatch_size.
+    If this is the first time automicrobatching is searching for a non-OOMing microbatch size, or the previously highest non-OOMing power of 2 
+    microbatch size is now OOMing, automicrobatching searches for the next highest power of 2 to test as a microbatch size. This resets num_search_steps
+    to 1.
+    Otherwise, while automicrobatching has searched for less than max_search_steps, automicrobatching binary searches downwards between the highest recorded 
+    non-OOMing microbatch size and the lowest recorded OOMing microbatch size.
+    Once automicrobatching has searched for max_search_steps, if the last tested microbatch size OOM'd, choose the highest previously
+    recorded non-OOMing microbatch size. For the edge case where that microbatch size OOMs upon retry, binary search downward between 
+    that value and lower_bound_microbatch_size, which is the highest power of 2 guaranteed to not OOM.
+    """
+    # Find closest lower power of 2 if previously non-OOM microbatch size is OOMing or this is the first microbatch size search
+    if state.device_train_microbatch_size == lower_bound_microbatch_size: 
+        lowest_oom_microbatch_size = state.device_train_microbatch_size
+        lower_bound_microbatch_size = _closest_lower_power_of_2(state.device_train_microbatch_size)
+        state.device_train_microbatch_size = lower_bound_microbatch_size
+        highest_non_oom_microbatch_size = state.device_train_microbatch_size
+
+        num_search_steps = 1
+        # Skip return and continue searching for the highest non-OOM size in the new lower range
+    else:
+        if num_search_steps < max_search_steps:
+            lowest_oom_microbatch_size = state.device_train_microbatch_size
+            median_microbatch_size = int((lowest_oom_microbatch_size + highest_non_oom_microbatch_size) // 2)
+            state.device_train_microbatch_size = median_microbatch_size
+
+            num_search_steps += 1
+
+            # Optimization so we don't repeat a converged value
+            if lowest_oom_microbatch_size == highest_non_oom_microbatch_size:
+                num_search_steps = max_search_steps + 1 # go to else protocol
+                lowest_oom_microbatch_size = state.device_train_microbatch_size
+                highest_non_oom_microbatch_size = lower_bound_microbatch_size
+                state.device_train_microbatch_size = int((lowest_oom_microbatch_size + highest_non_oom_microbatch_size) // 2)
+
+            # Skip return and decrease dtms, continuing the search for the highest non-OOM size
+        elif num_search_steps == max_search_steps: 
+            state.device_train_microbatch_size = highest_non_oom_microbatch_size
+
+            num_search_steps += 1
+            # Skip return and rerun to obtain loss - committing to this dtms unless retrying it OOMs
+        else: 
+            # Only end up here if a previously non-OOM microbatch size is no longer successful in the same training step, and it's not the original microbatch size
+
+            lowest_oom_microbatch_size = state.device_train_microbatch_size
+            highest_non_oom_microbatch_size = lower_bound_microbatch_size
+            state.device_train_microbatch_size = int((lowest_oom_microbatch_size + highest_non_oom_microbatch_size) // 2)
+
+            # Skip return and continue searching for the highest non-OOM size in this narrower range
+    return lowest_oom_microbatch_size, highest_non_oom_microbatch_size, lower_bound_microbatch_size, num_search_steps
+
+def _handle_upward_search_in_automicrobatching(state: State, lowest_oom_microbatch_size: int, highest_non_oom_microbatch_size: int, num_search_steps: int, max_search_steps: int):
+    """Searches upward for the highest non-OOMing microbatch size. 
+    
+    This method is only called when the current state.device_train_microbatch_size did not OOM and automicrobatching is actively searching for a new
+    microbatch size, either because this is the first search or a previously working microbatch size OOM'd.
+    If the microbatch size is already equal to the batch size, automicrobatching commits to this microbatch size.
+    Otherwise, while automicrobatching has searched for less than max_search_steps, automicrobatching binary searches upwards between the highest recorded 
+    non-OOMing microbatch size and the lowest recorded OOMing microbatch size.
+    """
+    assert state.train_dataloader is not None
+    try:
+        batch_size = getattr(state.train_dataloader, 'batch_size')
+    except AttributeError as e:
+        # Error message when `device_train_microbatch_size` is 'auto'
+        raise AttributeError(
+            "`device_train_microbatch_size='auto'` requires the `state.train_dataloader` to have a `batch_size` attribute.",
+        ) from e
+
+    search_upwards = False
+
+    if state.device_train_microbatch_size != batch_size:
+        if num_search_steps == 0:
+            highest_non_oom_microbatch_size = state.device_train_microbatch_size
+            _double_device_train_microbatch_size(state)
+            _clear_incomplete_train_states(state)
+            search_upwards = True
+        elif num_search_steps < max_search_steps: # Previous OOMs found in this training step 
+            highest_non_oom_microbatch_size = state.device_train_microbatch_size
+            median_microbatch_size = int((highest_non_oom_microbatch_size + lowest_oom_microbatch_size) // 2)
+            state.device_train_microbatch_size = median_microbatch_size
+
+            num_search_steps += 1
+
+            # Optimization so we don't repeat a converged value
+            if median_microbatch_size == highest_non_oom_microbatch_size:
+                num_search_steps = max_search_steps
+
+            _clear_incomplete_train_states(state)
+            search_upwards = True
+        # Else: reached max search steps and found a non-OOM microbatch size
+    return search_upwards, highest_non_oom_microbatch_size, num_search_steps
+
+def _handle_thrashing_in_automicrobatching(state: State):
+    """Searches downward for the highest non-OOMing microbatch size that also doesn't thrash.
+    This method is only called when two consecutive batches have alloc retries, indicating thrashing,
+    where GPU memory usage is so close to the memory limit that it hinders throughput.
+    Automicrobatching searches for the next highest power of 2 to use as the microbatch size.
+    """
+    lowest_oom_microbatch_size = state.device_train_microbatch_size
+    lower_bound_microbatch_size = _closest_lower_power_of_2(state.device_train_microbatch_size)
+    highest_non_oom_microbatch_size = lower_bound_microbatch_size
+    state.device_train_microbatch_size = lower_bound_microbatch_size
+    return lowest_oom_microbatch_size, highest_non_oom_microbatch_size, lower_bound_microbatch_size 
+
+
+def _clear_incomplete_train_states(state: State):
+    """Manually clear gradients when automicrobatching reruns a batch.
+    Before automicrobatching tries a new higher or lower microbatch size, clear the
+    training states and memory of the previous run of the batch to reset the memory to 
+    before the batch was run. 
+    """
     if hasattr(state, 'outputs'):
         del state.outputs
     if hasattr(state, 'loss'):
@@ -373,6 +522,20 @@ def _adjust_device_train_microbatch_size(state: State):
     _fsdp_reshard_and_cleanup(state.model)
     torch.cuda.empty_cache()
 
+def _create_sync_hook(state: State):
+    def sync_hook(*args):
+        # Check if any other rank hit an OOM
+        found_cuda_oom_tensor = state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+        dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
+        found_cuda_oom = found_cuda_oom_tensor.item()
+        # Signal current rank is still in batch
+        all_ranks_finished_tensor = state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+        dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
+        
+        if found_cuda_oom == 1:
+            raise RuntimeError('CUDA out of memory encountered on a different rank')
+    
+    return sync_hook
 
 def _adjust_device_eval_microbatch_size(evaluator: Evaluator):
     """Adjust device_eval_microbatch_size if we encounter OOM.
@@ -1167,6 +1330,13 @@ class Trainer:
             raise ValueError(
                 '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
             )
+        
+        # Automicrobatching
+        self.auto_microbatch_size_found = False
+        self.num_alloc_retries = 0
+        self.num_consecutive_thrashes = 0
+        self.num_consecutive_non_OOM_batches = 0
+        self.automicrobatch_fsdp_hook_handles = []
 
         if auto_microbatching and profiler:
             raise ValueError(
@@ -1251,6 +1421,7 @@ class Trainer:
         if parallelism_config is not None:
             # Patch PyTorch to fix distributed bugs
             patch_pytorch()
+            patch_unshard_for_automicrobatching(self.auto_microbatch_size_found)
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, device)
@@ -1668,7 +1839,7 @@ class Trainer:
         if self.state.fsdp_config is not None and self.state.fsdp_config.auto_wrap and not self.state.load_monolith_rank0_only:
             # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
-                prepare_fsdp_module(
+                self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(
                     model,
                     optimizers,
                     self.state.fsdp_config,
@@ -1838,7 +2009,7 @@ class Trainer:
         ):
             # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
-                prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
+                self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
 
         self.engine.run_event(Event.AFTER_LOAD)
 
@@ -2735,8 +2906,22 @@ class Trainer:
         # Any in-place changes to a microbatch will be reflected in the device batch.
         device_batch = self.state.batch
 
+        # Automicrobatching
+        lowest_oom_microbatch_size = None
+        highest_non_oom_microbatch_size = self.state.device_train_microbatch_size
+        max_search_steps = 5
+        num_search_steps = 0
+        original_microbatch_size = self.state.device_train_microbatch_size
+        lower_bound_microbatch_size = self.state.device_train_microbatch_size
+        searching_for_non_thrashing_microbatch_size = False
+        first_success = False
+        sync_hook = _create_sync_hook(self.state)
+
         # Retry until we successfully complete training and return loss
         while True:
+            if not self.auto_microbatch_size_found:
+                log.info("Searching for optimal microbatch size with automicrobatching.")
+                log.info("Testing microbatch size = " + str(self.state.device_train_microbatch_size))
             # Reset train_metrics on every batch
             # Placing reset here ensures that if auto grad accum catches an OOM, incomplete metric state is cleared
             if self.state.train_metrics is not None:  # pyright: ignore[reportUnnecessaryComparison]
@@ -2773,7 +2958,10 @@ class Trainer:
                             else:
                                 optimizer.step()
             except RuntimeError as e:
-                if self.state.auto_microbatching and _is_cuda_oom(e):
+                if self.state.auto_microbatching and str(e) == 'CUDA out of memory encountered on a different rank':
+                    log.debug((f"A Different Rank OOM'd."))
+                    found_cuda_oom = 1
+                elif self.state.auto_microbatching and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     found_cuda_oom = 1
                 elif self.state.auto_microbatching and ('cuda' in str(e).lower() or 'c10' in str(e).lower()):
@@ -2787,27 +2975,96 @@ class Trainer:
                     raise
 
             if self.state.auto_microbatching:
-                all_ranks_finished = False
-                while not all_ranks_finished:
-                    # Propagate across all ranks if any rank hit CUDA OOM
-                    found_cuda_oom_tensor = self.state.device.tensor_to_device(
-                        torch.tensor([found_cuda_oom], dtype=torch.uint8),
-                    )
-                    dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
-                    found_cuda_oom = found_cuda_oom_tensor.item()
-                    # Check if any rank is still not done with the batch. This may happen if only a
-                    # subset of ranks OOM, leaving some batches still in the forward pass
-                    all_ranks_finished_tensor = self.state.device.tensor_to_device(torch.tensor([1], dtype=torch.uint8))
-                    dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
-                    all_ranks_finished = all_ranks_finished_tensor.item() == 1
-                if found_cuda_oom == 1:
-                    _adjust_device_train_microbatch_size(self.state)
-                    # Skip return and rerun after handling oom
+                # Sync for OOMs
+                found_cuda_oom = _found_ooms_across_ranks(self.state, found_cuda_oom)
+
+                # Sync for alloc retries
+                if torch.cuda.is_available() and self.auto_microbatch_size_found and not searching_for_non_thrashing_microbatch_size:
+                    self.num_consecutive_thrashes = _update_num_consecutive_thrashes(self.state, self.num_consecutive_thrashes, self.num_alloc_retries)
+
+                if found_cuda_oom == 1: 
+                    # Manually clean up state and reshard if an OOM prevents a batch from finishing
+                    _clear_incomplete_train_states(self.state)
+                    self.auto_microbatch_size_found = False
+                    self.num_consecutive_thrashes = 0
+                    self.num_consecutive_non_OOM_batches = 0
+
+                    # Readd sync hooks if they were previously turned off
+                    if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) == 0:
+                        print("readding hooks for OOM")
+                        patch_unshard_for_automicrobatching(False)
+                        for _, module in self.fsdp_modules.items():
+                            if isinstance(module, FullyShardedDataParallel):
+                                self.automicrobatch_fsdp_hook_handles.append(module.register_forward_pre_hook(sync_hook, prepend=True))
+                                self.automicrobatch_fsdp_hook_handles.append(module.register_full_backward_pre_hook(sync_hook, prepend=True))
+                            else:
+                                self.automicrobatch_fsdp_hook_handles.append(module.register_full_backward_hook(sync_hook))
+
+                    if self.state.device_train_microbatch_size == 1:
+                        raise RuntimeError((
+                            'CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
+                            'The GPU does not have enough memory to process even 1 sample during train.'
+                        ))
+
+                    lowest_oom_microbatch_size, highest_non_oom_microbatch_size, lower_bound_microbatch_size, num_search_steps = _handle_downward_search_in_automicrobatching(self.state, lowest_oom_microbatch_size, 
+                                                                                                                                                                                 highest_non_oom_microbatch_size, lower_bound_microbatch_size, 
+                                                                                                                                                                                 num_search_steps, max_search_steps)
                     continue
+                else:
+                    if not self.first_batch_complete and not first_success:
+                        # First successful microbatch size found
+                        first_success = True
+                        _clear_incomplete_train_states(self.state)
+                        continue  # Rerun with the same size since this is our first successful batch completion
+
+                    if self.num_consecutive_thrashes >= 2:
+                        searching_for_non_thrashing_microbatch_size = True
+                        self.num_consecutive_thrashes = 0
+                        _clear_incomplete_train_states(self.state)
+                        lowest_oom_microbatch_size, highest_non_oom_microbatch_size, lower_bound_microbatch_size = _handle_thrashing_in_automicrobatching(self.state)
+                        
+                        # Readd sync hooks if they were previously turned off
+                        if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) == 0:
+                            print("readd hooks from thrashing")
+                            patch_unshard_for_automicrobatching(False)
+                            for _, module in self.fsdp_modules.items():
+                                if isinstance(module, FullyShardedDataParallel):
+                                    self.automicrobatch_fsdp_hook_handles.append(module.register_forward_pre_hook(sync_hook, prepend=True))
+                                    self.automicrobatch_fsdp_hook_handles.append(module.register_full_backward_pre_hook(sync_hook, prepend=True))
+                                else:
+                                    self.automicrobatch_fsdp_hook_handles.append(module.register_full_backward_hook(sync_hook))
+                        continue
+
+                    if not self.auto_microbatch_size_found: # microbatch size found in previous search
+                        search_upwards, highest_non_oom_microbatch_size, num_search_steps = _handle_upward_search_in_automicrobatching(self.state, lowest_oom_microbatch_size, 
+                                                                                                                                       highest_non_oom_microbatch_size, num_search_steps, 
+                                                                                                                                       max_search_steps)
+                        if search_upwards:
+                            continue
+
             # Log microbatch and return loss if we've completed without OOMing.
             assert self.state.device_train_microbatch_size is not None
+            if original_microbatch_size != self.state.device_train_microbatch_size:
+                warnings.warn(
+                    RuntimeWarning(
+                        'Automicrobatching changed the microbatch size from '
+                        f'{original_microbatch_size} -> {self.state.device_train_microbatch_size}.',
+                        ),
+                )
+            self.num_consecutive_non_OOM_batches += 1
+            if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) > 0 and self.num_consecutive_non_OOM_batches >= 3:
+                print("remove hooks from batch completion")
+                patch_unshard_for_automicrobatching(True)
+                for handle in self.automicrobatch_fsdp_hook_handles:
+                    handle.remove()
+                self.automicrobatch_fsdp_hook_handles.clear()
+            self.auto_microbatch_size_found = True
+            if torch.cuda.is_available():
+                memory_stats = torch.cuda.memory_stats()
+                self.num_alloc_retries = memory_stats["num_alloc_retries"]
             self.logger.log_metrics({'trainer/device_train_microbatch_size': self.state.device_train_microbatch_size})
             self.first_batch_complete = True
+            self.engine.run_event(Event.AFTER_TRAIN_BATCH)
             return total_loss_dict
 
     def _train_microbatches(
@@ -2900,8 +3157,6 @@ class Trainer:
             if use_grad_scaling:
                 for optimizer in ensure_tuple(self.state.optimizers):
                     self.state.scaler.unscale_(optimizer)
-
-            self.engine.run_event(Event.AFTER_TRAIN_BATCH)
 
             return total_loss_dict['loss/train/total']
 
@@ -3389,7 +3644,18 @@ class Trainer:
 
         last_wct = datetime.datetime.now()
 
+        sync_hook = _create_sync_hook(self.state)
+
         with torch.no_grad(), model_eval_mode(self.state.model):
+            if self.state.fsdp_enabled and self.first_batch_complete:
+                print("readd hooks for eval")
+                patch_unshard_for_automicrobatching(False)
+                for _ , module in self.fsdp_modules.items():
+                    if isinstance(module, FullyShardedDataParallel):
+                        self.automicrobatch_fsdp_hook_handles.append(module.register_forward_pre_hook(sync_hook, prepend=True))
+                        self.automicrobatch_fsdp_hook_handles.append(module.register_full_backward_pre_hook(sync_hook, prepend=True))
+                    else:
+                        self.automicrobatch_fsdp_hook_handles.append(module.register_full_backward_hook(sync_hook))
             self.state.set_dataloader(data_spec.dataloader, evaluator.label, subset_num_batches)
             assert self.state.dataloader is not None, 'dataloader is set'
 
