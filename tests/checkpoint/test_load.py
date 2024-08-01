@@ -20,7 +20,7 @@ from composer.checkpoint.save import (
     save_resumption_state_to_disk,
     save_checkpoint_to_disk,
 )
-from composer.checkpoint.state_dict import _is_model_fsdp, get_model_state_dict, get_optim_state_dict
+from composer.checkpoint.state_dict import _is_model_fsdp, get_model_state_dict, get_optim_state_dict, get_resumption_state_dict
 from composer.utils import dist
 from tests.checkpoint.helpers import init_model, init_model_and_optimizer, init_state
 from tests.common.compare import deep_compare
@@ -214,7 +214,7 @@ def test_load_resumption_checkpoint(tmp_path: Path):
     import time
     time.sleep(1)
     # Load the resumption checkpoint
-    load_resumption_checkpoint(new_state, save_path)
+    rng = load_resumption_checkpoint(new_state, save_path)
 
     # Check that the loaded state matches the initial state
     deep_compare(new_state.timestamp.state_dict(), initial_state.timestamp.state_dict())
@@ -246,22 +246,65 @@ def test_load_resumption_checkpoint(tmp_path: Path):
         deep_compare(initial_state.scaler.state_dict(), new_state.scaler.state_dict())
 
 
-# @pytest.mark.gpu
-# def test_load_checkpoint(world_size: int,
-#                          tmp_path: Path,
-#                          sharded_model: bool,
-#                          sharded_checkpoint: bool,
-#                          shard_as_needed_during_load: bool,):
-#     # Ensure all ranks use the same path
-#     destination_dir = os.path.join(tmp_path, str(uuid.uuid4())[:8])
-#     destination_dir = dist.all_gather_object(destination_dir)[0]
 
-#     # Save an optimizer checkpoint
-#     state = init_state(use_fsdp=sharded_checkpoint, device='cuda')
-#     save_checkpoint_to_disk(destination_dir=destination_dir, state=state, save_options={'sharded_checkpoint': sharded_checkpoint,
-#                                                                                          'save_model': True,
-#                                                                                          'save_optim': True,
-#                                                                                          'save_resumption': True})
-#     new_state = init_state(use_fsdp=sharded_model, device='cuda')
-#     load_checkpoint(destination_dir=destination_dir, state=new_state, load_options={'sharded_checkpoint': sharded_checkpoint,
-    
+@pytest.mark.gpu
+@pytest.mark.parametrize(
+'world_size,sharded_model,sharded_checkpoint,shard_as_needed_during_load',
+[
+    # Loading an unsharded checkpoint into an unsharded model on a single GPU (not sharding after)
+    pytest.param(1, False, False, False, marks=pytest.mark.world_size(1)),
+
+    # Loading a sharded checkpoint into a sharded model in distributed setting
+    pytest.param(2, True, True, False, marks=pytest.mark.world_size(2)),
+
+    # SHOULD FAIL: Loading an unsharded checkpoint into a sharded model
+    pytest.param(2, True, False, False, marks=pytest.mark.world_size(2)),
+
+    # SHOULD FAIL: Attempting to load a sharded checkpoint into an unsharded model without sharding
+    pytest.param(2, False, True, False, marks=pytest.mark.world_size(2)),
+ 
+    ])
+def test_load_checkpoint(world_size: int,
+                         tmp_path: Path,
+                         sharded_model: bool,
+                         sharded_checkpoint: bool,
+                         shard_as_needed_during_load: bool,):
+
+    if sharded_model and not sharded_checkpoint:
+        pytest.xfail(
+            'Loading an unsharded checkpoint into a sharded model is not supported and causes OOMs when running with these tests',
+        )
+    # Ensure all ranks use the same path
+    destination_dir = os.path.join(tmp_path, str(uuid.uuid4())[:8])
+    destination_dir = dist.all_gather_object(destination_dir)[0]
+
+    # Save an optimizer checkpoint
+    state = init_state(use_fsdp=sharded_checkpoint, device='cuda', take_step=True, )
+    load_path = save_checkpoint_to_disk(destination_dir=destination_dir, state=state, options={'sharded_checkpoint': sharded_checkpoint,
+                                                                                         'save_model': True,
+                                                                                         'save_optimizer': True,
+                                                                                         'save_resumption_state': True})
+    original_model_state_dict = get_model_state_dict(state.model, sharded_state_dict=False)
+    original_optim_state_dict = get_optim_state_dict(state.model, state.optimizers[0], sharded_state_dict=False)
+    original_resumption_state = get_resumption_state_dict(state)
+    new_state = init_state(use_fsdp=sharded_model, device='cuda', take_step=True)
+    if not sharded_model and sharded_checkpoint and not shard_as_needed_during_load:
+        context_manager = pytest.raises(ValueError)
+    else:
+        context_manager = contextlib.nullcontext()
+    with context_manager:
+        load_checkpoint(load_path=load_path, state=new_state, load_options={'sharded_checkpoint': sharded_checkpoint, 
+                                                                            'load_optimizer': True, 
+                                                                            'load_resumption_state': True, 
+                                                                            'shard_as_needed_during_load': shard_as_needed_during_load})
+        if shard_as_needed_during_load:
+            assert _is_model_fsdp(new_state.model), 'Model should be sharded after load'
+        # Get the new model's state dict
+        new_state_dict = get_model_state_dict(new_state.model, sharded_state_dict=False)
+        new_optim_state_dict = get_optim_state_dict(new_state.model, new_state.optimizers[0], sharded_state_dict=False)
+        new_resumption_state = get_resumption_state_dict(new_state)
+
+        if dist.get_global_rank() == 0:
+            deep_compare(original_model_state_dict, new_state_dict)
+            deep_compare(original_optim_state_dict, new_optim_state_dict)
+            deep_compare(original_resumption_state, new_resumption_state, ignore_keys=['rng', 'run_name'])

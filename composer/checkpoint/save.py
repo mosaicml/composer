@@ -74,7 +74,7 @@ class CheckpointSaveOptions:
     num_checkpoints_to_keep: int = -1
     save_format: str = 'pt'
     sharded_checkpoint: bool = False
-    precision: str = 'bf16'
+    precision: str = 'fp32'
     include_keys: Optional[Union[str, Sequence[str]]] = None
     ignore_keys: Optional[Union[str, Sequence[str]]] = None
 
@@ -147,6 +147,7 @@ def save_checkpoint_to_disk(
         state.device,
         state.device_train_microbatch_size,
     )
+    return save_path
 
 
 def save_model_to_disk(

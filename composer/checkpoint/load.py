@@ -90,6 +90,7 @@ def load_checkpoint(
     state: Optional[State] = None,
     model_child_path: Optional[str] = None,
     optim_child_path: Optional[str] = None,
+    resumption_filename: Optional[str] = 'resumption.pkl',
 ):
     """
     Optionally download and load a checkpoint according to the options into specified state.
@@ -131,12 +132,13 @@ def load_checkpoint(
     if load_options.load_resumption_state:
         if state is None:
             raise ValueError('State must be provided if loading resumption state.')
-        load_resumption_checkpoint(state, load_path)
+        load_resumption_checkpoint(state, os.path.join(load_path, resumption_filename))
 
     if load_options.load_model:
         assert model is not None
         model_load_path = os.path.join(load_path, model_child_path)
         load_model_checkpoint(model, load_path=model_load_path, load_options=load_options)
+
     if load_options.load_optimizer:
         optim_load_path = os.path.join(load_path, optim_child_path)
         assert model is not None
@@ -145,6 +147,7 @@ def load_checkpoint(
             model,
             optim,
             optim_load_path,
+            load_options=load_options,
         )
 
 
@@ -168,6 +171,7 @@ def load_model_checkpoint(
 
     if load_options.include_keys is not None or load_options.ignore_keys is not None:
         load_options.strict = False
+
     if load_options.sharded_checkpoint:
         if not _is_model_fsdp(model):
             if load_options.shard_as_needed_during_load:
@@ -327,6 +331,10 @@ def load_optim_checkpoint(
                                          """,
             ),
         )
+    
+    if load_options.shard_as_needed_during_load and _is_model_fsdp(model):
+        raise NotImplementedError('Loading optimizers for models that have been sharded during load (either before or after loading in the model checkpoint) is not currently supported.')
+        
     if load_options.sharded_checkpoint:
         _load_sharded_optim_checkpoint(model=model, optim=optim, load_path=load_path, load_options=load_options)
     else:
@@ -594,3 +602,6 @@ def load_resumption_checkpoint(state: State, load_path: str):
         fqn = type(state.scaler).__qualname__
         assert state.scaler is not None
         state.scaler.load_state_dict(resumption_state_dict['scaler'][fqn])
+
+    state.rank_zero_seed = resumption_state_dict['rank_zero_seed']
+    return resumption_state_dict['rng']
