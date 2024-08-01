@@ -160,7 +160,7 @@ def _get_image_name(pytorch_version: str, cuda_version: str, stage: str, interco
 
 def _write_table(table_tag: str, table_contents: str):
     with open(os.path.join(os.path.dirname(__name__), 'README.md'), 'r') as f:
-        contents = f.read().strip()
+        contents = f.read()
 
     begin_table_tag = f'<!-- BEGIN_{table_tag} -->'
     end_table_tag = f'<!-- END_{table_tag} -->'
@@ -172,7 +172,7 @@ def _write_table(table_tag: str, table_contents: str):
         print(f"Warning: '{end_table_tag}' not found in contents.")
         post = ''
     new_readme = f'{pre}{begin_table_tag}\n{table_contents}\n{end_table_tag}{post}'
-    new_readme = re.sub(r'`ghcr\.io\S*, ', '', new_readme).strip()
+    new_readme = re.sub(r'`ghcr\.io\S*, ', '', new_readme)
 
     with open(os.path.join(os.path.dirname(__name__), 'README.md'), 'w') as f:
         f.write(new_readme)
