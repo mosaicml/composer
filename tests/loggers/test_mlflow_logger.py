@@ -19,10 +19,7 @@ from composer.trainer import Trainer
 from tests.common.datasets import RandomClassificationDataset, RandomImageDataset
 from tests.common.markers import device
 from tests.common.models import SimpleConvModel, SimpleModel
-from tests.models.test_hf_model import (
-    check_hf_model_equivalence,
-    check_hf_tokenizer_equivalence,
-)
+from tests.models.test_hf_model import check_hf_model_equivalence, check_hf_tokenizer_equivalence
 
 
 def _get_latest_mlflow_run(experiment_name, tracking_uri=None):
