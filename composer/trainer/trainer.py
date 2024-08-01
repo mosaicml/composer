@@ -2905,6 +2905,7 @@ class Trainer:
                     # Readd sync hooks if they were previously turned off
                     if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) == 0:
                         print("oom " + str(self.state.timestamp.batch))
+                        print(len(self.automicrobatch_fsdp_hook_handles))
                         self.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(self.fsdp_modules, sync_hook)
                     _adjust_device_train_microbatch_size(self.state)
                     self.num_consecutive_thrashes = 0
