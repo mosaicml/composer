@@ -456,7 +456,7 @@ def _create_sync_hook(state: State):
 
     return sync_hook
 
-def _readd_fsdp_sync_hooks(fsdp_modules: torch.nn.Module, sync_hook):
+def _readd_fsdp_sync_hooks(fsdp_modules: Dict[str, torch.nn.Module], sync_hook):
     """Readds previously removed sync hooks back to FSDP modules. 
     
     Called when preparing to search for or searching for new microbatch size during automicrobatching.
