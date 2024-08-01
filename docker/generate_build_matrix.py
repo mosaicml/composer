@@ -12,12 +12,13 @@ To run::
 
 import itertools
 import os
+import re
 import sys
 
 import packaging.version
 import tabulate
 import yaml
-import re
+
 PRODUCTION_PYTHON_VERSION = '3.11'
 PRODUCTION_PYTORCH_VERSION = '2.3.1'
 
@@ -171,7 +172,7 @@ def _write_table(table_tag: str, table_contents: str):
         print(f"Warning: '{end_table_tag}' not found in contents.")
         post = ''
     new_readme = f'{pre}{begin_table_tag}\n{table_contents}\n{end_table_tag}{post}'
-    new_readme = re.sub(r'`ghcr\.io\S*, ', "", new_readme).strip()
+    new_readme = re.sub(r'`ghcr\.io\S*, ', '', new_readme).strip()
 
     with open(os.path.join(os.path.dirname(__name__), 'README.md'), 'w') as f:
         f.write(new_readme)
