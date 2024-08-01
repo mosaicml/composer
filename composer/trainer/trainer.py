@@ -466,7 +466,6 @@ def _readd_fsdp_sync_hooks(fsdp_modules: Dict[str, torch.nn.Module], sync_hook):
 
     Called when preparing to search for or searching for new microbatch size during automicrobatching.
     """
-    print("enter")
     automicrobatch_fsdp_hook_handles = []
     patch_unshard_for_automicrobatching(auto_microbatch_size_found=False)
     for module in fsdp_modules.values():
@@ -475,7 +474,6 @@ def _readd_fsdp_sync_hooks(fsdp_modules: Dict[str, torch.nn.Module], sync_hook):
             automicrobatch_fsdp_hook_handles.append(module.register_full_backward_pre_hook(sync_hook, prepend=True))
         else:
             automicrobatch_fsdp_hook_handles.append(module.register_full_backward_hook(sync_hook))
-    print("Length of new handles: " + str(automicrobatch_fsdp_hook_handles))
     return automicrobatch_fsdp_hook_handles
 
 
@@ -2825,8 +2823,6 @@ class Trainer:
         """
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
 
-        print("Length of handles " + str(len(self.automicrobatch_fsdp_hook_handles)))
-        print("Length of modules " + str(len(self.fsdp_modules.values())))
         # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop.
         # Any in-place changes to a microbatch will be reflected in the device batch.
         device_batch = self.state.batch
@@ -2908,9 +2904,7 @@ class Trainer:
                 if found_cuda_oom == 1:
                     # Readd sync hooks if they were previously turned off
                     if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) == 0:
-                        print("oom " + str(self.state.timestamp.batch))
                         self.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(self.fsdp_modules, sync_hook)
-                        print(len(self.automicrobatch_fsdp_hook_handles))
                     _adjust_device_train_microbatch_size(self.state)
                     self.num_consecutive_thrashes = 0
                     self.num_consecutive_non_OOM_batches = 0
@@ -2928,8 +2922,6 @@ class Trainer:
                     # Readd sync hooks if they were previously turned off
                     if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) == 0:
                         self.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(self.fsdp_modules, sync_hook)
-                        print(len(self.automicrobatch_fsdp_hook_handles))
-                        print("thrash " + str(self.state.timestamp.batch))
                     _adjust_device_train_microbatch_size(self.state)
                     self.num_consecutive_thrashes = 0
                     continue
@@ -2951,7 +2943,6 @@ class Trainer:
                 for handle in self.automicrobatch_fsdp_hook_handles:
                     handle.remove()
                 self.automicrobatch_fsdp_hook_handles.clear()
-                print("removed " + str(self.state.timestamp.batch))
             if torch.cuda.is_available():
                 memory_stats = torch.cuda.memory_stats()
                 self.cumulative_alloc_retries = memory_stats['num_alloc_retries']
