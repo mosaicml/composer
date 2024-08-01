@@ -148,6 +148,7 @@ Scheduler = Union[ComposerScheduler, LRScheduler]
 
 OOM_FOUND_ON_OTHER_RANK = 'CUDA out of memory encountered on a different rank'
 
+
 def _raise_missing_argument_exception(arg_name: str):
     raise ValueError((
         f'{arg_name} is a required argument and must be specified when constructing the '
@@ -323,6 +324,7 @@ def _is_cuda_oom(e: RuntimeError):
         )
         return True
     return False
+
 
 def _fsdp_reshard_and_cleanup(model: torch.nn.Module):
     """Manually reshard and clean up FSDP model.
