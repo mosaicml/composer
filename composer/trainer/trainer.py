@@ -466,6 +466,7 @@ def _readd_fsdp_sync_hooks(fsdp_modules: Dict[str, torch.nn.Module], sync_hook):
 
     Called when preparing to search for or searching for new microbatch size during automicrobatching.
     """
+    print("enter")
     automicrobatch_fsdp_hook_handles = []
     patch_unshard_for_automicrobatching(auto_microbatch_size_found=False)
     for module in fsdp_modules.values():
