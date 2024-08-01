@@ -474,6 +474,7 @@ def _readd_fsdp_sync_hooks(fsdp_modules: Dict[str, torch.nn.Module], sync_hook):
             automicrobatch_fsdp_hook_handles.append(module.register_full_backward_pre_hook(sync_hook, prepend=True))
         else:
             automicrobatch_fsdp_hook_handles.append(module.register_full_backward_hook(sync_hook))
+    print("Length of new handles: " + str(automicrobatch_fsdp_hook_handles))
     return automicrobatch_fsdp_hook_handles
 
 
