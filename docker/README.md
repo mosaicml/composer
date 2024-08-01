@@ -15,8 +15,8 @@ all dependencies for both NLP and Vision models. They are built on top of the
 <!-- BEGIN_COMPOSER_BUILD_MATRIX -->
 | Composer Version   | CUDA Support   | Docker Tag                                                                                                                                                       |
 |--------------------|----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 0.23.5             | Yes            | `ghcr.io/databricks-mosaic/composer:latest`, `mosaicml/composer:latest`, `ghcr.io/databricks-mosaic/composer:0.23.5`, `mosaicml/composer:0.23.5`                 |
-| 0.23.5             | No             | `ghcr.io/databricks-mosaic/composer:latest_cpu`, `mosaicml/composer:latest_cpu`, `ghcr.io/databricks-mosaic/composer:0.23.5_cpu`, `mosaicml/composer:0.23.5_cpu` |
+| 0.23.5             | Yes            | `mosaicml/composer:latest`, `mosaicml/composer:0.23.5`                 |
+| 0.23.5             | No             | `mosaicml/composer:latest_cpu`, `mosaicml/composer:0.23.5_cpu` |
 <!-- END_COMPOSER_BUILD_MATRIX -->
 
 **Note**: For a lightweight installation, we recommended using a [MosaicML PyTorch Image](#pytorch-images) and manually
