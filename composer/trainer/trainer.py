@@ -444,6 +444,9 @@ def _create_sync_hook(state: State):
     This may happen when close to memory limit or with uneven memory usage across ranks. Since we
     need to do this before the model weights are gathered for the next FSDP block, we wrap every
     FSPD block with a hook that checks if any other rank OOMed.
+
+    This wrapper method is needed because PyTorch FSDP doesn't take `state` as an argument in hooks
+    that are registered using methods such as `register_forward_pre_hook`.
     """
 
     def sync_hook(*args):
@@ -2929,12 +2932,10 @@ class Trainer:
             # Log microbatch and return loss if we've completed without OOMing.
             assert self.state.device_train_microbatch_size is not None
             if original_microbatch_size != self.state.device_train_microbatch_size:
-                warnings.warn(
-                    RuntimeWarning(
+                log.info(
                         'Automicrobatching changed the microbatch size from '
                         f'{original_microbatch_size} -> {self.state.device_train_microbatch_size}.',
-                    ),
-                )
+                    )
             self.num_consecutive_non_OOM_batches += 1
             if self.state.fsdp_enabled and len(
                 self.automicrobatch_fsdp_hook_handles,
