@@ -620,16 +620,6 @@ class MLFlowLogger(LoggerDestination):
                     step=step,
                 )
 
-    def check_for_nccl_errors(self):
-        try:
-            # Attempt a barrier to check for errors in the process group
-            dist.barrier()
-        except RuntimeError as e:
-            # Handle the NCCL timeout or other distributed errors
-            print(f'NCCL or distributed error detected: {e}')
-            return True
-        return False
-
     def post_close(self):
         if self._enabled:
             # Check if there is an uncaught exception, which means `post_close()` is triggered
