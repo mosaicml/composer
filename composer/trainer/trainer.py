@@ -2823,6 +2823,8 @@ class Trainer:
         """
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
 
+        print("Length of handles " + str(len(self.automicrobatch_fsdp_hook_handles)))
+        print("Length of modules " + str(len(self.fsdp_modules.values())))
         # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop.
         # Any in-place changes to a microbatch will be reflected in the device batch.
         device_batch = self.state.batch
