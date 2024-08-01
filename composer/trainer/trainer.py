@@ -464,7 +464,7 @@ def _readd_fsdp_sync_hooks(fsdp_modules: Dict[str, torch.nn.Module], sync_hook):
     """
     automicrobatch_fsdp_hook_handles = []
     patch_unshard_for_automicrobatching(False)
-    for _, module in fsdp_modules.items():
+    for module in fsdp_modules.values():
         if isinstance(module, FullyShardedDataParallel):
             automicrobatch_fsdp_hook_handles.append(module.register_forward_pre_hook(sync_hook, prepend=True))
             automicrobatch_fsdp_hook_handles.append(module.register_full_backward_pre_hook(sync_hook, prepend=True))

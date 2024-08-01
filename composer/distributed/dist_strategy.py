@@ -355,7 +355,7 @@ def prepare_fsdp_module(
     sharded_ckpt_prefix_dir = fsdp_config.sharded_ckpt_prefix_dir
     use_orig_params = fsdp_config.use_orig_params
 
-    fsdp_obj_named_modules = dict()
+    fsdp_obj_named_modules = {}
     # We choose to not wrap the ComposerModel directly, but instead wrap any submodules like `ComposerModel.model`
     # This makes it safer to call ComposerModel-specific functions like 'eval_forward' that
     # may make calls to sharded submodules. If we only wrap the submodules, then any call that ComposerModel makes

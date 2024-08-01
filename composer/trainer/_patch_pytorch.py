@@ -1056,7 +1056,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
     
     @no_type_check
     def unshard(self):
-        """Run the unshard logic. 
+        """Run the unshard logic.
         
         This is an unpatched method from pytorch, meant to be reverted to 
         whenever automicrobatching turns off its hooks for increased throughput.
@@ -1083,7 +1083,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
 
     @no_type_check
     def unshard_with_sync(self):
-        """ Run the unshard logic, but with a sync after a :meth:`_alloc_padded_unsharded_flat_param`.
+        """Run the unshard logic, but with a sync after a :meth:`_alloc_padded_unsharded_flat_param`.
 
         This prevents deadlocks when some ranks OOM after the alloc call and others do not.
         This is a patched method from pytorch, meant to be called when automicrobatching
