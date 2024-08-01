@@ -1108,7 +1108,7 @@ class Trainer:
     ):
         if deepspeed_config is not None:
             raise VersionedDeprecationWarning(
-                'The use of DeepSpeed in Composer is deprecated. Composer is tightly integrated with PyTorch FSDP ' +
+                'The use of DeepSpeed for training new models in Composer is deprecated. Composer is tightly integrated with PyTorch FSDP ' +
                 'which provides similar functionality. Please use the `parallelism_config` parameter instead. Please open '
                 + 'a GitHub issue if you need help migrating from DeepSpeed to FSDP.',
                 remove_version='0.28.0',
