@@ -11,8 +11,8 @@ import logging
 import multiprocessing
 import os
 import pathlib
-import signal
 import posixpath
+import signal
 import sys
 import textwrap
 import time
@@ -314,11 +314,9 @@ class MLFlowLogger(LoggerDestination):
 
         if self.run_name is None:
             self.run_name = state.run_name
-        
-        if hasattr(state, "device"):
-            self._global_exception_occurred = state.device.tensor_to_device(
-                torch.tensor([0], dtype=torch.uint8),
-            )
+
+        if hasattr(state, 'device'):
+            self._global_exception_occurred = state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8),)
         else:
             self._global_exception_occurred = 0
 
@@ -635,7 +633,7 @@ class MLFlowLogger(LoggerDestination):
             dist.barrier()
         except RuntimeError as e:
             # Handle the NCCL timeout or other distributed errors
-            print(f"NCCL or distributed error detected: {e}")
+            print(f'NCCL or distributed error detected: {e}')
             return True
         return False
 
@@ -644,7 +642,7 @@ class MLFlowLogger(LoggerDestination):
             # Check if there is an uncaught exception, which means `post_close()` is triggered
             # due to program crash.
             finish_with_exception = False
-            
+
             if isinstance(self._global_exception_occurred, torch.Tensor):
                 dist.all_reduce(self._global_exception_occurred, reduce_operation='MAX')
                 finish_with_exception = (self._global_exception_occurred == 1).item()
@@ -655,7 +653,7 @@ class MLFlowLogger(LoggerDestination):
                 return
 
             # Stop the monitor process since it's entering the cleanup phase.
-            self.monitor_process.stop() 
+            self.monitor_process.stop()
             import mlflow
 
             assert isinstance(self._run_id, str)
@@ -669,7 +667,7 @@ class MLFlowLogger(LoggerDestination):
             else:
                 # record there was an error
                 self._mlflow_client.set_terminated(self._run_id, status='FAILED')
-            
+
             mlflow.end_run()
             self.monitor_process.join()
 

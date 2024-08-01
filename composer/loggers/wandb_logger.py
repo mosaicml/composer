@@ -307,9 +307,6 @@ class WandBLogger(LoggerDestination):
                 os.rename(wandb_artifact_path, destination)
 
     def post_close(self) -> None:
-        print('GEEZ I AM AT POST CLOSE WITH RANK: ', dist.get_global_rank())
-        print("GEEZ AM I AT EXIT? ", self._is_in_atexit)
-
         import wandb
 
         # Cleaning up on post_close so all artifacts are uploaded
