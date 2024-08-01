@@ -17,7 +17,7 @@ import sys
 import packaging.version
 import tabulate
 import yaml
-
+import re
 PRODUCTION_PYTHON_VERSION = '3.11'
 PRODUCTION_PYTORCH_VERSION = '2.3.1'
 
@@ -159,7 +159,8 @@ def _get_image_name(pytorch_version: str, cuda_version: str, stage: str, interco
 
 def _write_table(table_tag: str, table_contents: str):
     with open(os.path.join(os.path.dirname(__name__), 'README.md'), 'r') as f:
-        contents = f.read()
+        contents = f.read().strip()
+    contents = re.sub(r'`ghcr\.io\S*, ', "", contents).strip()
 
     begin_table_tag = f'<!-- BEGIN_{table_tag} -->'
     end_table_tag = f'<!-- END_{table_tag} -->'
