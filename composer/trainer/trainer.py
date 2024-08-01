@@ -2935,9 +2935,9 @@ class Trainer:
             assert self.state.device_train_microbatch_size is not None
             if original_microbatch_size != self.state.device_train_microbatch_size:
                 log.info(
-                        'Automicrobatching changed the microbatch size from '
-                        f'{original_microbatch_size} -> {self.state.device_train_microbatch_size}.',
-                    )
+                    'Automicrobatching changed the microbatch size from '
+                    f'{original_microbatch_size} -> {self.state.device_train_microbatch_size}.',
+                )
             self.num_consecutive_non_OOM_batches += 1
             if self.state.fsdp_enabled and len(
                 self.automicrobatch_fsdp_hook_handles,
