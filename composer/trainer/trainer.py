@@ -1923,7 +1923,12 @@ class Trainer:
             # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(
-                    model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching
+                    model,
+                    optimizers,
+                    self.state.fsdp_config,
+                    precision,
+                    device,
+                    auto_microbatching,
                 )
 
         self.engine.run_event(Event.AFTER_LOAD)
@@ -2908,7 +2913,9 @@ class Trainer:
                 if oom_found_this_batch and torch.cuda.is_available():
                     # Sync across all ranks to check if any rank had additional alloc retries this batch
                     self.num_consecutive_thrashes = _update_num_consecutive_thrashes(
-                        self.state, self.num_consecutive_thrashes, self.cumulative_alloc_retries
+                        self.state,
+                        self.num_consecutive_thrashes,
+                        self.cumulative_alloc_retries,
                     )
                 if self.num_consecutive_thrashes >= 2:
                     # Readd sync hooks if they were previously turned off
@@ -2929,7 +2936,7 @@ class Trainer:
                 )
             self.num_consecutive_non_OOM_batches += 1
             if self.state.fsdp_enabled and len(
-                self.automicrobatch_fsdp_hook_handles
+                self.automicrobatch_fsdp_hook_handles,
             ) > 0 and self.num_consecutive_non_OOM_batches >= 3:
                 print('remove hooks from batch completion')
                 patch_unshard_for_automicrobatching(True)
