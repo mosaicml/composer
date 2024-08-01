@@ -435,6 +435,7 @@ def _update_num_consecutive_thrashes(state: State, num_consecutive_thrashes: int
         num_consecutive_thrashes += 1
     else:
         num_consecutive_thrashes = 0
+    print(num_consecutive_thrashes)
     return num_consecutive_thrashes
 
 
@@ -2910,7 +2911,7 @@ class Trainer:
                     oom_found_this_batch = True
                     # Skip return and rerun after handling oom
                     continue
-                if oom_found_this_batch and torch.cuda.is_available():
+                if not oom_found_this_batch and torch.cuda.is_available():
                     # Sync across all ranks to check if any rank had additional alloc retries this batch
                     self.num_consecutive_thrashes = _update_num_consecutive_thrashes(
                         self.state,
@@ -2948,9 +2949,6 @@ class Trainer:
                 self.cumulative_alloc_retries = memory_stats['num_alloc_retries']
             self.logger.log_metrics({'trainer/device_train_microbatch_size': self.state.device_train_microbatch_size})
             self.first_batch_complete = True
-            print(len(
-                self.automicrobatch_fsdp_hook_handles
-            ))
             return total_loss_dict
 
     def _train_microbatches(
