@@ -7,7 +7,7 @@ import collections
 import logging
 import warnings
 from contextlib import contextmanager, nullcontext
-from typing import Any, Callable, ContextManager, Iterator, Optional, Sequence, Union, Tuple, cast 
+from typing import Any, Callable, ContextManager, Iterator, Optional, Sequence, Tuple, Union, cast
 
 import torch
 from packaging import version
@@ -564,8 +564,8 @@ def prepare_fsdp_module(
                     raise ModuleNotFoundError('Please install transformer-engine to use prepare_te_modules_for_fsdp')
                 log.info(f'Calling prepare_te_modules_for_fsdp to enable TE weights sharding')
                 prepare_te_modules_for_fsdp(fsdp_obj)
-            
-            # The following sync hooks are added to prevent FSDP deadlocks that are caused when some ranks OOM 
+
+            # The following sync hooks are added to prevent FSDP deadlocks that are caused when some ranks OOM
             # and other ranks do not OOM, leading to OOMing ranks calling all_reduce to wait on the non-OOMing
             # ranks and the non-OOMing ranks calling all_gatherbase to continue with FSDP training:
             #
@@ -741,5 +741,5 @@ def prepare_fsdp_module(
             assert optimizer_specific_info is not None
             optimizer_specific_info.update({'params': list(model.parameters())})
             optim.add_param_group(optimizer_specific_info)
-            
+
     return hook_handles, fsdp_obj_named_modules

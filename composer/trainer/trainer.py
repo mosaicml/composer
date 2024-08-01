@@ -338,12 +338,13 @@ def _fsdp_reshard_and_cleanup(model: torch.nn.Module):
                 # traverse and reshard all FSDP sub-modules
                 _post_backward_final_callback(module, module)
 
+
 def _clear_incomplete_train_states(state: State):
     """Manually clear gradients when automicrobatching reruns a batch.
 
     Before automicrobatching tries a lower microbatch size, clear the
-    training states and memory of the previous run of the batch to reset the memory to 
-    before the batch was run. 
+    training states and memory of the previous run of the batch to reset the memory to
+    before the batch was run.
     """
     if hasattr(state, 'outputs'):
         del state.outputs
@@ -355,6 +356,7 @@ def _clear_incomplete_train_states(state: State):
         state.scaler._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
     _fsdp_reshard_and_cleanup(state.model)
     torch.cuda.empty_cache()
+
 
 def _adjust_device_train_microbatch_size(state: State):
     """Adjust device_train_microbatch_size if we encounter OOM.
@@ -381,6 +383,7 @@ def _adjust_device_train_microbatch_size(state: State):
         )
     # Clear gradients in case failure happened during backwards pass
     _clear_incomplete_train_states(state)
+
 
 def _adjust_device_eval_microbatch_size(evaluator: Evaluator):
     """Adjust device_eval_microbatch_size if we encounter OOM.
@@ -416,18 +419,16 @@ def _update_num_consecutive_thrashes(state: State, num_consecutive_thrashes: int
     """
     # Check for alloc retries between batches
     stats = torch.cuda.memory_stats()
-    cur_num_alloc_retries = stats["num_alloc_retries"]
+    cur_num_alloc_retries = stats['num_alloc_retries']
 
     if cur_num_alloc_retries - num_alloc_retries > 0:
         alloc_retry_this_batch = 1
-        log.info("Found new alloc retries this batch: " +  str(num_alloc_retries) + " to " + str(cur_num_alloc_retries))
+        log.info('Found new alloc retries this batch: ' + str(num_alloc_retries) + ' to ' + str(cur_num_alloc_retries))
     else:
         alloc_retry_this_batch = 0
 
     # Propagate across all ranks if any rank had alloc retries this batch
-    alloc_retry_tensor = state.device.tensor_to_device(
-            torch.tensor([alloc_retry_this_batch], dtype=torch.uint8),
-        )
+    alloc_retry_tensor = state.device.tensor_to_device(torch.tensor([alloc_retry_this_batch], dtype=torch.uint8),)
     dist.all_reduce(alloc_retry_tensor, reduce_operation='MAX')
     alloc_retry_this_batch = alloc_retry_tensor.item() == 1
     if alloc_retry_this_batch:
@@ -436,13 +437,15 @@ def _update_num_consecutive_thrashes(state: State, num_consecutive_thrashes: int
         num_consecutive_thrashes = 0
     return num_consecutive_thrashes
 
+
 def _create_sync_hook(state: State):
     """Check if other ranks OOMed after forward/backward pass when using auto microbatching.
-    
+
     This may happen when close to memory limit or with uneven memory usage across ranks. Since we
     need to do this before the model weights are gathered for the next FSDP block, we wrap every
     FSPD block with a hook that checks if any other rank OOMed.
     """
+
     def sync_hook(*args):
         # Check if any other rank hit an OOM
         found_cuda_oom_tensor = state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
@@ -457,9 +460,10 @@ def _create_sync_hook(state: State):
 
     return sync_hook
 
+
 def _readd_fsdp_sync_hooks(fsdp_modules: Dict[str, torch.nn.Module], sync_hook):
     """Readds previously removed sync hooks back to FSDP modules.
-    
+
     Called when preparing to search for or searching for new microbatch size during automicrobatching.
     """
     automicrobatch_fsdp_hook_handles = []
@@ -471,6 +475,7 @@ def _readd_fsdp_sync_hooks(fsdp_modules: Dict[str, torch.nn.Module], sync_hook):
         else:
             automicrobatch_fsdp_hook_handles.append(module.register_full_backward_hook(sync_hook))
     return automicrobatch_fsdp_hook_handles
+
 
 def _validate_evaluator(evaluator: Evaluator, device: Device):
     """Ensure automicrobatching is only on GPU.
@@ -1239,7 +1244,7 @@ class Trainer:
             raise ValueError(
                 '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
             )
-        
+
         # Automicrobatching
         self.cumulative_alloc_retries = 0
         self.num_consecutive_thrashes = 0
@@ -1917,7 +1922,9 @@ class Trainer:
         ):
             # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
-                self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
+                self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(
+                    model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching
+                )
 
         self.engine.run_event(Event.AFTER_LOAD)
 
@@ -2817,7 +2824,7 @@ class Trainer:
         # Define sync hook for FSDP modules if automicrobatching is on
         sync_hook = _create_sync_hook(self.state)
 
-        original_microbatch_size = self.state.device_train_microbatch_size  
+        original_microbatch_size = self.state.device_train_microbatch_size
         oom_found_this_batch = False
 
         # Retry until we successfully complete training and return loss
@@ -2900,7 +2907,9 @@ class Trainer:
                     continue
                 if oom_found_this_batch and torch.cuda.is_available():
                     # Sync across all ranks to check if any rank had additional alloc retries this batch
-                    self.num_consecutive_thrashes = _update_num_consecutive_thrashes(self.state, self.num_consecutive_thrashes, self.cumulative_alloc_retries)
+                    self.num_consecutive_thrashes = _update_num_consecutive_thrashes(
+                        self.state, self.num_consecutive_thrashes, self.cumulative_alloc_retries
+                    )
                 if self.num_consecutive_thrashes >= 2:
                     # Readd sync hooks if they were previously turned off
                     if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) == 0:
@@ -2908,7 +2917,7 @@ class Trainer:
                     _adjust_device_train_microbatch_size(self.state)
                     self.num_consecutive_thrashes = 0
                     continue
-                
+
             # Log microbatch and return loss if we've completed without OOMing.
             assert self.state.device_train_microbatch_size is not None
             if original_microbatch_size != self.state.device_train_microbatch_size:
@@ -2916,18 +2925,20 @@ class Trainer:
                     RuntimeWarning(
                         'Automicrobatching changed the microbatch size from '
                         f'{original_microbatch_size} -> {self.state.device_train_microbatch_size}.',
-                        ),
+                    ),
                 )
             self.num_consecutive_non_OOM_batches += 1
-            if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) > 0 and self.num_consecutive_non_OOM_batches >= 3:
-                print("remove hooks from batch completion")
+            if self.state.fsdp_enabled and len(
+                self.automicrobatch_fsdp_hook_handles
+            ) > 0 and self.num_consecutive_non_OOM_batches >= 3:
+                print('remove hooks from batch completion')
                 patch_unshard_for_automicrobatching(True)
                 for handle in self.automicrobatch_fsdp_hook_handles:
                     handle.remove()
                 self.automicrobatch_fsdp_hook_handles.clear()
             if torch.cuda.is_available():
                 memory_stats = torch.cuda.memory_stats()
-                self.cumulative_alloc_retries = memory_stats["num_alloc_retries"]
+                self.cumulative_alloc_retries = memory_stats['num_alloc_retries']
             self.logger.log_metrics({'trainer/device_train_microbatch_size': self.state.device_train_microbatch_size})
             self.first_batch_complete = True
             return total_loss_dict
@@ -3721,7 +3732,7 @@ class Trainer:
         self.state.set_dataloader(original_dataloader, original_dataloader_label)
         if original_num_batches is not None:
             self.state.dataloader_len = original_num_batches
-        
+
         # If training occurs after evaluation, readd hooks in case of memory spike
         sync_hook = _create_sync_hook(self.state)
         if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) == 0:

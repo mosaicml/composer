@@ -205,6 +205,7 @@ def test_fsdp_prefetch_limit(forward_prefetch_limit: int, backward_prefetch_limi
 
     trainer.fit()
 
+
 class SimpleDatasetForAuto(Dataset):
 
     def __init__(self, size: int = 256, feature_size: int = 1, num_classes: int = 2):
@@ -225,6 +226,7 @@ class SimpleDatasetForAuto(Dataset):
         if self.y is None:
             self.y = torch.randint(0, self.num_classes, size=(self.size,), dtype=torch.long)
         return self.x[index]
+
 
 class SimpleMLPForTestingOOM(ComposerModel):
 
@@ -249,10 +251,11 @@ class SimpleMLPForTestingOOM(ComposerModel):
     def loss(self, outputs, batch):
         return torch.sum(outputs)
 
+
 @pytest.mark.gpu
 @pytest.mark.filterwarnings("ignore:`device_train_microbatch_size='auto'` may potentially fail with unexpected.*")
-@pytest.mark.filterwarnings("ignore:Automicrobatching changed the microbatch size from*")
-@pytest.mark.filterwarnings("ignore:CUDA out of memory detected*")
+@pytest.mark.filterwarnings('ignore:Automicrobatching changed the microbatch size from*')
+@pytest.mark.filterwarnings('ignore:CUDA out of memory detected*')
 @world_size(2)
 def test_automicrobatching_fsdp(world_size: int):
     model = SimpleMLPForTestingOOM()

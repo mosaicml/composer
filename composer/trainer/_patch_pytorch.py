@@ -1053,12 +1053,12 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
 
             submesh = _mesh_resources.create_child_mesh(self, mesh_dim_names)
             return submesh
-    
+
     @no_type_check
     def unshard(self):
         """Run the unshard logic.
-        
-        This is an unpatched method from pytorch, meant to be reverted to 
+
+        This is an unpatched method from pytorch, meant to be reverted to
         whenever automicrobatching turns off its hooks for increased throughput.
         This includes all-gathering the flat parameter
         and switching to using the unsharded flat parameter. If the handle does
