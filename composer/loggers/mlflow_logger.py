@@ -74,6 +74,7 @@ class MlflowMonitorProcess(multiprocessing.Process):
         if self.crash_event.is_set():
             client = MlflowClient(self.mlflow_tracking_uri)
             client.set_terminated(self.mlflow_run_id, status='FAILED')
+        print("FINISHED MONITORING")
 
     def stop(self):
         self.exit_event.set()
@@ -293,13 +294,14 @@ class MLFlowLogger(LoggerDestination):
             tags=self.tags,
             log_system_metrics=self.log_system_metrics,
         )
-        # Start a background process to monitor the job in order to report the job status to MLflow.
-        self.monitor_process = MlflowMonitorProcess(
-            os.getpid(),
-            self._run_id,
-            self.tracking_uri,
-        )
-        self.monitor_process.start()
+        if self.tracking_uri == "databricks":
+            # Start a background process to monitor the job to report the job status to MLflow.
+            self.monitor_process = MlflowMonitorProcess(
+                os.getpid(),
+                self._run_id,
+                self.tracking_uri,
+            )
+            self.monitor_process.start()
 
     def _global_exception_handler(self, exc_type, exc_value, exc_traceback):
         """Catch global exception."""
@@ -622,21 +624,20 @@ class MLFlowLogger(LoggerDestination):
 
     def post_close(self):
         if self._enabled:
-            # Check if there is an uncaught exception, which means `post_close()` is triggered
-            # due to program crash.
-            finish_with_exception = False
+            if hasattr(self, 'monitor_process'):
+                # Check if there is an uncaught exception, which means `post_close()` is triggered
+                # due to program crash.
+                if isinstance(self._global_exception_occurred, torch.Tensor):
+                    finish_with_exception = (self._global_exception_occurred == 1).item()
+                else:
+                    finish_with_exception = (self._global_exception_occurred == 1)
+                if finish_with_exception:
+                    self.monitor_process.crash()
+                    return
 
-            if isinstance(self._global_exception_occurred, torch.Tensor):
-                dist.all_reduce(self._global_exception_occurred, reduce_operation='MAX')
-                finish_with_exception = (self._global_exception_occurred == 1).item()
-            else:
-                finish_with_exception = (self._global_exception_occurred == 1)
-            if finish_with_exception:
-                self.monitor_process.crash()
-                return
+                # Stop the monitor process since it's entering the cleanup phase.
+                self.monitor_process.stop()
 
-            # Stop the monitor process since it's entering the cleanup phase.
-            self.monitor_process.stop()
             import mlflow
 
             assert isinstance(self._run_id, str)
@@ -652,7 +653,8 @@ class MLFlowLogger(LoggerDestination):
                 self._mlflow_client.set_terminated(self._run_id, status='FAILED')
 
             mlflow.end_run()
-            self.monitor_process.join()
+            if hasattr(self, 'monitor_process'):
+                self.monitor_process.join()
 
 
 def _convert_to_mlflow_image(
