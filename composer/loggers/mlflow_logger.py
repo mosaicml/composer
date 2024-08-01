@@ -74,7 +74,6 @@ class MlflowMonitorProcess(multiprocessing.Process):
         if self.crash_event.is_set():
             client = MlflowClient(self.mlflow_tracking_uri)
             client.set_terminated(self.mlflow_run_id, status='FAILED')
-        print("FINISHED MONITORING")
 
     def stop(self):
         self.exit_event.set()
@@ -162,7 +161,7 @@ class MLFlowLogger(LoggerDestination):
         self.log_system_metrics = log_system_metrics
         self.rename_metrics = {} if rename_metrics is None else rename_metrics
         self.ignore_metrics = [] if ignore_metrics is None else ignore_metrics
-        self.ignore_hyperparameters = ([] if ignore_hyperparameters is None else ignore_hyperparameters)
+        self.ignore_hyperparameters = [] if ignore_hyperparameters is None else ignore_hyperparameters
         if self.model_registry_uri == 'databricks-uc':
             if len(self.model_registry_prefix.split('.')) != 2:
                 raise ValueError(
@@ -213,7 +212,7 @@ class MLFlowLogger(LoggerDestination):
             ) is not None and not self.experiment_name.startswith((
                 '/Users/',
                 '/Shared/',
-            ),):
+            )):
                 try:
                     from databricks.sdk import WorkspaceClient
                 except ImportError as e:
@@ -238,11 +237,11 @@ class MLFlowLogger(LoggerDestination):
             if env_exp_id is not None:
                 self._experiment_id = env_exp_id
             else:
-                exp_from_name = self._mlflow_client.get_experiment_by_name(name=self.experiment_name,)
+                exp_from_name = self._mlflow_client.get_experiment_by_name(name=self.experiment_name)
                 if exp_from_name is not None:
                     self._experiment_id = exp_from_name.experiment_id
                 else:
-                    self._experiment_id = self._mlflow_client.create_experiment(name=self.experiment_name,)
+                    self._experiment_id = self._mlflow_client.create_experiment(name=self.experiment_name)
 
     def _start_mlflow_run(self, state):
         import mlflow
@@ -294,7 +293,7 @@ class MLFlowLogger(LoggerDestination):
             tags=self.tags,
             log_system_metrics=self.log_system_metrics,
         )
-        if self.tracking_uri == "databricks":
+        if self.tracking_uri == 'databricks':
             # Start a background process to monitor the job to report the job status to MLflow.
             self.monitor_process = MlflowMonitorProcess(
                 os.getpid(),
@@ -343,7 +342,7 @@ class MLFlowLogger(LoggerDestination):
         logger.log_hyperparameters({
             'mlflow_experiment_id': self._experiment_id,
             'mlflow_run_id': self._run_id,
-        },)
+        })
         self.run_url = posixpath.join(
             os.environ.get('DATABRICKS_HOST', ''),
             'ml',
@@ -433,7 +432,7 @@ class MLFlowLogger(LoggerDestination):
             ModelVersion: The registered model.
         """
         if self._enabled:
-            full_name = (f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name)
+            full_name = f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name
 
             import mlflow
 
@@ -465,9 +464,7 @@ class MLFlowLogger(LoggerDestination):
                 import transformers
 
                 # TODO: Remove after mlflow fixes the bug that makes this necessary
-                mlflow.store._unity_catalog.registry.rest_store.get_feature_dependencies = (
-                    lambda *args, **kwargs: ''
-                )  # type: ignore
+                mlflow.store._unity_catalog.registry.rest_store.get_feature_dependencies = lambda *args, **kwargs: ''  # type: ignore
 
                 # This is a temporary workaround until MLflow adds full support for saving PEFT models.
                 # https://github.com/mlflow/mlflow/issues/9256
@@ -476,7 +473,7 @@ class MLFlowLogger(LoggerDestination):
                 )
                 expected_keys = {'path', 'save_pretrained_dir'}
                 if not expected_keys.issubset(kwargs.keys()):
-                    raise ValueError(f'Expected keys {expected_keys} but got {kwargs.keys()}',)
+                    raise ValueError(f'Expected keys {expected_keys} but got {kwargs.keys()}')
 
                 # This does not implement predict for now, as we will wait for the full MLflow support
                 # for PEFT models.
@@ -496,7 +493,7 @@ class MLFlowLogger(LoggerDestination):
                 # This is faked for now, until MLflow adds full support for saving PEFT models.
                 input_schema = Schema([
                     ColSpec(DataType.string, 'fake_input'),
-                ],)
+                ])
                 output_schema = Schema([ColSpec(DataType.string)])
                 signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
@@ -549,19 +546,15 @@ class MLFlowLogger(LoggerDestination):
         """
         if self._enabled:
             from mlflow.exceptions import MlflowException
-            from mlflow.protos.databricks_pb2 import (
-                ALREADY_EXISTS,
-                RESOURCE_ALREADY_EXISTS,
-                ErrorCode,
-            )
+            from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS, ErrorCode
 
-            full_name = (f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name)
+            full_name = f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name
 
             # This try/catch code is copied from
             # https://github.com/mlflow/mlflow/blob/3ba1e50e90a38be19920cb9118593a43d7cfa90e/mlflow/tracking/_model_registry/fluent.py#L90-L103
             try:
                 create_model_response = self._mlflow_client.create_registered_model(full_name,)
-                log.info(f'Successfully registered model {name} with {create_model_response.name}',)
+                log.info(f'Successfully registered model {name} with {create_model_response.name}')
             except MlflowException as e:
                 if e.error_code in (
                     ErrorCode.Name(RESOURCE_ALREADY_EXISTS),
@@ -585,19 +578,11 @@ class MLFlowLogger(LoggerDestination):
 
     def log_images(
         self,
-        images: Union[np.ndarray,
-                      torch.Tensor,
-                      Sequence[Union[np.ndarray, torch.Tensor]],
-                     ],
+        images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
         name: str = 'image',
         channels_last: bool = False,
         step: Optional[int] = None,
-        masks: Optional[dict[str,
-                             Union[np.ndarray,
-                                   torch.Tensor,
-                                   Sequence[Union[np.ndarray, torch.Tensor]],
-                                  ],
-                            ]] = None,
+        masks: Optional[dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
         mask_class_labels: Optional[dict[int, str]] = None,
         use_table: bool = True,
     ):
@@ -666,7 +651,7 @@ def _convert_to_mlflow_image(
 
     # Error out for empty arrays or weird arrays of dimension 0.
     if np.any(np.equal(image.shape, 0)):
-        raise ValueError(f'Got an image (shape {image.shape}) with at least one dimension being 0! ',)
+        raise ValueError(f'Got an image (shape {image.shape}) with at least one dimension being 0!')
 
     # Squeeze any singleton dimensions and then add them back in if image dimension
     # less than 3.
@@ -684,12 +669,12 @@ def _convert_to_mlflow_image(
     if image.ndim != 3:
         raise ValueError(
             textwrap.dedent(
-                f"""Input image must be 3 dimensions, but instead
+                f'''Input image must be 3 dimensions, but instead
                             got {image.ndim} dims at shape: {image.shape}
                             Your input image was interpreted as a batch of {image.ndim}
                             -dimensional images because you either specified a
                             {image.ndim + 1}D image or a list of {image.ndim}D images.
-                            Please specify either a 4D image of a list of 3D images""",
+                            Please specify either a 4D image of a list of 3D images''',
             ),
         )
 
@@ -699,10 +684,10 @@ def _convert_to_mlflow_image(
     if image.shape[-1] not in [1, 3, 4]:
         raise ValueError(
             textwrap.dedent(
-                f"""Input image must have 1, 3, or 4 channels, but instead
+                f'''Input image must have 1, 3, or 4 channels, but instead
                             got {image.shape[-1]} channels at shape: {image.shape}
                             Please specify either a 1-, 3-, or 4-channel image or a list of
-                            1-, 3-, or 4-channel images""",
+                            1-, 3-, or 4-channel images''',
             ),
         )
     return image
