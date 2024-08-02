@@ -98,7 +98,7 @@ def save_checkpoint_to_disk(
     else:
         if isinstance(options, Dict):
             options = CheckpointSaveOptions(**options)
-    
+
     save_path = os.path.join(destination_dir, options.dir_prefix)
     save_path = format_name_with_dist_and_time(save_path, state.run_name, state.timestamp)
     os.makedirs(save_path, exist_ok=True)

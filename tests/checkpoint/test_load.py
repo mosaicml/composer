@@ -7,26 +7,25 @@ import uuid
 from pathlib import Path
 
 import pytest
+import torch
 
 from composer.checkpoint.load import (
+    load_checkpoint,
     load_model_checkpoint,
     load_optim_checkpoint,
     load_resumption_checkpoint,
-    load_checkpoint
 )
 from composer.checkpoint.save import (
+    save_checkpoint_to_disk,
     save_model_to_disk,
     save_optim_to_disk,
     save_resumption_state_to_disk,
-    save_checkpoint_to_disk,
 )
-from composer.checkpoint.state_dict import _is_model_fsdp, get_model_state_dict, get_optim_state_dict, get_resumption_state_dict
+from composer.checkpoint.state_dict import (_is_model_fsdp, get_model_state_dict, get_optim_state_dict,
+                                            get_resumption_state_dict,)
 from composer.utils import dist
 from tests.checkpoint.helpers import init_model, init_model_and_optimizer, init_state
 from tests.common.compare import deep_compare
-import torch
-
-
 
 
 @pytest.mark.gpu
@@ -246,29 +245,30 @@ def test_load_resumption_checkpoint(tmp_path: Path):
         deep_compare(initial_state.scaler.state_dict(), new_state.scaler.state_dict())
 
 
-
 @pytest.mark.gpu
 @pytest.mark.parametrize(
-'world_size,sharded_model,sharded_checkpoint,shard_as_needed_during_load',
-[
-    # Loading an unsharded checkpoint into an unsharded model on a single GPU (not sharding after)
-    pytest.param(1, False, False, False, marks=pytest.mark.world_size(1)),
+    'world_size,sharded_model,sharded_checkpoint,shard_as_needed_during_load',
+    [
+        # Loading an unsharded checkpoint into an unsharded model on a single GPU (not sharding after)
+        pytest.param(1, False, False, False, marks=pytest.mark.world_size(1)),
 
-    # Loading a sharded checkpoint into a sharded model in distributed setting
-    pytest.param(2, True, True, False, marks=pytest.mark.world_size(2)),
+        # Loading a sharded checkpoint into a sharded model in distributed setting
+        pytest.param(2, True, True, False, marks=pytest.mark.world_size(2)),
 
-    # SHOULD FAIL: Loading an unsharded checkpoint into a sharded model
-    pytest.param(2, True, False, False, marks=pytest.mark.world_size(2)),
+        # SHOULD FAIL: Loading an unsharded checkpoint into a sharded model
+        pytest.param(2, True, False, False, marks=pytest.mark.world_size(2)),
 
-    # SHOULD FAIL: Attempting to load a sharded checkpoint into an unsharded model without sharding
-    pytest.param(2, False, True, False, marks=pytest.mark.world_size(2)),
- 
-    ])
-def test_load_checkpoint(world_size: int,
-                         tmp_path: Path,
-                         sharded_model: bool,
-                         sharded_checkpoint: bool,
-                         shard_as_needed_during_load: bool,):
+        # SHOULD FAIL: Attempting to load a sharded checkpoint into an unsharded model without sharding
+        pytest.param(2, False, True, False, marks=pytest.mark.world_size(2)),
+    ]
+)
+def test_load_checkpoint(
+    world_size: int,
+    tmp_path: Path,
+    sharded_model: bool,
+    sharded_checkpoint: bool,
+    shard_as_needed_during_load: bool,
+):
 
     if sharded_model and not sharded_checkpoint:
         pytest.xfail(
@@ -279,11 +279,21 @@ def test_load_checkpoint(world_size: int,
     destination_dir = dist.all_gather_object(destination_dir)[0]
 
     # Save an optimizer checkpoint
-    state = init_state(use_fsdp=sharded_checkpoint, device='cuda', take_step=True, )
-    load_path = save_checkpoint_to_disk(destination_dir=destination_dir, state=state, options={'sharded_checkpoint': sharded_checkpoint,
-                                                                                         'save_model': True,
-                                                                                         'save_optimizer': True,
-                                                                                         'save_resumption_state': True})
+    state = init_state(
+        use_fsdp=sharded_checkpoint,
+        device='cuda',
+        take_step=True,
+    )
+    load_path = save_checkpoint_to_disk(
+        destination_dir=destination_dir,
+        state=state,
+        options={
+            'sharded_checkpoint': sharded_checkpoint,
+            'save_model': True,
+            'save_optimizer': True,
+            'save_resumption_state': True
+        }
+    )
     original_model_state_dict = get_model_state_dict(state.model, sharded_state_dict=False)
     original_optim_state_dict = get_optim_state_dict(state.model, state.optimizers[0], sharded_state_dict=False)
     original_resumption_state = get_resumption_state_dict(state)
@@ -293,10 +303,16 @@ def test_load_checkpoint(world_size: int,
     else:
         context_manager = contextlib.nullcontext()
     with context_manager:
-        load_checkpoint(load_path=load_path, state=new_state, load_options={'sharded_checkpoint': sharded_checkpoint, 
-                                                                            'load_optimizer': True, 
-                                                                            'load_resumption_state': True, 
-                                                                            'shard_as_needed_during_load': shard_as_needed_during_load})
+        load_checkpoint(
+            load_path=load_path,
+            state=new_state,
+            load_options={
+                'sharded_checkpoint': sharded_checkpoint,
+                'load_optimizer': True,
+                'load_resumption_state': True,
+                'shard_as_needed_during_load': shard_as_needed_during_load
+            }
+        )
         if shard_as_needed_during_load:
             assert _is_model_fsdp(new_state.model), 'Model should be sharded after load'
         # Get the new model's state dict

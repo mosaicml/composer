@@ -56,9 +56,7 @@ def test_save_checkpoint_to_disk(world_size: int, tmp_path: str, sharded_model: 
     state.run_name = 'foo'
     state.timestamp = Timestamp()
     expected_destination_dir = os.path.join(destination_dir, 'ep0-ba0')
-    save_checkpoint_to_disk(destination_dir=destination_dir,
-                            state=state,
-                            options=save_options)
+    save_checkpoint_to_disk(destination_dir=destination_dir, state=state, options=save_options)
     expected_model_dir = os.path.join(expected_destination_dir, 'model')
     expected_optim_dir = os.path.join(expected_destination_dir, 'optim')
     expected_metadata_filepath = os.path.join(expected_destination_dir, 'composer_metadata.json')

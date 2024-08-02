@@ -331,10 +331,12 @@ def load_optim_checkpoint(
                                          """,
             ),
         )
-    
+
     if load_options.shard_as_needed_during_load and _is_model_fsdp(model):
-        raise NotImplementedError('Loading optimizers for models that have been sharded during load (either before or after loading in the model checkpoint) is not currently supported.')
-        
+        raise NotImplementedError(
+            'Loading optimizers for models that have been sharded during load (either before or after loading in the model checkpoint) is not currently supported.'
+        )
+
     if load_options.sharded_checkpoint:
         _load_sharded_optim_checkpoint(model=model, optim=optim, load_path=load_path, load_options=load_options)
     else:
