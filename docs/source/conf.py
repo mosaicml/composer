@@ -305,6 +305,11 @@ def get_algorithms_metadata() -> dict[str, dict[str, str]]:
 
 html_context = {'metadata': get_algorithms_metadata()}
 
+# Sphinx context injection deprecation patch
+html_baseurl = os.environ.get('READTHEDOCS_CANONICAL_URL', '')
+if os.environ.get('READTHEDOCS', '') == 'True':
+    html_context['readthedocs'] = True
+
 # ClassDocumenter.add_directive_header uses ClassDocumenter.add_line to
 #   write the class documentation.
 # We'll monkeypatch the add_line method and intercept lines that begin
