@@ -22,7 +22,8 @@ from torch.nn.parallel import DistributedDataParallel
 from torchmetrics import Metric, MetricCollection
 
 from composer.core import Precision, State
-from composer.devices import Device
+from composer.core.precision import _validate_precision
+from composer.devices import Device, DeviceGPU
 from composer.distributed.meta_safe_apply import meta_safe_apply
 from composer.distributed.mosaic_parallelism import (
     BACKWARD_PREFETCH_MAP,
@@ -31,7 +32,7 @@ from composer.distributed.mosaic_parallelism import (
     get_mixed_precision,
     set_custom_fsdp_module_kwargs,
 )
-from composer.utils import FSDPConfig, StringEnum, TPConfig, dist, ensure_tuple
+from composer.utils import FSDPConfig, StringEnum, TPConfig, dist, ensure_tuple, get_device
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare_fsdp_module', 'prepare_tp_module']
 
@@ -171,9 +172,14 @@ def _recreate_fsdp_param_groups_from_unwrapped_opt_info(
     for fsdp_name, param in fsdp_wrapped_named_params:
 
         unwrapped_name = clean_tensor_name(fsdp_name)
-        # need to have a 1:1 mapping between a fsdp param name and the non-wrapped vanilla param name
-        retrieved_group_num = non_wrapped_param_names_to_group_num[unwrapped_name]
-        group_num_to_optimizer_info[retrieved_group_num]['params'].append(param)
+
+        # Since we are iterating over all model.named_parameters() after fsdp wrapping, we need to check
+        # if the parameter was included in the optimizer param_group pre fsdp wrapping, in order to support
+        # passing a subset of model params in the optimizer
+        if unwrapped_name in non_wrapped_param_names_to_group_num:
+            # Need to have a 1:1 mapping between a fsdp param name and the non-wrapped vanilla param name
+            retrieved_group_num = non_wrapped_param_names_to_group_num[unwrapped_name]
+            group_num_to_optimizer_info[retrieved_group_num]['params'].append(param)
 
     # return sorted optimizer info groups
     return [group_num_to_optimizer_info[num] for num in sorted(group_num_to_optimizer_info.keys())]
@@ -181,9 +187,23 @@ def _recreate_fsdp_param_groups_from_unwrapped_opt_info(
 
 def prepare_tp_module(
     model: torch.nn.Module,
+    optimizers: Optional[Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]]],
     tp_config: TPConfig,
 ) -> None:
     """Prepare a module (assumed ComposerModel) for use with tensor parallel."""
+    optimizers_tuple = ensure_tuple(optimizers)
+    if len(optimizers_tuple) != 1:
+        raise NotImplementedError(f'Only one optimizer is supported; found {len(optimizers_tuple)} optimizers')
+
+    optim = optimizers_tuple[0]
+    if len(optim.param_groups) > 1:
+        raise RuntimeError('Multiple optimizer groups are not supported with tensor parallelism.',)
+
+    if len(optim.param_groups[0]['params']) != len(list(model.parameters())):
+        raise ValueError(
+            'Passing in a subset of model parameters to the optimizer is not supported with tensor parallelism.',
+        )
+
     from torch.distributed.tensor.parallel import parallelize_module
 
     device_mesh = tp_config.device_mesh
@@ -199,9 +219,9 @@ def prepare_fsdp_module(
     model: torch.nn.Module,
     optimizers: Optional[Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]]],
     fsdp_config: FSDPConfig,
-    precision: Precision,
-    device: Device,
-    auto_microbatching: bool,
+    precision: Optional[Union[str, Precision]] = None,
+    device: Optional[Union[str, Device]] = None,
+    auto_microbatching: bool = False,
     te_rng_seed: int = 1234,
 ) -> None:
     """Prepare a module (assumed ComposerModel) and optimizer for use with :class:`torch.distributed.fsdp.FullyShardedDataParallel`.
@@ -211,10 +231,18 @@ def prepare_fsdp_module(
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer for `model`, assumed to have a single param group := model.parameters().
         fsdp_config (FSDPConfig): The FSDP config.
         precision: (Precision): The precision being used by the Trainer, used to fill in defaults for FSDP `mixed_precision` settings.
-        device (Device): The device being used by the Trainer.
+        device:  The device being used by the Trainer.
         auto_microbatching (bool, optional): Whether or not auto microbatching is enabled.
         te_rng_seed(int): The seed to use for the Transformer Engine activation checkpointing RNG. Defaults to 1234.
     """
+    device = get_device(device)
+
+    if precision is None:
+        precision = Precision.AMP_FP16 if isinstance(device, DeviceGPU) else Precision.FP32
+    elif isinstance(precision, str):
+        precision = Precision(precision)
+    _validate_precision(precision, device)
+
     # Check sync_module_states is True for mixed initialization or HSDP
     if fsdp_config.sync_module_states == False:
         rank_on_meta = 1 if next(model.parameters()).device.type == 'meta' else 0
@@ -247,11 +275,10 @@ def prepare_fsdp_module(
             raise RuntimeError('CUDA out of memory encountered on a different rank')
 
     # Necessary variables for optimizers with multiple param groups in FSDP
-    num_param_groups = None
     param_name_to_group_num = None
-    group_num_to_param_group_info = None
+    group_num_to_opt_group_info = None
+    single_param_group_opt_info = None
 
-    optimizer_specific_info = None
     if optimizers:
         optimizers_tuple = ensure_tuple(optimizers)
         if len(optimizers_tuple) != 1:
@@ -261,38 +288,41 @@ def prepare_fsdp_module(
         # that will be recreated at the end of prepare_fsdp_module
         optim = optimizers_tuple[0]
 
-        num_param_groups = len(optim.param_groups)
-        if num_param_groups > 1:
-            if not fsdp_config.use_orig_params:
-                raise RuntimeError(
-                    'Multiple optimizer groups with FSDP are only supported with '
-                    'use_orig_params=True.',
-                )
-            # optimizer.param_groups do not contain parameter names which are needed
-            # to keep track of the different parameters in each group
-            # so we use the pointers between model.parameters() and model.named_parameters()
-            # to get the names of the parameters within optimizer.param_groups
-            param_pointer_to_param_name = {id(p): n for n, p in model.named_parameters()}
+        # Simplest case - single param group & all model params stored in optimizer
+        if len(optim.param_groups) == 1 and len(optim.param_groups[0]['params']) == len(list(model.parameters())):
+            single_param_group_opt_info = {k: v for k, v in optim.param_groups[0].items() if k != 'params'}
+        elif fsdp_config.use_orig_params:
+            # this code block stores information about param groups pre-fsdp wrapping in order to recreate them post-wrapping
+            # to do so, it relies on the ptrs of the model.parameters() in a model and the names of the params
+            # for this to work, use_orig_params=True, as we need the names of the params post-wrapping
+            # TP is not supported, as the underlying parameters in the model differ from the params in the param groups after being dtensorified
+
+            ptr_to_param_name = {id(p): n for n, p in model.named_parameters()}
             param_name_to_group_num = {}
-            group_num_to_param_group_info = {}
+            group_num_to_opt_group_info = {}
             for group_num in range(len(optim.param_groups)):
                 # Need to in-line to avoid a reference which causes FSDP to allocate extra GPU memory
                 # group = optim.param_groups[group_num]
                 for param_num in range(len(optim.param_groups[group_num]['params'])):
-                    # Need to in-line to avoid a reference which causes FSDP to allocate extra GPU memory
-                    # param = optim.param_groups[group_num]['params'][param_num]
-                    param_name_to_group_num[param_pointer_to_param_name[id(
-                        optim.param_groups[group_num]['params'][param_num],
-                    )]] = group_num
+                    param_ptr = id(optim.param_groups[group_num]['params'][param_num])
+                    if param_ptr not in ptr_to_param_name:
+                        raise ValueError('The same model must be passed to the optimizer and trainer.')
+                    param_name_to_group_num[ptr_to_param_name[param_ptr]] = group_num
 
                 # this includes optimizer-specific values like lr, eps
                 # this will be used as the kwargs for the optim param groups later
                 optimizer_specific_group_info = {
                     k: v for k, v in optim.param_groups[group_num].items() if k != 'params'
                 }
-                group_num_to_param_group_info[group_num] = optimizer_specific_group_info
+                group_num_to_opt_group_info[group_num] = optimizer_specific_group_info
         else:
-            optimizer_specific_info = {k: v for k, v in optim.param_groups[0].items() if k != 'params'}
+            if len(optim.param_groups) > 1:
+                raise RuntimeError('Multiple optimizer groups with FSDP are not supported with use_orig_params=False.',)
+
+            if len(optim.param_groups[0]['params']) != len(list(model.parameters())):
+                raise ValueError(
+                    'Passing in a subset of model parameters to the optimizer is not supported with use_orig_params=False.',
+                )
 
         optim.param_groups.clear()
         optim.state.clear()
@@ -711,19 +741,17 @@ def prepare_fsdp_module(
         optim = ensure_tuple(optimizers)[0]
         optim.param_groups.clear()
 
-        assert num_param_groups is not None
-        if num_param_groups > 1:
+        if single_param_group_opt_info is not None:
+            single_param_group_opt_info.update({'params': list(model.parameters())})
+            optim.add_param_group(single_param_group_opt_info)
+        elif fsdp_config.use_orig_params:
             assert param_name_to_group_num is not None
-            assert group_num_to_param_group_info is not None
+            assert group_num_to_opt_group_info is not None
 
             param_groups = _recreate_fsdp_param_groups_from_unwrapped_opt_info(
                 model.named_parameters(),
                 param_name_to_group_num,
-                group_num_to_param_group_info,
+                group_num_to_opt_group_info,
             )
             for param_group in param_groups:
                 optim.add_param_group(param_group)
-        else:
-            assert optimizer_specific_info is not None
-            optimizer_specific_info.update({'params': list(model.parameters())})
-            optim.add_param_group(optimizer_specific_info)

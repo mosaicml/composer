@@ -75,6 +75,7 @@ from composer.core import (
     ensure_time,
     get_precision_context,
 )
+from composer.core.precision import _validate_precision
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.distributed import (
     DDPSyncStrategy,
@@ -196,11 +197,6 @@ def _filter_metrics(metrics: dict[str, Metric], metric_names: Optional[list[str]
         if any(re.match(f'.*{metric_name}.*', name, re.IGNORECASE) for metric_name in metric_names):
             filtered_metrics[name] = metric
     return filtered_metrics
-
-
-def _validate_precision(precision: Precision, device: Device):
-    if isinstance(device, DeviceCPU) and precision != Precision.FP32:
-        raise ValueError(f'{precision} is not supported for CPU training.')
 
 
 def _compile_schedulers(
@@ -1661,6 +1657,7 @@ class Trainer:
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 prepare_tp_module(
                     model,
+                    optimizers,
                     self.state.tp_config,
                 )
 
@@ -1829,6 +1826,7 @@ class Trainer:
                 algorithm_passes=self.engine.algorithm_passes,
             )
             self.state.run_name = run_name
+            self.state.load_path = load_path
 
         # FSDP wrap if model is not yet wrapped and FSDP is enabled. This can happen if
         # load_monolith_rank0_only=True but no checkpoint was loaded.

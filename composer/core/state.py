@@ -528,6 +528,7 @@ class State(Serializable):
         self.predict_timestamp = Timestamp()
         self._precision = Precision(precision)
         self._precision_config = precision_config
+        self.load_path: Optional[str] = None
 
         if optimizers is None:
             self._optimizers = []
