@@ -231,7 +231,7 @@ def prepare_fsdp_module(
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer for `model`, assumed to have a single param group := model.parameters().
         fsdp_config (FSDPConfig): The FSDP config.
         precision: (Precision): The precision being used by the Trainer, used to fill in defaults for FSDP `mixed_precision` settings.
-        device  The device being used by the Trainer.
+        device:  The device being used by the Trainer.
         auto_microbatching (bool, optional): Whether or not auto microbatching is enabled.
         te_rng_seed(int): The seed to use for the Transformer Engine activation checkpointing RNG. Defaults to 1234.
     """

@@ -1,6 +1,8 @@
 # Copyright 2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""API for loading checkpoints."""
+
 import contextlib
 import logging
 import os
@@ -44,22 +46,6 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class CheckpointLoadOptions:
-    load_model: bool = True
-    load_optimizer: bool = False
-    load_resumption_state: bool = False  # dataset_state, timestamp,
-    # Specific key-level loading configs
-    # e.g.'model.layers.transformer.0.w1.weight'
-    include_keys: Optional[Union[str, Sequence[str]]] = None
-    ignore_keys: Optional[Union[str, Sequence[str]]] = None
-    sharded_checkpoint: bool = False  # TODO: Auto-detect sharded
-    shard_as_needed_during_load: bool = False
-    strict: bool = True
-    precision: str = 'fp32'
-    cpu_offload: bool = True
-    load_planner: Optional[Any] = None
-    fsdp_config: Optional[Union[FSDPConfig, dict]] = None
-    device_mesh: Optional[Any] = None
-    seed: Optional[int] = 42
     """
     Options for loading a checkpoint.
 
@@ -80,6 +66,22 @@ class CheckpointLoadOptions:
         device_mesh (Optional[DeviceMesh]): The device mesh to use for loading the checkpoint.
         seed (Optional[int]): The seed to use for sharding the model and optimizer.
     """
+    load_model: bool = True
+    load_optimizer: bool = False
+    load_resumption_state: bool = False  # dataset_state, timestamp,
+    # Specific key-level loading configs
+    # e.g.'model.layers.transformer.0.w1.weight'
+    include_keys: Optional[Union[str, Sequence[str]]] = None
+    ignore_keys: Optional[Union[str, Sequence[str]]] = None
+    sharded_checkpoint: bool = False  # TODO: Auto-detect sharded
+    shard_as_needed_during_load: bool = False
+    strict: bool = True
+    precision: str = 'fp32'
+    cpu_offload: bool = True
+    load_planner: Optional[Any] = None
+    fsdp_config: Optional[Union[FSDPConfig, dict]] = None
+    device_mesh: Optional[Any] = None
+    seed: Optional[int] = 42
 
 
 def load_checkpoint(
@@ -92,8 +94,7 @@ def load_checkpoint(
     optim_child_path: Optional[str] = None,
     resumption_filename: Optional[str] = 'resumption.pkl',
 ):
-    """
-    Optionally download and load a checkpoint according to the options into specified state.
+    """Optionally download and load a checkpoint according to the options into specified state.
 
     Args:
         load_path (str): The path or uri to the checkpoint to load or symlink to the path/uri. If URI specified then files will be downloaded first.
@@ -107,6 +108,7 @@ def load_checkpoint(
         optim_child_path (Optional[str]): The path to the optimizer checkpoint within the load_path.
             e.g. if your checkpoints are unsharded and saved in load_path/my_cool_optim/my_optim.pt, set optim_child_path='my_cool_optim/my_optim.pt'. If not specified, 'optim/optim.pt' is used.
             if your checkpoints are sharded and saved in load_path/my_sharded_optim/ then set optim_child_path='my_sharded_optim'. If not specified, 'optim' is used.
+        resumption_filename (Optional[str]): The filename of the resumption state file. Default is 'resumption.pkl'.
     """
     if load_options is None:
         load_options = CheckpointLoadOptions()
@@ -157,10 +159,13 @@ def load_model_checkpoint(
     load_options: Optional[Union[CheckpointLoadOptions, Dict]] = None,
     seed: int = 42,
 ):
-    """
-    Load a a model checkpoint from the specified path into the model.
+    """Load a a model checkpoint from the specified path into the model.
 
     Args:
+        model (Union[ComposerModel, nn.Module]): The model to load the checkpoint into.
+        load_path (Optional[str]): The path to the checkpoint to load.
+        load_options (Optional[Union[CheckpointLoadOptions, Dict]]): The options for loading the checkpoint.
+        seed (int): The seed to use for sharding the model and optimizer.
     """
     if load_options is None:
         load_options = CheckpointLoadOptions()
@@ -303,8 +308,7 @@ def load_optim_checkpoint(
     load_path: Optional[str] = None,
     load_options: Optional[Union[CheckpointLoadOptions, Dict]] = None,
 ):
-    """
-    Load an optimizer checkpoint from the specified path into the optimizer.
+    """Load an optimizer checkpoint from the specified path into the optimizer.
 
     Args:
         model (Union[ComposerModel, nn.Module]): The model to load the optimizer checkpoint into.
@@ -334,7 +338,7 @@ def load_optim_checkpoint(
 
     if load_options.shard_as_needed_during_load and _is_model_fsdp(model):
         raise NotImplementedError(
-            'Loading optimizers for models that have been sharded during load (either before or after loading in the model checkpoint) is not currently supported.'
+            'Loading optimizers for models that have been sharded during load (either before or after loading in the model checkpoint) is not currently supported.',
         )
 
     if load_options.sharded_checkpoint:
@@ -484,6 +488,15 @@ def torch_set_model_state_dict(
     cpu_offload: bool,
     sharded_state_dict: bool = True,
 ):
+    """Set the model state dict with the given options.
+
+    Args:
+        model (torch.nn.Module): The model to set the state dict to.
+        model_state_dict (dict): The model state dict to set.
+        strict (bool): Whether to set the state dict strictly.
+        cpu_offload (bool): Whether to offload the state dict to CPU before setting.
+        sharded_state_dict (bool): Whether the state dict is sharded or not.
+    """
     if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
         from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
         try:
@@ -521,6 +534,16 @@ def torch_set_optimizer_state_dict(
     cpu_offload: bool,
     sharded_state_dict: bool = True,
 ):
+    """Set the optimizer state dict with the given options.
+
+    Args:
+        model (torch.nn.Module): The model to set the state dict to.
+        optim (torch.optim.Optimizer): The optimizer to set the state dict to.
+        optim_state_dict (dict): The optimizer state dict to set.
+        strict (bool): Whether to set the state dict strictly.
+        cpu_offload (bool): Whether to offload the state dict to CPU before setting.
+        sharded_state_dict (bool): Whether the state dict is sharded or not.
+    """
     if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
         from torch.distributed.checkpoint.state_dict import StateDictOptions, set_optimizer_state_dict
         set_optimizer_state_dict(
@@ -541,6 +564,14 @@ def download_and_load_sharded_state_dict(
     state_dict: dict,
     load_planner: Optional[Any] = None,
 ):
+    """A helper function to download and load a sharded state dict.
+
+    Args:
+        load_path (str): The path to the checkpoint to load.
+        device_mesh (Optional[Any]): The device mesh to use for loading the checkpoint.
+        state_dict (dict): The state dict to load.
+        load_planner (Optional[Any]): The load planner to use for loading the checkpoint.
+    """
     load_path_is_remote = is_uri(load_path)
     download_dir_context = tempfile.TemporaryDirectory if load_path_is_remote else contextlib.nullcontext
     with download_dir_context() as download_dir:
@@ -578,6 +609,13 @@ def download_and_load_sharded_state_dict(
 
 
 def load_resumption_checkpoint(state: State, load_path: str):
+    """Load the resumption state from the specified path into the state.
+
+    Args:
+        state (State): The state to load the resumption state into.
+        load_path (str): The path to the resumption state to load.
+
+    """
     load_path = str(_ensure_valid_checkpoint(load_path))
     resumption_state_dict = pickle.load(open(load_path, 'rb'))
     if 'dataset_state' in resumption_state_dict:

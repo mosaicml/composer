@@ -21,8 +21,12 @@ from composer.checkpoint.save import (
     save_optim_to_disk,
     save_resumption_state_to_disk,
 )
-from composer.checkpoint.state_dict import (_is_model_fsdp, get_model_state_dict, get_optim_state_dict,
-                                            get_resumption_state_dict,)
+from composer.checkpoint.state_dict import (
+    _is_model_fsdp,
+    get_model_state_dict,
+    get_optim_state_dict,
+    get_resumption_state_dict,
+)
 from composer.utils import dist
 from tests.checkpoint.helpers import init_model, init_model_and_optimizer, init_state
 from tests.common.compare import deep_compare
@@ -260,7 +264,7 @@ def test_load_resumption_checkpoint(tmp_path: Path):
 
         # SHOULD FAIL: Attempting to load a sharded checkpoint into an unsharded model without sharding
         pytest.param(2, False, True, False, marks=pytest.mark.world_size(2)),
-    ]
+    ],
 )
 def test_load_checkpoint(
     world_size: int,
@@ -291,8 +295,8 @@ def test_load_checkpoint(
             'sharded_checkpoint': sharded_checkpoint,
             'save_model': True,
             'save_optimizer': True,
-            'save_resumption_state': True
-        }
+            'save_resumption_state': True,
+        },
     )
     original_model_state_dict = get_model_state_dict(state.model, sharded_state_dict=False)
     original_optim_state_dict = get_optim_state_dict(state.model, state.optimizers[0], sharded_state_dict=False)
@@ -310,8 +314,8 @@ def test_load_checkpoint(
                 'sharded_checkpoint': sharded_checkpoint,
                 'load_optimizer': True,
                 'load_resumption_state': True,
-                'shard_as_needed_during_load': shard_as_needed_during_load
-            }
+                'shard_as_needed_during_load': shard_as_needed_during_load,
+            },
         )
         if shard_as_needed_during_load:
             assert _is_model_fsdp(new_state.model), 'Model should be sharded after load'
