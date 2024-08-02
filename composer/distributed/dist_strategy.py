@@ -7,7 +7,7 @@ import collections
 import logging
 import warnings
 from contextlib import contextmanager, nullcontext
-from typing import Any, Callable, ContextManager, Iterator, Optional, Sequence, Union, cast
+from typing import Any, Callable, ContextManager, Iterator, Optional, Sequence, Tuple, Union, cast
 
 import torch
 from packaging import version
@@ -223,7 +223,7 @@ def prepare_fsdp_module(
     device: Optional[Union[str, Device]] = None,
     auto_microbatching: bool = False,
     te_rng_seed: int = 1234,
-) -> None:
+) -> Tuple[list, dict]:
     """Prepare a module (assumed ComposerModel) and optimizer for use with :class:`torch.distributed.fsdp.FullyShardedDataParallel`.
 
     Args:
@@ -257,6 +257,9 @@ def prepare_fsdp_module(
                 "device or set parallelism_config['fsdp']['sync_module_states'] = True. Otherwise, "
                 'some weights may be randomly initialized when loading a checkpoint.',
             )
+
+    # Handles of FSDP sync hooks if automicrobatching is on
+    hook_handles = []
 
     # Check if other ranks OOMed after forward/backward pass when using auto microbatching. This
     # may happen when close to memory limit or with uneven memory usage across ranks. Since we
@@ -382,6 +385,7 @@ def prepare_fsdp_module(
     sharded_ckpt_prefix_dir = fsdp_config.sharded_ckpt_prefix_dir
     use_orig_params = fsdp_config.use_orig_params
 
+    fsdp_obj_named_modules = {}
     # We choose to not wrap the ComposerModel directly, but instead wrap any submodules like `ComposerModel.model`
     # This makes it safer to call ComposerModel-specific functions like 'eval_forward' that
     # may make calls to sharded submodules. If we only wrap the submodules, then any call that ComposerModel makes
@@ -542,9 +546,6 @@ def prepare_fsdp_module(
                         ret = obj.fsdp_wrap_fn(module)
                         if isinstance(ret, dict):
                             ret = set_custom_fsdp_module_kwargs(ret, process_group_cache)
-                    if ret and auto_microbatching:
-                        module.register_forward_hook(sync_hook)
-                        module.register_full_backward_hook(sync_hook)
                     return ret
 
                 _auto_wrap_policy = CustomPolicy(lambda_fn)
@@ -561,9 +562,6 @@ def prepare_fsdp_module(
                     elif hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
                         should_be_wrapped = obj.fsdp_wrap_fn(module)
 
-                    if should_be_wrapped and auto_microbatching:
-                        module.register_forward_hook(sync_hook)
-                        module.register_full_backward_hook(sync_hook)
                     return should_be_wrapped
 
                 def _auto_wrap_policy_new(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:
@@ -596,6 +594,22 @@ def prepare_fsdp_module(
                     raise ModuleNotFoundError('Please install transformer-engine to use prepare_te_modules_for_fsdp')
                 log.info(f'Calling prepare_te_modules_for_fsdp to enable TE weights sharding')
                 prepare_te_modules_for_fsdp(fsdp_obj)
+
+            # The following sync hooks are added to prevent FSDP deadlocks that are caused when some ranks OOM
+            # and other ranks do not OOM, leading to OOMing ranks calling all_reduce to wait on the non-OOMing
+            # ranks and the non-OOMing ranks calling all_gatherbase to continue with FSDP training:
+            #
+            #   forward_pre_hook: before forwards of FSDP modules
+            #   full_backward_pre_hook: before backwards of FSDP modules
+            #   full_backward_hook: before a prefetched unshard called by FSDP's `post_backward_reshard`
+            if auto_microbatching:
+                for _, module in fsdp_obj.named_modules():
+                    if isinstance(module, FullyShardedDataParallel):
+                        hook_handles.append(module.register_forward_pre_hook(sync_hook, prepend=True))
+                        hook_handles.append(module.register_full_backward_pre_hook(sync_hook, prepend=True))
+                    else:
+                        hook_handles.append(module.register_full_backward_hook(sync_hook))
+                fsdp_obj_named_modules.update(dict(fsdp_obj.named_modules()))
 
             if hasattr(fsdp_obj, '_exec_order_data'):
                 if hasattr(fsdp_obj._exec_order_data, '_forward_prefetch_limit'):
@@ -755,3 +769,5 @@ def prepare_fsdp_module(
             )
             for param_group in param_groups:
                 optim.add_param_group(param_group)
+
+    return hook_handles, fsdp_obj_named_modules
