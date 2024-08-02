@@ -162,6 +162,8 @@ filterwarnings = [
     '''ignore:'.*_state_dict' is deprecated and will be removed in future versions.*:UserWarning''',
     # Ignore mlflow warnings about transformers versions,
     '''ignore:The 'transformers' MLflow Models integration.*:UserWarning''',
+    # Ignore our own deprecation warnings,
+    '''ignore:.*is deprecated and will be removed in a future version.*:VersionedDeprecationWarning''',
 ]
 
 # Coverage
