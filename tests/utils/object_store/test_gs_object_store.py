@@ -64,7 +64,7 @@ def test_gs_object_store_integration_hmac_auth(expected_use_gcs_sdk_val=False, c
 
 @pytest.mark.gpu
 @pytest.mark.remote
-@pytest.mark.skip(reason='Waiting new GCP key to be approved')
+@pytest.mark.skip(reason='Waiting for new GCP key to be approved')
 def test_gs_object_store_integration_json_auth():
     with mock.patch.dict(os.environ):
         if 'GCS_KEY' in os.environ:
