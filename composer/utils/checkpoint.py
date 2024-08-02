@@ -36,6 +36,8 @@ from composer.utils.file_helpers import (
     format_name_with_dist_and_time,
     get_file,
     is_tar,
+    is_uri,
+    maybe_create_object_store_from_uri,
     parse_uri,
 )
 from composer.utils.misc import ParallelismType, is_model_deepspeed, partial_format
@@ -214,9 +216,16 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         self,
         source_path: str,
         destination_path: str,
-        object_store: Union[ObjectStore, LoggerDestination],
-        device_mesh: Optional[DeviceMesh],
+        object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
+        device_mesh: Optional[DeviceMesh] = None,
     ):
+
+        if object_store is None:
+            if not is_uri(source_path):
+                raise ValueError('When object_store is None, source_path must be a URI.')
+            object_store = maybe_create_object_store_from_uri(source_path)
+            _, _, source_path = parse_uri(source_path)
+
         self.source_path = source_path
         self.destination_path = destination_path
         self.object_store = object_store
@@ -227,6 +236,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         metadata_destination = os.path.join(self.destination_path, '.metadata')
         if dist.get_local_rank() == 0:
             metadata_path = str(Path(source_path) / Path('.metadata'))
+            assert object_store is not None
             download_object_or_file(metadata_path, metadata_destination, object_store)
         dist.barrier()
 
@@ -274,6 +284,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                     if not is_downloaded and not os.path.exists(file_destination):
                         log.debug(f'Downloading {relative_file_path} to {file_destination}.')
                         object_name = str(Path(self.source_path) / Path(relative_file_path))
+                        assert self.object_store is not None
                         download_object_or_file(object_name, file_destination, self.object_store)
                         log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
             except Exception as e:
