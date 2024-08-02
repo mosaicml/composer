@@ -18,7 +18,7 @@ try:
 except ImportError:
     te_installed = False
 
-__all__ = ['Precision', 'get_precision_context']
+__all__ = ['Precision', 'get_precision_context', '_validate_precision']
 
 
 class Precision(StringEnum):
@@ -38,6 +38,7 @@ class Precision(StringEnum):
 
 
 def _validate_precision(precision: Precision, device: Device):
+    """Validate the precision and device combination."""
     if isinstance(device, DeviceCPU) and precision != Precision.FP32:
         raise ValueError(f'{precision} is not supported for CPU training.')
 
