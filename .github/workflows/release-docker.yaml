@@ -1,6 +1,7 @@
 name: Release Docker/GHCR Images
 
 on:
+  pull_request: {} #<--- test
   workflow_dispatch:
   workflow_call:
     secrets:
@@ -20,7 +21,7 @@ defaults:
 jobs:
   build-image-matrix:
     if: github.repository_owner == 'mosaicml'
-    runs-on: ubuntu-latest
+    runs-on: linux-ubuntu-latest
     timeout-minutes: 2
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
