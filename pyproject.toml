@@ -163,7 +163,7 @@ filterwarnings = [
     # Ignore mlflow warnings about transformers versions,
     '''ignore:The 'transformers' MLflow Models integration.*:UserWarning''',
     # Ignore our own deprecation warnings,
-    '''ignore:VersionedDeprecationWarning''',
+    '''ignore::composer.utils.warnings.VersionedDeprecationWarning''',
 ]
 
 # Coverage
