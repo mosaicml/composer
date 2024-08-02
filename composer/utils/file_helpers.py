@@ -363,6 +363,7 @@ def is_uri(path: str) -> bool:
 
     Args:
         path (str): The path to check.
+
     Returns:
         bool: Whether the path is a URI.
     """

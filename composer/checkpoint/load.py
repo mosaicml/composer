@@ -46,8 +46,7 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class CheckpointLoadOptions:
-    """
-    Options for loading a checkpoint.
+    """Options for loading a checkpoint.
 
     Args:
         load_model (bool): Whether to load the model checkpoint.
@@ -92,7 +91,7 @@ def load_checkpoint(
     state: Optional[State] = None,
     model_child_path: Optional[str] = None,
     optim_child_path: Optional[str] = None,
-    resumption_filename: Optional[str] = 'resumption.pkl',
+    resumption_filename: str = 'resumption.pkl',
 ):
     """Optionally download and load a checkpoint according to the options into specified state.
 
@@ -138,10 +137,12 @@ def load_checkpoint(
 
     if load_options.load_model:
         assert model is not None
+        assert model_child_path is not None
         model_load_path = os.path.join(load_path, model_child_path)
         load_model_checkpoint(model, load_path=model_load_path, load_options=load_options)
 
     if load_options.load_optimizer:
+        assert optim_child_path is not None
         optim_load_path = os.path.join(load_path, optim_child_path)
         assert model is not None
         assert optim is not None
@@ -305,7 +306,7 @@ def _load_unsharded_model_checkpoint(
 def load_optim_checkpoint(
     model: Union[ComposerModel, nn.Module],
     optim: torch.optim.Optimizer,
-    load_path: Optional[str] = None,
+    load_path: str,
     load_options: Optional[Union[CheckpointLoadOptions, Dict]] = None,
 ):
     """Load an optimizer checkpoint from the specified path into the optimizer.
@@ -410,6 +411,7 @@ def _load_unsharded_optim_checkpoint(
         file_path = load_path
         if load_path_is_remote:
             filename = Path(load_path).name
+            assert download_dir is not None
             file_path = os.path.join(download_dir, filename)
             download_monolithic_checkpoint(load_path, file_path)
 

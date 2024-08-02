@@ -7,7 +7,6 @@ import uuid
 from pathlib import Path
 
 import pytest
-import torch
 
 from composer.checkpoint.load import (
     load_checkpoint,
@@ -84,7 +83,10 @@ def test_load_model_checkpoint(
     original_state_dict = get_model_state_dict(model, sharded_state_dict=False)
     # Load the model checkpoint
     new_model, _ = init_model(use_fsdp=sharded_model, device='cuda')
-    load_path = saved_path if not sharded_checkpoint else str(Path(saved_path).parent)
+    if saved_path is not None:
+        load_path = saved_path if not sharded_checkpoint else str(Path(saved_path).parent)
+    else:
+        load_path = ''
 
     if not sharded_model and sharded_checkpoint and not shard_as_needed_during_load:
         context_manager = pytest.raises(ValueError)
@@ -149,7 +151,10 @@ def test_load_optim_checkpoint(
 
     # Load the optimizer checkpoint
     new_model, new_optimizer = init_model_and_optimizer(use_fsdp=sharded_optimizer, device='cuda')
-    load_path = saved_path if not sharded_checkpoint else str(Path(saved_path).parent)
+    if saved_path is not None:
+        load_path = saved_path if not sharded_checkpoint else str(Path(saved_path).parent)
+    else:
+        load_path = ''
 
     if not sharded_optimizer and sharded_checkpoint and not shard_as_needed_during_load:
         context_manager = pytest.raises(ValueError)
@@ -217,7 +222,7 @@ def test_load_resumption_checkpoint(tmp_path: Path):
     import time
     time.sleep(1)
     # Load the resumption checkpoint
-    rng = load_resumption_checkpoint(new_state, save_path)
+    load_resumption_checkpoint(new_state, save_path)
 
     # Check that the loaded state matches the initial state
     deep_compare(new_state.timestamp.state_dict(), initial_state.timestamp.state_dict())
