@@ -208,7 +208,7 @@ def get_resumption_state_dict(state: State) -> Dict[str, Any]:
     if state.scaler is not None:
         scaler_sd = _make_state_dict_for_list_of_objects(state.scaler)
         if scaler_sd != {}:
-            resumption_state_dict['scaler'] = state.scaler.state_dict()
+            resumption_state_dict['scaler'] = scaler_sd
 
     resumption_state_dict['rank_zero_seed'] = state.rank_zero_seed
     resumption_state_dict['run_name'] = state.run_name
