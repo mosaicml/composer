@@ -14,6 +14,7 @@ import torch.cuda
 import torch.cuda.amp
 import torch.distributed as torch_dist
 import torch.utils.data
+from packaging import version
 
 from composer.devices.device import Device
 from composer.utils import dist
@@ -43,7 +44,8 @@ class DeviceGPU(Device):
     ):
         if not torch.cuda.is_available():
             raise ValueError('DeviceGPU cannot be created as torch.cuda is not available.')
-        if torch_dist.is_gloo_available():
+        if torch_dist.is_gloo_available() and version.parse(torch.__version__) >= version.parse('2.3.0'):
+            # Composer checkpoint load / save from before torch 2.3.0 is not compatible with gloo + nccl backends.
             DeviceGPU.dist_backend = 'cuda:nccl,cpu:gloo'
         if device_id is None:
             device_id = dist.get_local_rank()
