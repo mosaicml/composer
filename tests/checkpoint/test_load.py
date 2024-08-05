@@ -34,7 +34,6 @@ from tests.common.compare import deep_compare
 from tests.common import (
     EventCounterCallback,
     RandomClassificationDataset,
-    SimpleModel,
 )
 
 
@@ -428,7 +427,7 @@ def test_load_checkpoint_and_eval(
                 dataset=dataset,
                 sampler=dist.get_sampler(dataset),
             ),
-            model=SimpleModel(),
+            model=new_state.model,
             callbacks=[event_counter_callback],
         )
 
