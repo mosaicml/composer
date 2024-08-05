@@ -384,7 +384,6 @@ def test_load_model_checkpoint_and_eval(
 
     # Save a model checkpoint
     model, _ = init_model(use_composer_model=True, use_fsdp=sharded_checkpoint, device='cuda')
-    print("Type: " + str(type(model)))
     save_path = os.path.join(destination_dir, 'model.pt') if not sharded_checkpoint else destination_dir
     saved_path = save_model_to_disk(model, save_path, sharded_checkpoint=sharded_checkpoint)
 

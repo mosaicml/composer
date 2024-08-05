@@ -209,7 +209,6 @@ def load_model_checkpoint(
             else:
                 load_options.fsdp_config.sync_module_states = True
             automicrobatch_fsdp_hook_handles, fsdp_modules = _shard_with_fsdp(model, fsdp_config=load_options.fsdp_config, precision=load_options.precision, seed=seed)
-    print(f"debug log {automicrobatch_fsdp_hook_handles}, {type(automicrobatch_fsdp_hook_handles)}")
     return automicrobatch_fsdp_hook_handles, fsdp_modules
 
 def _shard_with_fsdp(
