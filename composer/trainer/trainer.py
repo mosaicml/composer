@@ -1261,7 +1261,6 @@ class Trainer:
         self.cumulative_alloc_retries = 0
         self.num_consecutive_thrashes = 0
         self.num_consecutive_non_OOM_batches = 0
-        self.state.automicrobatch_fsdp_hook_handles = []
 
         if auto_microbatching and profiler:
             raise ValueError(
