@@ -178,6 +178,8 @@ def load_model_checkpoint(
     if load_options.include_keys is not None or load_options.ignore_keys is not None:
         load_options.strict = False
 
+    automicrobatch_fsdp_hook_handles, fsdp_modules = [], {}
+
     if load_options.sharded_checkpoint:
         if not _is_model_fsdp(model):
             if load_options.shard_as_needed_during_load:
