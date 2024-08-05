@@ -139,8 +139,12 @@ def load_checkpoint(
         assert model is not None
         assert model_child_path is not None
         model_load_path = os.path.join(load_path, model_child_path)
-        if state:
+        if state is not None:
             state.automicrobatch_fsdp_hook_handles, state.fsdp_modules = load_model_checkpoint(
+                model, load_path=model_load_path, load_options=load_options
+            )
+        else:
+            load_model_checkpoint(
                 model, load_path=model_load_path, load_options=load_options
             )
 
