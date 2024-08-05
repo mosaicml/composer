@@ -344,7 +344,7 @@ def test_load_checkpoint(
 @pytest.mark.parametrize(
     'world_size,sharded_model,sharded_checkpoint,shard_as_needed_during_load',
     [
-        #Loading an unsharded checkpoint into an unsharded model on a single GPU (not sharding after)
+        # Loading an unsharded checkpoint into an unsharded model on a single GPU (not sharding after)
         pytest.param(1, False, False, False, marks=pytest.mark.world_size(1)),
 
         # Loading a sharded checkpoint into a sharded model in distributed setting
