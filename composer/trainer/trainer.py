@@ -2917,7 +2917,9 @@ class Trainer:
                 if found_cuda_oom == 1:
                     # Readd sync hooks if they were previously turned off
                     if self.state.fsdp_enabled and len(self.state.automicrobatch_fsdp_hook_handles) == 0:
-                        self.state.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(self.state.fsdp_modules, sync_hook)
+                        self.state.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(
+                            self.state.fsdp_modules, sync_hook
+                        )
                     _adjust_device_train_microbatch_size(self.state)
                     self.num_consecutive_thrashes = 0
                     self.num_consecutive_non_OOM_batches = 0
@@ -2934,7 +2936,9 @@ class Trainer:
                 if self.num_consecutive_thrashes >= 2:
                     # Readd sync hooks if they were previously turned off
                     if self.state.fsdp_enabled and len(self.state.automicrobatch_fsdp_hook_handles) == 0:
-                        self.state.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(self.state.fsdp_modules, sync_hook)
+                        self.state.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(
+                            self.state.fsdp_modules, sync_hook
+                        )
                     _adjust_device_train_microbatch_size(self.state)
                     self.num_consecutive_thrashes = 0
                     continue

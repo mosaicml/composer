@@ -547,7 +547,7 @@ class State(Serializable):
         self.fsdp_config = parallelism_config.fsdp if parallelism_config is not None else None
         self.tp_config = parallelism_config.tp if parallelism_config is not None else None
 
-        self.automicrobatch_fsdp_hook_handles = [] 
+        self.automicrobatch_fsdp_hook_handles = []
         self.fsdp_modules = {}
 
         self._validate_parallelism_configs()

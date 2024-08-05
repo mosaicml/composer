@@ -27,13 +27,13 @@ from composer.checkpoint.state_dict import (
     get_optim_state_dict,
     get_resumption_state_dict,
 )
-from composer.utils import dist
 from composer.trainer import Trainer
+from composer.utils import dist
 from tests.checkpoint.helpers import init_model, init_model_and_optimizer, init_state
-from tests.common.compare import deep_compare
 from tests.common import (
     RandomClassificationDataset,
 )
+from tests.common.compare import deep_compare
 
 
 @pytest.mark.gpu
@@ -339,6 +339,7 @@ def test_load_checkpoint(
             deep_compare(original_optim_state_dict, new_optim_state_dict)
             deep_compare(original_resumption_state, new_resumption_state, ignore_keys=['rng', 'run_name'])
 
+
 @pytest.mark.gpu
 @pytest.mark.parametrize(
     'world_size,sharded_model,sharded_checkpoint,shard_as_needed_during_load',
@@ -423,7 +424,7 @@ def test_load_model_checkpoint_and_eval(
         dataset = RandomClassificationDataset(
             shape=(8,),
             size=100,
-            num_classes=3
+            num_classes=3,
         )
 
         trainer = Trainer(
@@ -431,7 +432,7 @@ def test_load_model_checkpoint_and_eval(
                 dataset=dataset,
                 sampler=dist.get_sampler(dataset),
             ),
-            model=new_model, # type: ignore
+            model=new_model,  # type: ignore
         )
 
         # Evaluate the model

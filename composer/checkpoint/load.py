@@ -11,7 +11,7 @@ import tempfile
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence, Union, Tuple
+from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
 import torch
 import torch.distributed.checkpoint as DCP
@@ -140,7 +140,9 @@ def load_checkpoint(
         assert model_child_path is not None
         model_load_path = os.path.join(load_path, model_child_path)
         if state:
-            state.automicrobatch_fsdp_hook_handles, state.fsdp_modules = load_model_checkpoint(model, load_path=model_load_path, load_options=load_options)
+            state.automicrobatch_fsdp_hook_handles, state.fsdp_modules = load_model_checkpoint(
+                model, load_path=model_load_path, load_options=load_options
+            )
 
     if load_options.load_optimizer:
         assert optim_child_path is not None
@@ -209,8 +211,11 @@ def load_model_checkpoint(
                 load_options.fsdp_config.update({'sync_module_states': True})
             else:
                 load_options.fsdp_config.sync_module_states = True
-            automicrobatch_fsdp_hook_handles, fsdp_modules = _shard_with_fsdp(model, fsdp_config=load_options.fsdp_config, precision=load_options.precision, seed=seed)
+            automicrobatch_fsdp_hook_handles, fsdp_modules = _shard_with_fsdp(
+                model, fsdp_config=load_options.fsdp_config, precision=load_options.precision, seed=seed
+            )
     return automicrobatch_fsdp_hook_handles, fsdp_modules
+
 
 def _shard_with_fsdp(
     model: Union[ComposerModel, nn.Module],
@@ -218,7 +223,7 @@ def _shard_with_fsdp(
     fsdp_config: Optional[Union[FSDPConfig, dict]] = None,
     precision: Optional[str] = None,
     seed: int = 42,
-) ->  Tuple[list, dict]:
+) -> Tuple[list, dict]:
     if fsdp_config is None:
         fsdp_config = FSDPConfig()
     if isinstance(fsdp_config, dict):
