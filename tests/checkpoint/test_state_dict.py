@@ -447,7 +447,7 @@ def test_get_metadata_sharded_model(model_type: str, tensor_type: str, world_siz
         assert 'model_name' in metadata_sd
 
     assert 'dist_backend' in metadata_sd
-    if torch_dist.is_gloo_available():
+    if torch_dist.is_gloo_available() and version.parse(torch.__version__) >= version.parse('2.3.0'):
         assert metadata_sd['dist_backend'] == 'cuda:nccl,cpu:gloo'
     else:
         assert metadata_sd['dist_backend'] == 'nccl'
