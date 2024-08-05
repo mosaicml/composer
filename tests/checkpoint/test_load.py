@@ -7,6 +7,7 @@ import uuid
 from pathlib import Path
 
 import pytest
+from torch.utils.data import DataLoader
 
 from composer.checkpoint.load import (
     load_checkpoint,
@@ -29,6 +30,12 @@ from composer.checkpoint.state_dict import (
 from composer.utils import dist
 from tests.checkpoint.helpers import init_model, init_model_and_optimizer, init_state
 from tests.common.compare import deep_compare
+from tests.common import (
+    EventCounterCallback,
+    RandomClassificationDataset,
+    SimpleModel,
+    Trainer,
+)
 
 
 @pytest.mark.gpu
@@ -333,3 +340,97 @@ def test_load_checkpoint(
             deep_compare(original_model_state_dict, new_state_dict)
             deep_compare(original_optim_state_dict, new_optim_state_dict)
             deep_compare(original_resumption_state, new_resumption_state, ignore_keys=['rng', 'run_name'])
+
+@pytest.mark.gpu
+@pytest.mark.parametrize(
+    'world_size,sharded_model,sharded_checkpoint,shard_as_needed_during_load',
+    [
+        # Loading an unsharded checkpoint into an unsharded model on a single GPU (not sharding after)
+        pytest.param(1, False, False, False, marks=pytest.mark.world_size(1)),
+
+        # Loading a sharded checkpoint into a sharded model in distributed setting
+        pytest.param(2, True, True, False, marks=pytest.mark.world_size(2)),
+
+        # SHOULD FAIL: Loading an unsharded checkpoint into a sharded model
+        pytest.param(2, True, False, False, marks=pytest.mark.world_size(2)),
+
+        # SHOULD FAIL: Attempting to load a sharded checkpoint into an unsharded model without sharding
+        pytest.param(2, False, True, False, marks=pytest.mark.world_size(2)),
+    ],
+)
+def test_load_checkpoint_and_eval(
+    world_size: int,
+    tmp_path: Path,
+    sharded_model: bool,
+    sharded_checkpoint: bool,
+    shard_as_needed_during_load: bool,
+):
+
+    if sharded_model and not sharded_checkpoint:
+        pytest.xfail(
+            'Loading an unsharded checkpoint into a sharded model is not supported and causes OOMs when running with these tests',
+        )
+    # Ensure all ranks use the same path
+    destination_dir = os.path.join(tmp_path, str(uuid.uuid4())[:8])
+    destination_dir = dist.all_gather_object(destination_dir)[0]
+
+    # Save an optimizer checkpoint
+    state = init_state(
+        use_fsdp=sharded_checkpoint,
+        device='cuda',
+        take_step=True,
+    )
+    load_path = save_checkpoint_to_disk(
+        destination_dir=destination_dir,
+        state=state,
+        options={
+            'sharded_checkpoint': sharded_checkpoint,
+            'save_model': True,
+            'save_optimizer': True,
+            'save_resumption_state': True,
+        },
+    )
+    original_model_state_dict = get_model_state_dict(state.model, sharded_state_dict=False)
+    original_optim_state_dict = get_optim_state_dict(state.model, state.optimizers[0], sharded_state_dict=False)
+    original_resumption_state = get_resumption_state_dict(state)
+    new_state = init_state(use_fsdp=sharded_model, device='cuda', take_step=True)
+    if not sharded_model and sharded_checkpoint and not shard_as_needed_during_load:
+        context_manager = pytest.raises(ValueError)
+    else:
+        context_manager = contextlib.nullcontext()
+    with context_manager:
+        load_checkpoint(
+            load_path=load_path,
+            state=new_state,
+            load_options={
+                'sharded_checkpoint': sharded_checkpoint,
+                'load_optimizer': True,
+                'load_resumption_state': True,
+                'shard_as_needed_during_load': shard_as_needed_during_load,
+            },
+        )
+        if shard_as_needed_during_load:
+            assert _is_model_fsdp(new_state.model), 'Model should be sharded after load'
+        # Get the new model's state dict
+        new_state_dict = get_model_state_dict(new_state.model, sharded_state_dict=False)
+        new_optim_state_dict = get_optim_state_dict(new_state.model, new_state.optimizers[0], sharded_state_dict=False)
+        new_resumption_state = get_resumption_state_dict(new_state)
+
+        if dist.get_global_rank() == 0:
+            deep_compare(original_model_state_dict, new_state_dict)
+            deep_compare(original_optim_state_dict, new_optim_state_dict)
+            deep_compare(original_resumption_state, new_resumption_state, ignore_keys=['rng', 'run_name'])
+        # Construct the trainer
+        event_counter_callback = EventCounterCallback()
+        dataset = RandomClassificationDataset()
+        trainer = Trainer(
+            eval_dataloader=DataLoader(
+                dataset=dataset,
+                sampler=dist.get_sampler(dataset),
+            ),
+            model=SimpleModel(),
+            callbacks=[event_counter_callback],
+        )
+
+        # Evaluate the model
+        trainer.eval()
