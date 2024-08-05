@@ -28,13 +28,13 @@ from composer.checkpoint.state_dict import (
     get_resumption_state_dict,
 )
 from composer.utils import dist
+from composer.trainer import Trainer
 from tests.checkpoint.helpers import init_model, init_model_and_optimizer, init_state
 from tests.common.compare import deep_compare
 from tests.common import (
     EventCounterCallback,
     RandomClassificationDataset,
     SimpleModel,
-    Trainer,
 )
 
 
