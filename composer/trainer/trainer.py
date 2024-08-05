@@ -2917,7 +2917,7 @@ class Trainer:
                     all_ranks_finished = all_ranks_finished_tensor.item() == 1
                 if found_cuda_oom == 1:
                     # Readd sync hooks if they were previously turned off
-                    if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) == 0:
+                    if self.state.fsdp_config is not None and self.state.fsdp_config.auto_wrap and not self.state.load_monolith_rank0_only and len(self.automicrobatch_fsdp_hook_handles) == 0:
                         self.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(self.fsdp_modules, sync_hook)
                     _adjust_device_train_microbatch_size(self.state)
                     self.num_consecutive_thrashes = 0
@@ -2934,7 +2934,7 @@ class Trainer:
                     )
                 if self.num_consecutive_thrashes >= 2:
                     # Readd sync hooks if they were previously turned off
-                    if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) == 0:
+                    if self.state.fsdp_config is not None and self.state.fsdp_config.auto_wrap and not self.state.load_monolith_rank0_only and len(self.automicrobatch_fsdp_hook_handles) == 0:
                         self.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(self.fsdp_modules, sync_hook)
                     _adjust_device_train_microbatch_size(self.state)
                     self.num_consecutive_thrashes = 0
@@ -3755,7 +3755,7 @@ class Trainer:
         # If training occurs after evaluation, readd hooks in case of memory spike
         if self.state.auto_microbatching:
             sync_hook = _create_sync_hook(self.state)
-            if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) == 0:
+            if self.state.fsdp_config is not None and self.state.fsdp_config.auto_wrap and not self.state.load_monolith_rank0_only and len(self.automicrobatch_fsdp_hook_handles) == 0:
                 self.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(self.fsdp_modules, sync_hook)
             self.num_consecutive_non_OOM_batches = 0
 
