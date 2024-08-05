@@ -141,11 +141,15 @@ def load_checkpoint(
         model_load_path = os.path.join(load_path, model_child_path)
         if state is not None:
             state.automicrobatch_fsdp_hook_handles, state.fsdp_modules = load_model_checkpoint(
-                model, load_path=model_load_path, load_options=load_options
+                model,
+                load_path=model_load_path,
+                load_options=load_options,
             )
         else:
             load_model_checkpoint(
-                model, load_path=model_load_path, load_options=load_options
+                model,
+                load_path=model_load_path,
+                load_options=load_options,
             )
 
     if load_options.load_optimizer:
@@ -216,7 +220,10 @@ def load_model_checkpoint(
             else:
                 load_options.fsdp_config.sync_module_states = True
             automicrobatch_fsdp_hook_handles, fsdp_modules = _shard_with_fsdp(
-                model, fsdp_config=load_options.fsdp_config, precision=load_options.precision, seed=seed
+                model,
+                fsdp_config=load_options.fsdp_config,
+                precision=load_options.precision,
+                seed=seed,
             )
     return automicrobatch_fsdp_hook_handles, fsdp_modules
 
