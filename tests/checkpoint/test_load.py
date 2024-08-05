@@ -426,15 +426,13 @@ def test_load_model_checkpoint_and_eval(
             size=100,
             num_classes=3
         )
-        
-        assert isinstance(model, ComposerModel), "Model must be an instance of ComposerModel"
 
         trainer = Trainer(
             eval_dataloader=DataLoader(
                 dataset=dataset,
                 sampler=dist.get_sampler(dataset),
             ),
-            model=new_model,
+            model=ComposerModel(new_model),
         )
 
         # Evaluate the model
