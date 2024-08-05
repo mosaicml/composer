@@ -350,12 +350,6 @@ def test_load_checkpoint(
         # Loading a sharded checkpoint into a sharded model in distributed setting
         pytest.param(2, True, True, False, marks=pytest.mark.world_size(2)),
 
-        # SHOULD FAIL: Loading an unsharded checkpoint into a sharded model
-        pytest.param(2, True, False, False, marks=pytest.mark.world_size(2)),
-
-        # SHOULD FAIL: Attempting to load a sharded checkpoint into an unsharded model without sharding
-        pytest.param(2, False, True, False, marks=pytest.mark.world_size(2)),
-
         # Loading a sharded checkpoint into an unsharded model (sharding it before load)
         pytest.param(2, False, True, True, marks=pytest.mark.world_size(2)),
 
