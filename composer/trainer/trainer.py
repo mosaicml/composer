@@ -1261,7 +1261,7 @@ class Trainer:
         self.cumulative_alloc_retries = 0
         self.num_consecutive_thrashes = 0
         self.num_consecutive_non_OOM_batches = 0
-        self.automicrobatch_fsdp_hook_handles = []
+        self.state.automicrobatch_fsdp_hook_handles = []
 
         if auto_microbatching and profiler:
             raise ValueError(
@@ -1766,7 +1766,7 @@ class Trainer:
         if self.state.fsdp_config is not None and self.state.fsdp_config.auto_wrap and not self.state.load_monolith_rank0_only:
             # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
-                self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(
+                self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
                     model,
                     optimizers,
                     self.state.fsdp_config,
@@ -1937,7 +1937,7 @@ class Trainer:
         ):
             # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
-                self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(
+                self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
                     model,
                     optimizers,
                     self.state.fsdp_config,
@@ -2917,8 +2917,8 @@ class Trainer:
                     all_ranks_finished = all_ranks_finished_tensor.item() == 1
                 if found_cuda_oom == 1:
                     # Readd sync hooks if they were previously turned off
-                    if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) == 0:
-                        self.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(self.fsdp_modules, sync_hook)
+                    if self.state.fsdp_enabled and len(self.state.automicrobatch_fsdp_hook_handles) == 0:
+                        self.state.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(self.state.fsdp_modules, sync_hook)
                     _adjust_device_train_microbatch_size(self.state)
                     self.num_consecutive_thrashes = 0
                     self.num_consecutive_non_OOM_batches = 0
@@ -2934,8 +2934,8 @@ class Trainer:
                     )
                 if self.num_consecutive_thrashes >= 2:
                     # Readd sync hooks if they were previously turned off
-                    if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) == 0:
-                        self.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(self.fsdp_modules, sync_hook)
+                    if self.state.fsdp_enabled and len(self.state.automicrobatch_fsdp_hook_handles) == 0:
+                        self.state.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(self.state.fsdp_modules, sync_hook)
                     _adjust_device_train_microbatch_size(self.state)
                     self.num_consecutive_thrashes = 0
                     continue
@@ -2949,12 +2949,12 @@ class Trainer:
                 )
             self.num_consecutive_non_OOM_batches += 1
             if self.state.fsdp_enabled and len(
-                self.automicrobatch_fsdp_hook_handles,
+                self.state.automicrobatch_fsdp_hook_handles,
             ) > 0 and self.num_consecutive_non_OOM_batches >= 3:
                 patch_unshard_for_automicrobatching(auto_microbatch_size_found=True)
-                for handle in self.automicrobatch_fsdp_hook_handles:
+                for handle in self.state.automicrobatch_fsdp_hook_handles:
                     handle.remove()
-                self.automicrobatch_fsdp_hook_handles.clear()
+                self.state.automicrobatch_fsdp_hook_handles.clear()
             if torch.cuda.is_available():
                 memory_stats = torch.cuda.memory_stats()
                 self.cumulative_alloc_retries = memory_stats['num_alloc_retries']
@@ -3753,10 +3753,11 @@ class Trainer:
             self.state.dataloader_len = original_num_batches
 
         # If training occurs after evaluation, readd hooks in case of memory spike
-        sync_hook = _create_sync_hook(self.state)
-        if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) == 0:
-            self.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(self.fsdp_modules, sync_hook)
-        self.num_consecutive_non_OOM_batches = 0
+        if self.state.auto_microbatching:
+            sync_hook = _create_sync_hook(self.state)
+            if self.state.fsdp_enabled and len(self.state.automicrobatch_fsdp_hook_handles) == 0:
+                self.state.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(self.state.fsdp_modules, sync_hook)
+            self.num_consecutive_non_OOM_batches = 0
 
     def _use_grad_scaling(self, precision: Union[str, Precision], scaler: Optional[GradScaler]) -> bool:
         """Determines based on precision when to use grad scaling.

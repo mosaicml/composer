@@ -547,6 +547,9 @@ class State(Serializable):
         self.fsdp_config = parallelism_config.fsdp if parallelism_config is not None else None
         self.tp_config = parallelism_config.tp if parallelism_config is not None else None
 
+        self.automicrobatch_fsdp_hook_handles = [] 
+        self.fsdp_modules = {}
+
         self._validate_parallelism_configs()
 
         self.device_mesh: Optional[DeviceMesh] = _create_device_mesh(self.device, self.fsdp_config, self.tp_config)
@@ -1387,7 +1390,7 @@ class State(Serializable):
             with reproducibility.seed_context(self.rank_zero_seed):
                 from composer.distributed import prepare_fsdp_module
 
-                prepare_fsdp_module(
+                self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(
                     self.model,
                     self.optimizers,
                     self.fsdp_config,
