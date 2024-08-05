@@ -432,7 +432,7 @@ def test_load_model_checkpoint_and_eval(
                 dataset=dataset,
                 sampler=dist.get_sampler(dataset),
             ),
-            model=ComposerModel(new_model),
+            model=new_model, # type: ignore
         )
 
         # Evaluate the model
