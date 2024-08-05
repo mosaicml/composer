@@ -32,7 +32,6 @@ from composer.trainer import Trainer
 from tests.checkpoint.helpers import init_model, init_model_and_optimizer, init_state
 from tests.common.compare import deep_compare
 from tests.common import (
-    EventCounterCallback,
     RandomClassificationDataset,
 )
 
@@ -344,7 +343,7 @@ def test_load_checkpoint(
 @pytest.mark.parametrize(
     'world_size,sharded_model,sharded_checkpoint,shard_as_needed_during_load',
     [
-        # Loading an unsharded checkpoint into an unsharded model on a single GPU (not sharding after)
+        #Loading an unsharded checkpoint into an unsharded model on a single GPU (not sharding after)
         pytest.param(1, False, False, False, marks=pytest.mark.world_size(1)),
 
         # Loading a sharded checkpoint into a sharded model in distributed setting
@@ -355,16 +354,26 @@ def test_load_checkpoint(
 
         # SHOULD FAIL: Attempting to load a sharded checkpoint into an unsharded model without sharding
         pytest.param(2, False, True, False, marks=pytest.mark.world_size(2)),
+
+        # Loading a sharded checkpoint into an unsharded model (sharding it before load)
+        pytest.param(2, False, True, True, marks=pytest.mark.world_size(2)),
+
+        # Loading an unsharded checkpoint into an unsharded model and sharding it after.
+        pytest.param(2, False, False, True, marks=pytest.mark.world_size(2)),
+
+        # The other three permutations of the above tests are:
+        # 2 gpu, Sharded model, sharded checkpoint, with additional sharding -> no need to shard already sharded model
+        # 2 gpu, Sharded model, unsharded checkpoint, with additional sharding -> no need to shard already sharded model
+        # 2 gpu, Unsharded model, unsharded checkpoint, without additional sharding -> no need to try this on 2 gpus
     ],
 )
-def test_load_checkpoint_and_eval(
+def test_load_model_checkpoint_and_eval(
     world_size: int,
     tmp_path: Path,
     sharded_model: bool,
     sharded_checkpoint: bool,
     shard_as_needed_during_load: bool,
 ):
-
     if sharded_model and not sharded_checkpoint:
         pytest.xfail(
             'Loading an unsharded checkpoint into a sharded model is not supported and causes OOMs when running with these tests',
@@ -373,62 +382,57 @@ def test_load_checkpoint_and_eval(
     destination_dir = os.path.join(tmp_path, str(uuid.uuid4())[:8])
     destination_dir = dist.all_gather_object(destination_dir)[0]
 
-    # Save an optimizer checkpoint
-    state = init_state(
-        use_fsdp=sharded_checkpoint,
-        device='cuda',
-        take_step=True,
-    )
-    load_path = save_checkpoint_to_disk(
-        destination_dir=destination_dir,
-        state=state,
-        options={
-            'sharded_checkpoint': sharded_checkpoint,
-            'save_model': True,
-            'save_optimizer': True,
-            'save_resumption_state': True,
-        },
-    )
-    original_model_state_dict = get_model_state_dict(state.model, sharded_state_dict=False)
-    original_optim_state_dict = get_optim_state_dict(state.model, state.optimizers[0], sharded_state_dict=False)
-    original_resumption_state = get_resumption_state_dict(state)
-    new_state = init_state(use_fsdp=sharded_model, device='cuda', take_step=True)
+    # Save a model checkpoint
+    model, _ = init_model(use_composer_model=True, use_fsdp=sharded_checkpoint, device='cuda')
+    print("Type: " + str(type(model)))
+    save_path = os.path.join(destination_dir, 'model.pt') if not sharded_checkpoint else destination_dir
+    saved_path = save_model_to_disk(model, save_path, sharded_checkpoint=sharded_checkpoint)
+
+    # Get the original model's state dict
+    original_state_dict = get_model_state_dict(model, sharded_state_dict=False)
+    # Load the model checkpoint
+    new_model, _ = init_model(use_composer_model=True, use_fsdp=sharded_model, device='cuda')
+    if saved_path is not None:
+        load_path = saved_path if not sharded_checkpoint else str(Path(saved_path).parent)
+    else:
+        load_path = ''
+
     if not sharded_model and sharded_checkpoint and not shard_as_needed_during_load:
         context_manager = pytest.raises(ValueError)
     else:
         context_manager = contextlib.nullcontext()
+
     with context_manager:
-        load_checkpoint(
+        load_model_checkpoint(
+            new_model,
             load_path=load_path,
-            state=new_state,
-            load_options={
-                'sharded_checkpoint': sharded_checkpoint,
-                'load_optimizer': True,
-                'load_resumption_state': True,
-                'shard_as_needed_during_load': shard_as_needed_during_load,
-            },
+            load_options=dict(
+                sharded_checkpoint=sharded_checkpoint,
+                shard_as_needed_during_load=shard_as_needed_during_load,
+            ),
         )
+        # Check if model is sharded when it should be
         if shard_as_needed_during_load:
-            assert _is_model_fsdp(new_state.model), 'Model should be sharded after load'
+            assert _is_model_fsdp(new_model), 'Model should be sharded after load'
+
         # Get the new model's state dict
-        new_state_dict = get_model_state_dict(new_state.model, sharded_state_dict=False)
-        new_optim_state_dict = get_optim_state_dict(new_state.model, new_state.optimizers[0], sharded_state_dict=False)
-        new_resumption_state = get_resumption_state_dict(new_state)
+        new_state_dict = get_model_state_dict(new_model, sharded_state_dict=False)
 
         if dist.get_global_rank() == 0:
-            deep_compare(original_model_state_dict, new_state_dict)
-            deep_compare(original_optim_state_dict, new_optim_state_dict)
-            deep_compare(original_resumption_state, new_resumption_state, ignore_keys=['rng', 'run_name'])
-        # Construct the trainer
-        event_counter_callback = EventCounterCallback()
-        dataset = RandomClassificationDataset()
+            deep_compare(original_state_dict, new_state_dict)
+
+        dataset = RandomClassificationDataset(
+            shape=(8,),
+            size=100,
+            num_classes=3
+        )
+        
         trainer = Trainer(
             eval_dataloader=DataLoader(
                 dataset=dataset,
                 sampler=dist.get_sampler(dataset),
             ),
-            model=new_state.model,
-            callbacks=[event_counter_callback],
+            model=new_model,
         )
 
         # Evaluate the model
