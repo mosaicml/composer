@@ -29,6 +29,7 @@ from composer.checkpoint.state_dict import (
 )
 from composer.utils import dist
 from composer.trainer import Trainer
+from composer.models import ComposerModel
 from tests.checkpoint.helpers import init_model, init_model_and_optimizer, init_state
 from tests.common.compare import deep_compare
 from tests.common import (
@@ -426,6 +427,8 @@ def test_load_model_checkpoint_and_eval(
             num_classes=3
         )
         
+        assert isinstance(model, ComposerModel), "Model must be an instance of ComposerModel"
+
         trainer = Trainer(
             eval_dataloader=DataLoader(
                 dataset=dataset,
