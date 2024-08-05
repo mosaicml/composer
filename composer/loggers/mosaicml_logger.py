@@ -98,6 +98,11 @@ class MosaicMLLogger(LoggerDestination):
         self.log_metadata(metrics)
 
     def after_load(self, state: State, logger: Logger) -> None:
+        # If model was resumed from checkpoint, log the checkpoint path
+        if int(state.timestamp.batch) > 0 and state.load_path is not None:
+            log.debug(f'Logging checkpoint path to metadata: {state.load_path}')
+            self.log_metadata({'checkpoint_resumed_path': state.load_path})
+
         # Log model data downloaded and initialized for run events
         log.debug(f'Logging model initialized time to metadata')
         self.log_metadata({'model_initialized_time': time.time()})

@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 import torch
+import torch.distributed as torch_dist
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
@@ -243,7 +244,11 @@ def test_get_model_state_dict_precision_unsharded_model(precision: str, use_comp
 @pytest.mark.gpu
 @pytest.mark.parametrize('use_composer_model', [True, False])
 def test_get_optim_state_dict_unsharded_model(use_composer_model: bool):
-    model, optimizer = init_model_and_optimizer(use_composer_model=use_composer_model, take_step=True)
+    model, optimizer = init_model_and_optimizer(
+        use_composer_model=use_composer_model,
+        take_step=True,
+        wrap_with_raw_fsdp=True,
+    )
     optim_state_dict = get_optim_state_dict(model, optimizer)
 
     # Dict mapping parameter index to optimizer state for that parameter.
@@ -287,7 +292,11 @@ def test_get_optim_state_dict_unsharded_model(use_composer_model: bool):
 )
 @pytest.mark.parametrize('use_composer_model', [True, False])
 def test_get_optim_state_dict_precision_unsharded_model(precision: str, use_composer_model: bool):
-    model, optimizer = init_model_and_optimizer(use_composer_model=use_composer_model, take_step=True)
+    model, optimizer = init_model_and_optimizer(
+        use_composer_model=use_composer_model,
+        take_step=True,
+        wrap_with_raw_fsdp=True,
+    )
     optim_state_dict = get_optim_state_dict(model, optimizer, precision=precision)
     for param_state in optim_state_dict['state'].values():
         assert param_state['exp_avg'].dtype == precision
@@ -307,6 +316,7 @@ def test_get_optim_dict_full_for_sharded_model(world_size, tensor_type, use_comp
         take_step=True,
         use_fsdp=True,
         tensor_type=tensor_type,
+        wrap_with_raw_fsdp=True,
     )
     optim_state_dict = get_optim_state_dict(model, optimizer, sharded_state_dict=False)
 
@@ -316,7 +326,10 @@ def test_get_optim_dict_full_for_sharded_model(world_size, tensor_type, use_comp
         if dist.get_global_rank() == 0:
             # Because model is sharded, the state dict should have the same keys as the model's parameters.
             for fqn, param_state in optim_state_dict['state'].items():
-                model_param_shape = fqn_to_shape_map[fqn]
+                try:
+                    model_param_shape = fqn_to_shape_map[fqn]
+                except KeyError:
+                    assert False, f'{fqn_to_shape_map}'
                 assert model_param_shape == param_state['exp_avg'].shape
                 assert model_param_shape == param_state['exp_avg_sq'].shape
 
@@ -334,6 +347,7 @@ def test_get_optim_dict_sharded_for_sharded_model(world_size, tensor_type, use_c
         take_step=True,
         use_fsdp=True,
         tensor_type=tensor_type,
+        wrap_with_raw_fsdp=True,
     )
     model_state_dict = get_model_state_dict(model, sharded_state_dict=True)
     optim_state_dict = get_optim_state_dict(model, optimizer, sharded_state_dict=True)
@@ -433,7 +447,10 @@ def test_get_metadata_sharded_model(model_type: str, tensor_type: str, world_siz
         assert 'model_name' in metadata_sd
 
     assert 'dist_backend' in metadata_sd
-    assert metadata_sd['dist_backend'] == 'nccl'
+    if torch_dist.is_gloo_available() and version.parse(torch.__version__) >= version.parse('2.3.0'):
+        assert metadata_sd['dist_backend'] == 'cuda:nccl,cpu:gloo'
+    else:
+        assert metadata_sd['dist_backend'] == 'nccl'
 
 
 @pytest.mark.filterwarnings('ignore:SWA has')
@@ -447,6 +464,7 @@ def test_get_resumption_state_dict():
         include_schedulers=True,
         rank_zero_seed=rank_zero_seed,
         run_name=run_name,
+        wrap_with_raw_fsdp=True,
     )
     test_dataset_sd = {'test': 0}
     rsd = get_resumption_state_dict(state)
@@ -489,11 +507,11 @@ def test_get_resumption_state_dict():
 
 @pytest.mark.gpu
 def test_get_resumption_state_dict_gpu():
-    state = init_state(device='cuda', use_grad_scaler=True)
+    state = init_state(device='cuda', use_grad_scaler=True, wrap_with_raw_fsdp=True)
     rsd = get_resumption_state_dict(state)
     assert 'scaler' in rsd
     assert set(
-        rsd['scaler'].keys(),
+        rsd['scaler']['GradScaler'].keys(),
     ) == {'scale', 'growth_factor', 'backoff_factor', 'growth_interval', '_growth_tracker'}
 
     assert 'rng' in rsd
