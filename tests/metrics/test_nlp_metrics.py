@@ -6,6 +6,7 @@ from typing import Optional
 
 import pytest
 import torch
+from packaging import version
 from torch.nn.functional import cross_entropy
 
 from composer.metrics.nlp import (
@@ -82,8 +83,11 @@ def test_cross_entropy(
         tensor_device (str): which device the input tensors to the metric are on
     """
 
-    if device == 'cpu' and tensor_device == 'gpu':
-        pytest.skip('Skipping test that would try to use GPU tensors when only CPU is available.')
+    if device == 'cpu':
+        if tensor_device == 'gpu':
+            pytest.skip('Skipping test that would try to use GPU tensors when only CPU is available.')
+        if version.parse(torch.__version__) < version.parse('2.3.0'):
+            pytest.skip('Skipping test that would try to use gloo + nccl backend on torch < 2.3.0.')
 
     batch_size = int(batch_size)
     generated_preds = torch.randn((batch_size, sequence_length, num_classes))
