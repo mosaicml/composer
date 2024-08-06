@@ -620,6 +620,7 @@ def test_fsdp_shard(world_size: int):
         max_duration='3ba',
     )
 
+
 @pytest.mark.gpu
 @world_size(2)
 def test_fsdp_invalid_config_throws_error(world_size: int):
