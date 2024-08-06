@@ -142,7 +142,7 @@ extra_deps['dev'] = [
     'mock-ssh-server==0.9.1',
     'cryptography==42.0.8',
     'pytest-httpserver>=1.0.4,<1.1',
-    'setuptools<=59.5.0',
+    'setuptools',
 ]
 
 extra_deps['system_metrics_monitor'] = {
