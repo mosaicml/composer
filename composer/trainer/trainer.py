@@ -2604,6 +2604,9 @@ class Trainer:
             raise RuntimeError('max_duration must be specified when initializing the Trainer')
 
         log.debug('Starting training loop')
+
+        import psutil
+        print(psutil.virtual_memory())
         while self.state.timestamp < self.state.max_duration:
             if int(self.state.timestamp.epoch_in_iteration) == 0 and int(self.state.timestamp.batch_in_epoch) == 0:
                 self.engine.run_event(Event.ITERATION_START)
@@ -2650,6 +2653,10 @@ class Trainer:
                 if rank_num_tokens > 0:
                     self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
                     self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
+
+                
+                import psutil
+                print(psutil.virtual_memory())
 
                 total_loss_dict = self._train_batch(use_grad_scaling)
 
@@ -2706,6 +2713,13 @@ class Trainer:
                 duration = datetime.datetime.now() - last_wct
                 self._run_evaluators(Event.BATCH_END)
                 last_wct = datetime.datetime.now() - duration
+
+                # del self.state.outputs
+                import psutil
+                print(psutil.virtual_memory())
+                import gc
+                torch.cuda.empty_cache()
+                gc.collect()
 
                 self.engine.run_event(Event.BATCH_CHECKPOINT)
 
@@ -2778,6 +2792,10 @@ class Trainer:
         if self.state.timestamp.token.value > 0:
             self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
             self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
+
+        
+        import psutil
+        print(psutil.virtual_memory())
 
         self.engine.run_event(Event.FIT_END)
         self._run_evaluators(Event.FIT_END)
