@@ -645,8 +645,8 @@ class State(Serializable):
             raise ValueError('activation_cpu_offload=True is not supported with use_orig_params=False.')
 
         # Validate FSDP state dict type
-        if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
-            if self.fsdp_state_dict_type == 'local':
+        if self.fsdp_config.fsdp_state_dict_type not in [None, 'full', 'sharded']:
+            if self.fsdp_config.fsdp_state_dict_type == 'local':
                 raise ValueError(
                     'Composer and PyTorch no longer support saving or loading local state dicts. '
                     'To upgrade an older checkpoint, use Composer version 0.18.1 and export as '
