@@ -20,7 +20,7 @@ def get_gcs_os_from_trainer(trainer: Trainer) -> GCSObjectStore:
     assert trainer._checkpoint_saver.remote_uploader is not None
     gcs_os = trainer._checkpoint_saver.remote_uploader.remote_backend
     assert isinstance(gcs_os, GCSObjectStore)
-    return gcs_os
+    return gcs_os 
 
 
 @pytest.mark.gpu  # json auth is hard to set up on github actions / CPU tests
