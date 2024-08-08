@@ -77,13 +77,10 @@ jobs:
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
       composer_package_name: ${{ matrix.composer_package_name }}
-      pytest-wandb-entity: "mosaicml-public-integration-tests"
-      pytest-wandb-project: "integration-tests-${{ github.sha }}"
       safe_directory: composer
     secrets:
       aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      wandb-api-key: ${{ secrets.WANDB_API_KEY }}
       code-eval-device: ${{ secrets.CODE_EVAL_DEVICE }}
       code-eval-url: ${{ secrets.CODE_EVAL_URL }}
       code-eval-apikey: ${{ secrets.CODE_EVAL_APIKEY }}
