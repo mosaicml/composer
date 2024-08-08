@@ -25,6 +25,7 @@ def get_gcs_os_from_trainer(trainer: Trainer) -> GCSObjectStore:
 
 @pytest.mark.gpu  # json auth is hard to set up on github actions / CPU tests
 @pytest.mark.remote
+@pytest.mark.skip(reason='Waiting for new GCP key to be approved')
 def test_gs_object_store_integration_hmac_auth(expected_use_gcs_sdk_val=False, client_should_be_none=True):
     model = SimpleModel()
     train_dataset = RandomClassificationDataset()
@@ -34,7 +35,7 @@ def test_gs_object_store_integration_hmac_auth(expected_use_gcs_sdk_val=False, c
         model=model,
         optimizers=optimizer,
         train_dataloader=train_dataloader,
-        save_folder='gs://mosaicml-runtime-internal-integration-testing/checkpoints/{run_name}',
+        save_folder='gs://mosaicml-internal-integration-testing/checkpoints/{run_name}',
         save_filename='test-model.pt',
         max_duration='1ba',
         precision='amp_bf16',
@@ -53,7 +54,7 @@ def test_gs_object_store_integration_hmac_auth(expected_use_gcs_sdk_val=False, c
         model=model,
         optimizers=optimizer,
         train_dataloader=train_dataloader,
-        load_path=f'gs://mosaicml-runtime-internal-integration-testing/checkpoints/{run_name}/test-model.pt',
+        load_path=f'gs://mosaicml-internal-integration-testing/checkpoints/{run_name}/test-model.pt',
         max_duration='2ba',
         precision='amp_bf16',
     )
@@ -63,6 +64,7 @@ def test_gs_object_store_integration_hmac_auth(expected_use_gcs_sdk_val=False, c
 
 @pytest.mark.gpu
 @pytest.mark.remote
+@pytest.mark.skip(reason='Waiting for new GCP key to be approved')
 def test_gs_object_store_integration_json_auth():
     with mock.patch.dict(os.environ):
         if 'GCS_KEY' in os.environ:
