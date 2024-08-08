@@ -641,11 +641,11 @@ class State(Serializable):
                 raise ValueError(error_message)
 
         # Validate FSDP config parameters.
-        if self.fsdp_config and self.fsdp_config.activation_cpu_offload and not self.fsdp_config.use_orig_params:
+        if self.fsdp_config is not None and self.fsdp_config.activation_cpu_offload and not self.fsdp_config.use_orig_params:
             raise ValueError('activation_cpu_offload=True is not supported with use_orig_params=False.')
 
         # Validate FSDP state dict type
-        if self.fsdp_config.fsdp_state_dict_type not in [None, 'full', 'sharded']:
+        if self.fsdp_config is not None and self.fsdp_config.fsdp_state_dict_type not in [None, 'full', 'sharded']:
             if self.fsdp_config.fsdp_state_dict_type == 'local':
                 raise ValueError(
                     'Composer and PyTorch no longer support saving or loading local state dicts. '
