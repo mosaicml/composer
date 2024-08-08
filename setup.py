@@ -105,7 +105,7 @@ extra_deps['dev'] = [
     'junitparser==3.1.2',
     'coverage[toml]==7.6.0',
     'fasteners==0.18',  # object store tests require fasteners
-    'pytest==7.4.4',
+    'pytest==8.3.2',
     'ipython==8.11.0',
     'ipykernel==6.29.5',
     'jupyter==1.0.0',
