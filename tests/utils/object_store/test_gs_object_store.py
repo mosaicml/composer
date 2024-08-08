@@ -9,7 +9,6 @@ import pytest
 from botocore.exceptions import ClientError
 from torch.utils.data import DataLoader
 
-from composer.loggers import RemoteUploaderDownloader
 from composer.optim import DecoupledSGDW
 from composer.trainer import Trainer
 from composer.utils import GCSObjectStore
@@ -17,8 +16,9 @@ from tests.common import RandomClassificationDataset, SimpleModel
 
 
 def get_gcs_os_from_trainer(trainer: Trainer) -> GCSObjectStore:
-    rud = [dest for dest in trainer.logger.destinations if isinstance(dest, RemoteUploaderDownloader)][0]
-    gcs_os = rud.remote_backend
+    assert trainer._checkpoint_saver is not None
+    assert trainer._checkpoint_saver.remote_uploader is not None
+    gcs_os = trainer._checkpoint_saver.remote_uploader.remote_backend
     assert isinstance(gcs_os, GCSObjectStore)
     return gcs_os
 
