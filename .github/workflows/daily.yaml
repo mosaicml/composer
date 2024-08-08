@@ -4,7 +4,6 @@ on:
   - cron: "30 2 * * *"  # 2:30 every day
   push:
     branches:
-    - dev
     - main
     - release/**
   workflow_dispatch:
