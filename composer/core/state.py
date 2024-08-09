@@ -1437,7 +1437,8 @@ class State(Serializable):
                 # checkpoint on rank 0 only. However, PyTorch modifies the state_dict (producing
                 # errors) before discarding the output. Accordingly, we mock the state dict.
                 # See: https://github.com/pytorch/pytorch/issues/125177
-                optim_state_dict = MagicMock() if optim_state_dict is None else optim_state_dict
+                if version.parse(torch.__version__) < version.parse('2.4.0'):
+                    optim_state_dict = MagicMock() if optim_state_dict is None else optim_state_dict
                 set_optimizer_state_dict(
                     model=self.model,
                     optimizers=optimizer,
