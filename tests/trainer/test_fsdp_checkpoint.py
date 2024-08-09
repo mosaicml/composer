@@ -1151,7 +1151,10 @@ def test_fsdp_planner(
             # suffix all keys with `foo_``
             state_dict['state']['model'] = {k + '_foo': v for k, v in state_dict['state']['model'].items()}
 
-            super().set_up_planner(state_dict, is_coordinator)
+            super().set_up_planner(
+                state_dict=state_dict,
+                is_coordinator=is_coordinator,
+            )
 
     class RenameLoadPlanner(DefaultLoadPlanner):
 
@@ -1162,7 +1165,11 @@ def test_fsdp_planner(
             is_coordinator: bool,
         ) -> None:
             if 'state' not in state_dict:
-                super().set_up_planner(state_dict, metadata, is_coordinator)
+                super().set_up_planner(
+                    state_dict=state_dict,
+                    metadata=metadata,
+                    is_coordinator=is_coordinator,
+                )
                 return
 
             self.original_state_dict = state_dict
