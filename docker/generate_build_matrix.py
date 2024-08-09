@@ -43,7 +43,7 @@ def _get_cuda_version(pytorch_version: str, use_cuda: bool):
     if not use_cuda:
         return ''
     if pytorch_version == '2.4.0':
-        return '12.1.4'
+        return '12.4.0'
     if pytorch_version == '2.3.1':
         return '12.1.1'
     if pytorch_version == '2.2.2':
