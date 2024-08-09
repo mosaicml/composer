@@ -33,7 +33,7 @@ jobs:
           pytest_command: "coverage run -m pytest tests/test_docs.py"
     steps:
     - name: Run PR CPU Tests
-      uses: mosaicml/ci-testing/.github/actions/pytest-cpu@v0.1.0
+      uses: mosaicml/ci-testing/.github/actions/pytest-cpu@v0.1.2
       with:
         container: ${{ matrix.container }}
         name: ${{ matrix.name }}
