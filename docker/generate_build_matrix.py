@@ -35,8 +35,8 @@ def _get_torchvision_version(pytorch_version: str):
 def _get_base_image(cuda_version: str):
     if not cuda_version:
         return 'ubuntu:20.04'
-    if cuda_version == '12.5.1':
-        return f'nvidia/cuda:12.5.1-cudnn-devel-ubuntu20.04'
+    if cuda_version == '12.4.1':
+        return f'nvidia/cuda:12.4.1-cudnn-devel-ubuntu20.04'
     return f'nvidia/cuda:{cuda_version}-cudnn8-devel-ubuntu20.04'
 
 
@@ -45,7 +45,7 @@ def _get_cuda_version(pytorch_version: str, use_cuda: bool):
     if not use_cuda:
         return ''
     if pytorch_version == '2.4.0':
-        return '12.5.1'
+        return '12.4.1'
     if pytorch_version == '2.3.1':
         return '12.1.1'
     if pytorch_version == '2.2.2':
