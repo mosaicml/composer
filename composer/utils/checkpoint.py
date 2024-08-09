@@ -692,14 +692,19 @@ def load_sharded_checkpoint(
                 # Ensure state exists
                 state_dict['state'] = state_dict.get('state', {})
 
-            # dist_cp.load breaks unless the specified state_dict supports `load_state_dict`
-            # See: https://github.com/pytorch/pytorch/issues/125096
-            dist_cp.load_state_dict(
-                state_dict=state_dict,
-                storage_reader=storage_reader,
-                planner=state.fsdp_config.load_planner,
-                no_dist=(not dist.is_initialized()),
-            )
+            if version.parse(torch.__version__) >= version.parse('2.4.0'):
+                dist_cp.load(
+                    state_dict=state_dict,
+                    storage_reader=storage_reader,
+                    planner=state.fsdp_config.load_planner,
+                )
+            else:
+                dist_cp.load_state_dict(
+                    state_dict=state_dict,
+                    storage_reader=storage_reader,
+                    planner=state.fsdp_config.load_planner,
+                    no_dist=(not dist.is_initialized()),
+                )
 
             log.info(f'Loaded state dict')
             state.load_state_dict(
@@ -1158,7 +1163,8 @@ def _save_checkpoint(
         if expect_file:
             if version.parse(torch.__version__) >= version.parse('2.3.0'):
                 save_planner = state.fsdp_config.save_planner
-                if save_planner is None:
+                if version.parse(torch.__version__) < version.parse('2.4.0') and save_planner is None:
+                    # Dedup is only broken on <2.4
                     from composer.trainer._patch_pytorch import SavePlannerWithDedupFix
 
                     save_planner = SavePlannerWithDedupFix()

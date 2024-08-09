@@ -133,6 +133,12 @@ def patch_pytorch():
         _MeshEnv.create_child_mesh = create_child_mesh
         DeviceMesh.__getitem__ = device_mesh__getitem__
 
+    elif version.parse(torch.__version__) < version.parse('2.4.1'):
+        # Monkey patch for torch < 2.4.1 ie torch == 2.4.0
+
+        # No monkeypatches!
+        pass
+
 
 def build_metadata(
     self,
