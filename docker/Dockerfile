@@ -189,9 +189,15 @@ ENV PYTORCH_NIGHTLY_VERSION=${PYTORCH_NIGHTLY_VERSION}
 
 RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
       CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
+      if [ "${PYTORCH_VERSION}" != "2.4.0" ]; then \
         pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
             torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
             torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} ; \
+      else \
+        pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/${CUDA_VERSION} \
+            torch \
+            torchvision ; \
+      fi ; \
     else \
         pip${PYTHON_VERSION} install --no-cache-dir --pre --index-url ${PYTORCH_NIGHTLY_URL} \
             torch==${PYTORCH_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
