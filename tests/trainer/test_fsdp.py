@@ -1,13 +1,14 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from unittest.mock import MagicMock
+import copy
+from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
 from packaging import version
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import CheckpointWrapper
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 from composer.models import ComposerClassifier, ComposerModel
 from composer.trainer.trainer import Trainer, _fsdp_reshard_and_cleanup
@@ -206,6 +207,131 @@ def test_fsdp_prefetch_limit(forward_prefetch_limit: int, backward_prefetch_limi
     trainer.fit()
 
 
+class SimpleDatasetForAuto(Dataset):
+
+    def __init__(self, size: int = 256, feature_size: int = 1, num_classes: int = 2):
+        self.size = size
+        self.feature_size = feature_size
+        self.num_classes = num_classes
+        self.x = None
+        self.y = None
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, index: int):
+        # Note: lazily generate data so it runs after Composer seeds everything, giving the same
+        # dataset across multiple calls when using the same seed.
+        if self.x is None:
+            self.x = torch.randn(self.size, self.feature_size)
+        if self.y is None:
+            self.y = torch.randint(0, self.num_classes, size=(self.size,), dtype=torch.long)
+        return self.x[index]
+
+
+class SimpleMLPForTestingOOM(ComposerModel):
+
+    def __init__(self, num_features: int = 128, device: str = 'cuda'):
+        super().__init__()
+        self.device = device
+        self.fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.fc3 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.rank = dist.get_global_rank()
+        self.iter = 0
+
+    def forward(self, x):
+        x = self.fc1(x)
+        if self.rank == 0 and x.shape[0] >= 64:
+            raise RuntimeError('CUDA out of memory')
+        x = self.fc2(x)
+        x = self.fc3(x)
+        self.iter += 1
+        return x
+
+    def loss(self, outputs, batch):
+        return torch.sum(outputs)
+
+
+@pytest.mark.gpu
+@pytest.mark.filterwarnings("ignore:`device_train_microbatch_size='auto'` may potentially fail with unexpected.*")
+@pytest.mark.filterwarnings('ignore:CUDA out of memory*')
+@world_size(2)
+def test_automicrobatching_fsdp(world_size: int):
+    model = SimpleMLPForTestingOOM()
+    model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    dataset = SimpleDatasetForAuto(size=256, feature_size=128)
+    train_dataloader = DataLoader(dataset, batch_size=64, sampler=dist.get_sampler(dataset))
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        fsdp_config={
+            'forward_prefetch_limit': 1,
+            'backward_prefetch_limit': 1,
+        },
+        max_duration='1ba',
+        device='gpu',
+        device_train_microbatch_size='auto',
+        dist_timeout=20,
+    )
+    trainer.fit()
+
+
+class SimpleMLPForTestingHooks(ComposerModel):
+
+    def __init__(self, num_features: int = 128, device: str = 'cuda'):
+        super().__init__()
+        self.device = device
+        self.fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.fc3 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.rank = dist.get_global_rank()
+        self.iter = 0
+
+    def forward(self, x):
+        x = self.fc1(x)
+        if self.iter == 3 and x.shape[0] >= 64:
+            raise RuntimeError('CUDA out of memory')
+        x = self.fc2(x)
+        x = self.fc3(x)
+        self.iter += 1
+        return x
+
+    def loss(self, outputs, batch):
+        return torch.sum(outputs)
+
+
+@pytest.mark.gpu
+@pytest.mark.filterwarnings("ignore:`device_train_microbatch_size='auto'` may potentially fail with unexpected.*")
+@pytest.mark.filterwarnings('ignore:CUDA out of memory*')
+@world_size(2)
+def test_fsdp_automicrobatching_sync_hooks(world_size: int):
+    model = SimpleMLPForTestingHooks()
+    model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    dataset = SimpleDatasetForAuto(size=256, feature_size=128)
+    train_dataloader = DataLoader(dataset, batch_size=64, sampler=dist.get_sampler(dataset))
+
+    with patch('composer.trainer.trainer._readd_fsdp_sync_hooks') as mock_readd_hooks:
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            fsdp_config={
+                'forward_prefetch_limit': 1,
+                'backward_prefetch_limit': 1,
+            },
+            max_duration='4ba',
+            device='gpu',
+            device_train_microbatch_size='auto',
+            dist_timeout=20,
+        )
+        trainer.fit()
+
+        # OOM occurs during the 4th batch, so check that sync hooks were readded at the end
+        mock_readd_hooks.assert_called_once()
+
+
 @pytest.mark.gpu
 @world_size(2)
 @pytest.mark.filterwarnings('ignore:Instantiating FSDP with custom process groups.*:UserWarning')
@@ -232,6 +358,62 @@ def test_fsdp_process_group(world_size: int):
     )
 
     trainer.fit()
+
+
+@pytest.mark.gpu
+@world_size(2)
+@pytest.mark.skipif(
+    version.parse(torch.__version__) < version.parse('2'),
+    reason='FSDP use_orig_params requires torch 2.0 or higher',
+)
+def test_fsdp_subset_of_params_in_opt(world_size: int):
+    model = SimpleModel()
+    dataset = RandomClassificationDataset(size=10)
+    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
+    optimizer = torch.optim.SGD(model.fc1.parameters(), lr=0.01)
+    unwrapped_optimizer = copy.deepcopy(optimizer)
+
+    trainer = Trainer(
+        model=model,
+        optimizers=optimizer,
+        train_dataloader=dataloader,
+        parallelism_config={
+            'fsdp': {
+                'use_orig_params': True,
+            },
+        },
+        max_duration='3ba',
+    )
+
+    with trainer.state.model.module.summon_full_params(trainer.state.model.module):
+        nb_parameters_before_fsdp = len(unwrapped_optimizer.param_groups[0]['params'])
+        nb_parameters_after_fsdp = len(trainer.state.optimizers[0].param_groups[0]['params'])
+
+        assert nb_parameters_before_fsdp == nb_parameters_after_fsdp
+
+
+@pytest.mark.gpu
+@world_size(2)
+def test_fsdp_subset_of_params_in_opt_without_orig_params(world_size: int):
+    model = SimpleModel()
+    dataset = RandomClassificationDataset(size=10)
+    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
+    optimizer = torch.optim.SGD(model.fc1.parameters(), lr=0.01)
+
+    expected_error = 'Passing in a subset of model parameters to the optimizer is not supported with use_orig_params=False.'
+
+    with pytest.raises(ValueError, match=expected_error):
+        _ = Trainer(
+            model=model,
+            optimizers=optimizer,
+            train_dataloader=dataloader,
+            parallelism_config={
+                'fsdp': {
+                    'use_orig_params': False,
+                },
+            },
+            max_duration='3ba',
+        )
 
 
 class SimpleMLP(ComposerModel):
@@ -437,6 +619,28 @@ def test_fsdp_shard(world_size: int):
         }},
         max_duration='3ba',
     )
+
+
+@pytest.mark.gpu
+@world_size(2)
+def test_fsdp_invalid_config_throws_error(world_size: int):
+    model = SimpleModel()
+    model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+
+    expected_error = 'activation_cpu_offload=True is not supported with use_orig_params=False.'
+
+    with pytest.raises(ValueError, match=expected_error):
+        _ = Trainer(
+            model=model,
+            parallelism_config={
+                'fsdp': {
+                    'use_orig_params': False,
+                    'activation_cpu_offload': True,
+                },
+            },
+            max_duration='3ba',
+        )
 
 
 @pytest.mark.gpu

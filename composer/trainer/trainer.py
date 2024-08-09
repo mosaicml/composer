@@ -24,6 +24,7 @@ from typing import (
     Any,
     Callable,
     ContextManager,
+    Dict,
     Iterable,
     Mapping,
     Optional,
@@ -75,6 +76,7 @@ from composer.core import (
     ensure_time,
     get_precision_context,
 )
+from composer.core.precision import _validate_precision
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.distributed import (
     DDPSyncStrategy,
@@ -99,7 +101,7 @@ from composer.loggers.mosaicml_logger import MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSA
 from composer.models import ComposerModel
 from composer.optim import ComposerScheduler, DecoupledSGDW, compile_composer_scheduler
 from composer.profiler import Profiler
-from composer.trainer._patch_pytorch import patch_pytorch
+from composer.trainer._patch_pytorch import patch_pytorch, patch_unshard_for_automicrobatching
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.utils import (
@@ -144,6 +146,8 @@ __all__ = ['Trainer']
 
 # syntax to shorten the Scheduler type annotations
 Scheduler = Union[ComposerScheduler, LRScheduler]
+
+OOM_FOUND_ON_OTHER_RANK = 'CUDA out of memory encountered on a different rank'
 
 
 def _raise_missing_argument_exception(arg_name: str):
@@ -196,11 +200,6 @@ def _filter_metrics(metrics: dict[str, Metric], metric_names: Optional[list[str]
         if any(re.match(f'.*{metric_name}.*', name, re.IGNORECASE) for metric_name in metric_names):
             filtered_metrics[name] = metric
     return filtered_metrics
-
-
-def _validate_precision(precision: Precision, device: Device):
-    if isinstance(device, DeviceCPU) and precision != Precision.FP32:
-        raise ValueError(f'{precision} is not supported for CPU training.')
 
 
 def _compile_schedulers(
@@ -338,6 +337,25 @@ def _fsdp_reshard_and_cleanup(model: torch.nn.Module):
                 _post_backward_final_callback(module, module)
 
 
+def _clear_incomplete_train_states(state: State):
+    """Manually clear gradients when automicrobatching reruns a batch.
+
+    Before automicrobatching tries a lower microbatch size, clear the
+    training states and memory of the previous run of the batch to reset the memory to
+    before the batch was run.
+    """
+    if hasattr(state, 'outputs'):
+        del state.outputs
+    if hasattr(state, 'loss'):
+        del state.loss
+    for optimizer in state.optimizers:
+        optimizer.zero_grad(set_to_none=True)
+    if state.scaler is not None:
+        state.scaler._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
+    _fsdp_reshard_and_cleanup(state.model)
+    torch.cuda.empty_cache()
+
+
 def _adjust_device_train_microbatch_size(state: State):
     """Adjust device_train_microbatch_size if we encounter OOM.
 
@@ -349,7 +367,7 @@ def _adjust_device_train_microbatch_size(state: State):
     assert state.device_train_microbatch_size is not None
     if state.device_train_microbatch_size == 1:
         raise RuntimeError((
-            'CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
+            'CUDA out of memory or excessive memory allocation retries detected. The train loop failed with an internal microbatch of size 1.'
             'The GPU does not have enough memory to process even 1 sample during train.'
         ))
     else:
@@ -357,21 +375,12 @@ def _adjust_device_train_microbatch_size(state: State):
         state.device_train_microbatch_size = max(int(original_microbatch_size / 2), 1)
         warnings.warn(
             RuntimeWarning(
-                'CUDA out of memory detected. Train microbatch size will be decreased from '
+                'CUDA out of memory or excessive memory allocation retries detected. Train microbatch size will be decreased from '
                 f'{original_microbatch_size} -> {state.device_train_microbatch_size}.',
             ),
         )
     # Clear gradients in case failure happened during backwards pass
-    if hasattr(state, 'outputs'):
-        del state.outputs
-    if hasattr(state, 'loss'):
-        del state.loss
-    for optimizer in state.optimizers:
-        optimizer.zero_grad(set_to_none=True)
-    if state.scaler is not None:
-        state.scaler._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
-    _fsdp_reshard_and_cleanup(state.model)
-    torch.cuda.empty_cache()
+    _clear_incomplete_train_states(state)
 
 
 def _adjust_device_eval_microbatch_size(evaluator: Evaluator):
@@ -398,6 +407,75 @@ def _adjust_device_eval_microbatch_size(evaluator: Evaluator):
             ),
         )
     torch.cuda.empty_cache()
+
+
+def _update_num_consecutive_thrashes(state: State, num_consecutive_thrashes: int, num_alloc_retries: int):
+    """Update the number of consecutive batches where we experienced alloc retries.
+
+    Consecutive alloc retries in GPU memory usually indicate thrashing, where GPU memory usage is so close
+    to the memory limit that it hinders throughput.
+    """
+    # Check for alloc retries between batches
+    stats = torch.cuda.memory_stats()
+    cur_num_alloc_retries = stats['num_alloc_retries']
+
+    if cur_num_alloc_retries - num_alloc_retries > 0:
+        alloc_retry_this_batch = 1
+        log.info('Found new alloc retries this batch: ' + str(num_alloc_retries) + ' to ' + str(cur_num_alloc_retries))
+    else:
+        alloc_retry_this_batch = 0
+
+    # Propagate across all ranks if any rank had alloc retries this batch
+    alloc_retry_tensor = state.device.tensor_to_device(torch.tensor([alloc_retry_this_batch], dtype=torch.uint8),)
+    dist.all_reduce(alloc_retry_tensor, reduce_operation='MAX')
+    alloc_retry_this_batch = alloc_retry_tensor.item() == 1
+    if alloc_retry_this_batch:
+        num_consecutive_thrashes += 1
+    else:
+        num_consecutive_thrashes = 0
+    return num_consecutive_thrashes
+
+
+def _create_sync_hook(state: State):
+    """Check if other ranks OOMed after forward/backward pass when using auto microbatching.
+
+    This may happen when close to memory limit or with uneven memory usage across ranks. Since we
+    need to do this before the model weights are gathered for the next FSDP block, we wrap every
+    FSPD block with a hook that checks if any other rank OOMed.
+
+    This wrapper method is needed because PyTorch FSDP doesn't take `state` as an argument in hooks
+    that are registered using methods such as `register_forward_pre_hook`.
+    """
+
+    def sync_hook(*args):
+        # Check if any other rank hit an OOM
+        found_cuda_oom_tensor = state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+        dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
+        found_cuda_oom = found_cuda_oom_tensor.item()
+        # Signal current rank is still in batch
+        all_ranks_finished_tensor = state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+        dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
+
+        if found_cuda_oom == 1:
+            raise RuntimeError()
+
+    return sync_hook
+
+
+def _readd_fsdp_sync_hooks(fsdp_modules: Dict[str, torch.nn.Module], sync_hook):
+    """Readds previously removed sync hooks back to FSDP modules.
+
+    Called when preparing to search for or searching for new microbatch size during automicrobatching.
+    """
+    automicrobatch_fsdp_hook_handles = []
+    patch_unshard_for_automicrobatching(auto_microbatch_size_found=False)
+    for module in fsdp_modules.values():
+        if isinstance(module, FullyShardedDataParallel):
+            automicrobatch_fsdp_hook_handles.append(module.register_forward_pre_hook(sync_hook, prepend=True))
+            automicrobatch_fsdp_hook_handles.append(module.register_full_backward_pre_hook(sync_hook, prepend=True))
+        else:
+            automicrobatch_fsdp_hook_handles.append(module.register_full_backward_hook(sync_hook))
+    return automicrobatch_fsdp_hook_handles
 
 
 def _validate_evaluator(evaluator: Evaluator, device: Device):
@@ -897,7 +975,7 @@ class Trainer:
             (default: ``False``)
         autoresume (bool, optional): Whether or not to enable autoresume, which allows for stopping and resuming
             training. This allows use of spot instances, as the training run is now fault tolerant.  This parameter
-            requires ``save_folder`` and ``run_name`` to be specified and ``save_overwrite`` to be ``False``.
+            requires ``save_folder`` and ``run_name`` to be specified.
             (default: ``False``)
 
             When enabled, the save_folder is checked for checkpoints of the format ``"{save_folder}/{save_latest_filename}"``,
@@ -1106,6 +1184,17 @@ class Trainer:
         # compile config for PyTorch 2.0 or higher
         compile_config: Optional[dict[str, Any]] = None,
     ):
+        if deepspeed_config is not None:
+            warnings.warn(
+                VersionedDeprecationWarning(
+                    'The use of DeepSpeed for training new models in Composer is deprecated. Composer is tightly integrated with PyTorch FSDP '
+                    +
+                    'which provides similar functionality. Please use the `parallelism_config` parameter instead. Please open '
+                    + 'a GitHub issue if you need help migrating from DeepSpeed to FSDP.',
+                    remove_version='0.28.0',
+                ),
+            )
+
         self.auto_log_hparams = auto_log_hparams
         self.python_log_level = python_log_level
         if self.python_log_level is not None:
@@ -1167,6 +1256,11 @@ class Trainer:
             raise ValueError(
                 '`Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
             )
+
+        # Automicrobatching
+        self.cumulative_alloc_retries = 0
+        self.num_consecutive_thrashes = 0
+        self.num_consecutive_non_OOM_batches = 0
 
         if auto_microbatching and profiler:
             raise ValueError(
@@ -1251,6 +1345,8 @@ class Trainer:
         if parallelism_config is not None:
             # Patch PyTorch to fix distributed bugs
             patch_pytorch()
+            if auto_microbatching:
+                patch_unshard_for_automicrobatching(auto_microbatch_size_found=False)
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, device)
@@ -1661,6 +1757,7 @@ class Trainer:
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 prepare_tp_module(
                     model,
+                    optimizers,
                     self.state.tp_config,
                 )
 
@@ -1668,7 +1765,7 @@ class Trainer:
         if self.state.fsdp_config is not None and self.state.fsdp_config.auto_wrap and not self.state.load_monolith_rank0_only:
             # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
-                prepare_fsdp_module(
+                self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
                     model,
                     optimizers,
                     self.state.fsdp_config,
@@ -1829,6 +1926,7 @@ class Trainer:
                 algorithm_passes=self.engine.algorithm_passes,
             )
             self.state.run_name = run_name
+            self.state.load_path = load_path
 
         # FSDP wrap if model is not yet wrapped and FSDP is enabled. This can happen if
         # load_monolith_rank0_only=True but no checkpoint was loaded.
@@ -1838,7 +1936,14 @@ class Trainer:
         ):
             # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
-                prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
+                self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
+                    model,
+                    optimizers,
+                    self.state.fsdp_config,
+                    precision,
+                    device,
+                    auto_microbatching,
+                )
 
         self.engine.run_event(Event.AFTER_LOAD)
 
@@ -2735,6 +2840,12 @@ class Trainer:
         # Any in-place changes to a microbatch will be reflected in the device batch.
         device_batch = self.state.batch
 
+        # Define sync hook for FSDP modules if automicrobatching is on
+        sync_hook = _create_sync_hook(self.state)
+
+        original_microbatch_size = self.state.device_train_microbatch_size
+        oom_found_this_batch = False
+
         # Retry until we successfully complete training and return loss
         while True:
             # Reset train_metrics on every batch
@@ -2773,7 +2884,10 @@ class Trainer:
                             else:
                                 optimizer.step()
             except RuntimeError as e:
-                if self.state.auto_microbatching and _is_cuda_oom(e):
+                if self.state.auto_microbatching and str(e) == OOM_FOUND_ON_OTHER_RANK:
+                    log.debug((f"A Different Rank OOM'd."))
+                    found_cuda_oom = 1
+                elif self.state.auto_microbatching and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     found_cuda_oom = 1
                 elif self.state.auto_microbatching and ('cuda' in str(e).lower() or 'c10' in str(e).lower()):
@@ -2801,11 +2915,54 @@ class Trainer:
                     dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
                     all_ranks_finished = all_ranks_finished_tensor.item() == 1
                 if found_cuda_oom == 1:
+                    # Readd sync hooks if they were previously turned off
+                    if self.state.fsdp_enabled and len(self.state.automicrobatch_fsdp_hook_handles) == 0:
+                        self.state.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(
+                            self.state.fsdp_modules,
+                            sync_hook,
+                        )
                     _adjust_device_train_microbatch_size(self.state)
+                    self.num_consecutive_thrashes = 0
+                    self.num_consecutive_non_OOM_batches = 0
+                    oom_found_this_batch = True
                     # Skip return and rerun after handling oom
                     continue
+                if not oom_found_this_batch and torch.cuda.is_available():
+                    # Sync across all ranks to check if any rank had additional alloc retries this batch
+                    self.num_consecutive_thrashes = _update_num_consecutive_thrashes(
+                        self.state,
+                        self.num_consecutive_thrashes,
+                        self.cumulative_alloc_retries,
+                    )
+                if self.num_consecutive_thrashes >= 2:
+                    # Readd sync hooks if they were previously turned off
+                    if self.state.fsdp_enabled and len(self.state.automicrobatch_fsdp_hook_handles) == 0:
+                        self.state.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(
+                            self.state.fsdp_modules,
+                            sync_hook,
+                        )
+                    _adjust_device_train_microbatch_size(self.state)
+                    self.num_consecutive_thrashes = 0
+                    continue
+
             # Log microbatch and return loss if we've completed without OOMing.
             assert self.state.device_train_microbatch_size is not None
+            if original_microbatch_size != self.state.device_train_microbatch_size:
+                log.info(
+                    'Automicrobatching changed the microbatch size from '
+                    f'{original_microbatch_size} -> {self.state.device_train_microbatch_size}.',
+                )
+            self.num_consecutive_non_OOM_batches += 1
+            if self.state.fsdp_enabled and len(
+                self.state.automicrobatch_fsdp_hook_handles,
+            ) > 0 and self.num_consecutive_non_OOM_batches >= 3:
+                patch_unshard_for_automicrobatching(auto_microbatch_size_found=True)
+                for handle in self.state.automicrobatch_fsdp_hook_handles:
+                    handle.remove()
+                self.state.automicrobatch_fsdp_hook_handles.clear()
+            if torch.cuda.is_available():
+                memory_stats = torch.cuda.memory_stats()
+                self.cumulative_alloc_retries = memory_stats['num_alloc_retries']
             self.logger.log_metrics({'trainer/device_train_microbatch_size': self.state.device_train_microbatch_size})
             self.first_batch_complete = True
             return total_loss_dict
@@ -2976,7 +3133,7 @@ class Trainer:
                 dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
 
                 if found_cuda_oom == 1:
-                    raise RuntimeError('CUDA out of memory encountered on a different rank')
+                    raise RuntimeError(OOM_FOUND_ON_OTHER_RANK)
 
             # Loss
             self.engine.run_event(Event.BEFORE_LOSS)
@@ -3599,6 +3756,13 @@ class Trainer:
         self.state.set_dataloader(original_dataloader, original_dataloader_label)
         if original_num_batches is not None:
             self.state.dataloader_len = original_num_batches
+
+        # If training occurs after evaluation, readd hooks in case of memory spike
+        if self.state.auto_microbatching:
+            sync_hook = _create_sync_hook(self.state)
+            if self.state.fsdp_enabled and len(self.state.automicrobatch_fsdp_hook_handles) == 0:
+                self.state.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(self.state.fsdp_modules, sync_hook)
+            self.num_consecutive_non_OOM_batches = 0
 
     def _use_grad_scaling(self, precision: Union[str, Precision], scaler: Optional[GradScaler]) -> bool:
         """Determines based on precision when to use grad scaling.
