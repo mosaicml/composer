@@ -88,7 +88,7 @@ reportUnusedCoroutine = "error"
 # Pytest
 [tool.pytest.ini_options]
 # By default, do not run gpu, vision, docs, notebook, or daily tests
-addopts = "--codeblocks --strict-markers -m 'not gpu and not doctest and not daily and not remote'"
+addopts = "--codeblocks --strict-markers -m 'not gpu and not doctest and not daily and not remote' --color=yes"
 
 markers = [
     # Tests that require a world_size of two should be annotated with `@pytest.mark.world_size(2)`.
@@ -160,6 +160,10 @@ filterwarnings = [
     '''ignore:.*an autograd kernel was not registered to the Autograd key.*:UserWarning''',
     # Ignore save_state_dict / load_state_dict deprecation warnings
     '''ignore:'.*_state_dict' is deprecated and will be removed in future versions.*:UserWarning''',
+    # Ignore mlflow warnings about transformers versions,
+    '''ignore:The 'transformers' MLflow Models integration.*:UserWarning''',
+    # Ignore our own deprecation warnings,
+    '''ignore::composer.utils.warnings.VersionedDeprecationWarning''',
 ]
 
 # Coverage

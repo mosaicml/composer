@@ -2,7 +2,6 @@ name: PR Docker
 on:
   pull_request:
     branches:
-    - dev
     - main
     - release/**
     paths:

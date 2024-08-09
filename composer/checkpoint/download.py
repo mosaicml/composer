@@ -40,10 +40,11 @@ def download_file(
     if node_ranks is not None and node_rank not in node_ranks:
         return
 
+    if source_uri.endswith('.symlink'):
+        source_path = download_and_extract_symlink(source_uri)
+
     object_store = maybe_create_object_store_from_uri(source_uri)
     _, _, source_path = parse_uri(source_uri)
-    if source_uri.endswith('.symlink'):
-        source_path = extract_path_from_symlink(source_path, object_store)
     assert object_store is not None
 
     @retry(num_attempts=num_attempts)
@@ -56,6 +57,21 @@ def download_file(
     log.debug(f'Downloading {source_path} to {destination_path}')
     _download()
     log.debug(f'Finished downloading {source_path} to {destination_path}')
+
+
+def download_and_extract_symlink(source_uri) -> str:
+    """Downloads a symlink file from the specified URI and returns the path it points to.
+
+    Args:
+        source_uri (str): The URI to download the symlink from.
+
+    Returns:
+        str: The path the symlink points to.
+    """
+    object_store = maybe_create_object_store_from_uri(source_uri)
+    _, _, source_path = parse_uri(source_uri)
+    source_path = extract_path_from_symlink(source_path, object_store)
+    return source_path
 
 
 def download_monolithic_checkpoint(

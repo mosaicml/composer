@@ -172,7 +172,7 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
     rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} - && \
-    pip${PYTHON_VERSION} install --no-cache-dir --upgrade 'pip<23' 'setuptools<70.0.0'
+    pip${PYTHON_VERSION} install --no-cache-dir --upgrade pip 'setuptools<70.0.0'
 
 #################
 # Install Pytorch
@@ -261,7 +261,7 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
 RUN if [ -n "$CUDA_VERSION" ] ; then \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir ninja==1.11.1 && \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir --force-reinstall packaging==22.0 && \
-        MAX_JOBS=1 pip${PYTHON_VERSION} install --no-cache-dir --no-build-isolation flash-attn==2.5.8; \
+        MAX_JOBS=1 pip${PYTHON_VERSION} install --no-cache-dir --no-build-isolation flash-attn==2.6.2; \
         cd .. ; \
     fi
 
