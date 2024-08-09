@@ -200,7 +200,11 @@ class WandBLogger(LoggerDestination):
         if self._enabled:
             wandb.init(**self._init_kwargs)
             assert wandb.run is not None, 'The wandb run is set after init'
-            entity_and_project = [str(wandb.run.entity), str(wandb.run.project)]
+            if hasattr(wandb.run, 'entity') and hasattr(wandb.run, 'project'):
+                entity_and_project = [str(wandb.run.entity), str(wandb.run.project)]
+            else:
+                # Run does not have attribtues if wandb is in disabled mode, so we must mock it
+                entity_and_project = ['disabled', 'disabled']
             self.run_dir = wandb.run.dir
             self.run_url = wandb.run.get_url()
             atexit.register(self._set_is_in_atexit)

@@ -623,6 +623,28 @@ def test_fsdp_shard(world_size: int):
 
 @pytest.mark.gpu
 @world_size(2)
+def test_fsdp_invalid_config_throws_error(world_size: int):
+    model = SimpleModel()
+    model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+
+    expected_error = 'activation_cpu_offload=True is not supported with use_orig_params=False.'
+
+    with pytest.raises(ValueError, match=expected_error):
+        _ = Trainer(
+            model=model,
+            parallelism_config={
+                'fsdp': {
+                    'use_orig_params': False,
+                    'activation_cpu_offload': True,
+                },
+            },
+            max_duration='3ba',
+        )
+
+
+@pytest.mark.gpu
+@world_size(2)
 def test_fsdp_shard_and_replicate(world_size: int):
     model = SimpleModel()
     model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
