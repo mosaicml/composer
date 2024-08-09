@@ -979,7 +979,9 @@ class State(Serializable):
         Returns:
             dict[str, Any]: The state dict for the model.
         """
-        if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
+        if version.parse(torch.__version__) >= version.parse('2.4.0') or (
+            version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized()
+        ):
             from torch.distributed.checkpoint.state_dict import StateDictOptions, get_model_state_dict
             if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
                 raise NotImplementedError(
@@ -1017,7 +1019,9 @@ class State(Serializable):
         Returns:
             dict[str, Any]: The state dict for the optimizer.
         """
-        if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
+        if version.parse(torch.__version__) >= version.parse('2.4.0') or (
+            version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized()
+        ):
             from torch.distributed.checkpoint.state_dict import StateDictOptions, get_optimizer_state_dict
             if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
                 raise NotImplementedError(
@@ -1327,7 +1331,9 @@ class State(Serializable):
         model_on_rank = state_dict['model'] is not None
 
         if model_on_rank:
-            if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
+            if version.parse(torch.__version__) >= version.parse('2.4.0') or (
+                version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized()
+            ):
                 from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
                 try:
                     set_model_state_dict(
@@ -1430,7 +1436,9 @@ class State(Serializable):
                 continue
 
             optim_state_dict = serialized_value[type(optimizer).__qualname__] if serialized_value is not None else None
-            if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
+            if version.parse(torch.__version__) >= version.parse('2.4.0') or (
+                version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized()
+            ):
                 from torch.distributed.checkpoint.state_dict import StateDictOptions, set_optimizer_state_dict
 
                 # optim_state_dict is `None` on non-zero ranks when loading FSDP monolith

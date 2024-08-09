@@ -859,7 +859,7 @@ def test_fsdp_partitioned_state_dict_load(
         run_name = None
 
     if use_remote:
-        save_folder = f's3://{s3_bucket}/{s3_ephemeral_prefix}/checkpoints/{{run_name}}'f
+        save_folder = f's3://{s3_bucket}/{s3_ephemeral_prefix}/checkpoints/{{run_name}}'
     else:
         tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
         save_folder = os.path.join(tmp_paths[0], 'checkpoints', '{run_name}')
