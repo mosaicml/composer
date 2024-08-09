@@ -33,9 +33,6 @@ jobs:
           markers: "not daily and not remote and not gpu and doctest"
           pytest_command: "coverage run -m pytest tests/test_docs.py"
     steps:
-    - name: install
-      run: |
-        python -m pip install pyOpenSSL==24.2.1
     - name: Run PR CPU Tests
       uses: mosaicml/ci-testing/.github/actions/pytest-cpu@v0.1.2
       with:
