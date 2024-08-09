@@ -10,7 +10,7 @@ concurrency:
 jobs:
   pytest-cpu:
     name: ${{ matrix.name }}
-    runs-on: linux-ubuntu-latest
+    runs-on: mosaic-4wide
     if: github.repository_owner == 'mosaicml'
     strategy:
       matrix:
