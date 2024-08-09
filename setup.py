@@ -89,7 +89,7 @@ install_requires = [
     'tabulate==0.9.0',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<10',
     'packaging>=21.3.0,<24.2',
-    'importlib-metadata>=5.0.0,<7',
+    'importlib-metadata>=5.0.0,<9',
     'mosaicml-cli>=0.5.25,<0.7',
     'pillow>=10.3.0,<11',
 ]
@@ -179,13 +179,13 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,!=4.34.0,<4.43',
+    'transformers>=4.11,!=4.34.0,<4.44',
     'datasets>=2.4,<3',
-    'huggingface-hub>=0.21.2,<0.24',
+    'huggingface-hub>=0.21.2,<0.25',
 ]
 
 extra_deps['peft'] = [
-    'peft>=0.10.0,<0.12',
+    'peft>=0.10.0,<0.13',
 ]
 
 extra_deps['sentencepiece'] = [

@@ -528,6 +528,7 @@ class State(Serializable):
         self.predict_timestamp = Timestamp()
         self._precision = Precision(precision)
         self._precision_config = precision_config
+        self.load_path: Optional[str] = None
 
         if optimizers is None:
             self._optimizers = []
@@ -545,6 +546,9 @@ class State(Serializable):
         self.deepspeed_config = deepspeed_config
         self.fsdp_config = parallelism_config.fsdp if parallelism_config is not None else None
         self.tp_config = parallelism_config.tp if parallelism_config is not None else None
+
+        self.automicrobatch_fsdp_hook_handles = []
+        self.fsdp_modules = {}
 
         self._validate_parallelism_configs()
 
@@ -636,9 +640,13 @@ class State(Serializable):
             if error_message != '':
                 raise ValueError(error_message)
 
+        # Validate FSDP config parameters.
+        if self.fsdp_config is not None and self.fsdp_config.activation_cpu_offload and not self.fsdp_config.use_orig_params:
+            raise ValueError('activation_cpu_offload=True is not supported with use_orig_params=False.')
+
         # Validate FSDP state dict type
-        if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
-            if self.fsdp_state_dict_type == 'local':
+        if self.fsdp_config is not None and self.fsdp_config.state_dict_type not in [None, 'full', 'sharded']:
+            if self.fsdp_config.state_dict_type == 'local':
                 raise ValueError(
                     'Composer and PyTorch no longer support saving or loading local state dicts. '
                     'To upgrade an older checkpoint, use Composer version 0.18.1 and export as '
@@ -646,7 +654,7 @@ class State(Serializable):
                 )
             raise ValueError(
                 f'fsdp_state_dict_type must be one of [None, "full", "sharded"], but got '
-                f'{self.fsdp_state_dict_type}',
+                f'{self.fsdp_config.state_dict_type}',
             )
         if self.fsdp_sharded_state_dict_enabled and self.save_metrics:
             # Sharded state dict breaks in many different ways with torchmetrics, due to both sharding
@@ -1386,7 +1394,7 @@ class State(Serializable):
             with reproducibility.seed_context(self.rank_zero_seed):
                 from composer.distributed import prepare_fsdp_module
 
-                prepare_fsdp_module(
+                self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(
                     self.model,
                     self.optimizers,
                     self.fsdp_config,
