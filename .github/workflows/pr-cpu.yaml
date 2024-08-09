@@ -45,6 +45,7 @@ jobs:
         pytest_markers: ${{ matrix.markers }}
         safe_directory: composer
         composer_package_name: mosaicml
+        container: ${{ inputs.container }}
   coverage:
     uses: ./.github/workflows/coverage.yaml
     name: Coverage Results
