@@ -13,12 +13,12 @@ from typing import TYPE_CHECKING, Optional, OrderedDict
 
 import torch.cuda
 import torch.profiler
-from packaging import version
 from torch.profiler.profiler import ProfilerAction as TorchProfilerAction
 
 from composer.core.callback import Callback
 from composer.loggers import Logger
 from composer.profiler.profiler_action import ProfilerAction
+from composer.profiler.utils import export_memory_timeline_html
 from composer.utils import (
     FORMAT_NAME_WITH_DIST_AND_TIME_TABLE,
     FORMAT_NAME_WITH_DIST_TABLE,
@@ -27,7 +27,6 @@ from composer.utils import (
     format_name_with_dist,
     format_name_with_dist_and_time,
 )
-from composer.profiler.utils import export_memory_timeline_html
 
 if TYPE_CHECKING:
     from composer.core import State

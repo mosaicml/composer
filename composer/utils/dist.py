@@ -47,12 +47,8 @@ from typing import TYPE_CHECKING, Any, Optional, Sequence, TypeVar, Union, cast
 import torch
 import torch.distributed as dist
 import torch.utils.data
-from packaging import version
 
-from composer.utils.device import get_device, is_hpu_installed, is_xla_installed
-
-if is_xla_installed():
-    import torch_xla
+from composer.utils.device import get_device, is_hpu_installed
 
 if TYPE_CHECKING:
     from composer.devices import Device

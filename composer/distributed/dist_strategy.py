@@ -3,7 +3,6 @@
 
 """Helpers for running distributed data parallel training."""
 
-import collections
 import logging
 import warnings
 from contextlib import contextmanager, nullcontext
@@ -15,18 +14,17 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     CheckpointImpl,
     apply_activation_checkpointing,
     checkpoint_wrapper,
+    offload_wrapper,
 )
-from torch.distributed.fsdp.wrap import CustomPolicy
-from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import offload_wrapper
 from torch.distributed.fsdp import FullyShardedDataParallel, ShardingStrategy
 from torch.distributed.fsdp._common_utils import clean_tensor_name
+from torch.distributed.fsdp.wrap import CustomPolicy
 from torch.nn.parallel import DistributedDataParallel
 from torchmetrics import Metric, MetricCollection
 
 from composer.core import Precision, State
 from composer.core.precision import _validate_precision
 from composer.devices import Device, DeviceGPU
-from composer.distributed.meta_safe_apply import meta_safe_apply
 from composer.distributed.mosaic_parallelism import (
     BACKWARD_PREFETCH_MAP,
     SHARDING_MAP,
@@ -431,7 +429,7 @@ def prepare_fsdp_module(
                 # It is assumed that whatever process moved the parameters off of meta device initialized them.
                 # We expect this to occur if we have tied weights, as the second module will already have the weights initialized.
                 is_meta = any(param.is_meta for param in module.parameters(recurse=False)
-                                ) or any(buffer.is_meta for buffer in module.buffers(recurse=False))
+                             ) or any(buffer.is_meta for buffer in module.buffers(recurse=False))
                 if not is_meta:
                     return
 
@@ -543,9 +541,7 @@ def prepare_fsdp_module(
                         try:
                             import transformer_engine.pytorch as te
                         except ModuleNotFoundError:
-                            raise ModuleNotFoundError(
-                                'Please install transformer-engine to use TE checkpoint wrapper',
-                            )
+                            raise ModuleNotFoundError('Please install transformer-engine to use TE checkpoint wrapper',)
 
                         # RNG state tracker for checkpointing
                         CUDA_RNG_STATES_TRACKER = te.distributed.CudaRNGStatesTracker()

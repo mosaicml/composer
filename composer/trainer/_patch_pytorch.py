@@ -11,7 +11,6 @@
 """PyTorch, especially PyTorch Distributed, monkeypatches."""
 
 import logging
-import math
 import functools
 import contextlib
 from dataclasses import asdict
@@ -20,16 +19,9 @@ from typing import Any, Callable, Dict, Iterable, List, Generator, Optional, Set
 
 
 import torch
-import torch.distributed._shard.sharded_tensor.metadata as sharded_tensor_meta
-from torch.distributed._shard.sharding_spec import ChunkShardingSpec
 import torch.nn as nn
-import torch.nn.functional as F
 from packaging import version
-from torch.distributed._shard.sharding_spec import ShardMetadata
-from torch.distributed._shard.sharding_spec._internals import get_chunked_dim_size, get_split_size
 from torch.distributed.fsdp import FullyShardedDataParallel, ShardingStrategy
-from torch.distributed.fsdp._fsdp_extensions import _ext_pre_load_state_dict_transform
-from torch.distributed.utils import _replace_by_prefix
 
 from composer.utils import dist
 

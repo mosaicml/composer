@@ -8,7 +8,6 @@ import warnings
 from typing import Any, Union
 
 import torch
-from packaging import version
 from torch import distributed
 from torch.distributed import ProcessGroup
 from torch.distributed.fsdp import (

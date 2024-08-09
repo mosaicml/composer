@@ -9,7 +9,6 @@ import warnings
 from typing import Optional, Union
 
 import torch.cuda
-from packaging import version
 
 from composer import State
 from composer.core import Callback, State, Time, TimeUnit

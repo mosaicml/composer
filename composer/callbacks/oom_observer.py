@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Optional
 
 import torch.cuda
-from packaging import version
 
 from composer.core import Callback, State
 from composer.loggers import Logger
