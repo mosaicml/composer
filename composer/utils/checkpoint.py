@@ -1163,11 +1163,16 @@ def _save_checkpoint(
         if expect_file:
             if version.parse(torch.__version__) >= version.parse('2.3.0'):
                 save_planner = state.fsdp_config.save_planner
-                if version.parse(torch.__version__) < version.parse('2.4.0') and save_planner is None:
-                    # Dedup is only broken on <2.4
-                    from composer.trainer._patch_pytorch import SavePlannerWithDedupFix
+                if save_planner is None:
+                    if version.parse(torch.__version__) < version.parse('2.4.0'):
+                        # Dedup is only broken on <2.4
+                        from composer.trainer._patch_pytorch import SavePlannerWithDedupFix
 
-                    save_planner = SavePlannerWithDedupFix()
+                        save_planner = SavePlannerWithDedupFix()
+                    else:
+                        from torch.distributed.checkpoint.default_planner import DefaultSavePlanner
+
+                        save_planner = DefaultSavePlanner(dedup_save_to_lowest_rank=True)
                 dist_cp.save(
                     state_dict=state_dict,
                     storage_writer=dist_cp.FileSystemWriter(dirname),
