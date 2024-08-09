@@ -11,6 +11,7 @@ jobs:
   pytest-cpu:
     name: ${{ matrix.name }}
     runs-on: mosaic-4wide
+    container: ${{ matrix.container }}
     if: github.repository_owner == 'mosaicml'
     strategy:
       matrix:
@@ -38,7 +39,6 @@ jobs:
     - name: Run PR CPU Tests
       uses: mosaicml/ci-testing/.github/actions/pytest-cpu@v0.1.2
       with:
-        container: ${{ matrix.container }}
         name: ${{ matrix.name }}
         pip_deps: "[all]"
         pytest_command: ${{ matrix.pytest_command }}
