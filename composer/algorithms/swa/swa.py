@@ -228,7 +228,7 @@ class SWA(Algorithm):
                 state.optimizers[0],
                 swa_lr=self.swa_lr,
                 anneal_epochs=self.anneal_steps,
-                anneal_strategy=self.anneal_strategy,
+                anneal_strategy=self.anneal_strategy,  # type: ignore
             )
 
         self.swa_model = AveragedModel(state.model, device=torch.device('cpu'))

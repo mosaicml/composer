@@ -36,7 +36,7 @@ on:
         required: true
 jobs:
   configure-build-push:
-    runs-on: ubuntu-latest
+    runs-on: mosaic-4wide
     steps:
     - name: Maximize Build Space on Worker
       uses: easimon/maximize-build-space@v4

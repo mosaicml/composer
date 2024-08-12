@@ -13,7 +13,7 @@ from typing import Any, Optional, Union
 import numpy as np
 import torch
 import torch.cuda
-from packaging import version
+from torch.profiler._memory_profiler import _CATEGORY_TO_COLORS, _CATEGORY_TO_INDEX, MemoryProfileTimeline
 from torch.profiler.profiler import profile as TorchProfile
 
 log = logging.getLogger(__name__)
@@ -29,12 +29,6 @@ def export_memory_timeline_html(
     return_fig: bool = False,
 ) -> Optional[Union[None, Any]]:
     """Exports a memory timeline to an HTML file. Similar to the PyTorch plotting function, but with adjusted axis tickers and grids."""
-    if version.parse(torch.__version__) <= version.parse('2.1.0.dev'):
-        log.warning('export_memory_timeline_html failed because memory timeline is supported after PyTorch 2.1.0.')
-        return
-
-    from torch.profiler._memory_profiler import _CATEGORY_TO_COLORS, _CATEGORY_TO_INDEX, MemoryProfileTimeline
-
     # Default to device 0, if unset. Fallback on cpu.
     if device is None and prof.use_device and prof.use_device != 'cuda':
         device = prof.use_device + ':0'
