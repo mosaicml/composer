@@ -9,7 +9,6 @@ import warnings
 from typing import Optional, Union
 
 import torch.cuda
-from packaging import version
 
 from composer import State
 from composer.core import Callback, State, Time, TimeUnit
@@ -94,13 +93,7 @@ class MemorySnapshot(Callback):
             _, _, self.remote_path_in_bucket = parse_uri(remote_file_name)
         else:
             self.remote_path_in_bucket = None
-
-        if version.parse(torch.__version__.split('.dev')[0]) >= version.parse('2.1.0'):  # type: ignore
-            # MemorySnapshot is only supported in torch v2.1.0-rc1 or higher
-            self._enabled = True
-        else:
-            self._enabled = False
-            warnings.warn('Memory snapshot is supported after PyTorch 2.1.0. Skipping memory snapshot callback.')
+        self._enabled = True
 
     def init(self, state: State, logger: Logger) -> None:
         if not self._enabled:
