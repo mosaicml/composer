@@ -122,7 +122,7 @@ extra_deps['dev'] = [
     'sphinxcontrib-applehelp==1.0.0',
     'sphinxcontrib-devhelp==1.0.0',
     'sphinxcontrib-htmlhelp==2.0.0',
-    'sphinxcontrib-serializinghtml==1.1.5',
+    'sphinxcontrib-serializinghtml==2.0.0',
     'sphinxcontrib-qthelp==1.0.0',
     'sphinxext.opengraph==0.9.1',
     'sphinxemoji==0.2.0',
