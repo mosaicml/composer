@@ -167,7 +167,7 @@ filterwarnings = [
     # Ignore deprecation warning for torch.load
     '''ignore:You are using `torch.load` with `weights_only=False`.*:FutureWarning''',
     # Ignore deprecation warning as DeepSpeed uses old path
-    '''ignore:`torch.cuda.amp.custom_fwd(args...)` is deprecated.*:FutureWarning''',
+    '''ignore:.*torch.cuda.amp.custom_fwd.*:FutureWarning''',
 ]
 
 # Coverage
