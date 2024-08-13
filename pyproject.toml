@@ -164,6 +164,10 @@ filterwarnings = [
     '''ignore:The 'transformers' MLflow Models integration.*:UserWarning''',
     # Ignore our own deprecation warnings,
     '''ignore::composer.utils.warnings.VersionedDeprecationWarning''',
+    # Ignore deprecation warning for torch.load
+    '''ignore::.*You are using `torch.load` with `weights_only=False`.*:FutureWarning''',
+    # Ignore deprecation warning as DeepSpeed uses old path
+    '''ignore:.*`torch.cuda.amp.custom_fwd(args...)` is deprecated.*:FutureWarning''',
 ]
 
 # Coverage
