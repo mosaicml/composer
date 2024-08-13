@@ -1356,7 +1356,9 @@ class TestCheckpointLoading:
         NoOpModel.__init__ = lambda self, x: None  # type: ignore
         NoOpModel.__repr__ = lambda self: 'NoOpModel(3)'
         error_context = pytest.raises(KeyError, match='module.0.weight')
-        if version.parse(torch.__version__) < version.parse('2.2.3') or (version.parse(torch.__version__) < version.parse('2.4.0') and not dist.is_initialized()):
+        if version.parse(torch.__version__) < version.parse('2.2.3') or (
+            version.parse(torch.__version__) < version.parse('2.4.0') and not dist.is_initialized()
+        ):
             error_context = pytest.raises(ValueError, match='loaded state dict contains a parameter group.*')
         with pytest.warns(UserWarning, match='required_on_load algorithm.*'), error_context:
             trainer_3 = self.get_trainer(load_path=os.path.join('first', 'ep1.pt'))
