@@ -174,7 +174,7 @@ def test_autoload(
             context = pytest.warns(UserWarning, match='Automatically adding required_on_load algorithm*')
         # Excluding some algorithms leads to errors when loading
         elif exclude:
-            if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
+            if version.parse(torch.__version__) >= version.parse('2.4.0') or (version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized()):
                 if algo_name in [
                     'Alibi',
                     'BlurPool',
