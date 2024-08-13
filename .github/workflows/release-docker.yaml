@@ -1,7 +1,6 @@
 name: Release Docker/GHCR Images
 
 on:
-  pull_request: {} #<--- test
   workflow_dispatch:
   workflow_call:
     secrets:
