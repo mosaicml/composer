@@ -53,7 +53,7 @@ from composer.loggers import InMemoryLogger as InMemoryLogger
 from composer.loggers import Logger as Logger
 from composer.loggers import RemoteUploaderDownloader
 from composer.models import ComposerModel as ComposerModel
-from composer.optim.scheduler import ConstantScheduler
+from composer.optim import ConstantScheduler, DecoupledSGDW
 from composer.utils import LibcloudObjectStore, RemoteUploader
 from composer.utils import ensure_tuple as ensure_tuple
 
@@ -117,7 +117,7 @@ Model = SimpleModel
 
 model = SimpleModel(num_channels, num_classes)
 
-optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+optimizer = DecoupledSGDW(model.parameters(), lr=0.001)
 
 scheduler = CosineAnnealingLR(optimizer, T_max=1)
 
