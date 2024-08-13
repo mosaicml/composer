@@ -19,6 +19,7 @@ import tempfile
 from typing import Any
 from typing import Callable as Callable
 from urllib.parse import urlparse
+import warnings
 
 import numpy as np
 import pytest
@@ -56,6 +57,9 @@ from composer.models import ComposerModel as ComposerModel
 from composer.optim import ConstantScheduler, DecoupledSGDW
 from composer.utils import LibcloudObjectStore, RemoteUploader
 from composer.utils import ensure_tuple as ensure_tuple
+
+# Ignore certain warnings for doctest
+warnings.filterwarnings(action='ignore', message='.*torch.cuda.amp.custom.*')
 
 try:
     import wandb
