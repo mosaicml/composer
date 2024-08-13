@@ -89,7 +89,7 @@ def get_object_store_ctx(
             monkeypatch.setenv('AWS_SECURITY_TOKEN', 'testing')
             monkeypatch.setenv('AWS_SESSION_TOKEN', 'testing')
             monkeypatch.setenv('AWS_DEFAULT_REGION', 'us-east-1')
-            with moto.mock_s3():
+            with moto.mock_aws():
                 # create the dummy bucket
                 s3 = boto3.client('s3')
                 s3.create_bucket(Bucket=object_store_kwargs['bucket'])

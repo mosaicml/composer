@@ -2,7 +2,6 @@ name: Smoketest
 on:
   push:
     branches:
-    - dev
     - main
     - release/**
   pull_request:
@@ -20,6 +19,7 @@ jobs:
   smoketest:
     runs-on: ubuntu-20.04
     timeout-minutes: 10
+    if: github.repository_owner == 'mosaicml'
     strategy:
       matrix:
         python_version:

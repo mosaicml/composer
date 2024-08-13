@@ -6,7 +6,7 @@ on:
 # or dev
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 jobs:
   pytest-gpu-1:
     uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml@v0.0.9
@@ -29,7 +29,7 @@ jobs:
       pip_deps: "[all]"
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
-      python-version: 3.9
+      python-version: 3.11
       gpu_num: 1
     secrets:
       mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
@@ -55,7 +55,7 @@ jobs:
       pip_deps: "[all]"
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
-      python-version: 3.9
+      python-version: 3.11
       gpu_num: 2
     secrets:
       mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
@@ -82,7 +82,7 @@ jobs:
       pip_deps: "[all]"
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
-      python-version: 3.9
+      python-version: 3.11
       gpu_num: 4
     secrets:
       mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}

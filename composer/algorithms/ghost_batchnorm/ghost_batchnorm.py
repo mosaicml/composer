@@ -168,7 +168,7 @@ class _GhostBatchNorm(torch.nn.Module):
 
         nchunks: int = int(math.ceil(batch_size / self.ghost_batch_size))
         has_momentum: bool = hasattr(self.batchnorm, 'momentum')
-        original_momentum: float = self.batchnorm.momentum
+        original_momentum: Optional[float] = self.batchnorm.momentum
 
         if self.training and has_momentum:
             # applying the same batchnorm multiple times greatly increases
@@ -180,6 +180,7 @@ class _GhostBatchNorm(torch.nn.Module):
         normalized_chunks = [self.batchnorm(chunk) for chunk in input.chunk(nchunks, 0)]
 
         if self.training and has_momentum:
+            assert original_momentum is not None
             self._unscale_momentum(original_momentum)
 
         return torch.cat(normalized_chunks, dim=0)
@@ -192,6 +193,7 @@ class _GhostBatchNorm(torch.nn.Module):
 
     @torch.jit.unused
     def _scale_momentum(self, nchunks: int):
+        assert self.batchnorm.momentum is not None
         self.batchnorm.momentum = float(self.batchnorm.momentum) / nchunks
 
     @torch.jit.unused

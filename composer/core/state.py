@@ -547,6 +547,9 @@ class State(Serializable):
         self.fsdp_config = parallelism_config.fsdp if parallelism_config is not None else None
         self.tp_config = parallelism_config.tp if parallelism_config is not None else None
 
+        self.automicrobatch_fsdp_hook_handles = []
+        self.fsdp_modules = {}
+
         self._validate_parallelism_configs()
 
         self.device_mesh: Optional[DeviceMesh] = _create_device_mesh(self.device, self.fsdp_config, self.tp_config)
@@ -637,9 +640,13 @@ class State(Serializable):
             if error_message != '':
                 raise ValueError(error_message)
 
+        # Validate FSDP config parameters.
+        if self.fsdp_config is not None and self.fsdp_config.activation_cpu_offload and not self.fsdp_config.use_orig_params:
+            raise ValueError('activation_cpu_offload=True is not supported with use_orig_params=False.')
+
         # Validate FSDP state dict type
-        if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
-            if self.fsdp_state_dict_type == 'local':
+        if self.fsdp_config is not None and self.fsdp_config.state_dict_type not in [None, 'full', 'sharded']:
+            if self.fsdp_config.state_dict_type == 'local':
                 raise ValueError(
                     'Composer and PyTorch no longer support saving or loading local state dicts. '
                     'To upgrade an older checkpoint, use Composer version 0.18.1 and export as '
@@ -647,7 +654,7 @@ class State(Serializable):
                 )
             raise ValueError(
                 f'fsdp_state_dict_type must be one of [None, "full", "sharded"], but got '
-                f'{self.fsdp_state_dict_type}',
+                f'{self.fsdp_config.state_dict_type}',
             )
         if self.fsdp_sharded_state_dict_enabled and self.save_metrics:
             # Sharded state dict breaks in many different ways with torchmetrics, due to both sharding
@@ -972,7 +979,9 @@ class State(Serializable):
         Returns:
             dict[str, Any]: The state dict for the model.
         """
-        if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
+        if version.parse(torch.__version__) >= version.parse('2.4.0') or (
+            version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized()
+        ):
             from torch.distributed.checkpoint.state_dict import StateDictOptions, get_model_state_dict
             if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
                 raise NotImplementedError(
@@ -1010,7 +1019,9 @@ class State(Serializable):
         Returns:
             dict[str, Any]: The state dict for the optimizer.
         """
-        if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
+        if version.parse(torch.__version__) >= version.parse('2.4.0') or (
+            version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized()
+        ):
             from torch.distributed.checkpoint.state_dict import StateDictOptions, get_optimizer_state_dict
             if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
                 raise NotImplementedError(
@@ -1320,7 +1331,9 @@ class State(Serializable):
         model_on_rank = state_dict['model'] is not None
 
         if model_on_rank:
-            if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
+            if version.parse(torch.__version__) >= version.parse('2.4.0') or (
+                version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized()
+            ):
                 from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
                 try:
                     set_model_state_dict(
@@ -1387,7 +1400,7 @@ class State(Serializable):
             with reproducibility.seed_context(self.rank_zero_seed):
                 from composer.distributed import prepare_fsdp_module
 
-                prepare_fsdp_module(
+                self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(
                     self.model,
                     self.optimizers,
                     self.fsdp_config,
@@ -1423,14 +1436,17 @@ class State(Serializable):
                 continue
 
             optim_state_dict = serialized_value[type(optimizer).__qualname__] if serialized_value is not None else None
-            if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
+            if version.parse(torch.__version__) >= version.parse('2.4.0') or (
+                version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized()
+            ):
                 from torch.distributed.checkpoint.state_dict import StateDictOptions, set_optimizer_state_dict
 
                 # optim_state_dict is `None` on non-zero ranks when loading FSDP monolith
                 # checkpoint on rank 0 only. However, PyTorch modifies the state_dict (producing
                 # errors) before discarding the output. Accordingly, we mock the state dict.
                 # See: https://github.com/pytorch/pytorch/issues/125177
-                optim_state_dict = MagicMock() if optim_state_dict is None else optim_state_dict
+                if version.parse(torch.__version__) < version.parse('2.4.0'):
+                    optim_state_dict = MagicMock() if optim_state_dict is None else optim_state_dict
                 set_optimizer_state_dict(
                     model=self.model,
                     optimizers=optimizer,

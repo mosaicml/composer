@@ -11,7 +11,6 @@
 """PyTorch, especially PyTorch Distributed, monkeypatches."""
 
 import logging
-import math
 import functools
 import contextlib
 from dataclasses import asdict
@@ -20,45 +19,27 @@ from typing import Any, Callable, Dict, Iterable, List, Generator, Optional, Set
 
 
 import torch
-import torch.distributed._shard.sharded_tensor.metadata as sharded_tensor_meta
-from torch.distributed._shard.sharding_spec import ChunkShardingSpec
 import torch.nn as nn
-import torch.nn.functional as F
 from packaging import version
-from torch.distributed._shard.sharding_spec import ShardMetadata
-from torch.distributed._shard.sharding_spec._internals import get_chunked_dim_size, get_split_size
 from torch.distributed.fsdp import FullyShardedDataParallel, ShardingStrategy
-from torch.distributed.fsdp._fsdp_extensions import _ext_pre_load_state_dict_transform
-from torch.distributed.utils import _replace_by_prefix
+
+from composer.utils import dist
 
 log = logging.getLogger(__name__)
 
+def patch_unshard_for_automicrobatching(auto_microbatch_size_found=False):
+    """Monkey patches sync hook into unshard when searching during automicrobatching."""
+    if version.parse(torch.__version__) >= version.parse('2.3.1'):
+        from torch.distributed.fsdp._flat_param import FlatParamHandle
+        if auto_microbatch_size_found:
+            global original_unshard
+            FlatParamHandle.unshard = (original_unshard)
+        else:
+            FlatParamHandle.unshard = (unshard_with_sync)
 
 def patch_pytorch():
     """Monkey patches pytorch functions based on pytorch version."""
-    if version.parse(torch.__version__) < version.parse('2.1.1'):
-        # Monkey patch for torch < 2.1.1 ie torch == 2.1.0
-
-        # Monkey patch sharding method
-        ChunkShardingSpec.build_metadata = build_metadata
-
-        # Monkey patch partial state dict handling
-        from torch.distributed.fsdp import _state_dict_utils
-
-        _state_dict_utils._sharded_pre_load_state_dict_hook = (_sharded_pre_load_state_dict_hook)
-
-        # Allow 2D HSDP
-        from torch.distributed.fsdp import _runtime_utils
-        _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
-
-    elif version.parse(torch.__version__) < version.parse('2.1.3'):
-        # Monkey patch for torch < 2.1.3 ie torch == 2.1.1, 2.1.2
-
-        # Allow 2D HSDP
-        from torch.distributed.fsdp import _runtime_utils
-        _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
-
-    elif version.parse(torch.__version__) < version.parse('2.2.1'):
+    if version.parse(torch.__version__) < version.parse('2.2.1'):
         # Monkey patch for torch < 2.2.1 ie torch == 2.2.0
 
         # Allow 2D HSDP
@@ -122,139 +103,11 @@ def patch_pytorch():
         _MeshEnv.create_child_mesh = create_child_mesh
         DeviceMesh.__getitem__ = device_mesh__getitem__
 
+    elif version.parse(torch.__version__) < version.parse('2.4.1'):
+        # Monkey patch for torch < 2.4.1 ie torch == 2.4.0
 
-def build_metadata(
-    self,
-    tensor_sizes: torch.Size,
-    tensor_properties: sharded_tensor_meta.TensorProperties,
-) -> sharded_tensor_meta.ShardedTensorMetadata:
-    """Adds nightly change for ChunkShardingSpec.
-
-    Change implemented in https://github.com/pytorch/pytorch/pull/108915
-    """
-    tensor_num_dim = len(tensor_sizes)
-
-    self._verify_dim(self.dim)
-    if self.dim >= tensor_num_dim or self.dim < -tensor_num_dim:  # type: ignore[operator]
-        raise ValueError(f'Invalid sharding dim: {self.dim}')
-
-    shards_metadata = []
-    sharding_dim_size = tensor_sizes[self.dim]  # type: ignore[index]
-    chunks = len(self.placements)
-    split_size = get_split_size(sharding_dim_size, chunks)
-    for idx, placement in enumerate(self.placements):
-        # generate ShardMetadata for each placement device
-        chunked_dim_size = get_chunked_dim_size(sharding_dim_size, split_size, idx)
-        shard_size = list(tensor_sizes)
-        current_offsets = [0] * tensor_num_dim
-        current_offsets[self.dim] = split_size * idx  # type: ignore[index]
-        shard_size[self.dim] = chunked_dim_size  # type: ignore[index]
-
-        shard_metadata = ShardMetadata(
-            shard_offsets=current_offsets,
-            shard_sizes=shard_size,
-            placement=placement,
-        )
-        shards_metadata.append(shard_metadata)
-
-    return sharded_tensor_meta.ShardedTensorMetadata(shards_metadata, tensor_sizes, tensor_properties)
-
-
-@no_type_check
-def _sharded_pre_load_state_dict_hook(
-    module: nn.Module,
-    fsdp_state,
-    state_dict: dict[str, Any],
-    prefix: str,
-) -> None:
-    """Adds nightly change for partial state dict error handling.
-
-    https://github.com/pytorch/pytorch/blob/0511df0ee9edeb5c2613805ccfb49beb323b87f9/torch/distributed/fsdp/_state_dict_utils.py#L607-L615
-
-    The hook combines the unflattened, sharded parameters (ShardedTensor) to
-    a new FlatParameter and shards the new FlatParameter to the local chunk.
-    """
-    from torch.distributed._tensor import Replicate
-    from torch.distributed.distributed_c10d import _get_pg_default_device
-    from torch.distributed.fsdp._common_utils import FSDP_PREFIX, _has_fsdp_params, _is_composable, _module_handle
-    from torch.distributed.fsdp._runtime_utils import _lazy_init
-    from torch.distributed.fsdp._state_dict_utils import _enter_unshard_params_ctx, _param_name_infos
-
-    _lazy_init(fsdp_state, module)
-    if not _is_composable(fsdp_state):
-        _replace_by_prefix(state_dict, prefix, prefix + f'{FSDP_PREFIX}')
-    if not _has_fsdp_params(fsdp_state, module):
-        return
-
-    handle = _module_handle(fsdp_state, module)
-    if not handle.uses_sharded_strategy:  # type: ignore
-        raise RuntimeError(
-            'load_sharded_state_dict can only be called when parameters '
-            'are flattened and sharded.',
-        )
-
-    device = fsdp_state.compute_device
-    for fqn, _, _ in _param_name_infos(module, fsdp_state):
-        if not _is_composable(fsdp_state):
-            fqn_from_global_root = f'{prefix}{FSDP_PREFIX}{fqn}'
-        else:
-            fqn_from_global_root = f'{prefix}{fqn}'
-        try:
-            param = state_dict.pop(fqn_from_global_root)
-        except KeyError:
-            log.warning(
-                f'Did not find param with FQN {fqn_from_global_root}, skipping it. '  # noqa: G004
-                'The weight will not be filled if you expect it to be.',
-            )
-            continue  # TODO: Improve unittesting for state_dict finetuning
-            # cases: https://github.com/pytorch/pytorch/issues/109134
-
-        if not fsdp_state._state_dict_config.use_dtensor:
-            # All-gather the param (ShardedTensor)
-            param, shards = _ext_pre_load_state_dict_transform(param)
-
-            assert len(shards) < 2, (
-                'Expects 0 or 1 shard per rank '
-                f'but got {len(shards)} shards on rank {fsdp_state.rank}.'
-            )
-            param_numel = param.size().numel()
-            dim_0_size = param.size()[0]
-            chunk_size = (math.ceil(dim_0_size / fsdp_state.world_size) * param_numel // dim_0_size)
-            if len(shards) == 1:
-                local_tensor = shards[0].tensor.flatten()
-                pg_device = _get_pg_default_device(fsdp_state.process_group)
-                if local_tensor.device.type != pg_device.type:
-                    local_tensor = local_tensor.to(pg_device)
-                num_padding = chunk_size - local_tensor.numel()
-                if num_padding > 0:
-                    local_tensor = F.pad(local_tensor, [0, num_padding])
-            else:
-                local_tensor = torch.zeros(chunk_size, dtype=param.dtype, device=device)
-            tensor = torch.empty(
-                chunk_size * fsdp_state.world_size,
-                dtype=local_tensor.dtype,
-                device=device,
-            )
-            if local_tensor.is_cpu:
-                # Tensor could be on FSDP GPU compute device, while local_tensor is on CPU.
-                # Convert to CPU so all_gather can work.
-                tensor_dev = tensor.device
-                tensor = tensor.cpu()
-                tensor_list = list(torch.chunk(tensor, torch.distributed.get_world_size(fsdp_state.process_group)))
-                torch.distributed.all_gather(tensor_list, local_tensor, group=fsdp_state.process_group)
-                tensor.to(tensor_dev)
-            else:
-                torch.distributed.all_gather_into_tensor(tensor, local_tensor, group=fsdp_state.process_group)
-            tensor = tensor.narrow(0, 0, param_numel).reshape(param.size())
-            state_dict[fqn_from_global_root] = tensor
-        else:
-            if param.device != fsdp_state._device_mesh.device_type:  # type: ignore
-                param = param.to(fsdp_state._device_mesh.device_type)  # type: ignore
-
-            param = param.redistribute(device_mesh=param.device_mesh, placements=[Replicate()])
-            state_dict[fqn_from_global_root] = param.to_local()
-
-    _enter_unshard_params_ctx(module, fsdp_state, writeback=True)
+        # No monkeypatches!
+        pass
 
 
 if version.parse(torch.__version__) >= version.parse('2.2.1') and version.parse(
@@ -1043,3 +896,49 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
 
             submesh = _mesh_resources.create_child_mesh(self, mesh_dim_names)
             return submesh
+
+
+    # Save original FlatParamHandle.unshard to revert back to when dropping automicrobatching hooks
+    from torch.distributed.fsdp._flat_param import FlatParamHandle
+    original_unshard = FlatParamHandle.unshard
+
+    @no_type_check
+    def unshard_with_sync(self):
+        """Run the unshard logic, but with a sync after a :meth:`_alloc_padded_unsharded_flat_param`.
+
+        This prevents deadlocks when some ranks OOM after the alloc call and others do not.
+        This is a patched method from pytorch, meant to be called when automicrobatching
+        turns on hooks in its search process for the optimal non-OOMing microbatch size.
+        This includes all-gathering the flat parameter
+        and switching to using the unsharded flat parameter. If the handle does
+        not need unsharding, then this only switches to using the unsharded
+        flat parameter. For ``NO_SHARD``, this is a no-op.
+        If FSDP is in :meth:`summon_full_params` and the handle uses parameter
+        mixed precision, then the parameter is forced to full precision.
+        """
+        if not self.needs_unshard():
+            # Even when not needing an unshard, we should switch to using
+            # the unsharded flat parameter
+            unsharded_flat_param = (
+                self._get_padded_unsharded_flat_param()
+                if self.uses_sharded_strategy
+                else self.flat_param
+            )
+            self._use_unsharded_flat_param(unsharded_flat_param)
+            return
+        unsharded_flat_param = self._alloc_padded_unsharded_flat_param()
+
+        # Check if any other rank hit an OOM
+        found_cuda_oom_tensor = torch.tensor([0], dtype=torch.uint8).to(self.device, non_blocking=True)
+
+        dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
+        found_cuda_oom = found_cuda_oom_tensor.item()
+        # Signal current rank is still in batch
+        all_ranks_finished_tensor = torch.tensor([0], dtype=torch.uint8).to(self.device, non_blocking=True)
+
+        dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
+
+        if found_cuda_oom == 1:
+            raise RuntimeError('CUDA out of memory encountered on a different rank')
+        padded_unsharded_flat_param = self._all_gather_flat_param(unsharded_flat_param)
+        self._use_unsharded_flat_param(padded_unsharded_flat_param)
