@@ -174,9 +174,18 @@ def test_autoload(
             context = pytest.warns(UserWarning, match='Automatically adding required_on_load algorithm*')
         # Excluding some algorithms leads to errors when loading
         elif exclude:
-            if version.parse(torch.__version__) >= version.parse('2.4.0') or (
-                version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized()
-            ):
+            if version.parse(torch.__version__) >= version.parse('2.4.0'):
+                if algo_name in [
+                    'BlurPool',
+                    'Factorize',
+                    'GatedLinearUnits',
+                    'GhostBatchNorm',
+                    'SqueezeExcite',
+                ]:
+                    context = pytest.raises(KeyError)  # Optimizer loading is strict
+                elif algo_name == 'Alibi':
+                    context = pytest.raises(RuntimeError)  # Alibi has shape issues
+            elif version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
                 if algo_name in [
                     'Alibi',
                     'BlurPool',
