@@ -192,7 +192,7 @@ def _new_trainer_init(self, fake_ellipses: None = None, **kwargs: Any):
     if 'model' not in kwargs:
         kwargs['model'] = model
     if 'optimizers' not in kwargs:
-        kwargs['optimizers'] = torch.optim.SGD(kwargs['model'].parameters(), lr=0.01)
+        kwargs['optimizers'] = DecoupledSGDW(kwargs['model'].parameters(), lr=0.01)
     if 'schedulers' not in kwargs:
         kwargs['schedulers'] = ConstantScheduler()
     if 'max_duration' not in kwargs:
