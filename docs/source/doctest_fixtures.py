@@ -16,10 +16,10 @@ logging.basicConfig(level=logging.WARN)
 import os
 import sys
 import tempfile
+import warnings
 from typing import Any
 from typing import Callable as Callable
 from urllib.parse import urlparse
-import warnings
 
 import numpy as np
 import pytest
