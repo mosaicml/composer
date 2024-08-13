@@ -25,10 +25,10 @@ jobs:
           container: mosaicml/pytorch:2.4.0_cpu-python3.11-ubuntu20.04
           markers: not daily and not remote and not gpu and not doctest
           pytest_command: coverage run -m pytest
-        # - name: cpu-doctest
-        #   container: mosaicml/pytorch:2.4.0_cpu-python3.11-ubuntu20.04
-        #   markers: not daily and not remote and not gpu and doctest
-        #   pytest_command: coverage run -m pytest tests/test_docs.py
+        - name: cpu-doctest
+          container: mosaicml/pytorch:2.4.0_cpu-python3.11-ubuntu20.04
+          markers: not daily and not remote and not gpu and doctest
+          pytest_command: coverage run -m pytest tests/test_docs.py
     name: ${{ matrix.name }}
     if: github.repository_owner == 'mosaicml'
     with:
