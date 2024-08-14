@@ -146,7 +146,7 @@ def _session_tiny_bert_model(_session_tiny_bert_config):  # type: ignore
 def tiny_bert_tokenizer_helper():
     transformers = pytest.importorskip('transformers')
 
-    with dist.run_local_rank_zero_first():
+    with dist.busy_wait_for_local_rank_zero():
         model = transformers.AutoTokenizer.from_pretrained('google-bert/bert-base-uncased')
     return model
 
@@ -164,7 +164,7 @@ def tiny_bert_config_helper():
         'num_hidden_layers': 2,
         'intermediate_size': 512,
     }
-    with dist.run_local_rank_zero_first():
+    with dist.busy_wait_for_local_rank_zero():
         model = transformers.AutoConfig.from_pretrained('google-bert/bert-base-uncased', **tiny_overrides)
     return model
 
@@ -177,7 +177,7 @@ def _session_tiny_bert_config():  # type: ignore
 def tiny_deberta_model_helper(config):
     transformers = pytest.importorskip('transformers')
 
-    with dist.run_local_rank_zero_first():
+    with dist.busy_wait_for_local_rank_zero():
         model = transformers.AutoModelForMaskedLM.from_config(config)  # type: ignore (thirdparty)
     return model
 
@@ -190,7 +190,7 @@ def _session_tiny_deberta_model(_session_tiny_deberta_config):  # type: ignore
 def tiny_deberta_tokenizer_helper():
     transformers = pytest.importorskip('transformers')
 
-    with dist.run_local_rank_zero_first():
+    with dist.busy_wait_for_local_rank_zero():
         model = transformers.AutoTokenizer.from_pretrained('microsoft/deberta-base')
     return model
 
@@ -209,7 +209,7 @@ def tiny_deberta_config_helper():
         'num_hidden_layers': 2,
         'intermediate_size': 512,
     }
-    with dist.run_local_rank_zero_first():
+    with dist.busy_wait_for_local_rank_zero():
         model = transformers.AutoConfig.from_pretrained('microsoft/deberta-base', **tiny_overrides)
     return model
 
@@ -222,7 +222,7 @@ def _session_tiny_deberta_config():  # type: ignore
 def tiny_gpt2_model_helper(config):
     transformers = pytest.importorskip('transformers')
 
-    with dist.run_local_rank_zero_first():
+    with dist.busy_wait_for_local_rank_zero():
         model = transformers.AutoModelForCausalLM.from_config(config)
     return model
 
@@ -241,7 +241,7 @@ def tiny_gpt2_config_helper():
         'n_layer': 2,
         'vocab_size': 50258,  # 50257 + 1 for pad token
     }
-    with dist.run_local_rank_zero_first():
+    with dist.busy_wait_for_local_rank_zero():
         model = transformers.AutoConfig.from_pretrained('gpt2', **tiny_overrides)
     return model
 
@@ -254,7 +254,7 @@ def _session_tiny_gpt2_config():  # type: ignore
 def tiny_gpt2_tokenizer_helper():
     transformers = pytest.importorskip('transformers')
 
-    with dist.run_local_rank_zero_first():
+    with dist.busy_wait_for_local_rank_zero():
         hf_tokenizer = transformers.AutoTokenizer.from_pretrained('gpt2')
     hf_tokenizer.add_special_tokens({'pad_token': '[PAD]'})
     return hf_tokenizer
@@ -263,7 +263,7 @@ def tiny_gpt2_tokenizer_helper():
 def tiny_llama_tokenizer_helper():
     transformers = pytest.importorskip('transformers')
 
-    with dist.run_local_rank_zero_first():
+    with dist.busy_wait_for_local_rank_zero():
         hf_tokenizer = transformers.AutoTokenizer.from_pretrained('huggyllama/llama-7b', use_fast=False)
     return hf_tokenizer
 
@@ -281,7 +281,7 @@ def _session_tiny_llama_tokenizer():  # type: ignore
 def tiny_opt_model_helper(config):
     transformers = pytest.importorskip('transformers')
 
-    with dist.run_local_rank_zero_first():
+    with dist.busy_wait_for_local_rank_zero():
         model = transformers.AutoModelForCausalLM.from_config(config)
     return model
 
@@ -295,7 +295,7 @@ def tiny_opt_config_helper():
     transformers = pytest.importorskip('transformers')
 
     tiny_overrides = {'n_embd': 2, 'n_head': 2, 'n_layer': 2, 'vocab_size': 50272}
-    with dist.run_local_rank_zero_first():
+    with dist.busy_wait_for_local_rank_zero():
         model = transformers.AutoConfig.from_pretrained('facebook/opt-125m', **tiny_overrides)
     return model
 
@@ -308,7 +308,7 @@ def _session_tiny_opt_config():  # type: ignore
 def tiny_opt_tokenizer_helper():
     transformers = pytest.importorskip('transformers')
 
-    with dist.run_local_rank_zero_first():
+    with dist.busy_wait_for_local_rank_zero():
         hf_tokenizer = transformers.AutoTokenizer.from_pretrained('facebook/opt-125m')
     hf_tokenizer.add_special_tokens({'pad_token': '[PAD]'})
     return hf_tokenizer
@@ -323,7 +323,7 @@ def tiny_t5_config_helper():
     transformers = pytest.importorskip('transformers')
 
     tiny_overrides = {'d_ff': 128, 'd_model': 64, 'num_layers': 2, 'num_decoder_layers': 2, 'num_heads': 2}
-    with dist.run_local_rank_zero_first():
+    with dist.busy_wait_for_local_rank_zero():
         model = transformers.AutoConfig.from_pretrained('google-t5/t5-small', **tiny_overrides)
     return model
 
@@ -337,7 +337,7 @@ def _session_tiny_t5_config():  # type: ignore
 def tiny_t5_tokenizer_helper():
     transformers = pytest.importorskip('transformers')
 
-    with dist.run_local_rank_zero_first():
+    with dist.busy_wait_for_local_rank_zero():
         hf_tokenizer = transformers.AutoTokenizer.from_pretrained('google-t5/t5-small', model_max_length=512)
     return hf_tokenizer
 
@@ -350,7 +350,7 @@ def _session_tiny_t5_tokenizer():  # type: ignore
 def tiny_t5_model_helper(config):
     transformers = pytest.importorskip('transformers')
 
-    with dist.run_local_rank_zero_first():
+    with dist.busy_wait_for_local_rank_zero():
         model = transformers.T5ForConditionalGeneration(config=config)
     return model
 
@@ -369,7 +369,7 @@ def tiny_mpt_config_helper():
         'n_heads': 8,
         'n_layers': 2,
     }
-    with dist.run_local_rank_zero_first():
+    with dist.busy_wait_for_local_rank_zero():
         model = transformers.AutoConfig.from_pretrained('mosaicml/mpt-7b', **tiny_overrides)
     return model
 
@@ -382,7 +382,7 @@ def _session_tiny_mpt_config():  # type: ignore
 def tiny_mpt_tokenizer_helper():
     transformers = pytest.importorskip('transformers')
 
-    with dist.run_local_rank_zero_first():
+    with dist.busy_wait_for_local_rank_zero():
         hf_tokenizer = transformers.AutoTokenizer.from_pretrained('mosaicml/mpt-7b', model_max_length=512)
     return hf_tokenizer
 
@@ -395,7 +395,7 @@ def _session_tiny_mpt_tokenizer():  # type: ignore
 def tiny_mpt_model_helper(config):
     transformers = pytest.importorskip('transformers')
 
-    with dist.run_local_rank_zero_first():
+    with dist.busy_wait_for_local_rank_zero():
         model = transformers.AutoModelForCausalLM.from_config(config)
     return model
 
