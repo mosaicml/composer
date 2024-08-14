@@ -1376,13 +1376,6 @@ class Trainer:
             num_optimizers = len(ensure_tuple(optimizers))
             if num_optimizers != 1:
                 raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
-            if type(optimizers) == torch.optim.SGD and version.parse(torch.__version__) >= version.parse('2.4.0'):
-                raise ValueError(
-                    'PyTorch 2.4 breaks (distributed) checkpointing with SGD. '
-                    'Please use a different optimizer, e.g. composer.optim.DecoupledSGDW '
-                    'instead. See https://github.com/pytorch/pytorch/issues/133415 '
-                    'for further information.',
-                )
 
         # Move the model and optimizers to the device
         if deepspeed_config is None and parallelism_config is None:
@@ -2309,6 +2302,15 @@ class Trainer:
             # It is important to set the duration, rather than incrementing it, as ``duration`` could be in
             # different units than ``max_duration``
             self.state.max_duration = duration + self.state.timestamp.get(duration.unit)
+
+        # Raise error if callig fit with SGD
+        if type(self.state.optimizers) == torch.optim.SGD and version.parse(torch.__version__) >= version.parse('2.4.0'):
+            raise ValueError(
+                'PyTorch 2.4 breaks (distributed) checkpointing with SGD. '
+                'Please use a different optimizer, e.g. composer.optim.DecoupledSGDW '
+                'instead. See https://github.com/pytorch/pytorch/issues/133415 '
+                'for further information.',
+            )
 
         if self.state.max_duration is None:
             _raise_missing_argument_exception('max_duration')
