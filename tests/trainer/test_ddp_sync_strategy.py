@@ -47,7 +47,9 @@ class MinimalConditionalModel(nn.Module):
     'ddp_sync_strategy,expected_grads',
     [
         pytest.param(
-            'single_auto_sync', ([-1, None, None], [-1.5, -1.5, None], [-1.5, -1.5, None]), id='single_auto_sync'
+            'single_auto_sync',
+            ([-1, None, None], [-1.5, -1.5, None], [-1.5, -1.5, None]),
+            id='single_auto_sync',
         ),
         pytest.param(
             'multi_auto_sync',
