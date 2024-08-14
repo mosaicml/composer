@@ -15,7 +15,8 @@ split_on_trailing_comma = true
 [tool.ruff.lint]
 select = [
     "C4",
-    "D",
+    "D400",
+    "D404",
     "LOG",
     "PERF",
     "PLE",
