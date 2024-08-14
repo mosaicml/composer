@@ -2446,9 +2446,12 @@ class Trainer:
         # with checkpoint loading. See https://github.com/pytorch/pytorch/issues/133415
         for optimizer in self.state.optimizers:
             try:
-                optimizer.zero_grad(set_to_none=True)
-            except TypeError:
-                optimizer.zero_grad()
+                try:
+                    optimizer.zero_grad(set_to_none=True)
+                except TypeError:
+                    optimizer.zero_grad()
+            except:
+                log.exception('Failed to zero out optimizer at end of fit')
 
     def close(self):
         """Shutdown the trainer.
