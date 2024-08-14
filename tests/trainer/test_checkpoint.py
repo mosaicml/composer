@@ -397,7 +397,10 @@ class TestCheckpointSaving:
                 assert attr == value
 
 
-    def test_checkpoint_save_token_interval(
+    # See https://github.com/pytorch/pytorch/issues/133415
+    @pytest.mark.xfail('Torch DCP fails with SGD on >= PyTorch 2.4')
+    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.4.0'))
+    def test_sgd_checkpoint(
         self,
         tiny_bert_tokenizer,
         tmp_path: pathlib.Path,
