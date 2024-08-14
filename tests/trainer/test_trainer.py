@@ -24,7 +24,7 @@ from composer.devices import Device
 from composer.loggers import InMemoryLogger, Logger, RemoteUploaderDownloader
 from composer.loss import soft_cross_entropy
 from composer.models import ComposerModel
-from composer.optim import ExponentialScheduler, DecoupledSGDW
+from composer.optim import DecoupledSGDW, ExponentialScheduler
 from composer.trainer.trainer import _generate_run_name
 from composer.utils import dist, is_model_deepspeed, is_model_fsdp, map_collection, reproducibility
 from tests.common import (
