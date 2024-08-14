@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from typing import Optional
-from packaging import version
 
 import pytest
 import torch
 import torch.nn as nn
+from packaging import version
 from torch import Tensor
 from torch.utils.data import DataLoader
 
@@ -46,7 +46,9 @@ class MinimalConditionalModel(nn.Module):
 @pytest.mark.parametrize(
     'ddp_sync_strategy,expected_grads',
     [
-        pytest.param('single_auto_sync', ([-1, None, None], [-1.5, -1.5, None], [-1.5, -1.5, None]), id='single_auto_sync'),
+        pytest.param(
+            'single_auto_sync', ([-1, None, None], [-1.5, -1.5, None], [-1.5, -1.5, None]), id='single_auto_sync'
+        ),
         pytest.param(
             'multi_auto_sync',
             ([-1.5, None, None], [-1.5, -1.5, None], [-1.5, -1.5, None]),
