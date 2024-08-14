@@ -39,7 +39,7 @@ jobs:
     strategy:
       matrix:
         include:
-        - name: gpu-3.11-2.342
+        - name: gpu-3.11-2.4-2
           container: mosaicml/pytorch:2.4.0_cu121-python3.11-ubuntu20.04
           markers: not daily and not remote and gpu and (doctest or not doctest)
           pytest_command: coverage run -m pytest
