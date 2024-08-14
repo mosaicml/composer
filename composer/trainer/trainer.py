@@ -2442,6 +2442,14 @@ class Trainer:
         self.first_batch_complete = False
         self._train_loop()
 
+        # Zero gradients at the end of fit so same model/optimizer can be used for further training
+        # with checkpoint loading. See https://github.com/pytorch/pytorch/issues/133415
+        for optimizer in self.state.optimizers:
+            try:
+                optimizer.zero_grad(set_to_none=True)
+            except TypeError:
+                optimizer.zero_grad()
+
     def close(self):
         """Shutdown the trainer.
 
