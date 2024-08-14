@@ -8,7 +8,7 @@ from __future__ import annotations
 import functools
 import time
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, Type, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, Union
 
 from composer.profiler.trace_handler import TraceHandler
 
@@ -250,7 +250,7 @@ class Marker:
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
+        exc_type: Optional[type[BaseException]],
         exc: Optional[BaseException],
         traceback: Optional[TracebackType],
     ) -> None:

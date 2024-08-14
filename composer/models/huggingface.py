@@ -16,7 +16,7 @@ import tempfile
 import textwrap
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Mapping, Optional, Type, Union
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Union
 
 import torch
 from torchmetrics import Metric
@@ -380,8 +380,8 @@ class HuggingFaceModel(ComposerModel):
     @staticmethod
     def hf_from_composer_checkpoint(
         checkpoint_path: str,
-        model_instantiation_class: Optional[Union[Type[transformers.PreTrainedModel],
-                                                  Type['_BaseAutoModelClass'],
+        model_instantiation_class: Optional[Union[type[transformers.PreTrainedModel],
+                                                  type['_BaseAutoModelClass'],
                                                   str,
                                                  ]] = None,
         model_config_kwargs: Optional[dict] = None,

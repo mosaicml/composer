@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from typing import Any, Type
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -104,7 +104,7 @@ try:
 except ImportError:
     _NEPTUNE_INSTALLED = False
 
-_callback_kwargs: dict[Type[Callback], dict[str, Any]] = {
+_callback_kwargs: dict[type[Callback], dict[str, Any]] = {
     Generate: {
         'prompts': ['a', 'b', 'c'],
         'interval': '1ba',
@@ -153,7 +153,7 @@ _callback_kwargs: dict[Type[Callback], dict[str, Any]] = {
 }
 
 _callback_marks: dict[
-    Type[Callback],
+    type[Callback],
     list[pytest.MarkDecorator],
 ] = {
     RemoteUploaderDownloader: [
@@ -197,7 +197,7 @@ _callback_marks: dict[
 }
 
 
-def get_cb_kwargs(impl: Type[Callback]):
+def get_cb_kwargs(impl: type[Callback]):
     return _callback_kwargs.get(impl, {})
 
 

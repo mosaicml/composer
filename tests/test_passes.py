@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Sequence, Type
+from typing import Sequence
 from unittest.mock import Mock
 
 import pytest
@@ -102,7 +102,7 @@ class TestAlgorithmOrderingPasses:
     @pytest.mark.parametrize('algorithm_cls', [LowPrecisionLayerNorm])
     def test_algorithm_last(
         self,
-        algorithm_cls: Type[Algorithm],
+        algorithm_cls: type[Algorithm],
         always_match_algorithms: list[Algorithm],
         dummy_logger: Logger,
         dummy_state: State,
@@ -124,7 +124,7 @@ class TestAlgorithmOrderingPasses:
     @pytest.mark.parametrize('algorithm_cls', [SelectiveBackprop])
     def test_algorithm_first(
         self,
-        algorithm_cls: Type[Algorithm],
+        algorithm_cls: type[Algorithm],
         always_match_algorithms: list[Algorithm],
         dummy_logger: Logger,
         dummy_state: State,

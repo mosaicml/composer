@@ -6,7 +6,7 @@
 import abc
 import pathlib
 from types import TracebackType
-from typing import Callable, Optional, Type, Union
+from typing import Callable, Optional, Union
 
 __all__ = ['ObjectStore', 'ObjectStoreTransientError']
 
@@ -163,7 +163,7 @@ class ObjectStore(abc.ABC):
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
+        exc_type: Optional[type[BaseException]],
         exc: Optional[BaseException],
         traceback: Optional[TracebackType],
     ):

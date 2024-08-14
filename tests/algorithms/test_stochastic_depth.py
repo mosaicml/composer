@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Optional, Type
+from typing import Optional
 from unittest.mock import Mock
 
 import pytest
@@ -35,7 +35,7 @@ def stochastic_method():
     return 'block'
 
 
-def count_sd_forward(module: torch.nn.Module, target_block: Type[torch.nn.Module], count: int = 0):
+def count_sd_forward(module: torch.nn.Module, target_block: type[torch.nn.Module], count: int = 0):
     if (len(list(module.children()))) == 0 and len(list(module.parameters())) > 0:
         return count
     else:

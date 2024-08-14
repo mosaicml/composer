@@ -5,7 +5,6 @@ import contextlib
 import copy
 import os
 import pathlib
-from typing import Type
 
 import pytest
 import torch
@@ -19,7 +18,7 @@ from composer.utils import dist
 from tests.common import ConvModel, SimpleConvModel, composer_resnet
 
 
-def initialize_algorithm(algo_cls: Type):
+def initialize_algorithm(algo_cls: type):
     """Initialize algorithm with dummy values."""
     if algo_cls == algorithms.Alibi:
         return algo_cls(max_sequence_length=1)
