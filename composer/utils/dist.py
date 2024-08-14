@@ -71,6 +71,9 @@ __all__ = [
     'initialize_dist',
     'is_available',
     'is_initialized',
+    'busy_wait_for_local_rank_zero',
+    'local_rank_zero_download_and_wait',
+    'run_local_rank_zero_first',
 ]
 
 log = logging.getLogger(__name__)
