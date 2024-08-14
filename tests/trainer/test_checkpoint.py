@@ -396,7 +396,6 @@ class TestCheckpointSaving:
             else:
                 assert attr == value
 
-
     # See https://github.com/pytorch/pytorch/issues/133415
     @pytest.mark.xfail('Torch DCP fails with SGD on >= PyTorch 2.4')
     @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.4.0'))
@@ -431,7 +430,6 @@ class TestCheckpointSaving:
             save_folder=str(tmp_path / 'checkpoints'),
         )
         trainer.fit()
-
 
     @pytest.mark.parametrize('save_interval', ['1tok', '64tok', '65tok'])
     @pytest.mark.parametrize('batch_size', [1, 4])
