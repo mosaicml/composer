@@ -1376,7 +1376,7 @@ class Trainer:
             num_optimizers = len(ensure_tuple(optimizers))
             if num_optimizers != 1:
                 raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
-            if isinstance(optimizers, torch.optim.SGD) and version.parse(torch.__version__) >= version.parse('2.4.0'):
+            if type(optimizers) == torch.optim.SGD and version.parse(torch.__version__) >= version.parse('2.4.0'):
                 raise ValueError(
                     'PyTorch 2.4 breaks (distributed) checkpointing with SGD. '
                     'Please use a different optimizer, e.g. composer.optim.DecoupledSGDW '
