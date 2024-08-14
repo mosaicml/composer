@@ -398,7 +398,7 @@ class TestCheckpointSaving:
 
     # See https://github.com/pytorch/pytorch/issues/133415
     @pytest.mark.xfail('Torch DCP fails with SGD on >= PyTorch 2.4')
-    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.4.0'))
+    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.4.0'), 'Test only applies to PyTorch 2.4+')
     def test_sgd_checkpoint(
         self,
         tiny_bert_tokenizer,

@@ -104,11 +104,9 @@ class TestScaleScheduleTrainer():
         ssr: float,
     ):
         model = SimpleModel()
-        optimizers = torch.optim.SGD(model.parameters(), lr=1.0)
         trainer = Trainer(
             model=model,
             train_dataloader=DataLoader(RandomClassificationDataset()),
-            optimizers=optimizers,
             schedulers=[MultiStepScheduler(milestones=['30ba', '50ba'], gamma=0.1)],
             scale_schedule_ratio=ssr,
             callbacks=[CheckScaleSchedule(ssr)],
