@@ -1725,7 +1725,7 @@ class Trainer:
 
         # Suppressing GradScaler warnings as they are always created
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
-        warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
+        warnings.filterwarnings(action='ignore', message='.*torch.cuda.amp.GradScaler.*')
         self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
 
         if self.state.fsdp_config is not None:
@@ -2441,6 +2441,17 @@ class Trainer:
 
         self.first_batch_complete = False
         self._train_loop()
+
+        # Zero gradients at the end of fit so same model/optimizer can be used for further training
+        # with checkpoint loading. See https://github.com/pytorch/pytorch/issues/133415
+        for optimizer in self.state.optimizers:
+            try:
+                try:
+                    optimizer.zero_grad(set_to_none=True)
+                except TypeError:
+                    optimizer.zero_grad()
+            except:
+                log.exception('Failed to zero out optimizer at end of fit')
 
     def close(self):
         """Shutdown the trainer.
