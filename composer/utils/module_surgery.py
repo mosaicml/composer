@@ -14,7 +14,7 @@ Attributes:
         instances of the module type have been seen. The function should return a replacement
         :class:`torch.nn.Module` if the module type should be replaced, or ``None`` otherwise.
 
-        Args:
+Args:
             module (torch.nn.Module): Source module
             module_index (int): The i-th instance of module class.
 

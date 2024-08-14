@@ -15,8 +15,8 @@ split_on_trailing_comma = true
 [tool.ruff.lint]
 select = [
     "C4",
-    # TODO port pydocstyle
-    # "D", # pydocstyle
+    "D400",
+    "D404",
     "LOG",
     "PERF",
     "PLE",
@@ -27,7 +27,22 @@ ignore = [
     "C408",
     "PERF2",
     "PERF4",
+    "D102",
+    "D105",
+    "D107",
+    "D401",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+".ci*" = ["D"]
+"tests/*" = ["D"]
+"composer/algorithms/*" = ["D"]
+"composer/datasets/*" = ["D"]
+"composer/models/*" = ["D"]
+"composer/trainer/activation_checkpointing.py" = ["D"]
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
 [tool.ruff]
 exclude = [
     "build/**",
@@ -1081,8 +1096,3 @@ min-public-methods=2
 # Exceptions that will emit a warning when being caught. Defaults to
 # "BaseException, Exception".
 overgeneral-exceptions="BaseException,Exception"
-
-[tool.pydocstyle]
-convention="google"
-add_ignore="D102,D105,D107,D401"
-add_select="D400,D404"

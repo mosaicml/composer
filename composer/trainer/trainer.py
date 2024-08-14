@@ -576,9 +576,8 @@ class Trainer:
     The :class:`.Trainer` is highly customizable and can support a wide variety of workloads.
     See the :doc:`training guide</trainer/using_the_trainer>` for more information.
 
-    Example
+    Example:
     --------
-
     Train a model and save a checkpoint:
 
     .. testcode::
@@ -829,8 +828,7 @@ class Trainer:
             Ignored if ``load_path`` is ``None``.
             (default: ``None``)
 
-            Example:
-
+    Example:
             .. testsetup::
 
                 import composer.trainer
