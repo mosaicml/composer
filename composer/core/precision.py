@@ -26,9 +26,9 @@ class Precision(StringEnum):
 
     Attributes:
         FP32: Use 32-bit floating-point precision. Compatible with CPUs and GPUs.
-        AMP_FP16: Use :mod:`torch.cuda.amp` with 16-bit floating-point precision. Only compatible
+        AMP_FP16: Use :mod:`torch.amp` with 16-bit floating-point precision. Only compatible
             with GPUs.
-        AMP_BF16: Use :mod:`torch.cuda.amp` with 16-bit BFloat precision.
+        AMP_BF16: Use :mod:`torch.amp` with 16-bit BFloat precision.
         AMP_FP8: Use :mod:`transformer_engine.pytorch.fp8_autocast` with 8-bit FP8 precison.
     """
     FP32 = 'fp32'
@@ -60,7 +60,7 @@ def get_precision_context(
     precision = Precision(precision)
     if precision == Precision.FP32:
         if torch.cuda.is_available():
-            with torch.cuda.amp.autocast(False):
+            with torch.autocast('cuda', enabled=False):
                 yield
         else:
             # Yield here to avoid warnings about cuda not being available
@@ -68,7 +68,7 @@ def get_precision_context(
     elif precision == Precision.AMP_FP16:
         # Retain compatibility with PyTorch < 1.10
         if torch.cuda.is_available():
-            with torch.cuda.amp.autocast(True):
+            with torch.autocast('cuda', enabled=True):
                 yield
         elif is_xla_installed():
             with torch.autocast('xla', dtype=torch.float16):
@@ -77,7 +77,7 @@ def get_precision_context(
             yield
     elif precision == Precision.AMP_BF16:
         if torch.cuda.is_available():
-            with torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16):
+            with torch.autocast('cuda', dtype=torch.bfloat16, enabled=True):
                 yield
         elif is_xla_installed():
             with torch.autocast('xla', dtype=torch.bfloat16):
