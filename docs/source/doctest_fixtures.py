@@ -54,7 +54,7 @@ from composer.loggers import InMemoryLogger as InMemoryLogger
 from composer.loggers import Logger as Logger
 from composer.loggers import RemoteUploaderDownloader
 from composer.models import ComposerModel as ComposerModel
-from composer.optim import ConstantScheduler, DecoupledSGDW
+from composer.optim import ConstantScheduler
 from composer.utils import LibcloudObjectStore, RemoteUploader
 from composer.utils import ensure_tuple as ensure_tuple
 
@@ -121,7 +121,7 @@ Model = SimpleModel
 
 model = SimpleModel(num_channels, num_classes)
 
-optimizer = DecoupledSGDW(model.parameters(), lr=0.001)
+optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 
 scheduler = CosineAnnealingLR(optimizer, T_max=1)
 
@@ -192,7 +192,7 @@ def _new_trainer_init(self, fake_ellipses: None = None, **kwargs: Any):
     if 'model' not in kwargs:
         kwargs['model'] = model
     if 'optimizers' not in kwargs:
-        kwargs['optimizers'] = DecoupledSGDW(kwargs['model'].parameters(), lr=0.01)
+        kwargs['optimizers'] = torch.optim.SGD(kwargs['model'].parameters(), lr=0.01)
     if 'schedulers' not in kwargs:
         kwargs['schedulers'] = ConstantScheduler()
     if 'max_duration' not in kwargs:
