@@ -22,6 +22,7 @@ select = [
     "PLE",
     "COM812",
     "UP006",
+    "F401",
 ]
 extend-safe-fixes = [
     "UP006",

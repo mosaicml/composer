@@ -12,7 +12,7 @@ from packaging import version
 
 from composer import Trainer, algorithms
 from composer.callbacks import CheckpointSaver
-from composer.core import Algorithm, Event, Time, TimeUnit  # type: ignore imports used in `eval(representation)`
+from composer.core import Algorithm  # type: ignore imports used in `eval(representation)`
 from composer.models import ComposerClassifier, ComposerModel
 from composer.utils import dist
 from tests.common import ConvModel, SimpleConvModel, composer_resnet

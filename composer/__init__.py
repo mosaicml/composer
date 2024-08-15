@@ -3,7 +3,6 @@
 
 """Some key classes are available directly in the ``composer`` namespace."""
 
-from composer._version import __version__
 from composer.core import Algorithm, Callback, DataSpec, Engine, Evaluator, Event, State, Time, Timestamp, TimeUnit
 from composer.loggers import Logger
 from composer.models import ComposerModel
