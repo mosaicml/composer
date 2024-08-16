@@ -171,7 +171,7 @@ filterwarnings = [
     # DeepSpeed uses positional arguments for PyTorch, ignore the warning
     '''ignore:.*Positional args are being deprecated, use kwargs instead.*:FutureWarning''',
     # PyTorch uses their own deprecated function
-    '''ignore:.*FSDP.state_dict_type() and FSDP.set_state_dict_type().*:FutureWarning''',
+    '''ignore:.*FSDP.state_dict_type.*:FutureWarning''',
 ]
 
 # Coverage
