@@ -1141,20 +1141,38 @@ def test_fsdp_planner(
     from torch.distributed.checkpoint.default_planner import DefaultLoadPlanner, DefaultSavePlanner
     from torch.distributed.checkpoint.metadata import STATE_DICT_TYPE, Metadata
 
-    class RenameSavePlanner(DefaultSavePlanner):
+    if version.parse(torch.__version__) < version('2.4.0'):
+        class RenameSavePlanner(DefaultSavePlanner):
 
-        def set_up_planner(
-            self,
-            state_dict: STATE_DICT_TYPE,
-            is_coordinator: bool,
-        ) -> None:
-            # suffix all keys with `foo_``
-            state_dict['state']['model'] = {k + '_foo': v for k, v in state_dict['state']['model'].items()}
+            def set_up_planner(
+                self,
+                state_dict: STATE_DICT_TYPE,
+                is_coordinator: bool = False,
+            ) -> None:
+                # suffix all keys with `foo_``
+                state_dict['state']['model'] = {k + '_foo': v for k, v in state_dict['state']['model'].items()}
 
-            super().set_up_planner(
-                state_dict=state_dict,
-                is_coordinator=is_coordinator,
-            )
+                super().set_up_planner(
+                    state_dict=state_dict,
+                    is_coordinator=is_coordinator,
+                )
+    else:
+        class RenameSavePlanner(DefaultSavePlanner):
+
+            def set_up_planner(
+                self,
+                state_dict: STATE_DICT_TYPE,
+                storage_meta = None,
+                is_coordinator: bool = False,
+            ) -> None:
+                # suffix all keys with `foo_``
+                state_dict['state']['model'] = {k + '_foo': v for k, v in state_dict['state']['model'].items()}
+
+                super().set_up_planner(
+                    state_dict=state_dict,
+                    storage_meta=storage_meta,
+                    is_coordinator=is_coordinator,
+                )
 
     class RenameLoadPlanner(DefaultLoadPlanner):
 
