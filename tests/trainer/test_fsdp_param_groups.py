@@ -8,9 +8,9 @@ import torch
 from packaging import version
 from torch.utils.data import DataLoader
 
+from composer.optim import DecoupledSGDW
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, misc
-from composer.optim import DecoupledSGDW
 from tests.common import EmbeddedWeightTiedModel, RandomClassificationDataset, SimpleModel, device, world_size
 
 
