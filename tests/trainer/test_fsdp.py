@@ -55,11 +55,9 @@ def test_fsdp_device_initialization(
     model = model(num_features=num_classes, device=resolved_device)
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
 
     trainer = Trainer(
         model=model,
-        optimizers=optimizer,
         train_dataloader=dataloader,
         parallelism_config={
             'fsdp': {
@@ -122,11 +120,9 @@ def test_fsdp_inits_params_once(model: ComposerClassifier, device: str, world_si
     num_classes = 2
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
 
     Trainer(
         model=model,
-        optimizers=optimizer,
         train_dataloader=dataloader,
         parallelism_config={
             'fsdp': {
@@ -165,11 +161,9 @@ def test_fsdp_meta_initialization_none(model: ComposerClassifier, mixed_precisio
     model = model(num_features=1, num_classes=num_classes, device='meta', bias=False)
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
 
     Trainer(
         model=model,
-        optimizers=optimizer,
         train_dataloader=dataloader,
         parallelism_config={'fsdp': {
             'mixed_precision': mixed_precision,
@@ -189,11 +183,9 @@ def test_fsdp_prefetch_limit(forward_prefetch_limit: int, backward_prefetch_limi
     model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
     dataset = RandomClassificationDataset(size=10)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
 
     trainer = Trainer(
         model=model,
-        optimizers=optimizer,
         train_dataloader=dataloader,
         parallelism_config={
             'fsdp': {
@@ -343,11 +335,9 @@ def test_fsdp_process_group(world_size: int):
     model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
     dataset = RandomClassificationDataset(size=10)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
 
     trainer = Trainer(
         model=model,
-        optimizers=optimizer,
         train_dataloader=dataloader,
         parallelism_config={
             'fsdp': {

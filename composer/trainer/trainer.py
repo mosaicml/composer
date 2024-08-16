@@ -2303,6 +2303,17 @@ class Trainer:
             # different units than ``max_duration``
             self.state.max_duration = duration + self.state.timestamp.get(duration.unit)
 
+        # Raise error if callig fit with SGD
+        if type(
+            self.state.optimizers[0],
+        ) == torch.optim.SGD and version.parse(torch.__version__) >= version.parse('2.4.0'):
+            raise ValueError(
+                'PyTorch 2.4 breaks (distributed) checkpointing with SGD. '
+                'Please use a different optimizer, e.g. composer.optim.DecoupledSGDW '
+                'instead. See https://github.com/pytorch/pytorch/issues/133415 '
+                'for further information.',
+            )
+
         if self.state.max_duration is None:
             _raise_missing_argument_exception('max_duration')
         assert self.state.max_duration is not None

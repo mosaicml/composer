@@ -168,6 +168,14 @@ filterwarnings = [
     '''ignore:You are using `torch.load` with `weights_only=False`.*:FutureWarning''',
     # Ignore deprecation warning as DeepSpeed uses old path
     '''ignore:.*torch.cuda.amp.custom.*:FutureWarning''',
+    # DeepSpeed uses positional arguments for PyTorch, ignore the warning
+    '''ignore:.*Positional args are being deprecated, use kwargs instead.*:FutureWarning''',
+    # PyTorch uses their own deprecated function
+    '''ignore:.*FSDP.state_dict_type.*:FutureWarning''',
+    # Ignore PyTorch NO_SHARD deprecation
+    '''ignore:.*The `NO_SHARD` sharding strategy is deprecated.*:FutureWarning''',
+    # Some unit tests use ShardedTensor, though by default we use DTensor
+    '''ignore:.*Please use DTensor instead and we are deprecating.*:FutureWarning''',
 ]
 
 # Coverage
