@@ -174,6 +174,8 @@ filterwarnings = [
     '''ignore:.*FSDP.state_dict_type.*:FutureWarning''',
     # Ignore PyTorch NO_SHARD deprecation
     '''ignore:.*The `NO_SHARD` sharding strategy is deprecated.*:FutureWarning''',
+    # Some unit tests use ShardedTensor, though by default we use DTensor
+    '''ignore:.*Please use DTensor instead and we are deprecating.*:FutureWarning''',
 ]
 
 # Coverage
