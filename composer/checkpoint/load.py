@@ -11,7 +11,7 @@ import tempfile
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Optional, Sequence, Union
 
 import torch
 import torch.distributed.checkpoint as DCP
@@ -85,7 +85,7 @@ class CheckpointLoadOptions:
 
 def load_checkpoint(
     load_path: str,
-    load_options: Optional[Union[CheckpointLoadOptions, Dict]],
+    load_options: Optional[Union[CheckpointLoadOptions, dict]],
     model: Optional[Union[ComposerModel, nn.Module]] = None,
     optim: Optional[Optimizer] = None,
     state: Optional[State] = None,
@@ -168,9 +168,9 @@ def load_checkpoint(
 def load_model_checkpoint(
     model: Union[ComposerModel, nn.Module],
     load_path: Optional[str] = None,
-    load_options: Optional[Union[CheckpointLoadOptions, Dict]] = None,
+    load_options: Optional[Union[CheckpointLoadOptions, dict]] = None,
     seed: int = 42,
-) -> Tuple[list, dict]:
+) -> tuple[list, dict]:
     """Load a a model checkpoint from the specified path into the model.
 
     Args:
@@ -234,7 +234,7 @@ def _shard_with_fsdp(
     fsdp_config: Optional[Union[FSDPConfig, dict]] = None,
     precision: Optional[str] = None,
     seed: int = 42,
-) -> Tuple[list, dict]:
+) -> tuple[list, dict]:
     if fsdp_config is None:
         fsdp_config = FSDPConfig()
     if isinstance(fsdp_config, dict):
@@ -252,7 +252,7 @@ def _shard_with_fsdp(
 def _load_sharded_model_checkpoint(
     model: Union[ComposerModel, nn.Module],
     load_path: str,
-    load_options: Optional[Union[CheckpointLoadOptions, Dict]],
+    load_options: Optional[Union[CheckpointLoadOptions, dict]],
 ):
     if load_options is None:
         load_options = CheckpointLoadOptions()
@@ -293,7 +293,7 @@ def _load_sharded_model_checkpoint(
 def _load_unsharded_model_checkpoint(
     model: Union[ComposerModel, nn.Module],
     load_path: str,
-    load_options: Optional[Union[CheckpointLoadOptions, Dict]] = None,
+    load_options: Optional[Union[CheckpointLoadOptions, dict]] = None,
 ):
     if dist.get_global_rank() != 0:
         return
@@ -328,7 +328,7 @@ def load_optim_checkpoint(
     model: Union[ComposerModel, nn.Module],
     optim: torch.optim.Optimizer,
     load_path: str,
-    load_options: Optional[Union[CheckpointLoadOptions, Dict]] = None,
+    load_options: Optional[Union[CheckpointLoadOptions, dict]] = None,
 ):
     """Load an optimizer checkpoint from the specified path into the optimizer.
 

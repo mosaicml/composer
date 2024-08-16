@@ -6,8 +6,10 @@
 from composer.utils import MissingConditionalImportError
 
 try:
-    from composer.algorithms.alibi.attention_surgery_functions import _bert  # pyright: ignore[reportUnusedImport]
-    from composer.algorithms.alibi.attention_surgery_functions import _gpt2  # pyright: ignore[reportUnusedImport]
+    from composer.algorithms.alibi.attention_surgery_functions import \
+        _bert  # pyright: ignore[reportUnusedImport] # noqa: F401
+    from composer.algorithms.alibi.attention_surgery_functions import \
+        _gpt2  # pyright: ignore[reportUnusedImport] # noqa: F401
     from composer.algorithms.alibi.attention_surgery_functions.utils import policy_registry
 except ImportError as e:
     raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e

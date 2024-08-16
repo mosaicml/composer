@@ -7,7 +7,7 @@ import pathlib
 import shutil
 import tempfile
 import time
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Optional, Union
 from unittest.mock import patch
 
 import pytest
@@ -19,7 +19,7 @@ from composer.utils.remote_uploader import RemoteUploader
 class DummyObjectStore(ObjectStore):
     """Dummy ObjectStore implementation that is backed by a local directory."""
 
-    def __init__(self, **kwargs: Dict[str, Any]) -> None:
+    def __init__(self, **kwargs: dict[str, Any]) -> None:
         self.tmp_dir = self.get_tmp_dir()
         self.root = self.tmp_dir.name
         self.sleep_sec = 0
