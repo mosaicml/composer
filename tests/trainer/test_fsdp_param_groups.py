@@ -158,7 +158,7 @@ def test_fsdp_with_param_groups_with_subset_of_params_in_opt(
         'lr': 0.5,
     }]
 
-    optimizer = DecoupledSGDW(params=param_groups)
+    optimizer = DecoupledSGDW(params=param_groups, lr=1e-3)
     unwrapped_optimizer = copy.deepcopy(optimizer)
 
     optimizer_groups_pre_fsdp = optimizer.param_groups

@@ -172,6 +172,8 @@ filterwarnings = [
     '''ignore:.*Positional args are being deprecated, use kwargs instead.*:FutureWarning''',
     # PyTorch uses their own deprecated function
     '''ignore:.*FSDP.state_dict_type.*:FutureWarning''',
+    # Ignore PyTorch NO_SHARD deprecation
+    '''ignore:.*The `NO_SHARD` sharding strategy is deprecated.*:FutureWarning''',
 ]
 
 # Coverage
