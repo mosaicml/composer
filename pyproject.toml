@@ -168,6 +168,8 @@ filterwarnings = [
     '''ignore:You are using `torch.load` with `weights_only=False`.*:FutureWarning''',
     # Ignore deprecation warning as DeepSpeed uses old path
     '''ignore:.*torch.cuda.amp.custom.*:FutureWarning''',
+    # DeepSpeed uses positional arguments for PyTorch, ignore the warning
+    '''ignore:.*Positional args are being deprecated, use kwargs instead.*:FutureWarning''',
 ]
 
 # Coverage
