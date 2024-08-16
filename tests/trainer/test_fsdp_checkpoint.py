@@ -1141,8 +1141,9 @@ def test_fsdp_planner(
     from torch.distributed.checkpoint.default_planner import DefaultLoadPlanner, DefaultSavePlanner
     from torch.distributed.checkpoint.metadata import STATE_DICT_TYPE, Metadata
 
-    if version.parse(torch.__version__) < version('2.4.0'):
-        class RenameSavePlanner(DefaultSavePlanner):
+    if version.parse(torch.__version__) < version.parse('2.4.0'):
+
+        class RenameSavePlanner(DefaultSavePlanner):  # type: ignore
 
             def set_up_planner(
                 self,
@@ -1157,12 +1158,13 @@ def test_fsdp_planner(
                     is_coordinator=is_coordinator,
                 )
     else:
-        class RenameSavePlanner(DefaultSavePlanner):
+
+        class RenameSavePlanner(DefaultSavePlanner):  # type: ignore
 
             def set_up_planner(
                 self,
                 state_dict: STATE_DICT_TYPE,
-                storage_meta = None,
+                storage_meta=None,
                 is_coordinator: bool = False,
             ) -> None:
                 # suffix all keys with `foo_``
