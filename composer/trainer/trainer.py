@@ -2308,9 +2308,9 @@ class Trainer:
         ) == torch.optim.SGD and version.parse(torch.__version__) >= version.parse('2.4.0'):
             raise ValueError(
                 'PyTorch 2.4 breaks (distributed) checkpointing with SGD. '
-                'Please use a different optimizer, e.g. composer.optim.DecoupledSGDW '
-                'instead. See https://github.com/pytorch/pytorch/issues/133415 '
-                'for further information.',
+                'Please use a different optimizer, e.g. composer.optim.DecoupledSGDW, '
+                'instead or downgrade to PyTorch <2.4. See ',
+                'https://github.com/pytorch/pytorch/issues/133415 for further information.',
             )
 
         if self.state.max_duration is None:
