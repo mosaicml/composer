@@ -1001,6 +1001,10 @@ if version.parse(torch.__version__) >= version.parse('2.4.0') and version.parse(
     def _keep_visiting_tensors(value: STATE_DICT_ITEM) -> bool:
         return isinstance(value, torch.Tensor)
 
+    # Override the traverse_state_dict to address issue https://github.com/pytorch/pytorch/issues/133923
+    # Torch2.4 changed this function for save_planner and load_planner to flatten the state dict.
+    # It broke backward compatibility. New load_planner can't load checkpointing saved by old save_planner.
+    # 2.3. vs 2.4 diff: https://github.com/pytorch/pytorch/commit/6f1e3a6bf73327a351dc8a8c08635bd727b3134f
     def traverse_state_dict(
         state_dict: STATE_DICT_TYPE,
         visitor: Callable[[OBJ_PATH, STATE_DICT_ITEM], None],
