@@ -1943,6 +1943,18 @@ class Trainer:
                     auto_microbatching,
                 )
 
+        # Set the iteration timestamp to the overall timestamp if loading from a checkpoint that was created before
+        # iteration was introduced in Composer v0.19.1. This is necessary to ensure that the iteration timestamp is
+        # accurate for callbacks and backwards compatibility for checkpoints.
+        if (
+            self.state.timestamp.iteration == 0 and self.state.timestamp.token_in_iteration == 0 and
+            self.state.timestamp.epoch_in_iteration == 0
+        ):
+            self.state.timestamp = self.state.timestamp.copy(
+                epoch_in_iteration=self.state.timestamp.epoch,
+                token_in_iteration=self.state.timestamp.token,
+            )
+
         self.engine.run_event(Event.AFTER_LOAD)
 
         # reseed here. This helps with a couple of issues:
