@@ -850,7 +850,6 @@ class Timestamp(Serializable):
 
     def to_next_epoch(
         self,
-        tokens: Union[int, Time] = 0,
         duration: Optional[datetime.timedelta] = None,
     ):
         """Create a new :class:`.Timestamp`, advanced to the next epoch.
@@ -891,7 +890,6 @@ class Timestamp(Serializable):
         return self.copy(
             epoch=self.epoch + 1,
             epoch_in_iteration=self.epoch_in_iteration + 1,
-            token_in_iteration=self.token_in_iteration + tokens,
             batch_in_epoch=0,
             sample_in_epoch=0,
             token_in_epoch=0,
