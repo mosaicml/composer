@@ -641,15 +641,6 @@ def test_fsdp_load_old_checkpoint(
                 storage_reader=storage_reader,
                 load_planner=None,
             )
-            """
-            process_group = None
-            dist_cp.load_state_dict(
-                state_dict=state_dict,
-                storage_reader=storage_reader,
-                planner=None,
-                process_group=process_group,
-            )
-            """
             if optimizers_at_root:
                 from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
                 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
