@@ -183,7 +183,7 @@ filterwarnings = [
     # Some unit tests use ShardedTensor, though by default we use DTensor
     '''ignore:.*Please use DTensor instead and we are deprecating.*:FutureWarning''',
     # Ignore NeptuneLogger warnings
-    '''ignore:.*NVML Shared Library Not Found. GPU usage metrics may not be reported.*:NeptuneWarning''',
+    '''ignore:.*NVML Shared Library Not Found. GPU usage metrics may not be reported.*''',
 ]
 
 # Coverage
