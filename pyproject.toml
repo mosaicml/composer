@@ -182,6 +182,9 @@ filterwarnings = [
     '''ignore:.*The `NO_SHARD` sharding strategy is deprecated.*:FutureWarning''',
     # Some unit tests use ShardedTensor, though by default we use DTensor
     '''ignore:.*Please use DTensor instead and we are deprecating.*:FutureWarning''',
+    # Ignore Torch load_state_dict warnings, it's used by torch internal, not composer
+    '''ignore:.*`load_state_dict` is deprecated and *:FutureWarning''',
+#
 ]
 
 # Coverage

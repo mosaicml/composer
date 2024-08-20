@@ -990,3 +990,55 @@ if version.parse(torch.__version__) >= version.parse('2.4.0') and version.parse(
             raise RuntimeError('CUDA out of memory encountered on a different rank')
         padded_unsharded_flat_param = self._all_gather_flat_param(unsharded_flat_param)
         self._use_unsharded_flat_param(padded_unsharded_flat_param)
+
+    # PyTorch issue: https://github.com/pytorch/pytorch/issues/133923
+    from torch.distributed.checkpoint.metadata import STATE_DICT_TYPE
+    from typing import Mapping, Collection
+    PATH_ITEM = Union[str, int]
+    OBJ_PATH = tuple[PATH_ITEM, ...]
+    STATE_DICT_ITEM = object
+
+    def _keep_visiting_tensors(value: STATE_DICT_ITEM) -> bool:
+        return isinstance(value, torch.Tensor)
+
+    def traverse_state_dict(
+        state_dict: STATE_DICT_TYPE,
+        visitor: Callable[[OBJ_PATH, STATE_DICT_ITEM], None],
+        keep_traversing: Callable[[STATE_DICT_ITEM], bool] = _keep_visiting_tensors,
+    ) -> None:
+        """Invoke ``visitor`` for each value recursively in ``state_dict``.
+
+        Traversal is short-circuited when if finds a collection for which ``keep_visiting_tensors`` evaluates
+        to false for all elements.
+        By default, all collections with at least one ``torch.Tensor`` element are traversed.
+        Visitor takes a path argument that is a tuple of the keys used to reach it.
+        """
+        # a value is terminal if it has no other containers values inside it
+        def _is_terminal(value: STATE_DICT_ITEM) -> bool:
+            values: Collection[STATE_DICT_ITEM]
+            if isinstance(value, Mapping):
+                values = value.values()
+            elif isinstance(value, list):
+                values = value
+            else:
+                return True
+
+            for entry in values:
+                if isinstance(entry, (Mapping, list)) and not _is_terminal(entry):
+                    return False
+                if keep_traversing is not None and keep_traversing(entry):  # type: ignore
+                    return False
+            return True
+
+        def _traverse_obj(path: OBJ_PATH, value: STATE_DICT_ITEM) -> None:
+            if _is_terminal(value):
+                visitor(path, value)
+            elif isinstance(value, Mapping):
+                for k, v in value.items():
+                    _traverse_obj(path + (str(k),), v)
+            elif isinstance(value, list):
+                for i, v in enumerate(value):
+                    _traverse_obj(path + (i,), v)
+
+        for key, value in state_dict.items():
+            _traverse_obj((str(key),), value)
