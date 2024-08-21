@@ -124,7 +124,6 @@ def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: s
 
     if interconnect == 'EFA':
         tags = [f'{tag}-aws' for tag in tags]
-    print(tags)
     return tags
 
 
