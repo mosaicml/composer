@@ -99,7 +99,7 @@ from unittest.mock import patch
 def test_amp_fp8_eval_casts_to_bf16():
     # Check that we can import FP8 with TE. If not, skip this test.
     try:
-        import transformer_engine  # pyright: ignore
+        import transformer_engine  # pyright: ignore # noqa: F401
     except ImportError:
         pytest.skip('Precision amp_fp8 requires transformer-engine to be installed',)
 

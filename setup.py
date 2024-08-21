@@ -80,10 +80,10 @@ install_requires = [
     'tqdm>=4.62.3,<5',
     'torchmetrics>=1.4.0.post0,<1.4.1',
     'torch_optimizer>=0.3.0,<0.4',
-    'torchvision>=0.13.1,<0.18.2',
-    'torch>=2.1.2,<2.3.2',
+    'torchvision>=0.14.0,<0.19.1',
+    'torch>=2.2.0,<2.4.1',
     'requests>=2.26.0,<3',
-    'numpy>=1.21.5,<2.1.0',
+    'numpy>=1.21.5,<2.2.0',
     'psutil>=5.8.0,<7',
     'coolname>=1.1.0,<3',
     'tabulate==0.9.0',  # for auto-generating tables
@@ -138,7 +138,7 @@ extra_deps['dev'] = [
     'pandoc==2.3',
     'pypandoc==1.13',
     'GitPython==3.1.43',
-    'moto[s3]>=4.0.1,<5',
+    'moto[s3]>=5.0.1,<6',
     'mock-ssh-server==0.9.1',
     'cryptography==42.0.8',
     'pytest-httpserver>=1.0.4,<1.1',
@@ -224,13 +224,13 @@ extra_deps['onnx'] = [
 
 extra_deps['mlflow'] = [
     'mlflow>=2.14.1,<3.0',
-    'databricks-sdk==0.29.0',
+    'databricks-sdk==0.30.0',
     'pynvml>=11.5.0,<12',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk==0.29.0']
+extra_deps['databricks'] = ['databricks-sdk==0.30.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 

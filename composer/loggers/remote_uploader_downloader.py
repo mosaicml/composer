@@ -17,7 +17,7 @@ import time
 import uuid
 import warnings
 from multiprocessing.context import SpawnProcess
-from typing import TYPE_CHECKING, Any, Callable, Optional, Type, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 from urllib.parse import urlparse
 
 import torch
@@ -281,7 +281,7 @@ class RemoteUploaderDownloader(LoggerDestination):
             self._finished_cls: Union[Callable[[],
                                                multiprocessing._EventType,  # pyright: ignore[reportGeneralTypeIssues]
                                               ],
-                                      Type[threading.Event],
+                                      type[threading.Event],
                                      ] = mp_ctx.Event
             self._proc_class = mp_ctx.Process
         else:

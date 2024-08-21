@@ -531,10 +531,10 @@ object stores like WandB or LibCloud, you must still specify a ``load_object_sto
     :skipif: not _LIBCLOUD_INSTALLED
 
     new_trainer = Trainer(
-    model=model,
-    train_dataloader=train_dataloader,
-    max_duration="10ep",
-    load_path="s3://checkpoint-debugging/checkpoints/ep1.pt",
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration="10ep",
+        load_path="s3://checkpoint-debugging/checkpoints/ep1.pt",
     )
 
     new_trainer.fit()
@@ -547,10 +547,10 @@ Similarly for OCI:
     :skipif: not _LIBCLOUD_INSTALLED
 
     new_trainer = Trainer(
-    model=model,
-    train_dataloader=train_dataloader,
-    max_duration="10ep",
-    load_path="oci://checkpoint-debugging/checkpoints/ep1.pt",
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration="10ep",
+        load_path="oci://checkpoint-debugging/checkpoints/ep1.pt",
     )
 
     new_trainer.fit()
@@ -564,10 +564,10 @@ Similarly for GCS:
     :skipif: not _LIBCLOUD_INSTALLED
 
     new_trainer = Trainer(
-    model=model,
-    train_dataloader=train_dataloader,
-    max_duration="10ep",
-    load_path="gs://checkpoint-debugging/checkpoints/ep1.pt",
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration="10ep",
+        load_path="gs://checkpoint-debugging/checkpoints/ep1.pt",
     )
 
     new_trainer.fit()

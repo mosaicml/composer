@@ -3,7 +3,6 @@
 
 import json
 from concurrent.futures import Future
-from typing import Type
 from unittest.mock import MagicMock
 
 import mcli
@@ -109,7 +108,7 @@ def test_exception_to_json():
 @pytest.mark.parametrize('callback_cls', get_cbs_and_marks(callbacks=True))
 @world_size(1, 2)
 @pytest.mark.filterwarnings('ignore::UserWarning')
-def test_logged_data_is_json_serializable(monkeypatch, callback_cls: Type[Callback], world_size):
+def test_logged_data_is_json_serializable(monkeypatch, callback_cls: type[Callback], world_size):
     """Test that all logged data is json serializable, which is a requirement to use MAPI."""
 
     mock_mapi = MockMAPI()

@@ -13,9 +13,9 @@ all dependencies for both NLP and Vision models. They are built on top of the
 `mosaicml/composer:latest` or `mosaicml/composer:latest_cpu`, which will always be up to date.
 
 <!-- BEGIN_COMPOSER_BUILD_MATRIX -->
-| Composer Version   | CUDA Support   | Docker Tag                                                     |
-|--------------------|----------------|----------------------------------------------------------------|
-| 0.23.5             | Yes            | `mosaicml/composer:latest`, `mosaicml/composer:0.23.5`         |
+| Composer Version   | CUDA Support   | Docker Tag                                                                                                                                                       |
+|--------------------|----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 0.23.5             | Yes            | `mosaicml/composer:latest`, `mosaicml/composer:0.23.5`                 |
 | 0.23.5             | No             | `mosaicml/composer:latest_cpu`, `mosaicml/composer:0.23.5_cpu` |
 <!-- END_COMPOSER_BUILD_MATRIX -->
 
@@ -28,17 +28,17 @@ The [`mosaicml/pytorch`](https://hub.docker.com/r/mosaicml/pytorch) images conta
 To install composer, once inside the image, run `pip install mosaicml`.
 
 <!-- BEGIN_PYTORCH_BUILD_MATRIX -->
-| Linux Distro   | Flavor   | PyTorch Version   | CUDA Version        | Python Version   | Docker Tags                                                                              |
-|----------------|----------|-------------------|---------------------|------------------|------------------------------------------------------------------------------------------|
-| Ubuntu 20.04   | Base     | 2.3.1             | 12.1.1 (Infiniband) | 3.11             | `mosaicml/pytorch:latest`, `mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04`         |
-| Ubuntu 20.04   | Base     | 2.3.1             | 12.1.1 (EFA)        | 3.11             | `mosaicml/pytorch:latest-aws`, `mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04-aws` |
-| Ubuntu 20.04   | Base     | 2.3.1             | cpu                 | 3.11             | `mosaicml/pytorch:latest_cpu`, `mosaicml/pytorch:2.3.1_cpu-python3.11-ubuntu20.04`       |
-| Ubuntu 20.04   | Base     | 2.2.2             | 12.1.1 (Infiniband) | 3.11             | `mosaicml/pytorch:2.2.2_cu121-python3.11-ubuntu20.04`                                    |
-| Ubuntu 20.04   | Base     | 2.2.2             | 12.1.1 (EFA)        | 3.11             | `mosaicml/pytorch:2.2.2_cu121-python3.11-ubuntu20.04-aws`                                |
-| Ubuntu 20.04   | Base     | 2.2.2             | cpu                 | 3.11             | `mosaicml/pytorch:2.2.2_cpu-python3.11-ubuntu20.04`                                      |
-| Ubuntu 20.04   | Base     | 2.1.2             | 12.1.1 (Infiniband) | 3.10             | `mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04`                                    |
-| Ubuntu 20.04   | Base     | 2.1.2             | 12.1.1 (EFA)        | 3.10             | `mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04-aws`                                |
-| Ubuntu 20.04   | Base     | 2.1.2             | cpu                 | 3.10             | `mosaicml/pytorch:2.1.2_cpu-python3.10-ubuntu20.04`                                      |
+| Linux Distro   | Flavor   | PyTorch Version   | CUDA Version        | Python Version   | Docker Tags                                                                                                                                                                                                          |
+|----------------|----------|-------------------|---------------------|------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Ubuntu 20.04   | Base     | 2.4.0             | 12.4.1 (Infiniband) | 3.11             | `mosaicml/pytorch:latest`, `mosaicml/pytorch:2.4.0_cu124-python3.11-ubuntu20.04`                 |
+| Ubuntu 20.04   | Base     | 2.4.0             | 12.4.1 (EFA)        | 3.11             | `mosaicml/pytorch:latest-aws`, `mosaicml/pytorch:2.4.0_cu124-python3.11-ubuntu20.04-aws` |
+| Ubuntu 20.04   | Base     | 2.4.0             | cpu                 | 3.11             | `mosaicml/pytorch:latest_cpu`, `mosaicml/pytorch:2.4.0_cpu-python3.11-ubuntu20.04`             |
+| Ubuntu 20.04   | Base     | 2.3.1             | 12.1.1 (Infiniband) | 3.11             | `mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04`                                                                                        |
+| Ubuntu 20.04   | Base     | 2.3.1             | 12.1.1 (EFA)        | 3.11             | `mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04-aws`                                                                                |
+| Ubuntu 20.04   | Base     | 2.3.1             | cpu                 | 3.11             | `mosaicml/pytorch:2.3.1_cpu-python3.11-ubuntu20.04`                                                                                            |
+| Ubuntu 20.04   | Base     | 2.2.2             | 12.1.1 (Infiniband) | 3.11             | `mosaicml/pytorch:2.2.2_cu121-python3.11-ubuntu20.04`                                                                                        |
+| Ubuntu 20.04   | Base     | 2.2.2             | 12.1.1 (EFA)        | 3.11             | `mosaicml/pytorch:2.2.2_cu121-python3.11-ubuntu20.04-aws`                                                                                |
+| Ubuntu 20.04   | Base     | 2.2.2             | cpu                 | 3.11             | `mosaicml/pytorch:2.2.2_cpu-python3.11-ubuntu20.04`                                                                                            |
 <!-- END_PYTORCH_BUILD_MATRIX -->
 
 **Note**: The `mosaicml/pytorch:latest`, `mosaicml/pytorch:latest_cpu`, and `mosaicml/pytorch:latest-aws`

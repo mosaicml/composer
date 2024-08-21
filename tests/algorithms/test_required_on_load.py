@@ -5,7 +5,6 @@ import contextlib
 import copy
 import os
 import pathlib
-from typing import Type
 
 import pytest
 import torch
@@ -13,13 +12,16 @@ from packaging import version
 
 from composer import Trainer, algorithms
 from composer.callbacks import CheckpointSaver
-from composer.core import Algorithm, Event, Time, TimeUnit  # type: ignore imports used in `eval(representation)`
+from composer.core import Event  # noqa: F401 # type: ignore imports used in `eval(representation)`
+from composer.core import Time  # noqa: F401 # type: ignore imports used in `eval(representation)`
+from composer.core import TimeUnit  # noqa: F401 # type: ignore imports used in `eval(representation)`
+from composer.core import Algorithm
 from composer.models import ComposerClassifier, ComposerModel
 from composer.utils import dist
 from tests.common import ConvModel, SimpleConvModel, composer_resnet
 
 
-def initialize_algorithm(algo_cls: Type):
+def initialize_algorithm(algo_cls: type):
     """Initialize algorithm with dummy values."""
     if algo_cls == algorithms.Alibi:
         return algo_cls(max_sequence_length=1)
@@ -174,7 +176,18 @@ def test_autoload(
             context = pytest.warns(UserWarning, match='Automatically adding required_on_load algorithm*')
         # Excluding some algorithms leads to errors when loading
         elif exclude:
-            if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
+            if version.parse(torch.__version__) >= version.parse('2.4.0'):
+                if algo_name in [
+                    'BlurPool',
+                    'Factorize',
+                    'GatedLinearUnits',
+                    'GhostBatchNorm',
+                    'SqueezeExcite',
+                ]:
+                    context = pytest.raises(KeyError)  # Optimizer loading is strict
+                elif algo_name == 'Alibi':
+                    context = pytest.raises(RuntimeError)  # Alibi has shape issues
+            elif version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
                 if algo_name in [
                     'Alibi',
                     'BlurPool',

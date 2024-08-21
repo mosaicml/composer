@@ -164,18 +164,18 @@ def _make_segmentation_images(
     # Ensure the targets are in the expected format
     if infer_target_type(outputs, targets) == 'one_hot':
         if channels_last:
-            targets = targets.argmax(dim=-1).data.cpu().numpy()
+            targets = targets.argmax(dim=-1).data.cpu().numpy()  # type: ignore
         else:
-            targets = targets.argmax(dim=1).data.cpu().numpy()
+            targets = targets.argmax(dim=1).data.cpu().numpy()  # type: ignore
     else:
-        targets = targets.data.cpu().numpy()
+        targets = targets.data.cpu().numpy()  # type: ignore
     # Convert the outputs to the expected format
     if channels_last:
         num_classes = outputs.shape[-1]
-        outputs = outputs.argmax(dim=-1).cpu().numpy()
+        outputs = outputs.argmax(dim=-1).cpu().numpy()  # type: ignore
     else:
         num_classes = outputs.shape[1]
-        outputs = outputs.argmax(dim=1).cpu().numpy()
+        outputs = outputs.argmax(dim=1).cpu().numpy()  # type: ignore
     # Adjust targets such that negative values are mapped to one higher than the maximum class
     targets[targets < 0] = num_classes
 

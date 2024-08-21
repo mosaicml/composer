@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, Sequence, Type, Union, cast
+from typing import Optional, Sequence, Union, cast
 
 import torch
 from torch.optim import Optimizer
@@ -203,7 +203,7 @@ class Factorize(Algorithm):
             })
 
 
-def _python_log_surgery_result(model: torch.nn.Module, new_class: Type[torch.nn.Module]):
+def _python_log_surgery_result(model: torch.nn.Module, new_class: type[torch.nn.Module]):
     num_replaced_modules = module_surgery.count_module_instances(model, new_class)
     log.info(
         f'Applied factorization to model {model.__class__.__name__}. ' +

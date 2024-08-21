@@ -4,7 +4,6 @@ on:
   - cron: "30 2 * * *"  # 2:30 every day
   push:
     branches:
-    - dev
     - main
     - release/**
   workflow_dispatch:
@@ -18,53 +17,53 @@ jobs:
     strategy:
       matrix:
         include:
-        - name: cpu-3.10-2.1
-          container: mosaicml/pytorch:2.1.2_cpu-python3.10-ubuntu20.04
-          markers: not daily and (remote or not remote) and not gpu and not doctest
-          pytest_command: coverage run -m pytest
-          composer_package_name: mosaicml
         - name: cpu-3.11-2.2
           container: mosaicml/pytorch:2.2.1_cpu-python3.11-ubuntu20.04
           markers: not daily and (remote or not remote) and not gpu and not doctest
           pytest_command: coverage run -m pytest
           composer_package_name: mosaicml
-        - name: cpu-3.11-2.2-composer
-          container: mosaicml/pytorch:2.2.1_cpu-python3.11-ubuntu20.04
-          markers: not daily and (remote or not remote) and not gpu and not doctest
-          pytest_command: coverage run -m pytest
-          composer_package_name: composer
         - name: cpu-3.11-2.3
           container: mosaicml/pytorch:2.3.1_cpu-python3.11-ubuntu20.04
           markers: not daily and (remote or not remote) and not gpu and not doctest
           pytest_command: coverage run -m pytest
           composer_package_name: mosaicml
+        - name: cpu-3.11-2.4
+          container: mosaicml/pytorch:2.4.0_cpu-python3.11-ubuntu20.04
+          markers: not daily and (remote or not remote) and not gpu and not doctest
+          pytest_command: coverage run -m pytest
+          composer_package_name: mosaicml
+        - name: cpu-3.11-2.4-composer
+          container: mosaicml/pytorch:2.4.0_cpu-python3.11-ubuntu20.04
+          markers: not daily and (remote or not remote) and not gpu and not doctest
+          pytest_command: coverage run -m pytest
+          composer_package_name: composer
         - name: cpu-doctest
-          container: mosaicml/pytorch:2.1.2_cpu-python3.10-ubuntu20.04
+          container: mosaicml/pytorch:2.4.0_cpu-python3.11-ubuntu20.04
           markers: not daily and (remote or not remote) and not gpu and doctest
           pytest_command: coverage run -m pytest tests/test_docs.py
-          composer_package_name: mosaicml
-        - name: daily-cpu-3.10-2.1
-          container: mosaicml/pytorch:2.1.2_cpu-python3.10-ubuntu20.04
-          markers: daily and (remote or not remote) and not gpu and not doctest
-          pytest_command: coverage run -m pytest
           composer_package_name: mosaicml
         - name: daily-cpu-3.11-2.2
           container: mosaicml/pytorch:2.2.1_cpu-python3.11-ubuntu20.04
           markers: daily and (remote or not remote) and not gpu and not doctest
           pytest_command: coverage run -m pytest
           composer_package_name: mosaicml
-        - name: daily-cpu-3.11-2.2-composer
-          container: mosaicml/pytorch:2.2.1_cpu-python3.11-ubuntu20.04
+        - name: daily-cpu-3.11-2.3
+          container: mosaicml/pytorch:2.3.1_cpu-python3.11-ubuntu20.04
           markers: daily and (remote or not remote) and not gpu and not doctest
           pytest_command: coverage run -m pytest
-          composer_package_name: composer
-        - name: daily-cpu-3.11-2.3-composer
-          container: mosaicml/pytorch:2.3.1_cpu-python3.11-ubuntu20.04
+          composer_package_name: mosaicml
+        - name: daily-cpu-3.11-2.4
+          container: mosaicml/pytorch:2.4.0_cpu-python3.11-ubuntu20.04
+          markers: daily and (remote or not remote) and not gpu and not doctest
+          pytest_command: coverage run -m pytest
+          composer_package_name: mosaicml
+        - name: daily-cpu-3.11-2.4-composer
+          container: mosaicml/pytorch:2.4.0_cpu-python3.11-ubuntu20.04
           markers: daily and (remote or not remote) and not gpu and not doctest
           pytest_command: coverage run -m pytest
           composer_package_name: composer
         - name: daily-cpu-doctest
-          container: mosaicml/pytorch:2.2.1_cpu-python3.11-ubuntu20.04
+          container: mosaicml/pytorch:2.4.0_cpu-python3.11-ubuntu20.04
           markers: daily and (remote or not remote) and not gpu and doctest
           pytest_command: coverage run -m pytest tests/test_docs.py
           composer_package_name: mosaicml
@@ -77,13 +76,10 @@ jobs:
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
       composer_package_name: ${{ matrix.composer_package_name }}
-      pytest-wandb-entity: "mosaicml-public-integration-tests"
-      pytest-wandb-project: "integration-tests-${{ github.sha }}"
       safe_directory: composer
     secrets:
       aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      wandb-api-key: ${{ secrets.WANDB_API_KEY }}
       code-eval-device: ${{ secrets.CODE_EVAL_DEVICE }}
       code-eval-url: ${{ secrets.CODE_EVAL_URL }}
       code-eval-apikey: ${{ secrets.CODE_EVAL_APIKEY }}
@@ -106,12 +102,6 @@ jobs:
         # Unlike CPU tests, we run daily tests together with GPU tests to minimize launch time
         # on MCLOUD and not eat up all GPUs at once
         include:
-        - name: "gpu-3.10-2.1-1-gpu"
-          container: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
-          markers: "(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)"
-          pytest_command: "coverage run -m pytest"
-          composer_package_name: "mosaicml"
-          gpu_num: 1
         - name: "gpu-3.11-2.2-1-gpu"
           container: mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
           markers: "(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)"
@@ -124,12 +114,12 @@ jobs:
           pytest_command: "coverage run -m pytest"
           composer_package_name: "mosaicml"
           gpu_num: 1
-        - name: "gpu-3.10-2.1-2-gpu"
-          container: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
+        - name: "gpu-3.11-2.4-1-gpu"
+          container: mosaicml/pytorch:2.4.0_cu124-python3.11-ubuntu20.04
           markers: "(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)"
           pytest_command: "coverage run -m pytest"
           composer_package_name: "mosaicml"
-          gpu_num: 2
+          gpu_num: 1
         - name: "gpu-3.11-2.2-2-gpu"
           container: mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
           markers: "(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)"
@@ -142,12 +132,12 @@ jobs:
           pytest_command: "coverage run -m pytest"
           composer_package_name: "mosaicml"
           gpu_num: 2
-        - name: "gpu-3.10-2.1-4-gpu"
-          container: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
+        - name: "gpu-3.11-2.4-2-gpu"
+          container: mosaicml/pytorch:2.4.0_cu124-python3.11-ubuntu20.04
           markers: "(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)"
           pytest_command: "coverage run -m pytest"
           composer_package_name: "mosaicml"
-          gpu_num: 4
+          gpu_num: 2
         - name: "gpu-3.11-2.2-4-gpu"
           container: mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
           markers: "(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)"
@@ -156,6 +146,12 @@ jobs:
           gpu_num: 4
         - name: "gpu-3.11-2.3-4-gpu"
           container: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
+          markers: "(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)"
+          pytest_command: "coverage run -m pytest"
+          composer_package_name: "mosaicml"
+          gpu_num: 4
+        - name: "gpu-3.11-2.4-4-gpu"
+          container: mosaicml/pytorch:2.4.0_cu124-python3.11-ubuntu20.04
           markers: "(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)"
           pytest_command: "coverage run -m pytest"
           composer_package_name: "mosaicml"
@@ -171,7 +167,7 @@ jobs:
       pip_deps: "[all]"
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
-      python-version: 3.9
+      python-version: 3.11
       gpu_num: ${{ matrix.gpu_num }}
       gha-timeout: 5400
     secrets:

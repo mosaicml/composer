@@ -8,7 +8,6 @@ import warnings
 from typing import Any, Union
 
 import torch
-from packaging import version
 from torch import distributed
 from torch.distributed import ProcessGroup
 from torch.distributed.fsdp import (
@@ -27,11 +26,9 @@ SHARDING_MAP = {
     'NO_SHARD': ShardingStrategy.NO_SHARD,
     'SHARD_GRAD_OP': ShardingStrategy.SHARD_GRAD_OP,
     'FULL_SHARD': ShardingStrategy.FULL_SHARD,
+    '_HYBRID_SHARD_ZERO2': ShardingStrategy._HYBRID_SHARD_ZERO2,
+    'HYBRID_SHARD': ShardingStrategy.HYBRID_SHARD,
 }
-
-if version.parse(torch.__version__) >= version.parse('2.1.0'):
-    SHARDING_MAP['_HYBRID_SHARD_ZERO2'] = ShardingStrategy._HYBRID_SHARD_ZERO2
-    SHARDING_MAP['HYBRID_SHARD'] = ShardingStrategy.HYBRID_SHARD
 
 BACKWARD_PREFETCH_MAP = {
     'NONE': None,

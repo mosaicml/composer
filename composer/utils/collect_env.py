@@ -274,7 +274,7 @@ Composer Version: {composer_version}
 Composer Commit Hash: {composer_commit_hash}
 CPU Model: {cpu_model}
 CPU Count: {cpu_count}
-Number of Nodes: {node_world_size}
+Number of Nodes: {num_nodes}
 GPU Model: {gpu_model}
 GPUs per Node: {num_gpus_per_node}
 GPU Count: {num_gpus}

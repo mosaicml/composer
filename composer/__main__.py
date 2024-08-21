@@ -3,4 +3,4 @@
 
 """Runs the Composer CLI."""
 
-from composer.cli import __main__
+from composer.cli import __main__  # noqa: F401
