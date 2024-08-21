@@ -21,14 +21,20 @@ select = [
     "PERF",
     "PLE",
     "COM812",
+    "UP006",
+    "F401",
 ]
-
+extend-safe-fixes = [
+    "UP006",
+]
 ignore = [
     "C408",
     "PERF2",
     "PERF4",
 ]
+
 [tool.ruff]
+target-version = "py39"
 exclude = [
     "build/**",
     "docs/**",
@@ -164,6 +170,22 @@ filterwarnings = [
     '''ignore:The 'transformers' MLflow Models integration.*:UserWarning''',
     # Ignore our own deprecation warnings,
     '''ignore::composer.utils.warnings.VersionedDeprecationWarning''',
+    # Ignore deprecation warning for torch.load
+    '''ignore:You are using `torch.load` with `weights_only=False`.*:FutureWarning''',
+    # Ignore deprecation warning as DeepSpeed uses old path
+    '''ignore:.*torch.cuda.amp.custom.*:FutureWarning''',
+    # DeepSpeed uses positional arguments for PyTorch, ignore the warning
+    '''ignore:.*Positional args are being deprecated, use kwargs instead.*:FutureWarning''',
+    # PyTorch uses their own deprecated function
+    '''ignore:.*FSDP.state_dict_type.*:FutureWarning''',
+    # Ignore PyTorch NO_SHARD deprecation
+    '''ignore:.*The `NO_SHARD` sharding strategy is deprecated.*:FutureWarning''',
+    # Some unit tests use ShardedTensor, though by default we use DTensor
+    '''ignore:.*Please use DTensor instead and we are deprecating.*:FutureWarning''',
+    # Ignore Torch load_state_dict warnings, it's used by torch internal, not composer
+    '''ignore:.*`load_state_dict` is deprecated and *:FutureWarning''',
+    # Ignore NeptuneLogger warnings
+    '''ignore:.*NVML Shared Library Not Found. GPU usage metrics may not be reported.*''',
 ]
 
 # Coverage

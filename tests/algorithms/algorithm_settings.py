@@ -8,7 +8,7 @@ functional tests, serialization tests, etc.
 Each algorithm is keyed based on its name in the algorithm registry.
 """
 
-from typing import Any, Optional, Type
+from typing import Any, Optional
 
 import pytest
 from torch.utils.data import DataLoader
@@ -97,7 +97,7 @@ simple_vision_pil_settings = {
     'kwargs': {},
 }
 
-_settings: dict[Type[Algorithm], Optional[dict[str, Any]]] = {
+_settings: dict[type[Algorithm], Optional[dict[str, Any]]] = {
     GradientClipping: {
         'model': SimpleConvModel,
         'dataset': RandomImageDataset,
@@ -253,7 +253,7 @@ _settings: dict[Type[Algorithm], Optional[dict[str, Any]]] = {
 }
 
 
-def _get_alg_settings(alg_cls: Type[Algorithm]):
+def _get_alg_settings(alg_cls: type[Algorithm]):
     if alg_cls not in _settings or _settings[alg_cls] is None:
         raise ValueError(f'Algorithm {alg_cls.__name__} not in the settings dictionary.')
     settings = _settings[alg_cls]
@@ -261,12 +261,12 @@ def _get_alg_settings(alg_cls: Type[Algorithm]):
     return settings
 
 
-def get_alg_kwargs(alg_cls: Type[Algorithm]) -> dict[str, Any]:
+def get_alg_kwargs(alg_cls: type[Algorithm]) -> dict[str, Any]:
     """Return the kwargs for an algorithm."""
     return _get_alg_settings(alg_cls)['kwargs']
 
 
-def get_alg_model(alg_cls: Type[Algorithm]) -> ComposerModel:
+def get_alg_model(alg_cls: type[Algorithm]) -> ComposerModel:
     """Return an instance of the model for an algorithm."""
     settings = _get_alg_settings(alg_cls)['model']
     if isinstance(settings, tuple):
@@ -276,7 +276,7 @@ def get_alg_model(alg_cls: Type[Algorithm]) -> ComposerModel:
     return cls(**kwargs)
 
 
-def get_alg_dataloader(alg_cls: Type[Algorithm], multigpu=False) -> DataLoader:
+def get_alg_dataloader(alg_cls: type[Algorithm], multigpu=False) -> DataLoader:
     """Return an instance of the dataset for an algorithm."""
     settings = _get_alg_settings(alg_cls)
 

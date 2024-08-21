@@ -1,8 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Type
-
 import pytest
 
 from composer import Algorithm, Trainer
@@ -13,7 +11,7 @@ from tests.algorithms.algorithm_settings import get_alg_dataloader, get_alg_kwar
 @pytest.mark.gpu
 @pytest.mark.parametrize('alg_cls', get_algs_with_marks())
 @pytest.mark.filterwarnings(r'ignore:.*Plan failed with a cudnnException.*:UserWarning')  # Torch 2.3 regression
-def test_algorithm_trains(alg_cls: Type[Algorithm]):
+def test_algorithm_trains(alg_cls: type[Algorithm]):
     alg_kwargs = get_alg_kwargs(alg_cls)
     model = get_alg_model(alg_cls)
     dataloader = get_alg_dataloader(alg_cls)

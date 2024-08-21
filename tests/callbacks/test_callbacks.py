@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Type, cast
+from typing import cast
 
 import pytest
 
@@ -44,14 +44,14 @@ class TestCallbacks:
         pytest.importorskip('wandb', reason='WandB is optional.')
 
     @pytest.mark.filterwarnings('ignore::UserWarning')
-    def test_callback_is_constructable(self, cb_cls: Type[Callback]):
+    def test_callback_is_constructable(self, cb_cls: type[Callback]):
         cb_kwargs = get_cb_kwargs(cb_cls)
         cb = cb_cls(**cb_kwargs)
         assert isinstance(cb_cls, type)
         assert isinstance(cb, cb_cls)
 
     @pytest.mark.filterwarnings('ignore::UserWarning')
-    def test_multiple_fit_start_and_end(self, cb_cls: Type[Callback], dummy_state: State):
+    def test_multiple_fit_start_and_end(self, cb_cls: type[Callback], dummy_state: State):
         """Test that callbacks do not crash when Event.FIT_START and Event.FIT_END is called multiple times."""
         cb_kwargs = get_cb_kwargs(cb_cls)
         dummy_state.callbacks.append(cb_cls(**cb_kwargs))
@@ -74,7 +74,7 @@ class TestCallbacks:
         engine.run_event(Event.FIT_END)
 
     @pytest.mark.filterwarnings('ignore::UserWarning')
-    def test_idempotent_close(self, cb_cls: Type[Callback], dummy_state: State):
+    def test_idempotent_close(self, cb_cls: type[Callback], dummy_state: State):
         """Test that callbacks do not crash when .close() and .post_close() are called multiple times."""
         cb_kwargs = get_cb_kwargs(cb_cls)
         dummy_state.callbacks.append(cb_cls(**cb_kwargs))
@@ -93,7 +93,7 @@ class TestCallbacks:
         engine.close()
 
     @pytest.mark.filterwarnings('ignore::UserWarning')
-    def test_multiple_init_and_close(self, cb_cls: Type[Callback], dummy_state: State):
+    def test_multiple_init_and_close(self, cb_cls: type[Callback], dummy_state: State):
         """Test that callbacks do not crash when INIT/.close()/.post_close() are called multiple times in that order."""
         cb_kwargs = get_cb_kwargs(cb_cls)
         dummy_state.callbacks.append(cb_cls(**cb_kwargs))
@@ -150,7 +150,7 @@ class TestCallbackTrains:
         )
 
     @pytest.mark.filterwarnings('ignore::UserWarning')
-    def test_trains(self, cb_cls: Type[Callback], device_train_microbatch_size: int, _remote: bool):
+    def test_trains(self, cb_cls: type[Callback], device_train_microbatch_size: int, _remote: bool):
         del _remote  # unused. `_remote` must be passed through to parameterize the test markers.
         cb_kwargs = get_cb_kwargs(cb_cls)
         cb = cb_cls(**cb_kwargs)
@@ -158,7 +158,7 @@ class TestCallbackTrains:
         trainer.fit()
 
     @pytest.mark.filterwarnings('ignore::UserWarning')
-    def test_trains_multiple_calls(self, cb_cls: Type[Callback], device_train_microbatch_size: int, _remote: bool):
+    def test_trains_multiple_calls(self, cb_cls: type[Callback], device_train_microbatch_size: int, _remote: bool):
         """
         Tests that training with multiple fits complete.
         Note: future functional tests should test for

@@ -6,7 +6,7 @@
 import logging
 import warnings
 from contextlib import contextmanager, nullcontext
-from typing import Any, Callable, ContextManager, Iterator, Optional, Sequence, Tuple, Union, cast
+from typing import Any, Callable, ContextManager, Iterator, Optional, Sequence, Union, cast
 
 import torch
 from packaging import version
@@ -223,7 +223,7 @@ def prepare_fsdp_module(
     device: Optional[Union[str, Device]] = None,
     auto_microbatching: bool = False,
     te_rng_seed: int = 1234,
-) -> Tuple[list, dict]:
+) -> tuple[list, dict]:
     """Prepare a module (assumed ComposerModel) and optimizer for use with :class:`torch.distributed.fsdp.FullyShardedDataParallel`.
 
     Args:

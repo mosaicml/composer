@@ -24,7 +24,7 @@ import collections
 import itertools
 import logging
 import textwrap
-from typing import Any, Callable, Iterable, Mapping, Optional, OrderedDict, Sequence, Type, Union
+from typing import Any, Callable, Iterable, Mapping, Optional, OrderedDict, Sequence, Union
 
 import torch
 import torch.distributed
@@ -60,7 +60,7 @@ def _add_children_recursive(
 # adapted from https://github.com/microsoft/DeepSpeed/blob/b8ff4825aae4bced15a29a4298cb3e59098df999/deepspeed/module_inject/replace_module.py#L699
 def replace_module_classes(
     module: torch.nn.Module,
-    policies: Mapping[Type[torch.nn.Module], ReplacementFunction],
+    policies: Mapping[type[torch.nn.Module], ReplacementFunction],
     optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
     recurse_on_replacements: bool = False,
     indices: Optional[dict[Any, int]] = None,
@@ -239,7 +239,7 @@ def _infer_device(module: torch.nn.Module) -> Optional[torch.device]:
 
 def count_module_instances(
     module: torch.nn.Module,
-    module_class: Union[Type[torch.nn.Module], tuple[Type[torch.nn.Module], ...]],
+    module_class: Union[type[torch.nn.Module], tuple[type[torch.nn.Module], ...]],
 ) -> int:
     """Counts the number of instances of ``module_class`` in ``module``, recursively.
 
@@ -273,7 +273,7 @@ def count_module_instances(
 
 def _recur_count_module_instances(
     module: torch.nn.Module,
-    module_class: Union[Type[torch.nn.Module], tuple[Type[torch.nn.Module], ...]],
+    module_class: Union[type[torch.nn.Module], tuple[type[torch.nn.Module], ...]],
     found_instances: set,
 ):
     """Counts instances of ``module_class`` in ``module``, recursively, using a set to deduplicate.

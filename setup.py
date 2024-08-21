@@ -83,7 +83,7 @@ install_requires = [
     'torchvision>=0.14.0,<0.19.1',
     'torch>=2.2.0,<2.4.1',
     'requests>=2.26.0,<3',
-    'numpy>=1.21.5,<2.1.0',
+    'numpy>=1.21.5,<2.2.0',
     'psutil>=5.8.0,<7',
     'coolname>=1.1.0,<3',
     'tabulate==0.9.0',  # for auto-generating tables
@@ -224,13 +224,13 @@ extra_deps['onnx'] = [
 
 extra_deps['mlflow'] = [
     'mlflow>=2.14.1,<3.0',
-    'databricks-sdk==0.29.0',
+    'databricks-sdk==0.30.0',
     'pynvml>=11.5.0,<12',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk==0.29.0']
+extra_deps['databricks'] = ['databricks-sdk==0.30.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 
