@@ -31,7 +31,7 @@ from composer.models import ComposerClassifier
 from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
 from composer.utils import FSDPConfig, TPConfig, dist, parse_uri
-from composer.utils.checkpoint import is_checkpoint_legacy_sharded
+from composer.utils.checkpoint import dist_cp_load, is_checkpoint_legacy_sharded
 from composer.utils.file_helpers import get_file
 from composer.utils.object_store import S3ObjectStore
 from composer.utils.reproducibility import get_rng_state
@@ -610,8 +610,6 @@ def test_fsdp_load_old_checkpoint(
                 fsdp_config=fsdp_config,
             )
 
-            from torch.distributed import checkpoint as dist_cp
-
             from composer.utils.checkpoint import DistCPObjectStoreReader
 
             _, _, parsed_load_path = parse_uri(load_path)
@@ -638,12 +636,10 @@ def test_fsdp_load_old_checkpoint(
             if optimizers_at_root:
                 state_dict['state'].pop('optimizers')
 
-            process_group = None
-            dist_cp.load_state_dict(
+            dist_cp_load(
                 state_dict=state_dict,
                 storage_reader=storage_reader,
-                planner=None,
-                process_group=process_group,
+                load_planner=None,
             )
             if optimizers_at_root:
                 from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
