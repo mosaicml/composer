@@ -277,7 +277,7 @@ RUN apt-get update -qqq && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-RUN pip install --no-cache-dir awscli packaging ninja timm ftfy flash-attn accelerate wandb diffusers mmengine av opencv-python pandas fairscale colossalai rotary-embedding-torch pandarallel boto3
+RUN pip install --no-cache-dir awscli packaging ninja timm ftfy accelerate wandb diffusers mmengine av opencv-python pandas fairscale colossalai rotary-embedding-torch pandarallel boto3
 
 # Install Apex
 RUN pip install -qqq --disable-pip-version-check --no-cache-dir --no-build-isolation \
