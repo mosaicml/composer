@@ -280,7 +280,9 @@ RUN apt-get update -qqq && \
 RUN pip install --no-cache-dir awscli packaging ninja timm ftfy accelerate wandb diffusers mmengine av opencv-python pandas fairscale colossalai rotary-embedding-torch pandarallel boto3
 
 # Install Apex
-RUN pip install --disable-pip-version-check --no-cache-dir --no-build-isolation --config-settings "--build-option=--cpp_ext" --config-settings "--build-option=--cuda_ext" git+https://github.com/NVIDIA/apex.git
+RUN if [ -n "$CUDA_VERSION" ] ; then \
+        pip install --disable-pip-version-check --no-cache-dir --no-build-isolation --config-settings "--build-option=--cpp_ext" --config-settings "--build-option=--cuda_ext" git+https://github.com/NVIDIA/apex.git ; \
+    fi
 
 ###############
 # Install cmake
