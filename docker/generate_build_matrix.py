@@ -180,7 +180,8 @@ def _write_table(table_tag: str, table_contents: str):
 
 
 def _main():
-    python_pytorch_versions = [('3.11', '2.4.0'), ('3.11', '2.3.1'), ('3.11', '2.2.2')]
+    #python_pytorch_versions = [('3.11', '2.4.0'), ('3.11', '2.3.1'), ('3.11', '2.2.2')]
+    python_pytorch_versions = [('3.11', '2.3.1'), ('3.11', '2.2.2')]
     cuda_options = [True, False]
     stages = ['pytorch_stage']
     interconnects = ['mellanox', 'EFA']  # mellanox is default, EFA needed for AWS
