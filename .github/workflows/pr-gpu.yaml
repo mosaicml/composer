@@ -1,6 +1,6 @@
 name: PR GPU tests
 on:
-  pull_request:
+  pull_request_target:
   workflow_dispatch:
 # Cancel old runs when a new commit is pushed to the same branch if not on main
 # or dev
@@ -10,7 +10,7 @@ concurrency:
 jobs:
   pytest-gpu-1:
     name: ${{ matrix.name }}
-    runs-on: linux-ubuntu-latest
+    runs-on: linux-ubuntu
     if: github.repository_owner == 'mosaicml'
     strategy:
       matrix:
@@ -40,7 +40,7 @@ jobs:
         ci_repo_gpu_test_ref: v0.1.2
   pytest-gpu-2:
     name: ${{ matrix.name }}
-    runs-on: linux-ubuntu-latest
+    runs-on: linux-ubuntu
     strategy:
       matrix:
         include:
@@ -70,7 +70,7 @@ jobs:
         ci_repo_gpu_test_ref: v0.1.2
   pytest-gpu-4:
     name: ${{ matrix.name }}
-    runs-on: linux-ubuntu-latest
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
