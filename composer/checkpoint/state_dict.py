@@ -6,7 +6,7 @@
 import fnmatch
 import logging
 import sys
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Iterable, Optional, Sequence, Union
 
 from torch.utils.data import DataLoader, Dataset
 
@@ -102,7 +102,7 @@ def get_model_state_dict(
     return model_state_dict
 
 
-def _cast_state_dict_to_precision(state_dict: Dict[str, Any], precision: Union[str, torch.dtype]) -> Dict[str, Any]:
+def _cast_state_dict_to_precision(state_dict: dict[str, Any], precision: Union[str, torch.dtype]) -> dict[str, Any]:
     if isinstance(precision, str):
         precision = STR_TO_DTYPE[precision]
 
@@ -169,7 +169,7 @@ def _get_model_state_dict_with_fsdp_context_manager(model: nn.Module, sharded_st
     return model_state_dict
 
 
-def get_resumption_state_dict(state: State) -> Dict[str, Any]:
+def get_resumption_state_dict(state: State) -> dict[str, Any]:
     """Generate the state dict for any objects needed for resumption.
 
     This includes:
@@ -218,7 +218,7 @@ def get_resumption_state_dict(state: State) -> Dict[str, Any]:
 
 
 def _make_state_dict_for_list_of_objects(objects: Union[Sequence[Any], Any],
-                                         use_list_of_tuples=False) -> Union[Dict[str, Any], List]:
+                                         use_list_of_tuples=False) -> Union[dict[str, Any], list]:
     object_list = []
     object_dict = {}
     if not isinstance(objects, Sequence):
@@ -239,7 +239,7 @@ def _make_state_dict_for_list_of_objects(objects: Union[Sequence[Any], Any],
 def get_dataset_state_dict(
     train_dataloader: Optional[Union[DataLoader, Iterable]],
     timestamp: Timestamp,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Collect the state dict(s) of our train and eval dataset(s).
 
     Returns:
@@ -261,7 +261,7 @@ def _get_optim_state_dict_with_fsdp_context_manager(
     optimizer: torch.optim.Optimizer,
     sharded_state_dict: bool,
     cpu_offload: bool,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get the optimizer state dict with the FSDP context manager.
 
     Args:
@@ -310,7 +310,7 @@ def get_optim_state_dict(
     include_keys: Optional[Union[str, Sequence[str]]] = None,
     ignore_keys: Optional[Union[str, Sequence[str]]] = None,
     cpu_offload: Optional[bool] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Generate the state dict of the optimizer.
 
     Args:
@@ -338,7 +338,7 @@ def get_optim_state_dict(
     if version.parse(torch.__version__) >= version.parse('2.2.0') and dist.is_initialized():
         from torch.distributed.checkpoint.state_dict import StateDictOptions, get_optimizer_state_dict
         log.debug('Calling torch get_optimizer_state_dict...')
-        optim_state_dict: Dict[str, Any] = get_optimizer_state_dict(
+        optim_state_dict: dict[str, Any] = get_optimizer_state_dict(
                 model=model,
                 optimizers=optimizer,
                 submodules=None, # We extract submodules below

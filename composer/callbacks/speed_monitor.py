@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import warnings
 from collections import deque
-from typing import Any, Callable, Deque, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 import torch
 
@@ -252,10 +252,10 @@ class SpeedMonitor(Callback):
         time_unit: str = 'hours',
     ):
         # Track the batch num samples and wct to compute throughput over a window of batches
-        self.history_samples: Deque[int] = deque(maxlen=window_size + 1)
-        self.history_tokens: Deque[int] = deque(maxlen=window_size + 1)
-        self.history_wct: Deque[float] = deque(maxlen=window_size + 1)
-        self.history_flops: Deque[float] = deque(maxlen=window_size + 1)
+        self.history_samples: deque[int] = deque(maxlen=window_size + 1)
+        self.history_tokens: deque[int] = deque(maxlen=window_size + 1)
+        self.history_wct: deque[float] = deque(maxlen=window_size + 1)
+        self.history_flops: deque[float] = deque(maxlen=window_size + 1)
 
         self.gpu_flops_available = gpu_flops_available
 

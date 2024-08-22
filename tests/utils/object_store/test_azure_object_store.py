@@ -9,7 +9,6 @@ from tests.common import RandomClassificationDataset, SimpleModel
 
 
 @pytest.mark.remote
-@pytest.mark.skip(reason='Waiting for new Azure key to be approved')
 def test_azure_object_store_integration():
     model = SimpleModel()
     train_dataloader = DataLoader(dataset=RandomClassificationDataset())

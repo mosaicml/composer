@@ -4,7 +4,7 @@
 import contextlib
 import os
 import pathlib
-from typing import Any, Type
+from typing import Any
 
 import mockssh
 import moto
@@ -72,7 +72,7 @@ object_stores = [
 
 @contextlib.contextmanager
 def get_object_store_ctx(
-    object_store_cls: Type[ObjectStore],
+    object_store_cls: type[ObjectStore],
     object_store_kwargs: dict[str, Any],
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: pathlib.Path,

@@ -5,7 +5,7 @@ import inspect
 import logging
 import math
 from operator import attrgetter
-from typing import Callable, Optional, Type
+from typing import Callable, Optional
 
 import torch
 
@@ -16,12 +16,12 @@ log = logging.getLogger(__name__)
 AlibiReplacementFunction = Callable[[torch.nn.Module, int, int], Optional[torch.nn.Module]]
 
 
-class PolicyRegistry(dict[Type[torch.nn.Module], AlibiReplacementFunction]):
+class PolicyRegistry(dict[type[torch.nn.Module], AlibiReplacementFunction]):
     """A registry mapping for ALiBi surgery."""
 
     def register(
         self,
-        *modules: Type[torch.nn.Module],
+        *modules: type[torch.nn.Module],
     ) -> Callable[[AlibiReplacementFunction], AlibiReplacementFunction]:
         """This decorator registers mappings from torch module types to their ALiBi surgery functions.
 
@@ -92,7 +92,7 @@ class PolicyRegistry(dict[Type[torch.nn.Module], AlibiReplacementFunction]):
             if max_seq_name != 'max_sequence_length':
                 raise NameError(f'The third argument of function {func} must be named "max_sequence_length"')
 
-        def _register_module(module: Type[torch.nn.Module], func: Callable) -> None:
+        def _register_module(module: type[torch.nn.Module], func: Callable) -> None:
             if not issubclass(module, torch.nn.Module):
                 raise TypeError(f'Module {module.__name__} is not a subclass of `torch.nn.Module`.')
             if module in self:

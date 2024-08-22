@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import itertools
-from typing import Mapping, Type, cast
+from typing import Mapping, cast
 from unittest.mock import Mock
 
 import pytest
@@ -44,7 +44,7 @@ class SimpleReplacementPolicy(nn.Module):
         assert isinstance(module, nn.MaxPool2d)
         return BlurMaxPool2d.from_maxpool2d(module, module_index)
 
-    def policy(self) -> Mapping[Type[torch.nn.Module], module_surgery.ReplacementFunction]:
+    def policy(self) -> Mapping[type[torch.nn.Module], module_surgery.ReplacementFunction]:
         return {
             nn.Linear: self.maybe_replace_linear,
             nn.MaxPool2d: self.replace_pool,
@@ -99,7 +99,7 @@ class NoOpReplacementPolicy(SimpleReplacementPolicy):
     ],
 )
 def test_module_replacement(
-    model_cls: Type[SimpleReplacementPolicy],
+    model_cls: type[SimpleReplacementPolicy],
     recurse_on_replacements: bool,
 ):
     model = model_cls()
@@ -160,7 +160,7 @@ class _CopyLinear(torch.nn.Module):
 def optimizer_surgery_state():
     """Returns a tuple of (old_layers, new_layers, and optimizer)."""
     model = SimpleModel(num_features=1, num_classes=10)
-    policy: Mapping[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
+    policy: Mapping[type[torch.nn.Module], module_surgery.ReplacementFunction] = {
         torch.nn.Linear: _CopyLinear.from_linear,
     }
     opt = torch.optim.SGD(model.parameters(), lr=.001)

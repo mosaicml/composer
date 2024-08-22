@@ -24,7 +24,6 @@ from typing import (
     Any,
     Callable,
     ContextManager,
-    Dict,
     Iterable,
     Mapping,
     Optional,
@@ -461,7 +460,7 @@ def _create_sync_hook(state: State):
     return sync_hook
 
 
-def _readd_fsdp_sync_hooks(fsdp_modules: Dict[str, torch.nn.Module], sync_hook):
+def _readd_fsdp_sync_hooks(fsdp_modules: dict[str, torch.nn.Module], sync_hook):
     """Readds previously removed sync hooks back to FSDP modules.
 
     Called when preparing to search for or searching for new microbatch size during automicrobatching.
@@ -1725,7 +1724,7 @@ class Trainer:
 
         # Suppressing GradScaler warnings as they are always created
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
-        warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
+        warnings.filterwarnings(action='ignore', message='.*torch.cuda.amp.GradScaler.*')
         self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
 
         if self.state.fsdp_config is not None:
@@ -1943,6 +1942,18 @@ class Trainer:
                     device,
                     auto_microbatching,
                 )
+
+        # Set the iteration timestamp to the overall timestamp if loading from a checkpoint that was created before
+        # iteration was introduced in Composer v0.19.1. This is necessary to ensure that the iteration timestamp is
+        # accurate for callbacks and backwards compatibility for checkpoints.
+        if (
+            self.state.timestamp.iteration == 0 and self.state.timestamp.token_in_iteration == 0 and
+            self.state.timestamp.epoch_in_iteration == 0
+        ):
+            self.state.timestamp = self.state.timestamp.copy(
+                epoch_in_iteration=self.state.timestamp.epoch,
+                token_in_iteration=self.state.timestamp.token,
+            )
 
         self.engine.run_event(Event.AFTER_LOAD)
 
@@ -2303,6 +2314,17 @@ class Trainer:
             # different units than ``max_duration``
             self.state.max_duration = duration + self.state.timestamp.get(duration.unit)
 
+        # Raise error if callig fit with SGD
+        if type(
+            self.state.optimizers[0],
+        ) == torch.optim.SGD and version.parse(torch.__version__) >= version.parse('2.4.0'):
+            raise ValueError(
+                'PyTorch 2.4 breaks (distributed) checkpointing with SGD. '
+                'Please use a different optimizer, e.g. composer.optim.DecoupledSGDW, '
+                'instead or downgrade to PyTorch <2.4. See ',
+                'https://github.com/pytorch/pytorch/issues/133415 for further information.',
+            )
+
         if self.state.max_duration is None:
             _raise_missing_argument_exception('max_duration')
         assert self.state.max_duration is not None
@@ -2441,6 +2463,17 @@ class Trainer:
 
         self.first_batch_complete = False
         self._train_loop()
+
+        # Zero gradients at the end of fit so same model/optimizer can be used for further training
+        # with checkpoint loading. See https://github.com/pytorch/pytorch/issues/133415
+        for optimizer in self.state.optimizers:
+            try:
+                try:
+                    optimizer.zero_grad(set_to_none=True)
+                except TypeError:
+                    optimizer.zero_grad()
+            except:
+                log.exception('Failed to zero out optimizer at end of fit')
 
     def close(self):
         """Shutdown the trainer.

@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from composer import Trainer
 from composer.core import Callback, State, TimeUnit
 from composer.loggers.logger import Logger
-from composer.optim import MultiStepScheduler
+from composer.optim import DecoupledSGDW, MultiStepScheduler
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from tests.common.datasets import RandomClassificationDataset
 from tests.common.models import SimpleModel
@@ -104,11 +104,11 @@ class TestScaleScheduleTrainer():
         ssr: float,
     ):
         model = SimpleModel()
-        optimizers = torch.optim.SGD(model.parameters(), lr=1.0)
+        optimizers = DecoupledSGDW(model.parameters(), lr=1.0)
         trainer = Trainer(
             model=model,
-            train_dataloader=DataLoader(RandomClassificationDataset()),
             optimizers=optimizers,
+            train_dataloader=DataLoader(RandomClassificationDataset()),
             schedulers=[MultiStepScheduler(milestones=['30ba', '50ba'], gamma=0.1)],
             scale_schedule_ratio=ssr,
             callbacks=[CheckScaleSchedule(ssr)],

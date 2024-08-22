@@ -7,7 +7,7 @@ torchscript, torch.fx, and ONNX.
 """
 import os
 import pathlib
-from typing import Any, Callable, Type
+from typing import Any, Callable
 
 import pytest
 import torch
@@ -50,7 +50,7 @@ torchscript_algs_with_marks = [
 # <--- torchscript export --->
 
 
-def get_surgery_method(alg_cls: Type[Algorithm]) -> Callable:
+def get_surgery_method(alg_cls: type[Algorithm]) -> Callable:
     if alg_cls is BlurPool:
         return apply_blurpool
     if alg_cls is Factorize:
@@ -67,7 +67,7 @@ def get_surgery_method(alg_cls: Type[Algorithm]) -> Callable:
 
 
 @pytest.mark.parametrize('alg_cls', torchscript_algs_with_marks)
-def test_surgery_torchscript_train(input: Any, alg_cls: Type[Algorithm]):
+def test_surgery_torchscript_train(input: Any, alg_cls: type[Algorithm]):
     """Tests torchscript model in train mode."""
     if alg_cls in (Factorize, GhostBatchNorm, StochasticDepth):
         pytest.xfail('Unsupported')
@@ -88,7 +88,7 @@ def test_surgery_torchscript_train(input: Any, alg_cls: Type[Algorithm]):
 
 
 @pytest.mark.parametrize('alg_cls', torchscript_algs_with_marks)
-def test_surgery_torchscript_eval(input: Any, alg_cls: Type[Algorithm]):
+def test_surgery_torchscript_eval(input: Any, alg_cls: type[Algorithm]):
     """Tests torchscript model in eval mode."""
     if alg_cls is Factorize:
         pytest.xfail('Unsupported')
@@ -113,7 +113,7 @@ def test_surgery_torchscript_eval(input: Any, alg_cls: Type[Algorithm]):
 @pytest.mark.parametrize('alg_cls', torchscript_algs_with_marks)
 def test_surgery_torchfx_eval(
     input: Any,
-    alg_cls: Type[Algorithm],
+    alg_cls: type[Algorithm],
 ):
     """Tests torch.fx model in eval mode."""
 
@@ -144,7 +144,7 @@ def test_surgery_torchfx_eval(
 @pytest.mark.filterwarnings('ignore:__floordiv__ is deprecated')
 def test_surgery_onnx(
     input: Any,
-    alg_cls: Type[Algorithm],
+    alg_cls: type[Algorithm],
     tmp_path: pathlib.Path,
 ):
     """Tests onnx export and runtime"""
