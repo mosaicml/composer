@@ -252,8 +252,8 @@ class DataSpec:
         if isinstance(batch, torch.Tensor):
             return batch.shape[0]
 
-        if _TRANSFORMERS_INSTALLED and isinstance(batch, BatchEncoding):
-            batch = dict(batch)
+        # if _TRANSFORMERS_INSTALLED and isinstance(batch, BatchEncoding):
+        #     batch = dict(batch)
 
         dim0_sizes = []
         if isinstance(batch, (list, tuple)):
@@ -267,7 +267,7 @@ class DataSpec:
                             '`get_num_samples_in_batch(your_batch) -> int` method.',
                         )
                     dim0_sizes.append(t.shape[0])
-        elif isinstance(batch, dict):
+        elif isinstance(batch, Mapping):
             for t in batch.values():
                 if isinstance(t, torch.Tensor):
                     dim0_sizes.append(t.shape[0])
@@ -294,8 +294,8 @@ class DataSpec:
             )
 
     def _default_get_num_tokens_in_batch(self, batch: Batch) -> int:
-        if _TRANSFORMERS_INSTALLED and isinstance(batch, BatchEncoding):
-            batch = dict(batch)
+        # if _TRANSFORMERS_INSTALLED and isinstance(batch, BatchEncoding):
+        #     batch = dict(batch)
         # First try HuggingFace-style input dicts
         if isinstance(batch, Mapping) and 'input_ids' in batch:
             samples_per_batch = batch['input_ids'].shape[0]
