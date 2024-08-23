@@ -1,5 +1,6 @@
 name: Daily
 on:
+  pull_request: {} #<-- test
   schedule:
   - cron: "30 2 * * *"  # 2:30 every day
   push:
@@ -183,6 +184,6 @@ jobs:
         pytest_markers: ${{ matrix.markers }}
         python_version: 3.11
         gpu_num: ${{ matrix.gpu_num }}
-        mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
+        mcloud_api_key: ${{ secrets.MCLOUD_DAILY_API_KEY }}
         gha_timeout: 5400
         ci_repo_gpu_test_ref: v0.1.2
