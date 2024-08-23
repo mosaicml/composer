@@ -1,6 +1,5 @@
 name: Daily
 on:
-  pull_request: {} #<--- test
   schedule:
   - cron: "30 2 * * *"  # 2:30 every day
   push:
