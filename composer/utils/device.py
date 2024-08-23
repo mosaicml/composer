@@ -15,12 +15,13 @@ __all__ = ['get_device', 'is_hpu_installed', 'is_xla_installed']
 _is_xla_installed = None
 
 
-def get_device(device: Optional[Union[str, 'Device']]) -> 'Device':
+def get_device(device: Optional[Union[str, 'Device']] = None) -> 'Device':
     """Takes string or Device and returns the corresponding :class:`~composer.devices.Device`.
 
     Args:
         device (str | Device, optional): A string corresponding to a device (one of
             ``'cpu'``, ``'gpu'``, ``'mps'``, or ``'tpu'``) or a :class:`.Device`.
+            (default: ``None``)
 
     Returns:
         Device: Device corresponding to the passed string or
