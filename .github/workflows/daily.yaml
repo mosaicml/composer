@@ -106,12 +106,6 @@ jobs:
     strategy:
       matrix:
         include:
-        - name: gpu-3.11-2.4-1
-          container: mosaicml/pytorch:2.4.0_cu124-python3.11-ubuntu20.04
-          markers: not daily and not remote and gpu and (doctest or not doctest)
-          pytest_command: coverage run -m pytest
-          composer_package_name: mosaicml
-          gpu_num: 1
         # Unlike CPU tests, we run daily tests together with GPU tests to minimize launch time
         # on MCLOUD and not eat up all GPUs at once
         - name: "gpu-3.11-2.2-1-gpu"
