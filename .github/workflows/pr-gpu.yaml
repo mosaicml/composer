@@ -10,7 +10,7 @@ concurrency:
 jobs:
   pytest-gpu-1:
     name: ${{ matrix.name }}
-    runs-on: linux-ubuntu
+    runs-on: ubuntu-latest
     if: github.repository_owner == 'mosaicml'
     strategy:
       matrix:
@@ -40,7 +40,7 @@ jobs:
         ci_repo_gpu_test_ref: v0.1.2
   pytest-gpu-2:
     name: ${{ matrix.name }}
-    runs-on: linux-ubuntu
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
