@@ -114,7 +114,6 @@ from composer.utils import (
     Transform,
     VersionedDeprecationWarning,
     checkpoint,
-    create_fsdp_config,
     dist,
     ensure_tuple,
     export_with_logger,
@@ -1323,7 +1322,7 @@ class Trainer:
                 if isinstance(parallelism_config['fsdp'], FSDPConfig):
                     parallelism_config_args['fsdp'] = parallelism_config['fsdp']
                 else:
-                    parallelism_config_args['fsdp'] = create_fsdp_config(parallelism_config['fsdp'])
+                    parallelism_config_args['fsdp'] = FSDPConfig(**parallelism_config['fsdp'])
             if 'tp' in parallelism_config and parallelism_config['tp'] is not None:
                 if isinstance(parallelism_config['tp'], TPConfig):
                     parallelism_config_args['tp'] = parallelism_config['tp']
