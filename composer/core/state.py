@@ -616,7 +616,7 @@ class State(Serializable):
         # Load monolith rank0 only
         if self.load_monolith_rank0_only:
             if self.tp_config is not None:
-                raise ValueError('load_fsdp_monolith_rank0_only is not compatible with tensor parallelism (TP).')
+                raise ValueError('load_monolith_rank0_only is not compatible with tensor parallelism (TP).')
             assert self.fsdp_config is not None
             error_message = ''
             if self.fsdp_config.sync_module_states == False:
@@ -1336,10 +1336,12 @@ class State(Serializable):
                             textwrap.dedent(
                                 'PyTorch DTensor broke backwards compatibility in older checkpoints '
                                 'with ShardedTensor, which is now deprecated. To load old checkpoints, '
-                                'either downgrade to PyTorch <2.3.0 or explicitly pass process groups '
-                                'in the Trainer constructor via '
-                                "`parallelism_config = {'fsdp': {'process_group': 'mod1'}}`. We can "
-                                'provide assistance at https://github.com/mosaicml/composer/issues.',
+                                'either downgrade to PyTorch <2.3.0 or define process groups in the '
+                                'Trainer constructor via the `data_parallel_shard_degree` or '
+                                '`data_parallel_replicate_degree` arguments to `parallelism_config` via'
+                                'the "fsdp" key, as '
+                                '`parallelism_config = {"fsdp": {"data_parallel_shard_degree": 8}}`, '
+                                'for example. We can provide assistance at https://github.com/mosaicml/composer/issues.',
                             ),
                         ) from e
                     else:
