@@ -1,4 +1,4 @@
-name: Release Docker Images
+name: Release Docker/GHCR Images
 
 on:
   workflow_dispatch:
@@ -8,6 +8,10 @@ on:
         required: true
       DOCKER_HUB_PASSWORD:
         required: true
+      GHCR_USERNAME:
+        required: true
+      GHCR_TOKEN:
+        required: true
 
 defaults:
   run:
@@ -16,7 +20,7 @@ defaults:
 jobs:
   build-image-matrix:
     if: github.repository_owner == 'mosaicml'
-    runs-on: ubuntu-latest
+    runs-on: linux-ubuntu-latest
     timeout-minutes: 2
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -64,3 +68,5 @@ jobs:
     secrets:
       username: ${{ secrets.DOCKER_HUB_USERNAME }}
       password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+      ghcr_username: ${{ secrets.GHCR_USERNAME }}
+      ghcr_password: ${{ secrets.GHCR_TOKEN }}
