@@ -326,32 +326,6 @@ def test_fsdp_automicrobatching_sync_hooks(world_size: int):
 
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.filterwarnings('ignore:Instantiating FSDP with custom process groups.*:UserWarning')
-@pytest.mark.filterwarnings('ignore:Composer is instantiating custom process groups.*:UserWarning')
-@pytest.mark.filterwarnings('ignore:.*process_group and device_mesh are set for FSDP.*.:UserWarning')
-def test_fsdp_process_group(world_size: int):
-    model = SimpleModel()
-    model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
-    model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
-    dataset = RandomClassificationDataset(size=10)
-    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
-
-    trainer = Trainer(
-        model=model,
-        train_dataloader=dataloader,
-        parallelism_config={
-            'fsdp': {
-                'process_group': 'mod1',  # all ranks
-            },
-        },
-        max_duration='3ba',
-    )
-
-    trainer.fit()
-
-
-@pytest.mark.gpu
-@world_size(2)
 @pytest.mark.skipif(
     version.parse(torch.__version__) < version.parse('2'),
     reason='FSDP use_orig_params requires torch 2.0 or higher',
@@ -575,24 +549,6 @@ def test_fsdp_same_state_after_oom_reshard(world_size: int):
     output_2 = fsdp_oom_model(x)
 
     assert torch.equal(output_1, output_2)
-
-
-@pytest.mark.gpu
-@world_size(2)
-def test_fsdp_device_mesh(world_size: int):
-    model = SimpleModel()
-    model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
-    model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
-
-    # Expect warning via pytest
-    with pytest.warns(DeprecationWarning):
-        Trainer(
-            model=model,
-            parallelism_config={'fsdp': {
-                'device_mesh': [2],
-            }},
-            max_duration='3ba',
-        )
 
 
 @pytest.mark.gpu

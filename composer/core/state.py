@@ -47,7 +47,6 @@ from composer.utils import (
     ParallelismConfig,
     ParallelismType,
     TPConfig,
-    VersionedDeprecationWarning,
     batch_get,
     batch_set,
     dist,
@@ -617,7 +616,7 @@ class State(Serializable):
         # Load monolith rank0 only
         if self.load_monolith_rank0_only:
             if self.tp_config is not None:
-                raise ValueError('load_fsdp_monolith_rank0_only is not compatible with tensor parallelism (TP).')
+                raise ValueError('load_monolith_rank0_only is not compatible with tensor parallelism (TP).')
             assert self.fsdp_config is not None
             error_message = ''
             if self.fsdp_config.sync_module_states == False:
@@ -899,21 +898,6 @@ class State(Serializable):
     @property
     def fsdp_sharded_state_dict_enabled(self):
         return self.fsdp_config is not None and self.fsdp_enabled and self.fsdp_state_dict_type == 'sharded'
-
-    @property
-    def fsdp_device_mesh(self):
-        warnings.warn(VersionedDeprecationWarning('fsdp_device_mesh is deprecated. Use device_mesh instead.', '0.24'))
-        return self.device_mesh
-
-    @property
-    def load_fsdp_monolith_rank0_only(self):
-        warnings.warn(
-            VersionedDeprecationWarning(
-                'load_fsdp_monolith_rank0_only is deprecated. Use load_monolith_rank0_only instead.',
-                '0.24',
-            ),
-        )
-        return self.load_monolith_rank0_only
 
     @property
     def load_monolith_rank0_only(self):
