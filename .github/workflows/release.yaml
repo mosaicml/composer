@@ -5,6 +5,16 @@ on:
     tags:
     - "v*"
   workflow_dispatch:
+  workflow_call:
+    secrets:
+      DOCKER_HUB_USERNAME:
+        required: true
+      DOCKER_HUB_PASSWORD:
+        required: true
+      GHCR_USERNAME:
+        required: true
+      GHCR_TOKEN:
+        required: true
 
 jobs:
   code-quality:
