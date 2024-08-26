@@ -135,7 +135,7 @@ extra_deps['dev'] = [
     'pytest_codeblocks==0.17.0',
     'traitlets==5.14.3',
     'nbsphinx==0.9.1',
-    'pandoc==2.3',
+    'pandoc==2.4',
     'pypandoc==1.13',
     'GitPython==3.1.43',
     'moto[s3]>=5.0.1,<6',
