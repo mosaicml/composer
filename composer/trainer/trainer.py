@@ -1181,6 +1181,7 @@ class Trainer:
         # compile config for PyTorch 2.0 or higher
         compile_config: Optional[dict[str, Any]] = None,
     ):
+        assert False, 'FASTEST FAIL'
         if deepspeed_config is not None:
             warnings.warn(
                 VersionedDeprecationWarning(
