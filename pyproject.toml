@@ -186,6 +186,8 @@ filterwarnings = [
     '''ignore:.*`load_state_dict` is deprecated and *:FutureWarning''',
     # Ignore NeptuneLogger warnings
     '''ignore:.*NVML Shared Library Not Found. GPU usage metrics may not be reported.*''',
+    # Ignore HuggingFace future warnings
+    '''ignore:.*`clean_up_tokenization_spaces` was not set.*:FutureWarning''',
 ]
 
 # Coverage
