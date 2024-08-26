@@ -11,7 +11,7 @@ import textwrap
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence, Union
+from typing import Any, Optional, Sequence, Union
 
 import torch
 import torch.distributed.checkpoint as DCP
@@ -65,7 +65,6 @@ class CheckpointSaveOptions:
         include_keys (Optional[Union[str, Sequence[str]]]): Keys to include in the saved model.
         ignore_keys (Optional[Union[str, Sequence[str]]]): Keys to ignore in the saved model.
     """
-    destination_dir: str
     save_frequency: Union[str, int, Time] = '1ep'
     dir_prefix: str = 'ep{epoch}-ba{batch}'
     overwrite: bool = False
@@ -75,15 +74,15 @@ class CheckpointSaveOptions:
     num_checkpoints_to_keep: int = -1
     save_format: str = 'pt'
     sharded_checkpoint: bool = False
-    precision: str = 'bf16'
+    precision: str = 'fp32'
     include_keys: Optional[Union[str, Sequence[str]]] = None
     ignore_keys: Optional[Union[str, Sequence[str]]] = None
 
 
 def save_checkpoint_to_disk(
+    destination_dir: str,
     state: State,
-    options: Optional[Union[CheckpointSaveOptions, Dict]] = None,
-    destination_dir: Optional[str] = None,
+    options: Optional[Union[CheckpointSaveOptions, dict]] = None,
 ):
     """Saves a checkpoint to disk.
 
@@ -92,24 +91,25 @@ def save_checkpoint_to_disk(
         options (Optional[Union[CheckpointSaveOptions, Dict]]): The options for saving the checkpoint.
             If None, destination_dir must be provided.
         destination_dir (Optional[str]): The directory to save the checkpoint to.
-            If options is provided, this will overwrite options.destination_dir.
+            If options is provided, this will overwrite save_path.
     """
     if options is None:
-        if destination_dir is None:
-            raise ValueError('destination_dir must be provided if options is None')
-        options = CheckpointSaveOptions(destination_dir=destination_dir)
+        options = CheckpointSaveOptions()
     else:
-        if isinstance(options, Dict):
+        if isinstance(options, dict):
             options = CheckpointSaveOptions(**options)
-        if destination_dir is not None:
-            options.destination_dir = destination_dir
-    save_path = os.path.join(options.destination_dir, options.dir_prefix)
+
+    save_path = os.path.join(destination_dir, options.dir_prefix)
     save_path = format_name_with_dist_and_time(save_path, state.run_name, state.timestamp)
     os.makedirs(save_path, exist_ok=True)
     if options.save_model:
+        model_save_path = (
+            os.path.join(save_path, MODEL_CHECKPOINT_DIRECTORY_NAME) if options.sharded_checkpoint else
+            os.path.join(save_path, MODEL_CHECKPOINT_DIRECTORY_NAME, MONOLITHIC_MODEL_CHECKPOINT_FILENAME)
+        )
         save_model_to_disk(
             state.model,
-            save_path,
+            model_save_path,
             options.sharded_checkpoint,
             options.precision,
             options.include_keys,
@@ -118,27 +118,36 @@ def save_checkpoint_to_disk(
             options.save_format,
         )
     if options.save_optimizer:
+        optim_save_path = os.path.join(save_path,
+                                       OPTIM_CHECKPOINT_DIRECTORY_NAME) if options.sharded_checkpoint else os.path.join(
+                                           save_path,
+                                           OPTIM_CHECKPOINT_DIRECTORY_NAME,
+                                           OPTIM_MONO_CHECKPOINT_FILENAME,
+                                       )
         optimizer = state.optimizers[0]
         save_optim_to_disk(
             state.model,
             optimizer,
-            save_path,
+            optim_save_path,
             options.sharded_checkpoint,
             options.precision,
             options.overwrite,
             options.save_format,
         )
     if options.save_resumption_state:
-        save_resumption_state_to_disk(state, save_path)
+        resumption_save_path = os.path.join(save_path, RESUMPTION_CHECKPOINT_FILENAME)
+        save_resumption_state_to_disk(state, resumption_save_path)
 
+    md_save_path = os.path.join(save_path, METADATA_CHECKPOINT_FILENAME)
     save_composer_metadata_to_disk(
-        save_path,
+        md_save_path,
         state.model,
         options.sharded_checkpoint,
         options.precision,
         state.device,
         state.device_train_microbatch_size,
     )
+    return save_path
 
 
 def save_model_to_disk(
@@ -156,8 +165,8 @@ def save_model_to_disk(
     Args:
         model (Union[ComposerModel, torch.nn.Module]): The model to save.
         destination_dir (str): The directory to save the model to.
-            Model will be saved as distination_dir/models/model.pt if sharded_checkpoint is False,
-            otherwise all shards will be saved as destination_dir/models/__<rank>_0.distcp.
+            Model will be saved as distination_dir/model.pt if sharded_checkpoint is False,
+            otherwise all shards will be saved as destination_dir/__<rank>_0.distcp along with a metadata file (destination_dir/.metadata).
         sharded_checkpoint (bool): Whether to save the model as a sharded checkpoint.
         precision (str): The precision to save the model in. One of 'bf16', 'fp32', 'fp16', 'fp64'.
         include_keys (Optional[Union[str, Sequence[str]]]): Keys to include in the saved model.
@@ -179,14 +188,9 @@ def save_model_to_disk(
         include_keys,
         ignore_keys,
     )
-
-    destination_file_path = (
-        os.path.join(destination_dir, MODEL_CHECKPOINT_DIRECTORY_NAME) if sharded_checkpoint else
-        os.path.join(destination_dir, MODEL_CHECKPOINT_DIRECTORY_NAME, MONOLITHIC_MODEL_CHECKPOINT_FILENAME)
-    )
     saved_path = save_state_dict_to_disk(
         state_dict=model_state_dict,
-        destination_file_path=destination_file_path,
+        destination_file_path=destination_dir,
         overwrite=overwrite,
         save_format=save_format,
     )
@@ -208,8 +212,8 @@ def save_optim_to_disk(
         model (Union[ComposerModel, torch.nn.Module]): The model to save.
         optimizer (torch.optim.Optimizer): The optimizer to save.
         destination_dir (str): The directory to save the optimizer to.
-            Optimizer will be saved as destination_dir/optim/optim.pt if sharded_checkpoint is False,
-            otherwise all shards will be saved as destination_dir/optim/__<rank>_0.distcp.
+            Optimizer will be saved as destination_dir if sharded_checkpoint is False,
+            otherwise all shards will be saved as destination_dir/__<rank>_0.distcp along with a metadata file (destination_dir/.metadata).
         sharded_checkpoint (bool): Whether to save the optimizer as a sharded checkpoint.
         precision (str): The precision to save the optimizer in. One of 'bf16', 'fp32', 'fp16', 'fp64'.
         overwrite (bool): If True, the file will be overwritten if it exists.
@@ -221,15 +225,9 @@ def save_optim_to_disk(
         sharded_state_dict=sharded_checkpoint,
         precision=precision,
     )
-    destination_file_path = os.path.join(destination_dir,
-                                         OPTIM_CHECKPOINT_DIRECTORY_NAME) if sharded_checkpoint else os.path.join(
-                                             destination_dir,
-                                             OPTIM_CHECKPOINT_DIRECTORY_NAME,
-                                             OPTIM_MONO_CHECKPOINT_FILENAME,
-                                         )
     saved_path = save_state_dict_to_disk(
         state_dict=optim_state_dict,
-        destination_file_path=destination_file_path,
+        destination_file_path=destination_dir,
         overwrite=overwrite,
         save_format=save_format,
     )
@@ -238,7 +236,7 @@ def save_optim_to_disk(
 
 
 def save_composer_metadata_to_disk(
-    destination_dir: str,
+    destination_file_path: str,
     model: Optional[Union[ComposerModel, torch.nn.Module]] = None,
     sharded_state_dict: Optional[bool] = None,
     precision: Optional[Union[str, torch.dtype]] = None,
@@ -248,7 +246,7 @@ def save_composer_metadata_to_disk(
     """Saves metadata about the model to disk.
 
     Args:
-        destination_dir (str): The directory to save the metadata to.
+        destination_file_path (str): The path to save the metadata to.
         model (Optional[Union[ComposerModel, torch.nn.Module]]): The model to save metadata about.
         sharded_state_dict (Optional[bool]): Whether the model is sharded.
         precision (Optional[Union[str, torch.dtype]]): The precision of the model.
@@ -262,8 +260,7 @@ def save_composer_metadata_to_disk(
         device,
         device_train_microbatch_size,
     )
-    os.makedirs(destination_dir, exist_ok=True)
-    destination_file_path = os.path.join(destination_dir, METADATA_CHECKPOINT_FILENAME)
+    os.makedirs(str(Path(destination_file_path).parent), exist_ok=True)
 
     if dist.get_global_rank() == 0:
         with open(destination_file_path, 'w') as f:
@@ -273,16 +270,16 @@ def save_composer_metadata_to_disk(
 
 def save_resumption_state_to_disk(
     state: State,
-    destination_dir: str,
+    destination_file_path: str,
 ):
     """Saves the resumption state to disk.
 
     Args:
         state (State): The state to save.
-        destination_dir (str): The directory to save the resumption state to.
+        destination_file_path (str): The path to save the resumption state to.
     """
     resumption_state_dict = get_resumption_state_dict(state)
-    destination_file_path = os.path.join(destination_dir, RESUMPTION_CHECKPOINT_FILENAME)
+    os.makedirs(Path(destination_file_path).parent, exist_ok=True)
     with open(destination_file_path, 'wb') as f:
         pickle.dump(resumption_state_dict, f)
     return destination_file_path
@@ -295,7 +292,7 @@ log = logging.getLogger(__name__)
 
 
 def save_state_dict_to_disk(
-    state_dict: Dict[str, Any],
+    state_dict: dict[str, Any],
     destination_file_path: str,
     overwrite: bool = False,
     save_format: str = 'pt',  # or hf, safetensor
@@ -326,7 +323,7 @@ def save_state_dict_to_disk(
 
 
 def _save_sharded_state_dict_to_disk(
-    state_dict: Dict[str, Any],
+    state_dict: dict[str, Any],
     destination_file_path: str,
     overwrite: bool = False,
     save_format: str = 'pt',
@@ -375,7 +372,7 @@ def _save_sharded_state_dict_to_disk(
 
 
 def _save_full_state_dict_to_disk(
-    state_dict: Dict[str, Any],
+    state_dict: dict[str, Any],
     destination_file_path: str,
     overwrite: bool = False,
     save_format: str = 'pt',  # or hf, safetensor
@@ -396,7 +393,7 @@ def _save_full_state_dict_to_disk(
     return None
 
 
-def is_state_dict_sharded(state_dict: Dict[str, Any]) -> bool:
+def is_state_dict_sharded(state_dict: dict[str, Any]) -> bool:
     """Determines if the state dict is sharded.
 
     Args:
@@ -408,7 +405,7 @@ def is_state_dict_sharded(state_dict: Dict[str, Any]) -> bool:
     for value in state_dict.values():
         if isinstance(value, ShardedTensor) or isinstance(value, DTensor):
             return True
-        elif isinstance(value, Dict):
+        elif isinstance(value, dict):
             is_sharded = is_state_dict_sharded(value)
             if is_sharded:
                 return True

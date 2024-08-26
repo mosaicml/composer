@@ -49,6 +49,7 @@ __all__ = [
     'maybe_create_object_store_from_uri',
     'maybe_create_remote_uploader_downloader_from_uri',
     'parse_uri',
+    'extract_path_from_symlink',
     'validate_credentials',
 ]
 
@@ -57,6 +58,16 @@ def extract_path_from_symlink(
     source_path: str,
     object_store: Optional[Union[LoggerDestination, ObjectStore]] = None,
 ) -> str:
+    """Returns the checkpont path from symlink file.
+
+    Args:
+        source_path(str): The remote symlink path.
+        object_store(LoggerDestination | ObjectStore, optional): The object store
+            used to download the remote symlink file
+
+    Returns:
+        str: The content of the remote symlink file.
+    """
     if object_store is not None:
         with tempfile.TemporaryDirectory() as tmpdir:
             _, _, source_path = parse_uri(source_path)
@@ -347,6 +358,19 @@ Args:
 """
 
 
+def is_uri(path: str) -> bool:
+    """Check if the path is a URI.
+
+    Args:
+        path (str): The path to check.
+
+    Returns:
+        bool: Whether the path is a URI.
+    """
+    backend, _, _ = parse_uri(path)
+    return backend != ''
+
+
 def parse_uri(uri: str) -> tuple[str, str, str]:
     """Uses :py:func:`urllib.parse.urlparse` to parse the provided URI.
 
@@ -357,6 +381,8 @@ def parse_uri(uri: str) -> tuple[str, str, str]:
         tuple[str, str, str]: A tuple containing the backend (e.g. s3), bucket name, and path.
                               Backend name will be empty string if the input is a local path
     """
+    if isinstance(uri, pathlib.Path):
+        uri = str(uri)
     uri = uri.replace('AZURE_BLOBS', 'azure')  # urlparse does not support _ in scheme
     parse_result = urlparse(uri)
     backend, net_loc, path = parse_result.scheme, parse_result.netloc, parse_result.path

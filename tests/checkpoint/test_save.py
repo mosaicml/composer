@@ -46,7 +46,6 @@ def test_save_checkpoint_to_disk(world_size: int, tmp_path: str, sharded_model: 
     destination_dir = os.path.join(tmp_path, str(uuid.uuid4())[:8])
     destination_dir = dist.all_gather_object(destination_dir)[0]
     save_options = {
-        'destination_dir': destination_dir,
         'save_model': True,
         'save_optimizer': True,
         'save_resumption_state': True,
@@ -57,7 +56,7 @@ def test_save_checkpoint_to_disk(world_size: int, tmp_path: str, sharded_model: 
     state.run_name = 'foo'
     state.timestamp = Timestamp()
     expected_destination_dir = os.path.join(destination_dir, 'ep0-ba0')
-    save_checkpoint_to_disk(state, save_options)
+    save_checkpoint_to_disk(destination_dir=destination_dir, state=state, options=save_options)
     expected_model_dir = os.path.join(expected_destination_dir, 'model')
     expected_optim_dir = os.path.join(expected_destination_dir, 'optim')
     expected_metadata_filepath = os.path.join(expected_destination_dir, 'composer_metadata.json')
@@ -84,8 +83,9 @@ def test_save_checkpoint_to_disk(world_size: int, tmp_path: str, sharded_model: 
 def test_save_composer_metadata_to_disk(tmp_path: str):
     destination_dir = os.path.join(tmp_path, str(uuid.uuid4())[:8])
     destination_dir = dist.all_gather_object(destination_dir)[0]
+    destination_dir = os.path.join(destination_dir, 'composer_metadata.json')
     save_composer_metadata_to_disk(destination_dir)
-    expected_file_path = os.path.join(destination_dir, 'composer_metadata.json')
+    expected_file_path = destination_dir
     assert os.path.exists(expected_file_path)
     json.load(open(expected_file_path, 'r'))
 
@@ -103,6 +103,7 @@ def test_save_optim_to_disk(world_size: int, tmp_path: str, sharded_optimizer: b
     destination_dir = os.path.join(tmp_path, str(uuid.uuid4())[:8])
     # Sync the path across all ranks
     destination_dir = dist.all_gather_object(destination_dir)[0]
+    destination_dir = os.path.join(destination_dir, 'optim.pt') if not sharded_checkpoint else destination_dir
     use_fsdp = sharded_optimizer
     model, optim = init_model_and_optimizer(use_fsdp=use_fsdp, device='cuda')
     optim_state_dict = get_optim_state_dict(model, optimizer=optim, sharded_state_dict=sharded_checkpoint)
@@ -114,14 +115,14 @@ def test_save_optim_to_disk(world_size: int, tmp_path: str, sharded_optimizer: b
     cur_state_dict = get_optim_state_dict(model, optimizer=optim, sharded_state_dict=sharded_checkpoint)
 
     if sharded_checkpoint:
-        expected_file_path = os.path.join(destination_dir, 'optim')
+        expected_file_path = os.path.join(destination_dir)
         if version.parse(torch.__version__) < version.parse('2.2.0'):
             DCP.load_state_dict(state_dict=cur_state_dict, storage_reader=DCP.FileSystemReader(expected_file_path))
         else:
             DCP.load(state_dict=cur_state_dict, storage_reader=DCP.FileSystemReader(expected_file_path))
     else:
         if dist.get_global_rank() == 0:
-            expected_file_path = os.path.join(destination_dir, 'optim', 'optim.pt')
+            expected_file_path = destination_dir
             cur_state_dict = torch.load(expected_file_path, map_location='cuda')
 
     deep_compare(optim_state_dict_saved, cur_state_dict)
@@ -144,6 +145,7 @@ def test_save_model_to_disk(world_size: int, tmp_path: str, sharded_model: bool,
     model, _ = init_model(use_fsdp=use_fsdp, device='cuda', sync_module_states=True)
     state_dict = get_model_state_dict(model, sharded_state_dict=sharded_checkpoint)
     state_dict_saved = deepcopy(state_dict)
+    destination_dir = os.path.join(destination_dir, 'model.pt') if not sharded_checkpoint else destination_dir
     save_model_to_disk(model, destination_dir=destination_dir, sharded_checkpoint=sharded_checkpoint)
 
     # Load new model from disk
@@ -151,14 +153,14 @@ def test_save_model_to_disk(world_size: int, tmp_path: str, sharded_model: bool,
     cur_state_dict = get_model_state_dict(new_model, sharded_state_dict=sharded_checkpoint)
 
     if sharded_checkpoint:
-        expected_file_path = os.path.join(destination_dir, 'model')
+        expected_file_path = destination_dir
         if version.parse(torch.__version__) < version.parse('2.2.0'):
             DCP.load_state_dict(state_dict=cur_state_dict, storage_reader=DCP.FileSystemReader(expected_file_path))
         else:
             DCP.load(state_dict=cur_state_dict, storage_reader=DCP.FileSystemReader(expected_file_path))
     else:
         if dist.get_global_rank() == 0:
-            expected_file_path = os.path.join(destination_dir, 'model', 'model.pt')
+            expected_file_path = destination_dir
             cur_state_dict = torch.load(expected_file_path, map_location='cuda')
 
     deep_compare(state_dict_saved, cur_state_dict)

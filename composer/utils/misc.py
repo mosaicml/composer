@@ -8,7 +8,7 @@ import math
 import socket
 import textwrap
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Callable, Optional, Type, Union
+from typing import TYPE_CHECKING, Callable, Optional, Union
 
 import torch
 from torch.nn.parallel import DistributedDataParallel
@@ -228,7 +228,7 @@ def is_notebook():
 
 def warning_on_one_line(
     message: str,
-    category: Type[Warning],
+    category: type[Warning],
     filename: str,
     lineno: int,
     file=None,

@@ -7,7 +7,7 @@ import pathlib
 import shutil
 import tempfile
 import time
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Optional, Union
 from unittest.mock import patch
 
 import pytest
@@ -19,7 +19,7 @@ from composer.utils.remote_uploader import RemoteUploader
 class DummyObjectStore(ObjectStore):
     """Dummy ObjectStore implementation that is backed by a local directory."""
 
-    def __init__(self, **kwargs: Dict[str, Any]) -> None:
+    def __init__(self, **kwargs: dict[str, Any]) -> None:
         self.tmp_dir = self.get_tmp_dir()
         self.root = self.tmp_dir.name
         self.sleep_sec = 0
@@ -57,6 +57,8 @@ class DummyObjectStore(ObjectStore):
         overwrite: bool = False,
         callback: Optional[Callable[[int, int], None]] = None,
     ):
+        if overwrite is False and os.path.isfile(filename):
+            raise FileExistsError(f'The file at {filename} already exists and overwrite is set to False.')
         object_path = pathlib.Path(self.root) / object_name
         shutil.copy2(object_path, filename)
 

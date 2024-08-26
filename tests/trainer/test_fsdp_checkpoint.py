@@ -30,8 +30,8 @@ from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_
 from composer.models import ComposerClassifier
 from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
-from composer.utils import FSDPConfig, dist, parse_uri
-from composer.utils.checkpoint import is_checkpoint_legacy_sharded
+from composer.utils import FSDPConfig, TPConfig, dist, parse_uri
+from composer.utils.checkpoint import dist_cp_load, is_checkpoint_legacy_sharded
 from composer.utils.file_helpers import get_file
 from composer.utils.object_store import S3ObjectStore
 from composer.utils.reproducibility import get_rng_state
@@ -288,6 +288,7 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
 
 @pytest.mark.gpu
 @pytest.mark.filterwarnings(r'ignore:.*scatter_full_optim_state_dict``is being deprecated.*:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 @pytest.mark.parametrize(
     'optimizer,autoresume,precision,save_weights_only,load_weights_only,load_monolith_rank0_only,use_tp,use_hsdp',
     [
@@ -314,10 +315,10 @@ def test_fsdp_full_state_dict_load(
     use_tp: bool,
     use_hsdp: bool,
 ):
-    if use_hsdp:
-        pytest.xfail('Known Pytorch issue with HSDP, waiting for pytorch patch')
-    if (use_tp or use_hsdp) and version.parse(torch.__version__) < version.parse('2.3.0'):
-        pytest.skip('HSDP and TP require torch 2.3.0 or later')
+    if use_hsdp and version.parse(torch.__version__) < version.parse('2.4.0'):
+        pytest.xfail('HSDP requires torch 2.4.0 or later')
+    if use_tp:
+        pytest.skip('TP on PyTorch 2.3 has full state dict issues.')
     if autoresume:
         run_name = 'my-cool-autoresume-run'
     else:
@@ -360,6 +361,11 @@ def test_fsdp_full_state_dict_load(
         fsdp_config=fsdp_config,
         tp_config=tp_config,
     )
+
+    if use_tp:
+        assert trainer1.state.tp_config is not None
+        assert isinstance(trainer1.state.tp_config, TPConfig)
+
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
     trainer1.close()
@@ -511,6 +517,7 @@ def test_fsdp_mixed_with_sync(
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*The CUDA RNG state could not be loaded.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*ShardedTensor.to only move tensor to its current device.*:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 def test_fsdp_load_old_checkpoint(
     world_size,
     tmp_path: pathlib.Path,
@@ -603,8 +610,6 @@ def test_fsdp_load_old_checkpoint(
                 fsdp_config=fsdp_config,
             )
 
-            from torch.distributed import checkpoint as dist_cp
-
             from composer.utils.checkpoint import DistCPObjectStoreReader
 
             _, _, parsed_load_path = parse_uri(load_path)
@@ -631,12 +636,10 @@ def test_fsdp_load_old_checkpoint(
             if optimizers_at_root:
                 state_dict['state'].pop('optimizers')
 
-            process_group = None
-            dist_cp.load_state_dict(
+            dist_cp_load(
                 state_dict=state_dict,
                 storage_reader=storage_reader,
-                planner=None,
-                process_group=process_group,
+                load_planner=None,
             )
             if optimizers_at_root:
                 from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
@@ -748,6 +751,7 @@ def test_fsdp_full_state_dict_load_with_ema(
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_checkpoint: bool, state_dict_type: str):
     # Set the error expectations.
     expectation = does_not_raise()
@@ -818,6 +822,7 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 def test_fsdp_partitioned_state_dict_load(
     tmp_path: pathlib.Path,
     autoresume: bool,
@@ -833,6 +838,8 @@ def test_fsdp_partitioned_state_dict_load(
     s3_ephemeral_prefix,
     request,
 ):
+    if use_tp:
+        pytest.skip('TP on PyTorch 2.3 has sharded state dict issues.')
     if weights_only and autoresume:
         pytest.skip('Weights only with autoresume is not supported')
     if (use_tp or use_hsdp) and version.parse(torch.__version__) < version.parse('2.3.0'):
@@ -1130,17 +1137,40 @@ def test_fsdp_planner(
     from torch.distributed.checkpoint.default_planner import DefaultLoadPlanner, DefaultSavePlanner
     from torch.distributed.checkpoint.metadata import STATE_DICT_TYPE, Metadata
 
-    class RenameSavePlanner(DefaultSavePlanner):
+    if version.parse(torch.__version__) < version.parse('2.4.0'):
 
-        def set_up_planner(
-            self,
-            state_dict: STATE_DICT_TYPE,
-            is_coordinator: bool,
-        ) -> None:
-            # suffix all keys with `foo_``
-            state_dict['state']['model'] = {k + '_foo': v for k, v in state_dict['state']['model'].items()}
+        class RenameSavePlanner(DefaultSavePlanner):  # type: ignore
 
-            super().set_up_planner(state_dict, is_coordinator)
+            def set_up_planner(
+                self,
+                state_dict: STATE_DICT_TYPE,
+                is_coordinator: bool = False,
+            ) -> None:
+                # suffix all keys with `foo_``
+                state_dict['state']['model'] = {k + '_foo': v for k, v in state_dict['state']['model'].items()}
+
+                super().set_up_planner(
+                    state_dict=state_dict,
+                    is_coordinator=is_coordinator,
+                )
+    else:
+
+        class RenameSavePlanner(DefaultSavePlanner):  # type: ignore
+
+            def set_up_planner(
+                self,
+                state_dict: STATE_DICT_TYPE,
+                storage_meta=None,
+                is_coordinator: bool = False,
+            ) -> None:
+                # suffix all keys with `foo_``
+                state_dict['state']['model'] = {k + '_foo': v for k, v in state_dict['state']['model'].items()}
+
+                super().set_up_planner(
+                    state_dict=state_dict,
+                    storage_meta=storage_meta,
+                    is_coordinator=is_coordinator,
+                )
 
     class RenameLoadPlanner(DefaultLoadPlanner):
 
@@ -1151,7 +1181,11 @@ def test_fsdp_planner(
             is_coordinator: bool,
         ) -> None:
             if 'state' not in state_dict:
-                super().set_up_planner(state_dict, metadata, is_coordinator)
+                super().set_up_planner(
+                    state_dict=state_dict,
+                    metadata=metadata,
+                    is_coordinator=is_coordinator,
+                )
                 return
 
             self.original_state_dict = state_dict

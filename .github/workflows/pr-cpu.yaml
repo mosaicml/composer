@@ -9,14 +9,13 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 jobs:
   pytest-cpu:
-    uses: mosaicml/ci-testing/.github/workflows/pytest-cpu.yaml@v0.0.9
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    container: ${{ matrix.container }}
+    if: github.repository_owner == 'mosaicml'
     strategy:
       matrix:
         include:
-        - name: cpu-3.10-2.1
-          container: mosaicml/pytorch:2.1.2_cpu-python3.10-ubuntu20.04
-          markers: not daily and not remote and not gpu and not doctest
-          pytest_command: coverage run -m pytest
         - name: cpu-3.11-2.2
           container: mosaicml/pytorch:2.2.1_cpu-python3.11-ubuntu20.04
           markers: not daily and not remote and not gpu and not doctest
@@ -25,20 +24,25 @@ jobs:
           container: mosaicml/pytorch:2.3.1_cpu-python3.11-ubuntu20.04
           markers: not daily and not remote and not gpu and not doctest
           pytest_command: coverage run -m pytest
+        - name: cpu-3.11-2.4
+          container: mosaicml/pytorch:2.4.0_cpu-python3.11-ubuntu20.04
+          markers: not daily and not remote and not gpu and not doctest
+          pytest_command: coverage run -m pytest
         - name: cpu-doctest
-          container: mosaicml/pytorch:2.3.1_cpu-python3.11-ubuntu20.04
+          container: mosaicml/pytorch:2.4.0_cpu-python3.11-ubuntu20.04
           markers: not daily and not remote and not gpu and doctest
           pytest_command: coverage run -m pytest tests/test_docs.py
-    name: ${{ matrix.name }}
-    if: github.repository_owner == 'mosaicml'
-    with:
-      composer_package_name: mosaicml
-      container: ${{ matrix.container }}
-      name: ${{ matrix.name }}
-      pip_deps: "[all]"
-      pytest-command: ${{ matrix.pytest_command }}
-      pytest-markers: ${{ matrix.markers }}
-      safe_directory: composer
+    steps:
+    - name: Run PR CPU Tests
+      uses: mosaicml/ci-testing/.github/actions/pytest-cpu@v0.1.2
+      with:
+        name: ${{ matrix.name }}
+        pip_deps: "[all]"
+        pytest_command: ${{ matrix.pytest_command }}
+        pytest_markers: ${{ matrix.markers }}
+        safe_directory: composer
+        composer_package_name: mosaicml
+        container: ${{ inputs.container }}
   coverage:
     uses: ./.github/workflows/coverage.yaml
     name: Coverage Results

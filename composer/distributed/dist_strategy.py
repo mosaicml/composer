@@ -3,7 +3,6 @@
 
 """Helpers for running distributed data parallel training."""
 
-import collections
 import logging
 import warnings
 from contextlib import contextmanager, nullcontext
@@ -15,15 +14,17 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     CheckpointImpl,
     apply_activation_checkpointing,
     checkpoint_wrapper,
+    offload_wrapper,
 )
 from torch.distributed.fsdp import FullyShardedDataParallel, ShardingStrategy
 from torch.distributed.fsdp._common_utils import clean_tensor_name
+from torch.distributed.fsdp.wrap import CustomPolicy
 from torch.nn.parallel import DistributedDataParallel
 from torchmetrics import Metric, MetricCollection
 
 from composer.core import Precision, State
-from composer.devices import Device
-from composer.distributed.meta_safe_apply import meta_safe_apply
+from composer.core.precision import _validate_precision
+from composer.devices import Device, DeviceGPU
 from composer.distributed.mosaic_parallelism import (
     BACKWARD_PREFETCH_MAP,
     SHARDING_MAP,
@@ -31,7 +32,7 @@ from composer.distributed.mosaic_parallelism import (
     get_mixed_precision,
     set_custom_fsdp_module_kwargs,
 )
-from composer.utils import FSDPConfig, StringEnum, TPConfig, dist, ensure_tuple
+from composer.utils import FSDPConfig, StringEnum, TPConfig, dist, ensure_tuple, get_device
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare_fsdp_module', 'prepare_tp_module']
 
@@ -171,9 +172,14 @@ def _recreate_fsdp_param_groups_from_unwrapped_opt_info(
     for fsdp_name, param in fsdp_wrapped_named_params:
 
         unwrapped_name = clean_tensor_name(fsdp_name)
-        # need to have a 1:1 mapping between a fsdp param name and the non-wrapped vanilla param name
-        retrieved_group_num = non_wrapped_param_names_to_group_num[unwrapped_name]
-        group_num_to_optimizer_info[retrieved_group_num]['params'].append(param)
+
+        # Since we are iterating over all model.named_parameters() after fsdp wrapping, we need to check
+        # if the parameter was included in the optimizer param_group pre fsdp wrapping, in order to support
+        # passing a subset of model params in the optimizer
+        if unwrapped_name in non_wrapped_param_names_to_group_num:
+            # Need to have a 1:1 mapping between a fsdp param name and the non-wrapped vanilla param name
+            retrieved_group_num = non_wrapped_param_names_to_group_num[unwrapped_name]
+            group_num_to_optimizer_info[retrieved_group_num]['params'].append(param)
 
     # return sorted optimizer info groups
     return [group_num_to_optimizer_info[num] for num in sorted(group_num_to_optimizer_info.keys())]
@@ -181,9 +187,23 @@ def _recreate_fsdp_param_groups_from_unwrapped_opt_info(
 
 def prepare_tp_module(
     model: torch.nn.Module,
+    optimizers: Optional[Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]]],
     tp_config: TPConfig,
 ) -> None:
     """Prepare a module (assumed ComposerModel) for use with tensor parallel."""
+    optimizers_tuple = ensure_tuple(optimizers)
+    if len(optimizers_tuple) != 1:
+        raise NotImplementedError(f'Only one optimizer is supported; found {len(optimizers_tuple)} optimizers')
+
+    optim = optimizers_tuple[0]
+    if len(optim.param_groups) > 1:
+        raise RuntimeError('Multiple optimizer groups are not supported with tensor parallelism.',)
+
+    if len(optim.param_groups[0]['params']) != len(list(model.parameters())):
+        raise ValueError(
+            'Passing in a subset of model parameters to the optimizer is not supported with tensor parallelism.',
+        )
+
     from torch.distributed.tensor.parallel import parallelize_module
 
     device_mesh = tp_config.device_mesh
@@ -199,11 +219,11 @@ def prepare_fsdp_module(
     model: torch.nn.Module,
     optimizers: Optional[Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]]],
     fsdp_config: FSDPConfig,
-    precision: Precision,
-    device: Device,
-    auto_microbatching: bool,
+    precision: Optional[Union[str, Precision]] = None,
+    device: Optional[Union[str, Device]] = None,
+    auto_microbatching: bool = False,
     te_rng_seed: int = 1234,
-) -> None:
+) -> tuple[list, dict]:
     """Prepare a module (assumed ComposerModel) and optimizer for use with :class:`torch.distributed.fsdp.FullyShardedDataParallel`.
 
     Args:
@@ -211,10 +231,18 @@ def prepare_fsdp_module(
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer for `model`, assumed to have a single param group := model.parameters().
         fsdp_config (FSDPConfig): The FSDP config.
         precision: (Precision): The precision being used by the Trainer, used to fill in defaults for FSDP `mixed_precision` settings.
-        device (Device): The device being used by the Trainer.
+        device:  The device being used by the Trainer.
         auto_microbatching (bool, optional): Whether or not auto microbatching is enabled.
         te_rng_seed(int): The seed to use for the Transformer Engine activation checkpointing RNG. Defaults to 1234.
     """
+    device = get_device(device)
+
+    if precision is None:
+        precision = Precision.AMP_FP16 if isinstance(device, DeviceGPU) else Precision.FP32
+    elif isinstance(precision, str):
+        precision = Precision(precision)
+    _validate_precision(precision, device)
+
     # Check sync_module_states is True for mixed initialization or HSDP
     if fsdp_config.sync_module_states == False:
         rank_on_meta = 1 if next(model.parameters()).device.type == 'meta' else 0
@@ -229,6 +257,9 @@ def prepare_fsdp_module(
                 "device or set parallelism_config['fsdp']['sync_module_states'] = True. Otherwise, "
                 'some weights may be randomly initialized when loading a checkpoint.',
             )
+
+    # Handles of FSDP sync hooks if automicrobatching is on
+    hook_handles = []
 
     # Check if other ranks OOMed after forward/backward pass when using auto microbatching. This
     # may happen when close to memory limit or with uneven memory usage across ranks. Since we
@@ -247,11 +278,10 @@ def prepare_fsdp_module(
             raise RuntimeError('CUDA out of memory encountered on a different rank')
 
     # Necessary variables for optimizers with multiple param groups in FSDP
-    num_param_groups = None
     param_name_to_group_num = None
-    group_num_to_param_group_info = None
+    group_num_to_opt_group_info = None
+    single_param_group_opt_info = None
 
-    optimizer_specific_info = None
     if optimizers:
         optimizers_tuple = ensure_tuple(optimizers)
         if len(optimizers_tuple) != 1:
@@ -261,38 +291,41 @@ def prepare_fsdp_module(
         # that will be recreated at the end of prepare_fsdp_module
         optim = optimizers_tuple[0]
 
-        num_param_groups = len(optim.param_groups)
-        if num_param_groups > 1:
-            if not fsdp_config.use_orig_params:
-                raise RuntimeError(
-                    'Multiple optimizer groups with FSDP are only supported with '
-                    'use_orig_params=True.',
-                )
-            # optimizer.param_groups do not contain parameter names which are needed
-            # to keep track of the different parameters in each group
-            # so we use the pointers between model.parameters() and model.named_parameters()
-            # to get the names of the parameters within optimizer.param_groups
-            param_pointer_to_param_name = {id(p): n for n, p in model.named_parameters()}
+        # Simplest case - single param group & all model params stored in optimizer
+        if len(optim.param_groups) == 1 and len(optim.param_groups[0]['params']) == len(list(model.parameters())):
+            single_param_group_opt_info = {k: v for k, v in optim.param_groups[0].items() if k != 'params'}
+        elif fsdp_config.use_orig_params:
+            # this code block stores information about param groups pre-fsdp wrapping in order to recreate them post-wrapping
+            # to do so, it relies on the ptrs of the model.parameters() in a model and the names of the params
+            # for this to work, use_orig_params=True, as we need the names of the params post-wrapping
+            # TP is not supported, as the underlying parameters in the model differ from the params in the param groups after being dtensorified
+
+            ptr_to_param_name = {id(p): n for n, p in model.named_parameters()}
             param_name_to_group_num = {}
-            group_num_to_param_group_info = {}
+            group_num_to_opt_group_info = {}
             for group_num in range(len(optim.param_groups)):
                 # Need to in-line to avoid a reference which causes FSDP to allocate extra GPU memory
                 # group = optim.param_groups[group_num]
                 for param_num in range(len(optim.param_groups[group_num]['params'])):
-                    # Need to in-line to avoid a reference which causes FSDP to allocate extra GPU memory
-                    # param = optim.param_groups[group_num]['params'][param_num]
-                    param_name_to_group_num[param_pointer_to_param_name[id(
-                        optim.param_groups[group_num]['params'][param_num],
-                    )]] = group_num
+                    param_ptr = id(optim.param_groups[group_num]['params'][param_num])
+                    if param_ptr not in ptr_to_param_name:
+                        raise ValueError('The same model must be passed to the optimizer and trainer.')
+                    param_name_to_group_num[ptr_to_param_name[param_ptr]] = group_num
 
                 # this includes optimizer-specific values like lr, eps
                 # this will be used as the kwargs for the optim param groups later
                 optimizer_specific_group_info = {
                     k: v for k, v in optim.param_groups[group_num].items() if k != 'params'
                 }
-                group_num_to_param_group_info[group_num] = optimizer_specific_group_info
+                group_num_to_opt_group_info[group_num] = optimizer_specific_group_info
         else:
-            optimizer_specific_info = {k: v for k, v in optim.param_groups[0].items() if k != 'params'}
+            if len(optim.param_groups) > 1:
+                raise RuntimeError('Multiple optimizer groups with FSDP are not supported with use_orig_params=False.',)
+
+            if len(optim.param_groups[0]['params']) != len(list(model.parameters())):
+                raise ValueError(
+                    'Passing in a subset of model parameters to the optimizer is not supported with use_orig_params=False.',
+                )
 
         optim.param_groups.clear()
         optim.state.clear()
@@ -352,6 +385,7 @@ def prepare_fsdp_module(
     sharded_ckpt_prefix_dir = fsdp_config.sharded_ckpt_prefix_dir
     use_orig_params = fsdp_config.use_orig_params
 
+    fsdp_obj_named_modules = {}
     # We choose to not wrap the ComposerModel directly, but instead wrap any submodules like `ComposerModel.model`
     # This makes it safer to call ComposerModel-specific functions like 'eval_forward' that
     # may make calls to sharded submodules. If we only wrap the submodules, then any call that ComposerModel makes
@@ -363,183 +397,73 @@ def prepare_fsdp_module(
             if hasattr(obj, '_fsdp_wrap') and not bool(obj._fsdp_wrap):
                 continue
 
-            # Rather than verifying these changes with older PyTorch versions, we are fixing forward here
-            if version.parse(torch.__version__) > version.parse('2.1.0'):
-                # A dictionary of all tied parameter pointers to (module, attr) tuples
-                tied_pointers = {}
+            # A dictionary of all tied parameter pointers to (module, attr) tuples
+            tied_pointers = {}
 
-                # Goes through all modules finding which weights have the same pointers
-                for mod in obj.modules():
-                    for attr_name, attr in mod.named_parameters(recurse=False):
-                        ptr = id(attr)
-                        mod_attr_list = tied_pointers.get(ptr, [])
-                        mod_attr_list.append((mod, attr_name))
-                        tied_pointers[ptr] = mod_attr_list
+            # Goes through all modules finding which weights have the same pointers
+            for mod in obj.modules():
+                for attr_name, attr in mod.named_parameters(recurse=False):
+                    ptr = id(attr)
+                    mod_attr_list = tied_pointers.get(ptr, [])
+                    mod_attr_list.append((mod, attr_name))
+                    tied_pointers[ptr] = mod_attr_list
 
-                # Dictionary mapping the source module to a list of (target module, source attr, target attr) tuples
-                source_mod_to_mod_attr = {}
-                for mod_attr_list in tied_pointers.values():
-                    # If there is only one module for this pointer, then there is no weight tying
-                    if len(mod_attr_list) == 1:
-                        continue
+            # Dictionary mapping the source module to a list of (target module, source attr, target attr) tuples
+            source_mod_to_mod_attr = {}
+            for mod_attr_list in tied_pointers.values():
+                # If there is only one module for this pointer, then there is no weight tying
+                if len(mod_attr_list) == 1:
+                    continue
 
-                    # Arbitrarily choose the first module as the source module
-                    first_mod, first_attr = mod_attr_list[0]
-                    source_mod_to_mod_attr[first_mod] = [
-                        (target_mod, first_attr, dest_attr) for target_mod, dest_attr in mod_attr_list[1:]
-                    ]
+                # Arbitrarily choose the first module as the source module
+                first_mod, first_attr = mod_attr_list[0]
+                source_mod_to_mod_attr[first_mod] = [
+                    (target_mod, first_attr, dest_attr) for target_mod, dest_attr in mod_attr_list[1:]
+                ]
 
-                # Clean up no longer needed module references for memory safety
-                del tied_pointers
+            # Clean up no longer needed module references for memory safety
+            del tied_pointers
 
-                def _param_init_fn(module: torch.nn.Module) -> None:
-                    # If we do not have any parameters or buffers on meta device managed by this module directly, we do not need to call the parameter init function.
-                    # It is assumed that whatever process moved the parameters off of meta device initialized them.
-                    # We expect this to occur if we have tied weights, as the second module will already have the weights initialized.
-                    is_meta = any(param.is_meta for param in module.parameters(recurse=False)
-                                 ) or any(buffer.is_meta for buffer in module.buffers(recurse=False))
-                    if not is_meta:
-                        return
+            def _param_init_fn(module: torch.nn.Module) -> None:
+                # If we do not have any parameters or buffers on meta device managed by this module directly, we do not need to call the parameter init function.
+                # It is assumed that whatever process moved the parameters off of meta device initialized them.
+                # We expect this to occur if we have tied weights, as the second module will already have the weights initialized.
+                is_meta = any(param.is_meta for param in module.parameters(recurse=False)
+                             ) or any(buffer.is_meta for buffer in module.buffers(recurse=False))
+                if not is_meta:
+                    return
 
-                    # Move all parameters and buffers to the current device
-                    module.to_empty(device=f'cuda:{torch.cuda.current_device()}', recurse=False)
+                # Move all parameters and buffers to the current device
+                module.to_empty(device=f'cuda:{torch.cuda.current_device()}', recurse=False)
 
-                    # Redo weight tying, which will have been broken by the above line that moves parameters off of meta device
-                    if module in source_mod_to_mod_attr:
-                        for target_mod, first_attr, dest_attr in source_mod_to_mod_attr[module]:
-                            setattr(target_mod, dest_attr, getattr(module, first_attr))
+                # Redo weight tying, which will have been broken by the above line that moves parameters off of meta device
+                if module in source_mod_to_mod_attr:
+                    for target_mod, first_attr, dest_attr in source_mod_to_mod_attr[module]:
+                        setattr(target_mod, dest_attr, getattr(module, first_attr))
 
-                    # Run the specified initialization
-                    if hasattr(obj, 'param_init_fn') and isinstance(obj.param_init_fn, Callable):
-                        obj.param_init_fn(module)
-                    elif hasattr(module, 'reset_parameters') and isinstance(module.reset_parameters, Callable):
-                        module.reset_parameters()
-                    else:
-                        raise ValueError(
-                            f'Object `{obj_name}` does not have a ``param_init_fn`` or a ``reset_parameters`` function. '
-                            'This leaves parameters without initialization. Please add a ``param_init_fn`` or ``reset_parameters`` '
-                            f'to module `{obj_name}`.',
-                        )
-            else:
-
-                def _param_init_fn(module: torch.nn.Module) -> None:
-                    # A dictionary of all tied parameter pointers to module names
-                    tied_pointers = {}
-
-                    # Goes through all modules finding which weights have the same pointers
-                    for name, mod in module.named_modules():
-                        # Since FSDP recursively wraps, at parent modules we can encounter already
-                        # wrapped weights, as a result we should skip any modules with `_fsdp_wrapped_module.`
-                        if '_fsdp_wrapped_module' in name:
-                            continue
-                        for attr in ['weight', 'bias']:
-                            if hasattr(mod, attr):
-                                mod_attr = getattr(mod, attr)
-                                if mod_attr is None:
-                                    continue
-                                ptr = id(mod_attr)
-                                ptr_attr = (ptr, attr)
-                                name_list = tied_pointers.get(ptr_attr, [])
-                                name_list.append(name)
-                                tied_pointers[ptr_attr] = name_list
-
-                    # Creates a dictionary of module names that should be tied together
-                    tied_mod_names = collections.defaultdict(list)
-                    # Creates a set of modules we should not initialize
-                    should_not_init_params = set()
-                    for ptr_attr_type, mod_names in tied_pointers.items():
-                        # No modules for this pointer are tied
-                        if len(mod_names) == 1:
-                            continue
-                        _, attr_type = ptr_attr_type
-                        first = next(mod_names.__iter__())
-                        for elem in mod_names:
-                            should_not_init_params.add('.'.join([elem, attr_type]))
-                            tied_mod_names[(first, attr_type)].append(elem)
-                        # Make sure at least one of the tied parameters is initialized
-                        should_not_init_params.remove('.'.join([first, attr_type]))
-
-                    meta_safe_apply(
-                        module,
-                        lambda t: torch.empty_like(t, device=f'cuda:{torch.cuda.current_device()}'),
-                        should_not_init_params,
-                        module_name='',
+                # Run the specified initialization
+                if hasattr(obj, 'param_init_fn') and isinstance(obj.param_init_fn, Callable):
+                    obj.param_init_fn(module)
+                elif hasattr(module, 'reset_parameters') and isinstance(module.reset_parameters, Callable):
+                    module.reset_parameters()
+                else:
+                    raise ValueError(
+                        f'Object `{obj_name}` does not have a ``param_init_fn`` or a ``reset_parameters`` function. '
+                        'This leaves parameters without initialization. Please add a ``param_init_fn`` or ``reset_parameters`` '
+                        f'to module `{obj_name}`.',
                     )
 
-                    if len(tied_mod_names) > 0:
-                        warnings.warn((
-                            'The passed in model appears to have tied weights. In order to '
-                            'support effective weight tying, the tied modules need to be '
-                            'in the same FSDP module. If the weights are not properly tied '
-                            'it can lead to loss spikes. We have tried our best to ensure '
-                            'the tied weights are in the same FSDP module.'
-                        ))
+            def lambda_fn(module: torch.nn.Module) -> Union[bool, dict]:
+                ret = False
+                if hasattr(module, '_fsdp_wrap'):
+                    ret = bool(module._fsdp_wrap)
+                elif hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
+                    ret = obj.fsdp_wrap_fn(module)
+                    if isinstance(ret, dict):
+                        ret = set_custom_fsdp_module_kwargs(ret, process_group_cache)
+                return ret
 
-                    # Redoes weight tying
-                    for name_attr, tied_names in tied_mod_names.items():
-                        name, attr = name_attr
-                        src_mod = module.get_submodule(name)
-                        # We need to make sure the source and destination
-                        # modules end up in the same FSDP module otherwise
-                        # with sharding weight tying gets violated
-                        src_mod._fsdp_wrap = False  # type: ignore
-                        src_params = getattr(src_mod, attr)
-                        for tied_name in tied_names:
-                            dest_mod = module.get_submodule(tied_name)
-                            dest_mod._fsdp_wrap = False  # type: ignore
-                            setattr(dest_mod, attr, src_params)
-
-                    if hasattr(obj, 'param_init_fn') and isinstance(obj.param_init_fn, Callable):
-                        module.apply(obj.param_init_fn)
-                    elif hasattr(module, 'reset_parameters') and isinstance(module.reset_parameters, Callable):
-                        module.reset_parameters()
-                    else:
-                        raise ValueError(
-                            f'Object `{obj_name}` does not have a ``param_init_fn`` or a ``reset_parameters`` function. '
-                            'This leaves parameters without initialization. Please add a ``param_init_fn`` or ``reset_parameters`` '
-                            f'to module `{obj_name}`.',
-                        )
-
-            if version.parse(torch.__version__) > version.parse('2.1.0.dev'):
-                # CustomPolicy is only supported in torch v2.1.0-rc1 or higher
-                from torch.distributed.fsdp.wrap import CustomPolicy  # type: ignore
-
-                def lambda_fn(module: torch.nn.Module) -> Union[bool, dict]:
-                    ret = False
-                    if hasattr(module, '_fsdp_wrap'):
-                        ret = bool(module._fsdp_wrap)
-                    elif hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
-                        ret = obj.fsdp_wrap_fn(module)
-                        if isinstance(ret, dict):
-                            ret = set_custom_fsdp_module_kwargs(ret, process_group_cache)
-                    if ret and auto_microbatching:
-                        module.register_forward_hook(sync_hook)
-                        module.register_full_backward_hook(sync_hook)
-                    return ret
-
-                _auto_wrap_policy = CustomPolicy(lambda_fn)
-            else:
-                # Choose which modules to FSDP wrap according to the following priority:
-                # If module has attribute `module._fsdp_wrap = ...`, always respect it
-                # Otherwise wrap if root object `obj.fsdp_wrap_fn(module)` is true.
-                def __auto_wrap_policy(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:
-                    if recurse:
-                        return True
-                    should_be_wrapped = False
-                    if hasattr(module, '_fsdp_wrap'):
-                        should_be_wrapped = bool(module._fsdp_wrap)
-                    elif hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
-                        should_be_wrapped = obj.fsdp_wrap_fn(module)
-
-                    if should_be_wrapped and auto_microbatching:
-                        module.register_forward_hook(sync_hook)
-                        module.register_full_backward_hook(sync_hook)
-                    return should_be_wrapped
-
-                def _auto_wrap_policy_new(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:
-                    return __auto_wrap_policy(module, recurse, nonwrapped_numel)
-
-                _auto_wrap_policy = _auto_wrap_policy_new
+            _auto_wrap_policy = CustomPolicy(lambda_fn)
 
             fsdp_obj = FullyShardedDataParallel(
                 obj,
@@ -566,6 +490,22 @@ def prepare_fsdp_module(
                     raise ModuleNotFoundError('Please install transformer-engine to use prepare_te_modules_for_fsdp')
                 log.info(f'Calling prepare_te_modules_for_fsdp to enable TE weights sharding')
                 prepare_te_modules_for_fsdp(fsdp_obj)
+
+            # The following sync hooks are added to prevent FSDP deadlocks that are caused when some ranks OOM
+            # and other ranks do not OOM, leading to OOMing ranks calling all_reduce to wait on the non-OOMing
+            # ranks and the non-OOMing ranks calling all_gatherbase to continue with FSDP training:
+            #
+            #   forward_pre_hook: before forwards of FSDP modules
+            #   full_backward_pre_hook: before backwards of FSDP modules
+            #   full_backward_hook: before a prefetched unshard called by FSDP's `post_backward_reshard`
+            if auto_microbatching:
+                for _, module in fsdp_obj.named_modules():
+                    if isinstance(module, FullyShardedDataParallel):
+                        hook_handles.append(module.register_forward_pre_hook(sync_hook, prepend=True))
+                        hook_handles.append(module.register_full_backward_pre_hook(sync_hook, prepend=True))
+                    else:
+                        hook_handles.append(module.register_full_backward_hook(sync_hook))
+                fsdp_obj_named_modules.update(dict(fsdp_obj.named_modules()))
 
             if hasattr(fsdp_obj, '_exec_order_data'):
                 if hasattr(fsdp_obj._exec_order_data, '_forward_prefetch_limit'):
@@ -596,75 +536,50 @@ def prepare_fsdp_module(
                 # FP8 TE requires using the TE checkpoint function, FSDP activation checkpointing only works with TE non-reentrant checkpointing
                 if te_checkpoint_wrapper:
                     assert not activation_checkpointing_reentrant, 'TE checkpoint only works with non-reentrant checkpointing'
-                if version.parse(torch.__version__) > version.parse('2.1.0.dev'):
-                    from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import offload_wrapper
-                    if not activation_checkpointing_reentrant:
-                        if te_checkpoint_wrapper:
-                            try:
-                                import transformer_engine.pytorch as te
-                            except ModuleNotFoundError:
-                                raise ModuleNotFoundError(
-                                    'Please install transformer-engine to use TE checkpoint wrapper',
-                                )
+                if not activation_checkpointing_reentrant:
+                    if te_checkpoint_wrapper:
+                        try:
+                            import transformer_engine.pytorch as te
+                        except ModuleNotFoundError:
+                            raise ModuleNotFoundError('Please install transformer-engine to use TE checkpoint wrapper',)
 
-                            # RNG state tracker for checkpointing
-                            CUDA_RNG_STATES_TRACKER = te.distributed.CudaRNGStatesTracker()
-                            CUDA_RNG_STATES_TRACKER.add('fsdp-rng', te_rng_seed)
+                        # RNG state tracker for checkpointing
+                        CUDA_RNG_STATES_TRACKER = te.distributed.CudaRNGStatesTracker()
+                        CUDA_RNG_STATES_TRACKER.add('fsdp-rng', te_rng_seed)
 
-                            def get_cuda_rng_tracker():
-                                return CUDA_RNG_STATES_TRACKER
-
-                            first_wrap_fn = lambda m: checkpoint_wrapper(
-                                m,
-                                context_fn=te.distributed.get_activation_recompute_contexts,
-                                checkpoint_fn=te.distributed.checkpoint,
-                                use_reentrant=False,
-                                get_rng_state_tracker=get_cuda_rng_tracker,
-                            )
-                        else:
-                            first_wrap_fn = lambda m: checkpoint_wrapper(
-                                m,
-                                checkpoint_impl=CheckpointImpl.NO_REENTRANT,
-                            ) if activation_checkpointing else (lambda module: module)
-                        second_wrap_fn = (
-                            lambda module: offload_wrapper(
-                                first_wrap_fn(module)
-                                if activation_checkpointing else module,  # type: ignore reportGeneralTypeIssues
-                            )
-                        ) if activation_cpu_offload else first_wrap_fn
-                    else:
+                        def get_cuda_rng_tracker():
+                            return CUDA_RNG_STATES_TRACKER
 
                         first_wrap_fn = lambda m: checkpoint_wrapper(
                             m,
-                            checkpoint_impl=CheckpointImpl.REENTRANT,
-                        ) if activation_checkpointing else (lambda module: module)
-                        second_wrap_fn = (
-                            lambda module: offload_wrapper(
-                                first_wrap_fn(module)
-                                if activation_checkpointing else module,  # type: ignore reportGeneralTypeIssues
-                            )
-                        ) if activation_cpu_offload else first_wrap_fn
-                else:
-                    if not activation_checkpointing_reentrant:
+                            context_fn=te.distributed.get_activation_recompute_contexts,
+                            checkpoint_fn=te.distributed.checkpoint,
+                            use_reentrant=False,
+                            get_rng_state_tracker=get_cuda_rng_tracker,
+                        )
+                    else:
                         first_wrap_fn = lambda m: checkpoint_wrapper(
                             m,
                             checkpoint_impl=CheckpointImpl.NO_REENTRANT,
                         ) if activation_checkpointing else (lambda module: module)
-                        second_wrap_fn = (
-                            lambda module: checkpoint_wrapper(
-                                first_wrap_fn(module),  # type: ignore reportGeneralTypeIssues
-                                checkpoint_impl=CheckpointImpl.NO_REENTRANT,
-                                offload_to_cpu=True,
-                            )
-                        ) if activation_cpu_offload else first_wrap_fn
-                    else:
-                        first_wrap_fn = checkpoint_wrapper if activation_checkpointing else (lambda module: module)
-                        second_wrap_fn = (
-                            lambda module: checkpoint_wrapper(
-                                first_wrap_fn(module),  # type: ignore reportGeneralTypeIssues
-                                offload_to_cpu=True,
-                            )
-                        ) if activation_cpu_offload else first_wrap_fn
+                    second_wrap_fn = (
+                        lambda module: offload_wrapper(
+                            first_wrap_fn(module)
+                            if activation_checkpointing else module,  # type: ignore reportGeneralTypeIssues
+                        )
+                    ) if activation_cpu_offload else first_wrap_fn
+                else:
+
+                    first_wrap_fn = lambda m: checkpoint_wrapper(
+                        m,
+                        checkpoint_impl=CheckpointImpl.REENTRANT,
+                    ) if activation_checkpointing else (lambda module: module)
+                    second_wrap_fn = (
+                        lambda module: offload_wrapper(
+                            first_wrap_fn(module)
+                            if activation_checkpointing else module,  # type: ignore reportGeneralTypeIssues
+                        )
+                    ) if activation_cpu_offload else first_wrap_fn
 
                 # Choose which modules to activation checkpoint according to the following priority:
                 # If module has attribute `module._activation_checkpointing = ...`, always respect it
@@ -711,19 +626,19 @@ def prepare_fsdp_module(
         optim = ensure_tuple(optimizers)[0]
         optim.param_groups.clear()
 
-        assert num_param_groups is not None
-        if num_param_groups > 1:
+        if single_param_group_opt_info is not None:
+            single_param_group_opt_info.update({'params': list(model.parameters())})
+            optim.add_param_group(single_param_group_opt_info)
+        elif fsdp_config.use_orig_params:
             assert param_name_to_group_num is not None
-            assert group_num_to_param_group_info is not None
+            assert group_num_to_opt_group_info is not None
 
             param_groups = _recreate_fsdp_param_groups_from_unwrapped_opt_info(
                 model.named_parameters(),
                 param_name_to_group_num,
-                group_num_to_param_group_info,
+                group_num_to_opt_group_info,
             )
             for param_group in param_groups:
                 optim.add_param_group(param_group)
-        else:
-            assert optimizer_specific_info is not None
-            optimizer_specific_info.update({'params': list(model.parameters())})
-            optim.add_param_group(optimizer_specific_info)
+
+    return hook_handles, fsdp_obj_named_modules

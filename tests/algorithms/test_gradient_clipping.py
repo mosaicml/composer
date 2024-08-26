@@ -231,6 +231,7 @@ def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, nonwrapped_numel: 
 )
 @pytest.mark.parametrize('clipping_type', ['norm', 'value'])
 @pytest.mark.gpu
+@pytest.mark.filterwarnings('ignore:.*FSDP will not all-gather parameters for containers.*:UserWarning')
 @world_size(2)
 def test_gradient_clipping_algorithm_with_fsdp_enabled_does_not_error(
     monkeypatch,

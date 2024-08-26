@@ -47,12 +47,8 @@ from typing import TYPE_CHECKING, Any, Optional, Sequence, TypeVar, Union, cast
 import torch
 import torch.distributed as dist
 import torch.utils.data
-from packaging import version
 
-from composer.utils.device import get_device, is_hpu_installed, is_xla_installed
-
-if is_xla_installed():
-    import torch_xla
+from composer.utils.device import get_device, is_hpu_installed
 
 if TYPE_CHECKING:
     from composer.devices import Device
@@ -579,8 +575,6 @@ def initialize_dist(device: Union[str, Device], timeout: float = 300.0) -> None:
                 'PyTorch XLA package not found. In order to use XLA based devices '
                 'PyTorch XLA must be installed.',
             )
-        if version.parse(torch_xla.__version__) < version.parse('2.1.0'):
-            raise RuntimeError(f'PyTorch XLA version must be at least 2.1.0, found {torch_xla.__version__}.')
         # XLA initialization requires the init_method to be set
         dist.init_process_group(device_obj.dist_backend, init_method='xla://')
     elif dist_env_vars_match_defaults:
@@ -644,7 +638,7 @@ def get_node_signal_file_name(rng: Optional[random.Random] = None) -> str:
     random_string = ''.join(rng.choices(string.ascii_letters + string.digits, k=6))
     node_rank = get_node_rank()
     file_name_list = [f'._signal_file_node{node_rank}_{random_string}']
-    dist.broadcast_object_list(file_name_list, src=0)
+    broadcast_object_list(file_name_list, src=0)
     return file_name_list[0]
 
 

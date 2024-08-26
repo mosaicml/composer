@@ -17,12 +17,12 @@ import time
 import uuid
 import warnings
 from multiprocessing.context import SpawnProcess
-from typing import TYPE_CHECKING, Any, Callable, Optional, Type, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 from urllib.parse import urlparse
 
 import torch
 
-from composer.loggers import Logger, MosaicMLLogger
+from composer.loggers import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import (
     MLFlowObjectStore,
@@ -281,7 +281,7 @@ class RemoteUploaderDownloader(LoggerDestination):
             self._finished_cls: Union[Callable[[],
                                                multiprocessing._EventType,  # pyright: ignore[reportGeneralTypeIssues]
                                               ],
-                                      Type[threading.Event],
+                                      type[threading.Event],
                                      ] = mp_ctx.Event
             self._proc_class = mp_ctx.Process
         else:
@@ -308,12 +308,13 @@ class RemoteUploaderDownloader(LoggerDestination):
         return self._remote_backend
 
     def init(self, state: State, logger: Logger) -> None:
+        del logger  # unused
+
         if self._worker_flag is not None:
             raise RuntimeError('The RemoteUploaderDownloader is already initialized.')
         self._worker_flag = self._finished_cls()
         self._run_name = state.run_name
         file_name_to_test = self._remote_file_name('.credentials_validated_successfully')
-        self._logger = logger
 
         # Create the enqueue thread
         self._enqueue_thread_flag = self._finished_cls()
@@ -426,9 +427,6 @@ class RemoteUploaderDownloader(LoggerDestination):
                         break
                     self._enqueued_objects.remove(object_name)
                     self._completed_queue.task_done()
-                    for destination in self._logger.destinations:
-                        if isinstance(destination, MosaicMLLogger):
-                            destination.log_metadata({'checkpoint_uploaded_time': time.time()}, force_flush=True)
 
                 # Enqueue all objects that are in self._logged_objects but not in self._file_upload_queue
                 objects_to_delete = []

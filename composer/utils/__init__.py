@@ -37,6 +37,7 @@ from composer.utils.file_helpers import (
     create_symlink_file,
     ensure_folder_has_no_conflicting_files,
     ensure_folder_is_empty,
+    extract_path_from_symlink,
     format_name_with_dist,
     format_name_with_dist_and_time,
     get_file,
@@ -75,7 +76,7 @@ from composer.utils.object_store import (
     UCObjectStore,
     build_remote_backend,
 )
-from composer.utils.parallelism import FSDPConfig, ParallelismConfig, TPConfig, create_fsdp_config
+from composer.utils.parallelism import FSDPConfig, ParallelismConfig, TPConfig
 from composer.utils.remote_uploader import RemoteFilesExistingCheckStatus, RemoteUploader
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
@@ -152,12 +153,12 @@ __all__ = [
     'KNOWN_COMPRESSORS',
     'STR_TO_DTYPE',
     'ParallelismType',
-    'create_fsdp_config',
     'FSDPConfig',
     'TPConfig',
     'ParallelismConfig',
     'MLFLOW_EXPERIMENT_ID_FORMAT_KEY',
     'MLFLOW_RUN_ID_FORMAT_KEY',
+    'extract_path_from_symlink',
     'RemoteUploader',
     'validate_credentials',
     'build_remote_backend',

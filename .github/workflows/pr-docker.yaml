@@ -1,8 +1,7 @@
-name: PR Docker
+name: PR Docker/GHCR
 on:
   pull_request:
     branches:
-    - dev
     - main
     - release/**
     paths:
@@ -17,7 +16,7 @@ defaults:
 jobs:
   build-image-matrix:
     if: github.repository_owner == 'mosaicml'
-    runs-on: ubuntu-latest
+    runs-on: linux-ubuntu-latest
     timeout-minutes: 2
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -65,8 +64,11 @@ jobs:
       push: true
       staging: true
       staging-repo: mosaicml/ci-staging
+      ghcr-staging-repo: ghcr.io/databricks-mosaic/ci-staging
       tags: ${{ matrix.TAGS }}
       target: ${{ matrix.TARGET }}
     secrets:
       username: ${{ secrets.DOCKER_HUB_USERNAME }}
       password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+      ghcr_username: ${{ secrets.GHCR_USERNAME }}
+      ghcr_password: ${{ secrets.GHCR_TOKEN }}
