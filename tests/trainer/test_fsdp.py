@@ -553,6 +553,24 @@ def test_fsdp_same_state_after_oom_reshard(world_size: int):
 
 @pytest.mark.gpu
 @world_size(2)
+def test_fsdp_device_mesh(world_size: int):
+    model = SimpleModel()
+    model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+
+    # Expect error via pytest
+    with pytest.raises(ValueError):
+        Trainer(
+            model=model,
+            parallelism_config={'fsdp': {
+                'device_mesh': [2],
+            }},
+            max_duration='3ba',
+        )
+
+
+@pytest.mark.gpu
+@world_size(2)
 def test_fsdp_shard(world_size: int):
     model = SimpleModel()
     model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]

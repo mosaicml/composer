@@ -1322,6 +1322,10 @@ class Trainer:
                 if isinstance(parallelism_config['fsdp'], FSDPConfig):
                     parallelism_config_args['fsdp'] = parallelism_config['fsdp']
                 else:
+                    if 'device_mesh' in parallelism_config['fsdp']:
+                        raise ValueError(
+                            f'Directly specifying device_mesh for FSDP was deprecated in Composer version 0.24.0. Please specify \'data_parallel_shard_degree\' and/or \'data_parallel_replicate_degree\' instead.',
+                        )
                     parallelism_config_args['fsdp'] = FSDPConfig(**parallelism_config['fsdp'])
             if 'tp' in parallelism_config and parallelism_config['tp'] is not None:
                 if isinstance(parallelism_config['tp'], TPConfig):
