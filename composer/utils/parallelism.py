@@ -3,7 +3,7 @@
 
 """Parallelism configs."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from torch.distributed._tensor.device_mesh import DeviceMesh
@@ -23,7 +23,6 @@ class FSDPConfig:
     cpu_offload: bool = False
     data_parallel_shard_degree: int = -1
     data_parallel_replicate_degree: Optional[int] = None
-    device_mesh: Optional[DeviceMesh] = None
     forward_prefetch: bool = False
     forward_prefetch_limit: int = 1
     ignored_modules: Optional[Any] = None
@@ -40,6 +39,25 @@ class FSDPConfig:
     sync_module_states: bool = False
     use_orig_params: bool = True
     verbose: bool = False
+
+    _device_mesh: Optional[DeviceMesh] = field(default=None, init=False, repr=False)
+
+    def __init__(self, **kwargs):
+        if 'device_mesh' in kwargs or '_device_mesh' in kwargs:
+            raise ValueError(
+                f'Directly specifying device mesh for FSDP was deprecated in Composer version 0.24.0. Please specify \'data_parallel_shard_degree\' and/or \'data_parallel_replicate_degree\' instead.',
+            )
+
+        super().__init__(**kwargs)
+
+    @property
+    def device_mesh(self) -> Optional[DeviceMesh]:
+        return self._device_mesh
+
+    @device_mesh.setter
+    def device_mesh(self, value: Optional[DeviceMesh]):
+        # Additional validation logic can be added here if needed
+        self._device_mesh = value
 
 
 @dataclass
