@@ -150,6 +150,17 @@ def init_model(
         if wrap_with_raw_fsdp:
             model = FSDP(model, **fsdp_kwargs)
         else:
+            if 'device_mesh' in fsdp_kwargs:
+                mesh = fsdp_kwargs.pop('device_mesh')
+                ndim = mesh.ndim
+                if ndim == 1:
+                    fsdp_kwargs['data_parallel_shard_degree'] = mesh.size(0)
+                elif ndim == 2:
+                    fsdp_kwargs['data_parallel_replicate_degree'] = mesh.size(0)
+                    fsdp_kwargs['data_parallel_shard_degree'] = mesh.size(1)
+                else:
+                    raise ValueError(f'Unsupported device mesh dimension: {ndim}')
+
             prepare_fsdp_module(
                 model,
                 optimizers=None,
