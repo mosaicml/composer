@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader, Dataset
 from composer.models import ComposerClassifier, ComposerModel
 from composer.trainer.trainer import Trainer, _fsdp_reshard_and_cleanup
 from composer.utils import dist
+from composer.utils.parallelism import FSDPConfig
 from tests.common import (
     EmbeddedWeightTiedModel,
     RandomClassificationDataset,
@@ -549,6 +550,34 @@ def test_fsdp_same_state_after_oom_reshard(world_size: int):
     output_2 = fsdp_oom_model(x)
 
     assert torch.equal(output_1, output_2)
+
+
+@pytest.mark.gpu
+@world_size(2)
+def test_fsdp_device_mesh(world_size: int):
+    model = SimpleModel()
+    model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+
+    # Expect error via pytest
+    with pytest.raises(ValueError, match='Directly specifying device mesh for FSDP was deprecated*'):
+        Trainer(
+            model=model,
+            parallelism_config={'fsdp': {
+                'device_mesh': [2],
+            }},
+            max_duration='3ba',
+        )
+
+
+@pytest.mark.parametrize('error_key', ['device_mesh', '_device_mesh'])
+def test_fsdp_config_device_mesh_error(error_key: str):
+    # Passing device mesh directly to FSDPConfig should raise an error
+    with pytest.raises(ValueError, match='Directly specifying device mesh for FSDP was deprecated*'):
+        cfg_dict = {
+            error_key: [2],
+        }
+        FSDPConfig(**cfg_dict)
 
 
 @pytest.mark.gpu
