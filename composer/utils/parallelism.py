@@ -9,8 +9,8 @@ from typing import Any, Optional
 from torch.distributed._tensor.device_mesh import DeviceMesh
 
 
-@dataclass
-class _FSDPConfig:
+@dataclass(kw_only=True)
+class FSDPConfig:
     """Configuration for Fully Sharded Data Parallelism (FSDP)."""
     activation_checkpointing: bool = False
     activation_checkpointing_reentrant: bool = True
@@ -42,18 +42,6 @@ class _FSDPConfig:
 
     _device_mesh: Optional[DeviceMesh] = field(default=None, init=False, repr=False)
 
-    @property
-    def device_mesh(self) -> Optional[DeviceMesh]:
-        return self._device_mesh
-
-    @device_mesh.setter
-    def device_mesh(self, value: Optional[DeviceMesh]):
-        self._device_mesh = value
-
-
-class FSDPConfig(_FSDPConfig):
-    """Checks for deprecated parameters and raises errors on top of _FSDPConfig."""
-
     def __init__(self, **kwargs):
         if 'device_mesh' in kwargs or '_device_mesh' in kwargs:
             raise ValueError(
@@ -61,7 +49,16 @@ class FSDPConfig(_FSDPConfig):
                 f"Please specify 'data_parallel_shard_degree' and/or 'data_parallel_replicate_degree' instead.",
             )
 
-        super().__init__(**kwargs)
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    @property
+    def device_mesh(self) -> Optional[DeviceMesh]:
+        return self._device_mesh
+
+    @device_mesh.setter
+    def device_mesh(self, value: Optional[DeviceMesh]):
+        self._device_mesh = value
 
 
 @dataclass
