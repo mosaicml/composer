@@ -56,7 +56,6 @@ class FSDPConfig:
 
     @device_mesh.setter
     def device_mesh(self, value: Optional[DeviceMesh]):
-        # Additional validation logic can be added here if needed
         self._device_mesh = value
 
 
