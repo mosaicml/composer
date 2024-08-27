@@ -238,10 +238,6 @@ def _shard_with_fsdp(
     if fsdp_config is None:
         fsdp_config = FSDPConfig()
     if isinstance(fsdp_config, dict):
-        if 'device_mesh' in fsdp_config:
-            raise ValueError(
-                f'Directly specifying device_mesh in fsdp_config was deprecated in Composer version 0.24.0. Please specify \'data_parallel_shard_degree\' and/or \'data_parallel_replicate_degree\' instead.',
-            )
         fsdp_config = FSDPConfig(**fsdp_config)
     with reproducibility.seed_context(seed):
         automicrobatch_fsdp_hook_handles, fsdp_modules = prepare_fsdp_module(
