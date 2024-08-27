@@ -45,7 +45,8 @@ class FSDPConfig:
     def __init__(self, **kwargs):
         if 'device_mesh' in kwargs or '_device_mesh' in kwargs:
             raise ValueError(
-                f'Directly specifying device mesh for FSDP was deprecated in Composer version 0.24.0. Please specify \'data_parallel_shard_degree\' and/or \'data_parallel_replicate_degree\' instead.',
+                f'Directly specifying device mesh for FSDP was deprecated in Composer version 0.24.0. ' +
+                f"Please specify 'data_parallel_shard_degree' and/or 'data_parallel_replicate_degree' instead.",
             )
 
         super().__init__(**kwargs)
