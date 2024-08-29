@@ -147,12 +147,12 @@ def test_tp_correctness(world_size: int, seed_all):
             batch_size (int, optional):  number of examples in a single batch on a single GPU. Defaults to 2.
             size (int, optional): the size of the entire dataset. Defaults to 32.
         """
-        num_features, num_classes, batch_size, size, seed = 2048, 10, 8, 32, 42
+        num_features, num_classes, batch_size, size, seed = 64, 10, 8, 32, 42
         reproducibility.seed_all(seed)
 
-        dataset = RandomClassificationDataset(shape=(num_features,), num_classes=num_classes, size=size) # X=(num_features,), y=scalar
+        dataset = RandomClassificationDataset(shape=(num_features,), num_classes=num_classes, size=size) # X=(num_features,), y=(,), i.e. scalar
         dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=batch_size) # X=(batch_size, num_features), y=(batch_size,)
-        model = SimpleComposerMLP(num_features=num_features, device='cpu', num_classes=num_classes).to('cuda')
+        model = SimpleComposerMLP(num_features=num_features, device='cuda', num_classes=num_classes)
 
         trainer = Trainer(
             seed=seed,
