@@ -340,7 +340,7 @@ class SimpleDataset(Dataset):
         self.y = None
 
     def __len__(self):
-        return self.size
+        return self.size * self.batch_size
 
     def __getitem__(self, index: int):
         # Note: lazily generate data so it runs after Composer seeds everything, giving the same

@@ -21,6 +21,7 @@ from tests.common.models import (
     EmbeddedWeightTiedModel,
     EmptyModel,
     EvenSimplerMLP,
+    SimpleComposerMLP,
     SimpleConvModel,
     SimpleMLP,
     SimpleModel,
@@ -67,4 +68,5 @@ __all__ = [
     'composer_resnet',
     'SimpleMLP',
     'EvenSimplerMLP',
+    'SimpleComposerMLP',
 ]
