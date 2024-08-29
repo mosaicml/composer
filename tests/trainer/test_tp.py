@@ -152,7 +152,7 @@ def test_tp_correctness(world_size: int, seed_all):
 
         dataset = RandomClassificationDataset(shape=(num_features,), num_classes=num_classes, size=size) # X=(num_features,), y=scalar
         dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=batch_size) # X=(batch_size, num_features), y=(batch_size,)
-        model = SimpleComposerMLP(num_features=num_features, device='cpu', num_classes=num_classes)
+        model = SimpleComposerMLP(num_features=num_features, device='cpu', num_classes=num_classes).to('cuda')
 
         trainer = Trainer(
             seed=seed,
@@ -161,7 +161,7 @@ def test_tp_correctness(world_size: int, seed_all):
             max_duration='1ba',
             train_dataloader=dataloader,
             parallelism_config=parallelism_config,
-            # callbacks=[MemoryMonitor()],
+            callbacks=[MemoryMonitor()],
             loggers=[InMemoryLogger()],
             )
         trainer.fit()
@@ -171,11 +171,10 @@ def test_tp_correctness(world_size: int, seed_all):
         stats = {
             'loss':log['loss/train/total'],
             'accuracy': log['metrics/train/MulticlassAccuracy'].item(),
-            # 'peak_memory': log['memory/peak_reserved_mem'],
+            'peak_memory': log['memory/peak_reserved_mem'],
             'parameters': trainer.state.model.parameters(),
         }
         return stats
-
 
     # DDP
     parallelism_config = None
