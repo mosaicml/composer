@@ -139,14 +139,7 @@ def test_tp_correctness(world_size: int, seed_all):
     icecream.install()
 
     def _helper(parallelism_config):
-        """Return a model and distributed dataloader.
-
-        Args:
-            num_features (int, optional): the number of features in a single example. Defaults to 2048.
-            num_classes (int, optional): the number of classes. Defaults to 10.
-            batch_size (int, optional):  number of examples in a single batch on a single GPU. Defaults to 2.
-            size (int, optional): the size of the entire dataset. Defaults to 32.
-        """
+        """Train a simple model with different parallelism_configs."""
         num_features, num_classes, batch_size, size, seed = 64, 10, 8, 32, 42
         reproducibility.seed_all(seed)
 
@@ -165,7 +158,6 @@ def test_tp_correctness(world_size: int, seed_all):
             loggers=[InMemoryLogger()],
             )
         trainer.fit()
-        print(dataset.y)
 
         log = trainer.logger.destinations[0].most_recent_values
         stats = {
@@ -177,8 +169,7 @@ def test_tp_correctness(world_size: int, seed_all):
         return stats
 
     # DDP
-    parallelism_config = None
-    stats_ddp = _helper(parallelism_config=parallelism_config)
+    stats_ddp = _helper(parallelism_config=None)
     ic(stats_ddp)
 
     # FSDP + TP
