@@ -133,12 +133,12 @@ def test_tp_with_subset_of_params(world_size: int):
 @world_size(4)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
-def test_tp_correctness(world_size: int, seed_all):
+def test_tp_correctness(world_size: int):
     from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
     import icecream
     icecream.install()
 
-    def _helper(parallelism_config):
+    def train_and_fit(parallelism_config):
         """Train a simple model with different parallelism_configs."""
         num_features, num_classes, batch_size, size, seed = 64, 10, 8, 32, 42
         reproducibility.seed_all(seed)
@@ -158,6 +158,7 @@ def test_tp_correctness(world_size: int, seed_all):
             loggers=[InMemoryLogger()],
             )
         trainer.fit()
+        ic(dataset.y)
 
         log = trainer.logger.destinations[0].most_recent_values
         stats = {
@@ -169,14 +170,14 @@ def test_tp_correctness(world_size: int, seed_all):
         return stats
 
     # DDP
-    stats_ddp = _helper(parallelism_config=None)
+    stats_ddp = train_and_fit(parallelism_config=None)
     ic(stats_ddp)
 
     # FSDP + TP
     layer_plan = {'fc1': ColwiseParallel(), 'fc2': RowwiseParallel()}
     tp_config = {'layer_plan': layer_plan, 'tensor_parallel_degree': 2}
     parallelism_config = {'fsdp': {}, 'tp': tp_config}
-    stats_fsdp_tp = _helper(parallelism_config=parallelism_config)
+    stats_fsdp_tp = train_and_fit(parallelism_config=parallelism_config)
     ic(stats_fsdp_tp)
 
 
