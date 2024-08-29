@@ -142,6 +142,9 @@ class SimpleComposerMLP(ComposerClassifier):
         net = torch.nn.Sequential(fc1, torch.nn.ReLU(), fc2)
         super().__init__(num_classes=num_classes, module=net)
 
+        self.fc1 = fc1
+        self.fc2 = fc2
+
 
 class SimpleWeightTiedModel(ComposerClassifier):
     """Small classification model with tied weights.

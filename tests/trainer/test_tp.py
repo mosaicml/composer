@@ -6,6 +6,7 @@ import torch
 from packaging import version
 from torch.utils.data import DataLoader
 
+from composer.utils import reproducibility
 from composer.callbacks import MemoryMonitor
 from composer.loggers import InMemoryLogger
 from composer.trainer.trainer import Trainer
@@ -132,7 +133,7 @@ def test_tp_with_subset_of_params(world_size: int):
 @world_size(4)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
-def test_tp_correctness(world_size: int):
+def test_tp_correctness(world_size: int, seed_all):
     from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
     import icecream
     icecream.install()
@@ -144,12 +145,14 @@ def test_tp_correctness(world_size: int):
             num_features (int, optional): the number of features in a single example. Defaults to 2048.
             num_classes (int, optional): the number of classes. Defaults to 10.
             batch_size (int, optional):  number of examples in a single batch on a single GPU. Defaults to 2.
-            num_samples (int, optional): the size of the entire dataset. Defaults to 32.
+            size (int, optional): the size of the entire dataset. Defaults to 32.
         """
-        num_features, num_classes, batch_size, num_samples, seed = 2048, 10, 8, 1024, 42
-        model = SimpleComposerMLP(num_features=num_features, device='cpu', num_classes=num_classes)
-        dataset = RandomClassificationDataset(shape=(num_features,), num_classes=num_classes, size=num_samples) # X=(num_features,), y=scalar
+        num_features, num_classes, batch_size, size, seed = 2048, 10, 8, 32, 42
+        reproducibility.seed_all(seed)
+
+        dataset = RandomClassificationDataset(shape=(num_features,), num_classes=num_classes, size=size) # X=(num_features,), y=scalar
         dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=batch_size) # X=(batch_size, num_features), y=(batch_size,)
+        model = SimpleComposerMLP(num_features=num_features, device='cpu', num_classes=num_classes)
 
         trainer = Trainer(
             seed=seed,
@@ -158,16 +161,17 @@ def test_tp_correctness(world_size: int):
             max_duration='1ba',
             train_dataloader=dataloader,
             parallelism_config=parallelism_config,
-            callbacks=[MemoryMonitor()],
+            # callbacks=[MemoryMonitor()],
             loggers=[InMemoryLogger()],
             )
         trainer.fit()
+        print(dataset.y)
 
         log = trainer.logger.destinations[0].most_recent_values
         stats = {
             'loss':log['loss/train/total'],
             'accuracy': log['metrics/train/MulticlassAccuracy'].item(),
-            'peak_memory': log['memory/peak_reserved_mem'],
+            # 'peak_memory': log['memory/peak_reserved_mem'],
             'parameters': trainer.state.model.parameters(),
         }
         return stats
@@ -178,12 +182,12 @@ def test_tp_correctness(world_size: int):
     stats_ddp = _helper(parallelism_config=parallelism_config)
     ic(stats_ddp)
 
-    # # FSDP + TP
-    # layer_plan = {'fc1': ColwiseParallel(), 'fc2': RowwiseParallel()}
-    # tp_config = {'layer_plan': layer_plan, 'tensor_parallel_degree': 2}
-    # parallelism_config = {'fsdp': {}, 'tp': tp_config}
-    # stats_fsdp_tp = _helper(parallelism_config=parallelism_config)
-    # ic(stats_fsdp_tp)
+    # FSDP + TP
+    layer_plan = {'fc1': ColwiseParallel(), 'fc2': RowwiseParallel()}
+    tp_config = {'layer_plan': layer_plan, 'tensor_parallel_degree': 2}
+    parallelism_config = {'fsdp': {}, 'tp': tp_config}
+    stats_fsdp_tp = _helper(parallelism_config=parallelism_config)
+    ic(stats_fsdp_tp)
 
 
 #    # forward pass with FSDP and no TP
