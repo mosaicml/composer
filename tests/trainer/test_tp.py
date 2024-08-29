@@ -6,6 +6,7 @@ import torch
 from packaging import version
 from torch.utils.data import DataLoader
 
+from composer.callbacks import MemoryMonitor
 from composer.loggers import InMemoryLogger
 from composer.trainer.trainer import Trainer
 from composer.utils import dist
@@ -136,9 +137,7 @@ def test_tp_correctness(world_size: int):
     import icecream
     icecream.install()
 
-    SEED = 42
-
-    def _helper(num_features: int = 2048, num_classes: int = 10, batch_size: int = 8, num_samples: int = 1024):
+    def _helper(parallelism_config):
         """Return a model and distributed dataloader.
 
         Args:
@@ -147,37 +146,44 @@ def test_tp_correctness(world_size: int):
             batch_size (int, optional):  number of examples in a single batch on a single GPU. Defaults to 2.
             num_samples (int, optional): the size of the entire dataset. Defaults to 32.
         """
+        num_features, num_classes, batch_size, num_samples, seed = 2048, 10, 8, 1024, 42
         model = SimpleComposerMLP(num_features=num_features, device='cpu', num_classes=num_classes)
         dataset = RandomClassificationDataset(shape=(num_features,), num_classes=num_classes, size=num_samples) # X=(num_features,), y=scalar
         dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=batch_size) # X=(batch_size, num_features), y=(batch_size,)
-        # Are the dataloader dimensions per GPU? Or is are these dimensions split across every GPU?
-        # what is the differenc between
-        # batch
-        # minibatch in dataloader (https://pytorch.org/tutorials/beginner/basics/data_tutorial.html#preparing-your-data-for-training-with-dataloaders)
-        return model, dataloader
+
+        trainer = Trainer(
+            seed=seed,
+            device='gpu',
+            model=model,
+            max_duration='1ba',
+            train_dataloader=dataloader,
+            parallelism_config=parallelism_config,
+            callbacks=[MemoryMonitor()],
+            loggers=[InMemoryLogger()],
+            )
+        trainer.fit()
+
+        log = trainer.logger.destinations[0].most_recent_values
+        stats = {
+            'loss':log['loss/train/total'],
+            'accuracy': log['metrics/train/MulticlassAccuracy'].item(),
+            'peak_memory': log['memory/peak_reserved_mem'],
+            'parameters': trainer.state.model.parameters(),
+        }
+        return stats
 
 
-    # forward pass with no FSDP and no TP (DDP is done by default)
-    model, dataloader = _helper()
+    # DDP
+    parallelism_config = None
+    stats_ddp = _helper(parallelism_config=parallelism_config)
+    ic(stats_ddp)
 
-    trainer = Trainer(
-        seed=SEED,
-        device='gpu',
-        model=model,
-        max_duration='1ba',
-        train_dataloader=dataloader,
-        # callbacks=[MemoryMonitor()],
-        loggers=[InMemoryLogger()],
-        )
-    trainer.fit()
-    logged_data = trainer.logger.destinations[0].data
-    loss = logged_data['loss/train/total']
-    accuracy = logged_data['metrics/train/MulticlassAccuracy']
-    ic(logged_data.keys())
-
-    for k, v in logged_data.items():
-        ic(k, v)
-    # outputs = torch.stack(trainer.predict(dataloader))
+    # # FSDP + TP
+    # layer_plan = {'fc1': ColwiseParallel(), 'fc2': RowwiseParallel()}
+    # tp_config = {'layer_plan': layer_plan, 'tensor_parallel_degree': 2}
+    # parallelism_config = {'fsdp': {}, 'tp': tp_config}
+    # stats_fsdp_tp = _helper(parallelism_config=parallelism_config)
+    # ic(stats_fsdp_tp)
 
 
 #    # forward pass with FSDP and no TP
