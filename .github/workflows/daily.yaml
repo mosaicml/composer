@@ -72,7 +72,7 @@ jobs:
           composer_package_name: mosaicml
     steps:
     - name: Run PR CPU Tests
-      uses: mosaicml/ci-testing/.github/actions/pytest-cpu@v0.1.2
+      uses: mosaicml/ci-testing/.github/actions/pytest-cpu@v0.2.0
       with:
         name: ${{ matrix.name }}
         pip_deps: "[all]"
@@ -165,7 +165,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
     - name: Run PR GPU Tests
-      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.1.2
+      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.2.0
       with:
         name: ${{ matrix.name }}
         composer_package_name: ${{ matrix.composer_package_name }}
