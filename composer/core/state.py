@@ -505,8 +505,6 @@ class State(Serializable):
         self.run_name = run_name
         self.device = device
         self.device_train_microbatch_size = device_train_microbatch_size
-        self.device_train_microbatch_size_ub = device_train_microbatch_size
-        self.device_train_microbatch_size_lb: Optional[Union[int, float]] = 1
         self.auto_microbatching = auto_microbatching
         self._dataloader_len = None
         self._dataloader = None
