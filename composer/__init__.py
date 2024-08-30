@@ -23,4 +23,5 @@ __all__ = [
     'Logger',
     'ComposerModel',
     'Trainer',
+    '__version__',
 ]

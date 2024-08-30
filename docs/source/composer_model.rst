@@ -101,7 +101,7 @@ To compute metrics during training, implement the following methods:
    def eval_forward(self, batch, outputs) -> outputs:
        ...
 
-   def get_metrics(self, is_train=False) -> Dict[str, Metric]:
+   def get_metrics(self, is_train=False) -> dict[str, Metric]:
        ...
 
    def update_metric(self, batch, outputs, metric) -> None:
@@ -210,7 +210,7 @@ and make it compatible with our trainer.
 
     # huggingface model
     model = AutoModelForSequenceClassification.from_pretrained(
-                            'bert-base-uncased',
+                            'google-bert/bert-base-uncased',
                              num_labels=2)
 
     # list of torchmetrics

@@ -16,6 +16,7 @@ logging.basicConfig(level=logging.WARN)
 import os
 import sys
 import tempfile
+import warnings
 from typing import Any
 from typing import Callable as Callable
 from urllib.parse import urlparse
@@ -53,9 +54,15 @@ from composer.loggers import InMemoryLogger as InMemoryLogger
 from composer.loggers import Logger as Logger
 from composer.loggers import RemoteUploaderDownloader
 from composer.models import ComposerModel as ComposerModel
-from composer.optim.scheduler import ConstantScheduler
-from composer.utils import LibcloudObjectStore
+from composer.optim import ConstantScheduler, DecoupledSGDW
+from composer.utils import LibcloudObjectStore, RemoteUploader
 from composer.utils import ensure_tuple as ensure_tuple
+
+# Ignore certain warnings for doctest
+warnings.filterwarnings(action='ignore', message='.*Deterministic mode.*')  # Expected
+warnings.filterwarnings(action='ignore', message='.*Some weights of Bert*')  # Expected
+warnings.filterwarnings(action='ignore', message='.*torch.cuda.amp.custom.*')  # DeepSpeed
+warnings.filterwarnings(action='ignore', message='.*The distutils.sysconfig module*')  # DeepSpeed
 
 try:
     import wandb
@@ -117,7 +124,7 @@ Model = SimpleModel
 
 model = SimpleModel(num_channels, num_classes)
 
-optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+optimizer = DecoupledSGDW(model.parameters(), lr=0.001)
 
 scheduler = CosineAnnealingLR(optimizer, T_max=1)
 
@@ -188,7 +195,7 @@ def _new_trainer_init(self, fake_ellipses: None = None, **kwargs: Any):
     if 'model' not in kwargs:
         kwargs['model'] = model
     if 'optimizers' not in kwargs:
-        kwargs['optimizers'] = torch.optim.SGD(kwargs['model'].parameters(), lr=0.01)
+        kwargs['optimizers'] = DecoupledSGDW(kwargs['model'].parameters(), lr=0.01)
     if 'schedulers' not in kwargs:
         kwargs['schedulers'] = ConstantScheduler()
     if 'max_duration' not in kwargs:
@@ -245,6 +252,29 @@ def _new_RemoteUploaderDownloader_init(self, fake_ellipses: None = None, **kwarg
 
 
 RemoteUploaderDownloader.__init__ = _new_RemoteUploaderDownloader_init  # type: ignore
+
+# Patch RemoteUploader __init__ function to replace arguments while preserving type
+_original_RemoteUploader_init = RemoteUploader.__init__
+
+
+def _new_RemoteUploader_init(self, fake_ellipses: None = None, **kwargs: Any):
+    os.makedirs('./object_store', exist_ok=True)
+    kwargs.update(
+        num_concurrent_uploads=1,
+        remote_folder='libcloud://.',
+        backend_kwargs={
+            'provider': 'local',
+            'container': '.',
+            'provider_kwargs': {
+                'key': os.path.abspath('./object_store'),
+            },
+        },
+        num_attempts=1,
+    )
+    _original_RemoteUploader_init(self, **kwargs)
+
+
+RemoteUploader.__init__ = _new_RemoteUploader_init
 
 # Patch ObjectStore __init__ function to replace arguments while preserving type
 _original_libcloudObjectStore_init = LibcloudObjectStore.__init__

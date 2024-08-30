@@ -30,7 +30,7 @@ def comet_logger(monkeypatch, comet_offline_directory):
     monkeypatch.setattr(comet_ml, 'Experiment', comet_ml.OfflineExperiment)
     from composer.loggers import CometMLLogger
 
-    # Set offline directory.
+    # Set offline directory
     os.environ['COMET_OFFLINE_DIRECTORY'] = comet_offline_directory
 
     comet_logger = CometMLLogger()
@@ -211,7 +211,7 @@ def test_comet_ml_logging_train_loop(monkeypatch, tmp_path):
     monkeypatch.setattr(comet_ml, 'Experiment', comet_ml.OfflineExperiment)
     from composer.loggers import CometMLLogger
 
-    # Set offline directory.
+    # Set offline directory
     offline_directory = str(tmp_path / Path('.my_cometml_runs'))
     os.environ['COMET_OFFLINE_DIRECTORY'] = offline_directory
 
@@ -274,7 +274,7 @@ def test_comet_ml_log_metrics_and_hyperparameters(monkeypatch, tmp_path):
     param_names = ['my_cool_parameter1', 'my_cool_parameter2']
     param_values = [10, 3]
 
-    # Set offline directory.
+    # Set offline directory
     offline_directory = str(tmp_path / Path('.my_cometml_runs'))
     os.environ['COMET_OFFLINE_DIRECTORY'] = offline_directory
 
@@ -302,13 +302,16 @@ def test_comet_ml_log_metrics_and_hyperparameters(monkeypatch, tmp_path):
     comet_logs_path = zf.extract('messages.json', path=offline_directory)
     jd = JSONDecoder()
     created_from_found = False
-    expected_created_from_log = {'key': 'Created from', 'val': 'mosaicml-composer'}
+    expected_created_from_value = 'mosaicml-composer'
     metric_msgs = []
     param_msgs = []
     with open(comet_logs_path) as f:
         for line in f.readlines():
             comet_msg = jd.decode(line)
-            if comet_msg['type'] == 'ws_msg' and comet_msg['payload'].get('log_other', {}) == expected_created_from_log:
+            if comet_msg['type'] == 'log_other' and comet_msg['payload'].get(
+                'value',
+                '',
+            ) == expected_created_from_value:
                 created_from_found = True
             if (comet_msg['type'] == 'metric_msg' and comet_msg['payload']['metric']['metricName'] == 'my_test_metric'):
                 metric_msgs.append(comet_msg['payload']['metric'])

@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 from pathlib import Path
 from unittest import mock
 from unittest.mock import ANY, MagicMock
@@ -179,6 +180,8 @@ def test_download_object(ws_client, uc_object_store, tmp_path, result: str):
 
 
 def test_list_objects_nested_folders(ws_client, uc_object_store):
+    from databricks.sdk.service.files import DirectoryEntry
+
     expected_files = [
         '/Volumes/catalog/volume/schema/path/to/folder/file1.txt',
         '/Volumes/catalog/volume/schema/path/to/folder/file2.txt',
@@ -186,101 +189,88 @@ def test_list_objects_nested_folders(ws_client, uc_object_store):
         '/Volumes/catalog/volume/schema/path/to/folder/subdir/file2.txt',
     ]
     uc_list_api_responses = [
-        {
-            'files': [
-                {
-                    'path': '/Volumes/catalog/volume/schema/path/to/folder/file1.txt',
-                    'is_dir': False,
-                },
-                {
-                    'path': '/Volumes/catalog/volume/schema/path/to/folder/file2.txt',
-                    'is_dir': False,
-                },
-                {
-                    'path': '/Volumes/catalog/volume/schema/path/to/folder/subdir',
-                    'is_dir': True,
-                },
-            ],
-        },
-        {
-            'files': [
-                {
-                    'path': '/Volumes/catalog/volume/schema/path/to/folder/subdir/file1.txt',
-                    'is_dir': False,
-                },
-                {
-                    'path': '/Volumes/catalog/volume/schema/path/to/folder/subdir/file2.txt',
-                    'is_dir': False,
-                },
-            ],
-        },
+        [
+            DirectoryEntry(
+                path='/Volumes/catalog/volume/schema/path/to/folder/file1.txt',
+                is_directory=False,
+            ),
+            DirectoryEntry(
+                path='/Volumes/catalog/volume/schema/path/to/folder/file2.txt',
+                is_directory=False,
+            ),
+            DirectoryEntry(
+                path='/Volumes/catalog/volume/schema/path/to/folder/subdir',
+                is_directory=True,
+            ),
+        ],
+        [
+            DirectoryEntry(
+                path='/Volumes/catalog/volume/schema/path/to/folder/subdir/file1.txt',
+                is_directory=False,
+            ),
+            DirectoryEntry(
+                path='/Volumes/catalog/volume/schema/path/to/folder/subdir/file2.txt',
+                is_directory=False,
+            ),
+        ],
     ]
 
     prefix = 'Volumes/catalog/schema/volume/path/to/folder'
 
-    ws_client.api_client.do = MagicMock(side_effect=[uc_list_api_responses[0], uc_list_api_responses[1]])
+    ws_client.files.list_directory_contents = MagicMock(
+        side_effect=[uc_list_api_responses[0], uc_list_api_responses[1]],
+    )
     actual_files = uc_object_store.list_objects(prefix=prefix)
 
     assert actual_files == expected_files
 
-    ws_client.api_client.do.assert_called_with(
-        method='GET',
-        path=uc_object_store._UC_VOLUME_LIST_API_ENDPOINT,
-        data='{"path": "/Volumes/catalog/volume/schema/path/to/folder/subdir"}',
-        headers={'Source': 'mosaicml/composer'},
+    ws_client.files.list_directory_contents.assert_called_with(
+        directory_path='/Volumes/catalog/volume/schema/path/to/folder/subdir',
     )
 
-    assert ws_client.api_client.do.call_count == 2
+    assert ws_client.files.list_directory_contents.call_count == 2
 
 
 @pytest.mark.parametrize('result', ['success', 'prefix_none', 'not_found', 'error'])
 def test_list_objects(ws_client, uc_object_store, result):
+    from databricks.sdk.service.files import DirectoryEntry
+
     expected_files = [
         '/Volumes/catalog/volume/schema/path/to/folder/file1.txt',
         '/Volumes/catalog/volume/schema/path/to/folder/file2.txt',
     ]
-    uc_list_api_response = {
-        'files': [
-            {
-                'path': '/Volumes/catalog/volume/schema/path/to/folder/file1.txt',
-                'is_dir': False,
-            },
-            {
-                'path': '/Volumes/catalog/volume/schema/path/to/folder/file2.txt',
-                'is_dir': False,
-            },
-        ],
-    }
+    uc_list_api_response = [
+        DirectoryEntry(
+            path='/Volumes/catalog/volume/schema/path/to/folder/file1.txt',
+            is_directory=False,
+        ),
+        DirectoryEntry(
+            path='/Volumes/catalog/volume/schema/path/to/folder/file2.txt',
+            is_directory=False,
+        ),
+    ]
 
     prefix = 'Volumes/catalog/schema/volume/path/to/folder'
 
     if result == 'success':
-        ws_client.api_client.do.return_value = uc_list_api_response
+        ws_client.files.list_directory_contents.return_value = uc_list_api_response
         actual_files = uc_object_store.list_objects(prefix=prefix)
 
         assert actual_files == expected_files
-        ws_client.api_client.do.assert_called_once_with(
-            method='GET',
-            path=uc_object_store._UC_VOLUME_LIST_API_ENDPOINT,
-            data='{"path": "/Volumes/catalog/schema/volume/path/to/folder"}',
-            headers={'Source': 'mosaicml/composer'},
-        )
+        expected_call_prefix = os.path.join('/', prefix)
+        ws_client.files.list_directory_contents.assert_called_once_with(directory_path=expected_call_prefix,)
 
     elif result == 'prefix_none':
-        ws_client.api_client.do.return_value = uc_list_api_response
+        ws_client.files.list_directory_contents.return_value = uc_list_api_response
         actual_files = uc_object_store.list_objects(prefix=None)
 
         assert actual_files == expected_files
-        ws_client.api_client.do.assert_called_once_with(
-            method='GET',
-            path=uc_object_store._UC_VOLUME_LIST_API_ENDPOINT,
-            data='{"path": "/Volumes/catalog/schema/volume/."}',
-            headers={'Source': 'mosaicml/composer'},
-        )
+        expected_call_prefix = '/Volumes/catalog/schema/volume/.'
+        ws_client.files.list_directory_contents.assert_called_once_with(directory_path=expected_call_prefix,)
 
     elif result == 'not_found':
         db_core = pytest.importorskip('databricks.sdk.core', reason='requires databricks')
-        ws_client.api_client.do.side_effect = db_core.DatabricksError(
+        ws_client.files.list_directory_contents.side_effect = db_core.DatabricksError(
             'The path you provided does not exist or is not a directory.',
             error_code='NOT_FOUND',
         )
@@ -289,7 +279,7 @@ def test_list_objects(ws_client, uc_object_store, result):
 
     elif result == 'error':
         db_core = pytest.importorskip('databricks.sdk.core', reason='requires databricks')
-        ws_client.api_client.do.side_effect = db_core.DatabricksError
+        ws_client.files.list_directory_contents.side_effect = db_core.DatabricksError
 
         with pytest.raises(ObjectStoreTransientError):
             uc_object_store.list_objects(prefix=prefix)

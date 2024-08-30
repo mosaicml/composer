@@ -108,7 +108,7 @@ class CutOut(Algorithm):
             box such that each pixel has an equal probability of being masked.
             If ``False``, defaults to the sampling used in the original paper
             implementation. Default: ``False``.
-        input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input
+        input_key (str | int | tuple[Callable, Callable] | Any, optional): A key that indexes to the input
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair.  The default is 0, which corresponds to any sequence, where the first element
             is the input. Default: ``0``.

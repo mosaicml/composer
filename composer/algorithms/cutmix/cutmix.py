@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Optional, Tuple, Union
+from typing import Any, Callable, Optional, Union
 
 import numpy as np
 import torch
@@ -26,10 +26,10 @@ def cutmix_batch(
     target: Tensor,
     length: Optional[float] = None,
     alpha: float = 1.,
-    bbox: Optional[Tuple] = None,
+    bbox: Optional[tuple] = None,
     indices: Optional[torch.Tensor] = None,
     uniform_sampling: bool = False,
-) -> Tuple[torch.Tensor, torch.Tensor, float, Tuple]:
+) -> tuple[torch.Tensor, torch.Tensor, float, tuple]:
     """Create new samples using combinations of pairs of samples.
 
     This is done by masking a region of each image in ``input`` and filling
@@ -169,11 +169,11 @@ class CutMix(Algorithm):
             box such that each pixel has an equal probability of being mixed.
             If ``False``, defaults to the sampling used in the original
             paper implementation. Default: ``False``.
-        input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input
+        input_key (str | int | tuple[Callable, Callable] | Any, optional): A key that indexes to the input
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair.  The default is 0, which corresponds to any sequence, where the first element
             is the input. Default: ``0``.
-        target_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the target
+        target_key (str | int | tuple[Callable, Callable] | Any, optional): A key that indexes to the target
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair. The default is 1, which corresponds to any sequence, where the second element
             is the target. Default: ``1``.
@@ -198,8 +198,8 @@ class CutMix(Algorithm):
         alpha: float = 1.,
         interpolate_loss: bool = False,
         uniform_sampling: bool = False,
-        input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
-        target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
+        input_key: Union[str, int, tuple[Callable, Callable], Any] = 0,
+        target_key: Union[str, int, tuple[Callable, Callable], Any] = 1,
     ):
         self.alpha = alpha
         self.interpolate_loss = interpolate_loss
@@ -207,7 +207,7 @@ class CutMix(Algorithm):
 
         self._indices = torch.Tensor()
         self._cutmix_lambda = 0.0
-        self._bbox: Tuple[int, int, int, int] = (0, 0, 0, 0)
+        self._bbox: tuple[int, int, int, int] = (0, 0, 0, 0)
         self._permuted_target = torch.Tensor()
         self._adjusted_lambda = 0.0
         self.input_key, self.target_key = input_key, target_key
@@ -339,7 +339,7 @@ def _rand_bbox(
     cx: Optional[int] = None,
     cy: Optional[int] = None,
     uniform_sampling: bool = False,
-) -> Tuple[int, int, int, int]:
+) -> tuple[int, int, int, int]:
     """Randomly samples a bounding box with area determined by ``cutmix_lambda``.
 
     Adapted from original implementation https://github.com/clovaai/CutMix-PyTorch
@@ -385,7 +385,7 @@ def _rand_bbox(
     return bbx1, bby1, bbx2, bby2
 
 
-def _adjust_lambda(x: Tensor, bbox: Tuple) -> float:
+def _adjust_lambda(x: Tensor, bbox: tuple) -> float:
     """Rescale the cutmix lambda according to the size of the clipped bounding box.
 
     Args:

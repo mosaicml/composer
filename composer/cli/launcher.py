@@ -15,10 +15,11 @@ import tempfile
 import time
 import traceback
 from argparse import ArgumentParser
-from typing import Any, Dict, List, Union
+from typing import Any, Union
 
 import psutil
 import torch
+from packaging import version
 
 import composer
 from composer.loggers.mosaicml_logger import (
@@ -196,8 +197,13 @@ def _parse_args():
     if args.nproc < 1:
         raise ValueError('The nproc must be 1 or greater')
 
-    if args.world_size is None and 'WORLD_SIZE' in os.environ:
-        args.world_size = int(os.environ['WORLD_SIZE'])
+    if args.world_size is None:
+        if 'WORLD_SIZE' in os.environ and os.environ.get('LOCAL_WORLD_SIZE') != os.environ['WORLD_SIZE']:
+            # Use WORLD_SIZE env var if set and running multinode. Otherwise, default to nproc
+            # to enable easy overriding of number of processes when on a single node.
+            args.world_size = int(os.environ['WORLD_SIZE'])
+        else:
+            args.world_size = args.nproc
 
     if args.base_rank is None and 'BASE_RANK' in os.environ:
         args.base_rank = int(os.environ['BASE_RANK'])
@@ -210,9 +216,6 @@ def _parse_args():
 
     if args.master_port is None and 'MASTER_PORT' in os.environ:
         args.master_port = int(os.environ['MASTER_PORT'])
-
-    if args.world_size is None:
-        args.world_size = args.nproc
 
     if args.world_size < args.nproc:
         raise ValueError(f'world_size({args.world_size}) cannot be less than nproc({args.nproc})')
@@ -311,11 +314,18 @@ def _launch_processes(
     training_script: str,
     stdout_file_format: str,
     stderr_file_format: Union[str, None],
-    training_script_args: List[Any],
-    processes: Dict[int, subprocess.Popen],
+    training_script_args: list[Any],
+    processes: dict[int, subprocess.Popen],
 ):
     log.info('Starting distributed environment on local node for global_rank(%s-%s)', base_rank, base_rank + nproc - 1)
     log.info('Distributed KV store: tcp://%s:%s', master_addr, master_port)
+
+    nccl_env_variable = {
+        (
+            'NCCL_ASYNC_ERROR_HANDLING' if version.parse(torch.__version__) < version.parse('2.2.0') else 'TORCH_NCCL_ASYNC_ERROR_HANDLING'
+        ):
+            '1',
+    }
 
     for local_rank in range(nproc):
         global_rank = base_rank + local_rank
@@ -339,7 +349,7 @@ def _launch_processes(
             MASTER_ADDR=master_addr,
             MASTER_PORT=str(master_port),
             PYTHONUNBUFFERED='1',
-            NCCL_ASYNC_ERROR_HANDLING='1',
+            **nccl_env_variable,
         ):
             # Populate the distributed variables in all launcher args
             for arg in training_script_args:
@@ -384,7 +394,7 @@ def _launch_processes(
             processes[global_rank] = process
 
 
-def _monitor_processes(processes: Dict[int, subprocess.Popen]):
+def _monitor_processes(processes: dict[int, subprocess.Popen]):
     try:
         while True:
             process_has_crashed = False
@@ -449,7 +459,7 @@ def _print_process_exit_status(global_rank: int, process: subprocess.Popen):
     print('\n'.join(error_msg))
 
 
-def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
+def _cleanup_processes(processes: dict[int, subprocess.Popen]):
     for global_rank, process in processes.items():
         process.poll()
         if process.returncode is None:
@@ -509,7 +519,7 @@ def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
             _print_process_exit_status(global_rank, process)
 
 
-def _aggregate_process_returncode(processes: Dict[int, subprocess.Popen]) -> int:
+def _aggregate_process_returncode(processes: dict[int, subprocess.Popen]) -> int:
     for global_rank, process in processes.items():
         process.poll()
         if process.returncode is None:
@@ -541,11 +551,11 @@ def main():
     if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and str(
         os.environ.get(MOSAICML_LOG_DIR_ENV_VAR, 'false'),
     ).lower() != 'false' and os.environ.get(MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR, 'false').lower() != 'false':
-        log.info('Logging all GPU ranks to Mosaic Platform.')
+        log.info('Logging all GPU ranks to Mosaic AI Training.')
         log_file_format = f'{os.environ.get(MOSAICML_LOG_DIR_ENV_VAR)}/{os.environ.get(MOSAICML_GPU_LOG_FILE_PREFIX_ENV_VAR)}{{local_rank}}.txt'
         if args.stderr is not None or args.stdout is not None:
             log.info(
-                'Logging to Mosaic Platform. Ignoring provided stdout and stderr args. To use provided stdout and stderr, set MOSAICML_LOG_DIR=false.',
+                'Logging to Mosaic AI Training. Ignoring provided stdout and stderr args. To use provided stdout and stderr, set MOSAICML_LOG_DIR=false.',
             )
         args.stdout = log_file_format
         args.stderr = None

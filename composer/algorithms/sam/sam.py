@@ -13,6 +13,7 @@ import torch
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
+from composer.trainer._scaler import ClosureGradScaler
 from composer.utils import ensure_tuple
 
 log = logging.getLogger(__name__)
@@ -121,7 +122,7 @@ class SAM(Algorithm):
     by wrapping an existing optimizer with a :class:`.SAMOptimizer`. SAM can improve model generalization
     and provide robustness to label noise.
 
-    Runs on :attr:`.Event.INIT`.
+    Runs on :attr:`.Event.AFTER_LOAD`.
 
     Args:
         rho (float, optional): The neighborhood size parameter of SAM. Must be greater than 0.
@@ -161,7 +162,7 @@ class SAM(Algorithm):
         self.interval = interval
 
     def match(self, event: Event, state: State) -> bool:
-        return event == Event.INIT
+        return event == Event.AFTER_LOAD
 
     def apply(self, event: Event, state: State, logger: Optional[Logger]) -> Optional[int]:
         assert state.optimizers is not None
@@ -174,3 +175,6 @@ class SAM(Algorithm):
                 interval=self.interval,
             ) for optimizer in ensure_tuple(state.optimizers)
         )
+
+        # Switch to ClosureGradScaler as SAM supports and requires it
+        state.scaler = ClosureGradScaler()

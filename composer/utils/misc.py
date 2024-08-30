@@ -3,13 +3,19 @@
 
 """Miscellaneous Helpers."""
 
+import logging
 import math
 import socket
+import textwrap
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Callable, Optional, Set, Type, Union
+from typing import TYPE_CHECKING, Callable, Optional, Union
 
 import torch
 from torch.nn.parallel import DistributedDataParallel
+from torchvision import transforms
+from torchvision.datasets import VisionDataset
+
+from composer.utils.string_enum import StringEnum
 
 if TYPE_CHECKING:
     from composer.core import Event, State, Time
@@ -22,14 +28,37 @@ __all__ = [
     'get_free_tcp_port',
     'model_eval_mode',
     'create_interval_scheduler',
+    'add_vision_dataset_transform',
+    'STR_TO_DTYPE',
 ]
+
+log = logging.getLogger(__name__)
+
+STR_TO_DTYPE = {
+    'fp32': torch.float32,
+    'fp16': torch.float16,
+    'bf16': torch.bfloat16,
+}
+
+
+class ParallelismType(StringEnum):
+    """Enum class for different parallelism types in the device mesh.
+
+    Attributes:
+        DATA_PARALLEL_SHARD: Data parallel shard dimension.
+        DATA_PARALLEL_REPLICATE: Data parallel replicate dimension.
+        TENSOR_PARALLEL: Tensor parallel dimension.
+    """
+    DATA_PARALLEL_SHARD = 'data_parallel_shard'
+    DATA_PARALLEL_REPLICATE = 'data_parallel_replicate'
+    TENSOR_PARALLEL = 'tensor_parallel'
 
 
 def create_interval_scheduler(
     interval: Union[str, int, 'Time'],
     include_end_of_training: bool = True,
     checkpoint_events: bool = True,
-    final_events: Optional[Set['Event']] = None,
+    final_events: Optional[set['Event']] = None,
 ) -> Callable[['State', 'Event'], bool]:
     """Helper function to create a scheduler according to a specified interval.
 
@@ -41,7 +70,7 @@ def create_interval_scheduler(
             Otherwise, the returned callable will return true at intervals only.
         checkpoint_events (bool): If true, will use the EPOCH_CHECKPOINT and BATCH_CHECKPOINT events. If False, will use
             the EPOCH_END and BATCH_END events.
-        final_events (Optional[Set[Event]]): The set of events to trigger on at the end of training.
+        final_events (Optional[set[Event]]): The set of events to trigger on at the end of training.
 
     Returns:
         Callable[[State, Event], bool]: A function that returns true at interval and at the end of training if specified.
@@ -58,11 +87,18 @@ def create_interval_scheduler(
         interval_event = Event.EPOCH_CHECKPOINT if checkpoint_events else Event.EPOCH_END
     elif time_interval.unit == TimeUnit.ITERATION:
         interval_event = Event.ITERATION_CHECKPOINT if checkpoint_events else Event.ITERATION_END
-    elif time_interval.unit in {TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE, TimeUnit.DURATION}:
+    elif time_interval.unit in {
+        TimeUnit.BATCH,
+        TimeUnit.TOKEN,
+        TimeUnit.SAMPLE,
+        TimeUnit.DURATION,
+        TimeUnit.SECOND,
+    }:
         interval_event = Event.BATCH_CHECKPOINT if checkpoint_events else Event.BATCH_END
     else:
         raise NotImplementedError(
-            f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.',
+            f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, ' +\
+            'TimeUnit.SAMPLE, TimeUnit.SECOND',
         )
 
     last_batch_seen = -1
@@ -84,7 +120,14 @@ def create_interval_scheduler(
         if include_end_of_training and event in final_events and elapsed_duration >= 1.0 and state.timestamp.batch != last_batch_seen:
             return True
 
-        if time_interval.unit in {TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE}:
+        if time_interval.unit in {
+            TimeUnit.ITERATION,
+            TimeUnit.EPOCH,
+            TimeUnit.BATCH,
+            TimeUnit.TOKEN,
+            TimeUnit.SAMPLE,
+            TimeUnit.SECOND,
+        }:
             previous_count = state.previous_timestamp.get(time_interval.unit)
             count = state.timestamp.get(time_interval.unit)
         # If the eval_interval is a duration, we will track progress in terms of the unit of max_duration
@@ -94,7 +137,8 @@ def create_interval_scheduler(
             count = state.timestamp.get(state.max_duration.unit)
         else:
             raise NotImplementedError(
-                f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.',
+                f'Unknown interval: {time_interval.unit}. Must be TimeUnit.ITERATION, TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, ' +\
+                'TimeUnit.SAMPLE, TimeUnit.SECOND',
             )
 
         threshold_passed = math.floor(previous_count / time_interval.value) != math.floor(count / time_interval.value)
@@ -184,7 +228,7 @@ def is_notebook():
 
 def warning_on_one_line(
     message: str,
-    category: Type[Warning],
+    category: type[Warning],
     filename: str,
     lineno: int,
     file=None,
@@ -234,3 +278,45 @@ def partial_format(s, *args, **kwargs) -> str:
             kwargs[key] = '{' + key + '}'
 
     raise RuntimeError(f'Failed to format string {s} after {max_iters} iterations.')
+
+
+def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is_tensor_transform: bool = False):
+    """Add a transform to a dataset's collection of transforms.
+
+    Args:
+        dataset (VisionDataset): A torchvision dataset.
+        transform (Callable): Function to be added to the dataset's collection of transforms.
+        is_tensor_transform (bool): Whether ``transform`` acts on data of the type
+            :class:`~torch.Tensor`. The transform will be inserted before or after
+            :class:`~torchvision.transforms.ToTensor` depending on if this is ``True`` or ``False``
+            respectively. If :class:`~torchvision.transforms.ToTensor` is not present, the
+            transform will be appended to the end of the collection of transforms. (default: ``False``)
+
+    Returns:
+        None: The ``dataset`` is modified in-place.
+    """
+    transform_added_logstring = textwrap.dedent(
+        f"""Transform {transform} added to dataset.
+        Dataset now has the following transforms: {dataset.transform}""",
+    )
+
+    if dataset.transform is None:
+        dataset.transform = transform
+        log.warning(transform_added_logstring)
+    elif isinstance(dataset.transform, transforms.Compose):
+        insertion_index = len(dataset.transform.transforms)
+        for i, t in enumerate(dataset.transform.transforms):
+            if isinstance(t, transforms.ToTensor):
+                insertion_index = i
+                break
+        if is_tensor_transform:
+            insertion_index += 1
+        dataset.transform.transforms.insert(insertion_index, transform)
+        log.warning(transform_added_logstring)
+    else:  # transform is some other basic transform, join using Compose
+        if isinstance(dataset.transform, transforms.ToTensor) and not is_tensor_transform:
+            dataset.transform = transforms.Compose([transform, dataset.transform])
+            log.warning(transform_added_logstring)
+        else:
+            dataset.transform = transforms.Compose([dataset.transform, transform])
+            log.warning(transform_added_logstring)

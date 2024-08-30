@@ -416,6 +416,7 @@ def test_mlflow_save_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
 
 @pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
 @pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
+@pytest.mark.filterwarnings('ignore:.*Could not find a config file.*:UserWarning')
 def test_mlflow_save_peft_model(tmp_path, tiny_mpt_model, tiny_mpt_tokenizer):
     mlflow = pytest.importorskip('mlflow')
     peft = pytest.importorskip('peft')
@@ -649,8 +650,9 @@ def test_mlflow_log_image_works(tmp_path, device):
     experiment_id = run.info.experiment_id
 
     run_file_path = mlflow_uri / Path(experiment_id) / Path(run_id)
-    im_dir = run_file_path / Path('artifacts')
-    assert len(os.listdir(im_dir)) == expected_num_ims
+    im_dir = run_file_path / Path('artifacts') / Path('images')
+    # 2 (compressed & uncompressed) per image, and two log images calls in ImageLogger
+    assert len(os.listdir(im_dir)) == expected_num_ims * 2 * 2
 
 
 @device('cpu')
@@ -795,6 +797,43 @@ class TestMlflowMetrics:
 
         metric_file = file_path / Path('metrics') / Path('loss/train/total')
         assert not os.path.exists(metric_file)
+
+
+def test_mlflow_logging_time_buffer(tmp_path):
+    mlflow = pytest.importorskip('mlflow')
+    if not hasattr(mlflow.environment_variables, 'MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS'):
+        pytest.skip('MLFlow {mlflow.__version__} does not support async logging buffer seconds.')
+
+    with patch('mlflow.store.tracking.file_store.FileStore.log_batch') as mock_log_batch:
+
+        mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
+        experiment_name = 'mlflow_logging_test'
+        mock_state = MagicMock()
+        mock_logger = MagicMock()
+
+        test_mlflow_logger = MLFlowLogger(
+            tracking_uri=mlflow_uri,
+            experiment_name=experiment_name,
+            log_system_metrics=True,
+            run_name='test_run',
+            logging_buffer_seconds=2,
+        )
+        test_mlflow_logger.init(state=mock_state, logger=mock_logger)
+        test_mlflow_logger.log_hyperparameters({'name': 'test'})
+        steps = 10
+        for i in range(steps):
+            metrics = {
+                'foo': i,
+                'bar': i,
+            }
+            test_mlflow_logger.log_metrics(metrics, step=i)
+        test_mlflow_logger.post_close()
+
+    # There will be 2 calls to `log_batch`, one from `start_run` with tags, and one from the metrics
+    # and hyperparameters logging.
+    assert mock_log_batch.call_count == 2
+    assert len(mock_log_batch.call_args_list[0][1]['metrics']) == 0
+    assert len(mock_log_batch.call_args_list[1][1]['metrics']) == 2 * steps
 
 
 def test_mlflow_resume_run(tmp_path):

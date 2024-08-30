@@ -7,10 +7,11 @@ from __future__ import annotations
 
 import collections.abc
 import functools
+import inspect
 import logging
 import random
 import time
-from typing import Any, Callable, Sequence, Type, TypeVar, Union, cast, overload
+from typing import Any, Callable, Sequence, TypeVar, Union, cast, overload
 
 TCallable = TypeVar('TCallable', bound=Callable)
 
@@ -21,7 +22,7 @@ log = logging.getLogger(__name__)
 
 @overload
 def retry(
-    exc_class: Union[Type[Exception], Sequence[Type[Exception]]] = ...,
+    exc_class: Union[type[Exception], Sequence[type[Exception]]] = ...,
     num_attempts: int = ...,
     initial_backoff: float = ...,
     max_jitter: float = ...,
@@ -37,7 +38,7 @@ def retry(exc_class: TCallable) -> TCallable:
 
 # error: Type "(TCallable@retry) -> TCallable@retry" cannot be assigned to type "(func: Never) -> Never"
 def retry(  # type: ignore
-    exc_class: Union[TCallable, Type[Exception], Sequence[Type[Exception]]] = Exception,
+    exc_class: Union[TCallable, type[Exception], Sequence[type[Exception]]] = Exception,
     num_attempts: int = 3,
     initial_backoff: float = 1.0,
     max_jitter: float = 0.5,
@@ -46,18 +47,16 @@ def retry(  # type: ignore
 
     Attempts are spaced out with ``initial_backoff + 2**num_attempts + random.random() * max_jitter`` seconds.
 
+    Optionally, the decorated function can specify `retry_index` as an argument to receive the current attempt number.
+
     Example:
     .. testcode::
 
         from composer.utils import retry
 
-        num_tries = 0
-
         @retry(RuntimeError, num_attempts=3, initial_backoff=0.1)
-        def flaky_function():
-            global num_tries
-            if num_tries < 2:
-                num_tries += 1
+        def flaky_function(retry_index: int):
+            if retry_index < 2:
                 raise RuntimeError("Called too soon!")
             return "Third time's a charm."
 
@@ -84,9 +83,12 @@ def retry(  # type: ignore
 
         @functools.wraps(func)
         def new_func(*args: Any, **kwargs: Any):
+            retry_index_param = 'retry_index'
             i = 0
             while True:
                 try:
+                    if retry_index_param in inspect.signature(func).parameters:
+                        kwargs[retry_index_param] = i
                     return func(*args, **kwargs)
                 except exc_class as e:
                     log.debug(f'Attempt {i} failed. Exception type: {type(e)}, message: {str(e)}.')

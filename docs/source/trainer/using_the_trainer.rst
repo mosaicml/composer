@@ -429,16 +429,13 @@ To enable FSDP, simply pass in as shown below:
 
     trainer = Trainer(
         model=composer_model,
-        fsdp_config=fsdp_config,
+        parallelism_config={
+            'fsdp': fsdp_config,
+        },
         ...
     )
 
     trainer.fit()
-
-.. warning::
-
-    Right now ``fsdp_config`` doesn't support cpu_offloading.
-
 
 
 Callbacks

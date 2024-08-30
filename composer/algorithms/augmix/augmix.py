@@ -6,7 +6,7 @@
 import functools
 import textwrap
 import weakref
-from typing import List, TypeVar
+from typing import TypeVar
 
 import numpy as np
 import torch
@@ -18,8 +18,8 @@ from torchvision.datasets import VisionDataset
 from composer.algorithms.utils import augmentation_sets
 from composer.algorithms.utils.augmentation_common import map_pillow_function
 from composer.core import Algorithm, Event, State
-from composer.datasets.utils import add_vision_dataset_transform
 from composer.loggers import Logger
+from composer.utils import add_vision_dataset_transform
 
 __all__ = ['AugMix', 'AugmentAndMixTransform', 'augmix_image']
 
@@ -32,7 +32,7 @@ def augmix_image(
     depth: int = -1,
     width: int = 3,
     alpha: float = 1.0,
-    augmentation_set: List = augmentation_sets['all'],
+    augmentation_set: list = augmentation_sets['all'],
 ) -> ImgT:
     r"""Applies the AugMix (`Hendrycks et al, 2020 <http://arxiv.org/abs/1912.02781>`_) data augmentation.
 
@@ -77,7 +77,7 @@ def augmix_image(
         depth: int,
         width: int,
         alpha: float,
-        augmentation_set: List,
+        augmentation_set: list,
     ) -> PillowImage:
         chain_weights = np.random.dirichlet([alpha] * width).astype(np.float32)
         mixing_weight = np.float32(np.random.beta(alpha, alpha))
@@ -96,8 +96,8 @@ def augmix_image(
                 aug = np.random.choice(augmentation_set)
                 augmented_image = aug(augmented_image, severity)
             augmented_combination += chain_weights[chain_i] * np.asarray(augmented_image)
-        mixed = (1 - mixing_weight) * np.asarray(img_pil) + mixing_weight * augmented_combination
-        mixed = Image.fromarray(np.uint8(mixed))
+        mixed = (1 - mixing_weight) * np.asarray(img_pil, dtype=np.float32) + mixing_weight * augmented_combination
+        mixed = Image.fromarray(np.uint8(mixed))  # type: ignore
         return mixed
 
     f_pil = functools.partial(

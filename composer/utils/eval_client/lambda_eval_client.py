@@ -5,7 +5,6 @@
 import json
 import logging
 import os
-from typing import Dict, List
 
 import requests
 
@@ -31,7 +30,7 @@ class LambdaEvalClient(EvalClient):
             )
         log.debug('Running code eval on lambda.')
 
-    def invoke(self, payload: List[List[List[Dict[str, str]]]]) -> List[List[List[bool]]]:
+    def invoke(self, payload: list[list[list[dict[str, str]]]]) -> list[list[list[bool]]]:
         """Invoke a batch of provided payloads for code evaluations."""
         ret = []
         for prompt_group in payload:
@@ -44,7 +43,7 @@ class LambdaEvalClient(EvalClient):
             ret.append(ret_prompt_group)
         return ret
 
-    def invoke_helper(self, payload: Dict[str, str]) -> bool:
+    def invoke_helper(self, payload: dict[str, str]) -> bool:
         """Invoke a provided dictionary payload to the client."""
         response = requests.post(
             os.environ['CODE_EVAL_URL'],

@@ -4,20 +4,20 @@
 """Contains helper functions for auto-logging hparams."""
 
 from enum import Enum
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 __all__ = ['extract_hparams', 'convert_nested_dict_to_flat_dict', 'convert_flat_dict_to_nested_dict']
 
 
-def extract_hparams(locals_dict: Dict[str, Any]) -> Dict[str, Any]:
+def extract_hparams(locals_dict: dict[str, Any]) -> dict[str, Any]:
     """Takes in local symbol table and recursively grabs any hyperparameter.
 
     Args:
-        locals_dict (Dict[str, Any]): The local symbol table returned when calling locals(),
+        locals_dict (dict[str, Any]): The local symbol table returned when calling locals(),
             which maps any free local variables' names to their values.
 
     Returns:
-        Dict[str, Any]: A nested dictionary with every element of locals_dict mapped to its
+        dict[str, Any]: A nested dictionary with every element of locals_dict mapped to its
             value or to another sub_dict.
     """
     hparams = {}
@@ -35,9 +35,9 @@ def _grab_hparams(obj) -> Any:
     # then parse hparams attribute (which is a dict) and name those sub-hyperparameters
     if hasattr(obj, 'local_hparams'):
         return {obj.__class__.__name__: obj.local_hparams}
-    elif isinstance(obj, List) or isinstance(obj, Tuple):
+    elif isinstance(obj, list) or isinstance(obj, tuple):
         return [_get_obj_repr(sub_obj) for sub_obj in obj]
-    elif isinstance(obj, Dict):
+    elif isinstance(obj, dict):
         return {k: _get_obj_repr(sub_obj) for k, sub_obj in obj.items()}
     else:
         return _get_obj_repr(obj)
@@ -61,16 +61,16 @@ def _get_obj_repr(obj: Any):
         return obj.__class__.__name__
 
 
-def convert_nested_dict_to_flat_dict(nested_dict: Dict, prefix='') -> Dict:
+def convert_nested_dict_to_flat_dict(nested_dict: dict, prefix='') -> dict:
     """Takes in a nested dict converts it to a flat dict with keys separated by slashes.
 
     Args:
-        nested_dict (Dict): A dictionary containing at least one other dictionary.
+        nested_dict (dict): A dictionary containing at least one other dictionary.
         prefix (str, optional): A prefix to left append to the keys in the dictionary.
             'Defaults to ''.
 
     Returns:
-        Dict: A flat dictionary representation of the nested one (contains no other
+        dict: A flat dictionary representation of the nested one (contains no other
             dictionaries inside of it)
     """
     flat_dict = {}
@@ -85,15 +85,15 @@ def convert_nested_dict_to_flat_dict(nested_dict: Dict, prefix='') -> Dict:
     return flat_dict
 
 
-def convert_flat_dict_to_nested_dict(flat_dict: Dict) -> Dict:
+def convert_flat_dict_to_nested_dict(flat_dict: dict) -> dict:
     """Converts flat dictionary separated by slashes to nested dictionary.
 
     Args:
-        flat_dict (Dict): flat dictionary containing no sub-dictionary with keys
+        flat_dict (dict): flat dictionary containing no sub-dictionary with keys
             separated by slashes. e.g. {'a':1, 'b/c':2}
 
     Returns:
-        Dict: a nested dict.
+        dict: a nested dict.
     """
     nested_dict = {}
     for k, v in flat_dict.items():

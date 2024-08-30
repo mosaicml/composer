@@ -10,7 +10,7 @@ import pickle
 import shutil
 import uuid
 from pathlib import Path
-from typing import Sequence, Type
+from typing import Sequence
 
 import pytest
 import torch
@@ -282,7 +282,7 @@ def test_wandb_log_metrics(test_wandb_logger):
 
 @pytest.mark.parametrize('callback_cls', get_cbs_and_marks(callbacks=True))
 @pytest.mark.filterwarnings('ignore::UserWarning')
-def test_logged_data_is_json_serializable(callback_cls: Type[Callback]):
+def test_logged_data_is_json_serializable(callback_cls: type[Callback]):
     """Test that all logged data is json serializable, which is a requirement to use wandb."""
     pytest.importorskip('wandb', reason='wandb is optional')
     from wandb.sdk.data_types.base_types.wb_value import WBValue

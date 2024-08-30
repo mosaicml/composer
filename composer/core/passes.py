@@ -48,7 +48,7 @@ def sort_to_front(list_to_sort: Sequence[T], cls: Any) -> Sequence[T]:
         cls: sorts all objects of this class to the front
 
     Returns:
-        sorted_list: Sorted List
+        sorted_list: Sorted list
 
     """
     return sorted(list_to_sort, key=lambda x: not isinstance(x, cls))
@@ -73,7 +73,7 @@ def sort_to_back(list_to_sort: Sequence[T], cls: Any) -> Sequence[T]:
         cls: sorts all objects of this class to the back
 
     Returns:
-        sorted_list: Sorted List
+        sorted_list: Sorted list
 
     """
     return sorted(list_to_sort, key=lambda x: isinstance(x, cls))

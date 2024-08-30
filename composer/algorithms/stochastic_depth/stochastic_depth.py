@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import Optional, Type, Union
+from typing import Optional, Union
 
 import torch
 from torchvision.models.resnet import Bottleneck
@@ -258,7 +258,7 @@ def _validate_stochastic_hparams(
 
 def _update_drop_rate(
     module: torch.nn.Module,
-    target_block: Type[torch.nn.Module],
+    target_block: type[torch.nn.Module],
     drop_rate: float,
     drop_distribution: str,
     module_count: int,

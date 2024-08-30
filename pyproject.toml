@@ -21,14 +21,20 @@ select = [
     "PERF",
     "PLE",
     "COM812",
+    "UP006",
+    "F401",
 ]
-
+extend-safe-fixes = [
+    "UP006",
+]
 ignore = [
     "C408",
     "PERF2",
     "PERF4",
 ]
+
 [tool.ruff]
+target-version = "py39"
 exclude = [
     "build/**",
     "docs/**",
@@ -88,7 +94,7 @@ reportUnusedCoroutine = "error"
 # Pytest
 [tool.pytest.ini_options]
 # By default, do not run gpu, vision, docs, notebook, or daily tests
-addopts = "--codeblocks --strict-markers -m 'not gpu and not doctest and not daily and not remote'"
+addopts = "--codeblocks --strict-markers -m 'not gpu and not doctest and not daily and not remote' --color=yes"
 
 markers = [
     # Tests that require a world_size of two should be annotated with `@pytest.mark.world_size(2)`.
@@ -159,7 +165,29 @@ filterwarnings = [
     # Ignore autograd kernel warning inside DeepSpeed
     '''ignore:.*an autograd kernel was not registered to the Autograd key.*:UserWarning''',
     # Ignore save_state_dict / load_state_dict deprecation warnings
-    '''ignore:'.*_state_dict' is deprecated and will be removed in future versions.*:UserWarning'''
+    '''ignore:'.*_state_dict' is deprecated and will be removed in future versions.*:UserWarning''',
+    # Ignore mlflow warnings about transformers versions,
+    '''ignore:The 'transformers' MLflow Models integration.*:UserWarning''',
+    # Ignore our own deprecation warnings,
+    '''ignore::composer.utils.warnings.VersionedDeprecationWarning''',
+    # Ignore deprecation warning for torch.load
+    '''ignore:You are using `torch.load` with `weights_only=False`.*:FutureWarning''',
+    # Ignore deprecation warning as DeepSpeed uses old path
+    '''ignore:.*torch.cuda.amp.custom.*:FutureWarning''',
+    # DeepSpeed uses positional arguments for PyTorch, ignore the warning
+    '''ignore:.*Positional args are being deprecated, use kwargs instead.*:FutureWarning''',
+    # PyTorch uses their own deprecated function
+    '''ignore:.*FSDP.state_dict_type.*:FutureWarning''',
+    # Ignore PyTorch NO_SHARD deprecation
+    '''ignore:.*The `NO_SHARD` sharding strategy is deprecated.*:FutureWarning''',
+    # Some unit tests use ShardedTensor, though by default we use DTensor
+    '''ignore:.*Please use DTensor instead and we are deprecating.*:FutureWarning''',
+    # Ignore Torch load_state_dict warnings, it's used by torch internal, not composer
+    '''ignore:.*`load_state_dict` is deprecated and *:FutureWarning''',
+    # Ignore NeptuneLogger warnings
+    '''ignore:.*NVML Shared Library Not Found. GPU usage metrics may not be reported.*''',
+    # Ignore HuggingFace future warnings
+    '''ignore:.*`clean_up_tokenization_spaces` was not set.*:FutureWarning''',
 ]
 
 # Coverage

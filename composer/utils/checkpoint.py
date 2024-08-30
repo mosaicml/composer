@@ -16,7 +16,7 @@ import textwrap
 import warnings
 from importlib import import_module
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 import torch
 from packaging import version
@@ -25,6 +25,8 @@ from torch.distributed._tensor import DeviceMesh
 from torch.distributed.checkpoint.metadata import Metadata
 from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
 from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
+from torch.distributed.checkpoint.storage import StorageReader
+from torch.distributed.distributed_c10d import ProcessGroup
 
 from composer.utils import dist, reproducibility
 from composer.utils.compression import get_compressor, is_compressed_pt
@@ -35,9 +37,11 @@ from composer.utils.file_helpers import (
     format_name_with_dist_and_time,
     get_file,
     is_tar,
+    is_uri,
+    maybe_create_object_store_from_uri,
     parse_uri,
 )
-from composer.utils.misc import is_model_deepspeed, partial_format
+from composer.utils.misc import ParallelismType, is_model_deepspeed, partial_format
 from composer.utils.object_store import ObjectStore
 from composer.utils.retrying import retry
 
@@ -52,18 +56,16 @@ __all__ = ['get_save_filename', 'load_checkpoint', 'save_checkpoint', 'download_
 _COMPOSER_STATES_FILENAME = 'composer_states.pt'
 _DEEPSPEED_TAG = 'deepspeed'  # always tag with the same, deterministic name. We'll rename the tarball to the appropriate name.
 _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME = f'__{dist.get_global_rank()}_0.distcp'
+_TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME = '.metadata'
 
 
-def _get_checkpoint_validation_function() -> Optional[Callable[[Union[Path, str]], bool]]:
-    """Get the validation function by name.
-
-    Args:
-        name (str): Qualified name of the checkpoint validation function.
-                    It should be in the form '{module_name}.{fn_name}'.
+def _get_checkpoint_validation_function(
+) -> Optional[Callable[[Union[Path, str], Optional[list[tuple[int, int]]]], bool]]:
+    """Get the validation function specified by the environment variable `CHECKPOINT_VALIDATION_FUNCTION`.
 
     Returns:
-        Callable[[Union[Path, str]], bool] The checkpoint validation function that returns
-            True given a valid checkpoint and False otherwise.
+        Callable[[Union[Path, str], Optional[int], Optional[int]], bool] The checkpoint validation function that returns
+            True given a valid checkpoint and optionally a list of offsets and lengths to check and False otherwise.
     """
     name = os.environ.get('CHECKPOINT_VALIDATION_FUNCTION', None)
     if name is None:
@@ -76,7 +78,8 @@ def _get_checkpoint_validation_function() -> Optional[Callable[[Union[Path, str]
     return fn
 
 
-def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str]) -> Union[Path, str]:
+def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str],
+                             specs: Optional[list[tuple[int, int]]] = None) -> Union[Path, str]:
     """Ensures that the checkpoint at checkpoint_filepath is valid.
 
     using the function specified by the CHECKPOINT_VALIDATION_FUNCTION environment variable.
@@ -84,6 +87,7 @@ def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str]) -> Union[Pat
 
     Args:
         checkpoint_filepath (Union[Path,str]): The path to the checkpoint file.
+        specs (Optional[list[tuple[int,int]]]): A list of offsets and lengths to check. Defaults to None.
 
     Raises:
         ValueError if checkpoint file is invalid.
@@ -93,11 +97,10 @@ def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str]) -> Union[Pat
 
     # No function name has been specified.
     if validate is None:
-        log.debug('No validation function specified. Skipping checkpoint validation.')
         return checkpoint_filepath
 
     # Validate the checkpoint.
-    if not validate(checkpoint_filepath):
+    if not validate(checkpoint_filepath, specs):
         raise ValueError(f'Checkpoint at {checkpoint_filepath} is invalid.')
 
     log.debug(f'Checkpoint at {checkpoint_filepath} is valid.')
@@ -169,13 +172,13 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
         Raises:
             ValueError if the data file is invalid.
         """
-        validated_checkpoint_paths = set()
+        path_to_specs: dict[str, list[tuple[int, int]]] = {}
         for read_item in plan.items:
-            data_path = os.path.join(self.path, self.storage_data[read_item.storage_index].relative_path)
-            if data_path in validated_checkpoint_paths:
-                continue
-            _ensure_valid_checkpoint(data_path)
-            validated_checkpoint_paths.add(data_path)
+            item_md = self.storage_data[read_item.storage_index]
+            path = os.path.join(self.path, item_md.relative_path)
+            path_to_specs.setdefault(path, []).append((item_md.offset, item_md.length))
+        for path, spec in path_to_specs.items():
+            _ensure_valid_checkpoint(path, spec)
         return super().read_data(plan, planner)
 
     def read_metadata(self) -> Metadata:
@@ -214,9 +217,16 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         self,
         source_path: str,
         destination_path: str,
-        object_store: Union[ObjectStore, LoggerDestination],
-        device_mesh: Optional[DeviceMesh],
+        object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
+        device_mesh: Optional[DeviceMesh] = None,
     ):
+
+        if object_store is None:
+            if not is_uri(source_path):
+                raise ValueError('When object_store is None, source_path must be a URI.')
+            object_store = maybe_create_object_store_from_uri(source_path)
+            _, _, source_path = parse_uri(source_path)
+
         self.source_path = source_path
         self.destination_path = destination_path
         self.object_store = object_store
@@ -227,6 +237,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         metadata_destination = os.path.join(self.destination_path, '.metadata')
         if dist.get_local_rank() == 0:
             metadata_path = str(Path(source_path) / Path('.metadata'))
+            assert object_store is not None
             download_object_or_file(metadata_path, metadata_destination, object_store)
         dist.barrier()
 
@@ -237,9 +248,10 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
 
     def read_data(self, plan: LoadPlan, planner: LoadPlanner):
         # Download files if not using HSDP or if on first replica with HSDP enabled
-        first_replica = self.device_mesh is None or self.device_mesh.ndim == 1 or (
-            self.device_mesh.ndim >= 2 and self.device_mesh.get_local_rank(mesh_dim=0) == 0
-        )
+        first_replica = True
+        if self.device_mesh is not None and self.device_mesh.mesh_dim_names is not None and ParallelismType.DATA_PARALLEL_REPLICATE.value in self.device_mesh.mesh_dim_names:
+            hsdp_index = self.device_mesh.mesh_dim_names.index(ParallelismType.DATA_PARALLEL_REPLICATE.value)
+            first_replica = self.device_mesh.get_local_rank(mesh_dim=hsdp_index) == 0
 
         # 1. Collect the relative paths to download for all ranks for deduplication
         relative_file_paths = set()
@@ -248,6 +260,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         all_file_paths = dist.all_gather_object(relative_file_paths)
 
         # 2. Download to the destination all files this rank needs if on first replica
+        download_error = False
         if first_replica:
             log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
 
@@ -272,15 +285,30 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                     if not is_downloaded and not os.path.exists(file_destination):
                         log.debug(f'Downloading {relative_file_path} to {file_destination}.')
                         object_name = str(Path(self.source_path) / Path(relative_file_path))
+                        assert self.object_store is not None
                         download_object_or_file(object_name, file_destination, self.object_store)
                         log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
             except Exception as e:
-                # PyTorch will capture any exception of this function,
-                # and dist.all_gather_objects(exception) before raising it.
-                # If that all_gather_objects fails, the exception is never visible to user.
-                # We immediately print the exception to avoid that situation.
                 log.error(f'Exception {type(e)} raised during downloading: {str(e)}')
-                raise e
+                download_error = True
+
+        # PyTorch will capture any exception of this function,
+        # and dist.all_gather_objects(exception) before raising it.
+        # If that all_gather_objects fails, the exception is never visible to user.
+        # We raise the exception from all ranks to ensure the user sees it.
+        download_error_tensor = dist.get_device(None).tensor_to_device(torch.tensor(1 if download_error else 0))
+        error_by_rank = dist.all_gather(download_error_tensor)
+        failed_ranks = []
+        for rank, error in enumerate(list(error_by_rank)):
+            if error > 0:
+                failed_ranks.append(rank)
+                download_error = True
+
+        if download_error:
+            raise RuntimeError(
+                f'Ranks {failed_ranks} failed to download.',
+                'To see the full error please look at the logs for that rank, which are logged via log.error.',
+            )
 
         # 3. Wait for all ranks to finish.
         log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
@@ -288,10 +316,13 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         log.debug('Done waiting for all ranks to finish downloading files.')
 
         # 4. Broadcast files to all other replicas if HSDP
-        if self.device_mesh is not None and self.device_mesh.ndim == 2:
+        if self.device_mesh is not None and self.device_mesh.mesh_dim_names is not None and ParallelismType.DATA_PARALLEL_REPLICATE.value in self.device_mesh.mesh_dim_names:
             # Broadcast file to all replicas
-            replicate_process_group = self.device_mesh.get_group(0)
-            shard_size = self.device_mesh.size(1)
+            replicate_index = self.device_mesh.mesh_dim_names.index(ParallelismType.DATA_PARALLEL_REPLICATE.value)
+            shard_index = self.device_mesh.mesh_dim_names.index(ParallelismType.DATA_PARALLEL_SHARD.value)
+            replicate_process_group = self.device_mesh.get_group(replicate_index)
+            shard_process_group = self.device_mesh.get_group(shard_index)
+            shard_size = self.device_mesh.size(shard_index)
             rank_in_first_replica = dist.get_global_rank() % shard_size
             sender = dist.get_global_rank() == rank_in_first_replica
             receiver = dist.get_global_rank() != rank_in_first_replica
@@ -302,11 +333,13 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
             ]]
             dist.broadcast_object_list(file_list, src=rank_in_first_replica, group=replicate_process_group)
             file_list = file_list[0]
-            log.debug(f'List of files to broadcast: {file_list}')
+            log.debug(f'list of files to broadcast: {file_list}')
 
             # Send each file to the appropriate rank
             for file_name in file_list:
-                if dist.get_local_rank() == 0:  # Only 1 rank per node needs to transfer file
+                if dist.get_local_rank() == 0 or (
+                    dist.get_global_rank(shard_process_group) == 0  # pyright: ignore[reportGeneralTypeIssues]
+                ):  # Only 1 rank per node needs to transfer file
                     full_path = os.path.join(self.destination_path, file_name)
                     log.debug(f'Transferring {full_path=}')
                     file_object = [None]
@@ -320,7 +353,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                     )
                     received_file_object = file_object[0]
                     assert received_file_object is not None
-                    if receiver and not os.path.exists(full_path):
+                    if receiver and not os.path.exists(full_path) and dist.get_local_rank() == 0:
                         with open(full_path, 'wb') as f:
                             f.write(received_file_object['content'])
 
@@ -569,6 +602,57 @@ def load_checkpoint(
     return rng_state_dicts
 
 
+def dist_cp_load(
+    state_dict: dict[str, Any],
+    storage_reader: StorageReader,
+    load_planner: Optional[LoadPlanner] = None,
+):
+    if version.parse(torch.__version__) >= version.parse('2.4.0'):
+        from torch.distributed.checkpoint.utils import CheckpointException
+        try:
+            dist_cp.load(
+                state_dict=state_dict,
+                storage_reader=storage_reader,
+                planner=load_planner,
+            )
+        except CheckpointException as e:
+            checkpoint_metadata = storage_reader.read_metadata().state_dict_metadata
+            if 'state.metadata' in checkpoint_metadata and 'state.metadata.composer_env_info.composer_version' not in checkpoint_metadata:
+                # Torch 2.4 changed the way how state dict is flattened. It broke backward compatibility.
+                # Torch issue: https://github.com/pytorch/pytorch/issues/133923.
+                # We override the traverse_state_dict so that the load planner could
+                # use the old way of flattening the state dict
+                log.debug('Trying to load checkpointing saved before torch 2.4')
+
+                import torch.distributed.checkpoint._nested_dict as nested_dict
+                import torch.distributed.checkpoint._sharded_tensor_utils as sharded_tensor_util
+                from torch.distributed.checkpoint._traverse import traverse_state_dict as traverse_2_4_0
+
+                from composer.trainer._patch_pytorch import traverse_state_dict as backward_compatible_traverse
+
+                nested_dict.traverse_state_dict = backward_compatible_traverse
+                sharded_tensor_util.traverse_state_dict = backward_compatible_traverse
+
+                dist_cp.load(
+                    state_dict=state_dict,
+                    storage_reader=storage_reader,
+                    planner=load_planner,
+                )
+                # Revert the override
+                nested_dict.traverse_state_dict = traverse_2_4_0
+                sharded_tensor_util.traverse_state_dict = traverse_2_4_0
+            else:
+                raise e
+
+    else:
+        dist_cp.load_state_dict(
+            state_dict=state_dict,
+            storage_reader=storage_reader,
+            planner=load_planner,
+            no_dist=(not dist.is_initialized()),
+        )
+
+
 def load_sharded_checkpoint(
     source_path: str,
     state: State,
@@ -613,7 +697,7 @@ def load_sharded_checkpoint(
                 source_path=source_path,
                 destination_path=str(Path(rank0_download_tempdir) / Path('checkpoints')),
                 object_store=object_store,
-                device_mesh=state.fsdp_device_mesh,
+                device_mesh=state.device_mesh,
             )
         else:
             storage_reader = FileSystemReaderWithValidation(source_path)
@@ -623,21 +707,30 @@ def load_sharded_checkpoint(
             # 1. Load metadata first for backwards compatability check
             # We need to check if the "optimizers" is at the root of the state dict to determine
             # how to load the optimizer state.
-            metadata = storage_reader.read_metadata()
+            try:
+                metadata = storage_reader.read_metadata()
+            except AttributeError as e:
+                if '_MEM_FORMAT_ENCODING' in str(e):
+                    raise ValueError(
+                        'Unable to read checkpoint metadata. The checkpoint was likely saved with a '
+                        'newer version of torch. Upgrade your torch version to load this checkpoint.',
+                    )
+                else:
+                    raise
             # Retrieve all top-level keys of the metadata.
             top_level_keys = [v[0] for v in metadata.planner_data.values()]
             optimizers_at_root = 'optimizers' in top_level_keys
 
             # 2. Load model and metadata
             if load_weights_only:
-                state_dict: Dict[str, Any] = {'state': {'model': state.get_model_state_dict()}}
+                state_dict: dict[str, Any] = {'state': {'model': state.get_model_state_dict()}}
             else:
                 cur_state_dict = state.state_dict()
                 # If 'optimizers' is at root-level, we load it separately.
                 if optimizers_at_root:
                     cur_state_dict.pop('optimizers')
                 num_rng_ranks = _get_num_ranks_that_saved_rng(storage_reader.read_metadata())
-                state_dict: Dict[str, Any] = {
+                state_dict: dict[str, Any] = {
                     'state': cur_state_dict,
                     'rng': reproducibility.get_rng_state()[:num_rng_ranks],
                 }
@@ -651,15 +744,11 @@ def load_sharded_checkpoint(
                 # Ensure state exists
                 state_dict['state'] = state_dict.get('state', {})
 
-            # dist_cp.load breaks unless the specified state_dict supports `load_state_dict`
-            # See: https://github.com/pytorch/pytorch/issues/125096
-            dist_cp.load_state_dict(
+            dist_cp_load(
                 state_dict=state_dict,
                 storage_reader=storage_reader,
-                planner=state.fsdp_config['load_planner'],
-                no_dist=(not dist.is_initialized()),
+                load_planner=state.fsdp_config.load_planner,
             )
-
             log.info(f'Loaded state dict')
             state.load_state_dict(
                 state_dict['state'],
@@ -789,7 +878,7 @@ def download_checkpoint(
         if not checkpoint_is_sharded:
             signal_file_path = os.path.join(
                 node_checkpoint_folder,
-                f'.node_{dist.get_node_rank()}_local_rank0_completed',
+                dist.get_node_signal_file_name(),
             )
             if dist.get_local_rank() == 0:
                 with open(signal_file_path, 'wb') as f:
@@ -894,17 +983,17 @@ def glob_filter(exclude_globs: list[str]) -> Callable[[dict], None]:
 def safe_torch_load(
     composer_states_filepath: Union[Path, str],
     map_location: str = 'cpu',
-    load_fsdp_monolith_rank0_only: bool = False,
+    load_monolith_rank0_only: bool = False,
 ) -> dict[str, Any]:
     """Load a torch checkpoint, catching errors due to backwards compatibility issues.
 
     Args:
         composer_states_filepath: The path to the checkpoint file.
         map_location: The location to load the checkpoint to.
-        load_fsdp_monolith_rank0_only: Whether the checkpoint is a monolith FSDP checkpoint.
+        load_monolith_rank0_only: Whether the checkpoint is a monolith FSDP checkpoint.
     """
     try:
-        if load_fsdp_monolith_rank0_only:
+        if load_monolith_rank0_only:
             log.info(
                 'Loading monolith FSDP checkpoint. Only rank 0 will load and broadcast non-weight/optimizer state.',
             )
@@ -961,7 +1050,7 @@ def _restore_checkpoint(
     # Now, all ranks load the checkpoint that local rank zero downloaded
     state_dict = safe_torch_load(
         composer_states_filepath=composer_states_filepath,
-        load_fsdp_monolith_rank0_only=state.load_fsdp_monolith_rank0_only,
+        load_monolith_rank0_only=state.load_monolith_rank0_only,
     )
     if ignore_keys:
         # Filter provided list of key paths
@@ -1025,8 +1114,10 @@ def get_save_filename(
         return PartialFilePath(filename).format(state, is_deepspeed)
 
     # Sharded checkpoints get their own little folder.
-    assert state.sharded_ckpt_prefix_dir is not None
-    save_dirpath = Path(Path(filename).parent) / Path(state.sharded_ckpt_prefix_dir)
+    assert state.fsdp_config is not None
+    remote_prefix = state.fsdp_config.sharded_ckpt_prefix_dir
+    assert remote_prefix is not None
+    save_dirpath = Path(Path(filename).parent) / Path(remote_prefix)
     save_dirpath = format_name_with_dist_and_time(str(save_dirpath), state.run_name, state.timestamp)
     # New name is now Trainer.save_folder / sharded_ckpt_prefix_dir / __{dist.get_global_rank()}_0.distcp’
     # e.g. path/to/my/checkpoints/ep1-ba2/__1_0.distcp
@@ -1039,7 +1130,7 @@ def _save_checkpoint(
     save_filename: str,
     *,
     weights_only: bool = False,
-    ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
+    ignore_keys: Optional[Union[list[str], Callable[[dict], None]]] = None,
 ) -> Union[str, None]:  # noqa: D103
 
     is_deepspeed = is_model_deepspeed(state.model)
@@ -1102,29 +1193,42 @@ def _save_checkpoint(
 
         log.debug(f'Saving sharded checkpoints to {save_filename}...')
         process_group = None
-        device_mesh = state.fsdp_device_mesh
-        if device_mesh is not None and device_mesh.ndim == 2:
+        device_mesh = state.device_mesh
+        if device_mesh is not None and device_mesh.mesh_dim_names is not None and ParallelismType.DATA_PARALLEL_REPLICATE.value in device_mesh.mesh_dim_names:
             # If hybrid shard, only rank in first replica saves
-            expect_file = device_mesh.get_local_rank(mesh_dim=0) == 0
+            hsdp_index = device_mesh.mesh_dim_names.index(ParallelismType.DATA_PARALLEL_REPLICATE.value)
+            expect_file = device_mesh.get_local_rank(mesh_dim=hsdp_index) == 0
             if expect_file:
                 process_group = device_mesh.get_group(1)  # Shard process_group for first replica
+                assert isinstance(process_group, ProcessGroup)  # For type checker
                 log.debug(f'Saving on global_rank={dist.get_global_rank()}, {expect_file=}')
         else:
             expect_file = True
 
         if expect_file:
             if version.parse(torch.__version__) >= version.parse('2.3.0'):
+                save_planner = state.fsdp_config.save_planner
+                if save_planner is None:
+                    if version.parse(torch.__version__) < version.parse('2.4.0'):
+                        # Dedup is only broken on <2.4
+                        from composer.trainer._patch_pytorch import SavePlannerWithDedupFix
+
+                        save_planner = SavePlannerWithDedupFix()
+                    else:
+                        from torch.distributed.checkpoint.default_planner import DefaultSavePlanner
+
+                        save_planner = DefaultSavePlanner(dedup_save_to_lowest_rank=True)
                 dist_cp.save(
                     state_dict=state_dict,
                     storage_writer=dist_cp.FileSystemWriter(dirname),
-                    planner=state.fsdp_config['save_planner'],
+                    planner=save_planner,
                     process_group=process_group,
                 )
             else:
                 dist_cp.save_state_dict(
                     state_dict=state_dict,
                     storage_writer=dist_cp.FileSystemWriter(dirname),
-                    planner=state.fsdp_config['save_planner'],
+                    planner=state.fsdp_config.save_planner,
                     process_group=process_group,
                 )
         log.debug('Finished pytorch save state dict')
@@ -1147,7 +1251,7 @@ def _save_checkpoint(
         return None
 
 
-def _write_checkpoint_file(state_dict: Dict[str, Any], filename: str) -> None:
+def _write_checkpoint_file(state_dict: dict[str, Any], filename: str) -> None:
     """Write the given checkpoint state to the given path. Compressing if indicated to do so by the file extension."""
     if is_tar(filename):
         log.debug('Writing checkpoint tar file %s', filename)
@@ -1195,7 +1299,7 @@ def save_checkpoint(
     filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
     *,
     weights_only: bool = False,
-    ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
+    ignore_keys: Optional[Union[list[str], Callable[[dict], None]]] = None,
 ) -> Union[str, None]:  # noqa: D103
     # Clear the cache in case we are near the memory limit to give some space for NCCL.
     torch.cuda.empty_cache()

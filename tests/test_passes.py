@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import List, Sequence, Type
+from typing import Sequence
 from unittest.mock import Mock
 
 import pytest
@@ -66,7 +66,7 @@ class TestLIFOPass:
         event: Event,
         dummy_state: State,
         dummy_logger: Logger,
-        always_match_algorithms: List[Algorithm],
+        always_match_algorithms: list[Algorithm],
     ):
         dummy_state.algorithms = always_match_algorithms
         trace = run_event(event, dummy_state, dummy_logger)
@@ -86,7 +86,7 @@ class TestLIFOPass:
         self,
         event: Event,
         dummy_state: State,
-        always_match_algorithms: List[Algorithm],
+        always_match_algorithms: list[Algorithm],
         dummy_logger: Logger,
     ):
         dummy_state.algorithms = always_match_algorithms
@@ -102,8 +102,8 @@ class TestAlgorithmOrderingPasses:
     @pytest.mark.parametrize('algorithm_cls', [LowPrecisionLayerNorm])
     def test_algorithm_last(
         self,
-        algorithm_cls: Type[Algorithm],
-        always_match_algorithms: List[Algorithm],
+        algorithm_cls: type[Algorithm],
+        always_match_algorithms: list[Algorithm],
         dummy_logger: Logger,
         dummy_state: State,
     ):
@@ -124,8 +124,8 @@ class TestAlgorithmOrderingPasses:
     @pytest.mark.parametrize('algorithm_cls', [SelectiveBackprop])
     def test_algorithm_first(
         self,
-        algorithm_cls: Type[Algorithm],
-        always_match_algorithms: List[Algorithm],
+        algorithm_cls: type[Algorithm],
+        always_match_algorithms: list[Algorithm],
         dummy_logger: Logger,
         dummy_state: State,
     ):

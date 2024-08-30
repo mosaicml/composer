@@ -8,20 +8,20 @@ import pathlib
 import random
 import shutil
 import time
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Optional, Union
 from unittest.mock import patch
 
 import pytest
 
 from composer.core import Event, State
 from composer.loggers import Logger, RemoteUploaderDownloader
-from composer.utils.object_store.object_store import ObjectStore
+from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError
 
 
 class DummyObjectStore(ObjectStore):
     """Dummy ObjectStore implementation that is backed by a local directory."""
 
-    def __init__(self, dir: Optional[pathlib.Path] = None, always_fail: bool = False, **kwargs: Dict[str, Any]) -> None:
+    def __init__(self, dir: Optional[pathlib.Path] = None, always_fail: bool = False, **kwargs: dict[str, Any]) -> None:
         self.dir = str(dir) if dir is not None else kwargs['bucket']
         self.always_fail = always_fail
         assert isinstance(self.dir, str)
@@ -77,7 +77,7 @@ def object_store_test_helper(
     # Patching does not work when using multiprocessing with spawn, so we also
     # patch to use fork
     fork_context = multiprocessing.get_context('fork')
-    with patch('composer.loggers.remote_uploader_downloader.S3ObjectStore', DummyObjectStore):
+    with patch('composer.utils.object_store.utils.S3ObjectStore', DummyObjectStore):
         with patch('composer.loggers.remote_uploader_downloader.multiprocessing.get_context', lambda _: fork_context):
             remote_uploader_downloader = RemoteUploaderDownloader(
                 bucket_uri='s3://{remote_dir}',
@@ -190,6 +190,64 @@ def test_remote_uploader_downloader_no_overwrite(
     )
 
 
+def test_allow_overwrite_on_retry(tmp_path: pathlib.Path, dummy_state: State):
+    file_path = tmp_path / 'samples' / 'sample'
+    os.makedirs(tmp_path / 'samples')
+    with open(file_path, 'w') as f:
+        f.write('sample')
+
+    # Dummy object store that fails the first two uploads
+    # This tests that the remote uploader downloader allows overwriting a partially uploaded file on a retry.
+    class RetryDummyObjectStore(DummyObjectStore):
+
+        def __init__(
+            self,
+            dir: Optional[pathlib.Path] = None,
+            always_fail: bool = False,
+            **kwargs: dict[str, Any],
+        ) -> None:
+            self._retry = 0
+            super().__init__(dir, always_fail, **kwargs)
+
+        def upload_object(
+            self,
+            object_name: str,
+            filename: Union[str, pathlib.Path],
+            callback: Optional[Callable[[int, int], None]] = None,
+        ) -> None:
+            if self._retry < 2:
+                self._retry += 1  # Takes two retries to upload the file
+                raise ObjectStoreTransientError('Retry this')
+            self._retry += 1
+            return super().upload_object(object_name, filename, callback)
+
+        def get_object_size(self, object_name: str) -> int:
+            if self._retry > 0:
+                return 1  # The 0th upload resulted in a partial upload
+            return super().get_object_size(object_name)
+
+    fork_context = multiprocessing.get_context('fork')
+    with patch('composer.utils.object_store.utils.S3ObjectStore', RetryDummyObjectStore):
+        with patch('composer.loggers.remote_uploader_downloader.multiprocessing.get_context', lambda _: fork_context):
+            remote_uploader_downloader = RemoteUploaderDownloader(
+                bucket_uri=f"s3://{tmp_path}/'object_store_backend",
+                backend_kwargs={
+                    'dir': tmp_path / 'object_store_backend',
+                },
+                num_concurrent_uploads=4,
+                upload_staging_folder=str(tmp_path / 'staging_folder'),
+                use_procs=True,
+                num_attempts=3,
+            )
+            logger = Logger(dummy_state, destinations=[remote_uploader_downloader])
+
+            remote_uploader_downloader.run_event(Event.INIT, dummy_state, logger)
+            remote_file_name = 'remote_file_name'
+            remote_uploader_downloader.upload_file(dummy_state, remote_file_name, file_path, overwrite=False)
+            remote_uploader_downloader.close(dummy_state, logger=logger)
+            remote_uploader_downloader.post_close()
+
+
 @pytest.mark.parametrize('use_procs', [True, False])
 def test_race_with_overwrite(tmp_path: pathlib.Path, use_procs: bool, dummy_state: State):
     # Test a race condition with the object store logger where multiple files with the same name are logged in rapid succession
@@ -205,7 +263,7 @@ def test_race_with_overwrite(tmp_path: pathlib.Path, use_procs: bool, dummy_stat
     # Patching does not work when using multiprocessing with spawn, so we also
     # patch to use fork
     fork_context = multiprocessing.get_context('fork')
-    with patch('composer.loggers.remote_uploader_downloader.S3ObjectStore', DummyObjectStore):
+    with patch('composer.utils.object_store.utils.S3ObjectStore', DummyObjectStore):
         with patch('composer.loggers.remote_uploader_downloader.multiprocessing.get_context', lambda _: fork_context):
             # Create the object store logger
             remote_uploader_downloader = RemoteUploaderDownloader(
@@ -249,7 +307,7 @@ def test_race_with_overwrite(tmp_path: pathlib.Path, use_procs: bool, dummy_stat
 def test_close_on_failure(tmp_path: pathlib.Path, dummy_state: State):
     """Test that .close() and .post_close() does not hang even when a worker crashes."""
 
-    with patch('composer.loggers.remote_uploader_downloader.S3ObjectStore', DummyObjectStore):
+    with patch('composer.utils.object_store.utils.S3ObjectStore', DummyObjectStore):
         # Create the object store logger
         remote_uploader_downloader = RemoteUploaderDownloader(
             bucket_uri=f"s3://{tmp_path}/'object_store_backend",
@@ -297,9 +355,9 @@ def test_close_on_failure(tmp_path: pathlib.Path, dummy_state: State):
 
 def test_valid_backend_names():
     valid_backend_names = ['s3', 'libcloud', 'sftp']
-    with patch('composer.loggers.remote_uploader_downloader.S3ObjectStore') as _, \
-         patch('composer.loggers.remote_uploader_downloader.SFTPObjectStore') as _, \
-         patch('composer.loggers.remote_uploader_downloader.LibcloudObjectStore') as _:
+    with patch('composer.utils.object_store.utils.S3ObjectStore') as _, \
+         patch('composer.utils.object_store.utils.SFTPObjectStore') as _, \
+         patch('composer.utils.object_store.utils.LibcloudObjectStore') as _:
         for name in valid_backend_names:
             remote_uploader_downloader = RemoteUploaderDownloader(bucket_uri=f'{name}://not-a-real-bucket')
             # Access the remote_backend property so that it is built
@@ -316,7 +374,7 @@ def test_valid_backend_names():
 def test_exception_queue_works(tmp_path: pathlib.Path, dummy_state: State):
     """Test that exceptions get put on the exception queue and get thrown"""
 
-    with patch('composer.loggers.remote_uploader_downloader.S3ObjectStore', DummyObjectStore):
+    with patch('composer.utils.object_store.utils.S3ObjectStore', DummyObjectStore):
         # Create the object store logger
         remote_uploader_downloader = RemoteUploaderDownloader(
             bucket_uri=f"s3://{tmp_path}/'object_store_backend",

@@ -12,29 +12,32 @@ To run::
 
 import itertools
 import os
+import re
 import sys
 
 import packaging.version
 import tabulate
 import yaml
 
-PRODUCTION_PYTHON_VERSION = '3.10'
-PRODUCTION_PYTORCH_VERSION = '2.2.1'
+PRODUCTION_PYTHON_VERSION = '3.11'
+PRODUCTION_PYTORCH_VERSION = '2.4.0'
 
 
 def _get_torchvision_version(pytorch_version: str):
-    if pytorch_version == '2.3.0':
-        return '0.18.0'
-    if pytorch_version == '2.2.1':
-        return '0.17.1'
-    if pytorch_version == '2.1.2':
-        return '0.16.2'
+    if pytorch_version == '2.4.0':
+        return '0.19.0'
+    if pytorch_version == '2.3.1':
+        return '0.18.1'
+    if pytorch_version == '2.2.2':
+        return '0.17.2'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
 def _get_base_image(cuda_version: str):
     if not cuda_version:
         return 'ubuntu:20.04'
+    if cuda_version == '12.4.1':
+        return f'nvidia/cuda:12.4.1-cudnn-devel-ubuntu20.04'
     return f'nvidia/cuda:{cuda_version}-cudnn8-devel-ubuntu20.04'
 
 
@@ -42,11 +45,11 @@ def _get_cuda_version(pytorch_version: str, use_cuda: bool):
     # From https://docs.nvidia.com/deeplearning/frameworks/pytorch-release-notes/
     if not use_cuda:
         return ''
-    if pytorch_version == '2.3.0':
+    if pytorch_version == '2.4.0':
+        return '12.4.1'
+    if pytorch_version == '2.3.1':
         return '12.1.1'
-    if pytorch_version == '2.2.1':
-        return '12.1.1'
-    if pytorch_version == '2.1.2':
+    if pytorch_version == '2.2.2':
         return '12.1.1'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
@@ -103,34 +106,39 @@ def _get_cuda_override(cuda_version: str):
 def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: str, stage: str, interconnect: str):
     if stage == 'pytorch_stage':
         base_image_name = 'mosaicml/pytorch'
+        ghcr_base_image_name = 'ghcr.io/databricks-mosaic/pytorch'
     else:
         raise ValueError(f'Invalid stage: {stage}')
+    tags = []
     cuda_version_tag = _get_cuda_version_tag(cuda_version)
-    tags = [f'{base_image_name}:{pytorch_version}_{cuda_version_tag}-python{python_version}-ubuntu20.04']
+    tags += [
+        f'{base_image_name}:{pytorch_version}_{cuda_version_tag}-python{python_version}-ubuntu20.04',
+        f'{ghcr_base_image_name}:{pytorch_version}_{cuda_version_tag}-python{python_version}-ubuntu20.04',
+    ]
 
     if python_version == PRODUCTION_PYTHON_VERSION and pytorch_version == PRODUCTION_PYTORCH_VERSION:
         if not cuda_version:
-            tags.append(f'{base_image_name}:latest_cpu')
+            tags += [f'{base_image_name}:latest_cpu', f'{ghcr_base_image_name}:latest_cpu']
         else:
-            tags.append(f'{base_image_name}:latest')
+            tags += [f'{base_image_name}:latest', f'{ghcr_base_image_name}:latest']
 
     if interconnect == 'EFA':
         tags = [f'{tag}-aws' for tag in tags]
-
     return tags
 
 
 def _get_composer_tags(composer_version: str, use_cuda: bool):
     base_image_name = 'mosaicml/composer'
+    ghcr_base_image_name = 'ghcr.io/databricks-mosaic/composer'
 
     tags = []
     if not use_cuda:
-        tags.append(f'{base_image_name}:{composer_version}_cpu')
-        tags.append(f'{base_image_name}:latest_cpu')
+        tags += [f'{base_image_name}:{composer_version}_cpu', f'{ghcr_base_image_name}:{composer_version}_cpu']
+        tags += [f'{base_image_name}:latest_cpu', f'{ghcr_base_image_name}:latest_cpu']
     else:
-        tags.append(f'{base_image_name}:{composer_version}')
-        tags.append(f'{base_image_name}:latest')
-
+        tags += [f'{base_image_name}:{composer_version}', f'{ghcr_base_image_name}:{composer_version}']
+        tags += [f'{base_image_name}:latest', f'{ghcr_base_image_name}:latest']
+    print(tags)
     return tags
 
 
@@ -159,15 +167,20 @@ def _write_table(table_tag: str, table_contents: str):
     end_table_tag = f'<!-- END_{table_tag} -->'
 
     pre = contents.split(begin_table_tag)[0]
-    post = contents.split(end_table_tag)[1]
+    if end_table_tag in contents:
+        post = contents.split(end_table_tag)[1]
+    else:
+        print(f"Warning: '{end_table_tag}' not found in contents.")
+        post = ''
     new_readme = f'{pre}{begin_table_tag}\n{table_contents}\n{end_table_tag}{post}'
+    new_readme = re.sub(r'`ghcr\.io\S*, ', '', new_readme)
 
     with open(os.path.join(os.path.dirname(__name__), 'README.md'), 'w') as f:
         f.write(new_readme)
 
 
 def _main():
-    python_pytorch_versions = [('3.11', '2.3.0'), ('3.11', '2.2.1'), ('3.10', '2.1.2')]
+    python_pytorch_versions = [('3.11', '2.4.0'), ('3.11', '2.3.1'), ('3.11', '2.2.2')]
     cuda_options = [True, False]
     stages = ['pytorch_stage']
     interconnects = ['mellanox', 'EFA']  # mellanox is default, EFA needed for AWS
@@ -218,20 +231,20 @@ def _main():
         if not cuda_version or interconnect == 'EFA':
             entry['MOFED_VERSION'] = ''
         else:
-            entry['MOFED_VERSION'] = '5.5-1.0.3.2'
+            entry['MOFED_VERSION'] = 'latest-23.10'
 
         # Skip EFA drivers if not using EFA
         if interconnect != 'EFA':
             entry['AWS_OFI_NCCL_VERSION'] = ''
         else:
-            entry['AWS_OFI_NCCL_VERSION'] = 'v1.7.4-aws'
+            entry['AWS_OFI_NCCL_VERSION'] = 'v1.11.0-aws'
 
         pytorch_entries.append(entry)
 
     composer_entries = []
 
     # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
-    composer_versions = ['0.22.0']  # Only build images for the latest composer version
+    composer_versions = ['0.24.1']  # Only build images for the latest composer version
     composer_python_versions = [PRODUCTION_PYTHON_VERSION]  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):
@@ -251,7 +264,7 @@ def _main():
             'PYTORCH_NIGHTLY_VERSION': '',
             'TARGET': 'composer_stage',
             'TORCHVISION_VERSION': _get_torchvision_version(pytorch_version),
-            'MOFED_VERSION': '5.5-1.0.3.2',
+            'MOFED_VERSION': 'latest-23.10',
             'AWS_OFI_NCCL_VERSION': '',
             'COMPOSER_INSTALL_COMMAND': f'mosaicml[all]=={composer_version}',
             'TAGS': _get_composer_tags(

@@ -9,7 +9,7 @@ import os
 import pathlib
 import uuid
 import logging
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
@@ -77,8 +77,8 @@ class S3ObjectStore(ObjectStore):
         aws_access_key_id: Optional[str] = None,
         aws_secret_access_key: Optional[str] = None,
         aws_session_token: Optional[str] = None,
-        client_config: Optional[Dict[Any, Any]] = None,
-        transfer_config: Optional[Dict[Any, Any]] = None,
+        client_config: Optional[dict[Any, Any]] = None,
+        transfer_config: Optional[dict[Any, Any]] = None,
     ) -> None:
         try:
             import boto3
@@ -95,6 +95,8 @@ class S3ObjectStore(ObjectStore):
 
         if client_config is None:
             client_config = {}
+        if 'retries' not in client_config:
+            client_config['retries'] = {'mode': 'adaptive'}
         config = Config(**client_config)
         if 'S3_ENDPOINT_URL' in os.environ and endpoint_url is None:
             endpoint_url = os.environ['S3_ENDPOINT_URL']
@@ -215,7 +217,7 @@ class S3ObjectStore(ObjectStore):
             else:
                 os.rename(tmp_path, filename)
 
-    def list_objects(self, prefix: Optional[str] = None) -> List[str]:
+    def list_objects(self, prefix: Optional[str] = None) -> list[str]:
         if prefix is None:
             prefix = ''
 

@@ -20,6 +20,7 @@ from composer.core.time import Time, Timestamp, TimeUnit
         ['4_000tok', 4000, TimeUnit.TOKEN],
         ['4_00_0tok', 4000, TimeUnit.TOKEN],
         ['0.5dur', 0.5, TimeUnit.DURATION],
+        ['1h20m40s', 4840, TimeUnit.SECOND],
     ],
 )
 def test_time_parse(time_string: str, expected_value: int, expected_unit: TimeUnit):
@@ -37,6 +38,7 @@ def test_time_parse(time_string: str, expected_value: int, expected_unit: TimeUn
         ['3sp', Time(3, TimeUnit.SAMPLE)],
         ['4tok', Time(4, TimeUnit.TOKEN)],
         ['0.5dur', Time(0.5, TimeUnit.DURATION)],
+        ['6sec', Time(6, TimeUnit.SECOND)],
     ],
 )
 def test_to_timestring(expected_timestring: str, time: Time):
@@ -144,12 +146,19 @@ def test_timestamp_update():
     assert timestamp is not timestamp_2
 
 
+def test_set_timestamp():
+    timestamp = Timestamp(epoch_in_iteration=1)
+    assert timestamp.epoch_in_iteration == 1
+    timestamp.epoch_in_iteration = 2
+    assert timestamp.epoch_in_iteration == 2
+
+
 def test_timestamp_to_next_batch_epoch_iteration():
     timestamp = Timestamp()
     # Step batch 0 in epoch 0
     timestamp = timestamp.to_next_batch(10, 20, datetime.timedelta(seconds=5))
     assert timestamp.batch == 1
-    assert timestamp.batch_in_epoch == 1
+    assert timestamp.token_in_iteration == 20
     assert timestamp.batch_in_epoch == 1
     assert timestamp.sample == 10
     assert timestamp.sample_in_epoch == 10
@@ -161,9 +170,10 @@ def test_timestamp_to_next_batch_epoch_iteration():
     assert timestamp.batch_wct == datetime.timedelta(seconds=5)
 
     # Finish epoch 0
-    timestamp = timestamp.to_next_epoch(datetime.timedelta(seconds=5))
+    timestamp = timestamp.to_next_epoch(duration=datetime.timedelta(seconds=5))
     assert timestamp.epoch == 1
     assert timestamp.batch == 1
+    assert timestamp.token_in_iteration == 20
     assert timestamp.batch_in_epoch == 0
     assert timestamp.sample == 10
     assert timestamp.sample_in_epoch == 0
@@ -179,6 +189,7 @@ def test_timestamp_to_next_batch_epoch_iteration():
     assert timestamp.epoch == 1
     assert timestamp.batch == 2
     assert timestamp.epoch_in_iteration == 1
+    assert timestamp.token_in_iteration == 20
     assert timestamp.batch_in_epoch == 1
     assert timestamp.sample == 15
     assert timestamp.sample_in_epoch == 5
@@ -193,6 +204,7 @@ def test_timestamp_to_next_batch_epoch_iteration():
     timestamp = timestamp.to_next_batch(5, 1, datetime.timedelta(seconds=10))
     assert timestamp.epoch == 1
     assert timestamp.batch == 3
+    assert timestamp.token_in_iteration == 21
     assert timestamp.batch_in_epoch == 2
     assert timestamp.sample == 20
     assert timestamp.sample_in_epoch == 10
@@ -208,6 +220,7 @@ def test_timestamp_to_next_batch_epoch_iteration():
     assert timestamp.epoch == 2
     assert timestamp.batch == 3
     assert timestamp.epoch_in_iteration == 2
+    assert timestamp.token_in_iteration == 21
     assert timestamp.batch_in_epoch == 0
     assert timestamp.sample == 20
     assert timestamp.sample_in_epoch == 0
@@ -222,6 +235,7 @@ def test_timestamp_to_next_batch_epoch_iteration():
     assert timestamp.epoch == 2
     assert timestamp.batch == 4
     assert timestamp.epoch_in_iteration == 2
+    assert timestamp.token_in_iteration == 22
     assert timestamp.batch_in_epoch == 1
     assert timestamp.sample == 25
     assert timestamp.sample_in_epoch == 5
@@ -238,6 +252,7 @@ def test_timestamp_to_next_batch_epoch_iteration():
     assert timestamp.epoch == 2
     assert timestamp.batch == 4
     assert timestamp.epoch_in_iteration == 0
+    assert timestamp.token_in_iteration == 0
     assert timestamp.batch_in_epoch == 0
     assert timestamp.sample == 25
     assert timestamp.sample_in_epoch == 0
@@ -254,12 +269,12 @@ def test_timestamp_repr():
     assert timestamp == eval(repr(timestamp))
 
 
-@pytest.mark.parametrize('time_string', ['1.1iter', '1.5ep', '2.1ba', '3.2sp', '3.4tok'])
+@pytest.mark.parametrize('time_string', ['1.1iter', '1.5ep', '2.1ba', '3.2sp', '3.4tok', '0.1sec'])
 def test_timestep_bad_strings(time_string: str):
     with pytest.raises(TypeError):
         Time.from_timestring(time_string)
 
 
-@pytest.mark.parametrize('time_string', ['0.5dur', '1.0iter', '2.0ep', '3.000ba', '030.0sp'])
+@pytest.mark.parametrize('time_string', ['0.5dur', '1.0iter', '2.0ep', '3.000ba', '030.0sp', '30sec'])
 def test_timestep_valid_strings(time_string: str):
     Time.from_timestring(time_string)

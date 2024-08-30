@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import itertools
-from typing import Mapping, Type, cast
+from typing import Mapping, cast
 from unittest.mock import Mock
 
 import pytest
@@ -26,7 +26,7 @@ class RecursiveLinear(nn.Linear):
 class SimpleReplacementPolicy(nn.Module):
     """Bundle the model, replacement function, and validation into one class."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.fc1 = nn.Linear(in_features=16, out_features=32)
         self.fc2 = nn.Linear(in_features=32, out_features=10)
@@ -44,7 +44,7 @@ class SimpleReplacementPolicy(nn.Module):
         assert isinstance(module, nn.MaxPool2d)
         return BlurMaxPool2d.from_maxpool2d(module, module_index)
 
-    def policy(self) -> Mapping[Type[torch.nn.Module], module_surgery.ReplacementFunction]:
+    def policy(self) -> Mapping[type[torch.nn.Module], module_surgery.ReplacementFunction]:
         return {
             nn.Linear: self.maybe_replace_linear,
             nn.MaxPool2d: self.replace_pool,
@@ -99,7 +99,7 @@ class NoOpReplacementPolicy(SimpleReplacementPolicy):
     ],
 )
 def test_module_replacement(
-    model_cls: Type[SimpleReplacementPolicy],
+    model_cls: type[SimpleReplacementPolicy],
     recurse_on_replacements: bool,
 ):
     model = model_cls()
@@ -160,7 +160,7 @@ class _CopyLinear(torch.nn.Module):
 def optimizer_surgery_state():
     """Returns a tuple of (old_layers, new_layers, and optimizer)."""
     model = SimpleModel(num_features=1, num_classes=10)
-    policy: Mapping[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
+    policy: Mapping[type[torch.nn.Module], module_surgery.ReplacementFunction] = {
         torch.nn.Linear: _CopyLinear.from_linear,
     }
     opt = torch.optim.SGD(model.parameters(), lr=.001)
@@ -208,7 +208,7 @@ def test_params_kept(optimizer_surgery_state):
 
 class ParamTestModel(nn.Module):
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
         self.fc1 = nn.Linear(8, 8)

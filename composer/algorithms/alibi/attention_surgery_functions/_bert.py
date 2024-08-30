@@ -4,7 +4,7 @@
 import copy
 import math
 from types import MethodType
-from typing import Optional, Tuple
+from typing import Optional
 
 import torch
 from torch import nn
@@ -61,9 +61,9 @@ def forward(
     head_mask: Optional[torch.FloatTensor] = None,
     encoder_hidden_states: Optional[torch.FloatTensor] = None,
     encoder_attention_mask: Optional[torch.FloatTensor] = None,
-    past_key_value: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
+    past_key_value: Optional[tuple[tuple[torch.FloatTensor]]] = None,
     output_attentions: Optional[bool] = False,
-) -> Tuple[torch.Tensor]:
+) -> tuple[torch.Tensor]:
     """Replication of identically-named attention function function ("forward") in Composer/HuggingFace BERT model's
     BERTSelfAttention (:func:`transformers.models.bert.modeling_bert.BERTSelfAttention.forward`), but this function
     implements ALiBi and will be used to replace the default attention function."""
@@ -95,10 +95,10 @@ def forward(
     query_layer = self.transpose_for_scores(mixed_query_layer)
 
     if self.is_decoder:
-        # if cross_attention save Tuple(torch.Tensor, torch.Tensor) of all cross attention key/value_states.
+        # if cross_attention save tuple(torch.Tensor, torch.Tensor) of all cross attention key/value_states.
         # Further calls to cross_attention layer can then reuse all cross-attention
         # key/value_states (first "if" case)
-        # if uni-directional self-attention (decoder) save Tuple(torch.Tensor, torch.Tensor) of
+        # if uni-directional self-attention (decoder) save tuple(torch.Tensor, torch.Tensor) of
         # all previous decoder key/value_states. Further calls to uni-directional self-attention
         # can concat previous decoder key/value_states to current projected key/value_states (third "elif" case)
         # if encoder bi-directional self-attention `past_key_value` is always `None`

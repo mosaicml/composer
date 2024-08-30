@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import textwrap
 import warnings
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Optional, Sequence, Union
 
 import torch
 from torch.optim import Optimizer
@@ -28,7 +28,7 @@ def freeze_layers(
     current_duration: float,
     freeze_start: float = 0.5,
     freeze_level: float = 1.0,
-) -> Tuple[int, float]:
+) -> tuple[int, float]:
     """Progressively freeze the layers of the network in-place
     during training, starting with the earlier layers.
 
@@ -157,14 +157,14 @@ class LayerFreezing(Algorithm):
             'layer_freezing/percentage_frozen': freeze_percentage,
         })
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         warnings.warn((
             'Checkpoints with layer freezing cannot reliably be used to resume training.'
             'See: https://github.com/mosaicml/composer/issues/1002'
         ))
         return {}
 
-    def load_state_dict(self, state: Dict[str, Any]) -> None:
+    def load_state_dict(self, state: dict[str, Any]) -> None:
         warnings.warn((
             'Checkpoints with layer freezing cannot reliably be used to resume training.'
             'See: https://github.com/mosaicml/composer/issues/1002'
@@ -196,7 +196,7 @@ def _freeze_schedule(current_duration: float, freeze_start: float, freeze_level:
     return freeze_level * freezing_time_elapsed_frac
 
 
-def _get_layers(module: torch.nn.Module, flat_children: List[torch.nn.Module]):
+def _get_layers(module: torch.nn.Module, flat_children: list[torch.nn.Module]):
     """Helper function to get all submodules.
 
     Does a depth first search to flatten out modules which
@@ -204,7 +204,7 @@ def _get_layers(module: torch.nn.Module, flat_children: List[torch.nn.Module]):
 
     Args:
         module (torch.nn.Module): Current module to search.
-        flat_children (List[torch.nn.Module]): List containing modules.
+        flat_children (list[torch.nn.Module]): list containing modules.
     """
     # Check if given module has no children and parameters.
     if (len(list(module.children())) == 0 and len(list(module.parameters())) > 0):

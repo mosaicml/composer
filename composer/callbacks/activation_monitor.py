@@ -5,7 +5,7 @@
 
 import warnings
 from functools import partial
-from typing import Any, List, Optional, Sequence, Union
+from typing import Any, Optional, Sequence, Union
 
 import torch
 
@@ -81,7 +81,7 @@ class ActivationMonitor(Callback):
     Args:
         interval (Union[int, str, Time], optional): Time string specifying how often to attach the logger and log the activations.
             For example, ``interval='5ba'`` means every 5 batches we log the activations. Default: '25ba'.
-        ignore_module_types (Optional[List[str]], optional): A list of strings representing the class attributes we should ignore.
+        ignore_module_types (Optional[list[str]], optional): A list of strings representing the class attributes we should ignore.
             For example passing in the list ['dropout', 'ln'] will cause the class attributes that contain
             'dropout' or 'ln' to not be logged. Default: 'None'.
         only_log_wandb (bool, optional): A bool that determines if we should only log to Weights and Biases. This is recommended
@@ -91,7 +91,7 @@ class ActivationMonitor(Callback):
     def __init__(
         self,
         interval: Union[int, str, Time] = '25ba',
-        ignore_module_types: Optional[List[str]] = None,
+        ignore_module_types: Optional[list[str]] = None,
         only_log_wandb: bool = True,
     ):
         self.ignore_module_types = ignore_module_types

@@ -30,13 +30,14 @@ from composer.utils.compression import (
     is_compressed_pt,
 )
 from composer.utils.device import get_device, is_hpu_installed, is_xla_installed
-from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient, MosaicMLLambdaEvalClient
+from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient
 from composer.utils.file_helpers import (
     FORMAT_NAME_WITH_DIST_AND_TIME_TABLE,
     FORMAT_NAME_WITH_DIST_TABLE,
     create_symlink_file,
     ensure_folder_has_no_conflicting_files,
     ensure_folder_is_empty,
+    extract_path_from_symlink,
     format_name_with_dist,
     format_name_with_dist_and_time,
     get_file,
@@ -44,11 +45,15 @@ from composer.utils.file_helpers import (
     maybe_create_object_store_from_uri,
     maybe_create_remote_uploader_downloader_from_uri,
     parse_uri,
+    validate_credentials,
 )
 from composer.utils.import_helpers import MissingConditionalImportError, import_object
 from composer.utils.inference import ExportFormat, Transform, export_for_inference, export_with_logger, quantize_dynamic
 from composer.utils.iter_helpers import IteratorFileStream, ensure_tuple, map_collection
 from composer.utils.misc import (
+    STR_TO_DTYPE,
+    ParallelismType,
+    add_vision_dataset_transform,
     create_interval_scheduler,
     get_free_tcp_port,
     is_model_deepspeed,
@@ -58,6 +63,8 @@ from composer.utils.misc import (
     partial_format,
 )
 from composer.utils.object_store import (
+    MLFLOW_EXPERIMENT_ID_FORMAT_KEY,
+    MLFLOW_RUN_ID_FORMAT_KEY,
     GCSObjectStore,
     LibcloudObjectStore,
     MLFlowObjectStore,
@@ -67,7 +74,10 @@ from composer.utils.object_store import (
     S3ObjectStore,
     SFTPObjectStore,
     UCObjectStore,
+    build_remote_backend,
 )
+from composer.utils.parallelism import FSDPConfig, ParallelismConfig, TPConfig
+from composer.utils.remote_uploader import RemoteFilesExistingCheckStatus, RemoteUploader
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
 from composer.utils.warnings import VersionedDeprecationWarning
@@ -134,11 +144,23 @@ __all__ = [
     'EvalClient',
     'LambdaEvalClient',
     'LocalEvalClient',
-    'MosaicMLLambdaEvalClient',
     'partial_format',
+    'add_vision_dataset_transform',
     'VersionedDeprecationWarning',
     'is_compressed_pt',
     'CliCompressor',
     'get_compressor',
     'KNOWN_COMPRESSORS',
+    'STR_TO_DTYPE',
+    'ParallelismType',
+    'FSDPConfig',
+    'TPConfig',
+    'ParallelismConfig',
+    'MLFLOW_EXPERIMENT_ID_FORMAT_KEY',
+    'MLFLOW_RUN_ID_FORMAT_KEY',
+    'extract_path_from_symlink',
+    'RemoteUploader',
+    'validate_credentials',
+    'build_remote_backend',
+    'RemoteFilesExistingCheckStatus',
 ]

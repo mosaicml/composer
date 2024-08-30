@@ -12,7 +12,7 @@ import re
 import tempfile
 import uuid
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 from urllib.parse import urlparse
 
 import requests
@@ -49,6 +49,8 @@ __all__ = [
     'maybe_create_object_store_from_uri',
     'maybe_create_remote_uploader_downloader_from_uri',
     'parse_uri',
+    'extract_path_from_symlink',
+    'validate_credentials',
 ]
 
 
@@ -56,6 +58,16 @@ def extract_path_from_symlink(
     source_path: str,
     object_store: Optional[Union[LoggerDestination, ObjectStore]] = None,
 ) -> str:
+    """Returns the checkpont path from symlink file.
+
+    Args:
+        source_path(str): The remote symlink path.
+        object_store(LoggerDestination | ObjectStore, optional): The object store
+            used to download the remote symlink file
+
+    Returns:
+        str: The content of the remote symlink file.
+    """
     if object_store is not None:
         with tempfile.TemporaryDirectory() as tmpdir:
             _, _, source_path = parse_uri(source_path)
@@ -73,7 +85,7 @@ def extract_path_from_symlink(
     return real_path
 
 
-def _get_dist_config(strict: bool = True) -> Dict[str, Any]:
+def _get_dist_config(strict: bool = True) -> dict[str, Any]:
     """Returns a dict of distributed settings (rank, world_size, etc.).
 
     If ``strict=True``, will error if a setting is not available (e.g. the
@@ -346,16 +358,31 @@ Args:
 """
 
 
-def parse_uri(uri: str) -> Tuple[str, str, str]:
+def is_uri(path: str) -> bool:
+    """Check if the path is a URI.
+
+    Args:
+        path (str): The path to check.
+
+    Returns:
+        bool: Whether the path is a URI.
+    """
+    backend, _, _ = parse_uri(path)
+    return backend != ''
+
+
+def parse_uri(uri: str) -> tuple[str, str, str]:
     """Uses :py:func:`urllib.parse.urlparse` to parse the provided URI.
 
     Args:
         uri (str): The provided URI string
 
     Returns:
-        Tuple[str, str, str]: A tuple containing the backend (e.g. s3), bucket name, and path.
+        tuple[str, str, str]: A tuple containing the backend (e.g. s3), bucket name, and path.
                               Backend name will be empty string if the input is a local path
     """
+    if isinstance(uri, pathlib.Path):
+        uri = str(uri)
     uri = uri.replace('AZURE_BLOBS', 'azure')  # urlparse does not support _ in scheme
     parse_result = urlparse(uri)
     backend, net_loc, path = parse_result.scheme, parse_result.netloc, parse_result.path
@@ -433,7 +460,7 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
 
 def maybe_create_remote_uploader_downloader_from_uri(
     uri: str,
-    loggers: List[LoggerDestination],
+    loggers: list[LoggerDestination],
 ) -> Optional['RemoteUploaderDownloader']:
     """Automatically creates a :class:`composer.loggers.RemoteUploaderDownloader` from supported URI formats.
 
@@ -441,7 +468,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
 
     Args:
         uri (str):The path to (maybe) create a :class:`composer.loggers.RemoteUploaderDownloader` from
-        loggers (List[:class:`composer.loggers.LoggerDestination`]): List of the existing :class:`composer.loggers.LoggerDestination` s so as to not create a duplicate
+        loggers (list[:class:`composer.loggers.LoggerDestination`]): List of the existing :class:`composer.loggers.LoggerDestination` s so as to not create a duplicate
 
     Raises:
         NotImplementedError: Raises when the URI format is not supported.
@@ -487,7 +514,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
         )
 
 
-def list_remote_objects(remote_path: str) -> List[str]:
+def list_remote_objects(remote_path: str) -> list[str]:
     """List objects at the remote path.
 
     Args:
@@ -753,3 +780,18 @@ def create_symlink_file(
         raise ValueError('The symlink filename must end with .symlink.')
     with open(destination_filename, 'x') as f:
         f.write(existing_path)
+
+
+def validate_credentials(
+    remote_backend: ObjectStore,
+    remote_file_name_to_test: str,
+):
+    """Upload a tiny text file to test if the credentials are setup correctly."""
+    # Validates the credentials by attempting to touch a file in the bucket
+    # raises an error if there was a credentials failure.
+    with tempfile.NamedTemporaryFile('wb') as f:
+        f.write(b'credentials_validated_successfully')
+        remote_backend.upload_object(
+            object_name=remote_file_name_to_test,
+            filename=f.name,
+        )

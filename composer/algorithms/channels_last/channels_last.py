@@ -52,7 +52,7 @@ class ChannelsLast(Algorithm):
             )
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # ChannelsLast takes no arguments
         pass
 

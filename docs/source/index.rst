@@ -144,6 +144,6 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    api_reference/*
 
 
-.. _Twitter: https://twitter.com/mosaicml
-.. _Email: mailto:community@mosaicml.com
-.. _Slack: https://mosaicml.me/slack
+.. _Twitter: https://twitter.com/DbrxMosaicAI
+.. _Email: mailto:mcomm@databricks.com
+.. _Slack: https://dub.sh/mcomm

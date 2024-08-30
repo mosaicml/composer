@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import dataclass
-from typing import Optional, Tuple, Union
+from typing import Optional, Union
 
 import numpy as np
 import pytest
@@ -45,7 +45,7 @@ class _RankReduceConv2d(object):
     batch_size: int = 1
     H: int = 4
     W: int = 4
-    kernel_size: Tuple[int, int] = (3, 3)
+    kernel_size: tuple[int, int] = (3, 3)
     C_in: int = 32
     C_latent_now: int = 16
     C_latent_new: int = 6

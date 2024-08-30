@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import abc
 import math
-from typing import Optional, Tuple, Union, cast
+from typing import Optional, Union, cast
 
 import numpy as np
 import torch
@@ -180,7 +180,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
         return proposed_rank <= self._max_rank_with_speedup()
 
     @abc.abstractmethod
-    def _create_child_modules(self) -> Tuple[torch.nn.Module, torch.nn.Module]:
+    def _create_child_modules(self) -> tuple[torch.nn.Module, torch.nn.Module]:
         """This is used to populate the self.module0 and self.module1 attributes; it's not part of __init__ because the
         logic to initialize them is subclass-specific and might depend on the shared logic in __init__"""
         ...
@@ -292,7 +292,7 @@ class FactorizedConv2d(_FactorizedModule):
         self.convolution_kwargs = {k: v for k, v in kwargs.items() if k != 'bias'}
         self.module0, self.module1 = self._create_child_modules()
 
-    def _create_child_modules(self) -> Tuple[torch.nn.Module, torch.nn.Module]:
+    def _create_child_modules(self) -> tuple[torch.nn.Module, torch.nn.Module]:
         if not self.should_factorize(self.latent_channels):
             raise ValueError(
                 f'latent_channels {self.latent_size} is not small enough to merit factorization! Must be <= {self._max_rank_with_speedup()}',
@@ -429,7 +429,7 @@ class FactorizedLinear(_FactorizedModule):
         self.bias = bias
         self.module0, self.module1 = self._create_child_modules()
 
-    def _create_child_modules(self) -> Tuple[torch.nn.Module, torch.nn.Module]:
+    def _create_child_modules(self) -> tuple[torch.nn.Module, torch.nn.Module]:
         if not self.should_factorize(self.latent_size):
             raise ValueError(
                 f'latent_features {self.latent_size} is not small enough to merit factorization! Must be <= {self._max_rank_with_speedup()}',
