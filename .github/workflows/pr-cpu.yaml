@@ -33,6 +33,8 @@ jobs:
           markers: not daily and not remote and not gpu and doctest
           pytest_command: coverage run -m pytest tests/test_docs.py
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
     - name: Run PR CPU Tests
       uses: mosaicml/ci-testing/.github/actions/pytest-cpu@debug-2
       with:
