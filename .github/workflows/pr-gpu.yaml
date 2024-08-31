@@ -24,7 +24,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
     - name: Run PR GPU Tests
-      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@863864b00bb5e3a9d6df5fa040a3d035f648b11f
+      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@53965d9417983a49003182cfca64286b448f80b3
       with:
         name: ${{ matrix.name }}
         composer_package_name: ${{ matrix.composer_package_name }}
@@ -37,7 +37,7 @@ jobs:
         python_version: 3.9
         gpu_num: 1
         mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
-        ci_repo_gpu_test_ref: 863864b00bb5e3a9d6df5fa040a3d035f648b11f
+        ci_repo_gpu_test_ref: 53965d9417983a49003182cfca64286b448f80b3
   pytest-gpu-2:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
@@ -54,7 +54,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
     - name: Run PR GPU Tests
-      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@863864b00bb5e3a9d6df5fa040a3d035f648b11f
+      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@53965d9417983a49003182cfca64286b448f80b3
       with:
         name: ${{ matrix.name }}
         composer_package_name: ${{ matrix.composer_package_name }}
@@ -67,7 +67,7 @@ jobs:
         python_version: 3.9
         gpu_num: 2
         mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
-        ci_repo_gpu_test_ref: 863864b00bb5e3a9d6df5fa040a3d035f648b11f
+        ci_repo_gpu_test_ref: 53965d9417983a49003182cfca64286b448f80b3
   pytest-gpu-4:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
@@ -84,7 +84,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
     - name: Run PR GPU Tests
-      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@863864b00bb5e3a9d6df5fa040a3d035f648b11f
+      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@53965d9417983a49003182cfca64286b448f80b3
       with:
         name: ${{ matrix.name }}
         composer_package_name: ${{ matrix.composer_package_name }}
@@ -97,4 +97,4 @@ jobs:
         python_version: 3.9
         gpu_num: 4
         mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
-        ci_repo_gpu_test_ref: 863864b00bb5e3a9d6df5fa040a3d035f648b11f
+        ci_repo_gpu_test_ref: 53965d9417983a49003182cfca64286b448f80b3
