@@ -16,7 +16,7 @@ jobs:
       uses: actions/checkout@v3
       with:
         repository: mosaicml/ci-testing
-        ref: 53965d9417983a49003182cfca64286b448f80b3
+        ref: try-again
         path: ./ci-testing
     - uses: ./ci-testing/.github/actions/coverage
       with:
