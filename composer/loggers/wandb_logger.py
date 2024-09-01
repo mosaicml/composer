@@ -14,7 +14,8 @@ import sys
 import tempfile
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Any, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union, cast
+from omegaconf import OmegaConf
 
 import numpy as np
 import torch
@@ -38,7 +39,8 @@ class WandBLogger(LoggerDestination):
         name (str, optional): WandB run name.
             If not specified, the :attr:`.State.run_name` will be used.
         entity (str, optional): WandB entity name.
-        tags (list[str], optional): WandB tags.
+        tags (List[str], optional): WandB tags.
+        config_file (str, optional): File YAML containing the configs to pass WandB init.
         log_artifacts (bool, optional): Whether to log
             `artifacts <https://docs.wandb.ai/ref/python/artifact>`_ (Default: ``False``).
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process.
@@ -58,7 +60,8 @@ class WandBLogger(LoggerDestination):
         group: Optional[str] = None,
         name: Optional[str] = None,
         entity: Optional[str] = None,
-        tags: Optional[list[str]] = None,
+        tags: Optional[List[str]] = None,
+        config_file: str | None = None,
         log_artifacts: bool = False,
         rank_zero_only: bool = True,
         init_kwargs: Optional[dict[str, Any]] = None,
@@ -98,6 +101,9 @@ class WandBLogger(LoggerDestination):
 
         if tags is not None:
             init_kwargs['tags'] = tags
+        
+        # NOTE: This has to be maintained separate to avoid weird Wandb errors
+        self._config_file = config_file
 
         self._rank_zero_only = rank_zero_only
         self._log_artifacts = log_artifacts
@@ -199,7 +205,13 @@ class WandBLogger(LoggerDestination):
             self._init_kwargs['name'] += f'-rank{dist.get_global_rank()}'
             self._init_kwargs['group'] = self._init_kwargs['group'] if 'group' in self._init_kwargs else name
         if self._enabled:
-            wandb.init(**self._init_kwargs)
+            # Load the configuration from the config file
+            original_cfg = OmegaConf.load(self._config_file) if self._config_file is not None else None
+            wandb.init(
+                **self._init_kwargs,
+                settings=wandb.Settings(start_method="thread"),
+                config=cast(Dict[Any, Any], OmegaConf.to_container(original_cfg, resolve=True, throw_on_missing=True)) if original_cfg else None,
+            )
             assert wandb.run is not None, 'The wandb run is set after init'
             if hasattr(wandb.run, 'entity') and hasattr(wandb.run, 'project'):
                 entity_and_project = [str(wandb.run.entity), str(wandb.run.project)]
