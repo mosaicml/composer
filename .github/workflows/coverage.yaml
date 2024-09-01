@@ -9,6 +9,7 @@ jobs:
   coverage:
     timeout-minutes: 5
     runs-on: ubuntu-latest
+    container: mosaicml/pytorch:2.4.0_cpu-python3.11-ubuntu20.04
     steps:
     - name: Checkout Repo
       uses: actions/checkout@v3
