@@ -47,6 +47,7 @@ jobs:
     uses: ./.github/workflows/coverage.yaml
     name: Coverage Results
     if: github.repository_owner == 'mosaicml'
+    runs-on: ubuntu-latest
     container: mosaicml/pytorch:2.4.0_cpu-python3.11-ubuntu20.04
     needs: [pytest-cpu]
     with:
