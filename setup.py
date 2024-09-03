@@ -190,7 +190,7 @@ extra_deps['peft'] = [
 ]
 
 extra_deps['sentencepiece'] = [
-    'protobuf<5.28',
+    'protobuf<5.29',
     'sentencepiece==0.2.0',
 ]
 
@@ -225,13 +225,13 @@ extra_deps['onnx'] = [
 
 extra_deps['mlflow'] = [
     'mlflow>=2.14.1,<3.0',
-    'databricks-sdk==0.30.0',
+    'databricks-sdk==0.31.1',
     'pynvml>=11.5.0,<12',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk==0.30.0']
+extra_deps['databricks'] = ['databricks-sdk==0.31.1']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 
