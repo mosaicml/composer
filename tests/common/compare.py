@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import torch
@@ -14,7 +14,7 @@ from composer import Time
 from composer.core.time import TimeUnit
 
 
-def deep_compare(item1: Any, item2: Any, atol: float = 0.0, rtol: float = 0.0, ignore_keys: Optional[List[str]] = None):
+def deep_compare(item1: Any, item2: Any, atol: float = 0.0, rtol: float = 0.0, ignore_keys: Optional[list[str]] = None):
     """Compare two items recursively. Supports dicts, lists, tuples, tensors, numpy arrays, Composer Time objects, and callables.
 
     Args:
@@ -32,7 +32,7 @@ def _check_item(
     path: str,
     rtol: float = 0.0,
     atol: float = 0.0,
-    ignore_keys: Optional[List[str]] = None,
+    ignore_keys: Optional[list[str]] = None,
 ):
     if item1 is None:
         assert item2 is None, f'{path} differs: {item1} != {item2}'
@@ -131,12 +131,12 @@ def _check_list_recursively(
 
 
 def _check_dict_recursively(
-    dict1: Dict[str, Any],
-    dict2: Dict[str, Any],
+    dict1: dict[str, Any],
+    dict2: dict[str, Any],
     path: str,
     atol: float,
     rtol: float,
-    ignore_keys: Optional[List[str]] = None,
+    ignore_keys: Optional[list[str]] = None,
 ):
     assert len(dict1) == len(dict2), f'{path} differs: {dict1} != {dict2}'
     for k, val1 in dict1.items():

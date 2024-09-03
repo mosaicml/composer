@@ -6,6 +6,7 @@ from typing import Optional
 import pytest
 import torch
 import torch.nn as nn
+from packaging import version
 from torch import Tensor
 from torch.utils.data import DataLoader
 
@@ -45,7 +46,11 @@ class MinimalConditionalModel(nn.Module):
 @pytest.mark.parametrize(
     'ddp_sync_strategy,expected_grads',
     [
-        pytest.param('single_auto_sync', ([-1, None, None], [-1, -1.5, None], [-1, -1.5, None]), id='single_auto_sync'),
+        pytest.param(
+            'single_auto_sync',
+            ([-1, None, None], [-1.5, -1.5, None], [-1.5, -1.5, None]),
+            id='single_auto_sync',
+        ),
         pytest.param(
             'multi_auto_sync',
             ([-1.5, None, None], [-1.5, -1.5, None], [-1.5, -1.5, None]),
@@ -61,8 +66,9 @@ def test_ddp_sync_strategy(
     rank_zero_seed: int,
     request: pytest.FixtureRequest,
 ):
+    if version.parse(torch.__version__) < version.parse('2.4.0'):
+        pytest.skip('Before PyTorch 2.4, single_auto_sync did not properly run on last microbatch')
     original_model = MinimalConditionalModel()
-    # ddp = DDP(backend="gloo", find_unused_parameters=True, sync_strategy=ddp_sync_strategy, timeout=5.)
     optimizer = torch.optim.SGD(original_model.parameters(), 0.1)
     device = None
     for item in request.session.items:

@@ -11,7 +11,7 @@ import textwrap
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence, Union
+from typing import Any, Optional, Sequence, Union
 
 import torch
 import torch.distributed.checkpoint as DCP
@@ -82,7 +82,7 @@ class CheckpointSaveOptions:
 def save_checkpoint_to_disk(
     destination_dir: str,
     state: State,
-    options: Optional[Union[CheckpointSaveOptions, Dict]] = None,
+    options: Optional[Union[CheckpointSaveOptions, dict]] = None,
 ):
     """Saves a checkpoint to disk.
 
@@ -96,7 +96,7 @@ def save_checkpoint_to_disk(
     if options is None:
         options = CheckpointSaveOptions()
     else:
-        if isinstance(options, Dict):
+        if isinstance(options, dict):
             options = CheckpointSaveOptions(**options)
 
     save_path = os.path.join(destination_dir, options.dir_prefix)
@@ -292,7 +292,7 @@ log = logging.getLogger(__name__)
 
 
 def save_state_dict_to_disk(
-    state_dict: Dict[str, Any],
+    state_dict: dict[str, Any],
     destination_file_path: str,
     overwrite: bool = False,
     save_format: str = 'pt',  # or hf, safetensor
@@ -323,7 +323,7 @@ def save_state_dict_to_disk(
 
 
 def _save_sharded_state_dict_to_disk(
-    state_dict: Dict[str, Any],
+    state_dict: dict[str, Any],
     destination_file_path: str,
     overwrite: bool = False,
     save_format: str = 'pt',
@@ -372,7 +372,7 @@ def _save_sharded_state_dict_to_disk(
 
 
 def _save_full_state_dict_to_disk(
-    state_dict: Dict[str, Any],
+    state_dict: dict[str, Any],
     destination_file_path: str,
     overwrite: bool = False,
     save_format: str = 'pt',  # or hf, safetensor
@@ -393,7 +393,7 @@ def _save_full_state_dict_to_disk(
     return None
 
 
-def is_state_dict_sharded(state_dict: Dict[str, Any]) -> bool:
+def is_state_dict_sharded(state_dict: dict[str, Any]) -> bool:
     """Determines if the state dict is sharded.
 
     Args:
@@ -405,7 +405,7 @@ def is_state_dict_sharded(state_dict: Dict[str, Any]) -> bool:
     for value in state_dict.values():
         if isinstance(value, ShardedTensor) or isinstance(value, DTensor):
             return True
-        elif isinstance(value, Dict):
+        elif isinstance(value, dict):
             is_sharded = is_state_dict_sharded(value)
             if is_sharded:
                 return True

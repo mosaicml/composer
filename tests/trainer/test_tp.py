@@ -25,7 +25,6 @@ def test_tp_train(world_size: int):
     model = SimpleModel()
     dataset = RandomClassificationDataset(size=8)
     dataloader = DataLoader(dataset, batch_size=2, sampler=dist.get_sampler(dataset))
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
 
     layer_plan = {
         'fc1': ColwiseParallel(),
@@ -34,7 +33,6 @@ def test_tp_train(world_size: int):
 
     trainer = Trainer(
         model=model,
-        optimizers=optimizer,
         train_dataloader=dataloader,
         parallelism_config={
             'tp': {

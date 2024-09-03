@@ -3,13 +3,10 @@
 
 """Parallelism configs."""
 
-import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from torch.distributed._tensor.device_mesh import DeviceMesh
-
-from composer.utils.warnings import VersionedDeprecationWarning
 
 
 @dataclass
@@ -26,7 +23,6 @@ class FSDPConfig:
     cpu_offload: bool = False
     data_parallel_shard_degree: int = -1
     data_parallel_replicate_degree: Optional[int] = None
-    device_mesh: Optional[DeviceMesh] = None
     forward_prefetch: bool = False
     forward_prefetch_limit: int = 1
     ignored_modules: Optional[Any] = None
@@ -44,41 +40,25 @@ class FSDPConfig:
     use_orig_params: bool = True
     verbose: bool = False
 
+    _device_mesh: Optional[DeviceMesh] = field(default=None, init=False, repr=False)
 
-def create_fsdp_config(fsdp_config: dict[str, Any]):
-    """Modify fsdp_config to set default values for missing keys."""
-    fsdp_config = {**fsdp_config}  # Shallow copy to avoid modifying input
-    if 'process_group' in fsdp_config:
-        warnings.warn(
-            VersionedDeprecationWarning(
-                'process_group is deprecated. Please specify `data_parallel_shard_degree` and `data_parallel_replicate_degree` instead.',
-                remove_version='0.24',
-            ),
-        )
-
-    if 'device_mesh' in fsdp_config:
-        warnings.warn(
-            VersionedDeprecationWarning(
-                'device_mesh is deprecated. Please specify `data_parallel_shard_degree` and `data_parallel_replicate_degree` instead.',
-                remove_version='0.24',
-            ),
-        )
-        if 'data_parallel_shard_degree' in fsdp_config or 'data_parallel_replicate_degree' in fsdp_config:
+    def __init__(self, **kwargs):
+        if 'device_mesh' in kwargs or '_device_mesh' in kwargs:
             raise ValueError(
-                'Cannot specify both `device_mesh` and `data_parallel_shard_degree` or `data_parallel_replicate_degree`. Please remove `device_mesh`.',
-            )
-        device_mesh = fsdp_config.pop('device_mesh')
-        if len(device_mesh) == 1:
-            fsdp_config['data_parallel_shard_degree'] = device_mesh[0]
-        elif len(device_mesh) == 2:
-            fsdp_config['data_parallel_replicate_degree'] = device_mesh[0]
-            fsdp_config['data_parallel_shard_degree'] = device_mesh[1]
-        else:
-            raise ValueError(
-                f'device_mesh must be of length 1 or 2 but received length {len(device_mesh)} with device mesh {device_mesh}.',
+                f'Directly specifying device mesh for FSDP was deprecated in Composer version 0.24.0. ' +
+                f"Please specify 'data_parallel_shard_degree' and/or 'data_parallel_replicate_degree' instead.",
             )
 
-    return FSDPConfig(**fsdp_config)
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    @property
+    def device_mesh(self) -> Optional[DeviceMesh]:
+        return self._device_mesh
+
+    @device_mesh.setter
+    def device_mesh(self, value: Optional[DeviceMesh]):
+        self._device_mesh = value
 
 
 @dataclass

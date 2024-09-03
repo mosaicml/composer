@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import contextlib
-from typing import Optional, Type
+from typing import Optional
 
 import pytest
 from torch.utils.data import DataLoader
@@ -341,7 +341,7 @@ def test_scheduler_trains(
     scheduler: ComposerScheduler,
     ssr: float,
     rank_zero_seed: int,
-    should_raise: Optional[Type[Exception]],
+    should_raise: Optional[type[Exception]],
 ):
     with pytest.raises(should_raise) if should_raise is not None else contextlib.nullcontext():
         trainer = Trainer(
@@ -371,7 +371,7 @@ def test_scheduler_trains(
 @pytest.mark.parametrize('scheduler_max_unit', ['ba', 'tok', 'sp', 'ep', 'dur'])
 @pytest.mark.parametrize('scheduler_max_pct', [0.75, 1.25])
 def test_warmup_schedulers_fail_fast(
-    scheduler_class: Type[ComposerScheduler],
+    scheduler_class: type[ComposerScheduler],
     max_duration_unit: str,
     warmup_duration_unit: str,
     scheduler_max_unit: str,

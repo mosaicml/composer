@@ -11,7 +11,7 @@ import inspect
 import logging
 import random
 import time
-from typing import Any, Callable, Sequence, Type, TypeVar, Union, cast, overload
+from typing import Any, Callable, Sequence, TypeVar, Union, cast, overload
 
 TCallable = TypeVar('TCallable', bound=Callable)
 
@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 
 @overload
 def retry(
-    exc_class: Union[Type[Exception], Sequence[Type[Exception]]] = ...,
+    exc_class: Union[type[Exception], Sequence[type[Exception]]] = ...,
     num_attempts: int = ...,
     initial_backoff: float = ...,
     max_jitter: float = ...,
@@ -38,7 +38,7 @@ def retry(exc_class: TCallable) -> TCallable:
 
 # error: Type "(TCallable@retry) -> TCallable@retry" cannot be assigned to type "(func: Never) -> Never"
 def retry(  # type: ignore
-    exc_class: Union[TCallable, Type[Exception], Sequence[Type[Exception]]] = Exception,
+    exc_class: Union[TCallable, type[Exception], Sequence[type[Exception]]] = Exception,
     num_attempts: int = 3,
     initial_backoff: float = 1.0,
     max_jitter: float = 0.5,

@@ -1,7 +1,7 @@
 # Copyright 2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Union
 from unittest.mock import MagicMock
 
 import torch
@@ -92,7 +92,7 @@ def init_model_and_optimizer(
     tensor_type='sharded_tensor',
     device='cuda',
     wrap_with_raw_fsdp=False,
-) -> Tuple[Union[ComposerModel, torch.nn.Module], torch.optim.Optimizer]:
+) -> tuple[Union[ComposerModel, torch.nn.Module], torch.optim.Optimizer]:
     model, loss_fn = init_model(
         use_composer_model,
         num_classes=num_classes,
@@ -127,7 +127,7 @@ def init_model(
     sync_module_states=True,
     cpu_offload=False,
     wrap_with_raw_fsdp=False,
-) -> Tuple[Union[ComposerModel, torch.nn.Module], Any]:
+) -> tuple[Union[ComposerModel, torch.nn.Module], Any]:
     if use_composer_model:
         model = SimpleComposerMLP(num_features=num_features, num_classes=num_classes, device=device)
         loss_fn = model._loss_fn
@@ -136,7 +136,7 @@ def init_model(
         loss_fn = torch.nn.CrossEntropyLoss()
 
     if use_fsdp:
-        fsdp_kwargs: Dict[str, Any] = dict(
+        fsdp_kwargs: dict[str, Any] = dict(
             use_orig_params=True,
             sync_module_states=sync_module_states,  # To enable easy comparison between rank 0 unsharded model and full state dict
             cpu_offload=CPUOffload(offload_params=True) if cpu_offload else None,
@@ -150,6 +150,17 @@ def init_model(
         if wrap_with_raw_fsdp:
             model = FSDP(model, **fsdp_kwargs)
         else:
+            if 'device_mesh' in fsdp_kwargs:
+                mesh = fsdp_kwargs.pop('device_mesh')
+                ndim = mesh.ndim
+                if ndim == 1:
+                    fsdp_kwargs['data_parallel_shard_degree'] = mesh.size(0)
+                elif ndim == 2:
+                    fsdp_kwargs['data_parallel_replicate_degree'] = mesh.size(0)
+                    fsdp_kwargs['data_parallel_shard_degree'] = mesh.size(1)
+                else:
+                    raise ValueError(f'Unsupported device mesh dimension: {ndim}')
+
             prepare_fsdp_module(
                 model,
                 optimizers=None,

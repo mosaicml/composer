@@ -4,7 +4,7 @@
 import contextlib
 import os
 import pathlib
-from typing import Any, Type
+from typing import Any
 
 import mockssh
 import moto
@@ -72,7 +72,7 @@ object_stores = [
 
 @contextlib.contextmanager
 def get_object_store_ctx(
-    object_store_cls: Type[ObjectStore],
+    object_store_cls: type[ObjectStore],
     object_store_kwargs: dict[str, Any],
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: pathlib.Path,
@@ -89,7 +89,7 @@ def get_object_store_ctx(
             monkeypatch.setenv('AWS_SECURITY_TOKEN', 'testing')
             monkeypatch.setenv('AWS_SESSION_TOKEN', 'testing')
             monkeypatch.setenv('AWS_DEFAULT_REGION', 'us-east-1')
-            with moto.mock_s3():
+            with moto.mock_aws():
                 # create the dummy bucket
                 s3 = boto3.client('s3')
                 s3.create_bucket(Bucket=object_store_kwargs['bucket'])

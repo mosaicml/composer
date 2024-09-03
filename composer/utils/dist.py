@@ -47,12 +47,8 @@ from typing import TYPE_CHECKING, Any, Optional, Sequence, TypeVar, Union, cast
 import torch
 import torch.distributed as dist
 import torch.utils.data
-from packaging import version
 
-from composer.utils.device import get_device, is_hpu_installed, is_xla_installed
-
-if is_xla_installed():
-    import torch_xla
+from composer.utils.device import get_device, is_hpu_installed
 
 if TYPE_CHECKING:
     from composer.devices import Device
@@ -502,7 +498,7 @@ def is_initialized():
     return dist.is_initialized()
 
 
-def initialize_dist(device: Union[str, Device], timeout: float = 300.0) -> None:
+def initialize_dist(device: Optional[Union[str, Device]] = None, timeout: float = 300.0) -> None:
     """Initialize the default PyTorch distributed process group.
 
     This function assumes that the following environment variables are set:
@@ -521,9 +517,9 @@ def initialize_dist(device: Union[str, Device], timeout: float = 300.0) -> None:
     .. seealso:: :func:`torch.distributed.init_process_group`
 
     Args:
-        device (str | Device): The device from which the distributed backend is
+        device (Optional[str | Device] ): The device from which the distributed backend is
             interpreted. Either a string corresponding to a device (one of ``'cpu'``,
-            ``'gpu'``, ``'mps'``, or ``'tpu'``) or a :class:`.Device`.
+            ``'gpu'``, ``'mps'``, or ``'tpu'``) or a :class:`.Device`. (default: ``None``)
         timeout (float, optional): The timeout for operations executed against the process
             group, expressed in seconds. (default: ``300.0``).
     """
@@ -579,8 +575,6 @@ def initialize_dist(device: Union[str, Device], timeout: float = 300.0) -> None:
                 'PyTorch XLA package not found. In order to use XLA based devices '
                 'PyTorch XLA must be installed.',
             )
-        if version.parse(torch_xla.__version__) < version.parse('2.1.0'):
-            raise RuntimeError(f'PyTorch XLA version must be at least 2.1.0, found {torch_xla.__version__}.')
         # XLA initialization requires the init_method to be set
         dist.init_process_group(device_obj.dist_backend, init_method='xla://')
     elif dist_env_vars_match_defaults:

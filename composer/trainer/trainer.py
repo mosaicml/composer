@@ -24,7 +24,6 @@ from typing import (
     Any,
     Callable,
     ContextManager,
-    Dict,
     Iterable,
     Mapping,
     Optional,
@@ -41,7 +40,6 @@ import torch.nn as nn
 import torch.utils.data
 from packaging import version
 from torch._dynamo import OptimizedModule
-from torch.cuda.amp.grad_scaler import GradScaler
 from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.distributed.fsdp._runtime_utils import _post_backward_final_callback
 from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
@@ -116,7 +114,6 @@ from composer.utils import (
     Transform,
     VersionedDeprecationWarning,
     checkpoint,
-    create_fsdp_config,
     dist,
     ensure_tuple,
     export_with_logger,
@@ -462,7 +459,7 @@ def _create_sync_hook(state: State):
     return sync_hook
 
 
-def _readd_fsdp_sync_hooks(fsdp_modules: Dict[str, torch.nn.Module], sync_hook):
+def _readd_fsdp_sync_hooks(fsdp_modules: dict[str, torch.nn.Module], sync_hook):
     """Readds previously removed sync hooks back to FSDP modules.
 
     Called when preparing to search for or searching for new microbatch size during automicrobatching.
@@ -975,7 +972,7 @@ class Trainer:
             (default: ``False``)
         autoresume (bool, optional): Whether or not to enable autoresume, which allows for stopping and resuming
             training. This allows use of spot instances, as the training run is now fault tolerant.  This parameter
-            requires ``save_folder`` and ``run_name`` to be specified and ``save_overwrite`` to be ``False``.
+            requires ``save_folder`` and ``run_name`` to be specified.
             (default: ``False``)
 
             When enabled, the save_folder is checked for checkpoints of the format ``"{save_folder}/{save_latest_filename}"``,
@@ -1261,7 +1258,6 @@ class Trainer:
         self.cumulative_alloc_retries = 0
         self.num_consecutive_thrashes = 0
         self.num_consecutive_non_OOM_batches = 0
-        self.automicrobatch_fsdp_hook_handles = []
 
         if auto_microbatching and profiler:
             raise ValueError(
@@ -1326,7 +1322,7 @@ class Trainer:
                 if isinstance(parallelism_config['fsdp'], FSDPConfig):
                     parallelism_config_args['fsdp'] = parallelism_config['fsdp']
                 else:
-                    parallelism_config_args['fsdp'] = create_fsdp_config(parallelism_config['fsdp'])
+                    parallelism_config_args['fsdp'] = FSDPConfig(**parallelism_config['fsdp'])
             if 'tp' in parallelism_config and parallelism_config['tp'] is not None:
                 if isinstance(parallelism_config['tp'], TPConfig):
                     parallelism_config_args['tp'] = parallelism_config['tp']
@@ -1727,7 +1723,7 @@ class Trainer:
 
         # Suppressing GradScaler warnings as they are always created
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
-        warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
+        warnings.filterwarnings(action='ignore', message='.*torch.cuda.amp.GradScaler.*')
         self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
 
         if self.state.fsdp_config is not None:
@@ -1766,7 +1762,7 @@ class Trainer:
         if self.state.fsdp_config is not None and self.state.fsdp_config.auto_wrap and not self.state.load_monolith_rank0_only:
             # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
-                self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(
+                self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
                     model,
                     optimizers,
                     self.state.fsdp_config,
@@ -1937,7 +1933,7 @@ class Trainer:
         ):
             # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
-                self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(
+                self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
                     model,
                     optimizers,
                     self.state.fsdp_config,
@@ -1945,6 +1941,18 @@ class Trainer:
                     device,
                     auto_microbatching,
                 )
+
+        # Set the iteration timestamp to the overall timestamp if loading from a checkpoint that was created before
+        # iteration was introduced in Composer v0.19.1. This is necessary to ensure that the iteration timestamp is
+        # accurate for callbacks and backwards compatibility for checkpoints.
+        if (
+            self.state.timestamp.iteration == 0 and self.state.timestamp.token_in_iteration == 0 and
+            self.state.timestamp.epoch_in_iteration == 0
+        ):
+            self.state.timestamp = self.state.timestamp.copy(
+                epoch_in_iteration=self.state.timestamp.epoch,
+                token_in_iteration=self.state.timestamp.token,
+            )
 
         self.engine.run_event(Event.AFTER_LOAD)
 
@@ -2305,6 +2313,17 @@ class Trainer:
             # different units than ``max_duration``
             self.state.max_duration = duration + self.state.timestamp.get(duration.unit)
 
+        # Raise error if callig fit with SGD
+        if type(
+            self.state.optimizers[0],
+        ) == torch.optim.SGD and version.parse(torch.__version__) >= version.parse('2.4.0'):
+            raise ValueError(
+                'PyTorch 2.4 breaks (distributed) checkpointing with SGD. '
+                'Please use a different optimizer, e.g. composer.optim.DecoupledSGDW, '
+                'instead or downgrade to PyTorch <2.4. See ',
+                'https://github.com/pytorch/pytorch/issues/133415 for further information.',
+            )
+
         if self.state.max_duration is None:
             _raise_missing_argument_exception('max_duration')
         assert self.state.max_duration is not None
@@ -2443,6 +2462,17 @@ class Trainer:
 
         self.first_batch_complete = False
         self._train_loop()
+
+        # Zero gradients at the end of fit so same model/optimizer can be used for further training
+        # with checkpoint loading. See https://github.com/pytorch/pytorch/issues/133415
+        for optimizer in self.state.optimizers:
+            try:
+                try:
+                    optimizer.zero_grad(set_to_none=True)
+                except TypeError:
+                    optimizer.zero_grad()
+            except:
+                log.exception('Failed to zero out optimizer at end of fit')
 
     def close(self):
         """Shutdown the trainer.
@@ -2629,7 +2659,6 @@ class Trainer:
                         self._rng_state = None
                     continue
 
-                self.state.batch = self.state.device.batch_to_device(self.state.batch)
                 self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
                 rank_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
                 rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
@@ -2917,8 +2946,11 @@ class Trainer:
                     all_ranks_finished = all_ranks_finished_tensor.item() == 1
                 if found_cuda_oom == 1:
                     # Readd sync hooks if they were previously turned off
-                    if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) == 0:
-                        self.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(self.fsdp_modules, sync_hook)
+                    if self.state.fsdp_enabled and len(self.state.automicrobatch_fsdp_hook_handles) == 0:
+                        self.state.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(
+                            self.state.fsdp_modules,
+                            sync_hook,
+                        )
                     _adjust_device_train_microbatch_size(self.state)
                     self.num_consecutive_thrashes = 0
                     self.num_consecutive_non_OOM_batches = 0
@@ -2934,8 +2966,11 @@ class Trainer:
                     )
                 if self.num_consecutive_thrashes >= 2:
                     # Readd sync hooks if they were previously turned off
-                    if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) == 0:
-                        self.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(self.fsdp_modules, sync_hook)
+                    if self.state.fsdp_enabled and len(self.state.automicrobatch_fsdp_hook_handles) == 0:
+                        self.state.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(
+                            self.state.fsdp_modules,
+                            sync_hook,
+                        )
                     _adjust_device_train_microbatch_size(self.state)
                     self.num_consecutive_thrashes = 0
                     continue
@@ -2949,12 +2984,12 @@ class Trainer:
                 )
             self.num_consecutive_non_OOM_batches += 1
             if self.state.fsdp_enabled and len(
-                self.automicrobatch_fsdp_hook_handles,
+                self.state.automicrobatch_fsdp_hook_handles,
             ) > 0 and self.num_consecutive_non_OOM_batches >= 3:
                 patch_unshard_for_automicrobatching(auto_microbatch_size_found=True)
-                for handle in self.automicrobatch_fsdp_hook_handles:
+                for handle in self.state.automicrobatch_fsdp_hook_handles:
                     handle.remove()
-                self.automicrobatch_fsdp_hook_handles.clear()
+                self.state.automicrobatch_fsdp_hook_handles.clear()
             if torch.cuda.is_available():
                 memory_stats = torch.cuda.memory_stats()
                 self.cumulative_alloc_retries = memory_stats['num_alloc_retries']
@@ -3035,6 +3070,7 @@ class Trainer:
             current_batch = self.state.batch
 
             for microbatch_idx, self.state.batch in enumerate(microbatches):
+                self.state.batch = self.state.device.batch_to_device(self.state.batch)
                 is_final_microbatch = microbatch_idx + 1 == len(microbatches)
                 microbatch_loss_dict = self._train_microbatch(use_grad_scaling, current_batch_size, is_final_microbatch)
 
@@ -3583,7 +3619,6 @@ class Trainer:
                         )
 
             for self.state.batch in self._iter_dataloader(TrainerMode.EVAL):
-                self.state.batch = self.state.device.batch_to_device(self.state.batch)
                 self.state.batch = data_spec.device_transforms(self.state.batch)
 
                 # Count the batch size and num tokens before any events run
@@ -3613,6 +3648,7 @@ class Trainer:
                     try:
                         microbatches = data_spec.split_batch(device_batch, evaluator.device_eval_microbatch_size)
                         for i, self.state.batch in enumerate(microbatches):
+                            self.state.batch = self.state.device.batch_to_device(self.state.batch)
                             last_microbatch = i == len(microbatches) - 1
                             skip_metric_update = False
                             # Distributed samplers pad batches to be the same size. If using a
@@ -3753,10 +3789,11 @@ class Trainer:
             self.state.dataloader_len = original_num_batches
 
         # If training occurs after evaluation, readd hooks in case of memory spike
-        sync_hook = _create_sync_hook(self.state)
-        if self.state.fsdp_enabled and len(self.automicrobatch_fsdp_hook_handles) == 0:
-            self.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(self.fsdp_modules, sync_hook)
-        self.num_consecutive_non_OOM_batches = 0
+        if self.state.auto_microbatching:
+            sync_hook = _create_sync_hook(self.state)
+            if self.state.fsdp_enabled and len(self.state.automicrobatch_fsdp_hook_handles) == 0:
+                self.state.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(self.state.fsdp_modules, sync_hook)
+            self.num_consecutive_non_OOM_batches = 0
 
     def _use_grad_scaling(self, precision: Union[str, Precision], scaler: Optional[GradScaler]) -> bool:
         """Determines based on precision when to use grad scaling.

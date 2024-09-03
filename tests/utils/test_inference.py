@@ -196,7 +196,7 @@ def test_huggingface_export_for_inference_onnx(onnx_opset_version, tiny_bert_con
         ort_session = ort.InferenceSession(save_path, providers=['CPUExecutionProvider'])
 
         for key, value in sample_input.items():
-            sample_input[key] = cpu_device.tensor_to_device(value).numpy()
+            sample_input[key] = cpu_device.tensor_to_device(value).numpy()  # type: ignore
 
         loaded_model_out = ort_session.run(None, sample_input)
 

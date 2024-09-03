@@ -31,7 +31,7 @@ from composer.models import ComposerClassifier
 from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
 from composer.utils import FSDPConfig, TPConfig, dist, parse_uri
-from composer.utils.checkpoint import is_checkpoint_legacy_sharded
+from composer.utils.checkpoint import dist_cp_load, is_checkpoint_legacy_sharded
 from composer.utils.file_helpers import get_file
 from composer.utils.object_store import S3ObjectStore
 from composer.utils.reproducibility import get_rng_state
@@ -315,12 +315,10 @@ def test_fsdp_full_state_dict_load(
     use_tp: bool,
     use_hsdp: bool,
 ):
-    if use_hsdp:
-        pytest.xfail('Known PyTorch issue with HSDP, waiting for pytorch patch')
+    if use_hsdp and version.parse(torch.__version__) < version.parse('2.4.0'):
+        pytest.xfail('HSDP requires torch 2.4.0 or later')
     if use_tp:
         pytest.skip('TP on PyTorch 2.3 has full state dict issues.')
-    if (use_tp or use_hsdp) and version.parse(torch.__version__) < version.parse('2.3.0'):
-        pytest.skip('HSDP and TP require torch 2.3.0 or later')
     if autoresume:
         run_name = 'my-cool-autoresume-run'
     else:
@@ -514,6 +512,7 @@ def test_fsdp_mixed_with_sync(
         '0.21.0',
         '0.22.0',
         '0.23.0',
+        '0.24.0',
     ],
 )
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
@@ -533,7 +532,8 @@ def test_fsdp_load_old_checkpoint(
     if composer_version == '0.18.1' and state_dict_type == 'full' and precision == 'amp_bf16' and sharding_strategy == 'FULL_SHARD':
         pytest.skip('TODO: This checkpoint is missing')
 
-    if composer_version in ['0.22.0', '0.23.0'] and version.parse(torch.__version__) < version.parse('2.3.0'):
+    if (composer_version in ['0.22.0', '0.23.0'] and version.parse(torch.__version__) < version.parse('2.3.0')
+       ) or (composer_version == '0.24.0' and version.parse(torch.__version__) < version.parse('2.4.0')):
         pytest.skip('Current torch version is older than torch version that checkpoint was written with.')
 
     if composer_version in ['0.13.5', '0.14.0', '0.14.1', '0.15.1']:
@@ -612,8 +612,6 @@ def test_fsdp_load_old_checkpoint(
                 fsdp_config=fsdp_config,
             )
 
-            from torch.distributed import checkpoint as dist_cp
-
             from composer.utils.checkpoint import DistCPObjectStoreReader
 
             _, _, parsed_load_path = parse_uri(load_path)
@@ -640,12 +638,10 @@ def test_fsdp_load_old_checkpoint(
             if optimizers_at_root:
                 state_dict['state'].pop('optimizers')
 
-            process_group = None
-            dist_cp.load_state_dict(
+            dist_cp_load(
                 state_dict=state_dict,
                 storage_reader=storage_reader,
-                planner=None,
-                process_group=process_group,
+                load_planner=None,
             )
             if optimizers_at_root:
                 from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
@@ -1143,17 +1139,40 @@ def test_fsdp_planner(
     from torch.distributed.checkpoint.default_planner import DefaultLoadPlanner, DefaultSavePlanner
     from torch.distributed.checkpoint.metadata import STATE_DICT_TYPE, Metadata
 
-    class RenameSavePlanner(DefaultSavePlanner):
+    if version.parse(torch.__version__) < version.parse('2.4.0'):
 
-        def set_up_planner(
-            self,
-            state_dict: STATE_DICT_TYPE,
-            is_coordinator: bool,
-        ) -> None:
-            # suffix all keys with `foo_``
-            state_dict['state']['model'] = {k + '_foo': v for k, v in state_dict['state']['model'].items()}
+        class RenameSavePlanner(DefaultSavePlanner):  # type: ignore
 
-            super().set_up_planner(state_dict, is_coordinator)
+            def set_up_planner(
+                self,
+                state_dict: STATE_DICT_TYPE,
+                is_coordinator: bool = False,
+            ) -> None:
+                # suffix all keys with `foo_``
+                state_dict['state']['model'] = {k + '_foo': v for k, v in state_dict['state']['model'].items()}
+
+                super().set_up_planner(
+                    state_dict=state_dict,
+                    is_coordinator=is_coordinator,
+                )
+    else:
+
+        class RenameSavePlanner(DefaultSavePlanner):  # type: ignore
+
+            def set_up_planner(
+                self,
+                state_dict: STATE_DICT_TYPE,
+                storage_meta=None,
+                is_coordinator: bool = False,
+            ) -> None:
+                # suffix all keys with `foo_``
+                state_dict['state']['model'] = {k + '_foo': v for k, v in state_dict['state']['model'].items()}
+
+                super().set_up_planner(
+                    state_dict=state_dict,
+                    storage_meta=storage_meta,
+                    is_coordinator=is_coordinator,
+                )
 
     class RenameLoadPlanner(DefaultLoadPlanner):
 
@@ -1164,7 +1183,11 @@ def test_fsdp_planner(
             is_coordinator: bool,
         ) -> None:
             if 'state' not in state_dict:
-                super().set_up_planner(state_dict, metadata, is_coordinator)
+                super().set_up_planner(
+                    state_dict=state_dict,
+                    metadata=metadata,
+                    is_coordinator=is_coordinator,
+                )
                 return
 
             self.original_state_dict = state_dict
@@ -1310,6 +1333,8 @@ def test_fsdp_monolith_resumption(
     resume_file = os.path.join(save_folder, 'first', resume_file)
     model_init_device = [model_1_init_device, model_2_init_device][dist.get_global_rank()]
     fsdp_config_dict = dataclasses.asdict(fsdp_config)
+    # Since device_mesh being passed to FSDPConfig is deprecated, remove it.
+    fsdp_config_dict.pop('_device_mesh', None)
     fsdp_config_dict['load_monolith_rank0_only'] = True
     fsdp_config = FSDPConfig(**fsdp_config_dict)
 

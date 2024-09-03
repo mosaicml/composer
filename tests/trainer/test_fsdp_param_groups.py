@@ -8,6 +8,7 @@ import torch
 from packaging import version
 from torch.utils.data import DataLoader
 
+from composer.optim import DecoupledSGDW
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, misc
 from tests.common import EmbeddedWeightTiedModel, RandomClassificationDataset, SimpleModel, device, world_size
@@ -73,7 +74,7 @@ def test_fsdp_with_param_groups(mixed_precision: str, device: str, reentrant: bo
 
     # create a different group per parameter
     param_groups = [{'params': param, 'lr': (0.1 + 0.1 * i)} for i, param in enumerate(model.parameters())]
-    optimizer = torch.optim.SGD(param_groups, lr=0)
+    optimizer = DecoupledSGDW(param_groups, lr=0)
 
     unwrapped_optimizer = copy.deepcopy(optimizer)
 
@@ -157,7 +158,7 @@ def test_fsdp_with_param_groups_with_subset_of_params_in_opt(
         'lr': 0.5,
     }]
 
-    optimizer = torch.optim.SGD(param_groups)
+    optimizer = DecoupledSGDW(params=param_groups, lr=1e-3)
     unwrapped_optimizer = copy.deepcopy(optimizer)
 
     optimizer_groups_pre_fsdp = optimizer.param_groups

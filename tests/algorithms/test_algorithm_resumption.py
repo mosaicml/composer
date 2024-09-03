@@ -4,7 +4,6 @@
 import copy
 import os
 import pathlib
-from typing import Type
 
 import pytest
 import torch
@@ -26,7 +25,7 @@ from tests.common.markers import world_size
 @world_size(1, 2)
 def test_algorithm_resumption(
     tmp_path: pathlib.Path,
-    alg_cls: Type[Algorithm],
+    alg_cls: type[Algorithm],
     world_size,
 ):
     folder1 = os.path.join(tmp_path, 'folder1')
