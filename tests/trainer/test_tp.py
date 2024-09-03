@@ -7,7 +7,7 @@ from packaging import version
 from torch.utils.data import DataLoader
 
 from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_context
-from composer.utils import reproducibility
+from composer.utils import reproducibility, FSDPConfig, TPConfig
 from composer.callbacks import MemoryMonitor
 from composer.loggers import InMemoryLogger
 from composer.trainer.trainer import Trainer
@@ -41,10 +41,7 @@ def test_tp_train(world_size: int):
         model=model,
         train_dataloader=dataloader,
         parallelism_config={
-            'tp': {
-                'layer_plan': layer_plan,
-                'tensor_parallel_degree': 2,
-            },
+            'tp': TPConfig(layer_plan=layer_plan, tensor_parallel_degree=2),
             'fsdp': {},
         },
         max_duration='3ba',
@@ -84,10 +81,7 @@ def test_tp_with_param_groups(world_size: int):
             optimizers=optimizer,
             train_dataloader=dataloader,
             parallelism_config={
-                'tp': {
-                    'layer_plan': layer_plan,
-                    'tensor_parallel_degree': 2,
-                },
+                'tp': TPConfig(layer_plan=layer_plan, tensor_parallel_degree=2),
                 'fsdp': {},
             },
             max_duration='3ba',
@@ -118,10 +112,7 @@ def test_tp_with_subset_of_params(world_size: int):
             optimizers=optimizer,
             train_dataloader=dataloader,
             parallelism_config={
-                'tp': {
-                    'layer_plan': layer_plan,
-                    'tensor_parallel_degree': 2,
-                },
+                'tp': TPConfig(layer_plan=layer_plan, tensor_parallel_degree=2),
                 'fsdp': {},
             },
             max_duration='3ba',
@@ -168,7 +159,7 @@ def test_tp_forward(world_size: int):
 
     # FSDP + TP
     layer_plan = {'fc1': ColwiseParallel(), 'fc2': RowwiseParallel()}
-    tp_config = {'layer_plan': layer_plan, 'tensor_parallel_degree': 2}
+    tp_config = TPConfig(layer_plan=layer_plan, tensor_parallel_degree=2)
     parallelism_config = {'fsdp': fsdp_config, 'tp': tp_config}
     trainer_fsdp_tp = get_trainer(parallelism_config=parallelism_config)
     out_fsdp_tp = torch.stack(trainer_fsdp_tp.predict(trainer_fsdp_tp.state.train_dataloader, subset_num_batches=1))
@@ -209,13 +200,12 @@ def test_tp_init_params(world_size: int):
     state_ddp = trainer_ddp.state.state_dict()
 
     # FSDP
-    fsdp_config = {'state_dict_type': 'sharded'} # {'data_parallel_shard_degree': 2}
+    fsdp_config = FSDPConfig(state_dict_type='sharded') # {'data_parallel_shard_degree': 2}
     trainer_fsdp = get_trainer(parallelism_config={'fsdp': fsdp_config})
-    state_dict_fsdp = get_mono_state_dict_from_sharded_one(trainer_fsdp)
 
     # FSDP + TP
     layer_plan = {'fc1': ColwiseParallel(), 'fc2': RowwiseParallel()}
-    tp_config = {'layer_plan': layer_plan, 'tensor_parallel_degree': 2}
+    tp_config = TPConfig(layer_plan=layer_plan, tensor_parallel_degree=2)
     parallelism_config = {'fsdp': fsdp_config, 'tp': tp_config}
     trainer_fsdp_tp = get_trainer(parallelism_config=parallelism_config)
     state_dict_fsdp_tp = get_mono_state_dict_from_sharded_one(trainer_fsdp_tp)
