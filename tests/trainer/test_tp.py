@@ -4,7 +4,6 @@
 import pytest
 import torch
 from packaging import version
-from torch.utils.data import DataLoader
 
 from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_context
 from composer.utils import reproducibility, FSDPConfig, TPConfig
@@ -16,10 +15,12 @@ from tests.common import (
     RandomClassificationDataset,
     SimpleModel,
     SimpleComposerMLP,
-    SimpleDataset,
     world_size,
 )
 from tests.trainer.test_fsdp_checkpoint import _compare_model_params_between_state_dicts
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.utils.data import DataLoader
+
 
 @pytest.mark.gpu
 @world_size(4)
@@ -204,6 +205,12 @@ def test_tp_init_params(world_size: int):
     fsdp_config = FSDPConfig(state_dict_type='sharded') # {'data_parallel_shard_degree': 2}
     trainer_fsdp = get_trainer(parallelism_config={'fsdp': fsdp_config})
     state_dict_fsdp = get_mono_state_dict_from_sharded_one(trainer_fsdp)
+
+    # with FSDP.summon_full_params(trainer_fsdp.state.model):
+    #     pass
+
+    # with trainer_fsdp.state.model.module.summon_full_params(trainer_fsdp.state.model.module):  # type: ignore
+    #     pass
 
     # FSDP + TP
     layer_plan = {'fc1': ColwiseParallel(), 'fc2': RowwiseParallel()}
