@@ -231,7 +231,7 @@ def _main():
         if not cuda_version or interconnect == 'EFA':
             entry['MOFED_VERSION'] = ''
         else:
-            entry['MOFED_VERSION'] = 'latest-23.10'
+            entry['MOFED_VERSION'] = 'latest-24.07'
 
         # Skip EFA drivers if not using EFA
         if interconnect != 'EFA':
