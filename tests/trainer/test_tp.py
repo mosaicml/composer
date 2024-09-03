@@ -6,6 +6,7 @@ import torch
 from packaging import version
 from torch.utils.data import DataLoader
 
+from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_context
 from composer.utils import reproducibility
 from composer.callbacks import MemoryMonitor
 from composer.loggers import InMemoryLogger
@@ -18,6 +19,7 @@ from tests.common import (
     SimpleDataset,
     world_size,
 )
+from tests.trainer.test_fsdp_checkpoint import _compare_model_params_between_state_dicts
 
 
 @pytest.mark.gpu
@@ -127,6 +129,21 @@ def test_tp_with_subset_of_params(world_size: int):
         )
 
 
+def get_mono_state_dict_from_sharded_one(trainer):
+        state_dict = trainer.state.state_dict()
+        state_dict.pop('optimizers')
+        state_dict.pop('model')
+
+        # Add in unsharded model params.
+        with fsdp_state_dict_type_context(trainer.state.model, state_dict_type='full'):
+            state_dict['model'] = trainer.state.model.state_dict()
+
+        optimizer = trainer.state.optimizers[0]
+        state_dict['optimizers'] = {
+            type(optimizer).__qualname__:
+                fsdp_get_optim_state_dict(trainer.state.model, optimizer, state_dict_type='full'),
+        }
+        return state_dict
 
 
 @pytest.mark.gpu
@@ -135,10 +152,12 @@ def test_tp_with_subset_of_params(world_size: int):
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 def test_tp_correctness(world_size: int):
     from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
+    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+    import torch.distributed._tensor as dt
     import icecream
     icecream.install()
 
-    def train_and_fit(parallelism_config):
+    def get_trainer(parallelism_config):
         """Train a simple model with different parallelism_configs."""
         num_features, num_classes, batch_size, size, seed = 64, 10, 8, 32, 42
         reproducibility.seed_all(seed)
@@ -157,29 +176,84 @@ def test_tp_correctness(world_size: int):
             callbacks=[MemoryMonitor()],
             loggers=[InMemoryLogger()],
             )
-        trainer.fit()
-        ic(dataset.y)
+        return trainer
+        # trainer.fit()
+        # ic(dataset.y)
 
-        log = trainer.logger.destinations[0].most_recent_values
+        parameters = model.named_parameters()
+        # if parallelism_config:
+        #     from torch.distributed.fsdp import FullStateDictConfig, StateDictType
+        #     save_policy = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
+        #     with FSDP.state_dict_type(trainer.state.model, StateDictType.FULL_STATE_DICT, save_policy):
+        #         parameters = model.named_parameters()
+
+        # # log = trainer.logger.destinations[0].most_recent_values
+        # with FSDP.summon_full_params(model):
+        #     parameters = trainer.state.model.named_parameters()
+        #     parameters = {name: param.clone() for name, param in parameters}
+
+        # with trainer.state.model.module.summon_full_params(trainer.state.model.module):  # type: ignore
+        #     parameters = trainer.state.model.named_parameters()
+        #     parameters = {name: param.clone() for name, param in parameters.items()}
+
         stats = {
-            'loss':log['loss/train/total'],
-            'accuracy': log['metrics/train/MulticlassAccuracy'].item(),
-            'peak_memory': log['memory/peak_reserved_mem'],
-            'parameters': trainer.state.model.parameters(),
+            # 'loss':log['loss/train/total'],
+            # 'accuracy': log['metrics/train/MulticlassAccuracy'].item(),
+            # 'peak_memory': log['memory/peak_reserved_mem'],
+            # 'parameters': FSDP.unwrap_module(trainer.state.model).named_parameters(),
+            "parameters": parameters,
         }
         return stats
 
     # DDP
-    stats_ddp = train_and_fit(parallelism_config=None)
-    ic(stats_ddp)
+    trainer_ddp = get_trainer(parallelism_config=None)
+    out_ddp = torch.stack(trainer_ddp.predict(trainer_ddp.state.train_dataloader, subset_num_batches=1))
+
+    # FSDP
+    fsdp_config = {'state_dict_type': 'sharded'} # {'data_parallel_shard_degree': 2}
+    trainer_fsdp = get_trainer(parallelism_config={'fsdp': fsdp_config})
+    out_fsdp = torch.stack(trainer_fsdp.predict(trainer_fsdp.state.train_dataloader, subset_num_batches=1))
 
     # FSDP + TP
     layer_plan = {'fc1': ColwiseParallel(), 'fc2': RowwiseParallel()}
     tp_config = {'layer_plan': layer_plan, 'tensor_parallel_degree': 2}
-    parallelism_config = {'fsdp': {}, 'tp': tp_config}
-    stats_fsdp_tp = train_and_fit(parallelism_config=parallelism_config)
-    ic(stats_fsdp_tp)
+    fsdp_config = {'state_dict_type': 'sharded'} # fsdp_config = {}
+    parallelism_config = {'fsdp': fsdp_config, 'tp': tp_config}
+    trainer_fsdp_tp = get_trainer(parallelism_config=parallelism_config)
+    out_fsdp_tp = torch.stack(trainer_fsdp_tp.predict(trainer_fsdp_tp.state.train_dataloader, subset_num_batches=1))
 
+    assert out_ddp.shape == out_fsdp.shape == out_fsdp_tp.shape
+    assert torch.allclose(out_ddp, out_fsdp)
+    assert torch.allclose(out_ddp, out_fsdp_tp), f"Outputs have different values: {out_ddp=} and {out_fsdp_tp=}"
+
+    # FSDP
+    # fsdp_config = {'state_dict_type': 'sharded'} # {'data_parallel_shard_degree': 2}
+    # trainer_fsdp = get_trainer(parallelism_config={'fsdp': fsdp_config})
+    # state_dict_fsdp = get_mono_state_dict_from_sharded_one(trainer_fsdp)
+
+    # if dist.get_global_rank() == 0:
+    #     ic(state_dict_fsdp.keys())
+    #     ic(state_dict_ddp.keys())
+
+    #     _compare_model_params_between_state_dicts(
+    #         state_dict_ddp,
+    #         state_dict_fsdp,
+    #     )
+
+    # FSDP + TP
+    # layer_plan = {'fc1': ColwiseParallel(), 'fc2': RowwiseParallel()}
+    # tp_config = {'layer_plan': layer_plan, 'tensor_parallel_degree': 2}
+    # fsdp_config = {} # {'data_parallel_shard_degree': 2}
+    # parallelism_config = {'fsdp': fsdp_config, 'tp': tp_config}
+    # trainer_fsdp_tp = get_trainer(parallelism_config=parallelism_config)
+    # state_dict_fsdp_tp = get_mono_state_dict_from_sharded_one(trainer_fsdp_tp)
+
+    # for (name1, param1), (name2, param2) in zip(stats_ddp['parameters'], stats_fsdp_tp['parameters']):
+    #     ic(type(param1), type(param2))
+    #     ic(param1.shape, param2.shape)
+    #     ic(param1, param2)
+    #     assert param1.shape == param2.shape, f"Tensors have different shapes: {param1.shape=} and {param2.shape=}"
+    #     assert torch.equal(param1, param2), f"Tensors have different values: {param1=} and {param2=}"
 
 #    # forward pass with FSDP and no TP
 #    model_fsdp, dataloader_fsdp = _helper()
