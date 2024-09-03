@@ -19,7 +19,6 @@ from tests.common import (
     SimpleDataset,
     world_size,
 )
-from tests.trainer.test_fsdp_checkpoint import _compare_model_params_between_state_dicts
 
 
 @pytest.mark.gpu
