@@ -19,7 +19,7 @@ from tests.common import (
     SimpleDataset,
     world_size,
 )
-
+from tests.trainer.test_fsdp_checkpoint import _compare_model_params_between_state_dicts
 
 @pytest.mark.gpu
 @world_size(4)
@@ -128,22 +128,26 @@ def test_tp_with_subset_of_params(world_size: int):
         )
 
 
-def get_mono_state_dict_from_sharded_one(trainer):
-        state_dict = trainer.state.state_dict()
-        state_dict.pop('optimizers')
-        state_dict.pop('model')
+def get_trainer(parallelism_config):
+    """Trainer for a simple model with any parallelism_config."""
+    num_features, num_classes, batch_size, size, seed = 64, 3, 8, 32, 42
+    reproducibility.seed_all(seed)
 
-        # Add in unsharded model params.
-        with fsdp_state_dict_type_context(trainer.state.model, state_dict_type='full'):
-            state_dict['model'] = trainer.state.model.state_dict()
+    dataset = RandomClassificationDataset(shape=(num_features,), num_classes=num_classes, size=size) # X=(num_features,), y=(,), i.e. scalar
+    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=batch_size) # X=(batch_size, num_features), y=(batch_size,)
+    model = SimpleComposerMLP(num_features=num_features, device='cuda', num_classes=num_classes)
 
-        optimizer = trainer.state.optimizers[0]
-        state_dict['optimizers'] = {
-            type(optimizer).__qualname__:
-                fsdp_get_optim_state_dict(trainer.state.model, optimizer, state_dict_type='full'),
-        }
-        return state_dict
-
+    trainer = Trainer(
+        seed=seed,
+        device='gpu',
+        model=model,
+        max_duration='1ba',
+        train_dataloader=dataloader,
+        parallelism_config=parallelism_config,
+        callbacks=[MemoryMonitor()],
+        loggers=[InMemoryLogger()],
+        )
+    return trainer
 
 @pytest.mark.gpu
 @world_size(4)
@@ -152,27 +156,6 @@ def get_mono_state_dict_from_sharded_one(trainer):
 def test_tp_forward(world_size: int):
     """Test that the forward pass with DDP, FSDP, FSDP + TP all match."""
     from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
-
-    def get_trainer(parallelism_config):
-        """Train a simple model with different parallelism_configs."""
-        num_features, num_classes, batch_size, size, seed = 64, 3, 8, 32, 42
-        reproducibility.seed_all(seed)
-
-        dataset = RandomClassificationDataset(shape=(num_features,), num_classes=num_classes, size=size) # X=(num_features,), y=(,), i.e. scalar
-        dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=batch_size) # X=(batch_size, num_features), y=(batch_size,)
-        model = SimpleComposerMLP(num_features=num_features, device='cuda', num_classes=num_classes)
-
-        trainer = Trainer(
-            seed=seed,
-            device='gpu',
-            model=model,
-            max_duration='1ba',
-            train_dataloader=dataloader,
-            parallelism_config=parallelism_config,
-            callbacks=[MemoryMonitor()],
-            loggers=[InMemoryLogger()],
-            )
-        return trainer
 
     # DDP
     trainer_ddp = get_trainer(parallelism_config=None)
@@ -194,3 +177,52 @@ def test_tp_forward(world_size: int):
     assert torch.allclose(out_ddp, out_fsdp), f"Outputs have different values: {out_ddp=} and {out_fsdp=}"
     with pytest.raises(Exception):
         assert torch.allclose(out_ddp, out_fsdp_tp), f"Outputs have different values: {out_ddp=} and {out_fsdp_tp=}"
+
+# from https://github.com/mosaicml/composer/blob/ce0bffe0bcbfbf290d1a670c465c870806138bcd/tests/trainer/test_fsdp_checkpoint.py#L1036
+def get_mono_state_dict_from_sharded_one(trainer):
+        state_dict = trainer.state.state_dict()
+        state_dict.pop('optimizers')
+        state_dict.pop('model')
+
+        # Add in unsharded model params.
+        with fsdp_state_dict_type_context(trainer.state.model, state_dict_type='full'):
+            state_dict['model'] = trainer.state.model.state_dict()
+
+        optimizer = trainer.state.optimizers[0]
+        state_dict['optimizers'] = {
+            type(optimizer).__qualname__:
+                fsdp_get_optim_state_dict(trainer.state.model, optimizer, state_dict_type='full'),
+        }
+        return state_dict
+
+
+@pytest.mark.gpu
+@world_size(4)
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='Requires PyTorch 2.3+')
+@pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
+def test_tp_init_params(world_size: int):
+    """Test that models with DDP, FSDP, FSDP + TP all have the same weights after initilization."""
+    from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
+
+    # DDP
+    trainer_ddp = get_trainer(parallelism_config=None)
+    state_ddp = trainer_ddp.state.state_dict()
+
+    # FSDP
+    fsdp_config = {'state_dict_type': 'sharded'} # {'data_parallel_shard_degree': 2}
+    trainer_fsdp = get_trainer(parallelism_config={'fsdp': fsdp_config})
+    state_dict_fsdp = get_mono_state_dict_from_sharded_one(trainer_fsdp)
+
+    # FSDP + TP
+    layer_plan = {'fc1': ColwiseParallel(), 'fc2': RowwiseParallel()}
+    tp_config = {'layer_plan': layer_plan, 'tensor_parallel_degree': 2}
+    parallelism_config = {'fsdp': fsdp_config, 'tp': tp_config}
+    trainer_fsdp_tp = get_trainer(parallelism_config=parallelism_config)
+    state_dict_fsdp_tp = get_mono_state_dict_from_sharded_one(trainer_fsdp_tp)
+
+    # from https://github.com/mosaicml/composer/blob/ce0bffe0bcbfbf290d1a670c465c870806138bcd/tests/trainer/test_fsdp_checkpoint.py#L1057
+    # We are comparing full state dicts (all optim and model parameters are gathered on only rank 0)
+    # so we only need to compare on rank 0. Comparing on other ranks may cause errors because some state_dicts will be empty.
+    if dist.get_global_rank() == 0:
+        _compare_model_params_between_state_dicts(state_ddp, state_dict_fsdp)
+        _compare_model_params_between_state_dicts(state_ddp, state_dict_fsdp_tp)
