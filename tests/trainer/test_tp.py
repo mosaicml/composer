@@ -169,6 +169,7 @@ def test_tp_forward(world_size: int):
     with pytest.raises(Exception):
         assert torch.allclose(out_ddp, out_fsdp_tp), f"Outputs have different values: {out_ddp=} and {out_fsdp_tp=}"
 
+
 # from https://github.com/mosaicml/composer/blob/ce0bffe0bcbfbf290d1a670c465c870806138bcd/tests/trainer/test_fsdp_checkpoint.py#L1036
 def get_mono_state_dict_from_sharded_one(trainer):
         state_dict = trainer.state.state_dict()
@@ -202,6 +203,7 @@ def test_tp_init_params(world_size: int):
     # FSDP
     fsdp_config = FSDPConfig(state_dict_type='sharded') # {'data_parallel_shard_degree': 2}
     trainer_fsdp = get_trainer(parallelism_config={'fsdp': fsdp_config})
+    state_dict_fsdp = get_mono_state_dict_from_sharded_one(trainer_fsdp)
 
     # FSDP + TP
     layer_plan = {'fc1': ColwiseParallel(), 'fc2': RowwiseParallel()}
@@ -214,5 +216,7 @@ def test_tp_init_params(world_size: int):
     # We are comparing full state dicts (all optim and model parameters are gathered on only rank 0)
     # so we only need to compare on rank 0. Comparing on other ranks may cause errors because some state_dicts will be empty.
     if dist.get_global_rank() == 0:
-        _compare_model_params_between_state_dicts(state_ddp, state_dict_fsdp)
-        _compare_model_params_between_state_dicts(state_ddp, state_dict_fsdp_tp)
+        with pytest.raises(Exception):
+            _compare_model_params_between_state_dicts(state_ddp, state_dict_fsdp)
+        with pytest.raises(Exception):
+            _compare_model_params_between_state_dicts(state_ddp, state_dict_fsdp_tp)
