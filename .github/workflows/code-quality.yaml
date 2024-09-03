@@ -34,7 +34,7 @@ jobs:
       uses: actions/checkout@v3
       with:
         repository: mosaicml/ci-testing
-        ref: 53965d9417983a49003182cfca64286b448f80b3
+        ref: a4cdd8b21b00adb8c9e13f9e7f56aa0f858072dd
         path: ./ci-testing
     - uses: ./ci-testing/.github/actions/code-quality
       with:

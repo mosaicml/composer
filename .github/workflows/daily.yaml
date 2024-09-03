@@ -165,7 +165,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
     - name: Run PR GPU Tests
-      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@53965d9417983a49003182cfca64286b448f80b3
+      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@a4cdd8b21b00adb8c9e13f9e7f56aa0f858072dd
       with:
         name: ${{ matrix.name }}
         composer_package_name: ${{ matrix.composer_package_name }}
@@ -179,4 +179,4 @@ jobs:
         gpu_num: ${{ matrix.gpu_num }}
         mcloud_api_key: ${{ secrets.MCLOUD_DAILY_API_KEY }}
         gha_timeout: 5400
-        ci_repo_gpu_test_ref: 53965d9417983a49003182cfca64286b448f80b3
+        ci_repo_gpu_test_ref: a4cdd8b21b00adb8c9e13f9e7f56aa0f858072dd
