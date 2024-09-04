@@ -318,7 +318,7 @@ def test_fsdp_full_state_dict_load(
     if use_hsdp and version.parse(torch.__version__) < version.parse('2.4.0'):
         pytest.xfail('HSDP requires torch 2.4.0 or later')
     if use_tp and version.parse(torch.__version__) < version.parse('2.4.0'):
-        pytest.skip('TP on PyTorch 2.3 has full state dict issues.')
+        pytest.skip('TP has full state dict issues before PyTorch 2.4.')
     if autoresume:
         run_name = 'my-cool-autoresume-run'
     else:
@@ -839,7 +839,7 @@ def test_fsdp_partitioned_state_dict_load(
     request,
 ):
     if use_tp and version.parse(torch.__version__) < version.parse('2.4.0'):
-        pytest.skip('TP on PyTorch 2.3 has sharded state dict issues.')
+        pytest.skip('TP has full state dict issues before PyTorch 2.4.')
     if weights_only and autoresume:
         pytest.skip('Weights only with autoresume is not supported')
     if (use_tp or use_hsdp) and version.parse(torch.__version__) < version.parse('2.3.0'):
