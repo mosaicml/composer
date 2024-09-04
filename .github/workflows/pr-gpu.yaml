@@ -24,7 +24,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
     - name: Run PR GPU Tests
-      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.1.2
+      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.2.2
       with:
         name: ${{ matrix.name }}
         composer_package_name: ${{ matrix.composer_package_name }}
@@ -34,10 +34,10 @@ jobs:
         pip_deps: "[all]"
         pytest_command: ${{ matrix.pytest_command }}
         pytest_markers: ${{ matrix.markers }}
-        python_version: 3.9
+        python_version: 3.11
         gpu_num: 1
         mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
-        ci_repo_gpu_test_ref: v0.1.2
+        ci_repo_gpu_test_ref: v0.2.2
   pytest-gpu-2:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
@@ -54,7 +54,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
     - name: Run PR GPU Tests
-      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.1.2
+      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.2.2
       with:
         name: ${{ matrix.name }}
         composer_package_name: ${{ matrix.composer_package_name }}
@@ -64,10 +64,10 @@ jobs:
         pip_deps: "[all]"
         pytest_command: ${{ matrix.pytest_command }}
         pytest_markers: ${{ matrix.markers }}
-        python_version: 3.9
+        python_version: 3.11
         gpu_num: 2
         mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
-        ci_repo_gpu_test_ref: v0.1.2
+        ci_repo_gpu_test_ref: v0.2.2
   pytest-gpu-4:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
@@ -84,7 +84,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
     - name: Run PR GPU Tests
-      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.1.2
+      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.2.2
       with:
         name: ${{ matrix.name }}
         composer_package_name: ${{ matrix.composer_package_name }}
@@ -94,7 +94,7 @@ jobs:
         pip_deps: "[all]"
         pytest_command: ${{ matrix.pytest_command }}
         pytest_markers: ${{ matrix.markers }}
-        python_version: 3.9
+        python_version: 3.11
         gpu_num: 4
         mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
-        ci_repo_gpu_test_ref: v0.1.2
+        ci_repo_gpu_test_ref: v0.2.2
