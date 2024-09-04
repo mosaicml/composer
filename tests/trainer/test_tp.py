@@ -153,28 +153,36 @@ def test_tp_forward(world_size: int):
 
     # DDP
     trainer_ddp = get_trainer(parallelism_config=None)
-    # batch = next(iter(trainer_ddp.state.train_dataloader))
-    # out_ddp = trainer_ddp.state.model.forward(batch)
 
     # FSDP
-    fsdp_config = FSDPConfig(state_dict_type='full') # data_parallel_shard_degree=2)
+    fsdp_config = FSDPConfig(state_dict_type='full', sharding_strategy='SHARD_GRAD_OP') # data_parallel_shard_degree=2)
     trainer_fsdp = get_trainer(parallelism_config={'fsdp': fsdp_config})
-    # batch = next(iter(trainer_fsdp.state.train_dataloader))
-    # out_fsdp = trainer_fsdp.state.model.forward(batch)
 
     # FSDP + TP
     layer_plan = {'fc1': ColwiseParallel(), 'fc2': RowwiseParallel()}
     tp_config = TPConfig(layer_plan=layer_plan, tensor_parallel_degree=2)
     parallelism_config = {'fsdp': fsdp_config, 'tp': tp_config}
     trainer_fsdp_tp = get_trainer(parallelism_config=parallelism_config)
-    # batch = next(iter(trainer_fsdp_tp.state.train_dataloader))
-    # out_fsdp_tp = trainer_fsdp_tp.state.model.forward(batch)
 
-    with trainer_fsdp.state.model.module.summon_full_params(trainer_fsdp.state.model.module):
-        with trainer_fsdp_tp.state.model.module.summon_full_params(trainer_fsdp_tp.state.model.module):
-            ic(trainer_fsdp.state.state_dict()['model'].keys())
-            ic(trainer_ddp.state.state_dict()['model'].keys())
-            assert trainer_fsdp.state.state_dict()['model'] == trainer_ddp.state.state_dict()['model']
+    def _forward(trainer):
+        batch= next(iter(trainer.state.train_dataloader))
+        output = trainer_ddp.state.model.forward(batch)
+        return output
+
+    if dist.get_global_rank() == 0:
+        with trainer_fsdp.state.model.module.summon_full_params(trainer_fsdp.state.model.module):
+            with trainer_fsdp_tp.state.model.module.summon_full_params(trainer_fsdp_tp.state.model.module):
+
+                # out_ddp = _forward(trainer_ddp)
+                # out_fsdp = _forward(trainer_fsdp)
+                # out_fsdp_tp = _forward(trainer_fsdp_tp)
+
+                ic(trainer_fsdp.state.state_dict()['model'].keys())
+                ic(trainer_ddp.state.state_dict()['model'].keys())
+
+                ic(trainer_fsdp.state.state_dict()['model'])
+                ic(trainer_ddp.state.state_dict()['model'])
+                assert trainer_fsdp.state.state_dict()['model'] == trainer_ddp.state.state_dict()['model']
 
     # # torch.testing.assert_close(param_ddp, param_fsdp)
     # assert out_ddp.shape == out_fsdp.shape == out_fsdp_tp.shape, f"Outputs have different shapes: {out_ddp.shape=}, {out_fsdp.shape=}, {out_fsdp_tp.shape=}"
