@@ -601,7 +601,7 @@ class MLFlowLogger(LoggerDestination):
                 assert isinstance(self._run_id, str)
                 self._mlflow_client.log_image(
                     image=image,
-                    key=f'{name}_{step}_{im_ind}',
+                    key=f'{name}_{im_ind}',
                     run_id=self._run_id,
                     step=step,
                 )
