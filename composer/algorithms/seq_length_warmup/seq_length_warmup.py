@@ -292,6 +292,8 @@ class SeqLengthWarmup(Algorithm):
         while True:
             model_inputs = {k: v[:state.device_train_microbatch_size] for k, v in batch_clone.items()}
 
+            model_inputs = state.device.batch_to_device(model_inputs)
+
             found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
             try:
                 # Start by running a forward and backward pass

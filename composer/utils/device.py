@@ -30,7 +30,7 @@ def get_device(device: Optional[Union[str, 'Device']] = None) -> 'Device':
     """
     from composer.devices import DeviceCPU, DeviceGPU, DeviceHPU, DeviceMPS, DeviceNeuron, DeviceTPU
 
-    if not device:
+    if device is None:
         device = DeviceGPU() if torch.cuda.is_available() else DeviceCPU()
     elif isinstance(device, str):
         if device.lower() == 'cpu':
