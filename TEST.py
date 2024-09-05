@@ -41,6 +41,11 @@ from tests.trainer.test_checkpoint import TestCheckpointResumption, _assert_chec
 
 
 from tests.trainer.test_fsdp_checkpoint import _compare_model_params_between_state_dicts, _compare_optims_between_state_dicts, _compare_metrics_between_state_dicts, get_trainer
+from icecream import install
+from icecream import ic
+
+install()
+ic.configureOutput(includeContext=True)
 
 def test_1(use_tp: bool):
 
@@ -104,6 +109,7 @@ def test_1(use_tp: bool):
         assert trainer1.state.tp_config is not None
         assert isinstance(trainer1.state.tp_config, TPConfig)
 
+    ic('Before trainer 1 fit')
     print('Before trainer 1 fit')
     trainer1.fit()
     print('After trainer 1 fit')
@@ -146,9 +152,9 @@ def test_1(use_tp: bool):
 
 
 if __name__ == '__main__':
-    print('*'*70, '\nuse_tp=False\n', '*'*70)
-    test_1(use_tp=False)
-    print('*'*70, '\nDone\n', '*'*70)
+    # print('*'*70, '\nuse_tp=False\n', '*'*70)
+    # test_1(use_tp=False)
+    # print('*'*70, '\nDone\n', '*'*70)
 
     print('*'*70, '\nuse_tp=True\n', '*'*70)
     test_1(use_tp=True)

@@ -260,7 +260,7 @@ class Engine():
             traces (Traces): Ordered dictionary of trace for each algorithm.
         """
         duration_marker = None
-        event = Event(event)
+        event = ic(Event(event))
 
         self._debug_log(event, 'Running event')
 

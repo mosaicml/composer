@@ -2667,7 +2667,6 @@ class Trainer:
                     self.state.batch = fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
                 self.engine.run_event(Event.AFTER_DATALOADER)
-
                 self.engine.run_event(Event.BATCH_START)
 
                 # Log time values
@@ -2736,8 +2735,9 @@ class Trainer:
                 duration = datetime.datetime.now() - last_wct
                 self._run_evaluators(Event.BATCH_END)
                 last_wct = datetime.datetime.now() - duration
-
+                ic('before')
                 self.engine.run_event(Event.BATCH_CHECKPOINT)
+                ic('after')
 
                 if (
                     self.state.timestamp >= self.state.max_duration or (
