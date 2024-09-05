@@ -461,7 +461,7 @@ def all_gather_object(obj: TObj, group=None) -> list[TObj]:
             all_gather_object_list_hpu(obj_gather_list, obj, group=group)
         else:
             ic('before all_gather_object')
-            ic(obj_gather_list, obj, group)
+            ic(obj_gather_list, obj.keys(), group)
             dist.all_gather_object(obj_gather_list, obj, group=group)
             ic('after all_gather_object')
         # torch.distributed will replace the None's in obj_gather_list with the gathered objects on rank 0

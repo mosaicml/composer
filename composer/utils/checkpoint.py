@@ -1156,7 +1156,7 @@ def _save_checkpoint(
         ignore_keys(state_dict)
         # Ensure state exists
         state_dict['state'] = state_dict.get('state', {})
-    ic('see')
+
     if state.fsdp_sharded_state_dict_enabled and not weights_only:
         # Only rank 0 saves RNG
         if dist.get_global_rank() > 0:
