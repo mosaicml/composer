@@ -1132,7 +1132,6 @@ def _save_checkpoint(
 ) -> Union[str, None]:  # noqa: D103
 
     is_deepspeed = is_model_deepspeed(state.model)
-
     if weights_only and not is_deepspeed:
         state_dict = {
             'state': {
@@ -1142,10 +1141,12 @@ def _save_checkpoint(
             },
         }
     else:
+        ic('before reproducibility.get_rng_state()')
         state_dict = {
             'state': state.state_dict(),
             'rng': reproducibility.get_rng_state(),
         }
+        ic('after reproducibility.get_rng_state()')
 
     if ignore_keys:
         # Filter provided list of key paths
@@ -1155,7 +1156,7 @@ def _save_checkpoint(
         ignore_keys(state_dict)
         # Ensure state exists
         state_dict['state'] = state_dict.get('state', {})
-
+    ic('see')
     if state.fsdp_sharded_state_dict_enabled and not weights_only:
         # Only rank 0 saves RNG
         if dist.get_global_rank() > 0:

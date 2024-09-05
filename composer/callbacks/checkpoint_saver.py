@@ -396,10 +396,12 @@ class CheckpointSaver(Callback):  # noqa: D101
     def batch_checkpoint(self, state: State, logger: Logger):
         assert callable(self.save_interval)
         if self.save_interval(state, Event.BATCH_CHECKPOINT) and self.last_checkpoint_batch != state.timestamp.batch:
+            ic('before _save_checkpoint')
             self._save_checkpoint(
                 state,
                 logger,
             )
+            ic('after _save_checkpoint')
 
     def epoch_checkpoint(self, state: State, logger: Logger):
         assert callable(self.save_interval)
@@ -472,12 +474,14 @@ class CheckpointSaver(Callback):  # noqa: D101
         # Store before saving so state_dict in checkpoint has reference to latest checkpoint (itself)
         self.all_saved_checkpoints_to_timestamp[save_filename] = state.timestamp
 
+        ic('before checkpoint.save_checkpoint')
         saved_path = checkpoint.save_checkpoint(
             state=state,
             filename=filename_with_placeholders,
             weights_only=self.weights_only,
             ignore_keys=self.ignore_keys,
         )
+        ic('after checkpoint.save_checkpoint')
         log.debug(f'Checkpoint locally saved to {saved_path}')
 
         self.symlink_count += 1

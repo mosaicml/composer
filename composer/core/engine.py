@@ -260,7 +260,7 @@ class Engine():
             traces (Traces): Ordered dictionary of trace for each algorithm.
         """
         duration_marker = None
-        event = ic(Event(event))
+        event = Event(event)
 
         self._debug_log(event, 'Running event')
 
@@ -298,9 +298,11 @@ class Engine():
             traces = self._run_algorithms(event)
         else:
             traces = self._run_algorithms(event)
+            ic('before _run_nonlogger_callbacks')
             # Run callbacks first, so any log calls from a callback that are executed lazily
             # get registered before they are flushed by the logger itself.
             self._run_nonlogger_callbacks(event)
+            ic('after _run_nonlogger_callbacks')
             self._run_loggers(event)
 
         if event.is_before_event and duration_marker is not None:
@@ -479,6 +481,7 @@ class Engine():
 
         for cb in callbacks:
             marker = None
+            ic(event, cb)
             if self.state.profiler is not None:
                 marker = self.state.profiler.marker(
                     f'callback/{cb.__class__.__name__}/event/{event.value}',
@@ -490,7 +493,12 @@ class Engine():
             ctx = cast(ContextManager, contextlib.nullcontext()) if marker is None else marker
             with ctx:
                 self._debug_log(event, f'Running callback {type(cb).__name__}')
+                import composer
+                if isinstance(cb, composer.callbacks.checkpoint_saver.CheckpointSaver) and isinstance(event, Event.BATCH_CHECKPOINT):
+                    ic('before', event, cb)
                 cb.run_event(event, self.state, self.logger)
+                if isinstance(cb, composer.callbacks.checkpoint_saver.CheckpointSaver) and isinstance(event, Event.BATCH_CHECKPOINT):
+                    ic('after', event, cb)
 
     def _run_loggers(self, event: Union[Event, str]):
         loggers = [callback for callback in self.state.callbacks if isinstance(callback, LoggerDestination)]

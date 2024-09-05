@@ -2735,9 +2735,9 @@ class Trainer:
                 duration = datetime.datetime.now() - last_wct
                 self._run_evaluators(Event.BATCH_END)
                 last_wct = datetime.datetime.now() - duration
-                ic('before')
+                ic('before self.engine.run_event(Event.BATCH_CHECKPOINT)')
                 self.engine.run_event(Event.BATCH_CHECKPOINT)
-                ic('after')
+                ic('after self.engine.run_event(Event.BATCH_CHECKPOINT)')
 
                 if (
                     self.state.timestamp >= self.state.max_duration or (

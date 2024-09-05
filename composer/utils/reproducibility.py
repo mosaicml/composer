@@ -190,8 +190,8 @@ def get_rng_state() -> list[dict[str, Any]]:
     if torch.cuda.is_available() and torch.cuda.is_initialized():
         # This will not be compatible with model parallelism
         rng_state['cuda'] = torch.cuda.get_rng_state()
-
-    return dist.all_gather_object(rng_state)
+    ic('before dist.all_gather_object(rng_state)')
+    return ic(dist.all_gather_object(rng_state))
 
 
 def load_rng_state(rng_state_dicts: list[dict[str, Any]]):
