@@ -1006,6 +1006,7 @@ class State(Serializable):
         if version.parse(torch.__version__) >= version.parse('2.4.0') or (
             version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized()
         ):
+            ic(1)
             from torch.distributed.checkpoint.state_dict import StateDictOptions, get_optimizer_state_dict
             if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
                 raise NotImplementedError(
@@ -1015,8 +1016,9 @@ class State(Serializable):
                         'fsdp_state_dict_type to None, "full", or "sharded".',
                     ),
                 )
-
+            ic(2)
             optimizer = ensure_tuple(self.optimizers)[0]
+            ic(3)
             optim_state_dict = get_optimizer_state_dict(
                 model=self.model,
                 optimizers=optimizer,
@@ -1026,6 +1028,7 @@ class State(Serializable):
                     cpu_offload=self.fsdp_enabled,
                 ),
             )
+            ic(4)
             return {type(optimizer).__qualname__: optim_state_dict}
         else:
             optimizer = ensure_tuple(self.optimizers)[0]
@@ -1046,6 +1049,7 @@ class State(Serializable):
         """
         state_dict = {}
         for attribute_name in self.serialized_attributes:
+            ic(attribute_name)
             attribute_value = getattr(self, attribute_name)
             if attribute_name == 'dataset_state':
                 serialized_value = self._dataset_state_dict()

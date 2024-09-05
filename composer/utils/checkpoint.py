@@ -732,7 +732,7 @@ def load_sharded_checkpoint(
                 num_rng_ranks = _get_num_ranks_that_saved_rng(storage_reader.read_metadata())
                 state_dict: dict[str, Any] = {
                     'state': cur_state_dict,
-                    'rng': reproducibility.get_rng_state()[:num_rng_ranks],
+                    'rng': 42 # reproducibility.get_rng_state()[:num_rng_ranks],
                 }
 
             if ignore_keys:
@@ -1144,7 +1144,7 @@ def _save_checkpoint(
         ic('before reproducibility.get_rng_state()')
         state_dict = {
             'state': state.state_dict(),
-            'rng': reproducibility.get_rng_state(),
+            'rng': 42 #reproducibility.get_rng_state(),
         }
         ic('after reproducibility.get_rng_state()')
 
