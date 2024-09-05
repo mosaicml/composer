@@ -460,7 +460,10 @@ def all_gather_object(obj: TObj, group=None) -> list[TObj]:
         if is_hpu_installed():
             all_gather_object_list_hpu(obj_gather_list, obj, group=group)
         else:
+            ic('before all_gather_object')
+            ic(obj_gather_list, obj, group)
             dist.all_gather_object(obj_gather_list, obj, group=group)
+            ic('after all_gather_object')
         # torch.distributed will replace the None's in obj_gather_list with the gathered objects on rank 0
         # or will just be None on non-rank-0
         return cast(list[TObj], obj_gather_list)

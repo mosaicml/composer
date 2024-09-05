@@ -493,12 +493,9 @@ class Engine():
             ctx = cast(ContextManager, contextlib.nullcontext()) if marker is None else marker
             with ctx:
                 self._debug_log(event, f'Running callback {type(cb).__name__}')
-                import composer
-                if isinstance(cb, composer.callbacks.checkpoint_saver.CheckpointSaver) and isinstance(event, Event.BATCH_CHECKPOINT):
-                    ic('before', event, cb)
+                ic('before', event, cb)
                 cb.run_event(event, self.state, self.logger)
-                if isinstance(cb, composer.callbacks.checkpoint_saver.CheckpointSaver) and isinstance(event, Event.BATCH_CHECKPOINT):
-                    ic('after', event, cb)
+                ic('after', event, cb)
 
     def _run_loggers(self, event: Union[Event, str]):
         loggers = [callback for callback in self.state.callbacks if isinstance(callback, LoggerDestination)]
