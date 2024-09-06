@@ -153,35 +153,27 @@ def test_1(use_tp: bool):
     trainer2.close()
 
 
-def test_2(use_tp: bool):
+def test_2(use_tp: bool, state_dict_type: str):
     from tests.trainer.test_fsdp_checkpoint import SimpleMLP
 
-    fsdp_config = FSDPConfig(
-        sharded_ckpt_prefix_dir='ba{batch}',
-        state_dict_type= 'sharded',
-        )
+    fsdp_config = FSDPConfig(sharded_ckpt_prefix_dir='ba{batch}', state_dict_type=state_dict_type)
     tp_config = None
     if use_tp:
         tp_config = {
             'tensor_parallel_degree': 2,
             'layer_plan': {'module.0': ColwiseParallel(), 'module.2': RowwiseParallel()},
         }
-
-    model_init_device: str = 'cpu'
-    num_features: int = 4
-    num_classes: int = 2
-    max_duration: Optional[int | str | Time] = '2ba'
-    save_interval: str | int | Time | Callable[[State, Event], bool] = '2ba'
-
-    model = SimpleMLP(num_features=num_features, num_classes=num_classes)
-    model.module.to(model_init_device)
-    dataset = RandomClassificationDataset(shape=(num_features,), num_classes=num_classes, size=128)
-    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=8,)
-    optim = torch.optim.Adam(params=model.parameters())
-
     parallelism_config: dict[str, Union[FSDPConfig, dict[str, Any]]] = {'fsdp': fsdp_config}
     if tp_config is not None:
         parallelism_config['tp'] = tp_config
+
+    num_features: int = 4
+    num_classes: int = 2
+    model = SimpleMLP(num_features=num_features, num_classes=num_classes)
+    model.module.to('cpu')
+    dataset = RandomClassificationDataset(shape=(num_features,), num_classes=num_classes, size=128)
+    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=8,)
+    optim = torch.optim.Adam(params=model.parameters())
 
     trainer1 = Trainer(
         model=model,
@@ -189,8 +181,8 @@ def test_2(use_tp: bool):
         train_dataloader=dataloader,
         parallelism_config=parallelism_config,
         save_folder='tmp',
-        max_duration=max_duration,
-        save_interval=save_interval,
+        max_duration='2ba',
+        save_interval='2ba',
         save_filename='rank{rank}.pt',
         precision='amp_bf16',
         progress_bar=False,
@@ -217,10 +209,10 @@ if __name__ == '__main__':
     if verbose:
         os.environ['NCCL_DEBUG'] = 'INFO'
 
-    print('*'*70, '\nuse_tp=False\n', '*'*70)
-    test(use_tp=False)
+    print('*'*70, '\nuse_tp=True, state_dict_type=sharded\n', '*'*70)
+    test(use_tp=True, state_dict_type='sharded')
     print('*'*70, '\nDone\n', '*'*70)
 
-    print('*'*70, '\nuse_tp=True\n', '*'*70)
-    test(use_tp=True)
+    print('*'*70, '\nuse_tp=True, state_dict_type=full\n', '*'*70)
+    test(use_tp=True, state_dict_type='full')
     print('*'*70, '\nDone\n', '*'*70)
