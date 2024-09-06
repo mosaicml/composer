@@ -976,6 +976,7 @@ class State(Serializable):
                     ),
                 )
 
+            ic('before get_model_state_dict')
             model_state_dict = get_model_state_dict(
                 model=self.model,
                 submodules=None,
@@ -984,6 +985,7 @@ class State(Serializable):
                     cpu_offload=self.fsdp_enabled,
                 ),
             )
+            ic('after get_model_state_dict')
         else:
             if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
                 with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):

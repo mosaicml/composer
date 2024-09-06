@@ -1144,7 +1144,7 @@ def _save_checkpoint(
         ic('before reproducibility.get_rng_state()')
         state_dict = {
             'state': state.state_dict(),
-            'rng': 42 #reproducibility.get_rng_state(),
+            'rng': reproducibility.get_rng_state(), # 42
         }
         ic('after reproducibility.get_rng_state()')
 
