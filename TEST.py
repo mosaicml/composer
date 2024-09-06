@@ -156,16 +156,6 @@ def test_1(use_tp: bool):
 def test_2(use_tp: bool):
     from tests.trainer.test_fsdp_checkpoint import SimpleMLP
 
-    tmp_path: pathlib.Path = 'tmp'
-    autoresume: bool = False
-    precision: str = 'amp_bf16'
-    optimizer: str = 'adam'
-    save_weights_only: bool =  False
-    load_weights_only: bool = False
-
-    save_folder = tmp_path
-    save_filename = 'rank{rank}.pt'
-
     fsdp_config = FSDPConfig(sharded_ckpt_prefix_dir='ba{batch}')
     tp_config = None
     if use_tp:
@@ -195,14 +185,13 @@ def test_2(use_tp: bool):
         optimizers=optim,
         train_dataloader=dataloader,
         parallelism_config=parallelism_config,
-        save_folder=str(save_folder),
+        save_folder='tmp',
         max_duration=max_duration,
         save_interval=save_interval,
-        save_filename=save_filename,
-        precision=precision,
+        save_filename='rank{rank}.pt',
+        precision='amp_bf16',
         progress_bar=False,
         log_to_console=False,
-        autoresume=autoresume,
         save_latest_filename='latest-rank{rank}.pt',
     )
 
@@ -217,7 +206,7 @@ def test_2(use_tp: bool):
 
 if __name__ == '__main__':
     test = test_2
-    verbose = False
+    verbose = True
 
     if not verbose:
         ic.disable()

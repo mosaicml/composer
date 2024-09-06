@@ -981,8 +981,8 @@ class State(Serializable):
                 model=self.model,
                 submodules=None,
                 options=StateDictOptions(
-                    full_state_dict=self.fsdp_state_dict_type == 'full',
-                    cpu_offload=self.fsdp_enabled,
+                    full_state_dict=False, #self.fsdp_state_dict_type == 'full',
+                    cpu_offload=True, # self.fsdp_enabled,
                 ),
             )
             ic('after get_model_state_dict')
@@ -1025,8 +1025,8 @@ class State(Serializable):
                 optimizers=optimizer,
                 submodules=None,
                 options=StateDictOptions(
-                    full_state_dict=self.fsdp_state_dict_type == 'full',
-                    cpu_offload=self.fsdp_enabled,
+                    full_state_dict=False, #self.fsdp_state_dict_type == 'full',
+                    cpu_offload=True, # self.fsdp_enabled,
                 ),
             )
             ic('after get_optimizer_state_dict')
