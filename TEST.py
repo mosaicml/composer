@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
+import os
 
 import contextlib
 import dataclasses
@@ -162,7 +163,6 @@ def test_2(use_tp: bool):
     save_weights_only: bool =  False
     load_weights_only: bool = False
 
-    run_name = None
     save_folder = tmp_path
     save_filename = 'rank{rank}.pt'
 
@@ -175,21 +175,12 @@ def test_2(use_tp: bool):
         }
 
     model_init_device: str = 'cpu'
-    save_overwrite: bool = False
     num_features: int = 4
     num_classes: int = 2
-    load_path: Optional[str] = None
     max_duration: Optional[int | str | Time] = '2ba'
     save_interval: str | int | Time | Callable[[State, Event], bool] = '2ba'
-    save_weights_only: bool = False
-    load_weights_only: bool = False
-    load_ignore_keys: Optional[list[str] | Callable[[dict], None]] = None
-    algorithms: Optional[Algorithm | Sequence[Algorithm]] = None
-    save_num_checkpoints_to_keep: int = -1
-    train_metrics: Optional[Any] = None
-    val_metrics: Optional[Any] = None
 
-    model = SimpleMLP(num_features=num_features, num_classes=num_classes, train_metrics=train_metrics, val_metrics=val_metrics)
+    model = SimpleMLP(num_features=num_features, num_classes=num_classes)
     model.module.to(model_init_device)
     dataset = RandomClassificationDataset(shape=(num_features,), num_classes=num_classes, size=128)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=8,)
@@ -200,7 +191,6 @@ def test_2(use_tp: bool):
         parallelism_config['tp'] = tp_config
 
     trainer1 = Trainer(
-        algorithms=algorithms,
         model=model,
         optimizers=optim,
         train_dataloader=dataloader,
@@ -209,18 +199,11 @@ def test_2(use_tp: bool):
         max_duration=max_duration,
         save_interval=save_interval,
         save_filename=save_filename,
-        save_overwrite=save_overwrite,
         precision=precision,
-        load_path=load_path,
         progress_bar=False,
         log_to_console=False,
         autoresume=autoresume,
-        run_name=run_name,
         save_latest_filename='latest-rank{rank}.pt',
-        save_weights_only=save_weights_only,
-        load_weights_only=load_weights_only,
-        save_num_checkpoints_to_keep=save_num_checkpoints_to_keep,
-        load_ignore_keys=load_ignore_keys,
     )
 
     if use_tp:
@@ -234,6 +217,13 @@ def test_2(use_tp: bool):
 
 if __name__ == '__main__':
     test = test_2
+    verbose = False
+
+    if not verbose:
+        ic.disable()
+        os.environ['NCCL_DEBUG'] = 'WARN'
+    if verbose:
+        os.environ['NCCL_DEBUG'] = 'INFO'
 
     print('*'*70, '\nuse_tp=False\n', '*'*70)
     test(use_tp=False)
