@@ -156,7 +156,10 @@ def test_1(use_tp: bool):
 def test_2(use_tp: bool):
     from tests.trainer.test_fsdp_checkpoint import SimpleMLP
 
-    fsdp_config = FSDPConfig(sharded_ckpt_prefix_dir='ba{batch}')
+    fsdp_config = FSDPConfig(
+        sharded_ckpt_prefix_dir='ba{batch}',
+        state_dict_type= 'sharded',
+        )
     tp_config = None
     if use_tp:
         tp_config = {
@@ -206,7 +209,7 @@ def test_2(use_tp: bool):
 
 if __name__ == '__main__':
     test = test_2
-    verbose = True
+    verbose = False
 
     if not verbose:
         ic.disable()
