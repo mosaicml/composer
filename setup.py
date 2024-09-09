@@ -154,6 +154,7 @@ extra_deps['slack'] = {
 }
 
 extra_deps['deepspeed'] = [
+    'numpy<2',
     'deepspeed==0.8.3',
     'pydantic>=1.0,<2',
 ]
@@ -224,13 +225,13 @@ extra_deps['onnx'] = [
 
 extra_deps['mlflow'] = [
     'mlflow>=2.14.1,<3.0',
-    'databricks-sdk==0.31.1',
+    'databricks-sdk==0.32.0',
     'pynvml>=11.5.0,<12',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk==0.31.1']
+extra_deps['databricks'] = ['databricks-sdk==0.32.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 
