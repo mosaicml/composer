@@ -25,7 +25,7 @@ jobs:
           markers: not daily and not remote and not gpu and not doctest
           pytest_command: coverage run -m pytest
         - name: cpu-3.11-2.4
-          container: mosaicml/pytorch:2.4.0_cpu-python3.11-ubuntu20.04
+          container: mosaicml/ci-staging:c8adabd3-6859-44d6-8bc6-6d6f2c69000e,ghcr.io/databricks-mosaic/ci-staging:c8adabd3-6859-44d6-8bc6-6d6f2c69000e 
           markers: not daily and not remote and not gpu and not doctest
           pytest_command: coverage run -m pytest
         - name: cpu-doctest
