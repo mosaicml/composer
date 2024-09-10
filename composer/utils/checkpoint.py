@@ -609,6 +609,7 @@ def dist_cp_load(
 ):
     if version.parse(torch.__version__) >= version.parse('2.4.0'):
         if version.parse(torch.__version__) < version.parse('2.4.1'):
+            # PyTorch 2.4.0
             from torch.distributed.checkpoint.utils import CheckpointException
             try:
                 dist_cp.load(
@@ -645,6 +646,7 @@ def dist_cp_load(
                 else:
                     raise e
         else:
+            # PyTorch 2.4.1
             dist_cp.load(
                 state_dict=state_dict,
                 storage_reader=storage_reader,
