@@ -612,7 +612,7 @@ class MLFlowLogger(LoggerDestination):
             if hasattr(self, 'monitor_process'):
                 # Check if there is an uncaught exception, which means `post_close()` is triggered
                 # due to program crash.
-                finish_with_exception = (self._global_exception_occurred == 1)
+                finish_with_exception = self._global_exception_occurred == 1
                 if finish_with_exception:
                     self.monitor_process.crash()
                     return
