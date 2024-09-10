@@ -943,7 +943,9 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
         self._use_unsharded_flat_param(padded_unsharded_flat_param)
 
 
-if version.parse(torch.__version__) == version.parse('2.4.0'):
+if version.parse(torch.__version__) >= version.parse('2.4.0') and version.parse(
+        torch.__version__,
+) < version.parse('2.4.1'):
     # 2.4.0 only patch
     # PyTorch issue: https://github.com/pytorch/pytorch/issues/133923
     from torch.distributed.checkpoint.metadata import STATE_DICT_TYPE
