@@ -54,7 +54,7 @@ class ParallelismType(StringEnum):
     TENSOR_PARALLEL = 'tensor_parallel'
 
 
-def is_last_batch(state: State) -> bool:
+def is_last_batch(state: 'State') -> bool:
     """Check if the current batch is the last batch in the epoch."""
     elapsed_duration = state.get_elapsed_duration()
     return elapsed_duration is not None and elapsed_duration >= 1.0
