@@ -8,11 +8,11 @@ from packaging import version
 
 from icecream import ic
 from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_context
-from composer.utils import reproducibility, FSDPConfig, TPConfig
+from composer.utils import reproducibility, FSDPConfig, TPConfig, dist
+
 from composer.callbacks import MemoryMonitor
 from composer.loggers import InMemoryLogger
 from composer.trainer.trainer import Trainer
-from composer.utils import dist
 from tests.common import (
     RandomClassificationDataset,
     SimpleModel,
@@ -127,7 +127,7 @@ def get_trainer(parallelism_config):
     num_features, num_classes, batch_size, size, seed = 64, 3, 8, 32, 42
     reproducibility.seed_all(seed)
 
-    dataset = RandomClassificationDataset(shape=(num_features,), num_classes=num_classes, size=size) # X=(num_features,), y=(,), i.e. scalar
+    dataset = RandomClassificationDataset(shape=(num_features,), num_classes=num_classes, size=size, device='cuda') # X=(num_features,), y=(,), i.e. scalar
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=batch_size) # X=(batch_size, num_features), y=(batch_size,)
     model = SimpleComposerMLP(num_features=num_features, device='cuda', num_classes=num_classes)
 
@@ -143,13 +143,24 @@ def get_trainer(parallelism_config):
         )
     return trainer
 
+
+def _forward(trainer):
+    batch = next(iter(trainer.state.train_dataloader))
+    output = trainer.state.model.forward(batch)
+    return output
+
+
 @pytest.mark.gpu
 @world_size(4)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='Requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 def test_tp_forward(world_size: int):
     """Test that the forward pass with DDP, FSDP, FSDP + TP all match."""
+    import warnings
     from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
+    from icecream import install
+    install()
+    warnings.filterwarnings("ignore")
 
     # DDP
     trainer_ddp = get_trainer(parallelism_config=None)
@@ -164,25 +175,26 @@ def test_tp_forward(world_size: int):
     parallelism_config = {'fsdp': fsdp_config, 'tp': tp_config}
     trainer_fsdp_tp = get_trainer(parallelism_config=parallelism_config)
 
-    def _forward(trainer):
-        batch= next(iter(trainer.state.train_dataloader))
-        output = trainer_ddp.state.model.forward(batch)
-        return output
+    out_ddp = _forward(trainer_ddp)
+    out_fsdp = _forward(trainer_fsdp)
+    ic(out_ddp.shape)
+    ic(out_fsdp.shape)
 
-    if dist.get_global_rank() == 0:
-        with trainer_fsdp.state.model.module.summon_full_params(trainer_fsdp.state.model.module):
-            with trainer_fsdp_tp.state.model.module.summon_full_params(trainer_fsdp_tp.state.model.module):
 
-                # out_ddp = _forward(trainer_ddp)
-                # out_fsdp = _forward(trainer_fsdp)
-                # out_fsdp_tp = _forward(trainer_fsdp_tp)
+    # if dist.get_global_rank() == 0:
+    #     with trainer_fsdp.state.model.module.summon_full_params(trainer_fsdp.state.model.module):
+    #         with trainer_fsdp_tp.state.model.module.summon_full_params(trainer_fsdp_tp.state.model.module):
 
-                ic(trainer_fsdp.state.state_dict()['model'].keys())
-                ic(trainer_ddp.state.state_dict()['model'].keys())
+    #             # out_ddp = _forward(trainer_ddp)
+    #             # out_fsdp = _forward(trainer_fsdp)
+    #             # out_fsdp_tp = _forward(trainer_fsdp_tp)
 
-                ic(trainer_fsdp.state.state_dict()['model'])
-                ic(trainer_ddp.state.state_dict()['model'])
-                assert trainer_fsdp.state.state_dict()['model'] == trainer_ddp.state.state_dict()['model']
+    #             ic(trainer_fsdp.state.state_dict()['model'].keys())
+    #             ic(trainer_ddp.state.state_dict()['model'].keys())
+
+    #             ic(trainer_fsdp.state.state_dict()['model'])
+    #             ic(trainer_ddp.state.state_dict()['model'])
+    #             assert trainer_fsdp.state.state_dict()['model'] == trainer_ddp.state.state_dict()['model']
 
     # # torch.testing.assert_close(param_ddp, param_fsdp)
     # assert out_ddp.shape == out_fsdp.shape == out_fsdp_tp.shape, f"Outputs have different shapes: {out_ddp.shape=}, {out_fsdp.shape=}, {out_fsdp_tp.shape=}"
