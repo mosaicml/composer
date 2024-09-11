@@ -124,12 +124,13 @@ def test_tp_with_subset_of_params(world_size: int):
 
 def get_trainer(parallelism_config):
     """Trainer for a simple model with any parallelism_config."""
+    device = 'cuda'
     num_features, num_classes, batch_size, size, seed = 64, 3, 8, 32, 42
     reproducibility.seed_all(seed)
 
-    dataset = RandomClassificationDataset(shape=(num_features,), num_classes=num_classes, size=size, device='cuda') # X=(num_features,), y=(,), i.e. scalar
+    dataset = RandomClassificationDataset(shape=(num_features,), num_classes=num_classes, size=size, device=device) # X=(num_features,), y=(,), i.e. scalar
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=batch_size) # X=(batch_size, num_features), y=(batch_size,)
-    model = SimpleComposerMLP(num_features=num_features, device='cuda', num_classes=num_classes)
+    model = SimpleComposerMLP(num_features=num_features, device=device, num_classes=num_classes)
 
     trainer = Trainer(
         seed=seed,
@@ -144,9 +145,10 @@ def get_trainer(parallelism_config):
     return trainer
 
 
-def _forward(trainer):
+def _forward(trainer, seed: int=42):
+    reproducibility.seed_all(seed)
     batch = next(iter(trainer.state.train_dataloader))
-    output = trainer.state.model.forward(batch)
+    output = trainer.state.model.forward(batch).to(torch.float)
     return output
 
 
@@ -177,8 +179,9 @@ def test_tp_forward(world_size: int):
 
     out_ddp = _forward(trainer_ddp)
     out_fsdp = _forward(trainer_fsdp)
-    ic(out_ddp.shape)
-    ic(out_fsdp.shape)
+    ic(out_ddp.shape, out_fsdp.shape)
+    ic(out_ddp, out_fsdp)
+    assert torch.allclose(out_ddp, out_fsdp, atol=1e-3)
 
 
     # if dist.get_global_rank() == 0:
