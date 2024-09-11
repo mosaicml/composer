@@ -152,6 +152,7 @@ def _get_num_ranks_that_saved_rng(metadata: Metadata):
     rng_inds = []
     for field_name, field_value in metadata.planner_data.items():
         if 'rng' in field_name:
+            log.info(f"bigning debug {field_name=}, {field_value=}")
             _, rng_rank_index, _ = field_value
             rng_inds.append(rng_rank_index)
     rng_inds = set(rng_inds)
