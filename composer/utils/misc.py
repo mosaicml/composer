@@ -54,6 +54,12 @@ class ParallelismType(StringEnum):
     TENSOR_PARALLEL = 'tensor_parallel'
 
 
+def is_last_batch(state: State) -> bool:
+    """Check if the current batch is the last batch in the epoch."""
+    elapsed_duration = state.get_elapsed_duration()
+    return elapsed_duration is not None and elapsed_duration >= 1.0
+
+
 def create_interval_scheduler(
     interval: Union[str, int, 'Time'],
     include_end_of_training: bool = True,
@@ -114,10 +120,9 @@ def create_interval_scheduler(
         if state.previous_timestamp is None:
             return False
 
-        elapsed_duration = state.get_elapsed_duration()
-        assert elapsed_duration is not None, 'elapsed_duration is set on the BATCH_CHECKPOINT and EPOCH_CHECKPOINT'
-
-        if include_end_of_training and event in final_events and elapsed_duration >= 1.0 and state.timestamp.batch != last_batch_seen:
+        if include_end_of_training and event in final_events and is_last_batch(
+            state,
+        ) and state.timestamp.batch != last_batch_seen:
             return True
 
         if time_interval.unit in {
