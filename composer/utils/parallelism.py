@@ -4,7 +4,7 @@
 """Parallelism configs."""
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from torch.distributed._tensor.device_mesh import DeviceMesh
 
@@ -31,7 +31,7 @@ class FSDPConfig:
     limit_all_gathers: bool = True
     load_monolith_rank0_only: bool = False
     load_planner: Optional[Any] = None
-    mixed_precision: str = 'DEFAULT'
+    mixed_precision: Union[str, dict[str, str]] = 'DEFAULT'
     process_group: Optional[Any] = None
     save_planner: Optional[Any] = None
     sharded_ckpt_prefix_dir: str = 'ep{epoch}-ba{batch}'
