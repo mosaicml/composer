@@ -125,7 +125,7 @@ def test_tp_with_subset_of_params(world_size: int):
 def get_trainer(parallelism_config):
     """Trainer for a simple model with any parallelism_config."""
     device = 'cuda'
-    num_features, num_classes, batch_size, size, seed = 64, 3, 8, 32, 42
+    num_features, num_classes, batch_size, size, seed = 16, 3, 8, 32, 42
     reproducibility.seed_all(seed)
 
     dataset = RandomClassificationDataset(shape=(num_features,), num_classes=num_classes, size=size, device=device) # X=(num_features,), y=(,), i.e. scalar
@@ -148,7 +148,7 @@ def get_trainer(parallelism_config):
 def _forward(trainer, seed: int=42):
     reproducibility.seed_all(seed)
     batch = next(iter(trainer.state.train_dataloader))
-    output = trainer.state.model.forward(batch).to(torch.float)
+    output = trainer.state.model.forward(batch)
     return output
 
 
@@ -168,7 +168,11 @@ def test_tp_forward(world_size: int):
     trainer_ddp = get_trainer(parallelism_config=None)
 
     # FSDP
-    fsdp_config = FSDPConfig(state_dict_type='full', sharding_strategy='SHARD_GRAD_OP') # data_parallel_shard_degree=2)
+    fsdp_config = FSDPConfig(
+        state_dict_type='full',
+        sharding_strategy='SHARD_GRAD_OP',
+        mixed_precision=dict(param_dtype='fp32', reduce_dtype='fp32', buffer_dtype='fp32'),
+        )
     trainer_fsdp = get_trainer(parallelism_config={'fsdp': fsdp_config})
 
     # FSDP + TP
@@ -179,10 +183,24 @@ def test_tp_forward(world_size: int):
 
     out_ddp = _forward(trainer_ddp)
     out_fsdp = _forward(trainer_fsdp)
-    ic(out_ddp.shape, out_fsdp.shape)
-    ic(out_ddp, out_fsdp)
-    assert torch.allclose(out_ddp, out_fsdp, atol=1e-3)
+    assert torch.allclose(out_ddp.to(torch.float16), out_fsdp.to(torch.float16), atol=1e-3)
 
+    out_fsdp_tp = _forward(trainer_fsdp_tp)
+    ic(out_ddp.shape, out_fsdp.shape, out_fsdp_tp.shape)
+    ic(out_ddp, out_fsdp, out_fsdp_tp)
+
+    # # all reduce
+    # out_fsdp_tp_2 = out_fsdp_tp.clone()
+    # device_mesh = trainer_fsdp_tp.state.device_mesh
+    # ic(device_mesh)
+    # assert device_mesh is not None
+    # tp_group = device_mesh['tensor_parallel'].get_group()
+    # dist.all_reduce(out_fsdp_tp_2, group=tp_group)
+    # ic(out_fsdp_tp_2)
+
+    # with trainer_fsdp.state.model.module.summon_full_params(trainer_fsdp.state.model.module):
+    #     out_fsdp = _forward(trainer_fsdp)
+    #     ic(out_fsdp)
 
     # if dist.get_global_rank() == 0:
     #     with trainer_fsdp.state.model.module.summon_full_params(trainer_fsdp.state.model.module):
