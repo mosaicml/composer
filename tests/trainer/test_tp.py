@@ -5,6 +5,7 @@ import copy
 import pytest
 import torch
 from packaging import version
+from typing import Optional, Sequence
 
 from icecream import ic
 from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_context
@@ -19,10 +20,9 @@ from tests.common import (
     SimpleComposerMLP,
     world_size,
 )
-from tests.trainer.test_fsdp_checkpoint import _compare_model_params_between_state_dicts
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.utils.data import DataLoader
-
+from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel, PrepareModuleInput
+from torch.distributed._tensor import Replicate, Shard, Placement
 
 @pytest.mark.gpu
 @world_size(4)
@@ -130,11 +130,26 @@ def test_tp_with_subset_of_params(world_size: int):
             max_duration='3ba',
         )
 
+class GatherColwiseParallel(ColwiseParallel):
+    """ColwiseParallel layer that allgathers inputs and optionally reshards outputs."""
+    def __init__(
+        self,
+        *,
+        use_local_output: bool = True
+    ):
+        super().__init__()
+        # Inputs over the TP dimension are sharded by device batches.
+        self.input_layouts = (Shard(0), )
+        # All-gather inputs so that each GPU now has the same input activations.
+        self.desired_input_layouts = (Replicate(), )
+        # self.output_layouts = (Shard(-1), )
+        self.use_local_output = use_local_output
+
 
 def get_trainer(parallelism_config):
     """Trainer for a simple model with any parallelism_config."""
     device = 'cuda'
-    num_features, num_classes, batch_size, size, seed = 16, 3, 8, 32, 42
+    num_features, num_classes, batch_size, size, seed = 6, 2, 4, 4, 42
     reproducibility.seed_all(seed)
 
     dataset = RandomClassificationDataset(shape=(num_features,), num_classes=num_classes, size=size, device=device) # X=(num_features,), y=(,), i.e. scalar
@@ -155,7 +170,7 @@ def get_trainer(parallelism_config):
 
 
 def _forward(trainer, seed: int=42):
-    reproducibility.seed_all(seed)
+    # reproducibility.seed_all(seed)
     batch = next(iter(trainer.state.train_dataloader))
     output = trainer.state.model.forward(batch)
     return output
@@ -168,44 +183,46 @@ def _forward(trainer, seed: int=42):
 def test_tp_forward(world_size: int):
     """Test that the forward pass with DDP, FSDP, FSDP + TP all match."""
     import warnings
-    from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
     from icecream import install
     install()
     warnings.filterwarnings("ignore")
 
     # DDP
     trainer_ddp = get_trainer(parallelism_config=None)
+    out_ddp = _forward(trainer_ddp)
 
     # FSDP
     fsdp_config = FSDPConfig(
         state_dict_type='full',
         sharding_strategy='SHARD_GRAD_OP',
-        mixed_precision=dict(param_dtype='fp32', reduce_dtype='fp32', buffer_dtype='fp32'),
+        mixed_precision='full',
         )
     trainer_fsdp = get_trainer(parallelism_config={'fsdp': fsdp_config})
+    out_fsdp = _forward(trainer_fsdp)
 
-    # FSDP + TP
-    layer_plan = {'fc1': ColwiseParallel(), 'fc2': RowwiseParallel()}
+    # FSDP + TP trainer
+    layer_plan = {
+        'fc1': GatherColwiseParallel(),
+        'fc2': RowwiseParallel(output_layouts=Shard(0)),
+        }
     tp_config = TPConfig(layer_plan=layer_plan, tensor_parallel_degree=2)
     parallelism_config = {'fsdp': fsdp_config, 'tp': tp_config}
     trainer_fsdp_tp = get_trainer(parallelism_config=parallelism_config)
-
-    out_ddp = _forward(trainer_ddp)
-    out_fsdp = _forward(trainer_fsdp)
-    assert torch.allclose(out_ddp.to(torch.float16), out_fsdp.to(torch.float16), atol=1e-3)
-
     out_fsdp_tp = _forward(trainer_fsdp_tp)
-    ic(out_ddp.shape, out_fsdp.shape, out_fsdp_tp.shape)
-    ic(out_ddp, out_fsdp, out_fsdp_tp)
 
-    # all reduce
-    out_fsdp_tp_2 = out_fsdp_tp.clone()
-    device_mesh = trainer_fsdp_tp.state.device_mesh
-    ic(device_mesh)
-    assert device_mesh is not None
-    tp_group = device_mesh['tensor_parallel'].get_group()
-    dist.all_reduce(out_fsdp_tp_2, group=tp_group)
-    ic(out_fsdp_tp_2)
+    assert out_ddp.shape == out_fsdp.shape == out_fsdp_tp.shape, f"Outputs have different shapes: {out_ddp.shape=}, {out_fsdp.shape=}, {out_fsdp_tp.shape=}"
+    assert torch.allclose(out_ddp, out_fsdp, atol=1e-3), f"Outputs have different values: {out_ddp=} and {out_fsdp=}"
+    assert torch.allclose(out_ddp, out_fsdp_tp, atol=1e-3), f"Outputs have different values: {out_ddp=} and {out_fsdp_tp=}"
+
+
+    # # all reduce
+    # out_fsdp_tp_2 = out_fsdp_tp.clone()
+    # device_mesh = trainer_fsdp_tp.state.device_mesh
+    # ic(device_mesh)
+    # assert device_mesh is not None
+    # tp_group = device_mesh['tensor_parallel'].get_group()
+    # dist.all_reduce(out_fsdp_tp_2, group=tp_group)
+    # ic(out_fsdp_tp_2)
 
     # with trainer_fsdp.state.model.module.summon_full_params(trainer_fsdp.state.model.module):
     #     out_fsdp = _forward(trainer_fsdp)
