@@ -198,14 +198,14 @@ def test_tp_forward(world_size: int):
     ic(out_ddp.shape, out_fsdp.shape, out_fsdp_tp.shape)
     ic(out_ddp, out_fsdp, out_fsdp_tp)
 
-    # # all reduce
-    # out_fsdp_tp_2 = out_fsdp_tp.clone()
-    # device_mesh = trainer_fsdp_tp.state.device_mesh
-    # ic(device_mesh)
-    # assert device_mesh is not None
-    # tp_group = device_mesh['tensor_parallel'].get_group()
-    # dist.all_reduce(out_fsdp_tp_2, group=tp_group)
-    # ic(out_fsdp_tp_2)
+    # all reduce
+    out_fsdp_tp_2 = out_fsdp_tp.clone()
+    device_mesh = trainer_fsdp_tp.state.device_mesh
+    ic(device_mesh)
+    assert device_mesh is not None
+    tp_group = device_mesh['tensor_parallel'].get_group()
+    dist.all_reduce(out_fsdp_tp_2, group=tp_group)
+    ic(out_fsdp_tp_2)
 
     # with trainer_fsdp.state.model.module.summon_full_params(trainer_fsdp.state.model.module):
     #     out_fsdp = _forward(trainer_fsdp)
