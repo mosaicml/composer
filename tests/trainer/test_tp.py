@@ -165,6 +165,7 @@ def get_trainer(
         seed=seed,
         device='gpu',
         model=model,
+        max_duration='1ep',
         train_dataloader=dataloader,
         parallelism_config=parallelism_config,
         callbacks=[MemoryMonitor()],
@@ -219,13 +220,13 @@ def test_tp_forward(world_size: int):
 
 
 def _get_stats(trainer):
-    logged_data = trainer.logger.destinations[0].most_recent_values
-    ic(logged_data)
+    logger = trainer.logger.destinations[0]
+    ic(logger.get_timeseries('loss/train/total'))
+    logged_data = logger.most_recent_values
     stats = {
         'train_loss': logged_data['loss/train/total'],
         'multiclass_accuracy': logged_data['metrics/train/MulticlassAccuracy'],
         'peak_reserved_mem': logged_data['memory/peak_reserved_mem'],
-        # 'device_train_microbatch_size': logged_data['device_train_microbatch_size'],
     }
     return stats
 
@@ -241,8 +242,10 @@ def test_tp_forward2(world_size: int):
     install()
     warnings.filterwarnings("ignore")
 
+    size = 16
+
     # DDP forward pass
-    ddp_trainer = get_trainer(parallelism_config=None)
+    ddp_trainer = get_trainer(parallelism_config=None, size=size)
     ddp_trainer.fit()
     # ddp_trainer.close()
     ddp_stats = _get_stats(ddp_trainer)
@@ -253,7 +256,7 @@ def test_tp_forward2(world_size: int):
         sharding_strategy='SHARD_GRAD_OP',
         mixed_precision='full',
         )
-    fsdp_trainer = get_trainer(parallelism_config={'fsdp': fsdp_config})
+    fsdp_trainer = get_trainer(parallelism_config={'fsdp': fsdp_config}, size=size)
     fsdp_trainer.fit()
     fsdp_stats = _get_stats(fsdp_trainer)
 
@@ -264,7 +267,7 @@ def test_tp_forward2(world_size: int):
         }
     tp_config = TPConfig(layer_plan=layer_plan, tensor_parallel_degree=2)
     parallelism_config: ParallelismConfig = {'fsdp': fsdp_config, 'tp': tp_config}
-    tp_fsdp_trainer = get_trainer(parallelism_config=parallelism_config)
+    tp_fsdp_trainer = get_trainer(parallelism_config=parallelism_config, size=size)
     tp_fsdp_trainer.fit()
     tp_fsdp_stats = _get_stats(tp_fsdp_trainer)
 

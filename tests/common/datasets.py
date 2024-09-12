@@ -71,8 +71,10 @@ class RandomClassificationDataset(Dataset):
         # dataset across multiple calls when using the same seed.
         if self.x is None:
             self.x = torch.randn(self.size, *self.shape, device=self.device)
+            ic(self.x)
         if self.y is None:
             self.y = torch.randint(0, self.num_classes, size=(self.size,), device=self.device)
+            ic(self.y)
         return self.x[index], self.y[index]
 
 
