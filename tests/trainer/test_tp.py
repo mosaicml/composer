@@ -31,6 +31,9 @@ from torch.utils.data import DataLoader
 def test_tp_train(world_size: int):
     from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
 
+    # Normally, each TP rank receives the same data via data replication
+    # In this test, we do not do this: each TP rank gets different data
+    # This is okay - we are testing the TP mechanism, not actual TP correctness
     model = SimpleModel()
     dataset = RandomClassificationDataset(size=8)
     dataloader = DataLoader(dataset, batch_size=2, sampler=dist.get_sampler(dataset))
@@ -60,6 +63,9 @@ def test_tp_train(world_size: int):
 def test_tp_with_param_groups(world_size: int):
     from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
 
+    # Normally, each TP rank receives the same data via data replication
+    # In this test, we do not do this: each TP rank gets different data
+    # This is okay - we are testing the TP mechanism, not actual TP correctness
     model = SimpleModel()
     dataset = RandomClassificationDataset(size=8)
     dataloader = DataLoader(dataset, batch_size=2, sampler=dist.get_sampler(dataset))
@@ -98,6 +104,9 @@ def test_tp_with_param_groups(world_size: int):
 def test_tp_with_subset_of_params(world_size: int):
     from torch.distributed.tensor.parallel import ColwiseParallel
 
+    # Normally, each TP rank receives the same data via data replication
+    # In this test, we do not do this: each TP rank gets different data
+    # This is okay - we are testing the TP mechanism, not actual TP correctness
     model = SimpleModel()
     dataset = RandomClassificationDataset(size=8)
     dataloader = DataLoader(dataset, batch_size=2, sampler=dist.get_sampler(dataset))
