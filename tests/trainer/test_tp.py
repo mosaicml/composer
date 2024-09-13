@@ -309,31 +309,41 @@ def test_tp_gradients(world_size: int):
     ddp_trainer = get_ddp_trainer()
     ddp_out = forward_pass(ddp_trainer)
     torch.sum(ddp_out).backward()
+    # ddp_trainer.state.optimizers[0].step()
+    ddp_trainer.close()
+    ddp_state_dict = ddp_trainer.state.state_dict()
 
     ic('ddp_trainer')
-    for name, param in ddp_trainer.state.model.named_parameters():
-        if param.grad is not None:
-            ic(name, param.shape, param.grad.shape, param, param.grad)
+    # ic(ddp_trainer.state.model.module)
+    # for name, param in ddp_trainer.state.model.named_parameters():
+    #     if param.grad is not None:
+    #         ic(name, param.grad.shape, param.grad)
 
     # FSDP gradients
     fsdp_trainer = get_fsdp_trainer()
     fsdp_out = forward_pass(fsdp_trainer)
     torch.sum(fsdp_out).backward()
+    fsdp_trainer.close()
+    fsdp_state_dict = fsdp_trainer.state.state_dict()
 
     ic('fsdp_trainer')
-    for name, param in fsdp_trainer.state.model.named_parameters():
-        if param.grad is not None:
-            ic(name, param.shape, param.grad.shape, param, param.grad)
+    # ic(fsdp_trainer.state.model.module)
+    # for name, param in fsdp_trainer.state.model.named_parameters():
+    #     if param.grad is not None:
+    #         ic(name, param.grad.shape, param.grad)
 
     # TP-FSDP gradients
     tp_fsdp_trainer = get_tp_fsdp_trainer()
     tp_fsdp_out = forward_pass(tp_fsdp_trainer)
     torch.sum(tp_fsdp_out).backward()
+    tp_fsdp_trainer.close()
+    tp_fsdp_state_dict = tp_fsdp_trainer.state.state_dict()
 
     ic('tp_fsdp_trainer')
-    for name, param in tp_fsdp_trainer.state.model.named_parameters():
-        if param.grad is not None:
-            ic(name, param.shape, param.grad.shape, param, param.grad)
+    # ic(tp_fsdp_trainer.state.model.module)
+    # for name, param in tp_fsdp_trainer.state.model.named_parameters():
+    #     if param.grad is not None:
+    #         ic(name, param.grad.shape, param.grad)
 
 
 def get_stats(trainer: Trainer) -> dict[str, np.ndarray]:
