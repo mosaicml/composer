@@ -62,12 +62,12 @@ class RandomClassificationDataset(Dataset):
         num_classes: int = 2,
         device: Optional[torch.device] = None,
     ):
-        self.size = size
-        self.shape = shape
-        self.num_classes = num_classes
-        self.device = device
-        self.x = None
-        self.y = None
+        self.size: int = size
+        self.shape: Sequence[int] = shape
+        self.num_classes: int = num_classes
+        self.device: Optional[torch.device] = device
+        self.x: Optional[torch.Tensor] = None
+        self.y: Optional[torch.Tensor] = None
 
     def __len__(self):
         return self.size
@@ -77,10 +77,8 @@ class RandomClassificationDataset(Dataset):
         # dataset across multiple calls when using the same seed.
         if self.x is None:
             self.x = torch.randn(self.size, *self.shape, device=self.device)
-            ic(self.x)
         if self.y is None:
             self.y = torch.randint(0, self.num_classes, size=(self.size,), device=self.device)
-            ic(self.y)
         return self.x[index], self.y[index]
 
 

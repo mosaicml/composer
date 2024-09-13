@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
 import pytest
@@ -154,7 +154,7 @@ def get_trainer(
     num_classes: int = 2,
     num_features: int = 6,
     seed: int = 42,
-    device: str = 'cuda',
+    device: Union[str, torch.device] = 'cuda',
 ):
     """Trainer for a simple model with any parallelism_config."""
 
@@ -185,7 +185,7 @@ def get_trainer(
     return trainer
 
 
-def _forward(trainer):
+def forward_pass(trainer):
     batch = next(iter(trainer.state.train_dataloader))
     output = trainer.state.model.forward(batch)
     return output
@@ -200,7 +200,7 @@ def test_tp_forward(world_size: int):
 
     # DDP forward pass
     ddp_trainer = get_trainer()
-    ddp_out = _forward(ddp_trainer)
+    ddp_out = forward_pass(ddp_trainer)
 
     # FSDP forward pass
     fsdp_config = FSDPConfig(
@@ -210,7 +210,7 @@ def test_tp_forward(world_size: int):
     )
     parallelism_config = ParallelismConfig(fsdp=fsdp_config)
     fsdp_trainer = get_trainer(parallelism_config=parallelism_config)
-    fsdp_out = _forward(fsdp_trainer)
+    fsdp_out = forward_pass(fsdp_trainer)
 
     # TP-FSDP forward pass
     layer_plan = {
@@ -220,7 +220,7 @@ def test_tp_forward(world_size: int):
     tp_config = TPConfig(layer_plan=layer_plan, tensor_parallel_degree=2)
     parallelism_config = ParallelismConfig(fsdp=fsdp_config, tp=tp_config)
     tp_fsdp_trainer = get_trainer(parallelism_config=parallelism_config)
-    tp_fsdp_out = _forward(tp_fsdp_trainer)
+    tp_fsdp_out = forward_pass(tp_fsdp_trainer)
 
     assert ddp_out.shape == fsdp_out.shape == tp_fsdp_out.shape, f'Outputs have different shapes: {ddp_out.shape=}, {fsdp_out.shape=}, {tp_fsdp_out.shape=}'
     assert torch.allclose(ddp_out, fsdp_out, atol=1e-3), f'Outputs have different values: {ddp_out=} and {fsdp_out=}'
