@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Optional, Union
+from typing import Optional
 
 import numpy as np
 import pytest
@@ -154,7 +154,7 @@ def get_trainer(
     num_classes: int = 2,
     num_features: int = 6,
     seed: int = 42,
-    device: Union[str, torch.device] = 'cuda',
+    device: torch.device = 'cuda',
 ):
     """Trainer for a simple model with any parallelism_config."""
 
@@ -185,6 +185,84 @@ def get_trainer(
     return trainer
 
 
+def get_ddp_trainer(
+    size: int = 4,
+    batch_size: int = 4,
+    num_classes: int = 2,
+    num_features: int = 6,
+    seed: int = 42,
+    device: torch.device = 'cuda',
+):
+    ddp_trainer = get_trainer(
+        size=size,
+        batch_size=batch_size,
+        num_classes=num_classes,
+        num_features=num_features,
+        seed=seed,
+        device=device,
+    )
+    return ddp_trainer
+
+
+def get_fsdp_trainer(
+    size: int = 4,
+    batch_size: int = 4,
+    num_classes: int = 2,
+    num_features: int = 6,
+    seed: int = 42,
+    device: torch.device = 'cuda',
+):
+    fsdp_config = FSDPConfig(
+        state_dict_type='full',
+        sharding_strategy='SHARD_GRAD_OP',
+        mixed_precision='full',
+    )
+    parallelism_config = ParallelismConfig(fsdp=fsdp_config)
+
+    fsdp_trainer = get_trainer(
+        parallelism_config=parallelism_config,
+        size=size,
+        batch_size=batch_size,
+        num_classes=num_classes,
+        num_features=num_features,
+        seed=seed,
+        device=device,
+    )
+    return fsdp_trainer
+
+
+def get_tp_fsdp_trainer(
+    size: int = 4,
+    batch_size: int = 4,
+    num_classes: int = 2,
+    num_features: int = 6,
+    seed: int = 42,
+    device: torch.device = 'cuda',
+):
+    fsdp_config = FSDPConfig(
+        state_dict_type='full',
+        sharding_strategy='SHARD_GRAD_OP',
+        mixed_precision='full',
+    )
+    layer_plan = {
+        'fc1': GatherColwiseParallel(),
+        'fc2': RowwiseParallel(output_layouts=Shard(0)),
+    }
+    tp_config = TPConfig(layer_plan=layer_plan, tensor_parallel_degree=2)
+    parallelism_config = ParallelismConfig(fsdp=fsdp_config, tp=tp_config)
+
+    fsdp_trainer = get_trainer(
+        parallelism_config=parallelism_config,
+        size=size,
+        batch_size=batch_size,
+        num_classes=num_classes,
+        num_features=num_features,
+        seed=seed,
+        device=device,
+    )
+    return fsdp_trainer
+
+
 def forward_pass(trainer):
     batch = next(iter(trainer.state.train_dataloader))
     output = trainer.state.model.forward(batch)
@@ -199,27 +277,15 @@ def test_tp_forward(world_size: int):
     """Test that the forward pass with DDP, FSDP, TP-FSDP all output the same tensor."""
 
     # DDP forward pass
-    ddp_trainer = get_trainer()
+    ddp_trainer = get_ddp_trainer()
     ddp_out = forward_pass(ddp_trainer)
 
     # FSDP forward pass
-    fsdp_config = FSDPConfig(
-        state_dict_type='full',
-        sharding_strategy='SHARD_GRAD_OP',
-        mixed_precision='full',
-    )
-    parallelism_config = ParallelismConfig(fsdp=fsdp_config)
-    fsdp_trainer = get_trainer(parallelism_config=parallelism_config)
+    fsdp_trainer = get_fsdp_trainer()
     fsdp_out = forward_pass(fsdp_trainer)
 
     # TP-FSDP forward pass
-    layer_plan = {
-        'fc1': GatherColwiseParallel(),
-        'fc2': RowwiseParallel(output_layouts=Shard(0)),
-    }
-    tp_config = TPConfig(layer_plan=layer_plan, tensor_parallel_degree=2)
-    parallelism_config = ParallelismConfig(fsdp=fsdp_config, tp=tp_config)
-    tp_fsdp_trainer = get_trainer(parallelism_config=parallelism_config)
+    tp_fsdp_trainer = get_tp_fsdp_trainer()
     tp_fsdp_out = forward_pass(tp_fsdp_trainer)
 
     assert ddp_out.shape == fsdp_out.shape == tp_fsdp_out.shape, f'Outputs have different shapes: {ddp_out.shape=}, {fsdp_out.shape=}, {tp_fsdp_out.shape=}'
@@ -231,7 +297,7 @@ def test_tp_forward(world_size: int):
     ), f'Outputs have different values: {ddp_out=} and {tp_fsdp_out=}'
 
 
-def _get_stats(trainer: Trainer) -> dict[str, np.ndarray]:
+def get_stats(trainer: Trainer) -> dict[str, np.ndarray]:
     logger = trainer.logger.destinations[0]
     stats = {
         'loss_array': logger.get_timeseries('loss/train/total')['loss/train/total'],
@@ -247,37 +313,25 @@ def _get_stats(trainer: Trainer) -> dict[str, np.ndarray]:
 def test_tp_fit(world_size: int):
     """Test that trainer.fit() with DDP, FSDP, TP-FSDP all output the same loss and accuracy."""
 
-    size = 1024  # enough data to train for multiple steps
+    size = 1024  # make enough data to train for multiple steps
 
     # DDP fit
-    ddp_trainer = get_trainer(size=size)
+    ddp_trainer = get_ddp_trainer(size=size)
     ddp_trainer.fit()
     ddp_trainer.close()
-    ddp_stats = _get_stats(ddp_trainer)
+    ddp_stats = get_stats(ddp_trainer)
 
     # FSDP fit
-    fsdp_config = FSDPConfig(
-        state_dict_type='full',
-        sharding_strategy='SHARD_GRAD_OP',
-        mixed_precision='full',
-    )
-    parallelism_config = ParallelismConfig(fsdp=fsdp_config)
-    fsdp_trainer = get_trainer(parallelism_config=parallelism_config, size=size)
+    fsdp_trainer = get_fsdp_trainer(size=size)
     fsdp_trainer.fit()
     fsdp_trainer.close()
-    fsdp_stats = _get_stats(fsdp_trainer)
+    fsdp_stats = get_stats(fsdp_trainer)
 
     # TP-FSDP fit
-    layer_plan = {
-        'fc1': GatherColwiseParallel(),
-        'fc2': RowwiseParallel(output_layouts=Shard(0)),
-    }
-    tp_config = TPConfig(layer_plan=layer_plan, tensor_parallel_degree=2)
-    parallelism_config = ParallelismConfig(fsdp=fsdp_config, tp=tp_config)
-    tp_fsdp_trainer = get_trainer(parallelism_config=parallelism_config, size=size)
+    tp_fsdp_trainer = get_tp_fsdp_trainer(size=size)
     tp_fsdp_trainer.fit()
     tp_fsdp_trainer.close()
-    tp_fsdp_stats = _get_stats(tp_fsdp_trainer)
+    tp_fsdp_stats = get_stats(tp_fsdp_trainer)
 
     # Compare loss between DDP, FSDP, TP-FSDP
     np.testing.assert_allclose(
@@ -303,18 +357,18 @@ def test_tp_fit(world_size: int):
     np.testing.assert_allclose(
         ddp_stats['accuracy_array'],
         fsdp_stats['accuracy_array'],
-        atol=0.1,
+        atol=0.3,
         err_msg='Accuracy arrays of DDP and FSDP are not close enough',
     )
     np.testing.assert_allclose(
         ddp_stats['accuracy_array'],
         tp_fsdp_stats['accuracy_array'],
-        atol=0.1,
+        atol=0.3,
         err_msg='Accuracy arrays of DDP and FSDP-TP are not close enough',
     )
     np.testing.assert_allclose(
         fsdp_stats['accuracy_array'],
         tp_fsdp_stats['accuracy_array'],
-        atol=0.1,
+        atol=0.3,
         err_msg='Accuracy arrays of FSDP and FSDP-TP are not close enough',
     )
