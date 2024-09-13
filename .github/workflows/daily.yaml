@@ -13,7 +13,10 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 jobs:
   daily-pytest-cpu:
-    uses: mosaicml/ci-testing/.github/workflows/pytest-cpu.yaml@v0.0.9
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    container: ${{ matrix.container }}
+    if: github.repository_owner == 'mosaicml'
     strategy:
       matrix:
         include:
@@ -28,17 +31,17 @@ jobs:
           pytest_command: coverage run -m pytest
           composer_package_name: mosaicml
         - name: cpu-3.11-2.4
-          container: mosaicml/pytorch:2.4.0_cpu-python3.11-ubuntu20.04
+          container: mosaicml/pytorch:2.4.1_cpu-python3.11-ubuntu20.04
           markers: not daily and (remote or not remote) and not gpu and not doctest
           pytest_command: coverage run -m pytest
           composer_package_name: mosaicml
         - name: cpu-3.11-2.4-composer
-          container: mosaicml/pytorch:2.4.0_cpu-python3.11-ubuntu20.04
+          container: mosaicml/pytorch:2.4.1_cpu-python3.11-ubuntu20.04
           markers: not daily and (remote or not remote) and not gpu and not doctest
           pytest_command: coverage run -m pytest
           composer_package_name: composer
         - name: cpu-doctest
-          container: mosaicml/pytorch:2.4.0_cpu-python3.11-ubuntu20.04
+          container: mosaicml/pytorch:2.4.1_cpu-python3.11-ubuntu20.04
           markers: not daily and (remote or not remote) and not gpu and doctest
           pytest_command: coverage run -m pytest tests/test_docs.py
           composer_package_name: mosaicml
@@ -53,40 +56,40 @@ jobs:
           pytest_command: coverage run -m pytest
           composer_package_name: mosaicml
         - name: daily-cpu-3.11-2.4
-          container: mosaicml/pytorch:2.4.0_cpu-python3.11-ubuntu20.04
+          container: mosaicml/pytorch:2.4.1_cpu-python3.11-ubuntu20.04
           markers: daily and (remote or not remote) and not gpu and not doctest
           pytest_command: coverage run -m pytest
           composer_package_name: mosaicml
         - name: daily-cpu-3.11-2.4-composer
-          container: mosaicml/pytorch:2.4.0_cpu-python3.11-ubuntu20.04
+          container: mosaicml/pytorch:2.4.1_cpu-python3.11-ubuntu20.04
           markers: daily and (remote or not remote) and not gpu and not doctest
           pytest_command: coverage run -m pytest
           composer_package_name: composer
         - name: daily-cpu-doctest
-          container: mosaicml/pytorch:2.4.0_cpu-python3.11-ubuntu20.04
+          container: mosaicml/pytorch:2.4.1_cpu-python3.11-ubuntu20.04
           markers: daily and (remote or not remote) and not gpu and doctest
           pytest_command: coverage run -m pytest tests/test_docs.py
           composer_package_name: mosaicml
-    name: ${{ matrix.name }}
-    if: github.repository_owner == 'mosaicml'
-    with:
-      container: ${{ matrix.container }}
-      name: ${{ matrix.name }}
-      pip_deps: "[all]"
-      pytest-command: ${{ matrix.pytest_command }}
-      pytest-markers: ${{ matrix.markers }}
-      composer_package_name: ${{ matrix.composer_package_name }}
-      safe_directory: composer
-    secrets:
-      aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      code-eval-device: ${{ secrets.CODE_EVAL_DEVICE }}
-      code-eval-url: ${{ secrets.CODE_EVAL_URL }}
-      code-eval-apikey: ${{ secrets.CODE_EVAL_APIKEY }}
-      gcs-key: ${{ secrets.GCS_KEY }}
-      gcs-secret: ${{ secrets.GCS_SECRET }}
-      azure-account-name: ${{ secrets.AZURE_ACCOUNT_NAME }}
-      azure-account-access-key: ${{ secrets.AZURE_ACCOUNT_ACCESS_KEY }}
+    steps:
+    - name: Run PR CPU Tests
+      uses: mosaicml/ci-testing/.github/actions/pytest-cpu@v0.2.2
+      with:
+        name: ${{ matrix.name }}
+        pip_deps: "[all]"
+        pytest_command: ${{ matrix.pytest_command }}
+        pytest_markers: ${{ matrix.markers }}
+        safe_directory: composer
+        composer_package_name: ${{ matrix.composer_package_name }}
+        container: ${{ inputs.container }}
+        aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        code_eval_device: ${{ secrets.CODE_EVAL_DEVICE }}
+        code_eval_url: ${{ secrets.CODE_EVAL_URL }}
+        code_eval_apikey: ${{ secrets.CODE_EVAL_APIKEY }}
+        gcs_key: ${{ secrets.GCS_KEY }}
+        gcs_secret: ${{ secrets.GCS_SECRET }}
+        azure_account_name: ${{ secrets.AZURE_ACCOUNT_NAME }}
+        azure_account_access_key: ${{ secrets.AZURE_ACCOUNT_ACCESS_KEY }}
   coverage:
     uses: ./.github/workflows/coverage.yaml
     name: Coverage Results
@@ -96,12 +99,14 @@ jobs:
       download-path: artifacts
 
   daily-pytest-gpu:
-    uses: mosaicml/ci-testing/.github/workflows/pytest-gpu.yaml@v0.0.9
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    if: github.repository_owner == 'mosaicml'
     strategy:
       matrix:
+        include:
         # Unlike CPU tests, we run daily tests together with GPU tests to minimize launch time
         # on MCLOUD and not eat up all GPUs at once
-        include:
         - name: "gpu-3.11-2.2-1-gpu"
           container: mosaicml/pytorch:2.2.1_cu121-python3.11-ubuntu20.04
           markers: "(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)"
@@ -115,7 +120,7 @@ jobs:
           composer_package_name: "mosaicml"
           gpu_num: 1
         - name: "gpu-3.11-2.4-1-gpu"
-          container: mosaicml/pytorch:2.4.0_cu124-python3.11-ubuntu20.04
+          container: mosaicml/pytorch:2.4.1_cu124-python3.11-ubuntu20.04
           markers: "(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)"
           pytest_command: "coverage run -m pytest"
           composer_package_name: "mosaicml"
@@ -133,7 +138,7 @@ jobs:
           composer_package_name: "mosaicml"
           gpu_num: 2
         - name: "gpu-3.11-2.4-2-gpu"
-          container: mosaicml/pytorch:2.4.0_cu124-python3.11-ubuntu20.04
+          container: mosaicml/pytorch:2.4.1_cu124-python3.11-ubuntu20.04
           markers: "(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)"
           pytest_command: "coverage run -m pytest"
           composer_package_name: "mosaicml"
@@ -151,24 +156,27 @@ jobs:
           composer_package_name: "mosaicml"
           gpu_num: 4
         - name: "gpu-3.11-2.4-4-gpu"
-          container: mosaicml/pytorch:2.4.0_cu124-python3.11-ubuntu20.04
+          container: mosaicml/pytorch:2.4.1_cu124-python3.11-ubuntu20.04
           markers: "(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)"
           pytest_command: "coverage run -m pytest"
           composer_package_name: "mosaicml"
           gpu_num: 4
-    name: ${{ matrix.name }}
-    if: github.repository_owner == 'mosaicml'
-    with:
-      composer_package_name: ${{ matrix.composer_package_name }}
-      container: ${{ matrix.container }}
-      git_repo: mosaicml/composer
-      mcloud-timeout: 5400
-      name: ${{ matrix.name }}
-      pip_deps: "[all]"
-      pytest-command: ${{ matrix.pytest_command }}
-      pytest-markers: ${{ matrix.markers }}
-      python-version: 3.11
-      gpu_num: ${{ matrix.gpu_num }}
-      gha-timeout: 5400
-    secrets:
-      mcloud-api-key: ${{ secrets.MCLOUD_DAILY_API_KEY }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    - name: Run PR GPU Tests
+      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.1.2
+      with:
+        name: ${{ matrix.name }}
+        composer_package_name: ${{ matrix.composer_package_name }}
+        container: ${{ matrix.container }}
+        git_repo: mosaicml/composer
+        mcloud_timeout: 5400
+        pip_deps: "[all]"
+        pytest_command: ${{ matrix.pytest_command }}
+        pytest_markers: ${{ matrix.markers }}
+        python_version: 3.11
+        gpu_num: ${{ matrix.gpu_num }}
+        mcloud_api_key: ${{ secrets.MCLOUD_DAILY_API_KEY }}
+        gha_timeout: 5400
+        ci_repo_gpu_test_ref: v0.1.2

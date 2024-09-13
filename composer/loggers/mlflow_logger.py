@@ -174,9 +174,9 @@ class MLFlowLogger(LoggerDestination):
 
         if log_system_metrics:
             # Set system metrics sampling interval and samples before logging so that system metrics
-            # are collected every 5s, and aggregated over 3 samples before being logged
-            # (logging per 15s).
-            mlflow.set_system_metrics_samples_before_logging(3)
+            # are collected every 5s, and aggregated over 6 samples before being logged
+            # (logging per 30s).
+            mlflow.set_system_metrics_samples_before_logging(6)
             mlflow.set_system_metrics_sampling_interval(5)
 
         self._rank_zero_only = rank_zero_only
@@ -312,10 +312,7 @@ class MLFlowLogger(LoggerDestination):
         if self.run_name is None:
             self.run_name = state.run_name
 
-        if hasattr(state, 'device'):
-            self._global_exception_occurred = state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8),)
-        else:
-            self._global_exception_occurred = 0
+        self._global_exception_occurred = 0
 
         # Store the Composer run name in the MLFlow run tags so it can be retrieved for autoresume
         self.tags['run_name'] = os.environ.get('RUN_NAME', state.run_name)
@@ -545,7 +542,11 @@ class MLFlowLogger(LoggerDestination):
         """
         if self._enabled:
             from mlflow.exceptions import MlflowException
-            from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS, ErrorCode
+            from mlflow.protos.databricks_pb2 import (
+                ALREADY_EXISTS,
+                RESOURCE_ALREADY_EXISTS,
+                ErrorCode,
+            )
 
             full_name = f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name
 
@@ -601,7 +602,7 @@ class MLFlowLogger(LoggerDestination):
                 assert isinstance(self._run_id, str)
                 self._mlflow_client.log_image(
                     image=image,
-                    key=f'{name}_{step}_{im_ind}',
+                    key=f'{name}_{im_ind}',
                     run_id=self._run_id,
                     step=step,
                 )
@@ -611,10 +612,7 @@ class MLFlowLogger(LoggerDestination):
             if hasattr(self, 'monitor_process'):
                 # Check if there is an uncaught exception, which means `post_close()` is triggered
                 # due to program crash.
-                if isinstance(self._global_exception_occurred, torch.Tensor):
-                    finish_with_exception = (self._global_exception_occurred == 1).item()
-                else:
-                    finish_with_exception = (self._global_exception_occurred == 1)
+                finish_with_exception = self._global_exception_occurred == 1
                 if finish_with_exception:
                     self.monitor_process.crash()
                     return

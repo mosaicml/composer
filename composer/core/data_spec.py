@@ -258,7 +258,7 @@ class DataSpec:
                             '`get_num_samples_in_batch(your_batch) -> int` method.',
                         )
                     dim0_sizes.append(t.shape[0])
-        elif isinstance(batch, dict):
+        elif isinstance(batch, Mapping):
             for t in batch.values():
                 if isinstance(t, torch.Tensor):
                     dim0_sizes.append(t.shape[0])

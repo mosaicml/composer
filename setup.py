@@ -80,8 +80,8 @@ install_requires = [
     'tqdm>=4.62.3,<5',
     'torchmetrics>=1.4.0.post0,<1.4.1',
     'torch_optimizer>=0.3.0,<0.4',
-    'torchvision>=0.14.0,<0.19.1',
-    'torch>=2.2.0,<2.4.1',
+    'torchvision>=0.14.0,<0.19.2',
+    'torch>=2.2.0,<2.4.2',
     'requests>=2.26.0,<3',
     'numpy>=1.21.5,<2.2.0',
     'psutil>=5.8.0,<7',
@@ -135,7 +135,7 @@ extra_deps['dev'] = [
     'pytest_codeblocks==0.17.0',
     'traitlets==5.14.3',
     'nbsphinx==0.9.1',
-    'pandoc==2.3',
+    'pandoc==2.4',
     'pypandoc==1.13',
     'GitPython==3.1.43',
     'moto[s3]>=5.0.1,<6',
@@ -154,6 +154,7 @@ extra_deps['slack'] = {
 }
 
 extra_deps['deepspeed'] = [
+    'numpy<2',
     'deepspeed==0.8.3',
     'pydantic>=1.0,<2',
 ]
@@ -179,7 +180,7 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,!=4.34.0,<4.44',
+    'transformers>=4.11,!=4.34.0,<4.45',
     'datasets>=2.4,<3',
     'huggingface-hub>=0.21.2,<0.25',
 ]
@@ -189,7 +190,7 @@ extra_deps['peft'] = [
 ]
 
 extra_deps['sentencepiece'] = [
-    'protobuf<5.28',
+    'protobuf<5.29',
     'sentencepiece==0.2.0',
 ]
 
@@ -224,13 +225,13 @@ extra_deps['onnx'] = [
 
 extra_deps['mlflow'] = [
     'mlflow>=2.14.1,<3.0',
-    'databricks-sdk==0.30.0',
+    'databricks-sdk==0.32.0',
     'pynvml>=11.5.0,<12',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk==0.30.0']
+extra_deps['databricks'] = ['databricks-sdk==0.32.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 

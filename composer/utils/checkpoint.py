@@ -608,42 +608,50 @@ def dist_cp_load(
     load_planner: Optional[LoadPlanner] = None,
 ):
     if version.parse(torch.__version__) >= version.parse('2.4.0'):
-        from torch.distributed.checkpoint.utils import CheckpointException
-        try:
-            dist_cp.load(
-                state_dict=state_dict,
-                storage_reader=storage_reader,
-                planner=load_planner,
-            )
-        except CheckpointException as e:
-            checkpoint_metadata = storage_reader.read_metadata().state_dict_metadata
-            if 'state.metadata' in checkpoint_metadata and 'state.metadata.composer_env_info.composer_version' not in checkpoint_metadata:
-                # Torch 2.4 changed the way how state dict is flattened. It broke backward compatibility.
-                # Torch issue: https://github.com/pytorch/pytorch/issues/133923.
-                # We override the traverse_state_dict so that the load planner could
-                # use the old way of flattening the state dict
-                log.debug('Trying to load checkpointing saved before torch 2.4')
-
-                import torch.distributed.checkpoint._nested_dict as nested_dict
-                import torch.distributed.checkpoint._sharded_tensor_utils as sharded_tensor_util
-                from torch.distributed.checkpoint._traverse import traverse_state_dict as traverse_2_4_0
-
-                from composer.trainer._patch_pytorch import traverse_state_dict as backward_compatible_traverse
-
-                nested_dict.traverse_state_dict = backward_compatible_traverse
-                sharded_tensor_util.traverse_state_dict = backward_compatible_traverse
-
+        if version.parse(torch.__version__) < version.parse('2.4.1'):
+            # PyTorch 2.4.0
+            from torch.distributed.checkpoint.utils import CheckpointException
+            try:
                 dist_cp.load(
                     state_dict=state_dict,
                     storage_reader=storage_reader,
                     planner=load_planner,
                 )
-                # Revert the override
-                nested_dict.traverse_state_dict = traverse_2_4_0
-                sharded_tensor_util.traverse_state_dict = traverse_2_4_0
-            else:
-                raise e
+            except CheckpointException as e:
+                checkpoint_metadata = storage_reader.read_metadata().state_dict_metadata
+                if 'state.metadata' in checkpoint_metadata and 'state.metadata.composer_env_info.composer_version' not in checkpoint_metadata:
+                    # Torch 2.4 changed the way how state dict is flattened. It broke backward compatibility.
+                    # Torch issue: https://github.com/pytorch/pytorch/issues/133923.
+                    # We override the traverse_state_dict so that the load planner could
+                    # use the old way of flattening the state dict
+                    log.debug('Trying to load checkpointing saved before torch 2.4')
 
+                    import torch.distributed.checkpoint._nested_dict as nested_dict
+                    import torch.distributed.checkpoint._sharded_tensor_utils as sharded_tensor_util
+                    from torch.distributed.checkpoint._traverse import traverse_state_dict as traverse_2_4_0
+
+                    from composer.trainer._patch_pytorch import traverse_state_dict as backward_compatible_traverse
+
+                    nested_dict.traverse_state_dict = backward_compatible_traverse
+                    sharded_tensor_util.traverse_state_dict = backward_compatible_traverse
+
+                    dist_cp.load(
+                        state_dict=state_dict,
+                        storage_reader=storage_reader,
+                        planner=load_planner,
+                    )
+                    # Revert the override
+                    nested_dict.traverse_state_dict = traverse_2_4_0
+                    sharded_tensor_util.traverse_state_dict = traverse_2_4_0
+                else:
+                    raise e
+        else:
+            # PyTorch 2.4.1
+            dist_cp.load(
+                state_dict=state_dict,
+                storage_reader=storage_reader,
+                planner=load_planner,
+            )
     else:
         dist_cp.load_state_dict(
             state_dict=state_dict,

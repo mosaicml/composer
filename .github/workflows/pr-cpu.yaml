@@ -25,16 +25,16 @@ jobs:
           markers: not daily and not remote and not gpu and not doctest
           pytest_command: coverage run -m pytest
         - name: cpu-3.11-2.4
-          container: mosaicml/pytorch:2.4.0_cpu-python3.11-ubuntu20.04
+          container: mosaicml/pytorch:2.4.1_cpu-python3.11-ubuntu20.04
           markers: not daily and not remote and not gpu and not doctest
           pytest_command: coverage run -m pytest
         - name: cpu-doctest
-          container: mosaicml/pytorch:2.4.0_cpu-python3.11-ubuntu20.04
+          container: mosaicml/pytorch:2.4.1_cpu-python3.11-ubuntu20.04
           markers: not daily and not remote and not gpu and doctest
           pytest_command: coverage run -m pytest tests/test_docs.py
     steps:
     - name: Run PR CPU Tests
-      uses: mosaicml/ci-testing/.github/actions/pytest-cpu@v0.1.2
+      uses: mosaicml/ci-testing/.github/actions/pytest-cpu@v0.2.2
       with:
         name: ${{ matrix.name }}
         pip_deps: "[all]"
