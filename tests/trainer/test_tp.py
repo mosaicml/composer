@@ -186,7 +186,7 @@ def _forward(trainer):
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='Requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 def test_tp_forward(world_size: int):
-    """Test that the forward pass with DDP, FSDP, FSDP + TP all output the same tensor."""
+    """Test that the forward pass with DDP, FSDP, TP-FSDP all output the same tensor."""
 
     # DDP forward pass
     ddp_trainer = get_trainer()
@@ -202,7 +202,7 @@ def test_tp_forward(world_size: int):
     fsdp_trainer = get_trainer(parallelism_config=parallelism_config)
     fsdp_out = _forward(fsdp_trainer)
 
-    # FSDP + TP forward pass
+    # TP-FSDP forward pass
     layer_plan = {
         'fc1': GatherColwiseParallel(),
         'fc2': RowwiseParallel(output_layouts=Shard(0)),
@@ -222,7 +222,6 @@ def _get_stats(trainer: Trainer) -> dict[str, np.ndarray]:
     stats = {
         'loss_array': logger.get_timeseries('loss/train/total')['loss/train/total'],
         'accuracy_array': logger.get_timeseries('metrics/train/MulticlassAccuracy')['metrics/train/MulticlassAccuracy'],
-        # 'peak_reserved_mem': logger.get_timeseries('memory/peak_reserved_mem')['memory/peak_reserved_mem'],
     }
     return stats
 
@@ -232,31 +231,31 @@ def _get_stats(trainer: Trainer) -> dict[str, np.ndarray]:
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='Requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 def test_tp_fit(world_size: int):
-    """Test that trainer.fit() with DDP, FSDP, FSDP + TP all output the same loss and accuracy."""
-    import warnings
+    """Test that trainer.fit() with DDP, FSDP, TP-FSDP all output the same loss and accuracy."""
     from icecream import install
     install()
-    warnings.filterwarnings("ignore")
 
-    size = 1024
+    size = 1024 # enough data to train for multiple steps
 
-    # DDP forward pass
-    ddp_trainer = get_trainer(parallelism_config=None, size=size)
+    # DDP fit
+    ddp_trainer = get_trainer(size=size)
     ddp_trainer.fit()
-    # ddp_trainer.close()
+    ddp_trainer.close()
     ddp_stats = _get_stats(ddp_trainer)
 
-    # FSDP forward pass
+    # FSDP fit
     fsdp_config = FSDPConfig(
         state_dict_type='full',
         sharding_strategy='SHARD_GRAD_OP',
         mixed_precision='full',
         )
-    fsdp_trainer = get_trainer(parallelism_config={'fsdp': fsdp_config}, size=size)
+    parallelism_config = ParallelismConfig(fsdp=fsdp_config)
+    fsdp_trainer = get_trainer(parallelism_config=parallelism_config, size=size)
     fsdp_trainer.fit()
+    fsdp_trainer.close()
     fsdp_stats = _get_stats(fsdp_trainer)
 
-    # FSDP + TP forward pass
+    # TP-FSDP fit
     layer_plan = {
         'fc1': GatherColwiseParallel(),
         'fc2': RowwiseParallel(output_layouts=Shard(0)),
@@ -265,12 +264,25 @@ def test_tp_fit(world_size: int):
     parallelism_config = ParallelismConfig(fsdp=fsdp_config, tp=tp_config)
     tp_fsdp_trainer = get_trainer(parallelism_config=parallelism_config, size=size)
     tp_fsdp_trainer.fit()
+    tp_fsdp_trainer.close()
     tp_fsdp_stats = _get_stats(tp_fsdp_trainer)
 
     ic(ddp_stats)
     ic(fsdp_stats)
     ic(tp_fsdp_stats)
 
-    # # assert ddp_out.shape == fsdp_out.shape == tp_fsdp_out.shape, f"Outputs have different shapes: {ddp_out.shape=}, {fsdp_out.shape=}, {tp_fsdp_out.shape=}"
-    # # assert torch.allclose(ddp_out, fsdp_out, atol=1e-3), f"Outputs have different values: {ddp_out=} and {fsdp_out=}"
-    # assert torch.allclose(ddp_out, tp_fsdp_out, atol=1e-3), f"Outputs have different values: {ddp_out=} and {tp_fsdp_out=}"
+    # Compare loss between DDP, FSDP, TP-FSDP
+    np.testing.assert_allclose(ddp_stats['loss_array'], fsdp_stats['loss_array'], atol=5e-2,
+                               err_msg="Loss arrays of DDP and FSDP are not close enough.")
+    np.testing.assert_allclose(ddp_stats['loss_array'], tp_fsdp_stats['loss_array'], atol=5e-2,
+                               err_msg="Loss arrays of DDP and TP-FSDP are not close enough.")
+    np.testing.assert_allclose(fsdp_stats['loss_array'], tp_fsdp_stats['loss_array'], atol=5e-2,
+                               err_msg="Loss arrays of FSDP and TP-FSDP are not close enough.")
+
+    # Compare accuracy between DDP, FSDP, TP-FSDP
+    np.testing.assert_allclose(ddp_stats['accuracy_array'], fsdp_stats['accuracy_array'], atol=0.1,
+                               err_msg="Accuracy arrays of DDP and FSDP are not close enough")
+    np.testing.assert_allclose(ddp_stats['accuracy_array'], tp_fsdp_stats['accuracy_array'], atol=0.1,
+                               err_msg="Accuracy arrays of DDP and FSDP-TP are not close enough")
+    np.testing.assert_allclose(fsdp_stats['accuracy_array'], tp_fsdp_stats['accuracy_array'], atol=0.1,
+                               err_msg="Accuracy arrays of FSDP and FSDP-TP are not close enough")
