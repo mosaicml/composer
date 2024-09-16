@@ -10,11 +10,9 @@ from packaging import version
 from torch.distributed._tensor import Replicate, Shard
 from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
 from torch.utils.data import DataLoader
-from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
-from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_context
-
 
 from composer.callbacks import MemoryMonitor
+from composer.core.state import fsdp_state_dict_type_context
 from composer.loggers import InMemoryLogger
 from composer.trainer.trainer import Trainer
 from composer.utils import FSDPConfig, ParallelismConfig, TPConfig, dist, reproducibility
@@ -301,6 +299,7 @@ def test_tp_forward(world_size: int):
         atol=1e-3,
     ), f'Outputs have different values: {ddp_out=} and {tp_fsdp_out=}'
 
+
 @pytest.mark.gpu
 @world_size(4)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='Requires PyTorch 2.3+')
@@ -326,11 +325,17 @@ def test_tp_hang(world_size: int):
         print(fsdp_state_dict_4)
 
     # if dist.get_local_rank() == 0:
-    #     print('fsdp_state_dict_4')
+    #     # fsdp_state_dict_6 HANGS!!
+    #     print('fsdp_state_dict_5')
     #     with fsdp_state_dict_type_context(fsdp_trainer.state.model, state_dict_type='full'):
-    #         fsdp_state_dict_4 = fsdp_trainer.state.model.state_dict()
-    #     print(fsdp_state_dict_4)
+    #         fsdp_state_dict_5 = fsdp_trainer.state.state_dict()
+    #         print(fsdp_state_dict_5)
 
+    #     # fsdp_state_dict_6 HANGS!!
+    #     print('fsdp_state_dict_6')
+    #     with fsdp_state_dict_type_context(fsdp_trainer.state.model, state_dict_type='full'):
+    #         fsdp_state_dict_6 = fsdp_trainer.state.model.state_dict()
+    #         print(fsdp_state_dict_6)
 
     tp_fsdp_trainer = get_tp_fsdp_trainer()
     tp_fsdp_trainer.fit()
@@ -350,17 +355,18 @@ def test_tp_hang(world_size: int):
         tp_fsdp_state_dict_4 = tp_fsdp_trainer.state.state_dict()
         print(tp_fsdp_state_dict_4)
 
-    if dist.get_local_rank() == 0:
-        # This HANGS!
-        print('tp_fsdp_state_dict_5')
-        with fsdp_state_dict_type_context(tp_fsdp_trainer.state.model, state_dict_type='full'):
-            tp_fsdp_state_dict_5 = tp_fsdp_trainer.state.state_dict()
-            print(tp_fsdp_state_dict_5)
+    # if dist.get_local_rank() == 0:
+    #     # tp_fsdp_state_dict_5 HANGS!!
+    #     print('tp_fsdp_state_dict_5')
+    #     with fsdp_state_dict_type_context(tp_fsdp_trainer.state.model, state_dict_type='full'):
+    #         tp_fsdp_state_dict_5 = tp_fsdp_trainer.state.state_dict()
+    #         print(tp_fsdp_state_dict_5)
 
-        print('tp_fsdp_state_dict_6')
-        with fsdp_state_dict_type_context(tp_fsdp_trainer.state.model, state_dict_type='full'):
-            tp_fsdp_state_dict_6 = tp_fsdp_trainer.state.model.state_dict()
-            print(tp_fsdp_state_dict_6)
+    #     # tp_fsdp_state_dict_6 HANGS!!
+    #     print('tp_fsdp_state_dict_6')
+    #     with fsdp_state_dict_type_context(tp_fsdp_trainer.state.model, state_dict_type='full'):
+    #         tp_fsdp_state_dict_6 = tp_fsdp_trainer.state.model.state_dict()
+    #         print(tp_fsdp_state_dict_6)
 
 
 @pytest.mark.gpu
@@ -407,6 +413,7 @@ def test_tp_gradients(world_size: int):
 
         # assert fsdp_state_dict_2 == tp_fsdp_state_dict_2
 
+
 @pytest.mark.gpu
 @world_size(4)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='Requires PyTorch 2.3+')
@@ -444,7 +451,6 @@ def test_tp_weights(world_size: int):
         if param.grad is not None:
             print(name, param.grad.shape, param.grad)
 
-
     if dist.get_local_rank() == 0:
         pass
 
@@ -458,7 +464,6 @@ def test_tp_weights(world_size: int):
         # print(f'{tp_fsdp_state_dict_2=}')
         # consume_prefix_in_state_dict_if_present(tp_fsdp_state_dict_2['optimizers'], 'module.')
         # print(f'{tp_fsdp_state_dict_2=}')
-
 
         # assert fsdp_state_dict_2 == tp_fsdp_state_dict_2
 
