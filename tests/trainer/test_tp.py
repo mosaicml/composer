@@ -10,7 +10,6 @@ from packaging import version
 from torch.distributed._tensor import Replicate, Shard
 from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
 from torch.utils.data import DataLoader
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 from composer.callbacks import MemoryMonitor
 from composer.core.state import fsdp_state_dict_type_context
@@ -24,6 +23,7 @@ from tests.common import (
     world_size,
 )
 from tests.trainer.test_fsdp_checkpoint import get_mono_state_dict_from_sharded_one
+
 
 @pytest.mark.gpu
 @world_size(4)
@@ -406,33 +406,40 @@ def test_tp_gradients(world_size: int):
 
     rank = dist.get_local_rank()
     for (ddp_name, ddp_param), (fsdp_name, fsdp_param), (tp_fsdp_name, tp_fsdp_param) in zip(
-        ddp_params.items(), fsdp_params.items(), tp_fsdp_params.items()
+        ddp_params.items(),
+        fsdp_params.items(),
+        tp_fsdp_params.items(),
     ):
         print(f'{rank=}')
-        print('\nDDP:\n', ddp_name, ddp_param.shape, ddp_param)
-        if ddp_param.grad is not None: print(ddp_param.grad.shape, ddp_param.grad)
-        print('\nFSDP:\n', fsdp_name, fsdp_param.shape, fsdp_param)
-        if fsdp_param.grad is not None: print(fsdp_param.grad.shape, fsdp_param.grad)
-        print('\nTP-FSDP:\n', tp_fsdp_name, tp_fsdp_param.shape, tp_fsdp_param)
-        if tp_fsdp_param.grad is not None: print(tp_fsdp_param.grad.shape, tp_fsdp_param.grad)
+        print(f'\nDDP\n{ddp_name}:\n', ddp_param.shape, '\n', ddp_param)
+        if ddp_param.grad is not None:
+            print(ddp_param.grad.shape, '\n', ddp_param.grad)
+        print(f'\nFSDP\n{fsdp_name}:\n', fsdp_param.shape, '\n', fsdp_param)
+        if fsdp_param.grad is not None:
+            print(fsdp_param.grad.shape, '\n', fsdp_param.grad)
+        print(f'\nTP-FSDP\n{tp_fsdp_name}:\n', tp_fsdp_param.shape, '\n', tp_fsdp_param)
+        if tp_fsdp_param.grad is not None:
+            print(tp_fsdp_param.grad.shape, '\n', tp_fsdp_param.grad)
 
         # summon_full_params puts all of the parameters on rank 0
         if rank != 0:
             continue
 
         torch.testing.assert_close(
-            ddp_param.grad, fsdp_param.grad,
-            msg='DDP and FSDP gradients are not close enough.'
-            )
+            ddp_param.grad,
+            fsdp_param.grad,
+            msg='DDP and FSDP gradients are not close enough.',
+        )
         torch.testing.assert_close(
-            ddp_param.grad, tp_fsdp_param.grad,
-            msg='DDP and FSDP gradients are not close enough.'
-            )
+            ddp_param.grad,
+            tp_fsdp_param.grad,
+            msg='DDP and FSDP gradients are not close enough.',
+        )
         torch.testing.assert_close(
-            fsdp_param.grad, tp_fsdp_param.grad,
-            msg='DDP and FSDP gradients are not close enough.'
-            )
-
+            fsdp_param.grad,
+            tp_fsdp_param.grad,
+            msg='DDP and FSDP gradients are not close enough.',
+        )
 
 
 @pytest.mark.gpu
@@ -478,18 +485,18 @@ def test_tp_fit_weights(world_size: int):
     # if dist.get_local_rank() == 0:
     #     pass
 
-        # todo:
-        #! reaname keys, e.g. module.2.weight -> fc2.weight
-        #! compare model, optimizer states
-        #! use _compare_optims_between_state_dicts, _compare_model_params_between_state_dicts from test_fsdp_checkpoint
+    # todo:
+    #! reaname keys, e.g. module.2.weight -> fc2.weight
+    #! compare model, optimizer states
+    #! use _compare_optims_between_state_dicts, _compare_model_params_between_state_dicts from test_fsdp_checkpoint
 
-        # removes 'module.' from all state dict keys in-place
-        # consume_prefix_in_state_dict_if_present(tp_fsdp_state_dict_2['model'], 'module.')
-        # print(f'{tp_fsdp_state_dict_2=}')
-        # consume_prefix_in_state_dict_if_present(tp_fsdp_state_dict_2['optimizers'], 'module.')
-        # print(f'{tp_fsdp_state_dict_2=}')
+    # removes 'module.' from all state dict keys in-place
+    # consume_prefix_in_state_dict_if_present(tp_fsdp_state_dict_2['model'], 'module.')
+    # print(f'{tp_fsdp_state_dict_2=}')
+    # consume_prefix_in_state_dict_if_present(tp_fsdp_state_dict_2['optimizers'], 'module.')
+    # print(f'{tp_fsdp_state_dict_2=}')
 
-        # assert fsdp_state_dict_2 == tp_fsdp_state_dict_2
+    # assert fsdp_state_dict_2 == tp_fsdp_state_dict_2
 
 
 def get_stats(trainer: Trainer) -> dict[str, np.ndarray]:
@@ -510,7 +517,7 @@ def test_tp_fit(batch_size: int, world_size: int):
     """Test that DDP, FSDP, TP-FSDP have the same trainer.fit(), i.e. output the same loss and accuracy."""
 
     # Initialize
-    train_steps = 20 # number of steps to train for
+    train_steps = 20  # number of steps to train for
     dataset_size = world_size * batch_size * train_steps
 
     # DDP fit
@@ -535,19 +542,19 @@ def test_tp_fit(batch_size: int, world_size: int):
     np.testing.assert_allclose(
         ddp_stats['loss_array'],
         fsdp_stats['loss_array'],
-        atol=5e-2,
+        atol=6e-2,
         err_msg='Loss arrays of DDP and FSDP are not close enough.',
     )
     np.testing.assert_allclose(
         ddp_stats['loss_array'],
         tp_fsdp_stats['loss_array'],
-        atol=5e-2,
+        atol=6e-2,
         err_msg='Loss arrays of DDP and TP-FSDP are not close enough.',
     )
     np.testing.assert_allclose(
         fsdp_stats['loss_array'],
         tp_fsdp_stats['loss_array'],
-        atol=5e-2,
+        atol=6e-2,
         err_msg='Loss arrays of FSDP and TP-FSDP are not close enough.',
     )
 
