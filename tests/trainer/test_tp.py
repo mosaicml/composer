@@ -367,10 +367,8 @@ def get_stats(trainer: Trainer) -> dict[str, np.ndarray]:
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 def test_tp_fit(batch_size: int, world_size: int):
     """Test that DDP, FSDP, TP-FSDP have the same trainer.fit(), i.e. output the same loss and accuracy."""
-    from icecream import install
-    install()
 
-    size = 1024  # make enough data to train for multiple steps
+    size = world_size * batch_size
 
     # DDP fit
     ddp_trainer = get_ddp_trainer(size=size, batch_size=batch_size)
