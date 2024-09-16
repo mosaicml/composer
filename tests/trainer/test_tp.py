@@ -10,6 +10,9 @@ from packaging import version
 from torch.distributed._tensor import Replicate, Shard
 from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
 from torch.utils.data import DataLoader
+from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
+from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_context
+
 
 from composer.callbacks import MemoryMonitor
 from composer.loggers import InMemoryLogger
@@ -298,6 +301,55 @@ def test_tp_forward(world_size: int):
         atol=1e-3,
     ), f'Outputs have different values: {ddp_out=} and {tp_fsdp_out=}'
 
+@pytest.mark.gpu
+@world_size(4)
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='Requires PyTorch 2.3+')
+@pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
+def test_tp_hang(world_size: int):
+
+    fsdp_trainer = get_fsdp_trainer()
+    fsdp_trainer.fit()
+    print('fsdp_state_dict_1')
+    fsdp_state_dict_1 = fsdp_trainer.state.state_dict()
+    print(fsdp_state_dict_1)
+    fsdp_trainer.close()
+    print('fsdp_state_dict_2')
+    fsdp_state_dict_2 = fsdp_trainer.state.state_dict()
+    print(fsdp_state_dict_2)
+
+    print('fsdp_state_dict_3')
+    with fsdp_state_dict_type_context(fsdp_trainer.state.model, state_dict_type='full'):
+        fsdp_state_dict_3 = fsdp_trainer.state.model.state_dict()
+    print(fsdp_state_dict_3)
+
+    if dist.get_local_rank() == 0:
+        print('fsdp_state_dict_4')
+        with fsdp_state_dict_type_context(fsdp_trainer.state.model, state_dict_type='full'):
+            fsdp_state_dict_4 = fsdp_trainer.state.model.state_dict()
+        print(fsdp_state_dict_4)
+
+
+    tp_fsdp_trainer = get_tp_fsdp_trainer()
+    tp_fsdp_trainer.fit()
+    print('tp_fsdp_state_dict_1')
+    tp_fsdp_state_dict_1 = tp_fsdp_trainer.state.state_dict()
+    print(tp_fsdp_state_dict_1)
+    tp_fsdp_trainer.close()
+    print('tp_fsdp_state_dict_2')
+    tp_fsdp_state_dict_2 = tp_fsdp_trainer.state.state_dict()
+    print(tp_fsdp_state_dict_2)
+
+    print('tp_fsdp_state_dict_3')
+    with fsdp_state_dict_type_context(tp_fsdp_trainer.state.model, state_dict_type='full'):
+        tp_fsdp_state_dict_3 = tp_fsdp_trainer.state.model.state_dict()
+    print(tp_fsdp_state_dict_3)
+
+    if dist.get_local_rank() == 0:
+        print('tp_fsdp_state_dict_4')
+        with fsdp_state_dict_type_context(tp_fsdp_trainer.state.model, state_dict_type='full'):
+            tp_fsdp_state_dict_4 = tp_fsdp_trainer.state.model.state_dict()
+        print(tp_fsdp_state_dict_4)
+
 
 @pytest.mark.gpu
 @world_size(4)
@@ -308,47 +360,99 @@ def test_tp_gradients(world_size: int):
     # from icecream import ic
 
     # DDP gradients
+    print('ddp_trainer')
     ddp_trainer = get_ddp_trainer()
     ddp_trainer.fit()
     # ddp_out = forward_pass(ddp_trainer)
     # torch.sum(ddp_out).backward()
     # ddp_trainer.state.optimizers[0].step()
+    ddp_state_dict_1 = ddp_trainer.state.state_dict()
+    print(f'{ddp_state_dict_1=}')
     ddp_trainer.close()
-    ddp_state_dict = ddp_trainer.state.state_dict()
-
-    print('ddp_trainer')
-    # ic(ddp_trainer.state.model.module)
-    # for name, param in ddp_trainer.state.model.named_parameters():
-    #     if param.grad is not None:
-    #         ic(name, param.grad.shape, param.grad)
+    ddp_state_dict_2 = ddp_trainer.state.state_dict()
+    print(f'{ddp_state_dict_2=}')
 
     # FSDP gradients
+    print('fsdp_trainer')
     fsdp_trainer = get_fsdp_trainer()
     fsdp_trainer.fit()
     # fsdp_out = forward_pass(fsdp_trainer)
     # torch.sum(fsdp_out).backward()
+    fsdp_state_dict_1 = fsdp_trainer.state.state_dict()
+    print(f'{fsdp_state_dict_1=}')
     fsdp_trainer.close()
-    fsdp_state_dict = fsdp_trainer.state.state_dict()
-
-    print('fsdp_trainer')
-    # ic(fsdp_trainer.state.model.module)
-    # for name, param in fsdp_trainer.state.model.named_parameters():
-    #     if param.grad is not None:
-    #         ic(name, param.grad.shape, param.grad)
+    fsdp_state_dict_2 = fsdp_trainer.state.state_dict()
+    print(f'{fsdp_state_dict_2=}')
 
     # TP-FSDP gradients
+    print('tp_fsdp_trainer')
     tp_fsdp_trainer = get_tp_fsdp_trainer()
     tp_fsdp_trainer.fit()
     # tp_fsdp_out = forward_pass(tp_fsdp_trainer)
     # torch.sum(tp_fsdp_out).backward()
+    tp_fsdp_state_dict_1 = tp_fsdp_trainer.state.state_dict()
+    print(f'{tp_fsdp_state_dict_1=}')
+    tp_fsdp_trainer.close()
+    tp_fsdp_state_dict_2 = tp_fsdp_trainer.state.state_dict()
+
+    if dist.get_local_rank() == 0:
+        pass
+        # removes 'module.' from all state dict keys in-place
+        # consume_prefix_in_state_dict_if_present(tp_fsdp_state_dict_2['model'], 'module.')
+        # print(f'{tp_fsdp_state_dict_2=}')
+        # consume_prefix_in_state_dict_if_present(tp_fsdp_state_dict_2['optimizers'], 'module.')
+        # print(f'{tp_fsdp_state_dict_2=}')
+
+
+        # assert fsdp_state_dict_2 == tp_fsdp_state_dict_2
+
+@pytest.mark.gpu
+@world_size(4)
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='Requires PyTorch 2.3+')
+@pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
+def test_tp_weights(world_size: int):
+    """Test that DDP, FSDP, TP-FSDP output the same gradients."""
+    # from icecream import ic
+
+    # DDP gradients
+    print('ddp_trainer')
+    ddp_trainer = get_ddp_trainer()
+    ddp_trainer.fit()
+    ddp_trainer.close()
+    ddp_state_dict = ddp_trainer.state.state_dict()
+
+    # FSDP gradients
+    print('fsdp_trainer')
+    fsdp_trainer = get_fsdp_trainer()
+    fsdp_trainer.fit()
+    fsdp_trainer.close()
+    fsdp_state_dict = fsdp_trainer.state.state_dict()
+
+    # TP-FSDP gradients
+    print('tp_fsdp_trainer')
+    tp_fsdp_trainer = get_tp_fsdp_trainer()
+    tp_fsdp_trainer.fit()
     tp_fsdp_trainer.close()
     tp_fsdp_state_dict = tp_fsdp_trainer.state.state_dict()
 
-    print('tp_fsdp_trainer')
-    # ic(tp_fsdp_trainer.state.model.module)
-    # for name, param in tp_fsdp_trainer.state.model.named_parameters():
-    #     if param.grad is not None:
-    #         ic(name, param.grad.shape, param.grad)
+    if dist.get_local_rank() == 0:
+        print(f'{ddp_state_dict=}')
+        print(f'{fsdp_state_dict=}')
+        print(f'{tp_fsdp_state_dict=}')
+
+        # todo:
+        #! reaname keys, e.g. module.2.weight -> fc2.weight
+        #! compare model, optimizer states
+        #! use _compare_optims_between_state_dicts, _compare_model_params_between_state_dicts from test_fsdp_checkpoint
+
+        # removes 'module.' from all state dict keys in-place
+        # consume_prefix_in_state_dict_if_present(tp_fsdp_state_dict_2['model'], 'module.')
+        # print(f'{tp_fsdp_state_dict_2=}')
+        # consume_prefix_in_state_dict_if_present(tp_fsdp_state_dict_2['optimizers'], 'module.')
+        # print(f'{tp_fsdp_state_dict_2=}')
+
+
+        # assert fsdp_state_dict_2 == tp_fsdp_state_dict_2
 
 
 def get_stats(trainer: Trainer) -> dict[str, np.ndarray]:
