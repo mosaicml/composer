@@ -368,6 +368,7 @@ def get_stats(trainer: Trainer) -> dict[str, np.ndarray]:
 def test_tp_fit(batch_size: int, world_size: int):
     """Test that DDP, FSDP, TP-FSDP have the same trainer.fit(), i.e. output the same loss and accuracy."""
 
+    # set size of the dataset
     size = world_size * batch_size
 
     # DDP fit
@@ -392,19 +393,19 @@ def test_tp_fit(batch_size: int, world_size: int):
     np.testing.assert_allclose(
         ddp_stats['loss_array'],
         fsdp_stats['loss_array'],
-        atol=5e-2,
+        atol=1e-2,
         err_msg='Loss arrays of DDP and FSDP are not close enough.',
     )
     np.testing.assert_allclose(
         ddp_stats['loss_array'],
         tp_fsdp_stats['loss_array'],
-        atol=5e-2,
+        atol=1e-2,
         err_msg='Loss arrays of DDP and TP-FSDP are not close enough.',
     )
     np.testing.assert_allclose(
         fsdp_stats['loss_array'],
         tp_fsdp_stats['loss_array'],
-        atol=5e-2,
+        atol=1e-2,
         err_msg='Loss arrays of FSDP and TP-FSDP are not close enough.',
     )
 
