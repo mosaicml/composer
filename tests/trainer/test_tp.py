@@ -317,16 +317,19 @@ def test_tp_hang(world_size: int):
     fsdp_state_dict_2 = fsdp_trainer.state.state_dict()
     print(fsdp_state_dict_2)
 
-    print('fsdp_state_dict_3')
     with fsdp_state_dict_type_context(fsdp_trainer.state.model, state_dict_type='full'):
+        print('fsdp_state_dict_3')
         fsdp_state_dict_3 = fsdp_trainer.state.model.state_dict()
-    print(fsdp_state_dict_3)
-
-    if dist.get_local_rank() == 0:
+        print(fsdp_state_dict_3)
         print('fsdp_state_dict_4')
-        with fsdp_state_dict_type_context(fsdp_trainer.state.model, state_dict_type='full'):
-            fsdp_state_dict_4 = fsdp_trainer.state.model.state_dict()
+        fsdp_state_dict_4 = fsdp_trainer.state.state_dict()
         print(fsdp_state_dict_4)
+
+    # if dist.get_local_rank() == 0:
+    #     print('fsdp_state_dict_4')
+    #     with fsdp_state_dict_type_context(fsdp_trainer.state.model, state_dict_type='full'):
+    #         fsdp_state_dict_4 = fsdp_trainer.state.model.state_dict()
+    #     print(fsdp_state_dict_4)
 
 
     tp_fsdp_trainer = get_tp_fsdp_trainer()
@@ -339,16 +342,25 @@ def test_tp_hang(world_size: int):
     tp_fsdp_state_dict_2 = tp_fsdp_trainer.state.state_dict()
     print(tp_fsdp_state_dict_2)
 
-    print('tp_fsdp_state_dict_3')
     with fsdp_state_dict_type_context(tp_fsdp_trainer.state.model, state_dict_type='full'):
+        print('tp_fsdp_state_dict_3')
         tp_fsdp_state_dict_3 = tp_fsdp_trainer.state.model.state_dict()
-    print(tp_fsdp_state_dict_3)
+        print(tp_fsdp_state_dict_3)
+        print('tp_fsdp_state_dict_4')
+        tp_fsdp_state_dict_4 = tp_fsdp_trainer.state.state_dict()
+        print(tp_fsdp_state_dict_4)
 
     if dist.get_local_rank() == 0:
-        print('tp_fsdp_state_dict_4')
+        # This HANGS!
+        print('tp_fsdp_state_dict_5')
         with fsdp_state_dict_type_context(tp_fsdp_trainer.state.model, state_dict_type='full'):
-            tp_fsdp_state_dict_4 = tp_fsdp_trainer.state.model.state_dict()
-        print(tp_fsdp_state_dict_4)
+            tp_fsdp_state_dict_5 = tp_fsdp_trainer.state.state_dict()
+            print(tp_fsdp_state_dict_5)
+
+        print('tp_fsdp_state_dict_6')
+        with fsdp_state_dict_type_context(tp_fsdp_trainer.state.model, state_dict_type='full'):
+            tp_fsdp_state_dict_6 = tp_fsdp_trainer.state.model.state_dict()
+            print(tp_fsdp_state_dict_6)
 
 
 @pytest.mark.gpu
@@ -362,12 +374,8 @@ def test_tp_gradients(world_size: int):
     # DDP gradients
     print('ddp_trainer')
     ddp_trainer = get_ddp_trainer()
-    ddp_trainer.fit()
-    # ddp_out = forward_pass(ddp_trainer)
-    # torch.sum(ddp_out).backward()
-    # ddp_trainer.state.optimizers[0].step()
-    ddp_state_dict_1 = ddp_trainer.state.state_dict()
-    print(f'{ddp_state_dict_1=}')
+    ddp_out = forward_pass(ddp_trainer)
+    torch.sum(ddp_out).backward()
     ddp_trainer.close()
     ddp_state_dict_2 = ddp_trainer.state.state_dict()
     print(f'{ddp_state_dict_2=}')
@@ -375,34 +383,27 @@ def test_tp_gradients(world_size: int):
     # FSDP gradients
     print('fsdp_trainer')
     fsdp_trainer = get_fsdp_trainer()
-    fsdp_trainer.fit()
-    # fsdp_out = forward_pass(fsdp_trainer)
-    # torch.sum(fsdp_out).backward()
-    fsdp_state_dict_1 = fsdp_trainer.state.state_dict()
-    print(f'{fsdp_state_dict_1=}')
+    fsdp_out = forward_pass(fsdp_trainer)
+    torch.sum(fsdp_out).backward()
     fsdp_trainer.close()
-    fsdp_state_dict_2 = fsdp_trainer.state.state_dict()
-    print(f'{fsdp_state_dict_2=}')
 
     # TP-FSDP gradients
     print('tp_fsdp_trainer')
     tp_fsdp_trainer = get_tp_fsdp_trainer()
-    tp_fsdp_trainer.fit()
-    # tp_fsdp_out = forward_pass(tp_fsdp_trainer)
-    # torch.sum(tp_fsdp_out).backward()
-    tp_fsdp_state_dict_1 = tp_fsdp_trainer.state.state_dict()
-    print(f'{tp_fsdp_state_dict_1=}')
+    tp_fsdp_out = forward_pass(tp_fsdp_trainer)
+    torch.sum(tp_fsdp_out).backward()
     tp_fsdp_trainer.close()
-    tp_fsdp_state_dict_2 = tp_fsdp_trainer.state.state_dict()
 
     if dist.get_local_rank() == 0:
         pass
+
+        # todo: compare gradients
+
         # removes 'module.' from all state dict keys in-place
         # consume_prefix_in_state_dict_if_present(tp_fsdp_state_dict_2['model'], 'module.')
         # print(f'{tp_fsdp_state_dict_2=}')
         # consume_prefix_in_state_dict_if_present(tp_fsdp_state_dict_2['optimizers'], 'module.')
         # print(f'{tp_fsdp_state_dict_2=}')
-
 
         # assert fsdp_state_dict_2 == tp_fsdp_state_dict_2
 
@@ -435,10 +436,17 @@ def test_tp_weights(world_size: int):
     tp_fsdp_trainer.close()
     tp_fsdp_state_dict = tp_fsdp_trainer.state.state_dict()
 
+    print(f'{ddp_state_dict=}')
+    print(f'{fsdp_state_dict=}')
+    print(f'{tp_fsdp_state_dict=}')
+
+    for name, param in tp_fsdp_trainer.state.model.named_parameters():
+        if param.grad is not None:
+            print(name, param.grad.shape, param.grad)
+
+
     if dist.get_local_rank() == 0:
-        print(f'{ddp_state_dict=}')
-        print(f'{fsdp_state_dict=}')
-        print(f'{tp_fsdp_state_dict=}')
+        pass
 
         # todo:
         #! reaname keys, e.g. module.2.weight -> fc2.weight
