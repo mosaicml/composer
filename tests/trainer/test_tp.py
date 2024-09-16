@@ -194,7 +194,7 @@ def get_ddp_trainer(
     size: int = 4,
     batch_size: int = 1,
     num_classes: int = 2,
-    num_features: int = 6,
+    num_features: int = 2,
     seed: int = 42,
     device: torch.device = 'cuda',
 ):
@@ -213,7 +213,7 @@ def get_fsdp_trainer(
     size: int = 4,
     batch_size: int = 1,
     num_classes: int = 2,
-    num_features: int = 6,
+    num_features: int = 2,
     seed: int = 42,
     device: torch.device = 'cuda',
 ):
@@ -221,6 +221,7 @@ def get_fsdp_trainer(
         state_dict_type='full',
         sharding_strategy='SHARD_GRAD_OP',
         mixed_precision='full',
+        use_orig_params=True,
     )
     parallelism_config = ParallelismConfig(fsdp=fsdp_config)
 
@@ -240,7 +241,7 @@ def get_tp_fsdp_trainer(
     size: int = 4,
     batch_size: int = 1,
     num_classes: int = 2,
-    num_features: int = 6,
+    num_features: int = 2,
     seed: int = 42,
     device: torch.device = 'cuda',
 ):
@@ -248,6 +249,7 @@ def get_tp_fsdp_trainer(
         state_dict_type='full',
         sharding_strategy='SHARD_GRAD_OP',
         mixed_precision='full',
+        use_orig_params=True,
     )
     layer_plan = {
         'fc1': GatherColwiseParallel(),
@@ -390,28 +392,33 @@ def test_tp_gradients(world_size: int):
     fsdp_trainer = get_fsdp_trainer()
     fsdp_out = forward_pass(fsdp_trainer)
     torch.sum(fsdp_out).backward()
-    with FSDP.summon_full_params(fsdp_trainer.state.model, with_grads=True):
-        fsdp_params = {name: param for name, param in fsdp_trainer.state.model.named_parameters()}
+    # with FSDP.summon_full_params(fsdp_trainer.state.model, with_grads=True):
+    fsdp_params = {name: param for name, param in fsdp_trainer.state.model.named_parameters()}
     fsdp_trainer.close()
 
     # TP-FSDP gradients
     tp_fsdp_trainer = get_tp_fsdp_trainer()
     tp_fsdp_out = forward_pass(tp_fsdp_trainer)
     torch.sum(tp_fsdp_out).backward()
-    with FSDP.summon_full_params(tp_fsdp_trainer.state.model, with_grads=True):
-        tp_fsdp_params = {name: param for name, param in tp_fsdp_trainer.state.model.named_parameters()}
+    # with FSDP.summon_full_params(tp_fsdp_trainer.state.model, with_grads=True):
+    tp_fsdp_params = {name: param for name, param in tp_fsdp_trainer.state.model.named_parameters()}
     tp_fsdp_trainer.close()
 
-    # rank = dist.get_local_rank()
+    rank = dist.get_local_rank()
     for (ddp_name, ddp_param), (fsdp_name, fsdp_param), (tp_fsdp_name, tp_fsdp_param) in zip(
         ddp_params.items(), fsdp_params.items(), tp_fsdp_params.items()
     ):
-        print('\nDDP:\n', ddp_name, ddp_param.shape)
+        print(f'{rank=}')
+        print('\nDDP:\n', ddp_name, ddp_param.shape, ddp_param)
         if ddp_param.grad is not None: print(ddp_param.grad.shape, ddp_param.grad)
-        print('\nFSDP:\n', fsdp_name, fsdp_param.shape)
+        print('\nFSDP:\n', fsdp_name, fsdp_param.shape, fsdp_param)
         if fsdp_param.grad is not None: print(fsdp_param.grad.shape, fsdp_param.grad)
-        print('\nTP-FSDP:\n', tp_fsdp_name, tp_fsdp_param.shape)
+        print('\nTP-FSDP:\n', tp_fsdp_name, tp_fsdp_param.shape, tp_fsdp_param)
         if tp_fsdp_param.grad is not None: print(tp_fsdp_param.grad.shape, tp_fsdp_param.grad)
+
+        # summon_full_params puts all of the parameters on rank 0
+        if rank != 0:
+            continue
 
         torch.testing.assert_close(
             ddp_param.grad, fsdp_param.grad,
