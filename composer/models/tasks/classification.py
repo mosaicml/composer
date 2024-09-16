@@ -133,6 +133,6 @@ class ComposerClassifier(ComposerModel):
     def forward(self, batch: tuple[Tensor, Any]) -> Tensor:
         inputs, _ = batch
         outputs = self.module(inputs)
-        print(f'{inputs.shape=}\n{outputs.shape=}')
-        print(f'{inputs=}\n{outputs=}')
+        # print(f'{inputs.shape=}\n{outputs.shape=}')
+        # print(f'{inputs=}\n{outputs=}')
         return outputs
