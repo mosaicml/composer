@@ -4,6 +4,7 @@
 import contextlib
 import copy
 import io
+import multiprocessing
 import os
 import pathlib
 import re
@@ -25,12 +26,11 @@ from torch.utils.data import DataLoader, Dataset, DistributedSampler
 from composer.algorithms import NoOpModel
 from composer.callbacks import CheckpointSaver
 from composer.core import Callback, Time, TimeUnit
-from composer.loggers import RemoteUploaderDownloader, remote_uploader_downloader
 from composer.metrics import MAP
 from composer.optim import ExponentialScheduler
 from composer.trainer import trainer
 from composer.trainer.trainer import Trainer
-from composer.utils import dist, is_tar, reproducibility
+from composer.utils import dist, is_tar, remote_uploader, reproducibility
 from composer.utils.checkpoint import (
     _COMPOSER_STATES_FILENAME,
     PartialFilePath,
@@ -52,6 +52,7 @@ from tests.common import (
     device,
 )
 from tests.common.markers import world_size
+from tests.utils.test_remote_uploader import DummyObjectStore
 
 
 class DummyStatefulCallback(Callback):
@@ -309,30 +310,6 @@ class TestCheckpointSaving:
         model = SimpleConvModel()
         return Trainer(model=model, **kwargs)
 
-    @pytest.mark.parametrize('add_remote_ud', [True, False])
-    def test_s3_uri_creates_remote_ud(self, add_remote_ud: bool, monkeypatch: MonkeyPatch):
-        mock_validate_credentials = MagicMock()
-        monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
-        if add_remote_ud:
-            with pytest.warns(UserWarning):
-                trainer = self.get_trainer(
-                    save_folder='s3://bucket_name/{run_name}/checkpoints',
-                    loggers=[
-                        RemoteUploaderDownloader('s3://bucket_name', file_path_format_string='{remote_file_name}'),
-                    ],
-                )
-        else:
-            trainer = self.get_trainer(save_folder='s3://bucket_name/{run_name}/checkpoints')
-
-        remote_uds = [
-            logger_dest for logger_dest in trainer.logger.destinations
-            if isinstance(logger_dest, RemoteUploaderDownloader)
-        ]
-        assert len(remote_uds) == 1
-        remote_ud = remote_uds[0]
-        assert remote_ud.remote_backend_name == 's3'
-        assert remote_ud.remote_bucket_name == 'bucket_name'
-
     @pytest.mark.parametrize('uri', ['wandb://foo/bar', 'gcs://foo/bar', 'sftp://foo/bar"'])
     def test_other_uris_error_out(self, uri: str):
         with pytest.raises(NotImplementedError):
@@ -394,7 +371,7 @@ class TestCheckpointSaving:
         monkeypatch: MonkeyPatch,
     ):
         mock_validate_credentials = MagicMock()
-        monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
+        monkeypatch.setattr(remote_uploader, 'validate_credentials', mock_validate_credentials)
 
         trainer = self.get_trainer(save_folder=save_folder)
 
@@ -418,6 +395,44 @@ class TestCheckpointSaving:
                 assert attr.filename == value
             else:
                 assert attr == value
+
+    # See https://github.com/pytorch/pytorch/issues/133415
+    @pytest.mark.xfail
+    @pytest.mark.skipif(
+        version.parse(torch.__version__) < version.parse('2.4.0'),
+        reason='Test only applies to PyTorch 2.4+',
+    )
+    def test_sgd_checkpoint(
+        self,
+        tiny_bert_tokenizer,
+        tmp_path: pathlib.Path,
+    ):
+        transformers = pytest.importorskip('transformers')
+        model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
+        pretraining_train_dataset = RandomTextLMDataset(
+            size=100,
+            vocab_size=tiny_bert_tokenizer.vocab_size,
+            sequence_length=1,
+            use_keys=True,
+        )
+
+        collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer, mlm_probability=0.15)
+        dataloader = DataLoader(
+            pretraining_train_dataset,
+            batch_size=1,
+            sampler=dist.get_sampler(pretraining_train_dataset),
+            collate_fn=collator,
+        )
+
+        trainer = Trainer(
+            model=model,
+            optimizers=torch.optim.SGD(model.parameters(), lr=0.1),
+            train_dataloader=dataloader,
+            max_duration='5ba',
+            save_interval='1ba',
+            save_folder=str(tmp_path / 'checkpoints'),
+        )
+        trainer.fit()
 
     @pytest.mark.parametrize('save_interval', ['1tok', '64tok', '65tok'])
     @pytest.mark.parametrize('batch_size', [1, 4])
@@ -646,6 +661,71 @@ class TestCheckpointSaving:
         assert id(trainer._checkpoint_saver) == id(checkpoint_savers[0])
         assert len([cb for cb in trainer.state.callbacks if isinstance(cb, CheckpointSaver)]) == len(checkpoint_savers)
 
+    @pytest.mark.parametrize(('upload_success'), [True, False])
+    def test_checkpoint_remote_symlink(
+        self,
+        upload_success: bool,
+    ):
+        import multiprocessing
+        fork_context = multiprocessing.get_context('fork')
+        tmp_dir = tempfile.TemporaryDirectory()
+
+        def _get_tmp_dir(self):
+            return tmp_dir
+
+        class _AlwaysFailDummyObjectStore(DummyObjectStore):
+
+            def upload_object(self, object_name, filename, callback=None):
+                # Only allows to upload symlink to simulate
+                # the situation that checkpoint file uploading fails
+                if 'symlink' in object_name or 'credentials_validated_successfully' in object_name:
+                    return super().upload_object(object_name, filename, callback)
+                raise RuntimeError('Raise Error intentionally')
+
+        if upload_success:
+            MockObjectStore = DummyObjectStore
+        else:
+            MockObjectStore = _AlwaysFailDummyObjectStore
+
+        with patch('composer.utils.object_store.utils.S3ObjectStore', MockObjectStore):
+            with patch('tests.utils.test_remote_uploader.DummyObjectStore.get_tmp_dir', _get_tmp_dir):
+                with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
+                    train_dataset = RandomClassificationDataset(size=10)
+                    train_dataloader = DataLoader(
+                        dataset=train_dataset,
+                        batch_size=2,
+                        sampler=dist.get_sampler(train_dataset),
+                    )
+
+                    trainer = Trainer(
+                        model=SimpleModel(),
+                        train_dataloader=train_dataloader,
+                        save_interval='1ba',
+                        max_duration='1ba',
+                        save_folder='S3://whatever/',
+                    )
+                    symlink_filepath = os.path.join(tmp_dir.name, 'latest-rank0.pt.symlink')
+                    if upload_success:
+                        trainer.fit()
+                        with open(symlink_filepath, 'r') as f:
+                            assert f.read() == 'ep0-ba1-rank0.pt'
+                    else:
+                        assert trainer._checkpoint_saver is not None
+                        trainer._checkpoint_saver._symlink_upload_wait_before_next_try_in_seconds = 0.01
+                        trainer._checkpoint_saver.upload_timeout_in_seconds = 1
+                        with pytest.raises(RuntimeError, match='Raise Error intentionally'):
+                            trainer.fit()
+                        assert os.path.exists(symlink_filepath) == False
+
+                        def post_close(self):
+                            return
+
+                        assert trainer._checkpoint_saver is not None
+                        trainer._checkpoint_saver.post_close = post_close.__get__(
+                            trainer._checkpoint_saver,
+                            CheckpointSaver,
+                        )
+
 
 class TestCheckpointLoading:
 
@@ -709,25 +789,6 @@ class TestCheckpointLoading:
             **kwargs,
         )
 
-    def get_logger(self, tmp_path: pathlib.Path):
-        """Returns an object store logger that saves locally."""
-        remote_dir = str(tmp_path / 'object_store')
-        os.makedirs(remote_dir, exist_ok=True)
-
-        return RemoteUploaderDownloader(
-            bucket_uri='libcloud://.',
-            backend_kwargs={
-                'provider': 'local',
-                'container': '.',
-                'provider_kwargs': {
-                    'key': remote_dir,
-                },
-            },
-            num_concurrent_uploads=1,
-            use_procs=False,
-            upload_staging_folder=str(tmp_path / 'staging_folder'),
-        )
-
     @world_size(1, 2)
     @device('cpu', 'gpu')
     @pytest.mark.parametrize('use_object_store', [True, False])
@@ -758,9 +819,6 @@ class TestCheckpointLoading:
         if delete_local and not use_object_store:
             pytest.skip('Invalid test setting.')
 
-        if use_object_store:
-            pytest.importorskip('libcloud')
-
         latest_filename = 'latest-rank{rank}' + file_extension
         if test_slashed:
             latest_filename = 'testdir/' + latest_filename
@@ -768,51 +826,68 @@ class TestCheckpointLoading:
         if is_compressed_pt(latest_filename) and not get_compressor(latest_filename).exists:
             pytest.skip(reason=f'compressor not found for {latest_filename}')
 
-        trainer_1 = self.get_trainer(
-            latest_filename=latest_filename,
-            file_extension=file_extension,
-            save_folder='first',
-            device=device,
-            run_name='big-chungus',
-            autoresume=True,
-            loggers=[self.get_logger(tmp_path)] if use_object_store else [],
-            save_metrics=save_metrics,
-        )
+        if use_object_store:
+            save_folder = 's3://bucket_name/first'
+        else:
+            save_folder = 'first'
 
-        # trains the model, saving the checkpoint files
-        trainer_1.fit()
-        trainer_1.close()
+        # Mock S3 object store
+        fork_context = multiprocessing.get_context('fork')
+        tmp_dir = tempfile.TemporaryDirectory()
 
-        if delete_local:
-            # delete files locally, forcing trainer to look in object store
-            shutil.rmtree('first')
+        def _get_tmp_dir(self):
+            return tmp_dir
 
-        trainer_2 = self.get_trainer(
-            latest_filename=latest_filename,
-            save_folder='first',
-            device=device,
-            run_name='big-chungus',
-            autoresume=True,
-            load_path='ignore_me.pt',  # this should be ignored
-            load_ignore_keys=['*'],  # this should be ignored
-            save_overwrite=save_overwrite,
-            loggers=[self.get_logger(tmp_path)] if use_object_store else [],
-        )
+        with patch('composer.utils.object_store.utils.S3ObjectStore', DummyObjectStore):
+            with patch('tests.utils.test_remote_uploader.DummyObjectStore.get_tmp_dir', _get_tmp_dir):
+                with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
 
-        self._assert_weights_equivalent(
-            trainer_1.state.model,
-            trainer_2.state.model,
-        )
+                    trainer_1 = self.get_trainer(
+                        latest_filename=latest_filename,
+                        file_extension=file_extension,
+                        save_folder=save_folder,
+                        device=device,
+                        run_name='big-chungus',
+                        autoresume=True,
+                        save_metrics=save_metrics,
+                    )
+                    if use_object_store:
+                        assert trainer_1._checkpoint_saver is not None
+                        trainer_1._checkpoint_saver._symlink_upload_wait_before_next_try_in_seconds = 0.01
 
-        if save_metrics:
-            assert self._metrics_equal(
-                trainer_1.state.train_metrics,
-                trainer_2.state.train_metrics,
-                trainer_1.state.eval_metrics,
-                trainer_2.state.eval_metrics,
-            ), 'Original metrics do not equal metrics from loaded checkpoint.'
+                    # trains the model, saving the checkpoint files
+                    trainer_1.fit()
+                    trainer_1.close()
 
-        assert trainer_1.state.run_name == trainer_2.state.run_name
+                    if delete_local:
+                        # delete files locally, forcing trainer to look in object store
+                        shutil.rmtree('first')
+
+                    trainer_2 = self.get_trainer(
+                        latest_filename=latest_filename,
+                        save_folder=save_folder,
+                        device=device,
+                        run_name='big-chungus',
+                        autoresume=True,
+                        load_path='ignore_me.pt',  # this should be ignored
+                        load_ignore_keys=['*'],  # this should be ignored
+                        save_overwrite=save_overwrite,
+                    )
+
+                    self._assert_weights_equivalent(
+                        trainer_1.state.model,
+                        trainer_2.state.model,
+                    )
+
+                    if save_metrics:
+                        assert self._metrics_equal(
+                            trainer_1.state.train_metrics,
+                            trainer_2.state.train_metrics,
+                            trainer_1.state.eval_metrics,
+                            trainer_2.state.eval_metrics,
+                        ), 'Original metrics do not equal metrics from loaded checkpoint.'
+
+                    assert trainer_1.state.run_name == trainer_2.state.run_name
 
     @pytest.mark.parametrize(('save_folder'), [None, 'first'])
     def test_autoresume_from_callback(
@@ -862,7 +937,7 @@ class TestCheckpointLoading:
     def test_load_from_uri(self, load_path: str, load_object_store: Optional[ObjectStore], monkeypatch: MonkeyPatch):
 
         mock_validate_credentials = MagicMock()
-        monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
+        monkeypatch.setattr(remote_uploader, 'validate_credentials', mock_validate_credentials)
         mock_load_checkpoint = MagicMock()
         monkeypatch.setattr(trainer.checkpoint, 'load_checkpoint', mock_load_checkpoint)
         self.get_trainer(load_path=load_path, load_object_store=load_object_store)
@@ -882,7 +957,7 @@ class TestCheckpointLoading:
     )
     def test_other_backends_error(self, load_path: str, monkeypatch: MonkeyPatch):
         mock_validate_credentials = MagicMock()
-        monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
+        monkeypatch.setattr(remote_uploader, 'validate_credentials', mock_validate_credentials)
         with pytest.raises(NotImplementedError):
             self.get_trainer(load_path=load_path)
 
@@ -959,7 +1034,9 @@ class TestCheckpointLoading:
         last_checkpoint = os.path.join('first', 'ep2.pt')
         if missing_key or unexpected_key:
             message = r'Error\(s\) in loading state_dict'
-            if version.parse(torch.__version__) < version.parse('2.2.3') or not dist.is_initialized():
+            if version.parse(torch.__version__) < version.parse('2.2.3') or (
+                version.parse(torch.__version__) < version.parse('2.4.0') and not dist.is_initialized()
+            ):
                 # Composer implements strict for older torch versions
                 message = 'Failed to load checkpoint due to'
             error_context = pytest.raises(RuntimeError, match=message)
@@ -1197,29 +1274,37 @@ class TestCheckpointLoading:
         return cb1.random_value == cb2.random_value
 
     def test_load_weights_object_store(self, tmp_path):
+        # Mock S3 object store
+        fork_context = multiprocessing.get_context('fork')
+        tmp_dir = tempfile.TemporaryDirectory()
 
-        pytest.importorskip('libcloud')
+        def _get_tmp_dir(self):
+            return tmp_dir
 
-        trainer_1 = self.get_trainer(
-            save_folder='{run_name}/checkpoints',
-            loggers=[self.get_logger(tmp_path)],
-            run_name='electric-zebra',
-        )
-        trainer_1.fit()
-        trainer_1.close()
+        with patch('composer.utils.object_store.utils.S3ObjectStore', DummyObjectStore):
+            with patch('tests.utils.test_remote_uploader.DummyObjectStore.get_tmp_dir', _get_tmp_dir):
+                with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
+                    save_folder = 's3://my_bucket/{run_name}/checkpoints'
+                    trainer_1 = self.get_trainer(
+                        save_folder=save_folder,
+                        run_name='electric-zebra',
+                    )
+                    assert trainer_1._checkpoint_saver is not None
+                    trainer_1._checkpoint_saver._symlink_upload_wait_before_next_try_in_seconds = 0.01
+                    trainer_1.fit()
+                    trainer_1.close()
 
-        trainer_2 = self.get_trainer(
-            loggers=[self.get_logger(tmp_path)],
-            run_name='electric-zebra',
-            load_path='electric-zebra/checkpoints/latest-rank0.pt',
-            load_object_store=self.get_logger(tmp_path),
-        )
+                    trainer_2 = self.get_trainer(
+                        run_name='electric-zebra',
+                        load_path='electric-zebra/checkpoints/latest-rank0.pt',
+                        load_object_store=DummyObjectStore(),
+                    )
 
-        # check weights loaded properly
-        self._assert_weights_equivalent(
-            trainer_1.state.model,
-            trainer_2.state.model,
-        )
+                    # check weights loaded properly
+                    self._assert_weights_equivalent(
+                        trainer_1.state.model,
+                        trainer_2.state.model,
+                    )
 
     @pytest.mark.parametrize(
         'run_name,save_folder,latest_filename',
@@ -1309,7 +1394,9 @@ class TestCheckpointLoading:
         NoOpModel.__init__ = lambda self, x: None  # type: ignore
         NoOpModel.__repr__ = lambda self: 'NoOpModel(3)'
         error_context = pytest.raises(KeyError, match='module.0.weight')
-        if version.parse(torch.__version__) < version.parse('2.2.3') or not dist.is_initialized():
+        if version.parse(torch.__version__) < version.parse('2.2.3') or (
+            version.parse(torch.__version__) < version.parse('2.4.0') and not dist.is_initialized()
+        ):
             error_context = pytest.raises(ValueError, match='loaded state dict contains a parameter group.*')
         with pytest.warns(UserWarning, match='required_on_load algorithm.*'), error_context:
             trainer_3 = self.get_trainer(load_path=os.path.join('first', 'ep1.pt'))

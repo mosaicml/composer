@@ -78,18 +78,18 @@ while True:
 install_requires = [
     'pyyaml>=6.0,<7',
     'tqdm>=4.62.3,<5',
-    'torchmetrics>=0.10.0,<1.3.3',
+    'torchmetrics>=1.4.0.post0,<1.4.1',
     'torch_optimizer>=0.3.0,<0.4',
-    'torchvision>=0.13.1,<0.18.2',
-    'torch>=2.1.2,<2.3.2',
+    'torchvision>=0.14.0,<0.19.2',
+    'torch>=2.2.0,<2.4.2',
     'requests>=2.26.0,<3',
-    'numpy>=1.21.5,<2.1.0',
+    'numpy>=1.21.5,<2.2.0',
     'psutil>=5.8.0,<7',
     'coolname>=1.1.0,<3',
     'tabulate==0.9.0',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<10',
     'packaging>=21.3.0,<24.2',
-    'importlib-metadata>=5.0.0,<7',
+    'importlib-metadata>=5.0.0,<9',
     'mosaicml-cli>=0.5.25,<0.7',
     'pillow>=10.3.0,<11',
 ]
@@ -103,11 +103,11 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
     'junitparser==3.1.2',
-    'coverage[toml]==7.5.4',
+    'coverage[toml]==7.6.0',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
     'ipython==8.11.0',
-    'ipykernel==6.29.2',
+    'ipykernel==6.29.5',
     'jupyter==1.0.0',
     'yamllint==1.35.1',
     'recommonmark==0.7.1',
@@ -135,10 +135,10 @@ extra_deps['dev'] = [
     'pytest_codeblocks==0.17.0',
     'traitlets==5.14.3',
     'nbsphinx==0.9.1',
-    'pandoc==2.3',
+    'pandoc==2.4',
     'pypandoc==1.13',
     'GitPython==3.1.43',
-    'moto[s3]>=4.0.1,<5',
+    'moto[s3]>=5.0.1,<6',
     'mock-ssh-server==0.9.1',
     'cryptography==42.0.8',
     'pytest-httpserver>=1.0.4,<1.1',
@@ -154,6 +154,7 @@ extra_deps['slack'] = {
 }
 
 extra_deps['deepspeed'] = [
+    'numpy<2',
     'deepspeed==0.8.3',
     'pydantic>=1.0,<2',
 ]
@@ -179,17 +180,17 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,!=4.34.0,<4.42',
+    'transformers>=4.11,!=4.34.0,<4.45',
     'datasets>=2.4,<3',
-    'huggingface-hub>=0.21.2,<0.23',
+    'huggingface-hub>=0.21.2,<0.25',
 ]
 
 extra_deps['peft'] = [
-    'peft>=0.10.0,<0.12',
+    'peft>=0.10.0,<0.13',
 ]
 
 extra_deps['sentencepiece'] = [
-    'protobuf<5.28',
+    'protobuf<5.29',
     'sentencepiece==0.2.0',
 ]
 
@@ -224,13 +225,13 @@ extra_deps['onnx'] = [
 
 extra_deps['mlflow'] = [
     'mlflow>=2.14.1,<3.0',
-    'databricks-sdk==0.28.0',
+    'databricks-sdk==0.32.0',
     'pynvml>=11.5.0,<12',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk==0.28.0']
+extra_deps['databricks'] = ['databricks-sdk==0.32.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 

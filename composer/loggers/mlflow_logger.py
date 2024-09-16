@@ -7,9 +7,12 @@ from __future__ import annotations
 
 import fnmatch
 import logging
+import multiprocessing
 import os
 import pathlib
 import posixpath
+import signal
+import sys
 import textwrap
 import time
 import warnings
@@ -31,6 +34,52 @@ log = logging.getLogger(__name__)
 __all__ = ['MLFlowLogger']
 
 DEFAULT_MLFLOW_EXPERIMENT_NAME = 'my-mlflow-experiment'
+
+
+class MlflowMonitorProcess(multiprocessing.Process):
+
+    def __init__(self, main_pid, mlflow_run_id, mlflow_tracking_uri):
+        super().__init__()
+        self.main_pid = main_pid
+        self.mlflow_run_id = mlflow_run_id
+        self.mlflow_tracking_uri = mlflow_tracking_uri
+        self.exit_event = multiprocessing.Event()
+        self.crash_event = multiprocessing.Event()
+
+    def handle_sigterm(self, signum, frame):
+        from mlflow import MlflowClient
+        client = MlflowClient(self.mlflow_tracking_uri)
+        if client.get_run(self.mlflow_run_id).info.status == 'RUNNING':
+            # Set the run status as KILLED if SIGTERM is received while the MLflow run is still
+            # in status RUNNING.
+            client.set_terminated(self.mlflow_run_id, status='KILLED')
+
+    def run(self):
+        from mlflow import MlflowClient
+
+        os.setsid()
+        # Register the signal handler in the child process
+        signal.signal(signal.SIGTERM, self.handle_sigterm)
+
+        while not self.exit_event.wait(10):
+            try:
+                # Signal 0 does not kill the process but performs error checking
+                os.kill(self.main_pid, 0)
+            except OSError:
+                client = MlflowClient(self.mlflow_tracking_uri)
+                client.set_terminated(self.mlflow_run_id, status='FAILED')
+                break
+
+        if self.crash_event.is_set():
+            client = MlflowClient(self.mlflow_tracking_uri)
+            client.set_terminated(self.mlflow_run_id, status='FAILED')
+
+    def stop(self):
+        self.exit_event.set()
+
+    def crash(self):
+        self.crash_event.set()
+        self.exit_event.set()
 
 
 class MLFlowLogger(LoggerDestination):
@@ -121,13 +170,13 @@ class MLFlowLogger(LoggerDestination):
         self.resume = resume
 
         if logging_buffer_seconds:
-            os.environ['MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS'] = str(logging_buffer_seconds)
+            os.environ['MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS'] = str(logging_buffer_seconds,)
 
         if log_system_metrics:
             # Set system metrics sampling interval and samples before logging so that system metrics
-            # are collected every 5s, and aggregated over 3 samples before being logged
-            # (logging per 15s).
-            mlflow.set_system_metrics_samples_before_logging(3)
+            # are collected every 5s, and aggregated over 6 samples before being logged
+            # (logging per 30s).
+            mlflow.set_system_metrics_samples_before_logging(6)
             mlflow.set_system_metrics_sampling_interval(5)
 
         self._rank_zero_only = rank_zero_only
@@ -172,7 +221,11 @@ class MLFlowLogger(LoggerDestination):
                         conda_channel='conda-forge',
                     ) from e
                 databricks_username = WorkspaceClient().current_user.me().user_name or ''
-                self.experiment_name = os.path.join('/Users', databricks_username, self.experiment_name.strip('/'))
+                self.experiment_name = os.path.join(
+                    '/Users',
+                    databricks_username,
+                    self.experiment_name.strip('/'),
+                )
 
             self._mlflow_client = MlflowClient(self.tracking_uri)
             # Set experiment
@@ -187,7 +240,7 @@ class MLFlowLogger(LoggerDestination):
                 if exp_from_name is not None:
                     self._experiment_id = exp_from_name.experiment_id
                 else:
-                    self._experiment_id = (self._mlflow_client.create_experiment(name=self.experiment_name))
+                    self._experiment_id = self._mlflow_client.create_experiment(name=self.experiment_name)
 
     def _start_mlflow_run(self, state):
         import mlflow
@@ -239,12 +292,27 @@ class MLFlowLogger(LoggerDestination):
             tags=self.tags,
             log_system_metrics=self.log_system_metrics,
         )
+        if self.tracking_uri == 'databricks':
+            # Start a background process to monitor the job to report the job status to MLflow.
+            self.monitor_process = MlflowMonitorProcess(
+                os.getpid(),
+                self._run_id,
+                self.tracking_uri,
+            )
+            self.monitor_process.start()
+
+    def _global_exception_handler(self, exc_type, exc_value, exc_traceback):
+        """Catch global exception."""
+        self._global_exception_occurred += 1
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
 
     def init(self, state: State, logger: Logger) -> None:
         del logger  # unused
 
         if self.run_name is None:
             self.run_name = state.run_name
+
+        self._global_exception_occurred = 0
 
         # Store the Composer run name in the MLFlow run tags so it can be retrieved for autoresume
         self.tags['run_name'] = os.environ.get('RUN_NAME', state.run_name)
@@ -253,6 +321,8 @@ class MLFlowLogger(LoggerDestination):
         if not self._rank_zero_only:
             self.run_name += f'-rank{dist.get_global_rank()}'
 
+        # Register the global exception handler so that uncaught exception is tracked.
+        sys.excepthook = self._global_exception_handler
         # Start run
         if self._enabled:
             self._start_mlflow_run(state)
@@ -265,7 +335,10 @@ class MLFlowLogger(LoggerDestination):
             self._experiment_id, self._run_id = mlflow_ids_list
 
     def after_load(self, state: State, logger: Logger) -> None:
-        logger.log_hyperparameters({'mlflow_experiment_id': self._experiment_id, 'mlflow_run_id': self._run_id})
+        logger.log_hyperparameters({
+            'mlflow_experiment_id': self._experiment_id,
+            'mlflow_run_id': self._run_id,
+        })
         self.run_url = posixpath.join(
             os.environ.get('DATABRICKS_HOST', ''),
             'ml',
@@ -305,6 +378,7 @@ class MLFlowLogger(LoggerDestination):
 
     def log_metrics(self, metrics: dict[str, Any], step: Optional[int] = None) -> None:
         from mlflow import log_metrics
+
         if self._enabled:
             # Convert all metrics to floats to placate mlflow.
             metrics = {
@@ -357,6 +431,7 @@ class MLFlowLogger(LoggerDestination):
             full_name = f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name
 
             import mlflow
+
             return mlflow.register_model(
                 model_uri=model_uri,
                 name=full_name,
@@ -378,6 +453,7 @@ class MLFlowLogger(LoggerDestination):
         """
         if self._enabled:
             import mlflow
+
             if flavor == 'transformers':
                 mlflow.transformers.save_model(**kwargs)
             elif flavor == 'peft':
@@ -443,6 +519,7 @@ class MLFlowLogger(LoggerDestination):
         """
         if self._enabled:
             import mlflow
+
             if flavor == 'transformers':
                 mlflow.transformers.log_model(**kwargs)
             else:
@@ -465,7 +542,11 @@ class MLFlowLogger(LoggerDestination):
         """
         if self._enabled:
             from mlflow.exceptions import MlflowException
-            from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS, ErrorCode
+            from mlflow.protos.databricks_pb2 import (
+                ALREADY_EXISTS,
+                RESOURCE_ALREADY_EXISTS,
+                ErrorCode,
+            )
 
             full_name = f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name
 
@@ -521,28 +602,53 @@ class MLFlowLogger(LoggerDestination):
                 assert isinstance(self._run_id, str)
                 self._mlflow_client.log_image(
                     image=image,
-                    key=f'{name}_{step}_{im_ind}',
+                    key=f'{name}_{im_ind}',
                     run_id=self._run_id,
                     step=step,
                 )
 
     def post_close(self):
         if self._enabled:
+            if hasattr(self, 'monitor_process'):
+                # Check if there is an uncaught exception, which means `post_close()` is triggered
+                # due to program crash.
+                finish_with_exception = self._global_exception_occurred == 1
+                if finish_with_exception:
+                    self.monitor_process.crash()
+                    return
+
+                # Stop the monitor process since it's entering the cleanup phase.
+                self.monitor_process.stop()
+
             import mlflow
 
             assert isinstance(self._run_id, str)
+
             mlflow.flush_async_logging()
-            self._mlflow_client.set_terminated(self._run_id)
+            exc_tpe, exc_info, tb = sys.exc_info()
+            if (exc_tpe, exc_info, tb) == (None, None, None):
+                current_status = self._mlflow_client.get_run(self._run_id).info.status
+                if current_status == 'RUNNING':
+                    self._mlflow_client.set_terminated(self._run_id, status='FINISHED')
+            else:
+                # Record there was an error
+                self._mlflow_client.set_terminated(self._run_id, status='FAILED')
+
             mlflow.end_run()
+            if hasattr(self, 'monitor_process'):
+                self.monitor_process.join()
 
 
-def _convert_to_mlflow_image(image: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:
+def _convert_to_mlflow_image(
+    image: Union[np.ndarray, torch.Tensor],
+    channels_last: bool,
+) -> np.ndarray:
     if isinstance(image, torch.Tensor):
         image = image.data.cpu().numpy()
 
     # Error out for empty arrays or weird arrays of dimension 0.
     if np.any(np.equal(image.shape, 0)):
-        raise ValueError(f'Got an image (shape {image.shape}) with at least one dimension being 0! ')
+        raise ValueError(f'Got an image (shape {image.shape}) with at least one dimension being 0!')
 
     # Squeeze any singleton dimensions and then add them back in if image dimension
     # less than 3.

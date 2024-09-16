@@ -25,6 +25,7 @@ from torch.distributed._tensor import DeviceMesh
 from torch.distributed.checkpoint.metadata import Metadata
 from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
 from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
+from torch.distributed.checkpoint.storage import StorageReader
 from torch.distributed.distributed_c10d import ProcessGroup
 
 from composer.utils import dist, reproducibility
@@ -36,6 +37,8 @@ from composer.utils.file_helpers import (
     format_name_with_dist_and_time,
     get_file,
     is_tar,
+    is_uri,
+    maybe_create_object_store_from_uri,
     parse_uri,
 )
 from composer.utils.misc import ParallelismType, is_model_deepspeed, partial_format
@@ -214,9 +217,16 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         self,
         source_path: str,
         destination_path: str,
-        object_store: Union[ObjectStore, LoggerDestination],
-        device_mesh: Optional[DeviceMesh],
+        object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
+        device_mesh: Optional[DeviceMesh] = None,
     ):
+
+        if object_store is None:
+            if not is_uri(source_path):
+                raise ValueError('When object_store is None, source_path must be a URI.')
+            object_store = maybe_create_object_store_from_uri(source_path)
+            _, _, source_path = parse_uri(source_path)
+
         self.source_path = source_path
         self.destination_path = destination_path
         self.object_store = object_store
@@ -227,6 +237,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         metadata_destination = os.path.join(self.destination_path, '.metadata')
         if dist.get_local_rank() == 0:
             metadata_path = str(Path(source_path) / Path('.metadata'))
+            assert object_store is not None
             download_object_or_file(metadata_path, metadata_destination, object_store)
         dist.barrier()
 
@@ -274,6 +285,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
                     if not is_downloaded and not os.path.exists(file_destination):
                         log.debug(f'Downloading {relative_file_path} to {file_destination}.')
                         object_name = str(Path(self.source_path) / Path(relative_file_path))
+                        assert self.object_store is not None
                         download_object_or_file(object_name, file_destination, self.object_store)
                         log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
             except Exception as e:
@@ -590,6 +602,65 @@ def load_checkpoint(
     return rng_state_dicts
 
 
+def dist_cp_load(
+    state_dict: dict[str, Any],
+    storage_reader: StorageReader,
+    load_planner: Optional[LoadPlanner] = None,
+):
+    if version.parse(torch.__version__) >= version.parse('2.4.0'):
+        if version.parse(torch.__version__) < version.parse('2.4.1'):
+            # PyTorch 2.4.0
+            from torch.distributed.checkpoint.utils import CheckpointException
+            try:
+                dist_cp.load(
+                    state_dict=state_dict,
+                    storage_reader=storage_reader,
+                    planner=load_planner,
+                )
+            except CheckpointException as e:
+                checkpoint_metadata = storage_reader.read_metadata().state_dict_metadata
+                if 'state.metadata' in checkpoint_metadata and 'state.metadata.composer_env_info.composer_version' not in checkpoint_metadata:
+                    # Torch 2.4 changed the way how state dict is flattened. It broke backward compatibility.
+                    # Torch issue: https://github.com/pytorch/pytorch/issues/133923.
+                    # We override the traverse_state_dict so that the load planner could
+                    # use the old way of flattening the state dict
+                    log.debug('Trying to load checkpointing saved before torch 2.4')
+
+                    import torch.distributed.checkpoint._nested_dict as nested_dict
+                    import torch.distributed.checkpoint._sharded_tensor_utils as sharded_tensor_util
+                    from torch.distributed.checkpoint._traverse import traverse_state_dict as traverse_2_4_0
+
+                    from composer.trainer._patch_pytorch import traverse_state_dict as backward_compatible_traverse
+
+                    nested_dict.traverse_state_dict = backward_compatible_traverse
+                    sharded_tensor_util.traverse_state_dict = backward_compatible_traverse
+
+                    dist_cp.load(
+                        state_dict=state_dict,
+                        storage_reader=storage_reader,
+                        planner=load_planner,
+                    )
+                    # Revert the override
+                    nested_dict.traverse_state_dict = traverse_2_4_0
+                    sharded_tensor_util.traverse_state_dict = traverse_2_4_0
+                else:
+                    raise e
+        else:
+            # PyTorch 2.4.1
+            dist_cp.load(
+                state_dict=state_dict,
+                storage_reader=storage_reader,
+                planner=load_planner,
+            )
+    else:
+        dist_cp.load_state_dict(
+            state_dict=state_dict,
+            storage_reader=storage_reader,
+            planner=load_planner,
+            no_dist=(not dist.is_initialized()),
+        )
+
+
 def load_sharded_checkpoint(
     source_path: str,
     state: State,
@@ -681,15 +752,11 @@ def load_sharded_checkpoint(
                 # Ensure state exists
                 state_dict['state'] = state_dict.get('state', {})
 
-            # dist_cp.load breaks unless the specified state_dict supports `load_state_dict`
-            # See: https://github.com/pytorch/pytorch/issues/125096
-            dist_cp.load_state_dict(
+            dist_cp_load(
                 state_dict=state_dict,
                 storage_reader=storage_reader,
-                planner=state.fsdp_config.load_planner,
-                no_dist=(not dist.is_initialized()),
+                load_planner=state.fsdp_config.load_planner,
             )
-
             log.info(f'Loaded state dict')
             state.load_state_dict(
                 state_dict['state'],
@@ -819,7 +886,7 @@ def download_checkpoint(
         if not checkpoint_is_sharded:
             signal_file_path = os.path.join(
                 node_checkpoint_folder,
-                f'.node_{dist.get_node_rank()}_local_rank0_completed',
+                dist.get_node_signal_file_name(),
             )
             if dist.get_local_rank() == 0:
                 with open(signal_file_path, 'wb') as f:
@@ -1148,9 +1215,15 @@ def _save_checkpoint(
             if version.parse(torch.__version__) >= version.parse('2.3.0'):
                 save_planner = state.fsdp_config.save_planner
                 if save_planner is None:
-                    from composer.trainer._patch_pytorch import SavePlannerWithDedupFix
+                    if version.parse(torch.__version__) < version.parse('2.4.0'):
+                        # Dedup is only broken on <2.4
+                        from composer.trainer._patch_pytorch import SavePlannerWithDedupFix
 
-                    save_planner = SavePlannerWithDedupFix()
+                        save_planner = SavePlannerWithDedupFix()
+                    else:
+                        from torch.distributed.checkpoint.default_planner import DefaultSavePlanner
+
+                        save_planner = DefaultSavePlanner(dedup_save_to_lowest_rank=True)
                 dist_cp.save(
                     state_dict=state_dict,
                     storage_writer=dist_cp.FileSystemWriter(dirname),

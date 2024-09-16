@@ -97,11 +97,12 @@ class MosaicMLLogger(LoggerDestination):
     def log_metrics(self, metrics: dict[str, Any], step: Optional[int] = None) -> None:
         self.log_metadata(metrics)
 
-    def log_exception(self, exception: Exception):
-        self.log_metadata({'exception': exception_to_json_serializable_dict(exception)})
-        self._flush_metadata(force_flush=True)
-
     def after_load(self, state: State, logger: Logger) -> None:
+        # If model was resumed from checkpoint, log the checkpoint path
+        if int(state.timestamp.batch) > 0 and state.load_path is not None:
+            log.debug(f'Logging checkpoint path to metadata: {state.load_path}')
+            self.log_metadata({'checkpoint_resumed_path': state.load_path})
+
         # Log model data downloaded and initialized for run events
         log.debug(f'Logging model initialized time to metadata')
         self.log_metadata({'model_initialized_time': time.time()})
@@ -139,6 +140,11 @@ class MosaicMLLogger(LoggerDestination):
         self.log_metadata(training_progress_data)
         self._flush_metadata(force_flush=True)
 
+    def fit_start(self, state: State, logger: Logger) -> None:
+        # Log model training started time for run events
+        self.log_metadata({'train_started_time': time.time()})
+        self._flush_metadata(force_flush=True)
+
     def eval_end(self, state: State, logger: Logger) -> None:
         self._flush_metadata(force_flush=True)
 
@@ -146,7 +152,8 @@ class MosaicMLLogger(LoggerDestination):
         self._flush_metadata(force_flush=True)
 
     def close(self, state: State, logger: Logger) -> None:
-        self._flush_metadata(force_flush=True, future=False)
+        # Skip flushing metadata as it should be logged by fit/eval/predict_end. Flushing here
+        # might schedule futures while interpreter is shutting down, which will raise an error.
         if self._enabled:
             wait(self._futures)  # Ignore raised errors on close
 

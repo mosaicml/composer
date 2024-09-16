@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Optional
 
 import torch.cuda
-from packaging import version
 
 from composer.core import Callback, State
 from composer.loggers import Logger
@@ -113,13 +112,7 @@ class OOMObserver(Callback):
         else:
             self.remote_path_in_bucket = None
 
-        if version.parse(torch.__version__.split('.dev')[0]) >= version.parse('2.1.0'):  # type: ignore
-            # OOMObserver is only supported in torch v2.1.0 or higher
-            self._enabled = True
-        else:
-            self._enabled = False
-            warnings.warn('OOMObserver is supported after PyTorch 2.1.0. Disabling OOMObserver callback.')
-
+        self._enabled = True
         self.filename_config: Optional[SnapshotFileNameConfig] = None
 
     def init(self, state: State, logger: Logger) -> None:

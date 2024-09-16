@@ -17,27 +17,23 @@ import time
 import uuid
 import warnings
 from multiprocessing.context import SpawnProcess
-from typing import TYPE_CHECKING, Any, Callable, Optional, Type, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 from urllib.parse import urlparse
 
 import torch
 
-from composer.loggers import Logger, MosaicMLLogger
+from composer.loggers import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import (
-    GCSObjectStore,
-    LibcloudObjectStore,
     MLFlowObjectStore,
     ObjectStore,
     ObjectStoreTransientError,
-    OCIObjectStore,
-    S3ObjectStore,
-    SFTPObjectStore,
-    UCObjectStore,
+    build_remote_backend,
     dist,
     format_name_with_dist,
     get_file,
     retry,
+    validate_credentials,
 )
 from composer.utils.object_store.mlflow_object_store import MLFLOW_DBFS_PATH_PREFIX
 
@@ -48,37 +44,6 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 __all__ = ['RemoteUploaderDownloader']
-
-
-def _build_remote_backend(remote_backend_name: str, backend_kwargs: dict[str, Any]):
-    remote_backend_cls = None
-    remote_backend_name_to_cls = {
-        's3': S3ObjectStore,
-        'oci': OCIObjectStore,
-        'sftp': SFTPObjectStore,
-        'libcloud': LibcloudObjectStore,
-        'gs': GCSObjectStore,
-    }
-
-    # Handle `dbfs` backend as a special case, since it can map to either :class:`.UCObjectStore`
-    # or :class:`.MLFlowObjectStore`.
-    if remote_backend_name == 'dbfs':
-        path = backend_kwargs['path']
-        if path.startswith(MLFLOW_DBFS_PATH_PREFIX):
-            remote_backend_cls = MLFlowObjectStore
-        else:
-            # Validate if the path conforms to the requirements for UC volume paths
-            UCObjectStore.validate_path(path)
-            remote_backend_cls = UCObjectStore
-    else:
-        remote_backend_cls = remote_backend_name_to_cls.get(remote_backend_name, None)
-        if remote_backend_cls is None:
-            supported_remote_backends = list(remote_backend_name_to_cls.keys()) + ['dbfs']
-            raise ValueError(
-                f'The remote backend {remote_backend_name} is not supported. Please use one of ({supported_remote_backends})',
-            )
-
-    return remote_backend_cls(**backend_kwargs)
 
 
 class RemoteUploaderDownloader(LoggerDestination):
@@ -316,7 +281,7 @@ class RemoteUploaderDownloader(LoggerDestination):
             self._finished_cls: Union[Callable[[],
                                                multiprocessing._EventType,  # pyright: ignore[reportGeneralTypeIssues]
                                               ],
-                                      Type[threading.Event],
+                                      type[threading.Event],
                                      ] = mp_ctx.Event
             self._proc_class = mp_ctx.Process
         else:
@@ -339,16 +304,17 @@ class RemoteUploaderDownloader(LoggerDestination):
     def remote_backend(self) -> ObjectStore:
         """The :class:`.ObjectStore` instance for the main thread."""
         if self._remote_backend is None:
-            self._remote_backend = _build_remote_backend(self.remote_backend_name, self.backend_kwargs)
+            self._remote_backend = build_remote_backend(self.remote_backend_name, self.backend_kwargs)
         return self._remote_backend
 
     def init(self, state: State, logger: Logger) -> None:
+        del logger  # unused
+
         if self._worker_flag is not None:
             raise RuntimeError('The RemoteUploaderDownloader is already initialized.')
         self._worker_flag = self._finished_cls()
         self._run_name = state.run_name
         file_name_to_test = self._remote_file_name('.credentials_validated_successfully')
-        self._logger = logger
 
         # Create the enqueue thread
         self._enqueue_thread_flag = self._finished_cls()
@@ -359,7 +325,7 @@ class RemoteUploaderDownloader(LoggerDestination):
             retry(
                 ObjectStoreTransientError,
                 self.num_attempts,
-            )(lambda: _validate_credentials(self.remote_backend, file_name_to_test))()
+            )(lambda: validate_credentials(self.remote_backend, file_name_to_test))()
 
         # If the remote backend is an `MLFlowObjectStore`, the original path kwarg may have placeholders that can be
         # updated with information generated at runtime, i.e., the MLFlow experiment and run IDs. This information
@@ -461,9 +427,6 @@ class RemoteUploaderDownloader(LoggerDestination):
                         break
                     self._enqueued_objects.remove(object_name)
                     self._completed_queue.task_done()
-                    for destination in self._logger.destinations:
-                        if isinstance(destination, MosaicMLLogger):
-                            destination.log_metadata({'checkpoint_uploaded_time': time.time()}, force_flush=True)
 
                 # Enqueue all objects that are in self._logged_objects but not in self._file_upload_queue
                 objects_to_delete = []
@@ -635,20 +598,6 @@ class RemoteUploaderDownloader(LoggerDestination):
         return key_name
 
 
-def _validate_credentials(
-    remote_backend: ObjectStore,
-    remote_file_name_to_test: str,
-) -> None:
-    # Validates the credentials by attempting to touch a file in the bucket
-    # raises an error if there was a credentials failure.
-    with tempfile.NamedTemporaryFile('wb') as f:
-        f.write(b'credentials_validated_successfully')
-        remote_backend.upload_object(
-            object_name=remote_file_name_to_test,
-            filename=f.name,
-        )
-
-
 def _upload_worker(
     file_queue: Union[queue.Queue[tuple[str, str, bool]], multiprocessing.JoinableQueue[tuple[str, str, bool]]],
     completed_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str]],
@@ -663,7 +612,7 @@ def _upload_worker(
     The worker will continuously poll ``file_queue`` for files to upload. Once ``is_finished`` is set, the worker will
     exit once ``file_queue`` is empty.
     """
-    remote_backend = _build_remote_backend(remote_backend_name, backend_kwargs)
+    remote_backend = build_remote_backend(remote_backend_name, backend_kwargs)
     while True:
         try:
             file_path_to_upload, remote_file_name, overwrite = file_queue.get(block=True, timeout=0.5)

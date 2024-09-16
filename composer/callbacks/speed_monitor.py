@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import warnings
 from collections import deque
-from typing import Any, Callable, Deque, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 import torch
 
@@ -223,10 +223,11 @@ class SpeedMonitor(Callback):
     | `throughput/device/flops_per_sec`   | logged when model has attribute `flops_per_batch`         |
     |                                     |                                                           |
     +-------------------------------------+-----------------------------------------------------------+
-    |                                     | `throughput/device/flops_per_sec` divided by world size.  |
-    | `throughput/device/mfu`             | Only logged when model has attribute `flops_per_batch`    |
-    |                                     | and `gpu_flops_available`, which can be passed as an      |
-    |                                     | argument if not automatically determined by SpeedMonitor  |
+    |                                     | `throughput/device/flops_per_sec` divided by flops        |
+    |                                     | available on the GPU device. Only logged when model has   |
+    | `throughput/device/mfu`             | attribute `flops_per_batch` and `gpu_flops_available`,    |
+    |                                     | which can be passed as an argument if not automatically   |
+    |                                     | determined by SpeedMonitor                                |
     +-------------------------------------+-----------------------------------------------------------+
     | `time/train`                        | Total elapsed training time                               |
     +-------------------------------------+-----------------------------------------------------------+
@@ -251,10 +252,10 @@ class SpeedMonitor(Callback):
         time_unit: str = 'hours',
     ):
         # Track the batch num samples and wct to compute throughput over a window of batches
-        self.history_samples: Deque[int] = deque(maxlen=window_size + 1)
-        self.history_tokens: Deque[int] = deque(maxlen=window_size + 1)
-        self.history_wct: Deque[float] = deque(maxlen=window_size + 1)
-        self.history_flops: Deque[float] = deque(maxlen=window_size + 1)
+        self.history_samples: deque[int] = deque(maxlen=window_size + 1)
+        self.history_tokens: deque[int] = deque(maxlen=window_size + 1)
+        self.history_wct: deque[float] = deque(maxlen=window_size + 1)
+        self.history_flops: deque[float] = deque(maxlen=window_size + 1)
 
         self.gpu_flops_available = gpu_flops_available
 

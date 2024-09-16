@@ -1,7 +1,7 @@
 # Copyright 2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Union
 from unittest.mock import MagicMock
 
 import torch
@@ -16,7 +16,9 @@ from composer.algorithms import SWA
 from composer.callbacks import SpeedMonitor
 from composer.core import State
 from composer.devices import Device, DeviceCPU, DeviceGPU
+from composer.distributed import prepare_fsdp_module
 from composer.models import ComposerModel
+from composer.utils.parallelism import FSDPConfig
 from tests.common.models import EvenSimplerMLP, SimpleComposerMLP
 
 __all__ = [
@@ -37,12 +39,14 @@ def init_state(
     rank_zero_seed=10,
     run_name='test_run',
     take_step=False,
+    wrap_with_raw_fsdp=False,
 ) -> State:
     model, optimizer = init_model_and_optimizer(
         use_fsdp=use_fsdp,
         use_composer_model=True,
         take_step=take_step,
         device=device,
+        wrap_with_raw_fsdp=wrap_with_raw_fsdp,
     )
 
     test_dataset_sd = {'test': 0}
@@ -87,7 +91,8 @@ def init_model_and_optimizer(
     use_fsdp=False,
     tensor_type='sharded_tensor',
     device='cuda',
-) -> Tuple[Union[ComposerModel, torch.nn.Module], torch.optim.Optimizer]:
+    wrap_with_raw_fsdp=False,
+) -> tuple[Union[ComposerModel, torch.nn.Module], torch.optim.Optimizer]:
     model, loss_fn = init_model(
         use_composer_model,
         num_classes=num_classes,
@@ -95,6 +100,7 @@ def init_model_and_optimizer(
         use_fsdp=use_fsdp,
         tensor_type=tensor_type,
         device=device,
+        wrap_with_raw_fsdp=wrap_with_raw_fsdp,
     )
 
     optimizer = init_optimizer(
@@ -120,7 +126,8 @@ def init_model(
     tensor_type='sharded_tensor',
     sync_module_states=True,
     cpu_offload=False,
-) -> Tuple[Union[ComposerModel, torch.nn.Module], Any]:
+    wrap_with_raw_fsdp=False,
+) -> tuple[Union[ComposerModel, torch.nn.Module], Any]:
     if use_composer_model:
         model = SimpleComposerMLP(num_features=num_features, num_classes=num_classes, device=device)
         loss_fn = model._loss_fn
@@ -129,11 +136,10 @@ def init_model(
         loss_fn = torch.nn.CrossEntropyLoss()
 
     if use_fsdp:
-        fsdp_kwargs: Dict[str, Any] = dict(
+        fsdp_kwargs: dict[str, Any] = dict(
             use_orig_params=True,
             sync_module_states=sync_module_states,  # To enable easy comparison between rank 0 unsharded model and full state dict
             cpu_offload=CPUOffload(offload_params=True) if cpu_offload else None,
-            device_id=torch.device('cpu') if device == 'cpu' else None,
         )
 
         if tensor_type == 'dtensor':
@@ -141,10 +147,25 @@ def init_model(
             device_mesh = init_device_mesh('cuda', (2,))
             fsdp_kwargs['device_mesh'] = device_mesh
 
-        model = FSDP(
-            model,
-            **fsdp_kwargs,
-        )
+        if wrap_with_raw_fsdp:
+            model = FSDP(model, **fsdp_kwargs)
+        else:
+            if 'device_mesh' in fsdp_kwargs:
+                mesh = fsdp_kwargs.pop('device_mesh')
+                ndim = mesh.ndim
+                if ndim == 1:
+                    fsdp_kwargs['data_parallel_shard_degree'] = mesh.size(0)
+                elif ndim == 2:
+                    fsdp_kwargs['data_parallel_replicate_degree'] = mesh.size(0)
+                    fsdp_kwargs['data_parallel_shard_degree'] = mesh.size(1)
+                else:
+                    raise ValueError(f'Unsupported device mesh dimension: {ndim}')
+
+            prepare_fsdp_module(
+                model,
+                optimizers=None,
+                fsdp_config=FSDPConfig(**fsdp_kwargs),
+            )
 
     return model, loss_fn
 
