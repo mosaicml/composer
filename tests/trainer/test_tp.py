@@ -7,8 +7,8 @@ import numpy as np
 import pytest
 import torch
 from packaging import version
-from torch.distributed._tensor import Replicate, Shard
-from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
+from torch.distributed._tensor import Shard
+from torch.distributed.tensor.parallel import RowwiseParallel
 from torch.utils.data import DataLoader
 
 from composer.callbacks import MemoryMonitor
@@ -132,21 +132,21 @@ def test_tp_with_subset_of_params(world_size: int):
         )
 
 
-class GatherColwiseParallel(ColwiseParallel):
-    """ColwiseParallel layer that all-gathers the inputs first."""
+# class GatherColwiseParallel(ColwiseParallel):
+#     """ColwiseParallel layer that all-gathers the inputs first."""
 
-    def __init__(
-        self,
-        *,
-        use_local_output: bool = True,
-    ):
-        super().__init__()
-        # Inputs over the TP dimension are sharded by device batches.
-        self.input_layouts = (Shard(0),)
-        # All-gather inputs so that each GPU now has the same input activations.
-        self.desired_input_layouts = (Replicate(),)
-        # self.output_layouts = (Shard(-1), )
-        self.use_local_output = use_local_output
+#     def __init__(
+#         self,
+#         *,
+#         use_local_output: bool = True,
+#     ):
+#         super().__init__()
+#         # Inputs over the TP dimension are sharded by device batches.
+#         self.input_layouts = (Shard(0),)
+#         # All-gather inputs so that each GPU now has the same input activations.
+#         self.desired_input_layouts = (Replicate(),)
+#         # self.output_layouts = (Shard(-1), )
+#         self.use_local_output = use_local_output
 
 
 def get_trainer(
@@ -379,7 +379,6 @@ def test_tp_hang(world_size: int):
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 def test_tp_gradients(world_size: int):
     """Test that DDP, FSDP, TP-FSDP output the same gradients."""
-    # from icecream import ic
 
     # DDP gradients
     ddp_trainer = get_ddp_trainer()
@@ -410,6 +409,8 @@ def test_tp_gradients(world_size: int):
         fsdp_params.items(),
         tp_fsdp_params.items(),
     ):
+
+        print('-' * 70)
         print(f'{rank=}')
         print(f'\nDDP\n{ddp_name}:\n', ddp_param.shape, '\n', ddp_param)
         if ddp_param.grad is not None:
