@@ -67,6 +67,9 @@ class MyDataset(Dataset):
 
         self.x = torch.randn(self.size, *self.shape, device=self.device)
         self.y = torch.randint(0, self.num_classes, size=(self.size,), device=self.device)
+        from icecream import ic
+        ic(self.x)
+        ic(self.y)
 
 
 @pytest.mark.gpu
@@ -253,6 +256,7 @@ def get_ddp_trainer(
     num_features: int = 2,
     seed: int = 44,
     device: torch.device = 'cuda',
+    replicate_dataset: bool = False,
 ):
     ddp_trainer = get_trainer(
         size=size,
@@ -261,6 +265,7 @@ def get_ddp_trainer(
         num_features=num_features,
         seed=seed,
         device=device,
+        replicate_dataset=replicate_dataset,
     )
     return ddp_trainer
 
@@ -272,6 +277,7 @@ def get_fsdp_trainer(
     num_features: int = 2,
     seed: int = 44,
     device: torch.device = 'cuda',
+    replicate_dataset: bool = False,
 ):
     fsdp_config = FSDPConfig(
         state_dict_type='full',
@@ -289,6 +295,7 @@ def get_fsdp_trainer(
         num_features=num_features,
         seed=seed,
         device=device,
+        replicate_dataset=replicate_dataset,
     )
     return fsdp_trainer
 
@@ -342,39 +349,26 @@ def forward_pass(trainer):
     return output
 
 
-def test_ddp_forward(world_size: int):
-
-    # forward_pass()
-    ddp_trainer = get_ddp_trainer()
-    ddp_out = forward_pass(ddp_trainer)
-
-    # predict()
-    ddp_trainer2 = get_ddp_trainer()
-    dataloader = ddp_trainer2.state.train_dataloader
-    ddp_trainer2.state.train_dataloader = None
-    ddp_out2 = ddp_trainer2.predict(dataloader)
-
-    # fit()
-    ddp_trainer3 = get_ddp_trainer()
-    ddp_trainer3.fit()
-
-
 @pytest.mark.gpu
 @world_size(4)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='Requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 def test_tp_forward(world_size: int, replicate_dataset: bool = False):
     """Test that DDP, FSDP, TP-FSDP do the same forward pass."""
+    from icecream import ic
 
     # DDP forward pass
-    ddp_trainer = get_ddp_trainer()
+    ic('ddp')
+    ddp_trainer = get_ddp_trainer(replicate_dataset=replicate_dataset)
     ddp_out = forward_pass(ddp_trainer)
 
     # FSDP forward pass
-    fsdp_trainer = get_fsdp_trainer()
+    ic('fsdp')
+    fsdp_trainer = get_fsdp_trainer(replicate_dataset=replicate_dataset)
     fsdp_out = forward_pass(fsdp_trainer)
 
     # TP-FSDP forward pass
+    ic('tp_fsdp')
     tp_fsdp_trainer = get_tp_fsdp_trainer(replicate_dataset=replicate_dataset)
     tp_fsdp_out = forward_pass(tp_fsdp_trainer)  # returns a AsyncCollectiveTensor object
 
@@ -800,4 +794,6 @@ def test_tp_fsdp_trainer_2(world_size: int):
 
 
 if __name__ == '__main__':
-    test_tp_forward(4)
+    import warnings
+    warnings.filterwarnings("ignore")
+    test_tp_forward(4, replicate_dataset=True)
