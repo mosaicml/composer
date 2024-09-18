@@ -18,6 +18,7 @@ from composer.loggers import InMemoryLogger
 from composer.trainer.trainer import Trainer
 from composer.utils import FSDPConfig, ParallelismConfig, TPConfig, dist, reproducibility
 from tests.common import (
+    RandomClassificationDataset,
     SimpleComposerMLP,
     SimpleModel,
     world_size,
@@ -25,44 +26,8 @@ from tests.common import (
 from tests.trainer.test_fsdp_checkpoint import get_mono_state_dict_from_sharded_one
 
 
-class RandomClassificationDataset(Dataset):
-    """Classification dataset drawn from a normal distribution.
-
-    Args:
-        shape (Sequence[int]): shape of features (default: (1, 1, 1))
-        size (int): number of samples (default: 100)
-        num_classes (int): number of classes (default: 2)
-    """
-
-    def __init__(
-        self,
-        shape: Sequence[int] = (1, 1, 1),
-        size: int = 100,
-        num_classes: int = 2,
-        device: Optional[torch.device] = None,
-    ):
-        self.size: int = size
-        self.shape: Sequence[int] = shape
-        self.num_classes: int = num_classes
-        self.device: Optional[torch.device] = device
-        self.x: Optional[torch.Tensor] = None
-        self.y: Optional[torch.Tensor] = None
-
-    def __len__(self):
-        return self.size
-
-    def __getitem__(self, index: int):
-        # Note: lazily generate data so it runs after Composer seeds everything, giving the same
-        # dataset across multiple calls when using the same seed.
-        if self.x is None:
-            self.x = torch.randn(self.size, *self.shape, device=self.device)
-        if self.y is None:
-            self.y = torch.randint(0, self.num_classes, size=(self.size,), device=self.device)
-        return self.x[index], self.y[index]
-
-
 class RandomClassificationDatasetReplicated(Dataset):
-    """Classification dataset drawn from a normal distribution. Samples are replicated across ranks.
+    """Like RandomClassificationDataset but samples are replicated across TP groups.
 
     Args:
         shape (Sequence[int]): shape of features (default: (1, 1, 1))
@@ -77,20 +42,23 @@ class RandomClassificationDatasetReplicated(Dataset):
         num_classes: int = 2,
         device: Optional[torch.device] = None,
         seed: int = 44,
+        replication: int = 2,
     ):
         self.size = size
         self.shape = shape
         self.num_classes = num_classes
         self.device = device
         self.rank = dist.get_local_rank()
+        self.world_size = dist.get_world_size()
+        self.n_tp_groups = replication  # the number of tp groups that we are replicating across
         self.seed = seed
         self.x: Optional[torch.Tensor] = None
         self.y: Optional[torch.Tensor] = None
 
     def _generate_data(self):
-        # Generate data
-        tp_group_id = self.rank // 2
-        reproducibility.seed_all(self.seed + tp_group_id) # unique seed for each TP group
+        tp_group_id = self.rank // self.n_tp_groups
+        seed = self.seed + tp_group_id  # all ranks in the same TP group have the same seed
+        reproducibility.seed_all(seed)
         self.x = torch.randn(self.size, *self.shape, device=self.device)
         self.y = torch.randint(0, self.num_classes, size=(self.size,), device=self.device)
         ic(self.x)
@@ -103,8 +71,7 @@ class RandomClassificationDatasetReplicated(Dataset):
         if self.x is None and self.y is None:
             self._generate_data()
 
-        rank_idx = idx // 4
-        ic(idx, rank_idx)
+        rank_idx = idx // self.world_size
         return self.x[rank_idx], self.y[rank_idx]
 
 
@@ -240,18 +207,19 @@ def get_trainer(
     num_features: int = 2,
     seed: int = 44,
     device: torch.device = torch.device('cuda'),
-    replicate_dataset: bool = False,
+    replication: int = 0,
 ):
     """Trainer for a simple model with any parallelism_config."""
 
     reproducibility.seed_all(seed)
-    if replicate_dataset:
+    if replication:
         dataset = RandomClassificationDatasetReplicated(
             shape=(num_features,),
             num_classes=num_classes,
             size=size,
             device=device,
-        )  # X=(num_fea
+            replication=replication,
+        )  # X=(num_features,), y=(,), i.e. scalar
     else:
         dataset = RandomClassificationDataset(
             shape=(num_features,),
@@ -291,7 +259,7 @@ def get_ddp_trainer(
     num_features: int = 2,
     seed: int = 44,
     device: torch.device = 'cuda',
-    replicate_dataset: bool = False,
+    replication: int = 0,
 ):
     ddp_trainer = get_trainer(
         size=size,
@@ -300,7 +268,7 @@ def get_ddp_trainer(
         num_features=num_features,
         seed=seed,
         device=device,
-        replicate_dataset=replicate_dataset,
+        replication=replication,
     )
     return ddp_trainer
 
@@ -312,7 +280,7 @@ def get_fsdp_trainer(
     num_features: int = 2,
     seed: int = 44,
     device: torch.device = 'cuda',
-    replicate_dataset: bool = False,
+    replication: int = 0,
 ):
     fsdp_config = FSDPConfig(
         state_dict_type='full',
@@ -330,7 +298,7 @@ def get_fsdp_trainer(
         num_features=num_features,
         seed=seed,
         device=device,
-        replicate_dataset=replicate_dataset,
+        replication=replication,
     )
     return fsdp_trainer
 
@@ -342,7 +310,8 @@ def get_tp_fsdp_trainer(
     num_features: int = 2,
     seed: int = 44,
     device: torch.device = torch.device('cuda'),
-    replicate_dataset: bool = False,
+    replication: int = 0,
+    tensor_parallel_degree: int = 2,
 ):
     fsdp_config = FSDPConfig(
         state_dict_type='full',
@@ -351,18 +320,22 @@ def get_tp_fsdp_trainer(
         use_orig_params=True,
     )
 
-    if replicate_dataset:
+    if replication:
         layer_plan = {
             'fc1': ColwiseParallel(),
             'fc2': RowwiseParallel(),
         }
+        assert tensor_parallel_degree == replication
     else:
         layer_plan = {
             'fc1': GatherColwiseParallel(),
             'fc2': RowwiseParallel(output_layouts=Shard(0)),
         }
 
-    tp_config = TPConfig(layer_plan=layer_plan, tensor_parallel_degree=2)
+    tp_config = TPConfig(
+        layer_plan=layer_plan,
+        tensor_parallel_degree=tensor_parallel_degree,
+    )
     parallelism_config = ParallelismConfig(fsdp=fsdp_config, tp=tp_config)
 
     tp_fsdp_trainer = get_trainer(
@@ -373,7 +346,7 @@ def get_tp_fsdp_trainer(
         num_features=num_features,
         seed=seed,
         device=device,
-        replicate_dataset=replicate_dataset,
+        replication=replication,
     )
     return tp_fsdp_trainer
 
@@ -388,22 +361,22 @@ def forward_pass(trainer):
 @world_size(4)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='Requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
-def test_tp_forward(world_size: int, replicate_dataset: bool = False):
+def test_tp_forward(world_size: int, replication: int = 0):
     """Test that DDP, FSDP, TP-FSDP do the same forward pass."""
 
     # DDP forward pass
     ic('ddp')
-    ddp_trainer = get_ddp_trainer(replicate_dataset=replicate_dataset)
+    ddp_trainer = get_ddp_trainer(replication=replication)
     ddp_out = forward_pass(ddp_trainer)
 
     # FSDP forward pass
     ic('fsdp')
-    fsdp_trainer = get_fsdp_trainer(replicate_dataset=replicate_dataset)
+    fsdp_trainer = get_fsdp_trainer(replication=replication)
     fsdp_out = forward_pass(fsdp_trainer)
 
     # TP-FSDP forward pass
     ic('tp_fsdp')
-    tp_fsdp_trainer = get_tp_fsdp_trainer(replicate_dataset=replicate_dataset)
+    tp_fsdp_trainer = get_tp_fsdp_trainer(replication=replication)
     tp_fsdp_out = forward_pass(tp_fsdp_trainer)  # returns a AsyncCollectiveTensor object
 
     # Compare DDP, FSDP, TP-FSDP forward pass output
@@ -830,4 +803,4 @@ def test_tp_fsdp_trainer_2(world_size: int):
 if __name__ == '__main__':
     import warnings
     warnings.filterwarnings('ignore')
-    test_tp_forward(4, replicate_dataset=True)
+    test_tp_forward(4, replication=2)
