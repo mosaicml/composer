@@ -6,7 +6,6 @@ from typing import Optional, Sequence
 import numpy as np
 import pytest
 import torch
-from icecream import ic
 from packaging import version
 from torch.distributed._tensor import Replicate, Shard
 from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
@@ -61,8 +60,6 @@ class RandomClassificationDatasetReplicated(Dataset):
         reproducibility.seed_all(seed)
         self.x = torch.randn(self.size, *self.shape, device=self.device)
         self.y = torch.randint(0, self.num_classes, size=(self.size,), device=self.device)
-        ic(self.x)
-        ic(self.y)
 
     def __len__(self):
         return self.size
@@ -73,6 +70,181 @@ class RandomClassificationDatasetReplicated(Dataset):
 
         rank_idx = idx // self.world_size
         return self.x[rank_idx], self.y[rank_idx]
+
+
+class GatherColwiseParallel(ColwiseParallel):
+    """ColwiseParallel layer that all-gathers the inputs first."""
+
+    def __init__(
+        self,
+        *,
+        use_local_output: bool = True,
+    ):
+        super().__init__()
+        # Inputs over the TP dimension are sharded by device batches.
+        self.input_layouts = (Shard(0),)
+        # All-gather inputs so that each GPU now has the same input activations.
+        self.desired_input_layouts = (Replicate(),)
+        # self.output_layouts = (Shard(-1), )
+        self.use_local_output = use_local_output
+
+
+def get_trainer(
+    parallelism_config: Optional[ParallelismConfig] = None,
+    size: int = 4,
+    batch_size: int = 1,
+    num_classes: int = 2,
+    num_features: int = 2,
+    seed: int = 44,
+    device: torch.device = torch.device('cuda'),
+    replication: int = 0,
+):
+    """Trainer for a simple model with any parallelism_config."""
+
+    reproducibility.seed_all(seed)
+    if replication:
+        dataset: Dataset = RandomClassificationDatasetReplicated(
+            shape=(num_features,),
+            num_classes=num_classes,
+            size=size,
+            device=device,
+            replication=replication,
+        )  # X=(num_features,), y=(,), i.e. scalar
+    else:
+        dataset: Dataset = RandomClassificationDataset(
+            shape=(num_features,),
+            num_classes=num_classes,
+            size=size,
+            device=device,
+        )  # X=(num_features,), y=(,), i.e. scalar
+
+    dataloader = DataLoader(
+        dataset,
+        sampler=dist.get_sampler(dataset),
+        batch_size=batch_size,
+    )  # X=(batch_size, num_features), y=(batch_size,)
+
+    model = SimpleComposerMLP(num_features=num_features, device=device, num_classes=num_classes)
+
+    trainer = Trainer(
+        seed=seed,
+        device='gpu',
+        model=model,
+        max_duration='1ep',
+        train_dataloader=dataloader,
+        precision='fp32',
+        parallelism_config=parallelism_config,
+        callbacks=[MemoryMonitor()],
+        loggers=[InMemoryLogger()],
+        progress_bar=False,
+        log_to_console=False,
+    )
+    return trainer
+
+
+def get_ddp_trainer(
+    size: int = 4,
+    batch_size: int = 1,
+    num_classes: int = 2,
+    num_features: int = 2,
+    seed: int = 44,
+    device: torch.device = torch.device('cuda'),
+    replication: int = 0,
+):
+    ddp_trainer = get_trainer(
+        size=size,
+        batch_size=batch_size,
+        num_classes=num_classes,
+        num_features=num_features,
+        seed=seed,
+        device=device,
+        replication=replication,
+    )
+    return ddp_trainer
+
+
+def get_fsdp_trainer(
+    size: int = 4,
+    batch_size: int = 1,
+    num_classes: int = 2,
+    num_features: int = 2,
+    seed: int = 44,
+    device: torch.device = torch.device('cuda'),
+    replication: int = 0,
+):
+    fsdp_config = FSDPConfig(
+        state_dict_type='full',
+        sharding_strategy='SHARD_GRAD_OP',
+        mixed_precision='full',
+        use_orig_params=True,
+    )
+    parallelism_config = ParallelismConfig(fsdp=fsdp_config)
+
+    fsdp_trainer = get_trainer(
+        parallelism_config=parallelism_config,
+        size=size,
+        batch_size=batch_size,
+        num_classes=num_classes,
+        num_features=num_features,
+        seed=seed,
+        device=device,
+        replication=replication,
+    )
+    return fsdp_trainer
+
+
+def get_tp_fsdp_trainer(
+    size: int = 4,
+    batch_size: int = 1,
+    num_classes: int = 2,
+    num_features: int = 2,
+    seed: int = 44,
+    device: torch.device = torch.device('cuda'),
+    replication: int = 0,
+    tensor_parallel_degree: int = 2,
+):
+    fsdp_config = FSDPConfig(
+        state_dict_type='full',
+        sharding_strategy='SHARD_GRAD_OP',
+        mixed_precision='full',
+        use_orig_params=True,
+    )
+
+    if replication:
+        layer_plan = {
+            'fc1': ColwiseParallel(),
+            'fc2': RowwiseParallel(),
+        }
+        assert tensor_parallel_degree == replication
+    else:
+        layer_plan = {
+            'fc1': GatherColwiseParallel(),
+            'fc2': RowwiseParallel(output_layouts=Shard(0)),
+        }
+
+    tp_config = TPConfig(
+        layer_plan=layer_plan,
+        tensor_parallel_degree=tensor_parallel_degree,
+    )
+    parallelism_config = ParallelismConfig(fsdp=fsdp_config, tp=tp_config)
+
+    tp_fsdp_trainer = get_trainer(
+        parallelism_config=parallelism_config,
+        size=size,
+        batch_size=batch_size,
+        num_classes=num_classes,
+        num_features=num_features,
+        seed=seed,
+        device=device,
+        replication=replication,
+    )
+    return tp_fsdp_trainer
+
+
+def forward_pass(trainer):
+    batch = next(iter(trainer.state.train_dataloader))
+    output = trainer.state.model.forward(batch)
+    return output
 
 
 @pytest.mark.gpu
@@ -182,200 +354,23 @@ def test_tp_with_subset_of_params(world_size: int):
         )
 
 
-class GatherColwiseParallel(ColwiseParallel):
-    """ColwiseParallel layer that all-gathers the inputs first."""
-
-    def __init__(
-        self,
-        *,
-        use_local_output: bool = True,
-    ):
-        super().__init__()
-        # Inputs over the TP dimension are sharded by device batches.
-        self.input_layouts = (Shard(0),)
-        # All-gather inputs so that each GPU now has the same input activations.
-        self.desired_input_layouts = (Replicate(),)
-        # self.output_layouts = (Shard(-1), )
-        self.use_local_output = use_local_output
-
-
-def get_trainer(
-    parallelism_config: Optional[ParallelismConfig] = None,
-    size: int = 4,
-    batch_size: int = 1,
-    num_classes: int = 2,
-    num_features: int = 2,
-    seed: int = 44,
-    device: torch.device = torch.device('cuda'),
-    replication: int = 0,
-):
-    """Trainer for a simple model with any parallelism_config."""
-
-    reproducibility.seed_all(seed)
-    if replication:
-        dataset = RandomClassificationDatasetReplicated(
-            shape=(num_features,),
-            num_classes=num_classes,
-            size=size,
-            device=device,
-            replication=replication,
-        )  # X=(num_features,), y=(,), i.e. scalar
-    else:
-        dataset = RandomClassificationDataset(
-            shape=(num_features,),
-            num_classes=num_classes,
-            size=size,
-            device=device,
-        )  # X=(num_features,), y=(,), i.e. scalar
-
-    dataloader = DataLoader(
-        dataset,
-        sampler=dist.get_sampler(dataset),
-        batch_size=batch_size,
-    )  # X=(batch_size, num_features), y=(batch_size,)
-
-    model = SimpleComposerMLP(num_features=num_features, device=device, num_classes=num_classes)
-
-    trainer = Trainer(
-        seed=seed,
-        device='gpu',
-        model=model,
-        max_duration='1ep',
-        train_dataloader=dataloader,
-        precision='fp32',
-        parallelism_config=parallelism_config,
-        callbacks=[MemoryMonitor()],
-        loggers=[InMemoryLogger()],
-        progress_bar=False,
-        log_to_console=False,
-    )
-    return trainer
-
-
-def get_ddp_trainer(
-    size: int = 4,
-    batch_size: int = 1,
-    num_classes: int = 2,
-    num_features: int = 2,
-    seed: int = 44,
-    device: torch.device = 'cuda',
-    replication: int = 0,
-):
-    ddp_trainer = get_trainer(
-        size=size,
-        batch_size=batch_size,
-        num_classes=num_classes,
-        num_features=num_features,
-        seed=seed,
-        device=device,
-        replication=replication,
-    )
-    return ddp_trainer
-
-
-def get_fsdp_trainer(
-    size: int = 4,
-    batch_size: int = 1,
-    num_classes: int = 2,
-    num_features: int = 2,
-    seed: int = 44,
-    device: torch.device = 'cuda',
-    replication: int = 0,
-):
-    fsdp_config = FSDPConfig(
-        state_dict_type='full',
-        sharding_strategy='SHARD_GRAD_OP',
-        mixed_precision='full',
-        use_orig_params=True,
-    )
-    parallelism_config = ParallelismConfig(fsdp=fsdp_config)
-
-    fsdp_trainer = get_trainer(
-        parallelism_config=parallelism_config,
-        size=size,
-        batch_size=batch_size,
-        num_classes=num_classes,
-        num_features=num_features,
-        seed=seed,
-        device=device,
-        replication=replication,
-    )
-    return fsdp_trainer
-
-
-def get_tp_fsdp_trainer(
-    size: int = 4,
-    batch_size: int = 1,
-    num_classes: int = 2,
-    num_features: int = 2,
-    seed: int = 44,
-    device: torch.device = torch.device('cuda'),
-    replication: int = 0,
-    tensor_parallel_degree: int = 2,
-):
-    fsdp_config = FSDPConfig(
-        state_dict_type='full',
-        sharding_strategy='SHARD_GRAD_OP',
-        mixed_precision='full',
-        use_orig_params=True,
-    )
-
-    if replication:
-        layer_plan = {
-            'fc1': ColwiseParallel(),
-            'fc2': RowwiseParallel(),
-        }
-        assert tensor_parallel_degree == replication
-    else:
-        layer_plan = {
-            'fc1': GatherColwiseParallel(),
-            'fc2': RowwiseParallel(output_layouts=Shard(0)),
-        }
-
-    tp_config = TPConfig(
-        layer_plan=layer_plan,
-        tensor_parallel_degree=tensor_parallel_degree,
-    )
-    parallelism_config = ParallelismConfig(fsdp=fsdp_config, tp=tp_config)
-
-    tp_fsdp_trainer = get_trainer(
-        parallelism_config=parallelism_config,
-        size=size,
-        batch_size=batch_size,
-        num_classes=num_classes,
-        num_features=num_features,
-        seed=seed,
-        device=device,
-        replication=replication,
-    )
-    return tp_fsdp_trainer
-
-
-def forward_pass(trainer):
-    batch = next(iter(trainer.state.train_dataloader))
-    output = trainer.state.model.forward(batch)
-    return output
-
-
 @pytest.mark.gpu
 @world_size(4)
+@pytest.mark.parameterize('replication', [0, 2])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='Requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 def test_tp_forward(world_size: int, replication: int = 0):
     """Test that DDP, FSDP, TP-FSDP do the same forward pass."""
 
     # DDP forward pass
-    ic('ddp')
     ddp_trainer = get_ddp_trainer(replication=replication)
     ddp_out = forward_pass(ddp_trainer)
 
     # FSDP forward pass
-    ic('fsdp')
     fsdp_trainer = get_fsdp_trainer(replication=replication)
     fsdp_out = forward_pass(fsdp_trainer)
 
     # TP-FSDP forward pass
-    ic('tp_fsdp')
     tp_fsdp_trainer = get_tp_fsdp_trainer(replication=replication)
     tp_fsdp_out = forward_pass(tp_fsdp_trainer)  # returns a AsyncCollectiveTensor object
 
@@ -804,3 +799,4 @@ if __name__ == '__main__':
     import warnings
     warnings.filterwarnings('ignore')
     test_tp_forward(4, replication=2)
+    test_tp_forward(4, replication=0)
