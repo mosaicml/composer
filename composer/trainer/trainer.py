@@ -1749,6 +1749,8 @@ class Trainer:
         # If using DeepSpeed, the engine must be initialized before the model is loaded.
 
         # TP wrap
+        # torch.cuda.set_device(dist.get_local_rank())
+        # torch.cuda.set_device(dist.get_global_rank())
         if self.state.tp_config is not None:
             # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):

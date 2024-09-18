@@ -1,15 +1,15 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Optional
+from typing import Optional, Sequence
 
 import numpy as np
 import pytest
 import torch
 from packaging import version
-from torch.distributed._tensor import Shard
-from torch.distributed.tensor.parallel import RowwiseParallel
-from torch.utils.data import DataLoader
+from torch.distributed._tensor import Replicate, Shard
+from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
+from torch.utils.data import DataLoader, Dataset
 
 from composer.callbacks import MemoryMonitor
 from composer.core.state import fsdp_state_dict_type_context
@@ -23,6 +23,50 @@ from tests.common import (
     world_size,
 )
 from tests.trainer.test_fsdp_checkpoint import get_mono_state_dict_from_sharded_one
+
+
+class MyDataset(Dataset):
+    """Classification dataset drawn from a normal distribution, modified for 4 GPUs.
+
+    Args:
+        shape (Sequence[int]): shape of features (default: (1, 1, 1))
+        size (int): number of samples (default: 100)
+        num_classes (int): number of classes (default: 2)
+        rank (int): GPU rank (default: 0)
+    """
+
+    def __init__(
+        self,
+        shape: Sequence[int] = (1, 1, 1),
+        size: int = 100,
+        num_classes: int = 2,
+        device: Optional[torch.device] = None,
+        rank: int = 0,
+    ):
+        self.size: int = size
+        self.shape: Sequence[int] = shape
+        self.num_classes: int = num_classes
+        self.device: Optional[torch.device] = device
+        self.rank: int = rank
+        self.x: Optional[torch.Tensor] = None
+        self.y: Optional[torch.Tensor] = None
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, index: int):
+        # Generate data lazily
+        if self.x is None or self.y is None:
+            self._generate_data()
+        return self.x[index], self.y[index]
+
+    def _generate_data(self):
+        # Set a fixed seed based on the GPU group (0-1 or 2-3)
+        seed = 0 if self.rank < 2 else 1
+        reproducibility.seed_all(seed)
+
+        self.x = torch.randn(self.size, *self.shape, device=self.device)
+        self.y = torch.randint(0, self.num_classes, size=(self.size,), device=self.device)
 
 
 @pytest.mark.gpu
@@ -132,21 +176,21 @@ def test_tp_with_subset_of_params(world_size: int):
         )
 
 
-# class GatherColwiseParallel(ColwiseParallel):
-#     """ColwiseParallel layer that all-gathers the inputs first."""
+class GatherColwiseParallel(ColwiseParallel):
+    """ColwiseParallel layer that all-gathers the inputs first."""
 
-#     def __init__(
-#         self,
-#         *,
-#         use_local_output: bool = True,
-#     ):
-#         super().__init__()
-#         # Inputs over the TP dimension are sharded by device batches.
-#         self.input_layouts = (Shard(0),)
-#         # All-gather inputs so that each GPU now has the same input activations.
-#         self.desired_input_layouts = (Replicate(),)
-#         # self.output_layouts = (Shard(-1), )
-#         self.use_local_output = use_local_output
+    def __init__(
+        self,
+        *,
+        use_local_output: bool = True,
+    ):
+        super().__init__()
+        # Inputs over the TP dimension are sharded by device batches.
+        self.input_layouts = (Shard(0),)
+        # All-gather inputs so that each GPU now has the same input activations.
+        self.desired_input_layouts = (Replicate(),)
+        # self.output_layouts = (Shard(-1), )
+        self.use_local_output = use_local_output
 
 
 def get_trainer(
@@ -154,24 +198,36 @@ def get_trainer(
     size: int = 4,
     batch_size: int = 1,
     num_classes: int = 2,
-    num_features: int = 6,
-    seed: int = 42,
-    device: torch.device = 'cuda',
+    num_features: int = 2,
+    seed: int = 44,
+    device: torch.device = torch.device('cuda'),
+    replicate_dataset: bool = False,
 ):
     """Trainer for a simple model with any parallelism_config."""
 
     reproducibility.seed_all(seed)
-    dataset = RandomClassificationDataset(
-        shape=(num_features,),
-        num_classes=num_classes,
-        size=size,
-        device=device,
-    )  # X=(num_features,), y=(,), i.e. scalar
+    if replicate_dataset:
+        dataset = MyDataset(
+            shape=(num_features,),
+            num_classes=num_classes,
+            size=size,
+            device=device,
+            rank=dist.get_local_rank(),
+        )  # X=(num_features,), y=(,), i.e. scalar
+    else:
+        dataset = RandomClassificationDataset(
+            shape=(num_features,),
+            num_classes=num_classes,
+            size=size,
+            device=device,
+        )  # X=(num_features,), y=(,), i.e. scalar
+
     dataloader = DataLoader(
         dataset,
         sampler=dist.get_sampler(dataset),
         batch_size=batch_size,
     )  # X=(batch_size, num_features), y=(batch_size,)
+
     model = SimpleComposerMLP(num_features=num_features, device=device, num_classes=num_classes)
 
     trainer = Trainer(
@@ -195,7 +251,7 @@ def get_ddp_trainer(
     batch_size: int = 1,
     num_classes: int = 2,
     num_features: int = 2,
-    seed: int = 42,
+    seed: int = 44,
     device: torch.device = 'cuda',
 ):
     ddp_trainer = get_trainer(
@@ -214,7 +270,7 @@ def get_fsdp_trainer(
     batch_size: int = 1,
     num_classes: int = 2,
     num_features: int = 2,
-    seed: int = 42,
+    seed: int = 44,
     device: torch.device = 'cuda',
 ):
     fsdp_config = FSDPConfig(
@@ -242,8 +298,9 @@ def get_tp_fsdp_trainer(
     batch_size: int = 1,
     num_classes: int = 2,
     num_features: int = 2,
-    seed: int = 42,
-    device: torch.device = 'cuda',
+    seed: int = 44,
+    device: torch.device = torch.device('cuda'),
+    replicate_dataset: bool = False,
 ):
     fsdp_config = FSDPConfig(
         state_dict_type='full',
@@ -251,14 +308,22 @@ def get_tp_fsdp_trainer(
         mixed_precision='full',
         use_orig_params=True,
     )
-    layer_plan = {
-        'fc1': GatherColwiseParallel(),
-        'fc2': RowwiseParallel(output_layouts=Shard(0)),
-    }
+
+    if replicate_dataset:
+        layer_plan = {
+            'fc1': ColwiseParallel(),
+            'fc2': RowwiseParallel(),
+        }
+    else:
+        layer_plan = {
+            'fc1': GatherColwiseParallel(),
+            'fc2': RowwiseParallel(output_layouts=Shard(0)),
+        }
+
     tp_config = TPConfig(layer_plan=layer_plan, tensor_parallel_degree=2)
     parallelism_config = ParallelismConfig(fsdp=fsdp_config, tp=tp_config)
 
-    fsdp_trainer = get_trainer(
+    tp_fsdp_trainer = get_trainer(
         parallelism_config=parallelism_config,
         size=size,
         batch_size=batch_size,
@@ -266,8 +331,9 @@ def get_tp_fsdp_trainer(
         num_features=num_features,
         seed=seed,
         device=device,
+        replicate_dataset=replicate_dataset,
     )
-    return fsdp_trainer
+    return tp_fsdp_trainer
 
 
 def forward_pass(trainer):
@@ -276,11 +342,28 @@ def forward_pass(trainer):
     return output
 
 
+def test_ddp_forward(world_size: int):
+
+    # forward_pass()
+    ddp_trainer = get_ddp_trainer()
+    ddp_out = forward_pass(ddp_trainer)
+
+    # predict()
+    ddp_trainer2 = get_ddp_trainer()
+    dataloader = ddp_trainer2.state.train_dataloader
+    ddp_trainer2.state.train_dataloader = None
+    ddp_out2 = ddp_trainer2.predict(dataloader)
+
+    # fit()
+    ddp_trainer3 = get_ddp_trainer()
+    ddp_trainer3.fit()
+
+
 @pytest.mark.gpu
 @world_size(4)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='Requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
-def test_tp_forward(world_size: int):
+def test_tp_forward(world_size: int, replicate_dataset: bool = False):
     """Test that DDP, FSDP, TP-FSDP do the same forward pass."""
 
     # DDP forward pass
@@ -292,16 +375,25 @@ def test_tp_forward(world_size: int):
     fsdp_out = forward_pass(fsdp_trainer)
 
     # TP-FSDP forward pass
-    tp_fsdp_trainer = get_tp_fsdp_trainer()
-    tp_fsdp_out = forward_pass(tp_fsdp_trainer)
+    tp_fsdp_trainer = get_tp_fsdp_trainer(replicate_dataset=replicate_dataset)
+    tp_fsdp_out = forward_pass(tp_fsdp_trainer)  # returns a AsyncCollectiveTensor object
 
-    assert ddp_out.shape == fsdp_out.shape == tp_fsdp_out.shape, f'Outputs have different shapes: {ddp_out.shape=}, {fsdp_out.shape=}, {tp_fsdp_out.shape=}'
-    assert torch.allclose(ddp_out, fsdp_out, atol=1e-3), f'Outputs have different values: {ddp_out=} and {fsdp_out=}'
-    assert torch.allclose(
+    # Compare DDP, FSDP, TP-FSDP forward pass output
+    torch.testing.assert_close(
+        ddp_out,
+        fsdp_out,
+        msg=f'DDP and FSDP outputs from the forward pass are not close enough:\n{ddp_out=}\n{fsdp_out=}.',
+    )
+    torch.testing.assert_close(
         ddp_out,
         tp_fsdp_out,
-        atol=1e-3,
-    ), f'Outputs have different values: {ddp_out=} and {tp_fsdp_out=}'
+        msg=f'DDP and TP-FSDP outputs from the forward pass are not close enough:\n{ddp_out=}\n{tp_fsdp_out=}.',
+    )
+    torch.testing.assert_close(
+        fsdp_out,
+        tp_fsdp_out,
+        msg=f'FSDP and TP-FSDP outputs from the forward pass are not close enough:\n{fsdp_out=}\n{tp_fsdp_out=}.',
+    )
 
 
 @pytest.mark.gpu
@@ -578,3 +670,134 @@ def test_tp_fit(batch_size: int, world_size: int):
         atol=0.3,
         err_msg='Accuracy arrays of FSDP and FSDP-TP are not close enough',
     )
+
+
+@world_size(4)
+@pytest.mark.gpu
+@pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
+def test_tp_fsdp_trainer_2(world_size: int):
+    # from icecream import ic
+
+    ###############
+    # Parameters
+    ###############
+
+    size: int = 4
+    batch_size: int = 1
+    num_classes: int = 2
+    num_features: int = 2
+    seed: int = 44
+    tensor_parallel_degree: int = 2
+    device: torch.device = torch.device('cuda')
+    output_dir: str = '/my-tmp/'
+
+    reproducibility.seed_all(seed)
+    rank = dist.get_local_rank()
+
+    ###############
+    # DataLoader
+    ###############
+
+    my_dataset = MyDataset(
+        shape=(num_features,),
+        num_classes=num_classes,
+        size=size,
+        device=device,
+        rank=rank,
+    )  # X=(num_features,), y=(,), i.e. scalar
+
+    # for i in range(len(my_dataset)):
+    #     x, y = my_dataset[i]
+    #     ic(rank)
+    #     ic(x.shape, x)
+    #     ic(y.shape, y)
+    #     ic('\n')
+
+    dataloader = DataLoader(
+        my_dataset,
+        batch_size=batch_size,
+        sampler=dist.get_sampler(my_dataset),
+    )
+
+    # pytorch_dataset = RandomClassificationDataset(
+    #     shape=(num_features,),
+    #     num_classes=num_classes,
+    #     size=size,
+    #     device=device,
+    # )
+
+    # # clean directory
+    # rmtree(output_dir)
+
+    # # columns = {'x': 'ndarray:float32:2', 'y': 'int64'} # 2 -> features
+    # columns = {'x': 'pkl', 'y': 'int64'}
+    # with MDSWriter(out=output_dir, columns=columns) as out:
+    #     for i in range(len(pytorch_dataset)):
+    #         x, y = pytorch_dataset[i]
+    #         out.write({'x': x.cpu().detach().numpy(), 'y': y.cpu().detach().numpy()})
+    #         # out.write({'x': x.numpy(), 'y': y.numpy()})
+
+    # streaming_dataset = StreamingDataset(
+    #     local=output_dir,
+    #     replication=tensor_parallel_degree,
+    #     batch_size=batch_size,
+    #     allow_unsafe_types=True
+    # )
+
+    # dataloader = DataLoader(
+    #     streaming_dataset,
+    # )
+
+    ###############
+    # Model
+    ###############
+
+    model = SimpleComposerMLP(
+        num_features=num_features,
+        device=device,
+        num_classes=num_classes,
+    )
+
+    #####################
+    # Parallelism Config
+    #####################
+
+    fsdp_config = FSDPConfig(
+        state_dict_type='full',
+        sharding_strategy='SHARD_GRAD_OP',
+        mixed_precision='full',
+        use_orig_params=True,
+    )
+    layer_plan = {
+        'fc1': ColwiseParallel(),
+        'fc2': RowwiseParallel(),
+    }
+    tp_config = TPConfig(
+        layer_plan=layer_plan,
+        tensor_parallel_degree=tensor_parallel_degree,
+    )
+    parallelism_config = ParallelismConfig(fsdp=fsdp_config, tp=tp_config)
+
+    #####################
+    # Trainer
+    #####################
+
+    tp_fsdp_trainer = Trainer(
+        seed=seed,
+        device='gpu',
+        model=model,
+        max_duration='1ep',
+        train_dataloader=dataloader,
+        precision='fp32',
+        parallelism_config=parallelism_config,
+        callbacks=[MemoryMonitor()],
+        loggers=[InMemoryLogger()],
+        progress_bar=False,
+        log_to_console=False,
+    )
+
+    tp_fsdp_trainer.fit()
+
+
+if __name__ == '__main__':
+    test_tp_forward(4)

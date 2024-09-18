@@ -135,7 +135,7 @@ class EvenSimplerMLP(torch.nn.Module):
 # test ComposerModels instead of nn.Module.
 class SimpleComposerMLP(ComposerClassifier):
 
-    def __init__(self, num_features: int, device: str, num_classes: int = 3):
+    def __init__(self, num_features: int, device: Union[str, torch.device], num_classes: int = 3):
         fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
         fc2 = torch.nn.Linear(num_features, num_classes, device=device, bias=False)
 
