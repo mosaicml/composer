@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 import torch
 from packaging import version
+from icecream import ic
 from torch.distributed._tensor import Replicate, Shard
 from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
 from torch.utils.data import DataLoader, Dataset
@@ -360,7 +361,7 @@ def test_tp_with_subset_of_params(world_size: int):
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='Requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 def test_tp_forward(world_size: int, replication: int = 0):
-    """Test that DDP, FSDP, TP-FSDP do the same forward pass."""
+    """Test that DDP, FSDP, TP-FSDP have the same forward pass."""
 
     # DDP forward pass
     ddp_trainer = get_ddp_trainer(replication=replication)
@@ -374,7 +375,7 @@ def test_tp_forward(world_size: int, replication: int = 0):
     tp_fsdp_trainer = get_tp_fsdp_trainer(replication=replication)
     tp_fsdp_out = forward_pass(tp_fsdp_trainer)  # returns a AsyncCollectiveTensor object
 
-    # Compare DDP, FSDP, TP-FSDP forward pass output
+    # Compare output of the forward pass between DDP, FSDP, TP-FSDP
     torch.testing.assert_close(
         ddp_out,
         fsdp_out,
@@ -465,30 +466,30 @@ def test_tp_hang(world_size: int):
 @world_size(4)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='Requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
-def test_tp_gradients(world_size: int):
+def test_tp_gradients(world_size: int, replication: int = 0):
     """Test that DDP, FSDP, TP-FSDP output the same gradients."""
 
     # DDP gradients
-    ddp_trainer = get_ddp_trainer()
+    ddp_trainer = get_ddp_trainer(replication=replication)
     ddp_out = forward_pass(ddp_trainer)
     torch.sum(ddp_out).backward()
-    ddp_params = {name: param for name, param in ddp_trainer.state.model.named_parameters()}
+    ddp_params = dict(ddp_trainer.state.model.named_parameters())
     ddp_trainer.close()
 
     # FSDP gradients
-    fsdp_trainer = get_fsdp_trainer()
+    fsdp_trainer = get_fsdp_trainer(replication=replication)
     fsdp_out = forward_pass(fsdp_trainer)
     torch.sum(fsdp_out).backward()
     # with FSDP.summon_full_params(fsdp_trainer.state.model, with_grads=True):
-    fsdp_params = {name: param for name, param in fsdp_trainer.state.model.named_parameters()}
+    fsdp_params = dict(fsdp_trainer.state.model.named_parameters())
     fsdp_trainer.close()
 
     # TP-FSDP gradients
-    tp_fsdp_trainer = get_tp_fsdp_trainer()
+    tp_fsdp_trainer = get_tp_fsdp_trainer(replication=replication)
     tp_fsdp_out = forward_pass(tp_fsdp_trainer)
     torch.sum(tp_fsdp_out).backward()
     # with FSDP.summon_full_params(tp_fsdp_trainer.state.model, with_grads=True):
-    tp_fsdp_params = {name: param for name, param in tp_fsdp_trainer.state.model.named_parameters()}
+    tp_fsdp_params = dict(tp_fsdp_trainer.state.model.named_parameters())
     tp_fsdp_trainer.close()
 
     rank = dist.get_local_rank()
@@ -498,36 +499,39 @@ def test_tp_gradients(world_size: int):
         tp_fsdp_params.items(),
     ):
 
-        print('-' * 70)
-        print(f'{rank=}')
-        print(f'\nDDP\n{ddp_name}:\n', ddp_param.shape, '\n', ddp_param)
+        ic('-'*70, rank)
+        ic('DDP', ddp_name, ddp_param.shape, ddp_param)
         if ddp_param.grad is not None:
-            print(ddp_param.grad.shape, '\n', ddp_param.grad)
-        print(f'\nFSDP\n{fsdp_name}:\n', fsdp_param.shape, '\n', fsdp_param)
+            ic(ddp_param.grad.shape, ddp_param.grad)
+        ic('FSDP', fsdp_name, fsdp_param.shape, fsdp_param)
         if fsdp_param.grad is not None:
-            print(fsdp_param.grad.shape, '\n', fsdp_param.grad)
-        print(f'\nTP-FSDP\n{tp_fsdp_name}:\n', tp_fsdp_param.shape, '\n', tp_fsdp_param)
+            ic(fsdp_param.grad.shape, fsdp_param.grad)
+        ic('TP-FSDP', tp_fsdp_name, tp_fsdp_param.shape, tp_fsdp_param)
         if tp_fsdp_param.grad is not None:
-            print(tp_fsdp_param.grad.shape, '\n', tp_fsdp_param.grad)
+            ic(tp_fsdp_param.grad.shape, tp_fsdp_param.grad)
 
-        # summon_full_params puts all of the parameters on rank 0
-        if rank != 0:
+        # # summon_full_params puts all of the parameters on rank 0
+        # if rank != 0:
+        #     continue
+
+        # issues with summon_full_params so we instead just ignore the not-gathered tensors
+        if fsdp_param.numel() == 0 and tp_fsdp_param.numel() == 0:
             continue
 
         torch.testing.assert_close(
             ddp_param.grad,
             fsdp_param.grad,
-            msg='DDP and FSDP gradients are not close enough.',
+            msg=f'DDP and FSDP gradients are not close enough:\n{ddp_param.grad=}\n{fsdp_param.grad=}',
         )
         torch.testing.assert_close(
             ddp_param.grad,
             tp_fsdp_param.grad,
-            msg='DDP and FSDP gradients are not close enough.',
+            msg=f'DDP and FSDP gradients are not close enough:\n{ddp_param.grad=}\n{tp_fsdp_param.grad=}',
         )
         torch.testing.assert_close(
             fsdp_param.grad,
             tp_fsdp_param.grad,
-            msg='DDP and FSDP gradients are not close enough.',
+            msg=f'DDP and FSDP gradients are not close enough:\n{fsdp_param.grad=}\n{tp_fsdp_param.grad=}',
         )
 
 
@@ -798,5 +802,4 @@ def test_tp_fsdp_trainer_2(world_size: int):
 if __name__ == '__main__':
     import warnings
     warnings.filterwarnings('ignore')
-    test_tp_forward(4, replication=2)
-    test_tp_forward(4, replication=0)
+    test_tp_gradients(4, replication=2)

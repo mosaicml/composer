@@ -1,0 +1,887 @@
+ic| 'ddp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| rank_idx: 1
+ic| inputs: tensor([[ 1.6768, -0.3361]], device='cuda:2')
+    outputs: tensor([[-0.1876, -0.0342]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| rank_idx: 1
+ic| inputs: tensor([[ 1.6768, -0.3361]], device='cuda:2')
+    outputs: tensor([[-0.1876, -0.0342]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| rank_idx: 1
+ic| inputs: tensor([[ 1.6768, -0.3361]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0.1876, -0.0342]], device='cuda:2'))
+[rank2]:[W918 18:49:52.163970739 ProcessGroupNCCL.cpp:1168] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+ic| 'ddp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| idx: 2, rank_idx: 1
+ic| inputs: tensor([[ 1.6768, -0.3361]], device='cuda:2')
+    outputs: tensor([[-0.1876, -0.0342]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| idx: 2, rank_idx: 1
+ic| inputs: tensor([[ 1.6768, -0.3361]], device='cuda:2')
+    outputs: tensor([[-0.1876, -0.0342]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| idx: 2, rank_idx: 1
+ic| inputs: tensor([[ 1.6768, -0.3361]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0.1876, -0.0342]], device='cuda:2'))
+[rank2]:[W918 18:51:35.454082642 ProcessGroupNCCL.cpp:1168] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+ic| 'ddp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| idx: 2, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| idx: 2, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| idx: 2, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:2'))
+[rank2]:[W918 18:54:05.353425576 ProcessGroupNCCL.cpp:1168] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+ic| 'ddp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618],
+                    [ 0.5677, -0.6094],
+                    [-0.5893, -1.2527],
+                    [-0.9650,  1.0489],
+                    [-0.3627,  0.0174]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1, 0, 0, 1, 0], device='cuda:2')
+ic| idx: 2, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| idx: 2, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618],
+                    [ 0.5677, -0.6094],
+                    [-0.5893, -1.2527],
+                    [-0.9650,  1.0489],
+                    [-0.3627,  0.0174]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1, 0, 0, 1, 0], device='cuda:2')
+ic| idx: 2, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| idx: 2, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618],
+                    [ 0.5677, -0.6094],
+                    [-0.5893, -1.2527],
+                    [-0.9650,  1.0489],
+                    [-0.3627,  0.0174]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1, 0, 0, 1, 0], device='cuda:2')
+ic| idx: 2, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:2'))
+ic| idx: 2, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:2'))
+[rank2]:[W918 18:56:00.438041460 ProcessGroupNCCL.cpp:1168] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+ic| 'ddp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618],
+                    [ 0.5677, -0.6094],
+                    [-0.5893, -1.2527],
+                    [-0.9650,  1.0489],
+                    [-0.3627,  0.0174]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1, 0, 0, 1, 0], device='cuda:2')
+ic| idx: 2, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| idx: 2, rank_idx: 0
+[rank2]: Traceback (most recent call last):
+[rank2]:   File "<frozen runpy>", line 198, in _run_module_as_main
+[rank2]:   File "<frozen runpy>", line 88, in _run_code
+[rank2]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 896, in <module>
+[rank2]:     test_tp_forward(4, replicate_dataset=True)
+[rank2]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 458, in test_tp_forward
+[rank2]:     ddp_out = forward_pass2(ddp_trainer)
+[rank2]:               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 440, in forward_pass2
+[rank2]:     batch = next(next(iter(trainer.state.train_dataloader)))
+[rank2]:             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]: TypeError: 'list' object is not an iterator
+ic| 'ddp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618],
+                    [ 0.5677, -0.6094],
+                    [-0.5893, -1.2527],
+                    [-0.9650,  1.0489],
+                    [-0.3627,  0.0174]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1, 0, 0, 1, 0], device='cuda:2')
+ic| idx: 2, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| idx: 2, rank_idx: 0
+[rank2]: Traceback (most recent call last):
+[rank2]:   File "<frozen runpy>", line 198, in _run_module_as_main
+[rank2]:   File "<frozen runpy>", line 88, in _run_code
+[rank2]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 898, in <module>
+[rank2]:     test_tp_forward(4, replicate_dataset=True)
+[rank2]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 460, in test_tp_forward
+[rank2]:     ddp_out = forward_pass2(ddp_trainer)
+[rank2]:               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 442, in forward_pass2
+[rank2]:     batch = next(0)
+[rank2]:             ^^^^^^^
+[rank2]: TypeError: 'int' object is not an iterator
+ic| 'ddp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618],
+                    [ 0.5677, -0.6094],
+                    [-0.5893, -1.2527],
+                    [-0.9650,  1.0489],
+                    [-0.3627,  0.0174]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1, 0, 0, 1, 0], device='cuda:2')
+ic| idx: 2, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| idx: 2, rank_idx: 0
+ic| idx: 6, rank_idx: 1
+ic| inputs: tensor([[ 1.6768, -0.3361]], device='cuda:2')
+    outputs: tensor([[-0.1876, -0.0342]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618],
+                    [ 0.5677, -0.6094],
+                    [-0.5893, -1.2527],
+                    [-0.9650,  1.0489],
+                    [-0.3627,  0.0174]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1, 0, 0, 1, 0], device='cuda:2')
+ic| idx: 2, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| idx: 2, rank_idx: 0
+ic| idx: 6, rank_idx: 1
+ic| inputs: tensor([[ 1.6768, -0.3361]], device='cuda:2')
+    outputs: tensor([[-0.1876, -0.0342]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618],
+                    [ 0.5677, -0.6094],
+                    [-0.5893, -1.2527],
+                    [-0.9650,  1.0489],
+                    [-0.3627,  0.0174]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1, 0, 0, 1, 0], device='cuda:2')
+ic| idx: 2, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:2'))
+ic| idx: 2, rank_idx: 0
+ic| idx: 6, rank_idx: 1
+ic| inputs: tensor([[ 1.6768, -0.3361]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0.1876, -0.0342]], device='cuda:2'))
+[rank2]:[W918 18:58:33.168321314 ProcessGroupNCCL.cpp:1168] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+ic| 'ddp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| idx: 2, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| idx: 2, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| idx: 2, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:2'))
+[rank2]:[W918 18:59:39.544729114 ProcessGroupNCCL.cpp:1168] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+ic| 'ddp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| idx: 2, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| idx: 2, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| idx: 2, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:2'))
+[rank2]:[W918 19:01:48.163451170 ProcessGroupNCCL.cpp:1168] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+ic| 'ddp'
+ic| dist.get_world_size(): 4, dist.get_local_world_size(): 4
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| idx: 2, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| dist.get_world_size(): 4, dist.get_local_world_size(): 4
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| idx: 2, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| dist.get_world_size(): 4, dist.get_local_world_size(): 4
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| idx: 2, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:2'))
+[rank2]:[W918 19:06:16.664881783 ProcessGroupNCCL.cpp:1168] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+ic| 'ddp'
+ic| self.x: tensor([[ 1.2558, -0.0384],
+                    [-0.9200,  1.3843],
+                    [ 0.3154, -1.0073],
+                    [-1.1698,  1.7279]], device='cuda:2')
+ic| self.y: tensor([0, 0, 1, 1], device='cuda:2')
+ic| inputs: tensor([[ 1.2558, -0.0384]], device='cuda:2')
+    outputs: tensor([[-0.1550, -0.0283]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| self.x: tensor([[ 1.2558, -0.0384],
+                    [-0.9200,  1.3843],
+                    [ 0.3154, -1.0073],
+                    [-1.1698,  1.7279]], device='cuda:2')
+ic| self.y: tensor([0, 0, 1, 1], device='cuda:2')
+ic| inputs: tensor([[ 1.2558, -0.0384]], device='cuda:2')
+    outputs: tensor([[-0.1550, -0.0283]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| self.x: tensor([[ 1.2558, -0.0384],
+                    [-0.9200,  1.3843],
+                    [ 0.3154, -1.0073],
+                    [-1.1698,  1.7279]], device='cuda:2')
+ic| self.y: tensor([0, 0, 1, 1], device='cuda:2')
+ic| inputs: tensor([[ 1.2558, -0.0384]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0.3361, -0.2665]], device='cuda:2'))
+[rank2]: Traceback (most recent call last):
+[rank2]:   File "<frozen runpy>", line 198, in _run_module_as_main
+[rank2]:   File "<frozen runpy>", line 88, in _run_code
+[rank2]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 805, in <module>
+[rank2]:     test_tp_forward(4, replication=True)
+[rank2]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 387, in test_tp_forward
+[rank2]:     torch.testing.assert_close(
+[rank2]:   File "/root/tp/.venv/tp-1/lib/python3.11/site-packages/torch/testing/_comparison.py", line 1524, in assert_close
+[rank2]:     raise error_metas[0].to_error(msg)
+[rank2]: AssertionError: DDP and TP-FSDP outputs from the forward pass are not close enough:
+[rank2]: ddp_out=tensor([[-0.1550, -0.0283]], device='cuda:2', grad_fn=<MmBackward0>)
+[rank2]: tp_fsdp_out=AsyncCollectiveTensor(tensor([[-0.3361, -0.2665]], device='cuda:2')).
+[rank2]:[W918 19:17:28.045668083 ProcessGroupNCCL.cpp:1168] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+ic| 'ddp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:2'))
+[rank2]:[W918 19:18:07.726280241 ProcessGroupNCCL.cpp:1168] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+ic| 'ddp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:2')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:2')
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:2'))
+ic| 'ddp'
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: tensor([[0., 0.]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: tensor([[0., 0.]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0., -0.]], device='cuda:2'))
+[rank2]:[W918 19:24:17.423565561 ProcessGroupNCCL.cpp:1168] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:2'))
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: tensor([[0., 0.]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: tensor([[0., 0.]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0., -0.]], device='cuda:2'))
+[rank2]:[W918 19:26:15.258545433 ProcessGroupNCCL.cpp:1168] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: tensor([[0., 0.]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: tensor([[0., 0.]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0., -0.]], device='cuda:2'))
+[rank2]:[W918 19:30:17.687813565 ProcessGroupNCCL.cpp:1168] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: tensor([[0., 0.]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: tensor([[0., 0.]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0., -0.]], device='cuda:2'))
+ic| rank: 2
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.0.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[ 0.2059,  0.1117],
+                       [-0.3558, -0.0257]], device='cuda:2', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[-0.4257,  0.0528],
+                            [ 0.0000,  0.0000]], device='cuda:2')
+ic| rank: 2
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.2.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[-0.6096, -0.4934],
+                       [-0.1113, -0.6492]], device='cuda:2', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[0.1134, 0.0000],
+                            [0.1134, 0.0000]], device='cuda:2')
+[rank2]:[W918 19:32:26.342481030 ProcessGroupNCCL.cpp:1168] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: tensor([[0., 0.]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: tensor([[0., 0.]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0., -0.]], device='cuda:2'))
+ic| rank: 2
+[rank2]: Traceback (most recent call last):
+[rank2]:   File "<frozen runpy>", line 198, in _run_module_as_main
+[rank2]:   File "<frozen runpy>", line 88, in _run_code
+[rank2]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 807, in <module>
+[rank2]:     test_tp_gradients(4)
+[rank2]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 515, in test_tp_gradients
+[rank2]:     ic('DDP', ddp_name, ddp_param.shape, ddp_param.weight)
+[rank2]:                                          ^^^^^^^^^^^^^^^^
+[rank2]: AttributeError: 'Parameter' object has no attribute 'weight'
+[rank2]:[W918 19:33:53.151488865 ProcessGroupNCCL.cpp:1168] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: tensor([[0., 0.]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: tensor([[0., 0.]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0., -0.]], device='cuda:2'))
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 2
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.0.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[ 0.2059,  0.1117],
+                       [-0.3558, -0.0257]], device='cuda:2', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[-0.4257,  0.0528],
+                            [ 0.0000,  0.0000]], device='cuda:2')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    fsdp_param.shape: torch.Size([0])
+    fsdp_param: Parameter containing:
+                tensor([], device='cuda:2', requires_grad=True)
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    tp_fsdp_param.shape: torch.Size([0])
+    tp_fsdp_param: Parameter containing:
+                   tensor([], device='cuda:2', requires_grad=True)
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 2
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.2.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[-0.6096, -0.4934],
+                       [-0.1113, -0.6492]], device='cuda:2', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[0.1134, 0.0000],
+                            [0.1134, 0.0000]], device='cuda:2')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    fsdp_param.shape: torch.Size([2])
+    fsdp_param: Parameter containing:
+                tensor([-0.6096, -0.4934], device='cuda:2', requires_grad=True)
+ic| fsdp_param.grad.shape: torch.Size([2])
+    fsdp_param.grad: tensor([0.1134, 0.0000], device='cuda:2')
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    tp_fsdp_param.shape: torch.Size([2])
+    tp_fsdp_param: Parameter containing:
+                   tensor([-0.6096, -0.1113], device='cuda:2', requires_grad=True)
+ic| tp_fsdp_param.grad.shape: torch.Size([2])
+    tp_fsdp_param.grad: tensor([0.2269, 0.2269], device='cuda:2')
+[rank2]:[W918 19:35:59.883569227 ProcessGroupNCCL.cpp:1168] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: tensor([[0., 0.]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: tensor([[0., 0.]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0., -0.]], device='cuda:2'))
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 2
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.0.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[ 0.2059,  0.1117],
+                       [-0.3558, -0.0257]], device='cuda:2', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[-0.4257,  0.0528],
+                            [ 0.0000,  0.0000]], device='cuda:2')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    fsdp_param.shape: torch.Size([0])
+    fsdp_param: Parameter containing:
+                tensor([], device='cuda:2', requires_grad=True)
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    tp_fsdp_param.shape: torch.Size([0])
+    tp_fsdp_param: Parameter containing:
+                   tensor([], device='cuda:2', requires_grad=True)
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 2
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.2.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[-0.6096, -0.4934],
+                       [-0.1113, -0.6492]], device='cuda:2', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[0.1134, 0.0000],
+                            [0.1134, 0.0000]], device='cuda:2')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    fsdp_param.shape: torch.Size([2])
+    fsdp_param: Parameter containing:
+                tensor([-0.6096, -0.4934], device='cuda:2', requires_grad=True)
+ic| fsdp_param.grad.shape: torch.Size([2])
+    fsdp_param.grad: tensor([0.1134, 0.0000], device='cuda:2')
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    tp_fsdp_param.shape: torch.Size([2])
+    tp_fsdp_param: Parameter containing:
+                   tensor([-0.6096, -0.1113], device='cuda:2', requires_grad=True)
+ic| tp_fsdp_param.grad.shape: torch.Size([2])
+    tp_fsdp_param.grad: tensor([0.2269, 0.2269], device='cuda:2')
+[rank2]:[W918 19:37:20.154612441 ProcessGroupNCCL.cpp:1168] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: tensor([[0., 0.]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: tensor([[0., 0.]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0., -0.]], device='cuda:2'))
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 2
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.0.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[ 0.2059,  0.1117],
+                       [-0.3558, -0.0257]], device='cuda:2', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[-0.4257,  0.0528],
+                            [ 0.0000,  0.0000]], device='cuda:2')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    fsdp_param.shape: torch.Size([0])
+    fsdp_param: Parameter containing:
+                tensor([], device='cuda:2', requires_grad=True)
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    tp_fsdp_param.shape: torch.Size([0])
+    tp_fsdp_param: Parameter containing:
+                   tensor([], device='cuda:2', requires_grad=True)
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 2
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.2.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[-0.6096, -0.4934],
+                       [-0.1113, -0.6492]], device='cuda:2', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[0.1134, 0.0000],
+                            [0.1134, 0.0000]], device='cuda:2')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    fsdp_param.shape: torch.Size([2])
+    fsdp_param: Parameter containing:
+                tensor([-0.6096, -0.4934], device='cuda:2', requires_grad=True)
+ic| fsdp_param.grad.shape: torch.Size([2])
+    fsdp_param.grad: tensor([0.1134, 0.0000], device='cuda:2')
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    tp_fsdp_param.shape: torch.Size([2])
+    tp_fsdp_param: Parameter containing:
+                   tensor([-0.6096, -0.1113], device='cuda:2', requires_grad=True)
+ic| tp_fsdp_param.grad.shape: torch.Size([2])
+    tp_fsdp_param.grad: tensor([0.2269, 0.2269], device='cuda:2')
+[rank2]:[W918 19:38:10.104470185 ProcessGroupNCCL.cpp:1168] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: tensor([[0., 0.]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: tensor([[0., 0.]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0., -0.]], device='cuda:2'))
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 2
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.0.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[ 0.2059,  0.1117],
+                       [-0.3558, -0.0257]], device='cuda:2', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[-0.4257,  0.0528],
+                            [ 0.0000,  0.0000]], device='cuda:2')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    fsdp_param.shape: torch.Size([0])
+    fsdp_param: Parameter containing:
+                tensor([], device='cuda:2', requires_grad=True)
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    tp_fsdp_param.shape: torch.Size([0])
+    tp_fsdp_param: Parameter containing:
+                   tensor([], device='cuda:2', requires_grad=True)
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 2
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.2.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[-0.6096, -0.4934],
+                       [-0.1113, -0.6492]], device='cuda:2', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[0.1134, 0.0000],
+                            [0.1134, 0.0000]], device='cuda:2')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    fsdp_param.shape: torch.Size([2])
+    fsdp_param: Parameter containing:
+                tensor([-0.6096, -0.4934], device='cuda:2', requires_grad=True)
+ic| fsdp_param.grad.shape: torch.Size([2])
+    fsdp_param.grad: tensor([0.1134, 0.0000], device='cuda:2')
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    tp_fsdp_param.shape: torch.Size([2])
+    tp_fsdp_param: Parameter containing:
+                   tensor([-0.6096, -0.1113], device='cuda:2', requires_grad=True)
+ic| tp_fsdp_param.grad.shape: torch.Size([2])
+    tp_fsdp_param.grad: tensor([0.2269, 0.2269], device='cuda:2')
+[rank2]:[W918 19:39:49.690354736 ProcessGroupNCCL.cpp:1168] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+Exception ignored in atexit callback: <function dump_compile_times at 0x7fb3a9dc40e0>
+Traceback (most recent call last):
+  File "/root/tp/.venv/tp-1/lib/python3.11/site-packages/torch/_dynamo/utils.py", line 335, in dump_compile_times
+    log.info(compile_times(repr="str", aggregate=True))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/tp/.venv/tp-1/lib/python3.11/site-packages/torch/_dynamo/utils.py", line 322, in compile_times
+    out += tabulate(rows, headers=("Function", "Runtimes (s)"))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/tp/.venv/tp-1/lib/python3.11/site-packages/torch/_dynamo/utils.py", line 127, in tabulate
+    import tabulate
+  File "<frozen importlib._bootstrap>", line 1176, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1147, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 690, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 936, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 1069, in get_code
+  File "<frozen importlib._bootstrap_external>", line 729, in _compile_bytecode
+  File "/root/tp/composer/composer/core/engine.py", line 123, in sigterm_handler
+    sys.exit(128 + signal)
+SystemExit: 143
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: tensor([[0., 0.]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: tensor([[0., 0.]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[ 0.3154, -1.0073]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0., -0.]], device='cuda:2'))
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 2
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.0.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[ 0.2059,  0.1117],
+                       [-0.3558, -0.0257]], device='cuda:2', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[-0.4257,  0.0528],
+                            [ 0.0000,  0.0000]], device='cuda:2')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    fsdp_param.shape: torch.Size([0])
+    fsdp_param: Parameter containing:
+                tensor([], device='cuda:2', requires_grad=True)
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    tp_fsdp_param.shape: torch.Size([0])
+    tp_fsdp_param: Parameter containing:
+                   tensor([], device='cuda:2', requires_grad=True)
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 2
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.2.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[-0.6096, -0.4934],
+                       [-0.1113, -0.6492]], device='cuda:2', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[0.1134, 0.0000],
+                            [0.1134, 0.0000]], device='cuda:2')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    fsdp_param.shape: torch.Size([2])
+    fsdp_param: Parameter containing:
+                tensor([-0.6096, -0.4934], device='cuda:2', requires_grad=True)
+ic| fsdp_param.grad.shape: torch.Size([2])
+    fsdp_param.grad: tensor([0.1134, 0.0000], device='cuda:2')
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    tp_fsdp_param.shape: torch.Size([2])
+    tp_fsdp_param: Parameter containing:
+                   tensor([-0.6096, -0.1113], device='cuda:2', requires_grad=True)
+ic| tp_fsdp_param.grad.shape: torch.Size([2])
+    tp_fsdp_param.grad: tensor([0.2269, 0.2269], device='cuda:2')
+[rank2]:[W918 19:41:33.224171684 ProcessGroupNCCL.cpp:1168] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:2'))
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 2
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.0.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[ 0.2059,  0.1117],
+                       [-0.3558, -0.0257]], device='cuda:2', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[-0.1332, -0.4391],
+                            [ 0.0664, -0.7116]], device='cuda:2')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    fsdp_param.shape: torch.Size([0])
+    fsdp_param: Parameter containing:
+                tensor([], device='cuda:2', requires_grad=True)
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    tp_fsdp_param.shape: torch.Size([0])
+    tp_fsdp_param: Parameter containing:
+                   tensor([], device='cuda:2', requires_grad=True)
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 2
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.2.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[-0.6096, -0.4934],
+                       [-0.1113, -0.6492]], device='cuda:2', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[0.1061, 0.0047],
+                            [0.1061, 0.0047]], device='cuda:2')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    fsdp_param.shape: torch.Size([2])
+    fsdp_param: Parameter containing:
+                tensor([-0.6096, -0.4934], device='cuda:2', requires_grad=True)
+ic| fsdp_param.grad.shape: torch.Size([2])
+    fsdp_param.grad: tensor([0.1061, 0.0047], device='cuda:2')
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    tp_fsdp_param.shape: torch.Size([2])
+    tp_fsdp_param: Parameter containing:
+                   tensor([-0.6096, -0.1113], device='cuda:2', requires_grad=True)
+ic| tp_fsdp_param.grad.shape: torch.Size([2])
+    tp_fsdp_param.grad: tensor([0.1061, 0.1061], device='cuda:2')
+[rank2]:[W918 19:42:44.140627106 ProcessGroupNCCL.cpp:1168] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:2', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:2')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:2'))
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 2
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.0.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[ 0.2059,  0.1117],
+                       [-0.3558, -0.0257]], device='cuda:2', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[-0.1332, -0.4391],
+                            [ 0.0664, -0.7116]], device='cuda:2')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    fsdp_param.shape: torch.Size([0])
+    fsdp_param: Parameter containing:
+                tensor([], device='cuda:2', requires_grad=True)
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    tp_fsdp_param.shape: torch.Size([0])
+    tp_fsdp_param: Parameter containing:
+                   tensor([], device='cuda:2', requires_grad=True)
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 2
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.2.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[-0.6096, -0.4934],
+                       [-0.1113, -0.6492]], device='cuda:2', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[0.1061, 0.0047],
+                            [0.1061, 0.0047]], device='cuda:2')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    fsdp_param.shape: torch.Size([2])
+    fsdp_param: Parameter containing:
+                tensor([-0.6096, -0.4934], device='cuda:2', requires_grad=True)
+ic| fsdp_param.grad.shape: torch.Size([2])
+    fsdp_param.grad: tensor([0.1061, 0.0047], device='cuda:2')
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    tp_fsdp_param.shape: torch.Size([2])
+    tp_fsdp_param: Parameter containing:
+                   tensor([-0.6096, -0.1113], device='cuda:2', requires_grad=True)
+ic| tp_fsdp_param.grad.shape: torch.Size([2])
+    tp_fsdp_param.grad: tensor([0.1061, 0.1061], device='cuda:2')
+[rank2]: Traceback (most recent call last):
+[rank2]:   File "<frozen runpy>", line 198, in _run_module_as_main
+[rank2]:   File "<frozen runpy>", line 88, in _run_code
+[rank2]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 805, in <module>
+[rank2]:     test_tp_gradients(4, replication=2)
+[rank2]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 521, in test_tp_gradients
+[rank2]:     torch.testing.assert_close(
+[rank2]:   File "/root/tp/.venv/tp-1/lib/python3.11/site-packages/torch/testing/_comparison.py", line 1524, in assert_close
+[rank2]:     raise error_metas[0].to_error(msg)
+[rank2]: AssertionError: DDP and FSDP gradients are not close enough:
+[rank2]: ddp_param.grad=tensor([[0.1061, 0.0047],
+[rank2]:         [0.1061, 0.0047]], device='cuda:2')
+[rank2]: fsdp_param.grad=tensor([0.1061, 0.0047], device='cuda:2')
+[rank2]:[W918 19:46:34.200743261 ProcessGroupNCCL.cpp:1168] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())

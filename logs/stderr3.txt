@@ -1,0 +1,862 @@
+ic| 'ddp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| rank_idx: 1
+ic| inputs: tensor([[ 1.6768, -0.3361]], device='cuda:3')
+    outputs: tensor([[-0.1876, -0.0342]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| rank_idx: 1
+ic| inputs: tensor([[ 1.6768, -0.3361]], device='cuda:3')
+    outputs: tensor([[-0.1876, -0.0342]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| rank_idx: 1
+ic| inputs: tensor([[ 1.6768, -0.3361]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.1876, -0.0342]], device='cuda:3'))
+ic| 'ddp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| idx: 3, rank_idx: 1
+ic| inputs: tensor([[ 1.6768, -0.3361]], device='cuda:3')
+    outputs: tensor([[-0.1876, -0.0342]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| idx: 3, rank_idx: 1
+ic| inputs: tensor([[ 1.6768, -0.3361]], device='cuda:3')
+    outputs: tensor([[-0.1876, -0.0342]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| idx: 3, rank_idx: 1
+ic| inputs: tensor([[ 1.6768, -0.3361]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.1876, -0.0342]], device='cuda:3'))
+ic| 'ddp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| idx: 3, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| idx: 3, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| idx: 3, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:3'))
+ic| 'ddp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618],
+                    [ 0.5677, -0.6094],
+                    [-0.5893, -1.2527],
+                    [-0.9650,  1.0489],
+                    [-0.3627,  0.0174]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1, 0, 0, 1, 0], device='cuda:3')
+ic| idx: 3, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| idx: 3, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618],
+                    [ 0.5677, -0.6094],
+                    [-0.5893, -1.2527],
+                    [-0.9650,  1.0489],
+                    [-0.3627,  0.0174]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1, 0, 0, 1, 0], device='cuda:3')
+ic| idx: 3, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| idx: 3, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618],
+                    [ 0.5677, -0.6094],
+                    [-0.5893, -1.2527],
+                    [-0.9650,  1.0489],
+                    [-0.3627,  0.0174]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1, 0, 0, 1, 0], device='cuda:3')
+ic| idx: 3, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:3'))
+ic| idx: 3, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:3'))
+ic| 'ddp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618],
+                    [ 0.5677, -0.6094],
+                    [-0.5893, -1.2527],
+                    [-0.9650,  1.0489],
+                    [-0.3627,  0.0174]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1, 0, 0, 1, 0], device='cuda:3')
+ic| idx: 3, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| idx: 3, rank_idx: 0
+[rank3]: Traceback (most recent call last):
+[rank3]:   File "<frozen runpy>", line 198, in _run_module_as_main
+[rank3]:   File "<frozen runpy>", line 88, in _run_code
+[rank3]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 896, in <module>
+[rank3]:     test_tp_forward(4, replicate_dataset=True)
+[rank3]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 458, in test_tp_forward
+[rank3]:     ddp_out = forward_pass2(ddp_trainer)
+[rank3]:               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 440, in forward_pass2
+[rank3]:     batch = next(next(iter(trainer.state.train_dataloader)))
+[rank3]:             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]: TypeError: 'list' object is not an iterator
+ic| 'ddp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618],
+                    [ 0.5677, -0.6094],
+                    [-0.5893, -1.2527],
+                    [-0.9650,  1.0489],
+                    [-0.3627,  0.0174]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1, 0, 0, 1, 0], device='cuda:3')
+ic| idx: 3, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| idx: 3, rank_idx: 0
+[rank3]: Traceback (most recent call last):
+[rank3]:   File "<frozen runpy>", line 198, in _run_module_as_main
+[rank3]:   File "<frozen runpy>", line 88, in _run_code
+[rank3]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 898, in <module>
+[rank3]:     test_tp_forward(4, replicate_dataset=True)
+[rank3]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 460, in test_tp_forward
+[rank3]:     ddp_out = forward_pass2(ddp_trainer)
+[rank3]:               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 442, in forward_pass2
+[rank3]:     batch = next(0)
+[rank3]:             ^^^^^^^
+[rank3]: TypeError: 'int' object is not an iterator
+ic| 'ddp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618],
+                    [ 0.5677, -0.6094],
+                    [-0.5893, -1.2527],
+                    [-0.9650,  1.0489],
+                    [-0.3627,  0.0174]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1, 0, 0, 1, 0], device='cuda:3')
+ic| idx: 3, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| idx: 3, rank_idx: 0
+ic| idx: 7, rank_idx: 1
+ic| inputs: tensor([[ 1.6768, -0.3361]], device='cuda:3')
+    outputs: tensor([[-0.1876, -0.0342]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618],
+                    [ 0.5677, -0.6094],
+                    [-0.5893, -1.2527],
+                    [-0.9650,  1.0489],
+                    [-0.3627,  0.0174]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1, 0, 0, 1, 0], device='cuda:3')
+ic| idx: 3, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| idx: 3, rank_idx: 0
+ic| idx: 7, rank_idx: 1
+ic| inputs: tensor([[ 1.6768, -0.3361]], device='cuda:3')
+    outputs: tensor([[-0.1876, -0.0342]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618],
+                    [ 0.5677, -0.6094],
+                    [-0.5893, -1.2527],
+                    [-0.9650,  1.0489],
+                    [-0.3627,  0.0174]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1, 0, 0, 1, 0], device='cuda:3')
+ic| idx: 3, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:3'))
+ic| idx: 3, rank_idx: 0
+ic| idx: 7, rank_idx: 1
+ic| inputs: tensor([[ 1.6768, -0.3361]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.1876, -0.0342]], device='cuda:3'))
+ic| 'ddp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| idx: 3, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| idx: 3, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| idx: 3, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:3'))
+ic| 'ddp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| idx: 3, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| idx: 3, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| idx: 3, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:3'))
+ic| 'ddp'
+ic| dist.get_world_size(): 4, dist.get_local_world_size(): 4
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| idx: 3, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| dist.get_world_size(): 4, dist.get_local_world_size(): 4
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| idx: 3, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| dist.get_world_size(): 4, dist.get_local_world_size(): 4
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| idx: 3, rank_idx: 0
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:3'))
+ic| 'ddp'
+ic| self.x: tensor([[-1.0459,  0.2011],
+                    [ 0.0611, -0.9390],
+                    [ 0.3092, -0.2400],
+                    [ 0.1996,  0.0705]], device='cuda:3')
+ic| self.y: tensor([1, 0, 0, 1], device='cuda:3')
+ic| inputs: tensor([[-1.0459,  0.2011]], device='cuda:3')
+    outputs: tensor([[-0.1810, -0.2382]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| self.x: tensor([[-1.0459,  0.2011],
+                    [ 0.0611, -0.9390],
+                    [ 0.3092, -0.2400],
+                    [ 0.1996,  0.0705]], device='cuda:3')
+ic| self.y: tensor([1, 0, 0, 1], device='cuda:3')
+ic| inputs: tensor([[-1.0459,  0.2011]], device='cuda:3')
+    outputs: tensor([[-0.1810, -0.2382]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| self.x: tensor([[-1.0459,  0.2011],
+                    [ 0.0611, -0.9390],
+                    [ 0.3092, -0.2400],
+                    [ 0.1996,  0.0705]], device='cuda:3')
+ic| self.y: tensor([1, 0, 0, 1], device='cuda:3')
+ic| inputs: tensor([[-1.0459,  0.2011]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.3361, -0.2665]], device='cuda:3'))
+[rank3]: Traceback (most recent call last):
+[rank3]:   File "<frozen runpy>", line 198, in _run_module_as_main
+[rank3]:   File "<frozen runpy>", line 88, in _run_code
+[rank3]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 805, in <module>
+[rank3]:     test_tp_forward(4, replication=True)
+[rank3]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 387, in test_tp_forward
+[rank3]:     torch.testing.assert_close(
+[rank3]:   File "/root/tp/.venv/tp-1/lib/python3.11/site-packages/torch/testing/_comparison.py", line 1524, in assert_close
+[rank3]:     raise error_metas[0].to_error(msg)
+[rank3]: AssertionError: DDP and TP-FSDP outputs from the forward pass are not close enough:
+[rank3]: ddp_out=tensor([[-0.1810, -0.2382]], device='cuda:3', grad_fn=<MmBackward0>)
+[rank3]: tp_fsdp_out=AsyncCollectiveTensor(tensor([[-0.3361, -0.2665]], device='cuda:3')).
+ic| 'ddp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:3'))
+ic| 'ddp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| self.x: tensor([[-0.1163,  1.2457],
+                    [ 1.6768, -0.3361],
+                    [-0.1486, -1.4091],
+                    [-2.0410, -0.2618]], device='cuda:3')
+ic| self.y: tensor([0, 1, 1, 1], device='cuda:3')
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:3'))
+ic| 'ddp'
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: tensor([[-0.0299, -0.0054]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'fsdp'
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: tensor([[-0.0299, -0.0054]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| 'tp_fsdp'
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0299, -0.0054]], device='cuda:3'))
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:3'))
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: tensor([[-0.0299, -0.0054]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: tensor([[-0.0299, -0.0054]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0299, -0.0054]], device='cuda:3'))
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: tensor([[-0.0299, -0.0054]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: tensor([[-0.0299, -0.0054]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0299, -0.0054]], device='cuda:3'))
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: tensor([[-0.0299, -0.0054]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: tensor([[-0.0299, -0.0054]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0299, -0.0054]], device='cuda:3'))
+ic| rank: 3
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.0.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[ 0.2059,  0.1117],
+                       [-0.3558, -0.0257]], device='cuda:3', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[-0.4257,  0.0528],
+                            [ 0.0000,  0.0000]], device='cuda:3')
+ic| rank: 3
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.2.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[-0.6096, -0.4934],
+                       [-0.1113, -0.6492]], device='cuda:3', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[0.1134, 0.0000],
+                            [0.1134, 0.0000]], device='cuda:3')
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: tensor([[-0.0299, -0.0054]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: tensor([[-0.0299, -0.0054]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0299, -0.0054]], device='cuda:3'))
+ic| rank: 3
+[rank3]: Traceback (most recent call last):
+[rank3]:   File "<frozen runpy>", line 198, in _run_module_as_main
+[rank3]:   File "<frozen runpy>", line 88, in _run_code
+[rank3]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 807, in <module>
+[rank3]:     test_tp_gradients(4)
+[rank3]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 515, in test_tp_gradients
+[rank3]:     ic('DDP', ddp_name, ddp_param.shape, ddp_param.weight)
+[rank3]:                                          ^^^^^^^^^^^^^^^^
+[rank3]: AttributeError: 'Parameter' object has no attribute 'weight'
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: tensor([[-0.0299, -0.0054]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: tensor([[-0.0299, -0.0054]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0299, -0.0054]], device='cuda:3'))
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 3
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.0.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[ 0.2059,  0.1117],
+                       [-0.3558, -0.0257]], device='cuda:3', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[-0.4257,  0.0528],
+                            [ 0.0000,  0.0000]], device='cuda:3')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    fsdp_param.shape: torch.Size([0])
+    fsdp_param: Parameter containing:
+                tensor([], device='cuda:3', requires_grad=True)
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    tp_fsdp_param.shape: torch.Size([0])
+    tp_fsdp_param: Parameter containing:
+                   tensor([], device='cuda:3', requires_grad=True)
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 3
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.2.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[-0.6096, -0.4934],
+                       [-0.1113, -0.6492]], device='cuda:3', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[0.1134, 0.0000],
+                            [0.1134, 0.0000]], device='cuda:3')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    fsdp_param.shape: torch.Size([2])
+    fsdp_param: Parameter containing:
+                tensor([-0.1113, -0.6492], device='cuda:3', requires_grad=True)
+ic| fsdp_param.grad.shape: torch.Size([2])
+    fsdp_param.grad: tensor([0.1134, 0.0000], device='cuda:3')
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    tp_fsdp_param.shape: torch.Size([2])
+    tp_fsdp_param: Parameter containing:
+                   tensor([-0.4934, -0.6492], device='cuda:3', requires_grad=True)
+ic| tp_fsdp_param.grad.shape: torch.Size([2])
+    tp_fsdp_param.grad: tensor([0., 0.], device='cuda:3')
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: tensor([[-0.0299, -0.0054]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: tensor([[-0.0299, -0.0054]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0299, -0.0054]], device='cuda:3'))
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 3
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.0.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[ 0.2059,  0.1117],
+                       [-0.3558, -0.0257]], device='cuda:3', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[-0.4257,  0.0528],
+                            [ 0.0000,  0.0000]], device='cuda:3')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    fsdp_param.shape: torch.Size([0])
+    fsdp_param: Parameter containing:
+                tensor([], device='cuda:3', requires_grad=True)
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    tp_fsdp_param.shape: torch.Size([0])
+    tp_fsdp_param: Parameter containing:
+                   tensor([], device='cuda:3', requires_grad=True)
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 3
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.2.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[-0.6096, -0.4934],
+                       [-0.1113, -0.6492]], device='cuda:3', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[0.1134, 0.0000],
+                            [0.1134, 0.0000]], device='cuda:3')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    fsdp_param.shape: torch.Size([2])
+    fsdp_param: Parameter containing:
+                tensor([-0.1113, -0.6492], device='cuda:3', requires_grad=True)
+ic| fsdp_param.grad.shape: torch.Size([2])
+    fsdp_param.grad: tensor([0.1134, 0.0000], device='cuda:3')
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    tp_fsdp_param.shape: torch.Size([2])
+    tp_fsdp_param: Parameter containing:
+                   tensor([-0.4934, -0.6492], device='cuda:3', requires_grad=True)
+ic| tp_fsdp_param.grad.shape: torch.Size([2])
+    tp_fsdp_param.grad: tensor([0., 0.], device='cuda:3')
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: tensor([[-0.0299, -0.0054]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: tensor([[-0.0299, -0.0054]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0299, -0.0054]], device='cuda:3'))
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 3
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.0.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[ 0.2059,  0.1117],
+                       [-0.3558, -0.0257]], device='cuda:3', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[-0.4257,  0.0528],
+                            [ 0.0000,  0.0000]], device='cuda:3')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    fsdp_param.shape: torch.Size([0])
+    fsdp_param: Parameter containing:
+                tensor([], device='cuda:3', requires_grad=True)
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    tp_fsdp_param.shape: torch.Size([0])
+    tp_fsdp_param: Parameter containing:
+                   tensor([], device='cuda:3', requires_grad=True)
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 3
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.2.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[-0.6096, -0.4934],
+                       [-0.1113, -0.6492]], device='cuda:3', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[0.1134, 0.0000],
+                            [0.1134, 0.0000]], device='cuda:3')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    fsdp_param.shape: torch.Size([2])
+    fsdp_param: Parameter containing:
+                tensor([-0.1113, -0.6492], device='cuda:3', requires_grad=True)
+ic| fsdp_param.grad.shape: torch.Size([2])
+    fsdp_param.grad: tensor([0.1134, 0.0000], device='cuda:3')
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    tp_fsdp_param.shape: torch.Size([2])
+    tp_fsdp_param: Parameter containing:
+                   tensor([-0.4934, -0.6492], device='cuda:3', requires_grad=True)
+ic| tp_fsdp_param.grad.shape: torch.Size([2])
+    tp_fsdp_param.grad: tensor([0., 0.], device='cuda:3')
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: tensor([[-0.0299, -0.0054]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: tensor([[-0.0299, -0.0054]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0299, -0.0054]], device='cuda:3'))
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 3
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.0.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[ 0.2059,  0.1117],
+                       [-0.3558, -0.0257]], device='cuda:3', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[-0.4257,  0.0528],
+                            [ 0.0000,  0.0000]], device='cuda:3')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    fsdp_param.shape: torch.Size([0])
+    fsdp_param: Parameter containing:
+                tensor([], device='cuda:3', requires_grad=True)
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    tp_fsdp_param.shape: torch.Size([0])
+    tp_fsdp_param: Parameter containing:
+                   tensor([], device='cuda:3', requires_grad=True)
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 3
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.2.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[-0.6096, -0.4934],
+                       [-0.1113, -0.6492]], device='cuda:3', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[0.1134, 0.0000],
+                            [0.1134, 0.0000]], device='cuda:3')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    fsdp_param.shape: torch.Size([2])
+    fsdp_param: Parameter containing:
+                tensor([-0.1113, -0.6492], device='cuda:3', requires_grad=True)
+ic| fsdp_param.grad.shape: torch.Size([2])
+    fsdp_param.grad: tensor([0.1134, 0.0000], device='cuda:3')
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    tp_fsdp_param.shape: torch.Size([2])
+    tp_fsdp_param: Parameter containing:
+                   tensor([-0.4934, -0.6492], device='cuda:3', requires_grad=True)
+ic| tp_fsdp_param.grad.shape: torch.Size([2])
+    tp_fsdp_param.grad: tensor([0., 0.], device='cuda:3')
+Exception ignored in atexit callback: <function dump_compile_times at 0x7f97c65e80e0>
+Traceback (most recent call last):
+  File "/root/tp/.venv/tp-1/lib/python3.11/site-packages/torch/_dynamo/utils.py", line 335, in dump_compile_times
+    log.info(compile_times(repr="str", aggregate=True))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/tp/.venv/tp-1/lib/python3.11/site-packages/torch/_dynamo/utils.py", line 322, in compile_times
+    out += tabulate(rows, headers=("Function", "Runtimes (s)"))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/tp/.venv/tp-1/lib/python3.11/site-packages/torch/_dynamo/utils.py", line 127, in tabulate
+    import tabulate
+  File "/root/tp/.venv/tp-1/lib/python3.11/site-packages/tabulate/__init__.py", line 5, in <module>
+    from html import escape as htmlescape
+  File "<frozen importlib._bootstrap>", line 1229, in _handle_fromlist
+  File "/root/tp/composer/composer/core/engine.py", line 123, in sigterm_handler
+    sys.exit(128 + signal)
+SystemExit: 143
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: tensor([[-0.0299, -0.0054]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: tensor([[-0.0299, -0.0054]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[0.1996, 0.0705]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0299, -0.0054]], device='cuda:3'))
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 3
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.0.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[ 0.2059,  0.1117],
+                       [-0.3558, -0.0257]], device='cuda:3', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[-0.4257,  0.0528],
+                            [ 0.0000,  0.0000]], device='cuda:3')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    fsdp_param.shape: torch.Size([0])
+    fsdp_param: Parameter containing:
+                tensor([], device='cuda:3', requires_grad=True)
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    tp_fsdp_param.shape: torch.Size([0])
+    tp_fsdp_param: Parameter containing:
+                   tensor([], device='cuda:3', requires_grad=True)
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 3
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.2.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[-0.6096, -0.4934],
+                       [-0.1113, -0.6492]], device='cuda:3', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[0.1134, 0.0000],
+                            [0.1134, 0.0000]], device='cuda:3')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    fsdp_param.shape: torch.Size([2])
+    fsdp_param: Parameter containing:
+                tensor([-0.1113, -0.6492], device='cuda:3', requires_grad=True)
+ic| fsdp_param.grad.shape: torch.Size([2])
+    fsdp_param.grad: tensor([0.1134, 0.0000], device='cuda:3')
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    tp_fsdp_param.shape: torch.Size([2])
+    tp_fsdp_param: Parameter containing:
+                   tensor([-0.4934, -0.6492], device='cuda:3', requires_grad=True)
+ic| tp_fsdp_param.grad.shape: torch.Size([2])
+    tp_fsdp_param.grad: tensor([0., 0.], device='cuda:3')
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:3'))
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 3
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.0.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[ 0.2059,  0.1117],
+                       [-0.3558, -0.0257]], device='cuda:3', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[-0.1332, -0.4391],
+                            [ 0.0664, -0.7116]], device='cuda:3')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    fsdp_param.shape: torch.Size([0])
+    fsdp_param: Parameter containing:
+                tensor([], device='cuda:3', requires_grad=True)
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    tp_fsdp_param.shape: torch.Size([0])
+    tp_fsdp_param: Parameter containing:
+                   tensor([], device='cuda:3', requires_grad=True)
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 3
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.2.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[-0.6096, -0.4934],
+                       [-0.1113, -0.6492]], device='cuda:3', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[0.1061, 0.0047],
+                            [0.1061, 0.0047]], device='cuda:3')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    fsdp_param.shape: torch.Size([2])
+    fsdp_param: Parameter containing:
+                tensor([-0.1113, -0.6492], device='cuda:3', requires_grad=True)
+ic| fsdp_param.grad.shape: torch.Size([2])
+    fsdp_param.grad: tensor([0.1061, 0.0047], device='cuda:3')
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    tp_fsdp_param.shape: torch.Size([2])
+    tp_fsdp_param: Parameter containing:
+                   tensor([-0.4934, -0.6492], device='cuda:3', requires_grad=True)
+ic| tp_fsdp_param.grad.shape: torch.Size([2])
+    tp_fsdp_param.grad: tensor([0.0047, 0.0047], device='cuda:3')
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: tensor([[-0.0748, -0.0189]], device='cuda:3', grad_fn=<MmBackward0>)
+ic| inputs: tensor([[-0.1163,  1.2457]], device='cuda:3')
+    outputs: AsyncCollectiveTensor(tensor([[-0.0748, -0.0189]], device='cuda:3'))
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 3
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.0.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[ 0.2059,  0.1117],
+                       [-0.3558, -0.0257]], device='cuda:3', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[-0.1332, -0.4391],
+                            [ 0.0664, -0.7116]], device='cuda:3')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    fsdp_param.shape: torch.Size([0])
+    fsdp_param: Parameter containing:
+                tensor([], device='cuda:3', requires_grad=True)
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.0.weight'
+    tp_fsdp_param.shape: torch.Size([0])
+    tp_fsdp_param: Parameter containing:
+                   tensor([], device='cuda:3', requires_grad=True)
+ic| '-'*70: '----------------------------------------------------------------------'
+    rank: 3
+ic| 'DDP': 'DDP'
+    ddp_name: 'module.module.2.weight'
+    ddp_param.shape: torch.Size([2, 2])
+    ddp_param: Parameter containing:
+               tensor([[-0.6096, -0.4934],
+                       [-0.1113, -0.6492]], device='cuda:3', requires_grad=True)
+ic| ddp_param.grad.shape: torch.Size([2, 2])
+    ddp_param.grad: tensor([[0.1061, 0.0047],
+                            [0.1061, 0.0047]], device='cuda:3')
+ic| 'FSDP': 'FSDP'
+    fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    fsdp_param.shape: torch.Size([2])
+    fsdp_param: Parameter containing:
+                tensor([-0.1113, -0.6492], device='cuda:3', requires_grad=True)
+ic| fsdp_param.grad.shape: torch.Size([2])
+    fsdp_param.grad: tensor([0.1061, 0.0047], device='cuda:3')
+ic| 'TP-FSDP': 'TP-FSDP'
+    tp_fsdp_name: 'module._fsdp_wrapped_module.2.weight'
+    tp_fsdp_param.shape: torch.Size([2])
+    tp_fsdp_param: Parameter containing:
+                   tensor([-0.4934, -0.6492], device='cuda:3', requires_grad=True)
+ic| tp_fsdp_param.grad.shape: torch.Size([2])
+    tp_fsdp_param.grad: tensor([0.0047, 0.0047], device='cuda:3')
+[rank3]: Traceback (most recent call last):
+[rank3]:   File "<frozen runpy>", line 198, in _run_module_as_main
+[rank3]:   File "<frozen runpy>", line 88, in _run_code
+[rank3]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 805, in <module>
+[rank3]:     test_tp_gradients(4, replication=2)
+[rank3]:   File "/root/tp/composer/tests/trainer/test_tp.py", line 521, in test_tp_gradients
+[rank3]:     torch.testing.assert_close(
+[rank3]:   File "/root/tp/.venv/tp-1/lib/python3.11/site-packages/torch/testing/_comparison.py", line 1524, in assert_close
+[rank3]:     raise error_metas[0].to_error(msg)
+[rank3]: AssertionError: DDP and FSDP gradients are not close enough:
+[rank3]: ddp_param.grad=tensor([[0.1061, 0.0047],
+[rank3]:         [0.1061, 0.0047]], device='cuda:3')
+[rank3]: fsdp_param.grad=tensor([0.1061, 0.0047], device='cuda:3')
