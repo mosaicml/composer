@@ -6,6 +6,7 @@ from typing import Optional, Sequence
 import numpy as np
 import pytest
 import torch
+from icecream import ic
 from packaging import version
 from torch.distributed._tensor import Replicate, Shard
 from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
@@ -17,7 +18,6 @@ from composer.loggers import InMemoryLogger
 from composer.trainer.trainer import Trainer
 from composer.utils import FSDPConfig, ParallelismConfig, TPConfig, dist, reproducibility
 from tests.common import (
-    RandomClassificationDataset,
     SimpleComposerMLP,
     SimpleModel,
     world_size,
@@ -25,14 +25,13 @@ from tests.common import (
 from tests.trainer.test_fsdp_checkpoint import get_mono_state_dict_from_sharded_one
 
 
-class MyDataset(Dataset):
-    """Classification dataset drawn from a normal distribution, modified for 4 GPUs.
+class RandomClassificationDataset(Dataset):
+    """Classification dataset drawn from a normal distribution.
 
     Args:
         shape (Sequence[int]): shape of features (default: (1, 1, 1))
         size (int): number of samples (default: 100)
         num_classes (int): number of classes (default: 2)
-        rank (int): GPU rank (default: 0)
     """
 
     def __init__(
@@ -41,13 +40,11 @@ class MyDataset(Dataset):
         size: int = 100,
         num_classes: int = 2,
         device: Optional[torch.device] = None,
-        rank: int = 0,
     ):
         self.size: int = size
         self.shape: Sequence[int] = shape
         self.num_classes: int = num_classes
         self.device: Optional[torch.device] = device
-        self.rank: int = rank
         self.x: Optional[torch.Tensor] = None
         self.y: Optional[torch.Tensor] = None
 
@@ -55,21 +52,60 @@ class MyDataset(Dataset):
         return self.size
 
     def __getitem__(self, index: int):
-        # Generate data lazily
-        if self.x is None or self.y is None:
-            self._generate_data()
+        # Note: lazily generate data so it runs after Composer seeds everything, giving the same
+        # dataset across multiple calls when using the same seed.
+        if self.x is None:
+            self.x = torch.randn(self.size, *self.shape, device=self.device)
+        if self.y is None:
+            self.y = torch.randint(0, self.num_classes, size=(self.size,), device=self.device)
         return self.x[index], self.y[index]
 
-    def _generate_data(self):
-        # Set a fixed seed based on the GPU group (0-1 or 2-3)
-        seed = 0 if self.rank < 2 else 1
-        reproducibility.seed_all(seed)
 
+class RandomClassificationDatasetReplicated(Dataset):
+    """Classification dataset drawn from a normal distribution. Samples are replicated across ranks.
+
+    Args:
+        shape (Sequence[int]): shape of features (default: (1, 1, 1))
+        size (int): number of samples (default: 100)
+        num_classes (int): number of classes (default: 2)
+    """
+
+    def __init__(
+        self,
+        shape: Sequence[int] = (1, 1, 1),
+        size: int = 100,
+        num_classes: int = 2,
+        device: Optional[torch.device] = None,
+        seed: int = 44,
+    ):
+        self.size = size
+        self.shape = shape
+        self.num_classes = num_classes
+        self.device = device
+        self.rank = dist.get_local_rank()
+        self.seed = seed
+        self.x: Optional[torch.Tensor] = None
+        self.y: Optional[torch.Tensor] = None
+
+    def _generate_data(self):
+        # Generate data
+        tp_group_id = self.rank // 2
+        reproducibility.seed_all(self.seed + tp_group_id) # unique seed for each TP group
         self.x = torch.randn(self.size, *self.shape, device=self.device)
         self.y = torch.randint(0, self.num_classes, size=(self.size,), device=self.device)
-        from icecream import ic
         ic(self.x)
         ic(self.y)
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, idx):
+        if self.x is None and self.y is None:
+            self._generate_data()
+
+        rank_idx = idx // 4
+        ic(idx, rank_idx)
+        return self.x[rank_idx], self.y[rank_idx]
 
 
 @pytest.mark.gpu
@@ -210,13 +246,12 @@ def get_trainer(
 
     reproducibility.seed_all(seed)
     if replicate_dataset:
-        dataset = MyDataset(
+        dataset = RandomClassificationDatasetReplicated(
             shape=(num_features,),
             num_classes=num_classes,
             size=size,
             device=device,
-            rank=dist.get_local_rank(),
-        )  # X=(num_features,), y=(,), i.e. scalar
+        )  # X=(num_fea
     else:
         dataset = RandomClassificationDataset(
             shape=(num_features,),
@@ -355,7 +390,6 @@ def forward_pass(trainer):
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 def test_tp_forward(world_size: int, replicate_dataset: bool = False):
     """Test that DDP, FSDP, TP-FSDP do the same forward pass."""
-    from icecream import ic
 
     # DDP forward pass
     ic('ddp')
@@ -795,5 +829,5 @@ def test_tp_fsdp_trainer_2(world_size: int):
 
 if __name__ == '__main__':
     import warnings
-    warnings.filterwarnings("ignore")
+    warnings.filterwarnings('ignore')
     test_tp_forward(4, replicate_dataset=True)
