@@ -286,22 +286,6 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
     deep_compare(timestamp1, timestamp2)
 
 
-def get_mono_state_dict_from_sharded_one(trainer):
-    state_dict = trainer.state.state_dict()
-    state_dict.pop('optimizers')
-    state_dict.pop('model')
-
-    # Add in unsharded model params.
-    with fsdp_state_dict_type_context(trainer.state.model, state_dict_type='full'):
-        state_dict['model'] = trainer.state.model.state_dict()
-
-    optimizer = trainer.state.optimizers[0]
-    state_dict['optimizers'] = {
-        type(optimizer).__qualname__:
-            fsdp_get_optim_state_dict(trainer.state.model, optimizer, state_dict_type='full'),
-    }
-    return state_dict
-
 @pytest.mark.gpu
 @pytest.mark.filterwarnings(r'ignore:.*scatter_full_optim_state_dict``is being deprecated.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
@@ -1048,6 +1032,22 @@ def test_elastic_resumption(
         load_weights_only=False,
         fsdp_config=FSDPConfig(state_dict_type='sharded', sharded_ckpt_prefix_dir='ba{batch}'),
     )
+
+    def get_mono_state_dict_from_sharded_one(trainer):
+        state_dict = trainer.state.state_dict()
+        state_dict.pop('optimizers')
+        state_dict.pop('model')
+
+        # Add in unsharded model params.
+        with fsdp_state_dict_type_context(trainer.state.model, state_dict_type='full'):
+            state_dict['model'] = trainer.state.model.state_dict()
+
+        optimizer = trainer.state.optimizers[0]
+        state_dict['optimizers'] = {
+            type(optimizer).__qualname__:
+                fsdp_get_optim_state_dict(trainer.state.model, optimizer, state_dict_type='full'),
+        }
+        return state_dict
 
     def compare_state_dicts():
         state_dict_from_trainer1 = mono_trainer.state.state_dict()

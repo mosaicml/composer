@@ -138,7 +138,6 @@ class SimpleComposerMLP(ComposerClassifier):
     def __init__(self, num_features: int, device: Union[str, torch.device], num_classes: int = 3):
         fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
         fc2 = torch.nn.Linear(num_features, num_classes, device=device, bias=False)
-
         net = torch.nn.Sequential(fc1, torch.nn.ReLU(), fc2)
         super().__init__(num_classes=num_classes, module=net)
 

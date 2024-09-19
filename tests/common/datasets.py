@@ -61,7 +61,6 @@ class RandomClassificationDataset(Dataset):
         size: int = 100,
         num_classes: int = 2,
         device: Optional[torch.device] = None,
-        generator: Optional[torch.Generator] = None,
     ):
         self.size: int = size
         self.shape: Sequence[int] = shape
