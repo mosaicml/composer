@@ -68,7 +68,6 @@ class RandomClassificationDataset(Dataset):
         self.shape: Sequence[int] = shape
         self.num_classes: int = num_classes
         self.device: Optional[torch.device] = device
-        self.generator: Optional[torch.Generator] = None
         self.x: Optional[torch.Tensor] = None
         self.y: Optional[torch.Tensor] = None
 
@@ -79,7 +78,11 @@ class RandomClassificationDataset(Dataset):
         # Note: lazily generate data so it runs after Composer seeds everything, giving the same
         # dataset across multiple calls when using the same seed.
         if self.x is None:
-            self.x = torch.randn(self.size, *self.shape, device=self.device)
+            self.x = torch.randn(
+                self.size,
+                *self.shape,
+                device=self.device,
+            )
             ic(self.x, self.x.device)
         if self.y is None:
             self.y = torch.randint(0, self.num_classes, size=(self.size,), device=self.device)
