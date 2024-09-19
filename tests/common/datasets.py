@@ -4,7 +4,6 @@ from typing import Optional, Sequence
 
 import pytest
 import torch
-from icecream import ic
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset, IterableDataset
 from torchvision.datasets import VisionDataset
@@ -83,10 +82,8 @@ class RandomClassificationDataset(Dataset):
                 *self.shape,
                 device=self.device,
             )
-            ic(self.x, self.x.device)
         if self.y is None:
             self.y = torch.randint(0, self.num_classes, size=(self.size,), device=self.device)
-            ic(self.y, self.y.device)
         return self.x[index], self.y[index]
 
 
