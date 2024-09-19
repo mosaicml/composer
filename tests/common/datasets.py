@@ -4,6 +4,7 @@ from typing import Optional, Sequence
 
 import pytest
 import torch
+from icecream import ic
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset, IterableDataset
 from torchvision.datasets import VisionDataset
@@ -61,11 +62,13 @@ class RandomClassificationDataset(Dataset):
         size: int = 100,
         num_classes: int = 2,
         device: Optional[torch.device] = None,
+        generator: Optional[torch.Generator] = None,
     ):
         self.size: int = size
         self.shape: Sequence[int] = shape
         self.num_classes: int = num_classes
         self.device: Optional[torch.device] = device
+        self.generator: Optional[torch.Generator] = None
         self.x: Optional[torch.Tensor] = None
         self.y: Optional[torch.Tensor] = None
 
@@ -77,8 +80,10 @@ class RandomClassificationDataset(Dataset):
         # dataset across multiple calls when using the same seed.
         if self.x is None:
             self.x = torch.randn(self.size, *self.shape, device=self.device)
+            ic(self.x, self.x.device)
         if self.y is None:
             self.y = torch.randint(0, self.num_classes, size=(self.size,), device=self.device)
+            ic(self.y, self.y.device)
         return self.x[index], self.y[index]
 
 
