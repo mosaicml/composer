@@ -1,17 +1,16 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Optional, Sequence, Any
+from typing import Any, Optional, Sequence
 
 import numpy as np
 import pytest
 import torch
 from icecream import ic
 from packaging import version
-from torch.distributed._tensor import Replicate, Shard, DTensor
+from torch.distributed._tensor import DTensor, Replicate, Shard
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
-from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 from torch.utils.data import DataLoader, Dataset
 
 from composer.callbacks import MemoryMonitor
@@ -464,7 +463,7 @@ def test_tp_hang(world_size: int):
     #         print(tp_fsdp_state_dict_6)
 
 
-def _compare_modules(module1, module2, check_grad: bool=False):
+def _compare_modules(module1, module2, check_grad: bool = False):
 
     for (param1_name, param1), (param2_name, param2) in zip(module1.items(), module2.items()):
 
@@ -496,47 +495,41 @@ def _replace_state_dict_name(state_dict: dict[str, Any], old_name: str, new_name
 
 
 def compare_models(ddp_trainer: Trainer, fsdp_trainer: Trainer, tp_fsdp_trainer: Trainer, check_grad: bool = False):
+
+    # Normally, we compare the state_dict() of various models.
+    # However, calling `tp_fsdp_trainer.state.state_dict()` causes a NCCL timeout
+    # due to this pytorch bug: https://github.com/pytorch/pytorch/issues/134095/
+    # As a workaround, we use tp_fsdp_trainer.state.model.named_parameters() instead.
     with FSDP.summon_full_params(fsdp_trainer.state.model, with_grads=check_grad):
         with FSDP.summon_full_params(tp_fsdp_trainer.state.model, with_grads=check_grad):
+            ddp_params = dict(ddp_trainer.state.model.named_parameters())
+            fsdp_params = dict(fsdp_trainer.state.model.named_parameters())
+            tp_fsdp_params = dict(tp_fsdp_trainer.state.model.named_parameters())
 
-            # patch the state dict names
-            ddp_params = _replace_state_dict_name(dict(ddp_trainer.state.model.named_parameters()), 'module.', '')
-            fsdp_params = _replace_state_dict_name(dict(fsdp_trainer.state.model.named_parameters()), '_fsdp_wrapped_module.', '')
-            tp_fsdp_params = _replace_state_dict_name(dict(tp_fsdp_trainer.state.model.named_parameters()), '_fsdp_wrapped_module.', '')
+            # patch the state dict names:
+            #   - ddp adds an extra 'module.' to all param names
+            #   - fsdp adds an extra '_fsdp_wrapped_module.' to all param names
+            #   - tp-fsdp adds an extra '_fsdp_wrapped_module.' to all param names
+            ddp_params = _replace_state_dict_name(ddp_params, 'module.', '')
+            fsdp_params = _replace_state_dict_name(fsdp_params, '_fsdp_wrapped_module.', '')
+            tp_fsdp_params = _replace_state_dict_name(tp_fsdp_params, '_fsdp_wrapped_module.', '')
 
             _compare_modules(ddp_params, fsdp_params, check_grad=check_grad)
             _compare_modules(tp_fsdp_params, fsdp_params, check_grad=check_grad)
             _compare_modules(ddp_params, fsdp_params, check_grad=check_grad)
 
+
 @pytest.mark.gpu
 @world_size(4)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='Requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
-def test_tp_backwards(world_size: int, replication: int = 0):
-    """Test that DDP, FSDP, TP-FSDP output the same gradients and updated weights."""
-
-    # DDP gradients
-    ddp_trainer = get_ddp_trainer(replication=replication)
-    ddp_out = forward_pass(ddp_trainer)
-    torch.sum(ddp_out).backward()
-    ddp_trainer.state.optimizers[0].step()
-    ddp_trainer.close()
-
-    # FSDP gradients
-    fsdp_trainer = get_fsdp_trainer(replication=replication)
-    fsdp_out = forward_pass(fsdp_trainer)
-    torch.sum(fsdp_out).backward()
-    fsdp_trainer.state.optimizers[0].step()
-    fsdp_trainer.close()
-
-    # TP-FSDP gradients
-    tp_fsdp_trainer = get_tp_fsdp_trainer(replication=replication)
-    tp_fsdp_out = forward_pass(tp_fsdp_trainer)
-    torch.sum(tp_fsdp_out).backward()
-    tp_fsdp_trainer.state.optimizers[0].step()
-    tp_fsdp_trainer.close()
-
-    compare_models(ddp_trainer, fsdp_trainer, tp_fsdp_trainer)
+def test_tp_forwards_backwards(world_size: int, replication: int = 0):
+    """Test that training with DDP, FSDP, TP-FSDP results in the same:
+        - initial weights
+        - forward pass output
+        - gradients
+        - updated weights
+    """
 
     # Initialize trainers with DDP, FSDP, TP-FSDP
     ddp_trainer = get_ddp_trainer(replication=replication)
@@ -564,7 +557,13 @@ def test_tp_backwards(world_size: int, replication: int = 0):
     # Ensure the gradients are the same
     compare_models(ddp_trainer, fsdp_trainer, tp_fsdp_trainer, check_grad=True)
 
+    # Update the model weights
     ddp_trainer.state.optimizers[0].step()
+    fsdp_trainer.state.optimizers[0].step()
+    tp_fsdp_trainer.state.optimizers[0].step()
+
+    # Ensure the updated weights are the same
+    compare_models(ddp_trainer, fsdp_trainer, tp_fsdp_trainer)
 
 
 @pytest.mark.gpu
@@ -843,8 +842,9 @@ def test_tp_fsdp_state_dict(world_size: int):
         tp_fsdp_state_dict2 = tp_fsdp_trainer.state.state_dict()
         ic(tp_fsdp_state_dict2)
 
+
 if __name__ == '__main__':
     import warnings
     warnings.filterwarnings('ignore')
-    test_tp_backwards(4, replication=2)
+    test_tp_forwards_backwards(4, replication=2)
     # test_tp_fsdp_state_dict(4)
