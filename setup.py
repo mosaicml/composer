@@ -160,7 +160,7 @@ extra_deps['deepspeed'] = [
 ]
 
 extra_deps['wandb'] = [
-    'wandb>=0.13.2,<0.18',
+    'wandb>=0.13.2,<0.19',
 ]
 
 extra_deps['comet_ml'] = [
