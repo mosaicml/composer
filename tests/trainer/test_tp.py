@@ -466,7 +466,7 @@ def test_tp_hang(world_size: int):
 
 def _compare_modules(module1, module2, check_grad: bool=False):
 
-     for (param1_name, param1), (param2_name, param2) in zip(module1.items(), module2.items()):
+    for (param1_name, param1), (param2_name, param2) in zip(module1.items(), module2.items()):
 
         assert param1_name == param2_name
 
@@ -494,6 +494,19 @@ def _replace_state_dict_name(state_dict: dict[str, Any], old_name: str, new_name
             state_dict[new_key] = state_dict.pop(key)
     return state_dict
 
+
+def compare_models(ddp_trainer: Trainer, fsdp_trainer: Trainer, tp_fsdp_trainer: Trainer, check_grad: bool = False):
+    with FSDP.summon_full_params(fsdp_trainer.state.model, with_grads=check_grad):
+        with FSDP.summon_full_params(tp_fsdp_trainer.state.model, with_grads=check_grad):
+
+            # patch the state dict names
+            ddp_params = _replace_state_dict_name(dict(ddp_trainer.state.model.named_parameters()), 'module.', '')
+            fsdp_params = _replace_state_dict_name(dict(fsdp_trainer.state.model.named_parameters()), '_fsdp_wrapped_module.', '')
+            tp_fsdp_params = _replace_state_dict_name(dict(tp_fsdp_trainer.state.model.named_parameters()), '_fsdp_wrapped_module.', '')
+
+            _compare_modules(ddp_params, fsdp_params, check_grad=check_grad)
+            _compare_modules(tp_fsdp_params, fsdp_params, check_grad=check_grad)
+            _compare_modules(ddp_params, fsdp_params, check_grad=check_grad)
 
 @pytest.mark.gpu
 @world_size(4)
@@ -523,22 +536,35 @@ def test_tp_backwards(world_size: int, replication: int = 0):
     tp_fsdp_trainer.state.optimizers[0].step()
     tp_fsdp_trainer.close()
 
-    ic(tp_fsdp_trainer.state.state_dict())
+    compare_models(ddp_trainer, fsdp_trainer, tp_fsdp_trainer)
 
-    with FSDP.summon_full_params(fsdp_trainer.state.model, with_grads=True):
-        with FSDP.summon_full_params(tp_fsdp_trainer.state.model, with_grads=True):
+    # Initialize trainers with DDP, FSDP, TP-FSDP
+    ddp_trainer = get_ddp_trainer(replication=replication)
+    fsdp_trainer = get_fsdp_trainer(replication=replication)
+    tp_fsdp_trainer = get_tp_fsdp_trainer(replication=replication)
 
-            # patch the state dict names
-            ddp_params = _replace_state_dict_name(dict(ddp_trainer.state.model.named_parameters()), 'module.', '')
-            fsdp_params = _replace_state_dict_name(dict(fsdp_trainer.state.model.named_parameters()), '_fsdp_wrapped_module.', '')
-            tp_fsdp_params = _replace_state_dict_name(dict(tp_fsdp_trainer.state.model.named_parameters()), '_fsdp_wrapped_module.', '')
+    # Ensure initial model weights are the same
+    compare_models(ddp_trainer, fsdp_trainer, tp_fsdp_trainer)
 
-            _compare_modules(ddp_params, fsdp_params)
-            _compare_modules(tp_fsdp_params, fsdp_params)
-            _compare_modules(ddp_params, fsdp_params)
-            _compare_modules(ddp_params, fsdp_params, check_grad=True)
-            _compare_modules(tp_fsdp_params, fsdp_params, check_grad=True)
-            _compare_modules(ddp_params, fsdp_params, check_grad=True)
+    # Forward pass
+    ddp_out = forward_pass(ddp_trainer)
+    fsdp_out = forward_pass(fsdp_trainer)
+    tp_fsdp_out = forward_pass(tp_fsdp_trainer)
+
+    # Ensure output of the forward pass is the same
+    _compare_modules({'': ddp_out}, {'': fsdp_out})
+    _compare_modules({'': ddp_out}, {'': tp_fsdp_out})
+    _compare_modules({'': fsdp_out}, {'': tp_fsdp_out})
+
+    # Compute gradients
+    torch.sum(ddp_out).backward()
+    torch.sum(fsdp_out).backward()
+    torch.sum(tp_fsdp_out).backward()
+
+    # Ensure the gradients are the same
+    compare_models(ddp_trainer, fsdp_trainer, tp_fsdp_trainer, check_grad=True)
+
+    ddp_trainer.state.optimizers[0].step()
 
 
 @pytest.mark.gpu
