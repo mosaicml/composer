@@ -9,7 +9,6 @@ E = TypeVar('E', bound=BaseException)
 import numpy as np
 import pytest
 import torch
-from icecream import ic
 from packaging import version
 from torch.distributed._tensor import DTensor, Replicate, Shard
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -250,7 +249,7 @@ def get_tp_fsdp_trainer(
 
 
 def forward_pass(trainer):
-    reproducibility.seed_all(42)
+    reproducibility.seed_all(trainer.state.seed)
     batch = next(iter(trainer.state.train_dataloader))
     output = trainer.state.model.forward(batch)
     return output
@@ -270,7 +269,7 @@ def compare_modules(
     module2: dict[str, Any],
     check_grad: bool = False,
     atol: Optional[float] = None,
-    rtol: Optional[float] = None
+    rtol: Optional[float] = None,
 ):
     module_type = 'Gradients' if check_grad else 'Parameters'
 
@@ -302,7 +301,7 @@ def compare_models(
     tp_fsdp_trainer: Trainer,
     check_grad: bool = False,
     atol: Optional[float] = None,
-    rtol: Optional[float] = None
+    rtol: Optional[float] = None,
 ):
 
     # Normally, we compare various models by their state_dict().
@@ -324,8 +323,6 @@ def compare_models(
             ddp_params = _replace_state_dict_name(ddp_params, 'module.', '')
             fsdp_params = _replace_state_dict_name(fsdp_params, '_fsdp_wrapped_module.', '')
             tp_fsdp_params = _replace_state_dict_name(tp_fsdp_params, '_fsdp_wrapped_module.', '')
-
-            ic(ddp_params, fsdp_params, tp_fsdp_params)
 
             compare_modules(ddp_params, fsdp_params, check_grad=check_grad, atol=atol, rtol=rtol)
             compare_modules(tp_fsdp_params, fsdp_params, check_grad=check_grad, atol=atol, rtol=rtol)
@@ -355,13 +352,13 @@ def get_stats(trainer: Trainer) -> dict[str, np.ndarray]:
 @pytest.mark.parametrize('replication', [0, 2])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='Requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
-def test_tp_forwards_backwards_correctness(world_size: int, replication: int):
+def test_tp_forwards_backwards(world_size: int, replication: int):
     """Test that training with DDP, FSDP, TP-FSDP results in the same:
         - initial weights
         - forward pass
         - gradients
         - updated weights
-    for a single step.
+    after training for a single step via manually doing forward, backward pass.
     """
 
     # Initialize trainers with DDP, FSDP, TP-FSDP
@@ -413,7 +410,7 @@ def test_tp_forwards_backwards_correctness(world_size: int, replication: int):
 @pytest.mark.parametrize('batch_size', [1, 4])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='Requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
-def test_tp_fit_correctness(world_size: int, batch_size: int, replication: int):
+def test_tp_fit(world_size: int, batch_size: int, replication: int):
     """Test that training with DDP, FSDP, TP-FSDP results in the same:
         - updated weights
         - loss
@@ -443,8 +440,6 @@ def test_tp_fit_correctness(world_size: int, batch_size: int, replication: int):
     tp_fsdp_trainer.fit()
     tp_fsdp_trainer.close()
     tp_fsdp_stats = get_stats(tp_fsdp_trainer)
-
-    ic(ddp_stats, fsdp_stats, tp_fsdp_stats)
 
     # Ensure the updated models weights are the same
     # Drop tolerance due to precision issues across different parallelism strategies
@@ -491,133 +486,6 @@ def test_tp_fit_correctness(world_size: int, batch_size: int, replication: int):
         )
 
 
-@world_size(4)
-@pytest.mark.gpu
-@pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
-def test_tp_fsdp_trainer_2(world_size: int):
-    # from icecream import ic
-
-    ###############
-    # Parameters
-    ###############
-
-    size: int = 4
-    batch_size: int = 1
-    num_classes: int = 2
-    num_features: int = 2
-    seed: int = 44
-    tensor_parallel_degree: int = 2
-    device: torch.device = torch.device('cuda')
-    output_dir: str = '/my-tmp/'
-
-    reproducibility.seed_all(seed)
-    rank = dist.get_local_rank()
-
-    ###############
-    # DataLoader
-    ###############
-
-    my_dataset = MyDataset(
-        shape=(num_features,),
-        num_classes=num_classes,
-        size=size,
-        device=device,
-        rank=rank,
-    )  # X=(num_features,), y=(,), i.e. scalar
-
-    # for i in range(len(my_dataset)):
-    #     x, y = my_dataset[i]
-    #     ic(rank)
-    #     ic(x.shape, x)
-    #     ic(y.shape, y)
-    #     ic('\n')
-
-    dataloader = DataLoader(
-        my_dataset,
-        batch_size=batch_size,
-        sampler=dist.get_sampler(my_dataset),
-    )
-
-    # pytorch_dataset = RandomClassificationDataset(
-    #     shape=(num_features,),
-    #     num_classes=num_classes,
-    #     size=size,
-    #     device=device,
-    # )
-
-    # # clean directory
-    # rmtree(output_dir)
-
-    # # columns = {'x': 'ndarray:float32:2', 'y': 'int64'} # 2 -> features
-    # columns = {'x': 'pkl', 'y': 'int64'}
-    # with MDSWriter(out=output_dir, columns=columns) as out:
-    #     for i in range(len(pytorch_dataset)):
-    #         x, y = pytorch_dataset[i]
-    #         out.write({'x': x.cpu().detach().numpy(), 'y': y.cpu().detach().numpy()})
-    #         # out.write({'x': x.numpy(), 'y': y.numpy()})
-
-    # streaming_dataset = StreamingDataset(
-    #     local=output_dir,
-    #     replication=tensor_parallel_degree,
-    #     batch_size=batch_size,
-    #     allow_unsafe_types=True
-    # )
-
-    # dataloader = DataLoader(
-    #     streaming_dataset,
-    # )
-
-    ###############
-    # Model
-    ###############
-
-    model = SimpleComposerMLP(
-        num_features=num_features,
-        device=device,
-        num_classes=num_classes,
-    )
-
-    #####################
-    # Parallelism Config
-    #####################
-
-    fsdp_config = FSDPConfig(
-        state_dict_type='full',
-        sharding_strategy='SHARD_GRAD_OP',
-        mixed_precision='full',
-        use_orig_params=True,
-    )
-    layer_plan = {
-        'fc1': ColwiseParallel(),
-        'fc2': RowwiseParallel(),
-    }
-    tp_config = TPConfig(
-        layer_plan=layer_plan,
-        tensor_parallel_degree=tensor_parallel_degree,
-    )
-    parallelism_config = ParallelismConfig(fsdp=fsdp_config, tp=tp_config)
-
-    #####################
-    # Trainer
-    #####################
-
-    tp_fsdp_trainer = Trainer(
-        seed=seed,
-        device='gpu',
-        model=model,
-        max_duration='1ep',
-        train_dataloader=dataloader,
-        precision='fp32',
-        parallelism_config=parallelism_config,
-        callbacks=[MemoryMonitor()],
-        loggers=[InMemoryLogger()],
-        progress_bar=False,
-        log_to_console=False,
-    )
-
-    tp_fsdp_trainer.fit()
-
-
 @pytest.mark.gpu
 @world_size(4)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
@@ -655,7 +523,6 @@ def test_tp_train(world_size: int):
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 def test_tp_with_param_groups(world_size: int):
-    from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
 
     # Normally, each TP rank receives the same data via data replication
     # In this test, we do not do this: each TP rank gets different data
@@ -696,7 +563,6 @@ def test_tp_with_param_groups(world_size: int):
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 def test_tp_with_subset_of_params(world_size: int):
-    from torch.distributed.tensor.parallel import ColwiseParallel
 
     # Normally, each TP rank receives the same data via data replication
     # In this test, we do not do this: each TP rank gets different data

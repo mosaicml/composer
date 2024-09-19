@@ -204,11 +204,9 @@ def prepare_tp_module(
             'Passing in a subset of model parameters to the optimizer is not supported with tensor parallelism.',
         )
 
-    # from icecream import ic
     from torch.distributed.tensor.parallel import parallelize_module
 
     device_mesh = tp_config.device_mesh
-    # ic(device_mesh)
     assert device_mesh is not None  # For type checking, set in State.__init__
     parallelize_module(
         module=model,
