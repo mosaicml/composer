@@ -269,10 +269,10 @@ def test_wandb_log_metrics(test_wandb_logger):
     eval_metrics_cross_entropy_count = all_run_text.count('metrics/eval/CrossEntropy')
     train_loss_count = all_run_text.count('loss/train/total')
 
-    expected_number_train_loss_count = (dataset_size / batch_size) + 1  # wandb includes it in the file one extra time
+    expected_number_train_loss_count = (dataset_size / batch_size) * 2  # wandb includes it twice per step
     expected_number_train_metrics_count = (
         dataset_size / batch_size
-    ) + 2  # wandb includes it in the file two extra times
+    ) * 2 + 2  # wandb includes it twice per step plus two extra times
     expected_number_eval_metrics_count = 2  # wandb includes it in the file twice
     assert train_metrics_accuracy_count == expected_number_train_metrics_count
     assert train_loss_count == expected_number_train_loss_count
