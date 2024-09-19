@@ -6,12 +6,12 @@ from typing import Optional, Sequence
 import numpy as np
 import pytest
 import torch
-from packaging import version
 from icecream import ic
+from packaging import version
 from torch.distributed._tensor import Replicate, Shard
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
 from torch.utils.data import DataLoader, Dataset
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 from composer.callbacks import MemoryMonitor
 from composer.core.state import fsdp_state_dict_type_context
@@ -483,7 +483,10 @@ def test_tp_gradients_old(world_size: int, replication: int = 0):
     torch.sum(fsdp_out).backward()
     with FSDP.summon_full_params(fsdp_trainer.state.model, with_grads=True):
         fsdp_params = {name: module.clone() for name, module in fsdp_trainer.state.model.named_parameters()}
-        fsdp_grads = {name: module.grad.clone() if module.grad is not None else module.grad for name, module in fsdp_trainer.state.model.named_parameters()}
+        fsdp_grads = {
+            name: module.grad.clone() if module.grad is not None else module.grad
+            for name, module in fsdp_trainer.state.model.named_parameters()
+        }
         ic(fsdp_params)
         ic(fsdp_grads)
     fsdp_trainer.close()
@@ -493,8 +496,13 @@ def test_tp_gradients_old(world_size: int, replication: int = 0):
     tp_fsdp_out = forward_pass(tp_fsdp_trainer)
     torch.sum(tp_fsdp_out).backward()
     with FSDP.summon_full_params(tp_fsdp_trainer.state.model, with_grads=True):
-        tp_fsdp_params = {name: module.clone().to_local() for name, module in tp_fsdp_trainer.state.model.named_parameters()}
-        tp_fsdp_grads = {name: module.grad.clone().to_local() if module.grad is not None else module.grad for name, module in tp_fsdp_trainer.state.model.named_parameters()}
+        tp_fsdp_params = {
+            name: module.clone().to_local() for name, module in tp_fsdp_trainer.state.model.named_parameters()
+        }
+        tp_fsdp_grads = {
+            name: module.grad.clone().to_local() if module.grad is not None else module.grad
+            for name, module in tp_fsdp_trainer.state.model.named_parameters()
+        }
         ic(tp_fsdp_params)
         ic(tp_fsdp_grads)
     tp_fsdp_trainer.close()
@@ -506,7 +514,7 @@ def test_tp_gradients_old(world_size: int, replication: int = 0):
         tp_fsdp_params.items(),
     ):
 
-        ic('-'*70, rank)
+        ic('-' * 70, rank)
         ic('DDP', ddp_name)
         # ic(ddp_param.shape, ddp_param)
         if ddp_param.grad is not None:
@@ -545,7 +553,7 @@ def test_tp_gradients_old(world_size: int, replication: int = 0):
         )
 
 
-def compare_gradients(_ddp_param_grad, _fsdp_param_grad, _tp_fsdp_param_grad, rank):
+def compare_gradients(_ddp_param_grad, _fsdp_param_grad, _tp_fsdp_param_grad, name, rank):
 
     # get the dimension along which we are sharding
     placement = _tp_fsdp_param_grad.placements[0]
@@ -577,13 +585,20 @@ def compare_gradients(_ddp_param_grad, _fsdp_param_grad, _tp_fsdp_param_grad, ra
     tp_fsdp_param_grad = _tp_fsdp_param_grad.to_local().squeeze()
 
     if shard_idx_on_dim == 0:
-        ddp_param_grad = _ddp_param_grad[0, :]
-        fsdp_param_grad = _fsdp_param_grad[0, :]
+        if 'module.0.weight' in name:
+            ddp_param_grad = _ddp_param_grad[0, :]
+            fsdp_param_grad = _fsdp_param_grad[0, :]
+        elif 'module.2.weight' in name:
+            ddp_param_grad = _ddp_param_grad[:, 0]
+            fsdp_param_grad = _fsdp_param_grad[:, 0]
     elif shard_idx_on_dim == 1:
-        ddp_param_grad = _ddp_param_grad[1, :]
-        fsdp_param_grad = _fsdp_param_grad[1, :]
+        if 'module.0.weight' in name:
+            ddp_param_grad = _ddp_param_grad[1, :]
+            fsdp_param_grad = _fsdp_param_grad[1, :]
+        elif 'module.2.weight' in name:
+            ddp_param_grad = _ddp_param_grad[:, 1]
+            fsdp_param_grad = _fsdp_param_grad[:, 1]
 
-    ic(ddp_param_grad.dtype, fsdp_param_grad.dtype, tp_fsdp_param_grad.dtype)
     torch.testing.assert_close(
         ddp_param_grad,
         fsdp_param_grad,
@@ -647,22 +662,7 @@ def test_tp_gradients(world_size: int, replication: int = 0):
                 tp_fsdp_trainer.state.model.named_parameters(),
             ):
 
-                ic('-'*70, rank)
-                ic('DDP', ddp_name)
-                # ic(ddp_param.shape, ddp_param)
-                if ddp_param.grad is not None:
-                    ic(ddp_param.grad.shape, ddp_param.grad)
-                ic('FSDP', fsdp_name)
-                # ic(fsdp_param.shape, fsdp_param)
-                if fsdp_param.grad is not None:
-                    ic(fsdp_param.grad.shape, fsdp_param.grad)
-                ic('TP-FSDP', tp_fsdp_name)
-                # ic(tp_fsdp_param.shape, tp_fsdp_param)
-                if tp_fsdp_param.grad is not None:
-                    ic(tp_fsdp_param.grad.shape, tp_fsdp_param.grad)
-
-                compare_gradients(ddp_param.grad, fsdp_param.grad, tp_fsdp_param.grad, rank)
-
+                compare_gradients(ddp_param.grad, fsdp_param.grad, tp_fsdp_param.grad, ddp_name, rank)
 
 
 @pytest.mark.gpu
