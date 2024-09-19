@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Any
 
 import numpy as np
 import pytest
@@ -11,6 +11,7 @@ from packaging import version
 from torch.distributed._tensor import Replicate, Shard, DTensor
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
+from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 from torch.utils.data import DataLoader, Dataset
 
 from composer.callbacks import MemoryMonitor
@@ -463,21 +464,35 @@ def test_tp_hang(world_size: int):
     #         print(tp_fsdp_state_dict_6)
 
 
-def _compare_params(param1, param2, check_grad: bool=False):
-    if check_grad:
-        param1 = param1.grad
-        param2 = param2.grad
+def _compare_modules(module1, module2, check_grad: bool=False):
 
-    if isinstance(param1, DTensor):
-        param1 = param1.redistribute(device_mesh=param1.device_mesh, placements=[Replicate()]).to_local()
-    if isinstance(param2, DTensor):
-        param2 = param2.redistribute(device_mesh=param2.device_mesh, placements=[Replicate()]).to_local()
+     for (param1_name, param1), (param2_name, param2) in zip(module1.items(), module2.items()):
 
-    torch.testing.assert_close(
-        param1,
-        param2,
-        msg=f'Params are not close enough:\n{param1=}\n{param2=}',
-    )
+        assert param1_name == param2_name
+
+        if check_grad:
+            param1 = param1.grad
+            param2 = param2.grad
+
+        if isinstance(param1, DTensor):
+            param1 = param1.redistribute(device_mesh=param1.device_mesh, placements=[Replicate()]).to_local()
+        if isinstance(param2, DTensor):
+            param2 = param2.redistribute(device_mesh=param2.device_mesh, placements=[Replicate()]).to_local()
+
+        torch.testing.assert_close(
+            param1,
+            param2,
+            msg=f'Params are not close enough:\n{param1=}\n{param2=}',
+        )
+
+
+def _replace_state_dict_name(state_dict: dict[str, Any], old_name: str, new_name: str) -> dict[str, Any]:
+    keys = list(state_dict.keys())
+    for key in keys:
+        if old_name in key:
+            new_key = key.replace(old_name, new_name, 1)
+            state_dict[new_key] = state_dict.pop(key)
+    return state_dict
 
 
 @pytest.mark.gpu
@@ -508,21 +523,22 @@ def test_tp_backwards(world_size: int, replication: int = 0):
     tp_fsdp_trainer.state.optimizers[0].step()
     tp_fsdp_trainer.close()
 
+    ic(tp_fsdp_trainer.state.state_dict())
+
     with FSDP.summon_full_params(fsdp_trainer.state.model, with_grads=True):
         with FSDP.summon_full_params(tp_fsdp_trainer.state.model, with_grads=True):
-            for (ddp_name, ddp_param), (fsdp_name, fsdp_param), (tp_fsdp_name, tp_fsdp_param) in zip(
-                ddp_trainer.state.model.named_parameters(),
-                fsdp_trainer.state.model.named_parameters(),
-                tp_fsdp_trainer.state.model.named_parameters(),
-            ):
-                ic(ddp_name, fsdp_name, tp_fsdp_name)
 
-                _compare_params(ddp_param, fsdp_param)
-                _compare_params(ddp_param, tp_fsdp_param)
-                _compare_params(tp_fsdp_param, fsdp_param)
-                _compare_params(ddp_param, fsdp_param, check_grad=True)
-                _compare_params(ddp_param, tp_fsdp_param, check_grad=True)
-                _compare_params(tp_fsdp_param, fsdp_param, check_grad=True)
+            # patch the state dict names
+            ddp_params = _replace_state_dict_name(dict(ddp_trainer.state.model.named_parameters()), 'module.', '')
+            fsdp_params = _replace_state_dict_name(dict(fsdp_trainer.state.model.named_parameters()), '_fsdp_wrapped_module.', '')
+            tp_fsdp_params = _replace_state_dict_name(dict(tp_fsdp_trainer.state.model.named_parameters()), '_fsdp_wrapped_module.', '')
+
+            _compare_modules(ddp_params, fsdp_params)
+            _compare_modules(tp_fsdp_params, fsdp_params)
+            _compare_modules(ddp_params, fsdp_params)
+            _compare_modules(ddp_params, fsdp_params, check_grad=True)
+            _compare_modules(tp_fsdp_params, fsdp_params, check_grad=True)
+            _compare_modules(ddp_params, fsdp_params, check_grad=True)
 
 
 @pytest.mark.gpu
@@ -789,7 +805,20 @@ def test_tp_fsdp_trainer_2(world_size: int):
     tp_fsdp_trainer.fit()
 
 
+@world_size(4)
+@pytest.mark.gpu
+@pytest.mark.skip('This is broken.')
+@pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
+def test_tp_fsdp_state_dict(world_size: int):
+    tp_fsdp_trainer = get_tp_fsdp_trainer(replication=2)
+    tp_fsdp_state_dict1 = tp_fsdp_trainer.state.state_dict()
+    ic(tp_fsdp_state_dict1)
+    with FSDP.summon_full_params(tp_fsdp_trainer.state.model, with_grads=True):
+        tp_fsdp_state_dict2 = tp_fsdp_trainer.state.state_dict()
+        ic(tp_fsdp_state_dict2)
+
 if __name__ == '__main__':
     import warnings
     warnings.filterwarnings('ignore')
     test_tp_backwards(4, replication=2)
+    # test_tp_fsdp_state_dict(4)
