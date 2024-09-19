@@ -133,6 +133,4 @@ class ComposerClassifier(ComposerModel):
     def forward(self, batch: tuple[Tensor, Any]) -> Tensor:
         inputs, _ = batch
         outputs = self.module(inputs)
-        from icecream import ic
-        ic(inputs, outputs)
         return outputs

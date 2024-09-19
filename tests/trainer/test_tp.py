@@ -17,7 +17,6 @@ from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
 from torch.utils.data import DataLoader, Dataset
 
 from composer.callbacks import MemoryMonitor
-from composer.core.state import fsdp_state_dict_type_context
 from composer.loggers import InMemoryLogger
 from composer.trainer.trainer import Trainer
 from composer.utils import FSDPConfig, ParallelismConfig, TPConfig, dist, reproducibility
@@ -323,218 +322,13 @@ def fail_without_replication(replication: int, exception: type[E], error_error_m
             yield
 
 
-@pytest.mark.gpu
-@world_size(4)
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
-@pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
-def test_tp_train(world_size: int):
-    from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
-
-    # Normally, each TP rank receives the same data via data replication
-    # In this test, we do not do this: each TP rank gets different data
-    # This is okay - we are testing the TP mechanism, not actual TP correctness
-    model = SimpleModel()
-    dataset = RandomClassificationDataset(size=8)
-    dataloader = DataLoader(dataset, batch_size=2, sampler=dist.get_sampler(dataset))
-
-    layer_plan = {
-        'fc1': ColwiseParallel(),
-        'fc2': RowwiseParallel(),
+def get_stats(trainer: Trainer) -> dict[str, np.ndarray]:
+    logger = trainer.logger.destinations[0]
+    stats = {
+        'loss_array': logger.get_timeseries('loss/train/total')['loss/train/total'],
+        'accuracy_array': logger.get_timeseries('metrics/train/MulticlassAccuracy')['metrics/train/MulticlassAccuracy'],
     }
-
-    trainer = Trainer(
-        model=model,
-        train_dataloader=dataloader,
-        parallelism_config={
-            'tp': TPConfig(layer_plan=layer_plan, tensor_parallel_degree=2),
-            'fsdp': {},
-        },
-        max_duration='3ba',
-    )
-
-    trainer.fit()
-
-
-@pytest.mark.gpu
-@world_size(4)
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
-@pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
-def test_tp_with_param_groups(world_size: int):
-    from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
-
-    # Normally, each TP rank receives the same data via data replication
-    # In this test, we do not do this: each TP rank gets different data
-    # This is okay - we are testing the TP mechanism, not actual TP correctness
-    model = SimpleModel()
-    dataset = RandomClassificationDataset(size=8)
-    dataloader = DataLoader(dataset, batch_size=2, sampler=dist.get_sampler(dataset))
-    optimizer = torch.optim.SGD([{
-        'params': model.fc1.parameters(),
-        'lr': 0.1,
-    }, {
-        'params': model.fc2.parameters(),
-        'lr': 0.5,
-    }])
-
-    layer_plan = {
-        'fc1': ColwiseParallel(),
-        'fc2': RowwiseParallel(),
-    }
-
-    expected_error = 'Multiple optimizer groups are not supported with tensor parallelism.'
-
-    with pytest.raises(RuntimeError, match=expected_error):
-        _ = Trainer(
-            model=model,
-            optimizers=optimizer,
-            train_dataloader=dataloader,
-            parallelism_config={
-                'tp': TPConfig(layer_plan=layer_plan, tensor_parallel_degree=2),
-                'fsdp': {},
-            },
-            max_duration='3ba',
-        )
-
-
-@pytest.mark.gpu
-@world_size(4)
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
-@pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
-def test_tp_with_subset_of_params(world_size: int):
-    from torch.distributed.tensor.parallel import ColwiseParallel
-
-    # Normally, each TP rank receives the same data via data replication
-    # In this test, we do not do this: each TP rank gets different data
-    # This is okay - we are testing the TP mechanism, not actual TP correctness
-    model = SimpleModel()
-    dataset = RandomClassificationDataset(size=8)
-    dataloader = DataLoader(dataset, batch_size=2, sampler=dist.get_sampler(dataset))
-    optimizer = torch.optim.SGD(model.fc1.parameters(), lr=0.1)
-
-    layer_plan = {
-        'fc1': ColwiseParallel(),
-    }
-
-    expected_error = 'Passing in a subset of model parameters to the optimizer is not supported with tensor parallelism.'
-
-    with pytest.raises(ValueError, match=expected_error):
-        _ = Trainer(
-            model=model,
-            optimizers=optimizer,
-            train_dataloader=dataloader,
-            parallelism_config={
-                'tp': TPConfig(layer_plan=layer_plan, tensor_parallel_degree=2),
-                'fsdp': {},
-            },
-            max_duration='3ba',
-        )
-
-
-@pytest.mark.gpu
-@world_size(4)
-@pytest.mark.parameterize('replication', [0, 2])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='Requires PyTorch 2.3+')
-@pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
-def test_tp_forward(world_size: int, replication: int = 0):
-    """Test that DDP, FSDP, TP-FSDP have the same forward pass."""
-
-    # DDP forward pass
-    ddp_trainer = get_ddp_trainer(replication=replication)
-    ddp_out = forward_pass(ddp_trainer)
-
-    # FSDP forward pass
-    fsdp_trainer = get_fsdp_trainer(replication=replication)
-    fsdp_out = forward_pass(fsdp_trainer)
-
-    # TP-FSDP forward pass
-    tp_fsdp_trainer = get_tp_fsdp_trainer(replication=replication)
-    tp_fsdp_out = forward_pass(tp_fsdp_trainer)  # returns a AsyncCollectiveTensor object
-
-    # Compare output of the forward pass between DDP, FSDP, TP-FSDP
-    torch.testing.assert_close(
-        ddp_out,
-        fsdp_out,
-        msg=f'DDP and FSDP outputs from the forward pass are not close enough:\n{ddp_out=}\n{fsdp_out=}.',
-    )
-    torch.testing.assert_close(
-        ddp_out,
-        tp_fsdp_out,
-        msg=f'DDP and TP-FSDP outputs from the forward pass are not close enough:\n{ddp_out=}\n{tp_fsdp_out=}.',
-    )
-    torch.testing.assert_close(
-        fsdp_out,
-        tp_fsdp_out,
-        msg=f'FSDP and TP-FSDP outputs from the forward pass are not close enough:\n{fsdp_out=}\n{tp_fsdp_out=}.',
-    )
-
-
-@pytest.mark.gpu
-@world_size(4)
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='Requires PyTorch 2.3+')
-@pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
-def test_tp_hang(world_size: int):
-
-    fsdp_trainer = get_fsdp_trainer()
-    fsdp_trainer.fit()
-    print('fsdp_state_dict_1')
-    fsdp_state_dict_1 = fsdp_trainer.state.state_dict()
-    print(fsdp_state_dict_1)
-    fsdp_trainer.close()
-    print('fsdp_state_dict_2')
-    fsdp_state_dict_2 = fsdp_trainer.state.state_dict()
-    print(fsdp_state_dict_2)
-
-    with fsdp_state_dict_type_context(fsdp_trainer.state.model, state_dict_type='full'):
-        print('fsdp_state_dict_3')
-        fsdp_state_dict_3 = fsdp_trainer.state.model.state_dict()
-        print(fsdp_state_dict_3)
-        print('fsdp_state_dict_4')
-        fsdp_state_dict_4 = fsdp_trainer.state.state_dict()
-        print(fsdp_state_dict_4)
-
-    # if dist.get_local_rank() == 0:
-    #     # fsdp_state_dict_6 HANGS!!
-    #     print('fsdp_state_dict_5')
-    #     with fsdp_state_dict_type_context(fsdp_trainer.state.model, state_dict_type='full'):
-    #         fsdp_state_dict_5 = fsdp_trainer.state.state_dict()
-    #         print(fsdp_state_dict_5)
-
-    #     # fsdp_state_dict_6 HANGS!!
-    #     print('fsdp_state_dict_6')
-    #     with fsdp_state_dict_type_context(fsdp_trainer.state.model, state_dict_type='full'):
-    #         fsdp_state_dict_6 = fsdp_trainer.state.model.state_dict()
-    #         print(fsdp_state_dict_6)
-
-    tp_fsdp_trainer = get_tp_fsdp_trainer()
-    tp_fsdp_trainer.fit()
-    print('tp_fsdp_state_dict_1')
-    tp_fsdp_state_dict_1 = tp_fsdp_trainer.state.state_dict()
-    print(tp_fsdp_state_dict_1)
-    tp_fsdp_trainer.close()
-    print('tp_fsdp_state_dict_2')
-    tp_fsdp_state_dict_2 = tp_fsdp_trainer.state.state_dict()
-    print(tp_fsdp_state_dict_2)
-
-    with fsdp_state_dict_type_context(tp_fsdp_trainer.state.model, state_dict_type='full'):
-        print('tp_fsdp_state_dict_3')
-        tp_fsdp_state_dict_3 = tp_fsdp_trainer.state.model.state_dict()
-        print(tp_fsdp_state_dict_3)
-        print('tp_fsdp_state_dict_4')
-        tp_fsdp_state_dict_4 = tp_fsdp_trainer.state.state_dict()
-        print(tp_fsdp_state_dict_4)
-
-    # if dist.get_local_rank() == 0:
-    #     # tp_fsdp_state_dict_5 HANGS!!
-    #     print('tp_fsdp_state_dict_5')
-    #     with fsdp_state_dict_type_context(tp_fsdp_trainer.state.model, state_dict_type='full'):
-    #         tp_fsdp_state_dict_5 = tp_fsdp_trainer.state.state_dict()
-    #         print(tp_fsdp_state_dict_5)
-
-    #     # tp_fsdp_state_dict_6 HANGS!!
-    #     print('tp_fsdp_state_dict_6')
-    #     with fsdp_state_dict_type_context(tp_fsdp_trainer.state.model, state_dict_type='full'):
-    #         tp_fsdp_state_dict_6 = tp_fsdp_trainer.state.model.state_dict()
-    #         print(tp_fsdp_state_dict_6)
+    return stats
 
 
 @pytest.mark.gpu
@@ -649,44 +443,42 @@ def test_tp_fit_weights(world_size: int):
     # assert fsdp_state_dict_2 == tp_fsdp_state_dict_2
 
 
-def get_stats(trainer: Trainer) -> dict[str, np.ndarray]:
-    logger = trainer.logger.destinations[0]
-    stats = {
-        'loss_array': logger.get_timeseries('loss/train/total')['loss/train/total'],
-        'accuracy_array': logger.get_timeseries('metrics/train/MulticlassAccuracy')['metrics/train/MulticlassAccuracy'],
-    }
-    return stats
-
-
 @pytest.mark.gpu
 @world_size(4)
 @pytest.mark.parametrize('batch_size', [1, 4])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='Requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
-def test_tp_fit(batch_size: int, world_size: int):
+def test_tp_fit(world_size: int, batch_size: int, replication: int = 0):
     """Test that DDP, FSDP, TP-FSDP have the same trainer.fit(), i.e. output the same loss and accuracy."""
 
     # Initialize
     train_steps = 20  # number of steps to train for
-    dataset_size = world_size * batch_size * train_steps
+    n_samples = world_size * batch_size
+    dataset_size = n_samples * train_steps
 
     # DDP fit
-    ddp_trainer = get_ddp_trainer(size=dataset_size, batch_size=batch_size)
+    ddp_trainer = get_ddp_trainer(size=dataset_size, batch_size=batch_size, replication=replication)
     ddp_trainer.fit()
     ddp_trainer.close()
     ddp_stats = get_stats(ddp_trainer)
 
     # FSDP fit
-    fsdp_trainer = get_fsdp_trainer(size=dataset_size, batch_size=batch_size)
+    fsdp_trainer = get_fsdp_trainer(size=dataset_size, batch_size=batch_size, replication=replication)
     fsdp_trainer.fit()
     fsdp_trainer.close()
     fsdp_stats = get_stats(fsdp_trainer)
 
     # TP-FSDP fit
-    tp_fsdp_trainer = get_tp_fsdp_trainer(size=dataset_size, batch_size=batch_size)
+    tp_fsdp_trainer = get_tp_fsdp_trainer(size=dataset_size, batch_size=batch_size, replication=replication)
     tp_fsdp_trainer.fit()
     tp_fsdp_trainer.close()
     tp_fsdp_stats = get_stats(tp_fsdp_trainer)
+
+    # # Ensure the updated models weights are the same
+    # # We expect this test to fail without replication, i.e. when replication=0
+    # error_error_msg = 'Parameters are not close enough:*'
+    # with fail_without_replication(replication, AssertionError, error_error_msg):
+    #     compare_models(ddp_trainer, fsdp_trainer, tp_fsdp_trainer)
 
     # Compare loss between DDP, FSDP, TP-FSDP
     np.testing.assert_allclose(
@@ -709,22 +501,23 @@ def test_tp_fit(batch_size: int, world_size: int):
     )
 
     # Compare accuracy between DDP, FSDP, TP-FSDP
+    loss_atol = 1 / n_samples  # can make a mistake on at most one sample
     np.testing.assert_allclose(
         ddp_stats['accuracy_array'],
         fsdp_stats['accuracy_array'],
-        atol=0.3,
+        atol=loss_atol,
         err_msg='Accuracy arrays of DDP and FSDP are not close enough',
     )
     np.testing.assert_allclose(
         ddp_stats['accuracy_array'],
         tp_fsdp_stats['accuracy_array'],
-        atol=0.3,
+        atol=loss_atol,
         err_msg='Accuracy arrays of DDP and FSDP-TP are not close enough',
     )
     np.testing.assert_allclose(
         fsdp_stats['accuracy_array'],
         tp_fsdp_stats['accuracy_array'],
-        atol=0.3,
+        atol=loss_atol,
         err_msg='Accuracy arrays of FSDP and FSDP-TP are not close enough',
     )
 
@@ -856,6 +649,113 @@ def test_tp_fsdp_trainer_2(world_size: int):
     tp_fsdp_trainer.fit()
 
 
+@pytest.mark.gpu
+@world_size(4)
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
+@pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
+def test_tp_train(world_size: int):
+    from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
+
+    # Normally, each TP rank receives the same data via data replication
+    # In this test, we do not do this: each TP rank gets different data
+    # This is okay - we are testing the TP mechanism, not actual TP correctness
+    model = SimpleModel()
+    dataset = RandomClassificationDataset(size=8)
+    dataloader = DataLoader(dataset, batch_size=2, sampler=dist.get_sampler(dataset))
+
+    layer_plan = {
+        'fc1': ColwiseParallel(),
+        'fc2': RowwiseParallel(),
+    }
+
+    trainer = Trainer(
+        model=model,
+        train_dataloader=dataloader,
+        parallelism_config={
+            'tp': TPConfig(layer_plan=layer_plan, tensor_parallel_degree=2),
+            'fsdp': {},
+        },
+        max_duration='3ba',
+    )
+
+    trainer.fit()
+
+
+@pytest.mark.gpu
+@world_size(4)
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
+@pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
+def test_tp_with_param_groups(world_size: int):
+    from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
+
+    # Normally, each TP rank receives the same data via data replication
+    # In this test, we do not do this: each TP rank gets different data
+    # This is okay - we are testing the TP mechanism, not actual TP correctness
+    model = SimpleModel()
+    dataset = RandomClassificationDataset(size=8)
+    dataloader = DataLoader(dataset, batch_size=2, sampler=dist.get_sampler(dataset))
+    optimizer = torch.optim.SGD([{
+        'params': model.fc1.parameters(),
+        'lr': 0.1,
+    }, {
+        'params': model.fc2.parameters(),
+        'lr': 0.5,
+    }])
+
+    layer_plan = {
+        'fc1': ColwiseParallel(),
+        'fc2': RowwiseParallel(),
+    }
+
+    expected_error = 'Multiple optimizer groups are not supported with tensor parallelism.'
+
+    with pytest.raises(RuntimeError, match=expected_error):
+        _ = Trainer(
+            model=model,
+            optimizers=optimizer,
+            train_dataloader=dataloader,
+            parallelism_config={
+                'tp': TPConfig(layer_plan=layer_plan, tensor_parallel_degree=2),
+                'fsdp': {},
+            },
+            max_duration='3ba',
+        )
+
+
+@pytest.mark.gpu
+@world_size(4)
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
+@pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
+def test_tp_with_subset_of_params(world_size: int):
+    from torch.distributed.tensor.parallel import ColwiseParallel
+
+    # Normally, each TP rank receives the same data via data replication
+    # In this test, we do not do this: each TP rank gets different data
+    # This is okay - we are testing the TP mechanism, not actual TP correctness
+    model = SimpleModel()
+    dataset = RandomClassificationDataset(size=8)
+    dataloader = DataLoader(dataset, batch_size=2, sampler=dist.get_sampler(dataset))
+    optimizer = torch.optim.SGD(model.fc1.parameters(), lr=0.1)
+
+    layer_plan = {
+        'fc1': ColwiseParallel(),
+    }
+
+    expected_error = 'Passing in a subset of model parameters to the optimizer is not supported with tensor parallelism.'
+
+    with pytest.raises(ValueError, match=expected_error):
+        _ = Trainer(
+            model=model,
+            optimizers=optimizer,
+            train_dataloader=dataloader,
+            parallelism_config={
+                'tp': TPConfig(layer_plan=layer_plan, tensor_parallel_degree=2),
+                'fsdp': {},
+            },
+            max_duration='3ba',
+        )
+
+
 @world_size(4)
 @pytest.mark.gpu
 @pytest.mark.skip('This is broken.')
@@ -872,6 +772,8 @@ def test_tp_fsdp_state_dict(world_size: int):
 if __name__ == '__main__':
     import warnings
     warnings.filterwarnings('ignore')
-    test_tp_forwards_backwards(4, replication=2)
-    test_tp_forwards_backwards(4, replication=0)
-    # test_tp_fsdp_state_dict(4)
+
+    world_size = 4
+    batch_size = 4
+    test_tp_fit(world_size, batch_size, replication=2)
+    test_tp_fit(world_size, batch_size, replication=0)
