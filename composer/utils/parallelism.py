@@ -4,7 +4,7 @@
 """Parallelism configs."""
 
 from dataclasses import dataclass, field
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from torch.distributed._tensor.device_mesh import DeviceMesh
 
