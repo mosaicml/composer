@@ -11,7 +11,6 @@ import torch
 from packaging import version
 from torch.distributed._tensor import DTensor, Replicate
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
 from torch.utils.data import DataLoader, Dataset
 
 from composer.callbacks import MemoryMonitor
@@ -183,6 +182,8 @@ def get_tp_fsdp_trainer(
     device: torch.device = torch.device('cuda'),
     replication: int = 0,
 ):
+    from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
+
     fsdp_config = FSDPConfig(
         state_dict_type='full',
         sharding_strategy='SHARD_GRAD_OP',
@@ -472,6 +473,7 @@ def test_tp_train(world_size: int):
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 def test_tp_with_param_groups(world_size: int):
+    from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
 
     # Normally, each TP rank receives the same data via data replication
     # In this test, we do not do this: each TP rank gets different data
@@ -512,6 +514,7 @@ def test_tp_with_param_groups(world_size: int):
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 def test_tp_with_subset_of_params(world_size: int):
+    from torch.distributed.tensor.parallel import ColwiseParallel
 
     # Normally, each TP rank receives the same data via data replication
     # In this test, we do not do this: each TP rank gets different data
