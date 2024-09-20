@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Optional, Sequence, TypeVar
+from typing import Any, Optional, Sequence, TypeVar, Union
 
 E = TypeVar('E', bound=BaseException)
 
@@ -82,12 +82,14 @@ def get_trainer(
     num_classes: int = 2,
     num_features: int = 2,
     seed: int = 44,
-    device: torch.device = torch.device('cuda'),
+    device: Union[torch.device, str] = 'cuda',
     replication: int = 0,
 ):
     """Trainer for a simple model with any parallelism_config."""
 
     reproducibility.seed_all(seed)
+    if isinstance(device, str):
+        device = torch.device(device)
 
     dataset: Dataset = RandomClassificationDatasetReplicated(
         shape=(num_features,),
@@ -128,7 +130,7 @@ def get_ddp_trainer(
     num_classes: int = 2,
     num_features: int = 2,
     seed: int = 44,
-    device: torch.device = torch.device('cuda'),
+    device: Union[torch.device, str] = 'cuda',
     replication: int = 0,
 ):
     ddp_trainer = get_trainer(
@@ -149,7 +151,7 @@ def get_fsdp_trainer(
     num_classes: int = 2,
     num_features: int = 2,
     seed: int = 44,
-    device: torch.device = torch.device('cuda'),
+    device: Union[torch.device, str] = 'cuda',
     replication: int = 0,
 ):
     fsdp_config = FSDPConfig(
@@ -179,7 +181,7 @@ def get_tp_fsdp_trainer(
     num_classes: int = 2,
     num_features: int = 2,
     seed: int = 44,
-    device: torch.device = torch.device('cuda'),
+    device: Union[torch.device, str] = 'cuda',
     replication: int = 0,
 ):
     from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
@@ -299,8 +301,9 @@ def compare_models(
 def get_stats(trainer: Trainer) -> dict[str, np.ndarray]:
     logger = trainer.logger.destinations[0]
     stats = {
-        'loss_array': logger.get_timeseries('loss/train/total')['loss/train/total'],
-        'accuracy_array': logger.get_timeseries('metrics/train/MulticlassAccuracy')['metrics/train/MulticlassAccuracy'],
+        'loss_array': logger.get_timeseries('loss/train/total')['loss/train/total'],  # type: ignore
+        'accuracy_array': logger.get_timeseries('metrics/train/MulticlassAccuracy')
+                          ['metrics/train/MulticlassAccuracy'],  # type: ignore
     }
     return stats
 
@@ -552,3 +555,5 @@ def test_tp_fsdp_state_dict(world_size: int):
     tp_fsdp_state_dict1 = tp_fsdp_trainer.state.state_dict()  # work sometimes, fails sometimes
     with FSDP.summon_full_params(tp_fsdp_trainer.state.model, with_grads=True):
         tp_fsdp_state_dict2 = tp_fsdp_trainer.state.state_dict()  # fails always
+
+        compare_modules(tp_fsdp_state_dict1['model'], tp_fsdp_state_dict2['model'])
