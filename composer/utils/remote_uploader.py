@@ -92,7 +92,10 @@ def _upload_file_to_object_store(
                 # Good! It shouldn't exist.
                 pass
             else:
-                raise FileExistsError(f'Object {remote_file_name} already exists, but overwrite was set to False.')
+                raise FileExistsError(
+                    f'Object {remote_file_name} already exists, but overwrite was set to False. '
+                    'Please set `save_overwrite` to `True` in Trainer to overwrite the existing file.',
+                )
         log.info(f'Uploading file {local_file_path} to {remote_file_name}')
         object_store.upload_object(
             object_name=remote_file_name,
