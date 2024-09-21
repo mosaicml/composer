@@ -134,17 +134,18 @@ def _assert_checkpoints_equivalent(file1, file2, atol=0.0, rtol=0.0):
 @pytest.mark.parametrize(
     'key,expected_value',
     [
-        ('rng.0.cuda', True),
-        ('rng.0.torch', True),
-        ('rng.0.numpy', True),
-        ('rng.0.python', True),
-        ('rng.0', False),
-        ('test.test.rng', False),
-        ('test.rng.test', False),
+        ('rng.0.cuda', ('rng', '0', 'cuda'), True),
+        ('rng.0.torch', ('rng', '0', 'torch'), True),
+        ('rng.0.numpy', ('rng', '0', 'numpy'), True),
+        ('rng.0.python', ('rng', '0', 'python'), True),
+        ('rng.0', ('rng', '0'), False),
+        ('test.test.rng', ('test', 'test', 'rng'), False),
+        ('test.rng.test', ('test', 'rng', 'test'), False),
+        ('test.notatuple.test', 0, False),
     ],
 )
-def test_is_rng_key(key: str, expected_value: bool):
-    assert _is_rng_key(key) == expected_value
+def test_is_rng_key(key: str, value: tuple, expected_value: bool):
+    assert _is_rng_key(key, value) == expected_value
 
 
 @pytest.mark.parametrize(
