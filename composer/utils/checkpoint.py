@@ -148,10 +148,25 @@ def _get_write_mode(name: str) -> str:
     raise ValueError(f'{name} does not end with a valid tarfile extension.')
 
 
+def _is_rng_key(key: str, value: tuple) -> bool:
+    """Check if the key is an RNG key.
+
+    We expect the RNG key to be of the form 'rng.{rank}.cuda|torch|python|numpy'.
+    This function ensures that we don't accidentally pick up other keys.
+    """
+    starts_with_rng = key.startswith('rng')
+    ends_with_expected = key.endswith(('cuda', 'torch', 'python', 'numpy'))
+    three_parts = isinstance(value, tuple) and len(value) == 3
+    if starts_with_rng and ends_with_expected and three_parts:
+        return True
+
+    return False
+
+
 def _get_num_ranks_that_saved_rng(metadata: Metadata):
     rng_inds = []
     for field_name, field_value in metadata.planner_data.items():
-        if 'rng' in field_name:
+        if _is_rng_key(field_name, field_value):
             _, rng_rank_index, _ = field_value
             rng_inds.append(rng_rank_index)
     rng_inds = set(rng_inds)
