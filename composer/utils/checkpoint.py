@@ -149,11 +149,13 @@ def _get_write_mode(name: str) -> str:
 
 
 def _is_rng_key(key: str, value: tuple) -> bool:
-    """Check if the key is an RNG key."""
+    """Check if the key is an RNG key.
+
+    We expect the RNG key to be of the form 'rng.{rank}.cuda|torch|python|numpy'.
+    This function ensures that we don't accidentally pick up other keys.
+    """
     starts_with_rng = key.startswith('rng')
-    ends_with_expected = key.endswith('cuda') or key.endswith('torch') or key.endswith(
-        'python',
-    ) or key.endswith('numpy')
+    ends_with_expected = key.endswith(('cuda', 'torch', 'python', 'numpy'))
     three_parts = isinstance(value, tuple) and len(value) == 3
     if starts_with_rng and ends_with_expected and three_parts:
         return True
