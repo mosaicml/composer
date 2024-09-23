@@ -8,6 +8,7 @@ from tests.common.datasets import (
     InfiniteClassificationDataset,
     ParityDataset,
     RandomClassificationDataset,
+    RandomClassificationDatasetReplicated,
     RandomImageDataset,
     RandomSegmentationDataset,
     RandomTextClassificationDataset,
@@ -43,6 +44,7 @@ def get_module_subclasses(module: types.ModuleType, cls: type) -> list[type]:
 __all__ = [
     'assert_state_equivalent',
     'RandomClassificationDataset',
+    'RandomClassificationDatasetReplicated',
     'RandomTextClassificationDataset',
     'RandomTextLMDataset',
     'RandomImageDataset',
