@@ -80,8 +80,8 @@ install_requires = [
     'tqdm>=4.62.3,<5',
     'torchmetrics>=1.4.0.post0,<1.4.1',
     'torch_optimizer>=0.3.0,<0.4',
-    'torchvision>=0.14.0,<0.19.1',
-    'torch>=2.2.0,<2.4.1',
+    'torchvision>=0.14.0,<0.19.2',
+    'torch>=2.2.0,<2.4.2',
     'requests>=2.26.0,<3',
     'numpy>=1.21.5,<2.2.0',
     'psutil>=5.8.0,<7',
@@ -160,7 +160,7 @@ extra_deps['deepspeed'] = [
 ]
 
 extra_deps['wandb'] = [
-    'wandb>=0.13.2,<0.18',
+    'wandb>=0.13.2,<0.19',
 ]
 
 extra_deps['comet_ml'] = [
@@ -225,13 +225,13 @@ extra_deps['onnx'] = [
 
 extra_deps['mlflow'] = [
     'mlflow>=2.14.1,<3.0',
-    'databricks-sdk==0.31.1',
+    'databricks-sdk==0.32.0',
     'pynvml>=11.5.0,<12',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk==0.31.1']
+extra_deps['databricks'] = ['databricks-sdk==0.32.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 
