@@ -1188,7 +1188,7 @@ class Trainer:
                     +
                     'which provides similar functionality. Please use the `parallelism_config` parameter instead. Please open '
                     + 'a GitHub issue if you need help migrating from DeepSpeed to FSDP.',
-                    remove_version='0.26.0',
+                    remove_version='0.27.0',
                 ),
             )
 
