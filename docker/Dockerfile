@@ -49,6 +49,9 @@ ARG URLLIB3_VERSION='>=1.26.5,<2'
 # Build the composer image on the pytorch image
 ARG COMPOSER_BASE=pytorch_stage
 
+# The command that is passed to `pip install` -- e.g. `pip install "${COMPOSER_INSTALL_COMMAND}"`
+ARG COMPOSER_INSTALL_COMMAND='mosaicml[all]'
+
 #########################
 # Build the PyTorch Image
 #########################
@@ -340,7 +343,6 @@ ARG DEBIAN_FRONTEND=noninteractive
 # Install Composer
 ##################
 
-# The command that is passed to `pip install` -- e.g. `pip install "${COMPOSER_INSTALL_COMMAND}"`
-ARG COMPOSER_INSTALL_COMMAND='mosaicml[all]'
+ARG COMPOSER_INSTALL_COMMAND
 
 RUN pip install "${COMPOSER_INSTALL_COMMAND}"
