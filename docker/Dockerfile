@@ -343,6 +343,4 @@ ARG DEBIAN_FRONTEND=noninteractive
 # Install Composer
 ##################
 
-ARG COMPOSER_INSTALL_COMMAND
-
 RUN pip install "${COMPOSER_INSTALL_COMMAND}"
