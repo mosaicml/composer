@@ -417,6 +417,7 @@ def is_checkpoint_legacy_sharded(object_store: Optional[Union[LoggerDestination,
     if source_path.endswith('.symlink') or os.path.islink(source_path):
         source_path = extract_path_from_symlink(source_path, object_store=object_store)
     metadata_path = str(Path(source_path) / Path('.metadata'))
+    log.debug(f'Checking if checkpoint is legacy sharded by checking for metadata file at {metadata_path}.')
     if object_store is None:
         return not os.path.exists(metadata_path)
     else:
@@ -539,6 +540,7 @@ def load_checkpoint(
             ObjectStore,
         ), 'For loading sharded checkpoints load_object_store must be set with the class ObjectStore'
         using_legacy_sharded = is_checkpoint_legacy_sharded(object_store, path)
+        log.info(f'Using legacy sharded checkpoint: {using_legacy_sharded}')
 
     if state.fsdp_sharded_state_dict_enabled and not using_legacy_sharded:
         rng_state_dicts = load_sharded_checkpoint(
