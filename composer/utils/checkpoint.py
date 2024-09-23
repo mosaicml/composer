@@ -531,6 +531,7 @@ def load_checkpoint(
             :attr:`load_weights_only` is not None. Otherwise, None.
     """
     path = partial_format(path, run_name=state.run_name)
+    log.debug(f'Loading checkpoint from formatted path: {path}')
     using_legacy_sharded = False
     if state.fsdp_sharded_state_dict_enabled:
         assert object_store is None or isinstance(
