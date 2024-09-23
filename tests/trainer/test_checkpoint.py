@@ -35,6 +35,7 @@ from composer.utils.checkpoint import (
     _COMPOSER_STATES_FILENAME,
     PartialFilePath,
     _ensure_valid_checkpoint,
+    _is_rng_key,
     _write_checkpoint_file,
     glob_filter,
 )
@@ -128,6 +129,23 @@ def _assert_checkpoints_equivalent(file1, file2, atol=0.0, rtol=0.0):
         'optimizers' in checkpoint_2['state'],
     )
     assert all(keys_in) or not any(keys_in)
+
+
+@pytest.mark.parametrize(
+    'key,value,expected_result',
+    [
+        ('rng.0.cuda', ('rng', '0', 'cuda'), True),
+        ('rng.0.torch', ('rng', '0', 'torch'), True),
+        ('rng.0.numpy', ('rng', '0', 'numpy'), True),
+        ('rng.0.python', ('rng', '0', 'python'), True),
+        ('rng.0', ('rng', '0'), False),
+        ('test.test.rng', ('test', 'test', 'rng'), False),
+        ('test.rng.test', ('test', 'rng', 'test'), False),
+        ('test.notatuple.test', 0, False),
+    ],
+)
+def test_is_rng_key(key: str, value: tuple, expected_result: bool):
+    assert _is_rng_key(key, value) == expected_result
 
 
 @pytest.mark.parametrize(
