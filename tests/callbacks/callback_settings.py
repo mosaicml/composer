@@ -147,7 +147,9 @@ _callback_kwargs: dict[type[Callback], dict[str, Any]] = {
         'mode': 'debug',
     },
     WandBLogger: {
-        'init_kwargs': {'mode': 'offline'},
+        'init_kwargs': {
+            'mode': 'offline',
+        },
     },
     composer.profiler.Profiler: {
         'trace_handlers': [MagicMock()],
