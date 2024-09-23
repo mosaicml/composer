@@ -146,6 +146,9 @@ _callback_kwargs: dict[type[Callback], dict[str, Any]] = {
     NeptuneLogger: {
         'mode': 'debug',
     },
+    WandBLogger: {
+        'mode': 'offline',
+    },
     composer.profiler.Profiler: {
         'trace_handlers': [MagicMock()],
         'schedule': composer.profiler.cyclic_schedule(),
