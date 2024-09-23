@@ -945,8 +945,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
 
 if version.parse(torch.__version__) >= version.parse('2.4.0') and version.parse(
         torch.__version__,
-) < version.parse('2.4.1'):
-    # 2.4.0 only patch
+) < version.parse('2.4.2'):
     # PyTorch issue: https://github.com/pytorch/pytorch/issues/133923
     from torch.distributed.checkpoint.metadata import STATE_DICT_TYPE
     from typing import Mapping, Collection
@@ -1003,9 +1002,6 @@ if version.parse(torch.__version__) >= version.parse('2.4.0') and version.parse(
         for key, value in state_dict.items():
             _traverse_obj((str(key),), value)
 
-if version.parse(torch.__version__) >= version.parse('2.4.0') and version.parse(
-        torch.__version__,
-) < version.parse('2.4.2'):
     # Save original FlatParamHandle.unshard to revert back to when dropping automicrobatching hooks
     from torch.distributed.fsdp._flat_param import FlatParamHandle
     original_unshard = FlatParamHandle.unshard

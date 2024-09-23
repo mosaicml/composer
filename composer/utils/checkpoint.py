@@ -148,10 +148,25 @@ def _get_write_mode(name: str) -> str:
     raise ValueError(f'{name} does not end with a valid tarfile extension.')
 
 
+def _is_rng_key(key: str, value: tuple) -> bool:
+    """Check if the key is an RNG key.
+
+    We expect the RNG key to be of the form 'rng.{rank}.cuda|torch|python|numpy'.
+    This function ensures that we don't accidentally pick up other keys.
+    """
+    starts_with_rng = key.startswith('rng')
+    ends_with_expected = key.endswith(('cuda', 'torch', 'python', 'numpy'))
+    three_parts = isinstance(value, tuple) and len(value) == 3
+    if starts_with_rng and ends_with_expected and three_parts:
+        return True
+
+    return False
+
+
 def _get_num_ranks_that_saved_rng(metadata: Metadata):
     rng_inds = []
     for field_name, field_value in metadata.planner_data.items():
-        if 'rng' in field_name:
+        if _is_rng_key(field_name, field_value):
             _, rng_rank_index, _ = field_value
             rng_inds.append(rng_rank_index)
     rng_inds = set(rng_inds)
@@ -402,6 +417,7 @@ def is_checkpoint_legacy_sharded(object_store: Optional[Union[LoggerDestination,
     if source_path.endswith('.symlink') or os.path.islink(source_path):
         source_path = extract_path_from_symlink(source_path, object_store=object_store)
     metadata_path = str(Path(source_path) / Path('.metadata'))
+    log.debug(f'Checking if checkpoint is legacy sharded by checking for metadata file at {metadata_path}.')
     if object_store is None:
         return not os.path.exists(metadata_path)
     else:
@@ -516,6 +532,7 @@ def load_checkpoint(
             :attr:`load_weights_only` is not None. Otherwise, None.
     """
     path = partial_format(path, run_name=state.run_name)
+    log.debug(f'Loading checkpoint from formatted path: {path}')
     using_legacy_sharded = False
     if state.fsdp_sharded_state_dict_enabled:
         assert object_store is None or isinstance(
@@ -523,6 +540,7 @@ def load_checkpoint(
             ObjectStore,
         ), 'For loading sharded checkpoints load_object_store must be set with the class ObjectStore'
         using_legacy_sharded = is_checkpoint_legacy_sharded(object_store, path)
+        log.info(f'Using legacy sharded checkpoint: {using_legacy_sharded}')
 
     if state.fsdp_sharded_state_dict_enabled and not using_legacy_sharded:
         rng_state_dicts = load_sharded_checkpoint(
@@ -608,50 +626,41 @@ def dist_cp_load(
     load_planner: Optional[LoadPlanner] = None,
 ):
     if version.parse(torch.__version__) >= version.parse('2.4.0'):
-        if version.parse(torch.__version__) < version.parse('2.4.1'):
-            # PyTorch 2.4.0
-            from torch.distributed.checkpoint.utils import CheckpointException
-            try:
-                dist_cp.load(
-                    state_dict=state_dict,
-                    storage_reader=storage_reader,
-                    planner=load_planner,
-                )
-            except CheckpointException as e:
-                checkpoint_metadata = storage_reader.read_metadata().state_dict_metadata
-                if 'state.metadata' in checkpoint_metadata and 'state.metadata.composer_env_info.composer_version' not in checkpoint_metadata:
-                    # Torch 2.4 changed the way how state dict is flattened. It broke backward compatibility.
-                    # Torch issue: https://github.com/pytorch/pytorch/issues/133923.
-                    # We override the traverse_state_dict so that the load planner could
-                    # use the old way of flattening the state dict
-                    log.debug('Trying to load checkpointing saved before torch 2.4')
-
-                    import torch.distributed.checkpoint._nested_dict as nested_dict
-                    import torch.distributed.checkpoint._sharded_tensor_utils as sharded_tensor_util
-                    from torch.distributed.checkpoint._traverse import traverse_state_dict as traverse_2_4_0
-
-                    from composer.trainer._patch_pytorch import traverse_state_dict as backward_compatible_traverse
-
-                    nested_dict.traverse_state_dict = backward_compatible_traverse
-                    sharded_tensor_util.traverse_state_dict = backward_compatible_traverse
-
-                    dist_cp.load(
-                        state_dict=state_dict,
-                        storage_reader=storage_reader,
-                        planner=load_planner,
-                    )
-                    # Revert the override
-                    nested_dict.traverse_state_dict = traverse_2_4_0
-                    sharded_tensor_util.traverse_state_dict = traverse_2_4_0
-                else:
-                    raise e
-        else:
-            # PyTorch 2.4.1
+        from torch.distributed.checkpoint.utils import CheckpointException
+        try:
             dist_cp.load(
                 state_dict=state_dict,
                 storage_reader=storage_reader,
                 planner=load_planner,
             )
+        except CheckpointException as e:
+            checkpoint_metadata = storage_reader.read_metadata().state_dict_metadata
+            if 'state.metadata' in checkpoint_metadata and 'state.metadata.composer_env_info.composer_version' not in checkpoint_metadata:
+                # Torch 2.4 changed the way how state dict is flattened. It broke backward compatibility.
+                # Torch issue: https://github.com/pytorch/pytorch/issues/133923.
+                # We override the traverse_state_dict so that the load planner could
+                # use the old way of flattening the state dict
+                log.debug('Trying to load checkpointing saved before torch 2.4')
+
+                import torch.distributed.checkpoint._nested_dict as nested_dict
+                import torch.distributed.checkpoint._sharded_tensor_utils as sharded_tensor_util
+                from torch.distributed.checkpoint._traverse import traverse_state_dict as traverse_2_4_0
+
+                from composer.trainer._patch_pytorch import traverse_state_dict as backward_compatible_traverse
+
+                nested_dict.traverse_state_dict = backward_compatible_traverse
+                sharded_tensor_util.traverse_state_dict = backward_compatible_traverse
+
+                dist_cp.load(
+                    state_dict=state_dict,
+                    storage_reader=storage_reader,
+                    planner=load_planner,
+                )
+                # Revert the override
+                nested_dict.traverse_state_dict = traverse_2_4_0
+                sharded_tensor_util.traverse_state_dict = traverse_2_4_0
+            else:
+                raise e
     else:
         dist_cp.load_state_dict(
             state_dict=state_dict,
