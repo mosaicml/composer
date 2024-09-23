@@ -413,23 +413,6 @@ class PartialFilePath:
                 ) + extra_suffix
 
 
-def is_checkpoint_legacy_sharded(object_store: Optional[Union[LoggerDestination, ObjectStore]], source_path: str):
-    if source_path.endswith('.symlink') or os.path.islink(source_path):
-        source_path = extract_path_from_symlink(source_path, object_store=object_store)
-    metadata_path = str(Path(source_path) / Path('.metadata'))
-    if object_store is None:
-        return not os.path.exists(metadata_path)
-    else:
-        try:
-            _, _, metadata_path = parse_uri(metadata_path)
-            with tempfile.TemporaryDirectory() as temp_dir:
-                metadata_destination = os.path.join(str(temp_dir), '.metadata')
-                download_object_or_file(metadata_path, metadata_destination, object_store)
-            return False
-        except FileNotFoundError:
-            return True
-
-
 def load_checkpoint(
     path: str,
     state: State,
@@ -531,15 +514,8 @@ def load_checkpoint(
             :attr:`load_weights_only` is not None. Otherwise, None.
     """
     path = partial_format(path, run_name=state.run_name)
-    using_legacy_sharded = False
-    if state.fsdp_sharded_state_dict_enabled:
-        assert object_store is None or isinstance(
-            object_store,
-            ObjectStore,
-        ), 'For loading sharded checkpoints load_object_store must be set with the class ObjectStore'
-        using_legacy_sharded = is_checkpoint_legacy_sharded(object_store, path)
 
-    if state.fsdp_sharded_state_dict_enabled and not using_legacy_sharded:
+    if state.fsdp_sharded_state_dict_enabled:
         rng_state_dicts = load_sharded_checkpoint(
             source_path=path,
             state=state,
