@@ -514,6 +514,7 @@ def load_checkpoint(
             :attr:`load_weights_only` is not None. Otherwise, None.
     """
     path = partial_format(path, run_name=state.run_name)
+    log.debug(f'Loading checkpoint from formatted path: {path}')
 
     if state.fsdp_sharded_state_dict_enabled:
         rng_state_dicts = load_sharded_checkpoint(
@@ -530,7 +531,6 @@ def load_checkpoint(
         )
     else:
         # Download the checkpoint to the node-local folder
-        log.debug('Loading checkpoint at %s', path)
         # Each node gets one unique folder to store checkpoints that is shared amongst all local ranks in that node.
         # If fsdp sharded state_dicts is enabled then EVERY rank gets a unique checkpoint folder.
         needs_unique_checkpoint_folder = state.fsdp_sharded_state_dict_enabled or dist.get_local_rank() == 0
