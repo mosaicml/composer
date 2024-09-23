@@ -537,6 +537,9 @@ def test_fsdp_load_old_checkpoint(
         pytest.skip('Current torch version is older than torch version that checkpoint was written with.')
 
     if composer_version in ['0.13.5', '0.14.0', '0.14.1', '0.15.1']:
+        if state_dict_type == 'sharded':
+            pytest.mark.skip('Loading legacy sharded checkpoints are not supported after v0.25.0.')
+
         rank = 0 if state_dict_type == 'full' else '{rank}'
 
         load_path_dir = (
