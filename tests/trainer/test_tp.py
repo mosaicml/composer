@@ -412,42 +412,9 @@ def test_tp_fit_correctness(world_size: int, batch_size: int, replication: int):
     # Drop tolerance due to precision issues across different parallelism strategies
     compare_models_2(ddp_trainer, fsdp_trainer, tp_fsdp_trainer, atol=1e-5, rtol=1e-3)
 
-    # Compare loss between DDP, FSDP, TP-FSDP
-    np.testing.assert_allclose(
-        ddp_stats['loss_array'],
-        fsdp_stats['loss_array'],
-        atol=6e-5,
-        err_msg='Loss arrays of DDP and FSDP are not close enough.',
-    )
-    np.testing.assert_allclose(
-        ddp_stats['loss_array'],
-        tp_fsdp_stats['loss_array'],
-        atol=6e-5,
-        err_msg='Loss arrays of DDP and TP-FSDP are not close enough.',
-    )
-    np.testing.assert_allclose(
-        fsdp_stats['loss_array'],
-        tp_fsdp_stats['loss_array'],
-        atol=6e-5,
-        err_msg='Loss arrays of FSDP and TP-FSDP are not close enough.',
-    )
-
-    # Compare accuracy between DDP, FSDP, TP-FSDP
-    np.testing.assert_allclose(
-        ddp_stats['accuracy_array'],
-        fsdp_stats['accuracy_array'],
-        err_msg='Accuracy arrays of DDP and FSDP are not close enough',
-    )
-    np.testing.assert_allclose(
-        ddp_stats['accuracy_array'],
-        tp_fsdp_stats['accuracy_array'],
-        err_msg='Accuracy arrays of DDP and FSDP-TP are not close enough',
-    )
-    np.testing.assert_allclose(
-        fsdp_stats['accuracy_array'],
-        tp_fsdp_stats['accuracy_array'],
-        err_msg='Accuracy arrays of FSDP and FSDP-TP are not close enough',
-    )
+    deep_compare(ddp_stats, fsdp_stats, atol=6e-5)
+    deep_compare(tp_fsdp_stats, fsdp_stats, atol=6e-5)
+    deep_compare(ddp_stats, tp_fsdp_stats, atol=6e-5)
 
 
 @pytest.mark.gpu
@@ -573,6 +540,6 @@ def test_tp_fsdp_state_dict(world_size: int):
 if __name__ == '__main__':
     world_size = 4
     replication = 2
-    test_tp_forwards_backwards_correctness(world_size, replication)
+    # test_tp_forwards_backwards_correctness(world_size, replication)
 
     test_tp_fit_correctness(world_size, 4, replication)
