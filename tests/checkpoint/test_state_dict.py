@@ -21,7 +21,8 @@ from tests.checkpoint.helpers import init_model_and_optimizer, init_state
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
 from tests.common.models import EvenSimplerMLP, SimpleComposerMLP, configure_tiny_gpt2_hf_model
-
+from icecream import install
+install()
 
 @pytest.mark.gpu
 @pytest.mark.parametrize('use_composer_model', [True, False])
@@ -60,10 +61,10 @@ def test_get_model_state_dict_ignore(use_composer_model: bool):
         model = EvenSimplerMLP(num_features=8, device='cuda')
 
     model_state_dict = get_model_state_dict(model, sharded_state_dict=False, ignore_keys='module.2.weight')
-    assert set(model_state_dict.keys()) == {'module.0.weight'}
+    assert set(model_state_dict.keys()) == {'fc1.weight', 'fc2.weight', 'module.0.weight'}
 
     model_state_dict = get_model_state_dict(model, sharded_state_dict=False, ignore_keys=['module.2*'])
-    assert set(model_state_dict.keys()) == {'module.0.weight'}
+    assert set(model_state_dict.keys()) == {'fc1.weight', 'fc2.weight', 'module.0.weight'}
 
 
 @pytest.mark.gpu

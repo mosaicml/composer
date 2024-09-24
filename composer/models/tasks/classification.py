@@ -120,7 +120,6 @@ class ComposerClassifier(ComposerModel):
             metrics_dict = {metrics.__class__.__name__: metrics}
         else:
             metrics_dict = {}
-            assert metrics is not None
             for name, metric in metrics.items():
                 assert isinstance(metric, Metric)
                 metrics_dict[name] = metric

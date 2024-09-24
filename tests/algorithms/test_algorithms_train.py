@@ -6,7 +6,8 @@ import pytest
 from composer import Algorithm, Trainer
 from composer.algorithms import GyroDropout, LayerFreezing
 from tests.algorithms.algorithm_settings import get_alg_dataloader, get_alg_kwargs, get_alg_model, get_algs_with_marks
-
+from icecream import install
+install()
 
 @pytest.mark.gpu
 @pytest.mark.parametrize('alg_cls', get_algs_with_marks())
@@ -15,6 +16,7 @@ def test_algorithm_trains(alg_cls: type[Algorithm]):
     alg_kwargs = get_alg_kwargs(alg_cls)
     model = get_alg_model(alg_cls)
     dataloader = get_alg_dataloader(alg_cls)
+    ic(model, dataloader)
     trainer = Trainer(
         model=model,
         train_dataloader=dataloader,

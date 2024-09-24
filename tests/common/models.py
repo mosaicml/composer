@@ -122,10 +122,10 @@ class EvenSimplerMLP(torch.nn.Module):
 
     def __init__(self, num_features: int, device: str = 'cpu', num_out_features: int = 3):
         super().__init__()
-        fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
-        fc2 = torch.nn.Linear(num_features, num_out_features, device=device, bias=False)
+        self.fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.fc2 = torch.nn.Linear(num_features, num_out_features, device=device, bias=False)
 
-        self.module = torch.nn.Sequential(fc1, torch.nn.ReLU(), fc2)
+        self.module = torch.nn.Sequential(self.fc1, torch.nn.ReLU(), self.fc2)
 
     def forward(self, x):
         return self.module(x)
@@ -480,6 +480,7 @@ class SimpleModelWithDropout(ComposerClassifier):
 
     def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
         _, targets = batch
+        ic(metric, outputs, targets)
         metric.update(outputs.squeeze(dim=0), targets.squeeze(dim=0))
 
     def forward(self, batch: tuple[torch.Tensor, Any]) -> torch.Tensor:
