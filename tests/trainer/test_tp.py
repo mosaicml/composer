@@ -9,8 +9,7 @@ import numpy as np
 import pytest
 import torch
 from packaging import version
-from icecream import ic
-from torch.distributed._tensor import DTensor, Replicate
+from torch.distributed._tensor import Replicate
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.utils.data import DataLoader, Dataset
 
@@ -23,8 +22,8 @@ from tests.common import (
     RandomClassificationDatasetReplicated,
     SimpleComposerMLP,
     SimpleModel,
+    deep_compare,
     world_size,
-    deep_compare
 )
 
 
@@ -217,15 +216,19 @@ def compare_models(
 
             # check grad
             if check_grad:
+
                 def get_grads(params):
                     return {name: param.grad for name, param in params.items()}
+
                 ddp_params = get_grads(ddp_params)
                 fsdp_params = get_grads(fsdp_params)
                 tp_fsdp_params = get_grads(tp_fsdp_params)
 
             # collect tensors from different ranks for comparison
-            tp_fsdp_params = {name: param.redistribute(device_mesh=param.device_mesh, placements=[Replicate()]).to_local()
-                              for name, param in tp_fsdp_params.items()}
+            tp_fsdp_params = {
+                name: param.redistribute(device_mesh=param.device_mesh, placements=[Replicate()]).to_local()
+                for name, param in tp_fsdp_params.items()
+            }
 
             deep_compare(ddp_params, fsdp_params, atol=atol, rtol=rtol)
             deep_compare(tp_fsdp_params, fsdp_params, atol=atol, rtol=rtol)
