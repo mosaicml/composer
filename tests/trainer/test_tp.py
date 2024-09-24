@@ -462,11 +462,4 @@ def test_tp_fsdp_state_dict(world_size: int):
     with FSDP.summon_full_params(tp_fsdp_trainer.state.model, with_grads=True):
         tp_fsdp_state_dict2 = tp_fsdp_trainer.state.state_dict()  # fails always
 
-        compare_modules(tp_fsdp_state_dict1['model'], tp_fsdp_state_dict2['model'])
-
-
-# if __name__ == '__main__':
-#     world_size = 4
-#     replication = 2
-#     test_tp_forwards_backwards_correctness(world_size, replication)
-#     test_tp_fit_correctness(world_size, 4, replication)
+        deep_compare(tp_fsdp_state_dict1['model'], tp_fsdp_state_dict2['model'])

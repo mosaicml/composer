@@ -101,6 +101,7 @@ class RandomClassificationDatasetReplicated(RandomClassificationDataset):
         super().__init__(shape, size, num_classes, device)
         self.rank = dist.get_local_rank()
         self.world_size = dist.get_world_size()
+        assert replication is not None
         self.n_tp_groups = replication  # the number of tp groups that we are replicating across
         self.seed = seed
 
