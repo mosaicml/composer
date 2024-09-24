@@ -21,8 +21,7 @@ from tests.checkpoint.helpers import init_model_and_optimizer, init_state
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
 from tests.common.models import EvenSimplerMLP, SimpleComposerMLP, configure_tiny_gpt2_hf_model
-from icecream import install
-install()
+
 
 @pytest.mark.gpu
 @pytest.mark.parametrize('use_composer_model', [True, False])

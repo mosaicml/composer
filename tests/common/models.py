@@ -480,7 +480,6 @@ class SimpleModelWithDropout(ComposerClassifier):
 
     def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
         _, targets = batch
-        ic(metric, outputs, targets)
         metric.update(outputs.squeeze(dim=0), targets.squeeze(dim=0))
 
     def forward(self, batch: tuple[torch.Tensor, Any]) -> torch.Tensor:
