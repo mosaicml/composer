@@ -186,45 +186,13 @@ def _replace_state_dict_name(state_dict: dict[str, Any], old_name: str, new_name
     return state_dict
 
 
-def compare_modules(
-    module1: dict[str, Any],
-    module2: dict[str, Any],
-    check_grad: bool = False,
-    atol: Optional[float] = None,
-    rtol: Optional[float] = None,
-):
-    module_type = 'Gradients' if check_grad else 'Parameters'
-
-    deep_compare(module1, module2)
-
-    for (param1_name, param1), (param2_name, param2) in zip(module1.items(), module2.items()):
-
-        assert param1_name == param2_name
-
-        if check_grad:
-            param1 = param1.grad
-            param2 = param2.grad
-
-        if isinstance(param1, DTensor):
-            param1 = param1.redistribute(device_mesh=param1.device_mesh, placements=[Replicate()]).to_local()
-        if isinstance(param2, DTensor):
-            param2 = param2.redistribute(device_mesh=param2.device_mesh, placements=[Replicate()]).to_local()
-
-        torch.testing.assert_close(
-            param1,
-            param2,
-            atol=atol,
-            rtol=rtol,
-            msg=f'{module_type} are not close enough:\n{param1=}\n{param2=}',
-        )
-
 def compare_models(
     ddp_trainer: Trainer,
     fsdp_trainer: Trainer,
     tp_fsdp_trainer: Trainer,
     check_grad: bool = False,
-    atol: Optional[float] = None,
-    rtol: Optional[float] = None,
+    atol: float = 0.0,
+    rtol: float = 0.0,
 ):
 
     # Normally, we compare various models by their state_dict().
@@ -247,46 +215,6 @@ def compare_models(
             fsdp_params = _replace_state_dict_name(fsdp_params, '_fsdp_wrapped_module.', '')
             tp_fsdp_params = _replace_state_dict_name(tp_fsdp_params, '_fsdp_wrapped_module.', '')
 
-            compare_modules(ddp_params, fsdp_params, check_grad=check_grad, atol=atol, rtol=rtol)
-            compare_modules(tp_fsdp_params, fsdp_params, check_grad=check_grad, atol=atol, rtol=rtol)
-            compare_modules(ddp_params, fsdp_params, check_grad=check_grad, atol=atol, rtol=rtol)
-
-
-def compare_models_2(
-    ddp_trainer: Trainer,
-    fsdp_trainer: Trainer,
-    tp_fsdp_trainer: Trainer,
-    ddp_params: Optional[torch.tensor] = None,
-    fsdp_params: Optional[torch.tensor] = None,
-    tp_fsdp_params: Optional[torch.tensor] = None,
-    check_grad: bool = False,
-    atol: float = 0.0,
-    rtol: float = 0.0,
-):
-
-    # Normally, we compare various models by their state_dict().
-    # However, calling `tp_fsdp_trainer.state.state_dict()` directly causes a NCCL timeout
-    # due to this pytorch bug: https://github.com/pytorch/pytorch/issues/134095/.
-    # As a workaround, we use `tp_fsdp_trainer.state.model.named_parameters()` instead.
-    # This issues only exists with `tp_fsdp_trainer.state.state_dict()` and does not
-    # arise when calling `ddp_trainer.state.state_dict()` or `fsdp_trainer.state.state_dict()`.
-    with FSDP.summon_full_params(fsdp_trainer.state.model, with_grads=check_grad):
-        with FSDP.summon_full_params(tp_fsdp_trainer.state.model, with_grads=check_grad):
-            if ddp_params is None:
-                ddp_params = dict(ddp_trainer.state.model.named_parameters())
-            if fsdp_params is None:
-                fsdp_params = dict(fsdp_trainer.state.model.named_parameters())
-            if tp_fsdp_params is None:
-                tp_fsdp_params = dict(tp_fsdp_trainer.state.model.named_parameters())
-
-            # patch the state dict names:
-            #   - ddp adds an extra 'module.' to all param names
-            #   - fsdp adds an extra '_fsdp_wrapped_module.' to all param names
-            #   - tp-fsdp adds an extra '_fsdp_wrapped_module.' to all param names
-            ddp_params = _replace_state_dict_name(ddp_params, 'module.', '')
-            fsdp_params = _replace_state_dict_name(fsdp_params, '_fsdp_wrapped_module.', '')
-            tp_fsdp_params = _replace_state_dict_name(tp_fsdp_params, '_fsdp_wrapped_module.', '')
-
             # check grad
             if check_grad:
                 def get_grads(params):
@@ -295,10 +223,9 @@ def compare_models_2(
                 fsdp_params = get_grads(fsdp_params)
                 tp_fsdp_params = get_grads(tp_fsdp_params)
 
+            # collect tensors from different ranks for comparison
             tp_fsdp_params = {name: param.redistribute(device_mesh=param.device_mesh, placements=[Replicate()]).to_local()
                               for name, param in tp_fsdp_params.items()}
-
-            ic(ddp_params, fsdp_params, tp_fsdp_params)
 
             deep_compare(ddp_params, fsdp_params, atol=atol, rtol=rtol)
             deep_compare(tp_fsdp_params, fsdp_params, atol=atol, rtol=rtol)
@@ -337,7 +264,7 @@ def test_tp_forwards_backwards_correctness(world_size: int, replication: int):
     tp_fsdp_trainer = get_tp_fsdp_trainer(replication=replication)
 
     # Ensure initial model weights are the same
-    compare_models_2(ddp_trainer, fsdp_trainer, tp_fsdp_trainer)
+    compare_models(ddp_trainer, fsdp_trainer, tp_fsdp_trainer)
 
     # Forward pass
     ddp_out = forward_pass(ddp_trainer)
@@ -345,29 +272,25 @@ def test_tp_forwards_backwards_correctness(world_size: int, replication: int):
     tp_fsdp_out = forward_pass(tp_fsdp_trainer)
 
     # Ensure output of the forward pass is the same
-    # compare_models_2(ddp_trainer, fsdp_trainer, tp_fsdp_trainer, ddp_out, fsdp_out, tp_fsdp_out)
-
-    with FSDP.summon_full_params(fsdp_trainer.state.model):
-        with FSDP.summon_full_params(tp_fsdp_trainer.state.model):
-            compare_modules({'': ddp_out}, {'': fsdp_out})
-            compare_modules({'': ddp_out}, {'': tp_fsdp_out})
-            compare_modules({'': fsdp_out}, {'': tp_fsdp_out})
+    deep_compare(ddp_out, fsdp_out)
+    deep_compare(ddp_out, tp_fsdp_out)
+    deep_compare(fsdp_out, tp_fsdp_out)
 
     # Compute gradients
     torch.sum(ddp_out).backward()
     torch.sum(fsdp_out).backward()
     torch.sum(tp_fsdp_out).backward()
 
-    # Ensure the gradients are the same
-    compare_models_2(ddp_trainer, fsdp_trainer, tp_fsdp_trainer, check_grad=True)
+    # Ensure the model gradients are the same
+    compare_models(ddp_trainer, fsdp_trainer, tp_fsdp_trainer, check_grad=True)
 
     # Update the model weights
     ddp_trainer.state.optimizers[0].step()
     fsdp_trainer.state.optimizers[0].step()
     tp_fsdp_trainer.state.optimizers[0].step()
 
-    # Ensure the updated weights are the same
-    compare_models_2(ddp_trainer, fsdp_trainer, tp_fsdp_trainer)
+    # Ensure the updated model weights are the same
+    compare_models(ddp_trainer, fsdp_trainer, tp_fsdp_trainer)
 
 
 @pytest.mark.gpu
@@ -410,8 +333,10 @@ def test_tp_fit_correctness(world_size: int, batch_size: int, replication: int):
 
     # Ensure the updated models weights are the same
     # Drop tolerance due to precision issues across different parallelism strategies
-    compare_models_2(ddp_trainer, fsdp_trainer, tp_fsdp_trainer, atol=1e-5, rtol=1e-3)
+    compare_models(ddp_trainer, fsdp_trainer, tp_fsdp_trainer, atol=1e-5, rtol=1e-3)
 
+    # Compare the loss, accuracy stats
+    # Drop tolerance due to precision issues across different parallelism strategies
     deep_compare(ddp_stats, fsdp_stats, atol=6e-5)
     deep_compare(tp_fsdp_stats, fsdp_stats, atol=6e-5)
     deep_compare(ddp_stats, tp_fsdp_stats, atol=6e-5)
@@ -537,9 +462,8 @@ def test_tp_fsdp_state_dict(world_size: int):
         compare_modules(tp_fsdp_state_dict1['model'], tp_fsdp_state_dict2['model'])
 
 
-if __name__ == '__main__':
-    world_size = 4
-    replication = 2
-    # test_tp_forwards_backwards_correctness(world_size, replication)
-
-    test_tp_fit_correctness(world_size, 4, replication)
+# if __name__ == '__main__':
+#     world_size = 4
+#     replication = 2
+#     test_tp_forwards_backwards_correctness(world_size, replication)
+#     test_tp_fit_correctness(world_size, 4, replication)
