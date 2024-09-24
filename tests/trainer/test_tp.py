@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 import torch
 from packaging import version
+from icecream import ic
 from torch.distributed._tensor import DTensor, Replicate
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.utils.data import DataLoader, Dataset
@@ -23,6 +24,7 @@ from tests.common import (
     SimpleComposerMLP,
     SimpleModel,
     world_size,
+    deep_compare
 )
 
 
@@ -193,6 +195,8 @@ def compare_modules(
 ):
     module_type = 'Gradients' if check_grad else 'Parameters'
 
+    deep_compare(module1, module2)
+
     for (param1_name, param1), (param2_name, param2) in zip(module1.items(), module2.items()):
 
         assert param1_name == param2_name
@@ -213,7 +217,6 @@ def compare_modules(
             rtol=rtol,
             msg=f'{module_type} are not close enough:\n{param1=}\n{param2=}',
         )
-
 
 def compare_models(
     ddp_trainer: Trainer,
@@ -249,6 +252,59 @@ def compare_models(
             compare_modules(ddp_params, fsdp_params, check_grad=check_grad, atol=atol, rtol=rtol)
 
 
+def compare_models_2(
+    ddp_trainer: Trainer,
+    fsdp_trainer: Trainer,
+    tp_fsdp_trainer: Trainer,
+    ddp_params: Optional[torch.tensor] = None,
+    fsdp_params: Optional[torch.tensor] = None,
+    tp_fsdp_params: Optional[torch.tensor] = None,
+    check_grad: bool = False,
+    atol: float = 0.0,
+    rtol: float = 0.0,
+):
+
+    # Normally, we compare various models by their state_dict().
+    # However, calling `tp_fsdp_trainer.state.state_dict()` directly causes a NCCL timeout
+    # due to this pytorch bug: https://github.com/pytorch/pytorch/issues/134095/.
+    # As a workaround, we use `tp_fsdp_trainer.state.model.named_parameters()` instead.
+    # This issues only exists with `tp_fsdp_trainer.state.state_dict()` and does not
+    # arise when calling `ddp_trainer.state.state_dict()` or `fsdp_trainer.state.state_dict()`.
+    with FSDP.summon_full_params(fsdp_trainer.state.model, with_grads=check_grad):
+        with FSDP.summon_full_params(tp_fsdp_trainer.state.model, with_grads=check_grad):
+            if ddp_params is None:
+                ddp_params = dict(ddp_trainer.state.model.named_parameters())
+            if fsdp_params is None:
+                fsdp_params = dict(fsdp_trainer.state.model.named_parameters())
+            if tp_fsdp_params is None:
+                tp_fsdp_params = dict(tp_fsdp_trainer.state.model.named_parameters())
+
+            # patch the state dict names:
+            #   - ddp adds an extra 'module.' to all param names
+            #   - fsdp adds an extra '_fsdp_wrapped_module.' to all param names
+            #   - tp-fsdp adds an extra '_fsdp_wrapped_module.' to all param names
+            ddp_params = _replace_state_dict_name(ddp_params, 'module.', '')
+            fsdp_params = _replace_state_dict_name(fsdp_params, '_fsdp_wrapped_module.', '')
+            tp_fsdp_params = _replace_state_dict_name(tp_fsdp_params, '_fsdp_wrapped_module.', '')
+
+            # check grad
+            if check_grad:
+                def get_grads(params):
+                    return {name: param.grad for name, param in params.items()}
+                ddp_params = get_grads(ddp_params)
+                fsdp_params = get_grads(fsdp_params)
+                tp_fsdp_params = get_grads(tp_fsdp_params)
+
+            tp_fsdp_params = {name: param.redistribute(device_mesh=param.device_mesh, placements=[Replicate()]).to_local()
+                              for name, param in tp_fsdp_params.items()}
+
+            ic(ddp_params, fsdp_params, tp_fsdp_params)
+
+            deep_compare(ddp_params, fsdp_params, atol=atol, rtol=rtol)
+            deep_compare(tp_fsdp_params, fsdp_params, atol=atol, rtol=rtol)
+            deep_compare(ddp_params, fsdp_params, atol=atol, rtol=rtol)
+
+
 def get_stats(trainer: Trainer) -> dict[str, np.ndarray]:
     logger = trainer.logger.destinations[0]
     stats = {
@@ -281,7 +337,7 @@ def test_tp_forwards_backwards_correctness(world_size: int, replication: int):
     tp_fsdp_trainer = get_tp_fsdp_trainer(replication=replication)
 
     # Ensure initial model weights are the same
-    compare_models(ddp_trainer, fsdp_trainer, tp_fsdp_trainer)
+    compare_models_2(ddp_trainer, fsdp_trainer, tp_fsdp_trainer)
 
     # Forward pass
     ddp_out = forward_pass(ddp_trainer)
@@ -289,6 +345,8 @@ def test_tp_forwards_backwards_correctness(world_size: int, replication: int):
     tp_fsdp_out = forward_pass(tp_fsdp_trainer)
 
     # Ensure output of the forward pass is the same
+    # compare_models_2(ddp_trainer, fsdp_trainer, tp_fsdp_trainer, ddp_out, fsdp_out, tp_fsdp_out)
+
     with FSDP.summon_full_params(fsdp_trainer.state.model):
         with FSDP.summon_full_params(tp_fsdp_trainer.state.model):
             compare_modules({'': ddp_out}, {'': fsdp_out})
@@ -301,7 +359,7 @@ def test_tp_forwards_backwards_correctness(world_size: int, replication: int):
     torch.sum(tp_fsdp_out).backward()
 
     # Ensure the gradients are the same
-    compare_models(ddp_trainer, fsdp_trainer, tp_fsdp_trainer, check_grad=True)
+    compare_models_2(ddp_trainer, fsdp_trainer, tp_fsdp_trainer, check_grad=True)
 
     # Update the model weights
     ddp_trainer.state.optimizers[0].step()
@@ -309,7 +367,7 @@ def test_tp_forwards_backwards_correctness(world_size: int, replication: int):
     tp_fsdp_trainer.state.optimizers[0].step()
 
     # Ensure the updated weights are the same
-    compare_models(ddp_trainer, fsdp_trainer, tp_fsdp_trainer)
+    compare_models_2(ddp_trainer, fsdp_trainer, tp_fsdp_trainer)
 
 
 @pytest.mark.gpu
@@ -352,7 +410,7 @@ def test_tp_fit_correctness(world_size: int, batch_size: int, replication: int):
 
     # Ensure the updated models weights are the same
     # Drop tolerance due to precision issues across different parallelism strategies
-    compare_models(ddp_trainer, fsdp_trainer, tp_fsdp_trainer, atol=1e-5, rtol=1e-3)
+    compare_models_2(ddp_trainer, fsdp_trainer, tp_fsdp_trainer, atol=1e-5, rtol=1e-3)
 
     # Compare loss between DDP, FSDP, TP-FSDP
     np.testing.assert_allclose(
