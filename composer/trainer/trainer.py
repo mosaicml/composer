@@ -1071,6 +1071,7 @@ class Trainer:
             To use torch compile with default values, set it to empty dictionary ``{}``.
             To use torch compile with custom config, set to a dictionary such as ``{'mode': 'max-autotune'}``.
             To disable torch compile, set to ``None``. (default: ``None``)
+        is_model_finetune (bool): Flag for knowing whether the model is of the finetune type. (default: ``False``)
 
     Attributes:
         state (State): The :class:`.State` object used to store training state.

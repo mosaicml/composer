@@ -332,6 +332,7 @@ class State(Serializable):
         callbacks (Callback | Sequence[Callback], optional): The callbacks used for training.
         deepspeed_config (dict[str, Any], optional): The configuration dictionary for deepspeed.
         parallelism_config (ParallelismConfig, optional): The configuration dictionary for parallelism.
+        is_model_finetune (bool): Flag for knowing whether the model is of the finetune type. (default: ``False``)
 
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
