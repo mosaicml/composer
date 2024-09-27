@@ -1183,6 +1183,9 @@ class Trainer:
 
         # compile config for PyTorch 2.0 or higher
         compile_config: Optional[dict[str, Any]] = None,
+        
+        # Is the model of the fine-tuning type
+        is_model_finetune: bool = False,
     ):
         if deepspeed_config is not None:
             warnings.warn(
@@ -1417,6 +1420,7 @@ class Trainer:
             save_metrics=save_metrics,
             deepspeed_config=deepspeed_config,
             parallelism_config=parallelism_config,
+            is_model_finetune=is_model_finetune,
         )
         self.accumulate_train_batch_on_tokens = accumulate_train_batch_on_tokens
 

@@ -499,6 +499,9 @@ class State(Serializable):
         # Distributed training configs
         deepspeed_config: Optional[dict[str, Any]] = None,
         parallelism_config: Optional[ParallelismConfig] = None,
+        
+        # Is the model of the fine-tuning type
+        is_model_finetune: bool = False,
     ):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
@@ -517,6 +520,7 @@ class State(Serializable):
         self.__iteration_length = None
         self._iteration_length = self.__iteration_length
         self.save_metrics = save_metrics
+        self.is_model_finetune = is_model_finetune
 
         self._train_dataloader = train_dataloader
         self._evaluators = list(ensure_tuple(evaluators))
@@ -1315,12 +1319,17 @@ class State(Serializable):
         model_on_rank = state_dict['model'] is not None
 
         if model_on_rank:
+            # Make sure we manipulate the loaded keys correctly in case of finetune model
+            if self.is_model_finetune:
+                state_dict['model'] |= {
+                    f"transformer.{k}": v for k, v in state_dict['model'].items()
+                }
             if version.parse(torch.__version__) >= version.parse('2.4.0') or (
                 version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized()
             ):
                 from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
                 try:
-                    set_model_state_dict(
+                    return_tuple = set_model_state_dict(
                         model=self.model,
                         model_state_dict=state_dict['model'],
                         options=StateDictOptions(
@@ -1329,6 +1338,7 @@ class State(Serializable):
                             cpu_offload=self.fsdp_enabled,
                         ),
                     )
+                    log.warning(f"Set state dict to the model. Function returned: {return_tuple}")
                 except AttributeError as e:
                     # Issue: https://github.com/pytorch/pytorch/issues/127351
                     if "ShardedTensor' object has no attribute 'placements'" in str(e):
