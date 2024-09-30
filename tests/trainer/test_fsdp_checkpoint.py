@@ -540,8 +540,6 @@ def test_fsdp_load_old_checkpoint(
         if state_dict_type == 'sharded':
             pytest.mark.skip('Loading legacy sharded checkpoints are not supported after v0.25.0.')
 
-        rank = 0 if state_dict_type == 'full' else '{rank}'
-
         load_path_dir = (
             f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/'
             f'{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_'
@@ -550,7 +548,7 @@ def test_fsdp_load_old_checkpoint(
         if ((version.parse(composer_version) > version.parse('0.15.0')) and state_dict_type != 'full'):
             load_path_dir = (load_path_dir + 'ep0-ba2/')
 
-        load_path = load_path_dir + f'ba2_rank{rank}.pt'
+        load_path = load_path_dir + f'ba2_rank0.pt'
     else:
         load_path = (
             f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/'
