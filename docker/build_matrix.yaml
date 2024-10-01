@@ -194,9 +194,9 @@
   TORCHVISION_VERSION: 0.17.2
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: nvidia/cuda:12.4.1-cudnn-devel-ubuntu20.04
-  COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.24.1
+  COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.25.0
   CUDA_VERSION: 12.4.1
-  IMAGE_NAME: composer-0-24-1
+  IMAGE_NAME: composer-0-25-0
   MOFED_VERSION: latest-23.10
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
   PYTHON_VERSION: '3.11'
@@ -204,17 +204,17 @@
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.4.1
   TAGS:
-  - mosaicml/composer:0.24.1
-  - ghcr.io/databricks-mosaic/composer:0.24.1
+  - mosaicml/composer:0.25.0
+  - ghcr.io/databricks-mosaic/composer:0.25.0
   - mosaicml/composer:latest
   - ghcr.io/databricks-mosaic/composer:latest
   TARGET: composer_stage
   TORCHVISION_VERSION: 0.19.1
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: ubuntu:20.04
-  COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.24.1
+  COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.25.0
   CUDA_VERSION: ''
-  IMAGE_NAME: composer-0-24-1-cpu
+  IMAGE_NAME: composer-0-25-0-cpu
   MOFED_VERSION: latest-23.10
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
   PYTHON_VERSION: '3.11'
@@ -222,8 +222,8 @@
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.4.1
   TAGS:
-  - mosaicml/composer:0.24.1_cpu
-  - ghcr.io/databricks-mosaic/composer:0.24.1_cpu
+  - mosaicml/composer:0.25.0_cpu
+  - ghcr.io/databricks-mosaic/composer:0.25.0_cpu
   - mosaicml/composer:latest_cpu
   - ghcr.io/databricks-mosaic/composer:latest_cpu
   TARGET: composer_stage

@@ -612,6 +612,12 @@ class State(Serializable):
                     'Tensor parallelism (TP) currently requires FSDP with use_orig_params=True, '
                     'which is the default and recommended setting.',
                 )
+            if self.tp_config.tensor_parallel_degree == 1:
+                warnings.warn(
+                    'Received tensor_parallel_degree of 1, which is a no-op. Tensor parallelism will not be used.',
+                    UserWarning,
+                )
+                self.tp_config = None
 
         # Load monolith rank0 only
         if self.load_monolith_rank0_only:
