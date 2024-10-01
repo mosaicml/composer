@@ -11,7 +11,7 @@ from composer.loggers import Logger
 
 
 class LoadCheckpoint(Callback):
-    """Callback that loads a checkpoint at the specified event..
+    """Callback that loads a checkpoint at the specified event.
 
     Args:
         load_path: The path to the checkpoint to load.
@@ -19,7 +19,12 @@ class LoadCheckpoint(Callback):
         event: The event at which to load the checkpoint. Defaults to ``Event.BEFORE_LOAD``.
     """
 
-    def __init__(self, load_path: str, load_options: Optional[dict] = None, event: Union[str, Event] = Event.BEFORE_LOAD):
+    def __init__(
+        self,
+        load_path: str,
+        load_options: Optional[dict] = None,
+        event: Union[str, Event] = Event.BEFORE_LOAD,
+    ):
         super().__init__()
         self.load_path = load_path
         self.load_options = CheckpointLoadOptions(**(load_options or {}))
@@ -29,7 +34,7 @@ class LoadCheckpoint(Callback):
         if event == self.event:
             self._load(state, logger)
         return super().run_event(event, state, logger)
-    
+
     def _load(self, state: State, logger: Logger) -> None:
         del logger  # unused
 
