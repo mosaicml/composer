@@ -29,10 +29,12 @@ def _wrap_errors(uri: str, e: Exception):
     # Wrap DatabricksError in ObjectStoreTransientError.
     # If the file is not found, raise FileNotFoundError.
     from databricks.sdk.errors import DatabricksError
-    from databricks.sdk.errors.platform import NotFound
+    from databricks.sdk.errors.platform import NotFound, PermissionDenied
     if isinstance(e, DatabricksError):
         if isinstance(e, NotFound) or e.error_code == _NOT_FOUND_ERROR_CODE:  # type: ignore
             raise FileNotFoundError(f'Object {uri} not found') from e
+        if isinstance(e, PermissionDenied):
+            raise e
         raise ObjectStoreTransientError from e
 
     # Wrap ChunkedEncodingError in ObjectStoreTransientError.
