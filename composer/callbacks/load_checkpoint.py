@@ -17,9 +17,9 @@ class LoadCheckpoint(Callback):
     """Callback that loads a checkpoint at the specified event.
 
     Args:
-        load_path: The path to the checkpoint to load.
-        load_options: A dictionary of options to pass to the checkpoint loading function.
-        event: The event at which to load the checkpoint. Defaults to ``Event.BEFORE_LOAD``.
+        load_path (str): The path to the checkpoint to load.
+        load_options (Optional[dict]): A dictionary of options to pass to the checkpoint loading function.
+        event (Union[str, Event]): The event at which to load the checkpoint. Defaults to ``Event.BEFORE_LOAD``.
     """
 
     def __init__(
