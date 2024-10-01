@@ -2,12 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Load a checkpoint."""
+import logging
 from typing import Optional, Union
 
 from composer.checkpoint.load import CheckpointLoadOptions, load_checkpoint
 from composer.core import Callback, State
 from composer.core.event import Event
 from composer.loggers import Logger
+
+log = logging.getLogger(__name__)
 
 
 class LoadCheckpoint(Callback):
@@ -38,6 +41,8 @@ class LoadCheckpoint(Callback):
     def _load(self, state: State, logger: Logger) -> None:
         del logger  # unused
 
+        log.info(f'Loading checkpoint from {self.load_path} at event {self.event}.')
+
         load_checkpoint(
             load_path=self.load_path,
             load_options=self.load_options,
@@ -45,3 +50,5 @@ class LoadCheckpoint(Callback):
             model_child_path='',
             optim_child_path='',
         )
+
+        log.info(f'Finished loading checkpoint from {self.load_path} at event {self.event}.')
