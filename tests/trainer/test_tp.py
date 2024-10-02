@@ -2,9 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import contextlib
-from typing import Any, Optional, TypeVar, Union
-
-E = TypeVar('E', bound=BaseException)
+from typing import Any, Optional, Union
 
 import numpy as np
 import pytest
@@ -417,8 +415,8 @@ def test_tp_with_param_groups(world_size: int):
         )
 
 
-@pytest.mark.gpu
 @world_size(4)
+@pytest.mark.gpu
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 def test_tp_with_subset_of_params(world_size: int):
