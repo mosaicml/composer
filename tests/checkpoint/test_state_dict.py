@@ -60,10 +60,10 @@ def test_get_model_state_dict_ignore(use_composer_model: bool):
         model = EvenSimplerMLP(num_features=8, device='cuda')
 
     model_state_dict = get_model_state_dict(model, sharded_state_dict=False, ignore_keys='module.2.weight')
-    assert set(model_state_dict.keys()) == {'fc1.weight', 'fc2.weight', 'module.0.weight'}
+    assert set(model_state_dict.keys()) == {'module.0.weight'}
 
     model_state_dict = get_model_state_dict(model, sharded_state_dict=False, ignore_keys=['module.2*'])
-    assert set(model_state_dict.keys()) == {'fc1.weight', 'fc2.weight', 'module.0.weight'}
+    assert set(model_state_dict.keys()) == {'module.0.weight'}
 
 
 @pytest.mark.gpu
