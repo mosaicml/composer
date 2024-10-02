@@ -88,15 +88,7 @@ def get_trainer(
 ) -> Trainer:
 
     if parallelism_strategy == 'ddp':
-        trainer = get_base_trainer(
-            size=size,
-            batch_size=batch_size,
-            num_classes=num_classes,
-            num_features=num_features,
-            seed=seed,
-            device=device,
-            replication=replication,
-        )
+        parallelism_config = None
     elif parallelism_strategy == 'fsdp':
         fsdp_config = FSDPConfig(
             state_dict_type='full',
@@ -105,17 +97,6 @@ def get_trainer(
             use_orig_params=True,
         )
         parallelism_config = ParallelismConfig(fsdp=fsdp_config)
-
-        trainer = get_base_trainer(
-            size=size,
-            batch_size=batch_size,
-            num_classes=num_classes,
-            num_features=num_features,
-            seed=seed,
-            device=device,
-            replication=replication,
-            parallelism_config=parallelism_config,
-        )
     elif parallelism_strategy == 'tp-fsdp':
         from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
 
@@ -134,21 +115,21 @@ def get_trainer(
             tensor_parallel_degree=1 if replication is None else replication,
         )
         parallelism_config = ParallelismConfig(fsdp=fsdp_config, tp=tp_config)
-
-        trainer = get_base_trainer(
-            size=size,
-            batch_size=batch_size,
-            num_classes=num_classes,
-            num_features=num_features,
-            seed=seed,
-            device=device,
-            replication=replication,
-            parallelism_config=parallelism_config,
-        )
     else:
         raise ValueError(
-            f'`parallelism_strategy` must be one of `ddp`, `fsdp`, `tp-fsdp` but was {parallelism_strategy=}',
+            f'`parallelism_strategy` must be one of `ddp`, `fsdp`, `tp-fsdp` but was {parallelism_strategy=}.',
         )
+
+    trainer = get_base_trainer(
+        size=size,
+        batch_size=batch_size,
+        num_classes=num_classes,
+        num_features=num_features,
+        seed=seed,
+        device=device,
+        replication=replication,
+        parallelism_config=parallelism_config,
+    )
 
     return trainer
 
