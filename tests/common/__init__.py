@@ -8,6 +8,7 @@ from tests.common.datasets import (
     InfiniteClassificationDataset,
     ParityDataset,
     RandomClassificationDataset,
+    RandomClassificationDatasetReplicated,
     RandomImageDataset,
     RandomSegmentationDataset,
     RandomTextClassificationDataset,
@@ -21,6 +22,7 @@ from tests.common.models import (
     EmbeddedWeightTiedModel,
     EmptyModel,
     EvenSimplerMLP,
+    SimpleComposerMLP,
     SimpleConvModel,
     SimpleMLP,
     SimpleModel,
@@ -28,6 +30,7 @@ from tests.common.models import (
     SimpleTransformerClassifier,
     SimpleTransformerMaskedLM,
     SimpleWeightTiedModel,
+    TPSimpleComposerMLP,
     ZeroModel,
     composer_resnet,
 )
@@ -42,6 +45,7 @@ def get_module_subclasses(module: types.ModuleType, cls: type) -> list[type]:
 __all__ = [
     'assert_state_equivalent',
     'RandomClassificationDataset',
+    'RandomClassificationDatasetReplicated',
     'RandomTextClassificationDataset',
     'RandomTextLMDataset',
     'RandomImageDataset',
@@ -67,4 +71,6 @@ __all__ = [
     'composer_resnet',
     'SimpleMLP',
     'EvenSimplerMLP',
+    'SimpleComposerMLP',
+    'TPSimpleComposerMLP',
 ]
