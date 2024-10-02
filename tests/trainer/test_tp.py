@@ -1,11 +1,13 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import contextlib
 from typing import Any, Optional, TypeVar, Union
 
 E = TypeVar('E', bound=BaseException)
 
 import numpy as np
+
 import pytest
 import torch
 from packaging import version
@@ -15,6 +17,7 @@ from torch.utils.data import DataLoader, Dataset
 
 from composer.callbacks import MemoryMonitor
 from composer.loggers import InMemoryLogger
+from composer.optim import DecoupledSGDW
 from composer.trainer.trainer import Trainer
 from composer.utils import FSDPConfig, ParallelismConfig, TPConfig, dist, reproducibility
 from tests.common import (
@@ -347,15 +350,17 @@ def test_tp_fit_correctness(world_size: int, batch_size: int, replication: int):
 
 @pytest.mark.gpu
 @world_size(4)
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
-def test_tp_train(world_size: int):
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
+@pytest.mark.parametrize('tensor_parallel_degree', [1, 2])
+def test_tp_train(world_size: int, tensor_parallel_degree: int):
     from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
 
     # For TP to produce the correct result, each TP rank receives the same data
     # In this test, TP ranks receive different data as we are testing the TP
     # mechanism, not actual TP correctness.
     model = SimpleModel()
+    optimizer = DecoupledSGDW(model.parameters(), lr=0.1)
     dataset = RandomClassificationDataset(size=8)
     dataloader = DataLoader(dataset, batch_size=2, sampler=dist.get_sampler(dataset))
 
@@ -364,15 +369,26 @@ def test_tp_train(world_size: int):
         'fc2': RowwiseParallel(),
     }
 
-    trainer = Trainer(
-        model=model,
-        train_dataloader=dataloader,
-        parallelism_config={
-            'tp': TPConfig(layer_plan=layer_plan, tensor_parallel_degree=2),
-            'fsdp': {},
-        },
-        max_duration='3ba',
-    )
+    if tensor_parallel_degree == 1:
+        expected_warning = 'Received tensor_parallel_degree of 1, which is a no-op. Tensor parallelism will not be used.'
+        ctx = pytest.warns(UserWarning, match=expected_warning)
+    else:
+        ctx = contextlib.nullcontext()
+
+    with ctx:
+        trainer = Trainer(
+            model=model,
+            optimizers=optimizer,
+            train_dataloader=dataloader,
+            parallelism_config={
+                'tp': {
+                    'layer_plan': layer_plan,
+                    'tensor_parallel_degree': tensor_parallel_degree,
+                },
+                'fsdp': {},
+            },
+            max_duration='3ba',
+        )
 
     trainer.fit()
 
