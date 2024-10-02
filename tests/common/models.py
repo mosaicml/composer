@@ -131,23 +131,19 @@ class EvenSimplerMLP(torch.nn.Module):
         return self.module(x)
 
 
-# Like SimpleMLP but saves each layer which is necessary to TP to it.
-class TPSimpleMLP(torch.nn.Module):
-
-    def __init__(self, num_features: int, device: str = 'cpu', num_out_features: int = 3):
-        super().__init__()
-        self.fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
-        self.fc2 = torch.nn.Linear(num_features, num_out_features, device=device, bias=False)
-
-        self.module = torch.nn.Sequential(self.fc1, torch.nn.ReLU(), self.fc2)
-
-    def forward(self, x):
-        return self.module(x)
-
-
 # This model is used when you want a SimpleMLP, but you want to explicitly
 # test ComposerModels instead of nn.Module.
 class SimpleComposerMLP(ComposerClassifier):
+
+    def __init__(self, num_features: int, device: Union[str, torch.device], num_classes: int = 3):
+        fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        fc2 = torch.nn.Linear(num_features, num_classes, device=device, bias=False)
+        net = torch.nn.Sequential(fc1, torch.nn.ReLU(), fc2)
+        super().__init__(num_classes=num_classes, module=net)
+
+
+# Like SimpleComposerMLP but saves each layer which is necessary to TP to it.
+class TPSimpleComposerMLP(ComposerClassifier):
 
     def __init__(self, num_features: int, device: Union[str, torch.device], num_classes: int = 3):
         fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)

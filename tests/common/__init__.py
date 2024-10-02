@@ -30,6 +30,7 @@ from tests.common.models import (
     SimpleTransformerClassifier,
     SimpleTransformerMaskedLM,
     SimpleWeightTiedModel,
+    TPSimpleComposerMLP,
     ZeroModel,
     composer_resnet,
 )
@@ -71,4 +72,5 @@ __all__ = [
     'SimpleMLP',
     'EvenSimplerMLP',
     'SimpleComposerMLP',
+    'TPSimpleComposerMLP',
 ]

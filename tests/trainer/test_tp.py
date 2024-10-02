@@ -20,8 +20,8 @@ from composer.utils import FSDPConfig, ParallelismConfig, TPConfig, dist, reprod
 from tests.common import (
     RandomClassificationDataset,
     RandomClassificationDatasetReplicated,
-    SimpleComposerMLP,
     SimpleModel,
+    TPSimpleComposerMLP,
     deep_compare,
     world_size,
 )
@@ -57,7 +57,7 @@ def get_base_trainer(
         batch_size=batch_size,
     )  # X=(batch_size, num_features), y=(batch_size,)
 
-    model = SimpleComposerMLP(num_features=num_features, device=device, num_classes=num_classes)
+    model = TPSimpleComposerMLP(num_features=num_features, device=device, num_classes=num_classes)
 
     trainer = Trainer(
         seed=seed,
