@@ -149,7 +149,7 @@ def get_trainer(
         )
     else:
         raise ValueError(
-            f'`parallelism_strategy` must be one of `ddp`, `fsdp`, `tp-fsdp` but was {parallelism_strategy=}'
+            f'`parallelism_strategy` must be one of `ddp`, `fsdp`, `tp-fsdp` but was {parallelism_strategy=}',
         )
 
     return trainer
