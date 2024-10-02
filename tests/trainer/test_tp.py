@@ -7,7 +7,6 @@ from typing import Any, Optional, TypeVar, Union
 E = TypeVar('E', bound=BaseException)
 
 import numpy as np
-
 import pytest
 import torch
 from packaging import version
@@ -30,7 +29,7 @@ from tests.common import (
 )
 
 
-def get_trainer(
+def get_base_trainer(
     parallelism_config: Optional[ParallelismConfig] = None,
     size: int = 4,
     batch_size: int = 1,
@@ -79,7 +78,8 @@ def get_trainer(
     return trainer
 
 
-def get_ddp_trainer(
+def get_trainer(
+    parallelism_strategy: str,
     size: int = 4,
     batch_size: int = 1,
     num_classes: int = 2,
@@ -87,89 +87,72 @@ def get_ddp_trainer(
     seed: int = 44,
     device: Union[torch.device, str] = 'cuda',
     replication: Optional[int] = None,
-):
-    ddp_trainer = get_trainer(
-        size=size,
-        batch_size=batch_size,
-        num_classes=num_classes,
-        num_features=num_features,
-        seed=seed,
-        device=device,
-        replication=replication,
-    )
-    return ddp_trainer
+) -> Trainer:
 
+    if parallelism_strategy == 'ddp':
+        trainer = get_base_trainer(
+            size=size,
+            batch_size=batch_size,
+            num_classes=num_classes,
+            num_features=num_features,
+            seed=seed,
+            device=device,
+            replication=replication,
+        )
+    elif parallelism_strategy == 'fsdp':
+        fsdp_config = FSDPConfig(
+            state_dict_type='full',
+            sharding_strategy='SHARD_GRAD_OP',
+            mixed_precision='full',
+            use_orig_params=True,
+        )
+        parallelism_config = ParallelismConfig(fsdp=fsdp_config)
 
-def get_fsdp_trainer(
-    size: int = 4,
-    batch_size: int = 1,
-    num_classes: int = 2,
-    num_features: int = 2,
-    seed: int = 44,
-    device: Union[torch.device, str] = 'cuda',
-    replication: Optional[int] = None,
-):
-    fsdp_config = FSDPConfig(
-        state_dict_type='full',
-        sharding_strategy='SHARD_GRAD_OP',
-        mixed_precision='full',
-        use_orig_params=True,
-    )
-    parallelism_config = ParallelismConfig(fsdp=fsdp_config)
+        trainer = get_base_trainer(
+            size=size,
+            batch_size=batch_size,
+            num_classes=num_classes,
+            num_features=num_features,
+            seed=seed,
+            device=device,
+            replication=replication,
+            parallelism_config=parallelism_config,
+        )
+    elif parallelism_strategy == 'tp-fsdp':
+        from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
 
-    fsdp_trainer = get_trainer(
-        parallelism_config=parallelism_config,
-        size=size,
-        batch_size=batch_size,
-        num_classes=num_classes,
-        num_features=num_features,
-        seed=seed,
-        device=device,
-        replication=replication,
-    )
-    return fsdp_trainer
+        fsdp_config = FSDPConfig(
+            state_dict_type='full',
+            sharding_strategy='SHARD_GRAD_OP',
+            mixed_precision='full',
+            use_orig_params=True,
+        )
+        layer_plan = {
+            'fc1': ColwiseParallel(),
+            'fc2': RowwiseParallel(),
+        }
+        tp_config = TPConfig(
+            layer_plan=layer_plan,
+            tensor_parallel_degree=1 if replication is None else replication,
+        )
+        parallelism_config = ParallelismConfig(fsdp=fsdp_config, tp=tp_config)
 
+        trainer = get_base_trainer(
+            size=size,
+            batch_size=batch_size,
+            num_classes=num_classes,
+            num_features=num_features,
+            seed=seed,
+            device=device,
+            replication=replication,
+            parallelism_config=parallelism_config,
+        )
+    else:
+        raise ValueError(
+            f'`parallelism_strategy` must be one of `ddp`, `fsdp`, `tp-fsdp` but was {parallelism_strategy=}'
+        )
 
-def get_tp_fsdp_trainer(
-    size: int = 4,
-    batch_size: int = 1,
-    num_classes: int = 2,
-    num_features: int = 2,
-    seed: int = 44,
-    device: Union[torch.device, str] = 'cuda',
-    replication: Optional[int] = None,
-):
-    from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
-
-    fsdp_config = FSDPConfig(
-        state_dict_type='full',
-        sharding_strategy='SHARD_GRAD_OP',
-        mixed_precision='full',
-        use_orig_params=True,
-    )
-
-    layer_plan = {
-        'fc1': ColwiseParallel(),
-        'fc2': RowwiseParallel(),
-    }
-
-    tp_config = TPConfig(
-        layer_plan=layer_plan,
-        tensor_parallel_degree=1 if replication is None else replication,
-    )
-    parallelism_config = ParallelismConfig(fsdp=fsdp_config, tp=tp_config)
-
-    tp_fsdp_trainer = get_trainer(
-        parallelism_config=parallelism_config,
-        size=size,
-        batch_size=batch_size,
-        num_classes=num_classes,
-        num_features=num_features,
-        seed=seed,
-        device=device,
-        replication=replication,
-    )
-    return tp_fsdp_trainer
+    return trainer
 
 
 def forward_pass(trainer):
@@ -265,9 +248,9 @@ def test_tp_forwards_backwards_correctness(world_size: int, replication: int):
     """
 
     # Initialize trainers with DDP, FSDP, TP-FSDP
-    ddp_trainer = get_ddp_trainer(replication=replication)
-    fsdp_trainer = get_fsdp_trainer(replication=replication)
-    tp_fsdp_trainer = get_tp_fsdp_trainer(replication=replication)
+    ddp_trainer = get_trainer('ddp', replication=replication)
+    fsdp_trainer = get_trainer('fsdp', replication=replication)
+    tp_fsdp_trainer = get_trainer('tp-fsdp', replication=replication)
 
     # Ensure initial model weights are the same
     compare_models(ddp_trainer, fsdp_trainer, tp_fsdp_trainer)
@@ -320,19 +303,19 @@ def test_tp_fit_correctness(world_size: int, batch_size: int, replication: int):
     dataset_size = samples_per_batch * train_steps
 
     # DDP fit
-    ddp_trainer = get_ddp_trainer(size=dataset_size, batch_size=batch_size, replication=replication)
+    ddp_trainer = get_trainer('ddp', size=dataset_size, batch_size=batch_size, replication=replication)
     ddp_trainer.fit()
     ddp_trainer.close()
     ddp_stats = get_stats(ddp_trainer)
 
     # FSDP fit
-    fsdp_trainer = get_fsdp_trainer(size=dataset_size, batch_size=batch_size, replication=replication)
+    fsdp_trainer = get_trainer('fsdp', size=dataset_size, batch_size=batch_size, replication=replication)
     fsdp_trainer.fit()
     fsdp_trainer.close()
     fsdp_stats = get_stats(fsdp_trainer)
 
     # TP-FSDP fit
-    tp_fsdp_trainer = get_tp_fsdp_trainer(size=dataset_size, batch_size=batch_size, replication=replication)
+    tp_fsdp_trainer = get_trainer('tp-fsdp', size=dataset_size, batch_size=batch_size, replication=replication)
     tp_fsdp_trainer.fit()
     tp_fsdp_trainer.close()
     tp_fsdp_stats = get_stats(tp_fsdp_trainer)
@@ -473,7 +456,7 @@ def test_tp_with_subset_of_params(world_size: int):
 @pytest.mark.skip('This is broken due to https://github.com/pytorch/pytorch/issues/134095/.')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 def test_tp_fsdp_state_dict(world_size: int):
-    tp_fsdp_trainer = get_tp_fsdp_trainer(replication=2)
+    tp_fsdp_trainer = get_trainer('tp_fsdp', replication=2)
     tp_fsdp_state_dict1 = tp_fsdp_trainer.state.state_dict()  # work sometimes, fails sometimes
     with FSDP.summon_full_params(tp_fsdp_trainer.state.model, with_grads=True):
         tp_fsdp_state_dict2 = tp_fsdp_trainer.state.state_dict()  # fails always
