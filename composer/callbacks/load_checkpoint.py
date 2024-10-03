@@ -5,10 +5,11 @@
 import logging
 from typing import List, Optional, Union
 
-from composer.utils.checkpoint import load_checkpoint
 from composer.core import Callback, State
 from composer.core.event import Event
 from composer.loggers import Logger
+from composer.models.huggingface import HuggingFaceModel
+from composer.utils.checkpoint import load_checkpoint
 
 log = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class LoadCheckpoint(Callback):
         load_weights_only: bool = False,
         strict_model_weights: bool = True,
         ignore_keys: Optional[List[str]] = None,
-        event: Union[str, Event] = Event.AFTER_LOAD,
+        event: Union[str, Event] = Event.BEFORE_LOAD,
     ):
         super().__init__()
         self.load_path = load_path
@@ -40,14 +41,22 @@ class LoadCheckpoint(Callback):
 
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
         if event == self.event:
-            log.info(f'Loading checkpoint from {self.load_path} at event {self.event}.')
+            log.info(f'Loading checkpoint from {self.load_path} at {self.event}.')
             self._load(state, logger)
-            log.info(f'Finished loading checkpoint from {self.load_path} at event {self.event}.')
+            log.info(f'Finished loading checkpoint from {self.load_path} at {self.event}.')
 
         return super().run_event(event, state, logger)
 
     def _load(self, state: State, logger: Logger) -> None:
-        print('state state dict', state.state_dict()['model'].keys())
+
+        # We need to temporarily disable the `should_save_peft_only` flag on the model
+        # so that we can have access to the full model weights for loading.
+        model = state.model
+        original_should_save_peft_only = False
+        if isinstance(model, HuggingFaceModel):
+            original_should_save_peft_only = model.should_save_peft_only
+            model.should_save_peft_only = False
+
         load_checkpoint(
             path=self.load_path,
             state=state,
@@ -57,3 +66,6 @@ class LoadCheckpoint(Callback):
             load_weights_only=self.load_weights_only,
         )
 
+        # Restore the original `should_save_peft_only` flag on the model
+        if isinstance(model, HuggingFaceModel):
+            model.should_save_peft_only = original_should_save_peft_only
