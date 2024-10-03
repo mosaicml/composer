@@ -3,9 +3,9 @@
 
 """Load a checkpoint."""
 import logging
-from typing import Optional, Union
+from typing import List, Optional, Union
 
-from composer.checkpoint.load import CheckpointLoadOptions, load_checkpoint
+from composer.utils.checkpoint import load_checkpoint
 from composer.core import Callback, State
 from composer.core.event import Event
 from composer.loggers import Logger
@@ -25,30 +25,35 @@ class LoadCheckpoint(Callback):
     def __init__(
         self,
         load_path: str,
-        load_options: Optional[dict] = None,
-        event: Union[str, Event] = Event.BEFORE_LOAD,
+        load_weights_only: bool = False,
+        strict_model_weights: bool = True,
+        ignore_keys: Optional[List[str]] = None,
+        event: Union[str, Event] = Event.AFTER_LOAD,
     ):
         super().__init__()
         self.load_path = load_path
-        self.load_options = CheckpointLoadOptions(**(load_options or {}))
+        self.load_weights_only = load_weights_only
+        self.strict_model_weights = strict_model_weights
+        self.ignore_keys = ignore_keys
+
         self.event = event if isinstance(event, Event) else Event[event.lower()]
 
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
         if event == self.event:
+            log.info(f'Loading checkpoint from {self.load_path} at event {self.event}.')
             self._load(state, logger)
+            log.info(f'Finished loading checkpoint from {self.load_path} at event {self.event}.')
+
         return super().run_event(event, state, logger)
 
     def _load(self, state: State, logger: Logger) -> None:
-        del logger  # unused
-
-        log.info(f'Loading checkpoint from {self.load_path} at event {self.event}.')
-
+        print('state state dict', state.state_dict()['model'].keys())
         load_checkpoint(
-            load_path=self.load_path,
-            load_options=self.load_options,
+            path=self.load_path,
             state=state,
-            model_child_path='',
-            optim_child_path='',
+            logger=logger,
+            strict_model_weights=self.strict_model_weights,
+            ignore_keys=self.ignore_keys,
+            load_weights_only=self.load_weights_only,
         )
 
-        log.info(f'Finished loading checkpoint from {self.load_path} at event {self.event}.')
