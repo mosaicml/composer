@@ -8,7 +8,7 @@ from PIL import Image
 from torch.utils.data import DataLoader, Dataset, IterableDataset
 from torchvision.datasets import VisionDataset
 
-from composer.utils import dist
+from composer.utils import dist, reproducibility
 from tests.common.models import configure_tiny_bert_tokenizer, configure_tiny_gpt2_tokenizer
 
 
@@ -55,12 +55,19 @@ class RandomClassificationDataset(Dataset):
         num_classes (int): number of classes (default: 2)
     """
 
-    def __init__(self, shape: Sequence[int] = (1, 1, 1), size: int = 100, num_classes: int = 2):
-        self.size = size
-        self.shape = shape
-        self.num_classes = num_classes
-        self.x = None
-        self.y = None
+    def __init__(
+        self,
+        shape: Sequence[int] = (1, 1, 1),
+        size: int = 100,
+        num_classes: int = 2,
+        device: Optional[torch.device] = None,
+    ):
+        self.size: int = size
+        self.shape: Sequence[int] = shape
+        self.num_classes: int = num_classes
+        self.device: Optional[torch.device] = device
+        self.x: Optional[torch.Tensor] = None
+        self.y: Optional[torch.Tensor] = None
 
     def __len__(self):
         return self.size
@@ -69,10 +76,54 @@ class RandomClassificationDataset(Dataset):
         # Note: lazily generate data so it runs after Composer seeds everything, giving the same
         # dataset across multiple calls when using the same seed.
         if self.x is None:
-            self.x = torch.randn(self.size, *self.shape)
+            self.x = torch.randn(
+                self.size,
+                *self.shape,
+                device=self.device,
+            )
         if self.y is None:
-            self.y = torch.randint(0, self.num_classes, size=(self.size,))
+            self.y = torch.randint(0, self.num_classes, size=(self.size,), device=self.device)
         return self.x[index], self.y[index]
+
+
+class RandomClassificationDatasetReplicated(RandomClassificationDataset):
+    """Like RandomClassificationDataset but samples are replicated across tensor parallelism groups."""
+
+    def __init__(
+        self,
+        shape: Sequence[int] = (1, 1, 1),
+        size: int = 100,
+        num_classes: int = 2,
+        device: Optional[torch.device] = None,
+        seed: int = 44,
+        replication: Optional[int] = 2,
+    ):
+        super().__init__(shape, size, num_classes, device)
+        self.rank = dist.get_local_rank()
+        self.world_size = dist.get_world_size()
+        assert replication is not None
+        self.n_tp_groups = replication  # the number of tp groups that we are replicating across
+        self.seed = seed
+
+    def _generate_data(self):
+        tp_group_id = self.rank // self.n_tp_groups
+        seed = self.seed + tp_group_id  # all ranks in the same TP group have the same seed
+        reproducibility.seed_all(seed)
+        self.x = torch.randn(self.size, *self.shape, device=self.device)
+        self.y = torch.randint(0, self.num_classes, size=(self.size,), device=self.device)
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, idx):
+        if self.x is None and self.y is None:
+            self._generate_data()
+
+        assert self.x is not None
+        assert self.y is not None
+
+        rank_idx = idx // self.world_size
+        return self.x[rank_idx], self.y[rank_idx]
 
 
 class RandomImageDataset(VisionDataset):

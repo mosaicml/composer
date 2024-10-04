@@ -180,9 +180,9 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,!=4.34.0,<4.45',
+    'transformers>=4.11,!=4.34.0,<4.46',
     'datasets>=2.4,<4',
-    'huggingface-hub>=0.21.2,<0.25',
+    'huggingface-hub>=0.21.2,<0.26',
 ]
 
 extra_deps['peft'] = [
@@ -225,13 +225,13 @@ extra_deps['onnx'] = [
 
 extra_deps['mlflow'] = [
     'mlflow>=2.14.1,<3.0',
-    'databricks-sdk==0.32.0',
+    'databricks-sdk==0.33.0',
     'pynvml>=11.5.0,<12',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk==0.32.0']
+extra_deps['databricks'] = ['databricks-sdk==0.33.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 
