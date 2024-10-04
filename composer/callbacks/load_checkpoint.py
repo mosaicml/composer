@@ -10,6 +10,7 @@ from composer.core.event import Event
 from composer.loggers import Logger
 from composer.models.huggingface import HuggingFaceModel
 from composer.utils.checkpoint import load_checkpoint
+from composer.utils.file_helpers import maybe_create_object_store_from_uri, parse_uri
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +34,9 @@ class LoadCheckpoint(Callback):
     ):
         super().__init__()
         self.load_path = load_path
+        self.load_object_store = maybe_create_object_store_from_uri(load_path)
+        _, _, self.parsed_path = parse_uri(load_path)
+
         self.load_weights_only = load_weights_only
         self.strict_model_weights = strict_model_weights
         self.ignore_keys = ignore_keys
@@ -58,9 +62,10 @@ class LoadCheckpoint(Callback):
             model.should_save_peft_only = False
 
         load_checkpoint(
-            path=self.load_path,
+            path=self.parsed_path,
             state=state,
             logger=logger,
+            object_store=self.load_object_store,
             strict_model_weights=self.strict_model_weights,
             ignore_keys=self.ignore_keys,
             load_weights_only=self.load_weights_only,
