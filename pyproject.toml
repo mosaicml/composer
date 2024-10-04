@@ -169,6 +169,8 @@ filterwarnings = [
     # Ignore mlflow warnings about transformers versions,
     '''ignore:The 'transformers' MLflow Models integration.*:UserWarning''',
     # Ignore our own deprecation warnings,
+    '''ignore:To use flash-attn v3*:UserWarning''',
+    # Ignore the flash v3 warnings from transformer engine
     '''ignore::composer.utils.warnings.VersionedDeprecationWarning''',
     # Ignore deprecation warning for torch.load
     '''ignore:You are using `torch.load` with `weights_only=False`.*:FutureWarning''',
