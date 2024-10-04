@@ -127,7 +127,7 @@ def configure_deterministic_mode():
     # See https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html
     # and https://docs.nvidia.com/cuda/cublas/index.html#cublasApi_reproducibility
     os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
-    warnings.warn('Deterministic mode is activated. This will negatively impact performance.', category=UserWarning)
+    log.info('Deterministic mode is activated. This will negatively impact performance.')
 
 
 def get_random_seed() -> int:
