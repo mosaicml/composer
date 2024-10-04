@@ -3,7 +3,7 @@
 
 """Load a checkpoint."""
 import logging
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 from composer.core import Callback, State
 from composer.core.event import Event
@@ -28,7 +28,7 @@ class LoadCheckpoint(Callback):
         load_path: str,
         load_weights_only: bool = False,
         strict_model_weights: bool = True,
-        ignore_keys: Optional[List[str]] = None,
+        ignore_keys: Optional[list[str]] = None,
         event: Union[str, Event] = Event.BEFORE_LOAD,
     ):
         super().__init__()
@@ -37,7 +37,7 @@ class LoadCheckpoint(Callback):
         self.strict_model_weights = strict_model_weights
         self.ignore_keys = ignore_keys
 
-        self.event = event if isinstance(event, Event) else Event[event.lower()]
+        self.event = event if isinstance(event, Event) else Event[event.upper()]
 
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
         if event == self.event:
