@@ -35,6 +35,7 @@ from tests.common.models import (
     configure_tiny_t5_model,
     configure_tiny_t5_tokenizer,
 )
+from tests.fixtures.fixtures import _gpt2_peft_config
 from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
 
 if TYPE_CHECKING:
