@@ -26,6 +26,7 @@ from composer.callbacks import (
     SystemMetricsMonitor,
     ThresholdStopper,
 )
+from composer.callbacks.load_checkpoint import LoadCheckpoint
 from composer.loggers import (
     CometMLLogger,
     ConsoleLogger,
@@ -154,6 +155,9 @@ _callback_kwargs: dict[type[Callback], dict[str, Any]] = {
     composer.profiler.Profiler: {
         'trace_handlers': [MagicMock()],
         'schedule': composer.profiler.cyclic_schedule(),
+    },
+    LoadCheckpoint: {
+        'load_path': 'fake-path',
     },
 }
 
