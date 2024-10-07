@@ -1,8 +1,10 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import contextlib
 import os
 from typing import Any
+from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
@@ -204,6 +206,14 @@ _callback_marks: dict[
     SystemMetricsMonitor: [pytest.mark.skipif(not _PYNMVL_INSTALLED, reason='pynmvl is optional')],
     NeptuneLogger: [pytest.mark.skipif(not _NEPTUNE_INSTALLED, reason='neptune is optional')],
 }
+
+_callback_patches: dict[type[Callback], Any] = {
+    LoadCheckpoint: mock.patch('composer.callbacks.load_checkpoint.load_checkpoint'),
+}
+
+
+def get_cb_patches(impl: type[Callback]):
+    return _callback_patches.get(impl, contextlib.nullcontext())
 
 
 def get_cb_kwargs(impl: type[Callback]):

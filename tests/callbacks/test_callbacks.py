@@ -10,7 +10,12 @@ from composer.core.time import Time
 from composer.loggers import Logger, LoggerDestination
 from composer.profiler import Profiler, ProfilerAction
 from composer.trainer import Trainer
-from tests.callbacks.callback_settings import get_cb_kwargs, get_cb_model_and_datasets, get_cbs_and_marks
+from tests.callbacks.callback_settings import (
+    get_cb_kwargs,
+    get_cb_model_and_datasets,
+    get_cb_patches,
+    get_cbs_and_marks,
+)
 from tests.common import EventCounterCallback
 
 
@@ -154,8 +159,12 @@ class TestCallbackTrains:
         del _remote  # unused. `_remote` must be passed through to parameterize the test markers.
         cb_kwargs = get_cb_kwargs(cb_cls)
         cb = cb_cls(**cb_kwargs)
-        trainer = self._get_trainer(cb, device_train_microbatch_size)
-        trainer.fit()
+
+        maybe_patch_context = get_cb_patches(cb_cls)
+
+        with maybe_patch_context:
+            trainer = self._get_trainer(cb, device_train_microbatch_size)
+            trainer.fit()
 
     @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_trains_multiple_calls(self, cb_cls: type[Callback], device_train_microbatch_size: int, _remote: bool):
@@ -167,8 +176,12 @@ class TestCallbackTrains:
         del _remote  # unused. `_remote` must be passed through to parameterize the test markers.
         cb_kwargs = get_cb_kwargs(cb_cls)
         cb = cb_cls(**cb_kwargs)
-        trainer = self._get_trainer(cb, device_train_microbatch_size)
-        trainer.fit()
+
+        maybe_patch_context = get_cb_patches(cb_cls)
+
+        with maybe_patch_context:
+            trainer = self._get_trainer(cb, device_train_microbatch_size)
+            trainer.fit()
 
         assert trainer.state.max_duration is not None
         trainer.state.max_duration = cast(Time[int], trainer.state.max_duration * 2)
