@@ -9,7 +9,12 @@ from composer.core import Callback
 from composer.loggers import ConsoleLogger, LoggerDestination, ProgressBarLogger, SlackLogger
 from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
 from composer.trainer import Trainer
-from tests.callbacks.callback_settings import get_cb_kwargs, get_cb_model_and_datasets, get_cbs_and_marks
+from tests.callbacks.callback_settings import (
+    get_cb_kwargs,
+    get_cb_model_and_datasets,
+    get_cb_patches,
+    get_cbs_and_marks,
+)
 
 
 @pytest.mark.parametrize('logger_cls', get_cbs_and_marks(loggers=True))
@@ -27,12 +32,15 @@ def test_loggers_on_callbacks(logger_cls: type[LoggerDestination], callback_cls:
     callback_kwargs = get_cb_kwargs(callback_cls)
     callback = callback_cls(**callback_kwargs)
     model, train_dataloader, _ = get_cb_model_and_datasets(callback)
-    trainer = Trainer(
-        model=model,
-        train_dataloader=train_dataloader,
-        train_subset_num_batches=2,
-        max_duration='1ep',
-        callbacks=callback,
-        loggers=logger,
-    )
-    trainer.fit()
+    maybe_patch_context = get_cb_patches(callback_cls)
+
+    with maybe_patch_context:
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            train_subset_num_batches=2,
+            max_duration='1ep',
+            callbacks=callback,
+            loggers=logger,
+        )
+        trainer.fit()
