@@ -21,7 +21,12 @@ from composer.loggers.mosaicml_logger import (
 )
 from composer.trainer import Trainer
 from composer.utils import dist, get_composer_env_dict
-from tests.callbacks.callback_settings import get_cb_kwargs, get_cb_model_and_datasets, get_cbs_and_marks
+from tests.callbacks.callback_settings import (
+    get_cb_kwargs,
+    get_cb_model_and_datasets,
+    get_cb_patches,
+    get_cbs_and_marks,
+)
 from tests.common import RandomClassificationDataset, SimpleModel
 from tests.common.markers import world_size
 
@@ -121,15 +126,17 @@ def test_logged_data_is_json_serializable(monkeypatch, callback_cls: type[Callba
     callback = callback_cls(**callback_kwargs)
     train_dataset = RandomClassificationDataset()
     model, train_dataloader, _ = get_cb_model_and_datasets(callback, sampler=dist.get_sampler(train_dataset))
-    trainer = Trainer(
-        model=model,
-        train_dataloader=train_dataloader,
-        train_subset_num_batches=1,
-        max_duration='1ep',
-        callbacks=callback,
-        loggers=MosaicMLLogger(),
-    )
-    trainer.fit()
+    maybe_patch_context = get_cb_patches(callback_cls)
+    with maybe_patch_context:
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            train_subset_num_batches=1,
+            max_duration='1ep',
+            callbacks=callback,
+            loggers=MosaicMLLogger(),
+        )
+        trainer.fit()
 
     if dist.get_global_rank() == 0:
         assert len(mock_mapi.run_metadata[run_name].keys()) > 0

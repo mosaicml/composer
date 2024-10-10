@@ -148,10 +148,25 @@ def _get_write_mode(name: str) -> str:
     raise ValueError(f'{name} does not end with a valid tarfile extension.')
 
 
+def _is_rng_key(key: str, value: tuple) -> bool:
+    """Check if the key is an RNG key.
+
+    We expect the RNG key to be of the form 'rng.{rank}.cuda|torch|python|numpy'.
+    This function ensures that we don't accidentally pick up other keys.
+    """
+    starts_with_rng = key.startswith('rng')
+    ends_with_expected = key.endswith(('cuda', 'torch', 'python', 'numpy'))
+    three_parts = isinstance(value, tuple) and len(value) == 3
+    if starts_with_rng and ends_with_expected and three_parts:
+        return True
+
+    return False
+
+
 def _get_num_ranks_that_saved_rng(metadata: Metadata):
     rng_inds = []
     for field_name, field_value in metadata.planner_data.items():
-        if 'rng' in field_name:
+        if _is_rng_key(field_name, field_value):
             _, rng_rank_index, _ = field_value
             rng_inds.append(rng_rank_index)
     rng_inds = set(rng_inds)
@@ -398,23 +413,6 @@ class PartialFilePath:
                 ) + extra_suffix
 
 
-def is_checkpoint_legacy_sharded(object_store: Optional[Union[LoggerDestination, ObjectStore]], source_path: str):
-    if source_path.endswith('.symlink') or os.path.islink(source_path):
-        source_path = extract_path_from_symlink(source_path, object_store=object_store)
-    metadata_path = str(Path(source_path) / Path('.metadata'))
-    if object_store is None:
-        return not os.path.exists(metadata_path)
-    else:
-        try:
-            _, _, metadata_path = parse_uri(metadata_path)
-            with tempfile.TemporaryDirectory() as temp_dir:
-                metadata_destination = os.path.join(str(temp_dir), '.metadata')
-                download_object_or_file(metadata_path, metadata_destination, object_store)
-            return False
-        except FileNotFoundError:
-            return True
-
-
 def load_checkpoint(
     path: str,
     state: State,
@@ -516,15 +514,9 @@ def load_checkpoint(
             :attr:`load_weights_only` is not None. Otherwise, None.
     """
     path = partial_format(path, run_name=state.run_name)
-    using_legacy_sharded = False
-    if state.fsdp_sharded_state_dict_enabled:
-        assert object_store is None or isinstance(
-            object_store,
-            ObjectStore,
-        ), 'For loading sharded checkpoints load_object_store must be set with the class ObjectStore'
-        using_legacy_sharded = is_checkpoint_legacy_sharded(object_store, path)
+    log.debug(f'Loading checkpoint from formatted path: {path}')
 
-    if state.fsdp_sharded_state_dict_enabled and not using_legacy_sharded:
+    if state.fsdp_sharded_state_dict_enabled:
         rng_state_dicts = load_sharded_checkpoint(
             source_path=path,
             state=state,
@@ -539,26 +531,20 @@ def load_checkpoint(
         )
     else:
         # Download the checkpoint to the node-local folder
-        log.debug('Loading checkpoint at %s', path)
         # Each node gets one unique folder to store checkpoints that is shared amongst all local ranks in that node.
         # If fsdp sharded state_dicts is enabled then EVERY rank gets a unique checkpoint folder.
-        needs_unique_checkpoint_folder = state.fsdp_sharded_state_dict_enabled or dist.get_local_rank() == 0
-        tempdir_ctx = tempfile.TemporaryDirectory() if needs_unique_checkpoint_folder else contextlib.nullcontext(None)
+        tempdir_ctx = tempfile.TemporaryDirectory() if dist.get_local_rank() == 0 else contextlib.nullcontext(None)
         with tempdir_ctx as tempdir:
             try:
                 # Get the path to the proper checkpoint folder corresponding to the current rank's node.
                 # If fsdp_sharded_state_dict_enabled then just use that rank's unique tempdir.
-                node_checkpoint_folder = (
-                    tempdir if state.fsdp_sharded_state_dict_enabled else _get_local_rank_zero_path(tempdir)
-                )
-                assert node_checkpoint_folder is not None
+                node_checkpoint_folder = _get_local_rank_zero_path(tempdir)
 
                 composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = download_checkpoint(
                     path=path,
                     node_checkpoint_folder=node_checkpoint_folder,
                     object_store=object_store,
                     progress_bar=progress_bar,
-                    fsdp_sharded_state_dict_enabled=state.fsdp_sharded_state_dict_enabled,
                     deepspeed_sharded_checkpoint=is_model_deepspeed(state.model),
                 )
                 rng_state_dicts = _restore_checkpoint(
@@ -578,6 +564,8 @@ def load_checkpoint(
                 # be a shared resource between nodes.
                 dist.barrier()
         log.info('%s loaded from %s', 'Model weights' if load_weights_only else 'Trainer checkpoint', path)
+
+    # Verify all ranks resumed on same step
     step_to_resume_from = state.timestamp.batch.value
     max_step_to_resume_from = state.device.tensor_to_device(
         torch.tensor(state.timestamp.batch.value, dtype=torch.int64),
@@ -608,50 +596,41 @@ def dist_cp_load(
     load_planner: Optional[LoadPlanner] = None,
 ):
     if version.parse(torch.__version__) >= version.parse('2.4.0'):
-        if version.parse(torch.__version__) < version.parse('2.4.1'):
-            # PyTorch 2.4.0
-            from torch.distributed.checkpoint.utils import CheckpointException
-            try:
-                dist_cp.load(
-                    state_dict=state_dict,
-                    storage_reader=storage_reader,
-                    planner=load_planner,
-                )
-            except CheckpointException as e:
-                checkpoint_metadata = storage_reader.read_metadata().state_dict_metadata
-                if 'state.metadata' in checkpoint_metadata and 'state.metadata.composer_env_info.composer_version' not in checkpoint_metadata:
-                    # Torch 2.4 changed the way how state dict is flattened. It broke backward compatibility.
-                    # Torch issue: https://github.com/pytorch/pytorch/issues/133923.
-                    # We override the traverse_state_dict so that the load planner could
-                    # use the old way of flattening the state dict
-                    log.debug('Trying to load checkpointing saved before torch 2.4')
-
-                    import torch.distributed.checkpoint._nested_dict as nested_dict
-                    import torch.distributed.checkpoint._sharded_tensor_utils as sharded_tensor_util
-                    from torch.distributed.checkpoint._traverse import traverse_state_dict as traverse_2_4_0
-
-                    from composer.trainer._patch_pytorch import traverse_state_dict as backward_compatible_traverse
-
-                    nested_dict.traverse_state_dict = backward_compatible_traverse
-                    sharded_tensor_util.traverse_state_dict = backward_compatible_traverse
-
-                    dist_cp.load(
-                        state_dict=state_dict,
-                        storage_reader=storage_reader,
-                        planner=load_planner,
-                    )
-                    # Revert the override
-                    nested_dict.traverse_state_dict = traverse_2_4_0
-                    sharded_tensor_util.traverse_state_dict = traverse_2_4_0
-                else:
-                    raise e
-        else:
-            # PyTorch 2.4.1
+        from torch.distributed.checkpoint.utils import CheckpointException
+        try:
             dist_cp.load(
                 state_dict=state_dict,
                 storage_reader=storage_reader,
                 planner=load_planner,
             )
+        except CheckpointException as e:
+            checkpoint_metadata = storage_reader.read_metadata().state_dict_metadata
+            if 'state.metadata' in checkpoint_metadata and 'state.metadata.composer_env_info.composer_version' not in checkpoint_metadata:
+                # Torch 2.4 changed the way how state dict is flattened. It broke backward compatibility.
+                # Torch issue: https://github.com/pytorch/pytorch/issues/133923.
+                # We override the traverse_state_dict so that the load planner could
+                # use the old way of flattening the state dict
+                log.debug('Trying to load checkpointing saved before torch 2.4')
+
+                import torch.distributed.checkpoint._nested_dict as nested_dict
+                import torch.distributed.checkpoint._sharded_tensor_utils as sharded_tensor_util
+                from torch.distributed.checkpoint._traverse import traverse_state_dict as traverse_2_4_0
+
+                from composer.trainer._patch_pytorch import traverse_state_dict as backward_compatible_traverse
+
+                nested_dict.traverse_state_dict = backward_compatible_traverse
+                sharded_tensor_util.traverse_state_dict = backward_compatible_traverse
+
+                dist_cp.load(
+                    state_dict=state_dict,
+                    storage_reader=storage_reader,
+                    planner=load_planner,
+                )
+                # Revert the override
+                nested_dict.traverse_state_dict = traverse_2_4_0
+                sharded_tensor_util.traverse_state_dict = traverse_2_4_0
+            else:
+                raise e
     else:
         dist_cp.load_state_dict(
             state_dict=state_dict,
@@ -793,7 +772,6 @@ def download_checkpoint(
     node_checkpoint_folder: str,
     object_store: Optional[Union[ObjectStore, LoggerDestination]],
     progress_bar: bool,
-    fsdp_sharded_state_dict_enabled: bool = False,
     deepspeed_sharded_checkpoint: bool = False,
 ) -> tuple[str, Optional[str], bool]:
     """Download the checkpoint stored at ``path``, potentially in ``object_store``, to ``node_checkpoint_folder``.
@@ -820,9 +798,7 @@ def download_checkpoint(
         # and only rank zero has this file unless fsdp_sharded_state_dict_enabled then
         # every rank has it's own file.
         extracted_checkpoint_folder = None
-        composer_states_filepath = (
-            rank_n_checkpoint_filepath if fsdp_sharded_state_dict_enabled else rank_zero_checkpoint_filepath
-        )
+        composer_states_filepath = rank_zero_checkpoint_filepath
 
         if is_compressed_pt(path):
             original_path = path
@@ -832,9 +808,8 @@ def download_checkpoint(
                 with compressor.decompress(original_path) as in_file:
                     shutil.copyfileobj(in_file, out_file)
 
-    checkpoint_is_sharded = fsdp_sharded_state_dict_enabled or deepspeed_sharded_checkpoint
     try:
-        if not checkpoint_is_sharded and dist.get_local_rank() == 0:
+        if not deepspeed_sharded_checkpoint and dist.get_local_rank() == 0:
             # If the checkpoint is not sharded, then local rank 0 on each node needs to download the
             # global rank 0 checkpoint
             path = _format_path_with_rank_zero(path)
@@ -853,7 +828,7 @@ def download_checkpoint(
                     # the underlying issue is that the checkpoint file does not exist on the disk
                     # or could not be downloaded
                     raise RuntimeError(f'Checkpoint {path} does not exist')
-        elif checkpoint_is_sharded:
+        elif deepspeed_sharded_checkpoint:
             # If the checkpoint is sharded, then every rank needs to download its own checkpoint
             path = _format_path_with_current_rank(path)
             try:
@@ -883,7 +858,7 @@ def download_checkpoint(
 
     finally:
         # Use busy wait to avoid timeouts on large downloads for non-sharded checkpoints
-        if not checkpoint_is_sharded:
+        if not deepspeed_sharded_checkpoint:
             signal_file_path = os.path.join(
                 node_checkpoint_folder,
                 dist.get_node_signal_file_name(),

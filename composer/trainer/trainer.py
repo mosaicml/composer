@@ -1188,7 +1188,7 @@ class Trainer:
                     +
                     'which provides similar functionality. Please use the `parallelism_config` parameter instead. Please open '
                     + 'a GitHub issue if you need help migrating from DeepSpeed to FSDP.',
-                    remove_version='0.28.0',
+                    remove_version='0.27.0',
                 ),
             )
 
@@ -1902,13 +1902,16 @@ class Trainer:
                 log.info('No previous autoresume checkpoint found')
         # Actually load the checkpoint from potentially updated arguments
         if load_path is not None:
+            log.info(f'Loading checkpoint from {load_path}')
             if load_object_store is None:
                 load_object_store = maybe_create_object_store_from_uri(load_path)
+                log.debug(f'Created object store from load path: {load_object_store}')
             if isinstance(load_object_store, WandBLogger):
                 import wandb
                 if wandb.run is None:
                     load_object_store.init(self.state, self.logger)
             _, _, parsed_load_path = parse_uri(load_path)
+            log.debug(f'Parsed load path: {parsed_load_path}')
 
             self._rng_state = checkpoint.load_checkpoint(
                 state=self.state,

@@ -13,6 +13,7 @@ from composer.callbacks.export_for_inference import ExportForInferenceCallback
 from composer.callbacks.free_outputs import FreeOutputs
 from composer.callbacks.generate import Generate
 from composer.callbacks.image_visualizer import ImageVisualizer
+from composer.callbacks.load_checkpoint import LoadCheckpoint
 from composer.callbacks.lr_monitor import LRMonitor
 from composer.callbacks.memory_monitor import MemoryMonitor
 from composer.callbacks.memory_snapshot import MemorySnapshot
@@ -44,4 +45,5 @@ __all__ = [
     'FreeOutputs',
     'MemorySnapshot',
     'OOMObserver',
+    'LoadCheckpoint',
 ]
