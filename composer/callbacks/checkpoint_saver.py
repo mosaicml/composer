@@ -36,6 +36,7 @@ from composer.utils import (
 )
 from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME
 from composer.utils.compression import get_compressor, is_compressed_pt
+from composer.utils.misc import is_last_batch
 from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
 
 log = logging.getLogger(__name__)
@@ -290,6 +291,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         overwrite: bool = False,
         num_checkpoints_to_keep: int = -1,
         weights_only: bool = False,
+        final_weights_only: bool = False,
         ignore_keys: Optional[Union[list[str], Callable[[dict], None]]] = None,
         num_concurrent_uploads: int = 1,
         upload_timeout_in_seconds: int = 3600,
@@ -325,6 +327,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.all_saved_checkpoints_to_timestamp: dict[str, Timestamp] = {}
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
         self.weights_only = weights_only
+        self.final_weights_only = final_weights_only
         self.ignore_keys = ignore_keys
 
         self.start_batch = None
@@ -388,7 +391,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         dist.barrier()  # holds all ranks until folder check is done
 
-        if is_model_deepspeed(state.model) and self.weights_only:
+        if is_model_deepspeed(state.model) and (self.weights_only or self.final_weights_only):
             raise NotImplementedError('weights_only=True is not supported when using DeepSpeed.')
 
         self.start_batch = state.timestamp.batch
@@ -472,10 +475,11 @@ class CheckpointSaver(Callback):  # noqa: D101
         # Store before saving so state_dict in checkpoint has reference to latest checkpoint (itself)
         self.all_saved_checkpoints_to_timestamp[save_filename] = state.timestamp
 
+        weights_only = self.final_weights_only if is_last_batch(state) else self.weights_only
         saved_path = checkpoint.save_checkpoint(
             state=state,
             filename=filename_with_placeholders,
-            weights_only=self.weights_only,
+            weights_only=weights_only,
             ignore_keys=self.ignore_keys,
         )
         log.debug(f'Checkpoint locally saved to {saved_path}')
