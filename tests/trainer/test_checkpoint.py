@@ -1697,7 +1697,8 @@ class TestCheckpointResumption:
         assert trainer.state.train_dataloader.batch_sampler.epoch == max_duration - 1
 
     @world_size(2)
-    def test_load_incorrect_path(self, world_size: int, tmp_path: pathlib.Path, caplog):
+    @pytest.mark.gpu
+    def test_load_incorrect_path(self, world_size: int, device: str, tmp_path: pathlib.Path, caplog):
         save_folder = tmp_path / 'checkpoints'
         save_folder.mkdir(exist_ok=True)
 
