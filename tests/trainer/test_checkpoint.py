@@ -1724,8 +1724,10 @@ class TestCheckpointResumption:
 
         # Check error messages for each rank
         if dist.get_global_rank() == 0:
+            print(caplog.records)
             assert any('No such file or directory:' in record.message for record in caplog.records)
         else:
+            print(caplog.records)
             assert any(
                 "Error encountered on rank 0. Please check rank 0's error log for more information." in record.message
                 for record in caplog.records
