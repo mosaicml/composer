@@ -1696,6 +1696,39 @@ class TestCheckpointResumption:
         # Epoch count starts at O
         assert trainer.state.train_dataloader.batch_sampler.epoch == max_duration - 1
 
+    @world_size(2)
+    def test_load_incorrect_path(self, world_size: int, tmp_path: pathlib.Path, caplog):
+        save_folder = tmp_path / 'checkpoints'
+        save_folder.mkdir(exist_ok=True)
+
+        # Train and save a checkpoint
+        trainer = self.get_trainer(
+            save_folder=str(save_folder),
+            save_filename='checkpoint.pt',
+            save_interval='1ep',
+            max_duration='1ep',
+        )
+        trainer.fit()
+        trainer.close()
+
+        # Attempt to load from an incorrect path
+        incorrect_path = str(tmp_path / 'nonexistent_checkpoint.pt')
+
+        with pytest.raises(FileNotFoundError):
+            self.get_trainer(
+                load_path=incorrect_path,
+                max_duration='1ep',
+            )
+
+        # Check error messages for each rank
+        if dist.get_global_rank() == 0:
+            assert any('No such file or directory:' in record.message for record in caplog.records)
+        else:
+            assert any(
+                "Error encountered on rank 0. Please check rank 0's error log for more information." in record.message
+                for record in caplog.records
+            )
+
     @pytest.mark.parametrize('spin_dataloaders', [False, True])
     def test_spin_dataloaders(
         self,

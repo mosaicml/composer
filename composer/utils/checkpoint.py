@@ -1013,6 +1013,13 @@ def safe_torch_load(
                 'pass `load_ignore_keys = ["state/train_metrics/*", "state/eval_metrics/*"]`.',
             ) from e
         raise e
+    except FileNotFoundError as e:
+        if 'No such file or directory' in str(e) and dist.get_global_rank() != 0:
+            raise FileNotFoundError(
+                f'No such file or directory: {e.filename}. '
+                'Please check rank 0 for more downloading / debugging info.',
+            ) from e
+        raise e
 
 
 def _restore_checkpoint(
