@@ -1716,22 +1716,20 @@ class TestCheckpointResumption:
         # Attempt to load from an incorrect path
         incorrect_path = str(tmp_path / 'nonexistent_checkpoint.pt')
 
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises(FileNotFoundError) as exc_info:
             self.get_trainer(
                 load_path=incorrect_path,
                 max_duration='1ep',
             )
-
+        
+        print("rank", dist.get_global_rank(), "exc_info", exc_info)
         # Check error messages for each rank
         if dist.get_global_rank() == 0:
-            print(caplog.records)
-            assert any('No such file or directory:' in record.message for record in caplog.records)
+            assert "No such file or directory" in str(exc_info.value)
+            assert incorrect_path in str(exc_info.value)
         else:
-            print(caplog.records)
-            assert any(
-                "Error encountered on rank 0. Please check rank 0's error log for more information." in record.message
-                for record in caplog.records
-            )
+            assert "Error encountered on rank 0" in str(exc_info.value)
+
 
     @pytest.mark.parametrize('spin_dataloaders', [False, True])
     def test_spin_dataloaders(
