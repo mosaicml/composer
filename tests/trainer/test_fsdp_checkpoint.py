@@ -31,7 +31,7 @@ from composer.models import ComposerClassifier
 from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
 from composer.utils import FSDPConfig, TPConfig, dist, parse_uri
-from composer.utils.checkpoint import dist_cp_load, is_checkpoint_legacy_sharded
+from composer.utils.checkpoint import dist_cp_load
 from composer.utils.file_helpers import get_file
 from composer.utils.object_store import S3ObjectStore
 from composer.utils.reproducibility import get_rng_state
@@ -513,6 +513,7 @@ def test_fsdp_mixed_with_sync(
         '0.22.0',
         '0.23.0',
         '0.24.0',
+        '0.25.0',
     ],
 )
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
@@ -532,12 +533,14 @@ def test_fsdp_load_old_checkpoint(
     if composer_version == '0.18.1' and state_dict_type == 'full' and precision == 'amp_bf16' and sharding_strategy == 'FULL_SHARD':
         pytest.skip('TODO: This checkpoint is missing')
 
-    if (composer_version in ['0.22.0', '0.23.0'] and version.parse(torch.__version__) < version.parse('2.3.0')
-       ) or (composer_version == '0.24.0' and version.parse(torch.__version__) < version.parse('2.4.0')):
+    if (composer_version in ['0.22.0', '0.23.0'] and version.parse(torch.__version__) < version.parse('2.3.0')) or (
+        composer_version == '0.24.0' and version.parse(torch.__version__) < version.parse('2.4.0')
+    ) or (composer_version == '0.25.0' and version.parse(torch.__version__) < version.parse('2.5.0')):
         pytest.skip('Current torch version is older than torch version that checkpoint was written with.')
 
     if composer_version in ['0.13.5', '0.14.0', '0.14.1', '0.15.1']:
-        rank = 0 if state_dict_type == 'full' else '{rank}'
+        if state_dict_type == 'sharded':
+            pytest.skip('Loading legacy sharded checkpoints are not supported after v0.25.0.')
 
         load_path_dir = (
             f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/'
@@ -547,11 +550,7 @@ def test_fsdp_load_old_checkpoint(
         if ((version.parse(composer_version) > version.parse('0.15.0')) and state_dict_type != 'full'):
             load_path_dir = (load_path_dir + 'ep0-ba2/')
 
-        load_path = load_path_dir + f'ba2_rank{rank}.pt'
-        assert is_checkpoint_legacy_sharded(
-            object_store=S3ObjectStore(bucket=f'{s3_bucket}'),
-            source_path=load_path.lstrip(f's3://{s3_bucket}/'),
-        )
+        load_path = load_path_dir + f'ba2_rank0.pt'
     else:
         load_path = (
             f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/'
@@ -909,15 +908,8 @@ def test_fsdp_partitioned_state_dict_load(
         load_path = 's3://' + save_folder.strip('s3://').format(
             run_name=run_name,
         ) + ('/ba2' if not use_symlink else '/latest-rank0.pt.symlink')
-        object_store = S3ObjectStore(bucket=f'{s3_bucket}')
     else:
-        object_store = None
         load_path = str(save_folder.format(run_name=run_name) / pathlib.Path('ba2'))
-
-    assert not is_checkpoint_legacy_sharded(
-        object_store=object_store,
-        source_path=load_path.replace(f's3://{s3_bucket}/', ''),
-    )
 
     if autoresume:
         load_path = None
@@ -1013,10 +1005,6 @@ def test_elastic_resumption(
     else:
         save_folder = None
         sharded_load_path = os.path.join(base_path, 'ba2')
-        assert not is_checkpoint_legacy_sharded(
-            object_store=S3ObjectStore(bucket=f'{s3_bucket}'),
-            source_path=sharded_load_path.replace(f's3://{s3_bucket}/', ''),
-        )
 
     sharded_trainer = get_trainer(
         save_folder=save_folder,
@@ -1236,11 +1224,6 @@ def test_fsdp_planner(
     trainer1.close()
 
     load_path = str(save_folder.format(run_name=run_name) / pathlib.Path('ba2'))
-
-    assert not is_checkpoint_legacy_sharded(
-        object_store=None,
-        source_path=load_path,
-    )
 
     trainer2 = get_trainer(
         save_folder=str(save_folder),

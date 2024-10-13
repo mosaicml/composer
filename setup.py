@@ -108,11 +108,11 @@ extra_deps['dev'] = [
     'pytest==7.4.4',
     'ipython==8.11.0',
     'ipykernel==6.29.5',
-    'jupyter==1.0.0',
+    'jupyter==1.1.1',
     'yamllint==1.35.1',
     'recommonmark==0.7.1',
     'sphinx==4.4.0',
-    'pre-commit>=3.4.0,<4',
+    'pre-commit>=3.4.0,<5',
     # embedding md in rst require docutils>=0.17. See
     # https://myst-parser.readthedocs.io/en/latest/sphinx/use.html?highlight=parser#include-markdown-files-into-an-rst-file
     'docutils==0.17.1',
@@ -180,13 +180,13 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,!=4.34.0,<4.45',
+    'transformers>=4.11,!=4.34.0,<4.46',
     'datasets>=2.4,<4',
-    'huggingface-hub>=0.21.2,<0.25',
+    'huggingface-hub>=0.21.2,<0.26',
 ]
 
 extra_deps['peft'] = [
-    'peft>=0.10.0,<0.13',
+    'peft>=0.10.0,<0.14',
 ]
 
 extra_deps['sentencepiece'] = [
@@ -225,13 +225,13 @@ extra_deps['onnx'] = [
 
 extra_deps['mlflow'] = [
     'mlflow>=2.14.1,<3.0',
-    'databricks-sdk==0.32.0',
+    'databricks-sdk==0.33.0',
     'pynvml>=11.5.0,<12',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk==0.32.0']
+extra_deps['databricks'] = ['databricks-sdk==0.33.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 
