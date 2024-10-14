@@ -193,6 +193,7 @@ class Engine():
                                          Sequence[Union[passes.AlgorithmPass, tuple[passes.AlgorithmPass, int]]],
                                         ]] = None,
     ):
+        print(f'---- Logger: {logger}')
         self.logger = logger
         self.state = state
         self._is_closed = False
