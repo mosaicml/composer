@@ -1419,6 +1419,7 @@ class Trainer:
 
         # Console Logging
         loggers = list(ensure_tuple(loggers))
+        log.info('----Loggers: %s', loggers)
 
         # Profiler
         if profiler is not None:
