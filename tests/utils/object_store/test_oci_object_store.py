@@ -216,7 +216,7 @@ def test_list_objects(test_oci_obj_store, mock_bucket_name, monkeypatch, result:
             with pytest.raises(
                 ValueError,
                 match=
-                f'Bucket specified in oci://{mock_bucket_name}/{prefix if prefix is not None else ""} not found. {bucket_not_found_msg}',
+                f'Bucket specified in oci://{mock_bucket_name}/{prefix if prefix is not None else ''} not found. {bucket_not_found_msg}',
             ):
                 oci_os.list_objects(prefix=prefix)
 

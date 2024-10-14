@@ -16,7 +16,7 @@ import tempfile
 import textwrap
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Mapping, Optional, Union, Sequence
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Union
 
 import torch
 from torchmetrics import Metric
@@ -368,9 +368,9 @@ class HuggingFaceModel(ComposerModel):
             except (ModuleNotFoundError, AttributeError):
                 raise ValueError(
                     textwrap.dedent(
-                        f'The saved class {hf_model_state["config"]["class"]} could not be imported. '
+                        f'The saved class {hf_model_state['config']['class']} could not be imported. '
                         'Please either pass in the class to use explicitly via the model_instantiation_class '
-                        f'parameter, or make sure that {hf_model_state["config"]["class"]} is discoverable '
+                        f'parameter, or make sure that {hf_model_state['config']['class']} is discoverable '
                         'on the python path.',
                     ),
                 )
@@ -800,7 +800,7 @@ def get_hf_config_from_composer_state_dict(
         except KeyError:
             raise Exception(
                 f'Could not load config from state dict using either `for_model` or `from_pretrained`.'
-                f'Please make sure that the model_type={hf_config_dict.get("model_type")} is valid, or that the'
+                f'Please make sure that the model_type={hf_config_dict.get('model_type')} is valid, or that the'
                 f'config has a valid `_name_or_path`.',
             )
 
