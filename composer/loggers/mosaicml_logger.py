@@ -75,6 +75,7 @@ class MosaicMLLogger(LoggerDestination):
         self.ignore_keys = ignore_keys
         self.ignore_exceptions = ignore_exceptions
         self._enabled = dist.get_global_rank() == 0
+        log.info(f'----MosaicMLLogger enabled: {self._enabled}')
         if self._enabled:
             self.time_last_logged = 0
             self.train_dataloader_len = None
@@ -116,6 +117,7 @@ class MosaicMLLogger(LoggerDestination):
                 else:
                     log.debug('WandB run URL not found, not logging to metadata')
             if isinstance(callback, MLFlowLogger) and callback._enabled:
+                log.info('----Logging MLFlow run URL to metadata')
                 self.log_metadata({'mlflow/run_url': callback.run_url})
                 log.debug(f'Logging MLFlow run URL to metadata: {callback.run_url}')
         self._flush_metadata(force_flush=True)
