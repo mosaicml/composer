@@ -1014,10 +1014,12 @@ def safe_torch_load(
             ) from e
         raise e
     except FileNotFoundError as e:
-        if 'No such file or directory' in str(e) and dist.get_global_rank() != 0:
+        if 'No such file or directory' in str(e) and dist.get_local_rank() != 0:
+            local_rank_zero = dist.get_global_rank() - dist.get_local_rank()
             raise FileNotFoundError(
                 f'No such file or directory: {e.filename}. '
-                'Please check rank 0 for more downloading / debugging info.',
+                f'This likely implies a download failed on local rank 0, which is global rank {local_rank_zero}'
+                f'Please check the logs for global rank {local_rank_zero} to debug the checkpoint download issue.',
             ) from e
         raise e
 

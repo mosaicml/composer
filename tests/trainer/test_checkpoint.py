@@ -1702,17 +1702,6 @@ class TestCheckpointResumption:
         save_folder = tmp_path / 'checkpoints'
         save_folder.mkdir(exist_ok=True)
 
-        # Train and save a checkpoint
-        trainer = self.get_trainer(
-            save_folder=str(save_folder),
-            save_filename='checkpoint.pt',
-            save_interval='1ep',
-            max_duration='1ep',
-            device='gpu',
-        )
-        trainer.fit()
-        trainer.close()
-
         # Attempt to load from an incorrect path
         incorrect_path = str(tmp_path / 'nonexistent_checkpoint.pt')
 
@@ -1721,15 +1710,18 @@ class TestCheckpointResumption:
                 load_path=incorrect_path,
                 max_duration='1ep',
             )
-        
-        print("rank", dist.get_global_rank(), "exc_info", exc_info)
-        # Check error messages for each rank
-        if dist.get_global_rank() == 0:
-            assert "No such file or directory" in str(exc_info.value)
-            assert incorrect_path in str(exc_info.value)
-        else:
-            assert "Error encountered on rank 0" in str(exc_info.value)
 
+        # Check error messages for each rank, ensure they are different.
+        if dist.get_global_rank() == 0:
+            assert f'Local path {incorrect_path} does not exist' in str(exc_info.value)
+        else:
+            assert 'No such file or directory:' in str(exc_info.value)
+            assert 'This likely implies a download failed on local rank 0, which is global rank 0' in str(
+                exc_info.value,
+            )
+            assert 'Please check the logs for global rank 0 to debug the checkpoint download issue.' in str(
+                exc_info.value,
+            )
 
     @pytest.mark.parametrize('spin_dataloaders', [False, True])
     def test_spin_dataloaders(
