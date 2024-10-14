@@ -148,6 +148,7 @@ class MLFlowLogger(LoggerDestination):
                 conda_package='mlflow',
                 conda_channel='conda-forge',
             ) from e
+        print('----INITIALIZING MLFLOW LOGGER')
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
 
         self.experiment_name = experiment_name
@@ -197,6 +198,7 @@ class MLFlowLogger(LoggerDestination):
 
             if self.model_registry_uri is not None:
                 mlflow.set_registry_uri(self.model_registry_uri)
+                print(f'----SETTING REGISTRY URI: {self.model_registry_uri}')
             # Set up MLflow state
             self._run_id = None
             if self.experiment_name is None:
