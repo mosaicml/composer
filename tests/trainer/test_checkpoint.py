@@ -1696,6 +1696,33 @@ class TestCheckpointResumption:
         # Epoch count starts at O
         assert trainer.state.train_dataloader.batch_sampler.epoch == max_duration - 1
 
+    @world_size(2)
+    @pytest.mark.gpu
+    def test_load_incorrect_path(self, world_size: int, tmp_path: pathlib.Path, caplog):
+        save_folder = tmp_path / 'checkpoints'
+        save_folder.mkdir(exist_ok=True)
+
+        # Attempt to load from an incorrect path
+        incorrect_path = str(tmp_path / 'nonexistent_checkpoint.pt')
+
+        with pytest.raises(FileNotFoundError) as exc_info:
+            self.get_trainer(
+                load_path=incorrect_path,
+                max_duration='1ep',
+            )
+
+        # Check error messages for each rank, ensure they are different.
+        if dist.get_global_rank() == 0:
+            assert f'Local path {incorrect_path} does not exist' in str(exc_info.value)
+        else:
+            assert 'No such file or directory:' in str(exc_info.value)
+            assert 'This likely implies a download failed on local rank 0, which is global rank 0' in str(
+                exc_info.value,
+            )
+            assert 'Please check the logs for global rank 0 to debug the checkpoint download issue.' in str(
+                exc_info.value,
+            )
+
     @pytest.mark.parametrize('spin_dataloaders', [False, True])
     def test_spin_dataloaders(
         self,
