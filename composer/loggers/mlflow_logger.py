@@ -429,7 +429,7 @@ class MLFlowLogger(LoggerDestination):
         Returns:
             ModelVersion: The registered model.
         """
-        print(f'----Attempting to register model, self._enabled: {self._enabled}')
+        print(f'----Attempting to register model with register_model, self._enabled: {self._enabled}')
         if self._enabled:
             full_name = f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name
 
@@ -543,6 +543,7 @@ class MLFlowLogger(LoggerDestination):
             await_creation_for (int, optional): The number of seconds to wait for the model to be registered. Defaults to 300.
             tags (Optional[dict[str, Any]], optional): A dictionary of tags to add to the model. Defaults to None.
         """
+        print(f'----Attempting to register model with register_model_with_run_id, self._enabled: {self._enabled}')
         if self._enabled:
             from mlflow.exceptions import MlflowException
             from mlflow.protos.databricks_pb2 import (
