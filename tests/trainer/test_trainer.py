@@ -1707,7 +1707,7 @@ class TestUnevenOnlyInitBatch:
 
     @pytest.mark.world_size(2)
     @device('cpu', 'gpu')
-    def test_uneven_only_init_batch(self, world_size: int, device: str):
+    def test_uneven_only_init_batch(self, device: str):
         """Test the case where if we have an uneven only initial batch wrt world size.
         
         Ideally it should not crash with issues.
