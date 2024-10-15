@@ -198,7 +198,7 @@ class MLFlowLogger(LoggerDestination):
 
             if self.model_registry_uri is not None:
                 mlflow.set_registry_uri(self.model_registry_uri)
-                print(f'----SETTING REGISTRY URI: {self.model_registry_uri}')
+                print(f'----SETTING REGISTRY URI + registry: {self.model_registry_uri}, {self.model_registry_prefix}')
             # Set up MLflow state
             self._run_id = None
             if self.experiment_name is None:
@@ -429,6 +429,7 @@ class MLFlowLogger(LoggerDestination):
         Returns:
             ModelVersion: The registered model.
         """
+        print(f'----Attempting to register model, self._enabled: {self._enabled}')
         if self._enabled:
             full_name = f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name
 
