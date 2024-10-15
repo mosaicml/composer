@@ -1503,6 +1503,7 @@ class Trainer:
 
         # Callbacks
         self.state.callbacks[:] = list(cast(list[Callback], loggers)) + self.state.callbacks
+        print(f'----Callbacks: {self.state.callbacks}')
 
         # Checkpoint Saving
         self._checkpoint_saver = None
