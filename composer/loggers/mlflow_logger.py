@@ -139,7 +139,7 @@ class MLFlowLogger(LoggerDestination):
         resume: bool = False,
         logging_buffer_seconds: Optional[int] = 10,
     ) -> None:
-        log.info('----INITIALIZING MLFLOW LOGGER')
+        log.debug('----INITIALIZING MLFLOW LOGGER')
         try:
             import mlflow
             from mlflow import MlflowClient
@@ -198,7 +198,7 @@ class MLFlowLogger(LoggerDestination):
 
             if self.model_registry_uri is not None:
                 mlflow.set_registry_uri(self.model_registry_uri)
-                log.info(f'----SETTING REGISTRY URI: {self.model_registry_uri}')
+                log.debug(f'----SETTING REGISTRY URI: {self.model_registry_uri}')
             # Set up MLflow state
             self._run_id = None
             if self.experiment_name is None:
