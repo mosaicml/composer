@@ -1690,3 +1690,44 @@ class TestAutoresumeCompatibility:
 
         # Just test that the default args for everything do not hit the above errors
         _ = Trainer(**config)
+
+
+class TestUnevenOnlyInitBatch:
+    """Test the case where if we have an uneven only initial batch.
+    
+    This means that we do not have sufficient batches of data for all the devices/nodes. EG
+    we only have 1 batch of data but have 2 nodes.
+
+    The expected behavior is that we should proceed with training as normal and not crash.
+    """
+
+    @pytest.fixture
+    def config(self):
+        """Returns the reference config."""
+
+    @pytest.mark.world_size(2)
+    @device('cpu', 'gpu')
+    def test_uneven_only_init_batch(self, world_size: int, device: str):
+        """Test the case where if we have an uneven only initial batch wrt world size.
+        
+        Ideally it should not crash with issues.
+        """
+        dataset = RandomClassificationDataset(size=1)
+        dataloader = DataLoader(
+            dataset=dataset,
+            batch_size=1,
+            sampler=dist.get_sampler(
+                dataset=dataset
+            )
+        )
+        model = SimpleModel()
+
+        trainer = Trainer(
+            model=model,
+            train_dataloader=dataloader,
+            max_duration='1ba',
+            device=device,
+        )
+        trainer.fit()
+
+        
