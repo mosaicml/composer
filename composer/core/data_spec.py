@@ -185,7 +185,7 @@ class DataSpec:
         device_transforms: Optional[Callable[[Batch], Batch]] = None,
         split_batch: Optional[Callable[[Batch, Union[int, float]], Sequence[Batch]]] = None,
         get_num_samples_in_batch: Optional[Callable[[Batch], Union[int, float]]] = None,
-        get_num_tokens_in_batch: Optional[Callable[[Batch], int]] = None,
+        get_num_tokens_in_batch: Optional[Callable[[Batch], Union[int, dict[str, int]]]] = None,
     ) -> None:
         self.dataloader: Union[Iterable, torch.utils.data.DataLoader] = dataloader
         self.num_tokens = num_tokens

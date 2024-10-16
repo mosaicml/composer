@@ -2601,7 +2601,7 @@ class Trainer:
         dist.broadcast(batch_time_tensor, src=0)
         batch_time = datetime.timedelta(seconds=batch_time_tensor[0].cpu().item())
 
-        return int(sample_token_tensor[0].cpu().item()), int(sample_token_tensor[1].cpu().item(), int(sample_token_tensor[2].cpu().item()), batch_time
+        return int(sample_token_tensor[0].cpu().item()), int(sample_token_tensor[1].cpu().item()), int(sample_token_tensor[2].cpu().item()), batch_time
 
     def _train_loop(self) -> None:
         """Run training for the specified number of epochs and log results."""
