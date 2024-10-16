@@ -3057,7 +3057,7 @@ class Trainer:
                 for b in microbatches:
                     mb_num_tokens = self._train_data_spec.get_num_tokens_in_batch(b)
                     if isinstance(mb_num_tokens, dict):
-                        if mb_num_tokens.keys() != {'total', 'loss_generating'}:
+                        if set(mb_num_tokens.keys()) != {'total', 'loss_generating'}:
                             raise ValueError(
                                 'if get_num_tokens_in_batch is a dictionary, it must have keys "total" and "loss_generating".',
                             )
@@ -3127,11 +3127,11 @@ class Trainer:
         if self.accumulate_train_batch_on_tokens:
             microbatch_size = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
             if isinstance(microbatch_size, dict):
-                if mb_num_tokens.keys() != {'total', 'loss_generating'}:
+                if set(microbatch_size.keys()) != {'total', 'loss_generating'}:
                     raise ValueError(
                         'if get_num_tokens_in_batch is a dictionary, it must have keys "total" and "loss_generating".',
                     )
-                microbatch_size = rank_num_tokens['loss_generating']
+                microbatch_size = microbatch_size['loss_generating']
         else:
             microbatch_size = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
         if self.state.deepspeed_enabled or not isinstance(self.state.model, DistributedDataParallel):
@@ -3643,6 +3643,8 @@ class Trainer:
                 # Count the batch size and num tokens before any events run
                 rank_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
                 rank_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
+                if isinstance(rank_num_tokens, dict):
+                    rank_num_tokens = rank_num_tokens['total']
 
                 # If using a distributed sampler, keep track of last_batch for metrics update
                 if dist_sampler is not None and drop_last == False and dataset_len is not None:
