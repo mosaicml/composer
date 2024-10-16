@@ -2662,6 +2662,8 @@ class Trainer:
                 self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
                 rank_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
                 rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
+                if isinstance(rank_num_tokens, dict):
+                    rank_num_tokens = rank_num_tokens['total']
 
                 if self.state.deepspeed_enabled:
                     self.state.batch = fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
@@ -3059,7 +3061,7 @@ class Trainer:
                             raise ValueError(
                                 'if get_num_tokens_in_batch is a dictionary, it must have keys "total" and "loss_generating".',
                             )
-                        mb_num_tokens = rank_num_tokens['loss_generating']
+                        mb_num_tokens = mb_num_tokens['loss_generating']
                     current_batch_size += mb_num_tokens
                 if current_batch_size == 0:
                     raise ValueError(
@@ -3364,6 +3366,8 @@ class Trainer:
                 # Count the batch size and num tokens before any events run
                 rank_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
                 rank_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
+                if isinstance(rank_num_tokens, dict):
+                    rank_num_tokens = rank_num_tokens['total']
 
                 # Fix the batch if using DeepSpeed
                 if self.state.deepspeed_enabled:
