@@ -1692,27 +1692,16 @@ class TestAutoresumeCompatibility:
         _ = Trainer(**config)
 
 
-class TestUnevenOnlyInitBatch:
-    """Test the case where if we have an uneven only initial batch.
-    
-    This means that we do not have sufficient batches of data for all the devices/nodes. EG
-    we only have 1 batch of data but have 2 nodes.
+class TestNoTrainDataTrained:
+    """Test cases where no training data is trained with the trainer.
 
-    The expected behavior is that we should proceed with training as normal and not crash.
+    This can happen in the following cases:
+        - The dataset has no samples.
+        - The dataset cannot split evenly across multi nodes on the first batch even
     """
-
-    @pytest.fixture
-    def config(self):
-        """Returns the reference config."""
-
-    @pytest.mark.world_size(2)
-    @device('cpu', 'gpu')
-    def test_uneven_only_init_batch(self, device: str):
-        """Test the case where if we have an uneven only initial batch wrt world size.
-        
-        Ideally it should not crash with issues.
-        """
-        dataset = RandomClassificationDataset(size=1)
+    def _run_training(self, dataset_size: int, device: str):
+        """Run the training loop simply."""
+        dataset = RandomClassificationDataset(size=dataset_size)
         dataloader = DataLoader(
             dataset=dataset,
             batch_size=1,
@@ -1730,4 +1719,22 @@ class TestUnevenOnlyInitBatch:
         )
         trainer.fit()
 
-        
+    @pytest.mark.world_size(1)
+    @device('cpu', 'gpu')
+    def test_empty_dataloder(self, caplog, device: str):
+        """Test the case where the dataset has no samples."""
+        with caplog.at_level(logging.WARNING):
+            self._run_training(dataset_size=0, device=device)
+            assert "No batches were trained for global rank" in caplog.text
+
+    @pytest.mark.world_size(2)
+    @device('cpu', 'gpu')
+    def test_empty_dataloader_on_one_rank_only(self, caplog, device: str):
+        """Test the case where the dataset has no samples on one rank only."""
+        with caplog.at_level(logging.WARNING):
+            self._run_training(dataset_size=0 if dist.get_local_rank() == 0 else 1, device=device)
+
+            if dist.get_local_rank() == 0:
+                assert "No batches were trained for global rank" in caplog.text
+            elif dist.get_local_rank() == 1:
+                assert "No batches were trained for global rank" not in caplog.text

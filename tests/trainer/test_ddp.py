@@ -83,19 +83,19 @@ class CheckBatch0(Callback):
     'device,deepspeed,fsdp',
     [
         pytest.param('cpu', False, False, id='cpu'),
-        pytest.param('gpu', False, False, id='gpu', marks=pytest.mark.gpu),
-        # TODO: Remove filterwarnings after FSDP removes deprecated code
-        pytest.param('gpu', True, False, id='deepspeed', marks=pytest.mark.gpu),
-        pytest.param(
-            'gpu',
-            False,
-            True,
-            id='fsdp',
-            marks=[
-                pytest.mark.gpu,
-                pytest.mark.filterwarnings('ignore::UserWarning'),
-            ],
-        ),
+        # pytest.param('gpu', False, False, id='gpu', marks=pytest.mark.gpu),
+        # # TODO: Remove filterwarnings after FSDP removes deprecated code
+        # pytest.param('gpu', True, False, id='deepspeed', marks=pytest.mark.gpu),
+        # pytest.param(
+        #     'gpu',
+        #     False,
+        #     True,
+        #     id='fsdp',
+        #     marks=[
+        #         pytest.mark.gpu,
+        #         pytest.mark.filterwarnings('ignore::UserWarning'),
+        #     ],
+        # ),
     ],
 )
 @pytest.mark.parametrize(

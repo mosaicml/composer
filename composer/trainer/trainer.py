@@ -2763,6 +2763,12 @@ class Trainer:
                     finished_epoch_early = True
                     break
 
+            if not self.first_batch_complete:
+                log.warning(
+                    "No batches were trained for global rank %s. This may indicate an issue with the training dataloader.",
+                    dist.get_global_rank())
+                break
+
             if not finished_epoch_early or self.state.dataloader_len == self.state.timestamp.batch_in_epoch:
                 # Trigger the epoch end events if the dataloader was exhausted.
                 # This happens if the "break" did not trigger above, or if it
