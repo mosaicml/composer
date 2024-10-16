@@ -2570,11 +2570,12 @@ class Trainer:
         self,
         num_samples: Union[int, float],
         num_tokens: int,
+        num_loss_generating_tokens: int,
         batch_time: datetime.timedelta,
     ) -> tuple[int, int, datetime.timedelta]:
         """Accumulate the number of samples and tokens across ranks.
 
-        Returns a (num_samples, num_tokens, batch_time) tuple.
+        Returns a (num_samples, num_tokens, num_loss_generating_tokens, batch_time) tuple.
         """
         # Samples and tokens should be summed
         # Batch time should be the value from rank 0
@@ -2582,7 +2583,7 @@ class Trainer:
         # num_samples can be floating point if we are doing sequence parallelism, since in that case each rank works on only a part of the sample. For example, with sequence parallelism world size 2, each rank trains on half of a sample.
         if isinstance(num_samples, float):
             sample_token_tensor = self.state.device.tensor_to_device(
-                torch.tensor([num_samples, num_tokens], dtype=torch.float32),
+                torch.tensor([num_samples, num_tokens, num_loss_generating_tokens], dtype=torch.float32),
             )
         else:
             sample_token_tensor = self.state.device.tensor_to_device(
@@ -2600,7 +2601,7 @@ class Trainer:
         dist.broadcast(batch_time_tensor, src=0)
         batch_time = datetime.timedelta(seconds=batch_time_tensor[0].cpu().item())
 
-        return int(sample_token_tensor[0].cpu().item()), int(sample_token_tensor[1].cpu().item()), batch_time
+        return int(sample_token_tensor[0].cpu().item()), int(sample_token_tensor[1].cpu().item(), int(sample_token_tensor[2].cpu().item()), batch_time
 
     def _train_loop(self) -> None:
         """Run training for the specified number of epochs and log results."""
@@ -2703,9 +2704,10 @@ class Trainer:
 
                 batch_time = now - last_wct
 
-                total_num_samples, total_num_tokens, batch_time = self._accumulate_time_across_ranks(
+                total_num_samples, total_num_tokens, total_num_loss_generating_tokens, batch_time = self._accumulate_time_across_ranks(
                     rank_num_samples,
                     rank_num_tokens,
+                    rank_num_loss_generating_tokens,
                     batch_time,
                 )
 
@@ -3051,11 +3053,20 @@ class Trainer:
 
             # Tracker for gradient accumulation
             if self.accumulate_train_batch_on_tokens:
-                current_batch_size = sum([self._train_data_spec.get_num_tokens_in_batch(b) for b in microbatches])
+                current_batch_size = 0
+                for b in microbatches:
+                    mb_num_tokens = self._train_data_spec.get_num_tokens_in_batch(b)
+                    if isinstance(mb_num_tokens, dict):
+                        if mb_num_tokens.keys() != {'total', 'loss_generating'}:
+                            raise ValueError(
+                                'if get_num_tokens_in_batch is a dictionary, it must have keys "total" and "loss_generating".',
+                            )
+                        mb_num_tokens = rank_num_tokens['loss_generating']
+                    current_batch_size += mb_num_tokens
                 if current_batch_size == 0:
                     raise ValueError(
                         textwrap.dedent(
-                            'Requested loss accumulation based on number of tokens in training batch, '
+                            'Requested loss accumulation based on number of loss generating tokens in training batch, '
                             'but zero tokens found (perhaps due to an improper DataSpec).',
                         ),
                     )
@@ -3115,6 +3126,12 @@ class Trainer:
 
         if self.accumulate_train_batch_on_tokens:
             microbatch_size = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
+            if isinstance(microbatch_size, dict):
+                if mb_num_tokens.keys() != {'total', 'loss_generating'}:
+                    raise ValueError(
+                        'if get_num_tokens_in_batch is a dictionary, it must have keys "total" and "loss_generating".',
+                    )
+                microbatch_size = rank_num_tokens['loss_generating']
         else:
             microbatch_size = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
         if self.state.deepspeed_enabled or not isinstance(self.state.model, DistributedDataParallel):
@@ -3371,9 +3388,10 @@ class Trainer:
                 now = datetime.datetime.now()
                 batch_time = now - last_wct
 
-                total_num_samples, total_num_tokens, batch_time = self._accumulate_time_across_ranks(
+                total_num_samples, total_num_tokens, _, batch_time = self._accumulate_time_across_ranks(
                     num_samples=rank_num_samples,
                     num_tokens=rank_num_tokens,
+                    num_loss_generating_tokens=0,
                     batch_time=batch_time,
                 )
 
@@ -3764,9 +3782,10 @@ class Trainer:
                 now = datetime.datetime.now()
                 batch_time = now - last_wct
 
-                total_num_samples, total_num_tokens, batch_time = self._accumulate_time_across_ranks(
+                total_num_samples, total_num_tokens, _, batch_time = self._accumulate_time_across_ranks(
                     num_samples=rank_num_samples,
                     num_tokens=rank_num_tokens,
+                    num_loss_generating_tokens=0,
                     batch_time=batch_time,
                 )
 
