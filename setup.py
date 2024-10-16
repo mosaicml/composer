@@ -103,7 +103,7 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
     'junitparser==3.1.2',
-    'coverage[toml]==7.6.0',
+    'coverage[toml]==7.6.3',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
     'ipython==8.11.0',
@@ -136,7 +136,7 @@ extra_deps['dev'] = [
     'traitlets==5.14.3',
     'nbsphinx==0.9.1',
     'pandoc==2.4',
-    'pypandoc==1.13',
+    'pypandoc==1.14',
     'GitPython==3.1.43',
     'moto[s3]>=5.0.1,<6',
     'mock-ssh-server==0.9.1',
