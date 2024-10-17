@@ -1706,9 +1706,7 @@ class TestNoTrainDataTrained:
         dataloader = DataLoader(dataset=dataset, batch_size=1, sampler=dist.get_sampler(dataset=dataset))
         return dataloader
 
-    @pytest.mark.world_size(1)
-    @device('cpu', 'gpu')
-    def test_empty_train_dataloader(self, device: str):
+    def test_empty_train_dataloader(self):
         """Test the case where the train dataset has no samples."""
         with pytest.raises(UserWarning, match='No batches were trained for global rank'):
             train_dataloader = self._get_dataloader(0)
@@ -1718,13 +1716,10 @@ class TestNoTrainDataTrained:
                 model=model,
                 train_dataloader=train_dataloader,
                 max_duration='1ba',
-                device=device,
             )
             trainer.fit()
 
-    @pytest.mark.world_size(1)
-    @device('cpu', 'gpu')
-    def test_empty_eval_dataloader(self, device: str):
+    def test_empty_eval_dataloader(self):
         """Test the case where the eval dataset has no samples."""
         with pytest.raises(UserWarning, match='No batches were evaluated for global rank'):
             train_dataloader = self._get_dataloader(1)
@@ -1736,6 +1731,5 @@ class TestNoTrainDataTrained:
                 train_dataloader=train_dataloader,
                 eval_dataloader=eval_dataloader,
                 max_duration='1ba',
-                device=device,
             )
             trainer.fit()
