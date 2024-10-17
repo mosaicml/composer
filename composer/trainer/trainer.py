@@ -2765,7 +2765,7 @@ class Trainer:
 
             if not self.first_train_batch_complete:
                 warnings.warn(
-                    f"No batches were trained for global rank {dist.get_global_rank()}. This may be due to an issue with the train dataset, dataloader, or sampler. This may cause other issues or crashes down the line."
+                    f'No batches were trained for global rank {dist.get_global_rank()}. This may be due to an issue with the train dataset, dataloader, or sampler. This may cause other issues or crashes down the line.',
                 )
 
             if not finished_epoch_early or self.state.dataloader_len == self.state.timestamp.batch_in_epoch:
@@ -3792,7 +3792,7 @@ class Trainer:
 
             if not first_eval_batch_complete:
                 warnings.warn(
-                    f"No batches were evaluated for global rank {dist.get_global_rank()}. This may be due to an issue with the eval dataset, dataloader, or sampler. This may cause other issues or crashes down the line."
+                    f'No batches were evaluated for global rank {dist.get_global_rank()}. This may be due to an issue with the eval dataset, dataloader, or sampler. This may cause other issues or crashes down the line.',
                 )
 
             self._compute_and_log_metrics(dataloader_label=evaluator.label, metrics=metrics)

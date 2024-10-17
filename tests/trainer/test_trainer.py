@@ -1710,7 +1710,7 @@ class TestNoTrainDataTrained:
     @device('cpu', 'gpu')
     def test_empty_train_dataloader(self, device: str):
         """Test the case where the train dataset has no samples."""
-        with pytest.raises(UserWarning, match="No batches were trained for global rank"):
+        with pytest.raises(UserWarning, match='No batches were trained for global rank'):
             train_dataloader = self._get_dataloader(0)
             model = SimpleModel()
 
@@ -1726,7 +1726,7 @@ class TestNoTrainDataTrained:
     @device('cpu', 'gpu')
     def test_empty_eval_dataloader(self, device: str):
         """Test the case where the eval dataset has no samples."""
-        with pytest.raises(UserWarning, match="No batches were evaluated for global rank"):
+        with pytest.raises(UserWarning, match='No batches were evaluated for global rank'):
             train_dataloader = self._get_dataloader(1)
             eval_dataloader = self._get_dataloader(0)
             model = SimpleModel()
