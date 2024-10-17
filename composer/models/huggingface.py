@@ -916,7 +916,7 @@ def write_huggingface_pretrained_from_composer_checkpoint(
         peft_config.save_pretrained(str(output_folder))
 
     weights_state_dict = composer_state_dict['state']['model']
-    torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(weights_state_dict, prefix='model.')
+    torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(weights_state_dict, prefix='model.')  # type: ignore
 
     # NOTE: This only works for default adapter name, not multiple adapters
     if peft_config is not None:

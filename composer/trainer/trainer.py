@@ -2317,9 +2317,11 @@ class Trainer:
             self.state.max_duration = duration + self.state.timestamp.get(duration.unit)
 
         # Raise error if callig fit with SGD
-        if type(
-            self.state.optimizers[0],
-        ) == torch.optim.SGD and version.parse(torch.__version__) >= version.parse('2.4.0'):
+        if (
+            type(self.state.optimizers[0]) == torch.optim.SGD and
+            version.parse(torch.__version__) >= version.parse('2.4.0') and
+            version.parse(torch.__version__) < version.parse('2.5.0')
+        ):
             raise ValueError(
                 'PyTorch 2.4 breaks (distributed) checkpointing with SGD. '
                 'Please use a different optimizer, e.g. composer.optim.DecoupledSGDW, '
