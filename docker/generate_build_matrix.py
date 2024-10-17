@@ -20,16 +20,16 @@ import tabulate
 import yaml
 
 PRODUCTION_PYTHON_VERSION = '3.11'
-PRODUCTION_PYTORCH_VERSION = '2.4.1'
+PRODUCTION_PYTORCH_VERSION = '2.5.0'
 
 
 def _get_torchvision_version(pytorch_version: str):
+    if pytorch_version == '2.5.0':
+        return '0.20.0'
     if pytorch_version == '2.4.1':
         return '0.19.1'
     if pytorch_version == '2.3.1':
         return '0.18.1'
-    if pytorch_version == '2.2.2':
-        return '0.17.2'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
@@ -45,11 +45,11 @@ def _get_cuda_version(pytorch_version: str, use_cuda: bool):
     # From https://docs.nvidia.com/deeplearning/frameworks/pytorch-release-notes/
     if not use_cuda:
         return ''
+    if pytorch_version == '2.5.0':
+        return '12.4.1'
     if pytorch_version == '2.4.1':
         return '12.4.1'
     if pytorch_version == '2.3.1':
-        return '12.1.1'
-    if pytorch_version == '2.2.2':
         return '12.1.1'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
@@ -180,7 +180,7 @@ def _write_table(table_tag: str, table_contents: str):
 
 
 def _main():
-    python_pytorch_versions = [('3.11', '2.4.1'), ('3.11', '2.3.1'), ('3.11', '2.2.2')]
+    python_pytorch_versions = [('3.11', '2.5.0'), ('3.11', '2.4.1'), ('3.11', '2.3.1')]
     cuda_options = [True, False]
     stages = ['pytorch_stage']
     interconnects = ['mellanox', 'EFA']  # mellanox is default, EFA needed for AWS
