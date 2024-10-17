@@ -2765,7 +2765,8 @@ class Trainer:
 
             if not self.first_train_batch_complete:
                 warnings.warn(
-                    f"No batches were trained for global rank {dist.get_global_rank()}. This may be due to an issue with the train dataset, dataloader, or sampler. This may cause other issues or crashes down the line.")
+                    f"No batches were trained for global rank {dist.get_global_rank()}. This may be due to an issue with the train dataset, dataloader, or sampler. This may cause other issues or crashes down the line."
+                )
 
             if not finished_epoch_early or self.state.dataloader_len == self.state.timestamp.batch_in_epoch:
                 # Trigger the epoch end events if the dataloader was exhausted.

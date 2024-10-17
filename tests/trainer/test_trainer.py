@@ -1699,16 +1699,11 @@ class TestNoTrainDataTrained:
         - The dataset has no samples.
         - The dataset cannot split evenly across multi nodes on the first batch even
     """
+
     def _get_dataloader(self, dataset_size: int):
         """Get a dataloader."""
         dataset = RandomClassificationDataset(size=dataset_size)
-        dataloader = DataLoader(
-            dataset=dataset,
-            batch_size=1,
-            sampler=dist.get_sampler(
-                dataset=dataset
-            )
-        )
+        dataloader = DataLoader(dataset=dataset, batch_size=1, sampler=dist.get_sampler(dataset=dataset))
         return dataloader
 
     @pytest.mark.world_size(1)
