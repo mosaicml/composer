@@ -255,6 +255,7 @@ def test_console_logger_eval(
 
 
 @pytest.mark.filterwarnings('ignore:The ``compute`` method of metric.*:UserWarning')
+@pytest.mark.filterwarnings('ignore:No batches were evaluated*:UserWarning')
 def test_console_logger_eval_empty_dataloader(
     console_logger_test_stream,
     console_logger_test_file_path,
