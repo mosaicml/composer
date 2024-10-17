@@ -31,7 +31,6 @@ from composer.utils import get_free_tcp_port
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
 
-logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 
@@ -538,7 +537,7 @@ def main():
     args = _parse_args()
 
     logging.basicConfig()
-    # log.setLevel(logging.INFO if args.verbose else logging.WARNING)
+    log.setLevel(logging.INFO if args.verbose else logging.WARNING)
 
     processes = {}
 
