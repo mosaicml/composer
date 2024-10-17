@@ -1266,7 +1266,7 @@ class Trainer:
                 'the optimal device_train_microbatch_size value and then manually specify that in a '
                 'second run with profiler.',
             )
-        self.first_batch_complete = False
+        self.first_train_batch_complete = False
         # If auto_microbatching is True or `device_train_microbatch_size` is not specified, the microbatch size
         # will be determined when dataloader is specified. train_dataloader is parsed after `Event.INIT` or in
         # fit()
@@ -2463,7 +2463,7 @@ class Trainer:
             # update scaler since precision was provided
             self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
 
-        self.first_batch_complete = False
+        self.first_train_batch_complete = False
         self._train_loop()
 
         # Zero gradients at the end of fit so same model/optimizer can be used for further training
@@ -2763,6 +2763,11 @@ class Trainer:
                     finished_epoch_early = True
                     break
 
+            if not self.first_train_batch_complete:
+                warnings.warn(
+                    f'No batches were trained for global rank {dist.get_global_rank()}. This may be due to an issue with the train dataset, dataloader, or sampler. This may cause other issues or crashes down the line.',
+                )
+
             if not finished_epoch_early or self.state.dataloader_len == self.state.timestamp.batch_in_epoch:
                 # Trigger the epoch end events if the dataloader was exhausted.
                 # This happens if the "break" did not trigger above, or if it
@@ -2997,7 +3002,7 @@ class Trainer:
                 memory_stats = torch.cuda.memory_stats()
                 self.cumulative_alloc_retries = memory_stats['num_alloc_retries']
             self.logger.log_metrics({'trainer/device_train_microbatch_size': self.state.device_train_microbatch_size})
-            self.first_batch_complete = True
+            self.first_train_batch_complete = True
             return total_loss_dict
 
     def _train_microbatches(
@@ -3019,7 +3024,7 @@ class Trainer:
         if ddp_sync or not isinstance(self.state.model, DistributedDataParallel):
             context = contextlib.nullcontext
         else:
-            if self.state.auto_microbatching and not self.first_batch_complete:
+            if self.state.auto_microbatching and not self.first_train_batch_complete:
                 # PyTorch DDP rebuilds gradient reduction buckets after 1) a forward pass where the
                 # no_sync context was not set 2) a backward pass 3) a forward pass. If only a
                 # subset of ranks OOM on the first batch, this will cause a deadlock since a rank
@@ -3122,7 +3127,7 @@ class Trainer:
             microbatch_size = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
         if self.state.deepspeed_enabled or not isinstance(self.state.model, DistributedDataParallel):
             sync_context = contextlib.nullcontext()
-        elif self.state.auto_microbatching and not self.first_batch_complete:
+        elif self.state.auto_microbatching and not self.first_train_batch_complete:
             # PyTorch DDP rebuilds gradient reduction buckets after 1) a forward pass where the
             # no_sync context was not set 2) a backward pass 3) a forward pass. If only a
             # subset of ranks OOM on the first batch, this will cause a deadlock since a rank
@@ -3599,6 +3604,7 @@ class Trainer:
             drop_last = None
             dataset_len = None
             last_batch = False
+            first_eval_batch_complete = False
             dist_sampler = _get_distributed_sampler(dataloader) if isinstance(dataloader, DataLoader) else None
             if isinstance(dist_sampler, DistributedSampler) and isinstance(dataloader, DataLoader):
                 # The distributed sampler uses `set_epoch` to set the random seed
@@ -3762,6 +3768,7 @@ class Trainer:
                                 evaluator.device_eval_microbatch_size,
                         })
                     # Break if we've successfully completed eval without OOMing.
+                    first_eval_batch_complete = True
                     break
 
                 now = datetime.datetime.now()
@@ -3782,6 +3789,11 @@ class Trainer:
                 last_wct = now
 
                 self.engine.run_event(Event.EVAL_BATCH_END)
+
+            if not first_eval_batch_complete:
+                warnings.warn(
+                    f'No batches were evaluated for global rank {dist.get_global_rank()}. This may be due to an issue with the eval dataset, dataloader, or sampler. This may cause other issues or crashes down the line.',
+                )
 
             self._compute_and_log_metrics(dataloader_label=evaluator.label, metrics=metrics)
 

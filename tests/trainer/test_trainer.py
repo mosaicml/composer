@@ -1690,3 +1690,46 @@ class TestAutoresumeCompatibility:
 
         # Just test that the default args for everything do not hit the above errors
         _ = Trainer(**config)
+
+
+class TestNoTrainDataTrained:
+    """Test cases where no training data is trained with the trainer.
+
+    This can happen in the following cases:
+        - The dataset has no samples.
+        - The dataset cannot split evenly across multi nodes on the first batch even
+    """
+
+    def _get_dataloader(self, dataset_size: int):
+        """Get a dataloader."""
+        dataset = RandomClassificationDataset(size=dataset_size)
+        dataloader = DataLoader(dataset=dataset, batch_size=1, sampler=dist.get_sampler(dataset=dataset))
+        return dataloader
+
+    def test_empty_train_dataloader(self):
+        """Test the case where the train dataset has no samples."""
+        with pytest.raises(UserWarning, match='No batches were trained for global rank'):
+            train_dataloader = self._get_dataloader(0)
+            model = SimpleModel()
+
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                max_duration='1ba',
+            )
+            trainer.fit()
+
+    def test_empty_eval_dataloader(self):
+        """Test the case where the eval dataset has no samples."""
+        with pytest.raises(UserWarning, match='No batches were evaluated for global rank'):
+            train_dataloader = self._get_dataloader(1)
+            eval_dataloader = self._get_dataloader(0)
+            model = SimpleModel()
+
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration='1ba',
+            )
+            trainer.fit()
