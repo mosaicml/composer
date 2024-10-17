@@ -1699,8 +1699,8 @@ class TestNoTrainDataTrained:
         - The dataset has no samples.
         - The dataset cannot split evenly across multi nodes on the first batch even
     """
-    def _run_training(self, dataset_size: int, device: str):
-        """Run the training loop simply."""
+    def _get_dataloader(self, dataset_size: int):
+        """Get a dataloader."""
         dataset = RandomClassificationDataset(size=dataset_size)
         dataloader = DataLoader(
             dataset=dataset,
@@ -1709,32 +1709,38 @@ class TestNoTrainDataTrained:
                 dataset=dataset
             )
         )
-        model = SimpleModel()
-
-        trainer = Trainer(
-            model=model,
-            train_dataloader=dataloader,
-            max_duration='1ba',
-            device=device,
-        )
-        trainer.fit()
+        return dataloader
 
     @pytest.mark.world_size(1)
     @device('cpu', 'gpu')
-    def test_empty_dataloder(self, caplog, device: str):
-        """Test the case where the dataset has no samples."""
-        with caplog.at_level(logging.WARNING):
-            self._run_training(dataset_size=0, device=device)
-            assert "No batches were trained for global rank" in caplog.text
+    def test_empty_train_dataloader(self, device: str):
+        """Test the case where the train dataset has no samples."""
+        with pytest.raises(UserWarning, match="No batches were trained for global rank"):
+            train_dataloader = self._get_dataloader(0)
+            model = SimpleModel()
 
-    @pytest.mark.world_size(2)
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                max_duration='1ba',
+                device=device,
+            )
+            trainer.fit()
+
+    @pytest.mark.world_size(1)
     @device('cpu', 'gpu')
-    def test_empty_dataloader_on_one_rank_only(self, caplog, device: str):
-        """Test the case where the dataset has no samples on one rank only."""
-        with caplog.at_level(logging.WARNING):
-            self._run_training(dataset_size=0 if dist.get_local_rank() == 0 else 1, device=device)
+    def test_empty_eval_dataloader(self, device: str):
+        """Test the case where the eval dataset has no samples."""
+        with pytest.raises(UserWarning, match="No batches were evaluated for global rank"):
+            train_dataloader = self._get_dataloader(1)
+            eval_dataloader = self._get_dataloader(0)
+            model = SimpleModel()
 
-            if dist.get_local_rank() == 0:
-                assert "No batches were trained for global rank" in caplog.text
-            elif dist.get_local_rank() == 1:
-                assert "No batches were trained for global rank" not in caplog.text
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration='1ba',
+                device=device,
+            )
+            trainer.fit()
