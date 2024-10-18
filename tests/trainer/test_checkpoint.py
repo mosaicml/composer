@@ -1591,6 +1591,7 @@ class TestCheckpointResumption:
     )
     # trainer_2 will call compute if checkpoint is already at end of epoch
     @pytest.mark.filterwarnings('ignore:The ``compute`` method of metric MulticlassAccuracy.*:UserWarning')
+    @pytest.mark.filterwarnings('ignore:No batches were trained*:UserWarning')
     def test_resumption(
         self,
         device: str,
