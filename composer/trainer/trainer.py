@@ -935,6 +935,9 @@ class Trainer:
         save_weights_only (bool, optional): Whether to save only the model weights instead of the entire training
             state. This parameter has no effect if ``save_folder`` is ``None``. (default: ``False``)
 
+        save_final_weights_only (bool, optional): Whether to save only the model weights instead of the entire training
+            state for the final checkpoint. This parameter has no effect if ``save_folder`` is ``None``. (default: ``False``)
+
             .. seealso:: :class:`~.CheckpointSaver`
         save_ignore_keys (list[str] | (dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
             which, when provided, will be ignored from the state_dict before a checkpoint is saved. Each path is a list
@@ -1144,6 +1147,7 @@ class Trainer:
         save_overwrite: bool = False,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
         save_weights_only: bool = False,
+        save_final_weights_only: bool = False,
         save_ignore_keys: Optional[Union[list[str], Callable[[dict], None]]] = None,
         save_num_checkpoints_to_keep: int = -1,
         save_metrics: bool = False,
@@ -1559,6 +1563,7 @@ class Trainer:
                 latest_remote_file_name=latest_remote_file_name,
                 overwrite=save_overwrite,
                 weights_only=save_weights_only,
+                final_weights_only=save_final_weights_only,
                 ignore_keys=save_ignore_keys,
                 save_interval=save_interval,
                 num_checkpoints_to_keep=save_num_checkpoints_to_keep,
