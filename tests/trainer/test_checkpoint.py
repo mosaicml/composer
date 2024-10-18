@@ -417,8 +417,11 @@ class TestCheckpointSaving:
     # See https://github.com/pytorch/pytorch/issues/133415
     @pytest.mark.xfail
     @pytest.mark.skipif(
-        version.parse(torch.__version__) < version.parse('2.4.0'),
-        reason='Test only applies to PyTorch 2.4+',
+        (
+            version.parse(torch.__version__) < version.parse('2.4.0') or
+            version.parse(torch.__version__) >= version.parse('2.5.0')
+        ),
+        reason='Test only applies to PyTorch 2.4.x',
     )
     def test_sgd_checkpoint(
         self,

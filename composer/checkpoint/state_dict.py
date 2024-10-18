@@ -88,7 +88,7 @@ def get_model_state_dict(
             log.debug('Calling model.state_dict() for non-FSDP model...')
             model_state_dict = model.state_dict()
         if isinstance(model, DistributedDataParallel):
-            nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, 'module.')
+            nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, 'module.')  # type: ignore
 
     if include_keys is not None:
         model_state_dict = _extract_keys_from_state_dict(model_state_dict, include_keys)
