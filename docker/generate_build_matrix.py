@@ -19,7 +19,7 @@ import packaging.version
 import tabulate
 import yaml
 
-PRODUCTION_PYTHON_VERSION = '3.11'
+PRODUCTION_PYTHON_VERSION = '3.12'
 PRODUCTION_PYTORCH_VERSION = '2.5.0'
 
 
@@ -87,19 +87,6 @@ def _get_cuda_override(cuda_version: str):
         )
 
         return cuda_121_override_string
-    elif cuda_version == '11.8.0':
-        cuda_118_override_string = (
-            'cuda>=11.8 brand=tesla,driver>=470,driver<471 '
-            'brand=tesla,driver>=515,driver<516 brand=unknown,driver>=470,driver<471 '
-            'brand=unknown,driver>=515,driver<516 brand=nvidia,driver>=470,driver<471 '
-            'brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=470,driver<471 '
-            'brand=nvidiartx,driver>=515,driver<516 brand=geforce,driver>=470,driver<471 '
-            'brand=geforce,driver>=515,driver<516 brand=quadro,driver>=470,driver<471 '
-            'brand=quadro,driver>=515,driver<516 brand=titan,driver>=470,driver<471 '
-            'brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=470,driver<471 '
-            'brand=titanrtx,driver>=515,driver<516'
-        )
-        return cuda_118_override_string
     return ''
 
 
@@ -180,7 +167,7 @@ def _write_table(table_tag: str, table_contents: str):
 
 
 def _main():
-    python_pytorch_versions = [('3.11', '2.5.0'), ('3.11', '2.4.1'), ('3.11', '2.3.1')]
+    python_pytorch_versions = [('3.12', '2.5.0'), ('3.11', '2.4.1'), ('3.11', '2.3.1')]
     cuda_options = [True, False]
     stages = ['pytorch_stage']
     interconnects = ['mellanox', 'EFA']  # mellanox is default, EFA needed for AWS
