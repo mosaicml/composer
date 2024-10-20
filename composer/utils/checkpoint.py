@@ -731,6 +731,8 @@ def load_sharded_checkpoint(
                 # Ensure state exists
                 state_dict['state'] = state_dict.get('state', {})
 
+            print ("before modifying state dict")
+            print ("model state dict is: ", state_dict['state']['model'])
             new_model_state_dict = {}
             for key, value in state_dict['state']['model'].items():
                 if 'model.lm_backbone' in key:
@@ -739,6 +741,7 @@ def load_sharded_checkpoint(
                 else:
                     new_model_state_dict[key] = value
             state_dict['state']['model'] = new_model_state_dict
+            print ("after modifying state dict")
 
             dist_cp_load(
                 state_dict=state_dict,
