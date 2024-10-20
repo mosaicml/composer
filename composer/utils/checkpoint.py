@@ -731,6 +731,15 @@ def load_sharded_checkpoint(
                 # Ensure state exists
                 state_dict['state'] = state_dict.get('state', {})
 
+            new_model_state_dict = {}
+            for key, value in state_dict['state']['model'].items():
+                if 'model.lm_backbone' in key:
+                    new_key = key.replace('lm_backbone.', '')
+                    new_model_state_dict[new_key] = value
+                else:
+                    new_model_state_dict[key] = value
+            state_dict['state']['model'] = new_model_state_dict
+
             dist_cp_load(
                 state_dict=state_dict,
                 storage_reader=storage_reader,
