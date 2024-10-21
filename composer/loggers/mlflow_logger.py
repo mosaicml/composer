@@ -304,7 +304,7 @@ class MLFlowLogger(LoggerDestination):
     def _global_exception_handler(self, exc_type, exc_value, exc_traceback):
         """Catch global exception."""
         self._global_exception_occurred += 1
-        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        sys.excepthook(exc_type, exc_value, exc_traceback)
 
     def init(self, state: State, logger: Logger) -> None:
         del logger  # unused
