@@ -323,12 +323,12 @@ class MLFlowLogger(LoggerDestination):
 
         # Register the global exception handler so that uncaught exception is tracked.
         original_excepthook = sys.excepthook
-        sys.excepthook = lambda exc_type, exc_value, exc_traceback: self._global_exception_handler(
-            original_excepthook,
-            exc_type,
-            exc_value,
-            exc_traceback,
-        )
+        # sys.excepthook = lambda exc_type, exc_value, exc_traceback: self._global_exception_handler(
+        #     original_excepthook,
+        #     exc_type,
+        #     exc_value,
+        #     exc_traceback,
+        # )
         # Start run
         if self._enabled:
             self._start_mlflow_run(state)
