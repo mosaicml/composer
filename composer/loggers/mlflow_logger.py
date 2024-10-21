@@ -327,6 +327,8 @@ class MLFlowLogger(LoggerDestination):
         if self._enabled:
             self._start_mlflow_run(state)
 
+        raise Exception('hiiiiiiiii')
+
         # If rank zero only, broadcast the MLFlow experiment and run IDs to other ranks, so the MLFlow run info is
         # available to other ranks during runtime.
         if self._rank_zero_only:
