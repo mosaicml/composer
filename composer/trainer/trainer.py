@@ -990,12 +990,6 @@ class Trainer:
 
             To use DeepSpeed with default values, set to the empty dictionary ``{}``.
             To disable DeepSpeed (the default), set to ``None``.
-        fsdp_config (dict[str, Any], optional): Configuration for FSDP.
-            See :doc:`FSDP Documentation </notes/distributed_training>` for more details.
-            To use FSDP with default values, set to the empty dictionary ``{}``. To
-            disable FSDP, set to ``None``. (default: ``None``)
-        fsdp_auto_wrap (bool, optional): option to let trainer wrap the module, or if
-            the module is already wrapped outside, allow the user to disable auto-wrapping.
         parallelism_config (Union[dict[str, Any], ParallelismConfig], optional): Configuration for parallelism options.
             Currently supports fsdp and tensor parallelism, whose respective configs are specified
             as the keys ``fsdp`` and ``tp``. (default: ``None``)
@@ -1153,8 +1147,6 @@ class Trainer:
 
         # Parallelism
         deepspeed_config: Optional[dict[str, Any]] = None,
-        fsdp_config: Optional[dict[str, Any]] = None,
-        fsdp_auto_wrap: bool = True,
         parallelism_config: Optional[Union[dict[str, Any], ParallelismConfig]] = None,
 
         # System/Numerics
@@ -1279,43 +1271,6 @@ class Trainer:
         assert not isinstance(device_train_microbatch_size, str)
 
         # Distributed
-        if fsdp_config is not None:
-            warnings.warn(
-                VersionedDeprecationWarning(
-                    "fsdp_config is deprecated. Please use parallelism_config['fsdp'] instead.",
-                    remove_version='0.26.0',
-                ),
-            )
-            if parallelism_config is None:
-                parallelism_config = {}
-            if isinstance(parallelism_config, ParallelismConfig):
-                raise ValueError(
-                    'fsdp_config cannot be specified if parallelism_config is a ParallelismConfig object. '
-                    'Please instead pass fsdp_config as a FSDPConfig object when constructing ParallelismConfig.',
-                )
-            elif parallelism_config.get('fsdp') is not None:
-                raise ValueError(
-                    'fsdp_config is specified in both fsdp_config and parallelism_config. Please specify it in only in parallelism_config.',
-                )
-            parallelism_config['fsdp'] = fsdp_config
-        if not fsdp_auto_wrap:
-            warnings.warn(
-                VersionedDeprecationWarning(
-                    "fsdp_auto_wrap=False is deprecated. Please use parallelism_config['fsdp']['auto_wrap'] instead.",
-                    remove_version='0.26.0',
-                ),
-            )
-            if parallelism_config is None:
-                parallelism_config = {}
-            if isinstance(parallelism_config, ParallelismConfig):
-                raise ValueError(
-                    'fsdp_auto_wrap cannot be specified if parallelism_config is a ParallelismConfig object. '
-                    'Please instead pass fsdp_auto_wrap to FSDPConfig as part of ParallelismConfig.',
-                )
-            else:
-                if parallelism_config.get('fsdp') is None:
-                    parallelism_config['fsdp'] = {}
-                parallelism_config['fsdp']['auto_wrap'] = fsdp_auto_wrap
         if parallelism_config is not None and not isinstance(parallelism_config, ParallelismConfig):
             parallelism_config_args = {}
             if 'fsdp' in parallelism_config and parallelism_config['fsdp'] is not None:
