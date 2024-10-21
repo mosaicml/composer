@@ -233,6 +233,10 @@ extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
 extra_deps['databricks'] = ['databricks-sdk==0.33.0']
 
+extra_deps['te'] = [
+    'transformer-engine[pytorch]>=1.11.0,<1.12',
+]
+
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 
 composer_data_files = ['py.typed']
