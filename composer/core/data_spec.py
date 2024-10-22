@@ -192,7 +192,7 @@ class DataSpec:
         self.device_transforms = self._default_device_transforms if device_transforms is None else device_transforms
         self.split_batch = default_split_batch if split_batch is None else split_batch
         self.get_num_samples_in_batch = self._default_get_num_samples_in_batch if get_num_samples_in_batch is None else get_num_samples_in_batch
-        self.get_num_tokens_in_batch = self._default_get_num_tokens_in_batch if get_num_tokens_in_batch is None else get_num_tokens_in_batch
+        self._get_num_tokens_in_batch = self._default_get_num_tokens_in_batch if get_num_tokens_in_batch is None else get_num_tokens_in_batch
 
         if num_samples is not None:
             self.num_samples = num_samples
@@ -294,6 +294,23 @@ class DataSpec:
             samples_per_batch = self.get_num_samples_in_batch(batch)
             return self.dataloader.dataset.max_seq_len * samples_per_batch  # type: ignore
         return 0
+
+    def get_num_tokens_in_batch(self, batch: Batch, token_type: str = 'total') -> int:
+        num_tokens = self._get_num_tokens_in_batch(batch)
+
+        if isinstance(num_tokens, int):
+            if token_type != 'total':
+                warnings.warn(
+                    f'get_num_tokens_in_batch returned an int, but token_type is {token_type}. ' +
+                    'Returning the total number of tokens in the batch.',
+                )
+            return num_tokens
+        elif isinstance(num_tokens, dict):
+            if token_type not in num_tokens:
+                raise ValueError(f'Token type {token_type} not found in num_tokens dict.')
+            return num_tokens[token_type]
+        else:
+            raise ValueError(f'Unexpected return type from get_num_tokens_in_batch: {type(num_tokens)}')
 
 
 def ensure_data_spec(dataloader: Union[DataSpec, Iterable, dict]) -> DataSpec:

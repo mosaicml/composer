@@ -1027,7 +1027,10 @@ class Trainer:
                 it into sections of size ``device_train_microbatch_size``. If the batch size of the dataloader
                 is not divisible by ``device_train_microbatch_size``, the last section will be potentially smaller.
         accumulate_train_batch_on_tokens (bool, optional): Whether training loss is accumulated over the number of tokens in a batch,
-             rather than the number of samples. Only works if the train data spec implements `get_num_tokens_in_batch`. (default: ``False``)
+             rather than the number of samples. Only works if the train data spec implements `get_num_tokens_in_batch`.
+             Note: If you are using this flag, you can optionally have your `get_num_tokens_in_batch` function return a dictionary
+             with two keys (`total` and `loss_generating`). Composer will then accumulate the batch on loss generating tokens specifically,
+             even though total tokens will be used for any other time involving tokens. (default: ``False``)
         seed (int, optional): The seed used in randomization. If ``None``, then a random seed
             will be created. (default: ``None``)
 
