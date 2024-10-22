@@ -300,7 +300,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             local_folder = '.'
 
         is_remote_folder = backend != ''
-        if is_remote_folder:  # If we are uploading to a remote path, we use a temporary directory to save local checkpoints.
+        if is_remote_folder:  # If uploading to a remote path, use a temporary directory to save local checkpoints.
             local_folder = os.path.join(tempfile.mkdtemp(), local_folder)
 
         filename = str(filename)
