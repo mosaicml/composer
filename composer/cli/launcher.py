@@ -2,7 +2,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""The Composer CLI launcher for distributed training."""
+"""The Composer CLI launcher for testing distributed training."""
 
 import contextlib
 import datetime
