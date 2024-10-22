@@ -882,7 +882,8 @@ class TestCheckpointLoading:
 
                     if delete_local:
                         # delete files locally, forcing trainer to look in object store
-                        shutil.rmtree('first')
+                        assert trainer_1._checkpoint_saver is not None
+                        shutil.rmtree(trainer_1._checkpoint_saver.folder)
 
                     trainer_2 = self.get_trainer(
                         latest_filename=latest_filename,
