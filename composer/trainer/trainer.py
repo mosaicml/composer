@@ -2665,8 +2665,6 @@ class Trainer:
                 self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
                 rank_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
                 rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
-                if isinstance(rank_num_tokens, dict):
-                    rank_num_tokens = rank_num_tokens['total']
 
                 if self.state.deepspeed_enabled:
                     self.state.batch = fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
@@ -3056,16 +3054,9 @@ class Trainer:
 
             # Tracker for gradient accumulation
             if self.accumulate_train_batch_on_tokens:
-                current_batch_size = 0
-                for b in microbatches:
-                    mb_num_tokens = self._train_data_spec.get_num_tokens_in_batch(b)
-                    if isinstance(mb_num_tokens, dict):
-                        if set(mb_num_tokens.keys()) != {'total', 'loss_generating'}:
-                            raise ValueError(
-                                'if get_num_tokens_in_batch is a dictionary, it must have keys "total" and "loss_generating".',
-                            )
-                        mb_num_tokens = mb_num_tokens['loss_generating']
-                    current_batch_size += mb_num_tokens
+                current_batch_size = sum([
+                    self._train_data_spec.get_num_tokens_in_batch(b, token_type='loss_generating') for b in microbatches
+                ])
                 if current_batch_size == 0:
                     raise ValueError(
                         textwrap.dedent(
@@ -3128,13 +3119,9 @@ class Trainer:
         device_batch = deepcopy(self.state.batch)
 
         if self.accumulate_train_batch_on_tokens:
-            microbatch_size = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
-            if isinstance(microbatch_size, dict):
-                if set(microbatch_size.keys()) != {'total', 'loss_generating'}:
-                    raise ValueError(
-                        'if get_num_tokens_in_batch is a dictionary, it must have keys "total" and "loss_generating".',
-                    )
-                microbatch_size = microbatch_size['loss_generating']
+            microbatch_size = self._train_data_spec.get_num_tokens_in_batch(
+                self.state.batch, token_type='loss_generating'
+            )
         else:
             microbatch_size = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
         if self.state.deepspeed_enabled or not isinstance(self.state.model, DistributedDataParallel):
@@ -3369,8 +3356,6 @@ class Trainer:
                 # Count the batch size and num tokens before any events run
                 rank_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
                 rank_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
-                if isinstance(rank_num_tokens, dict):
-                    rank_num_tokens = rank_num_tokens['total']
 
                 # Fix the batch if using DeepSpeed
                 if self.state.deepspeed_enabled:
@@ -3646,8 +3631,6 @@ class Trainer:
                 # Count the batch size and num tokens before any events run
                 rank_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
                 rank_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
-                if isinstance(rank_num_tokens, dict):
-                    rank_num_tokens = rank_num_tokens['total']
 
                 # If using a distributed sampler, keep track of last_batch for metrics update
                 if dist_sampler is not None and drop_last == False and dataset_len is not None:
