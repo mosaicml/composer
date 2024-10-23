@@ -77,7 +77,7 @@ def test_get_num_tokens_hf_default(batch_size: int, sequence_length: int, use_ke
     [
         [True, None, 8],  # dict with default key
         [False, None, 8],  # int with default key
-        [False, 'loss_generating', None],  # int with non-default key
+        [False, 'loss_generating', 8],  # int with non-default key
         [True, 'loss_generating', 4],  # dict with non-default key
     ],
 )
