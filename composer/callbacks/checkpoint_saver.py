@@ -294,9 +294,14 @@ class CheckpointSaver(Callback):  # noqa: D101
         num_concurrent_uploads: int = 1,
         upload_timeout_in_seconds: int = 3600,
     ):
+
         backend, _, local_folder = parse_uri(str(folder))
         if local_folder == '':
             local_folder = '.'
+
+        is_remote_folder = backend != ''
+        if is_remote_folder:  # If uploading to a remote path, use a temporary directory to save local checkpoints.
+            local_folder = os.path.join(tempfile.mkdtemp(), local_folder)
 
         filename = str(filename)
         remote_file_name = str(remote_file_name) if remote_file_name is not None else None

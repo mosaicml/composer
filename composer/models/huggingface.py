@@ -16,7 +16,7 @@ import tempfile
 import textwrap
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Mapping, Optional, Union
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Union
 
 import torch
 from torchmetrics import Metric
@@ -53,8 +53,8 @@ class HuggingFaceModel(ComposerModel):
             .. note:: If the tokenizer is provided, its config will be saved in the composer checkpoint, and it can be reloaded
                 using :meth:`HuggingFaceModel.hf_from_composer_checkpoint`. If the tokenizer is not provided here, it will not be saved in the composer checkpoint.
         use_logits (bool, optional): If True, the model's output logits will be used to calculate validation metrics. Else, metrics will be inferred from the HuggingFaceModel directly. Default: ``False``
-        metrics (list[Metric], optional): list of torchmetrics to apply to the output of `eval_forward` during training. If ``eval_metrics`` is ``None``, these will also be used as ``eval_metrics``.  Default: ``None``.
-        eval_metrics (list[Metric], optional): list of torchmetrics to compute on the eval_dataloader, or be accessible to :class:`Evaluator`s. Default: ``None``.
+        metrics (Sequence[Metric], optional): list of torchmetrics to apply to the output of `eval_forward` during training. If ``eval_metrics`` is ``None``, these will also be used as ``eval_metrics``.  Default: ``None``.
+        eval_metrics (Sequence[Metric], optional): list of torchmetrics to compute on the eval_dataloader, or be accessible to :class:`Evaluator`s. Default: ``None``.
         shift_labels (bool, optional): If True, the batch's labels will be shifted before being used to calculate metrics. This should be set to true for CausalLM models and false otherwise. If not specified, `shift_labels` will be set automatically based on the model class name. Default: ``None``.
         allow_embedding_resizing (bool, optional): If True, the model's embeddings will be automatically resized when they are smaller than the tokenizer vocab size. Default: ``False``.
         peft_config (PeftConfig, optional): Optional PEFT config to apply to the model. If provided, the model will be converted to a PEFT model. Only LoRA is currently supported.
@@ -81,8 +81,8 @@ class HuggingFaceModel(ComposerModel):
         model: Union[transformers.PreTrainedModel, 'PeftModel'],
         tokenizer: Optional[Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]] = None,
         use_logits: Optional[bool] = False,
-        metrics: Optional[list[Metric]] = None,
-        eval_metrics: Optional[list[Metric]] = None,
+        metrics: Optional[Sequence[Metric]] = None,
+        eval_metrics: Optional[Sequence[Metric]] = None,
         shift_labels: Optional[bool] = None,
         allow_embedding_resizing: bool = False,
         peft_config: Optional['PeftConfig'] = None,
@@ -188,7 +188,7 @@ class HuggingFaceModel(ComposerModel):
                 f' performance.',
             )
 
-    def _get_metric_dict(self, metrics: list[Metric]) -> dict[str, Metric]:
+    def _get_metric_dict(self, metrics: Sequence[Metric]) -> dict[str, Metric]:
         """Returns a dictionary of metrics keyed by their class name."""
         return {metric.__class__.__name__: metric for metric in metrics}
 
@@ -916,7 +916,7 @@ def write_huggingface_pretrained_from_composer_checkpoint(
         peft_config.save_pretrained(str(output_folder))
 
     weights_state_dict = composer_state_dict['state']['model']
-    torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(weights_state_dict, prefix='model.')
+    torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(weights_state_dict, prefix='model.')  # type: ignore
 
     # NOTE: This only works for default adapter name, not multiple adapters
     if peft_config is not None:
