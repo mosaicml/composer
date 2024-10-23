@@ -302,11 +302,6 @@ class DataSpec:
         num_tokens = self._get_num_tokens_in_batch(batch)
 
         if isinstance(num_tokens, int):
-            if token_type != 'total':
-                log.warning(
-                    f'get_num_tokens_in_batch returned an int, but token_type is {token_type}. ' +
-                    'Returning the total number of tokens in the batch.',
-                )
             return num_tokens
         elif isinstance(num_tokens, dict):
             if token_type not in num_tokens:
