@@ -415,7 +415,7 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
     """Automatically creates an ObjectStore from supported URI formats.
 
     Args:
-        uri (str): The path to (maybe) create an ObjectStore from.
+        uri (str): The path to (maybe) create an :class:`composer.utils.ObjectStore` from.
 
     Raises:
         NotImplementedError: Raises when the URI format is not supported.
