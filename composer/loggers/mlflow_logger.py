@@ -34,6 +34,8 @@ log = logging.getLogger(__name__)
 __all__ = ['MLFlowLogger']
 
 DEFAULT_MLFLOW_EXPERIMENT_NAME = 'my-mlflow-experiment'
+LOG_DUPLICATED_METRIC_VALUE_PER_N_STEPS = 100
+LOG_DUPLICATED_METRIC_VALUE_PER_N_MILLIS = 600000
 
 
 class MlflowMonitorProcess(multiprocessing.Process):
@@ -118,6 +120,11 @@ class MLFlowLogger(LoggerDestination):
         logging_buffer_seconds (int, optional): The amount of time, in seconds, that MLflow
             waits before sending logs to the MLflow tracking server. Metrics/params/tags logged
             within this buffer time will be grouped in batches before being sent to the backend.
+        log_duplicated_metric_every_n_steps (int, optional): The number of steps to wait before
+            logging the duplicated metric value. Duplicated metric value means the new step has the
+            same value as the previous step. (default: ``100``)
+        log_duplicated_metric_every_n_millis (int, optional): The number of milliseconds to wait
+            before logging the duplicated metric value. (default: ``600000``)
     """
 
     def __init__(
@@ -138,6 +145,8 @@ class MLFlowLogger(LoggerDestination):
         run_group: Optional[str] = None,
         resume: bool = False,
         logging_buffer_seconds: Optional[int] = 10,
+        log_duplicated_metric_every_n_steps: int = 100,
+        log_duplicated_metric_every_n_millis: int = 600000,
     ) -> None:
         try:
             import mlflow
@@ -178,6 +187,10 @@ class MLFlowLogger(LoggerDestination):
             # (logging per 30s).
             mlflow.set_system_metrics_samples_before_logging(6)
             mlflow.set_system_metrics_sampling_interval(5)
+
+        self.log_duplicated_metric_every_n_steps = log_duplicated_metric_every_n_steps
+        self.log_duplicated_metric_every_n_millis = log_duplicated_metric_every_n_millis
+        self._metrics_cache = {}
 
         self._rank_zero_only = rank_zero_only
         self._last_flush_time = time.time()
@@ -385,18 +398,37 @@ class MLFlowLogger(LoggerDestination):
     def log_metrics(self, metrics: dict[str, Any], step: Optional[int] = None) -> None:
         from mlflow import log_metrics
 
-        if self._enabled:
-            # Convert all metrics to floats to placate mlflow.
-            metrics = {
-                self.rename(k): float(v)
-                for k, v in metrics.items()
-                if not any(fnmatch.fnmatch(k, pattern) for pattern in self.ignore_metrics)
-            }
-            log_metrics(
-                metrics=metrics,
-                step=step,
-                synchronous=self.synchronous,
-            )
+        if not self._enabled:
+            return
+
+        metrics_to_log = {}
+        step = step or 0
+        current_time_millis = int(time.time() * 1000)
+        for k, v in metrics.items():
+            if any(fnmatch.fnmatch(k, pattern) for pattern in self.ignore_metrics):
+                continue
+            if k in self._metrics_cache:
+                value, last_step, last_time = self._metrics_cache[k]
+                if value == v and step < last_step + self.log_duplicated_metric_every_n_steps and current_time_millis < last_time + self.log_duplicated_metric_every_n_millis:
+                    # Skip logging the metric if it has the same value as the last step and it's
+                    # within the step and time window.
+                    continue
+                else:
+                    # Log the metric if it has a different value or it's outside the step and time
+                    # window, and update the metrics cache.
+                    self._metrics_cache[k] = (v, step, current_time_millis)
+                    metrics_to_log[self.rename(k)] = float(v)
+            else:
+                # Log the metric if it's the first time it's being logged, and update the metrics
+                # cache.
+                self._metrics_cache[k] = (v, step, current_time_millis)
+                metrics_to_log[self.rename(k)] = float(v)
+
+        log_metrics(
+            metrics=metrics_to_log,
+            step=step,
+            synchronous=self.synchronous,
+        )
 
     def log_hyperparameters(self, hyperparameters: dict[str, Any]):
         from mlflow import log_params
