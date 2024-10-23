@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import collections.abc
+import logging
 import textwrap
 import warnings
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Sequence, Union
@@ -19,6 +20,8 @@ if TYPE_CHECKING:
     from composer.core.types import Batch
 
 __all__ = ['DataSpec', 'ensure_data_spec']
+
+log = logging.getLogger(__name__)
 
 
 def _split_list(l, microbatch_size: int):
@@ -185,14 +188,14 @@ class DataSpec:
         device_transforms: Optional[Callable[[Batch], Batch]] = None,
         split_batch: Optional[Callable[[Batch, Union[int, float]], Sequence[Batch]]] = None,
         get_num_samples_in_batch: Optional[Callable[[Batch], Union[int, float]]] = None,
-        get_num_tokens_in_batch: Optional[Callable[[Batch], int]] = None,
+        get_num_tokens_in_batch: Optional[Callable[[Batch], Union[int, dict[str, int]]]] = None,
     ) -> None:
         self.dataloader: Union[Iterable, torch.utils.data.DataLoader] = dataloader
         self.num_tokens = num_tokens
         self.device_transforms = self._default_device_transforms if device_transforms is None else device_transforms
         self.split_batch = default_split_batch if split_batch is None else split_batch
         self.get_num_samples_in_batch = self._default_get_num_samples_in_batch if get_num_samples_in_batch is None else get_num_samples_in_batch
-        self.get_num_tokens_in_batch = self._default_get_num_tokens_in_batch if get_num_tokens_in_batch is None else get_num_tokens_in_batch
+        self._get_num_tokens_in_batch = self._default_get_num_tokens_in_batch if get_num_tokens_in_batch is None else get_num_tokens_in_batch
 
         if num_samples is not None:
             self.num_samples = num_samples
@@ -294,6 +297,18 @@ class DataSpec:
             samples_per_batch = self.get_num_samples_in_batch(batch)
             return self.dataloader.dataset.max_seq_len * samples_per_batch  # type: ignore
         return 0
+
+    def get_num_tokens_in_batch(self, batch: Batch, token_type: str = 'total') -> int:
+        num_tokens = self._get_num_tokens_in_batch(batch)
+
+        if isinstance(num_tokens, int):
+            return num_tokens
+        elif isinstance(num_tokens, dict):
+            if token_type not in num_tokens:
+                raise ValueError(f'Token type {token_type} not found in num_tokens dict.')
+            return num_tokens[token_type]
+        else:
+            raise ValueError(f'Unexpected return type from get_num_tokens_in_batch: {type(num_tokens)}')
 
 
 def ensure_data_spec(dataloader: Union[DataSpec, Iterable, dict]) -> DataSpec:

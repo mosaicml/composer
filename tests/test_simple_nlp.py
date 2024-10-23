@@ -217,3 +217,87 @@ def test_simple_nlp_mlm_token_batch(tiny_bert_tokenizer, device):
     trainer2.fit()
     assert trainer2.state.train_metrics is not None
     assert trainer2.state.train_metrics['LanguageCrossEntropy'].compute() == cross_entropy
+
+
+@device('gpu')
+def test_simple_nlp_mlm_loss_gen_token_batch(tiny_bert_tokenizer, device):
+    transformers = pytest.importorskip('transformers')
+
+    vocab_size = tiny_bert_tokenizer.vocab_size
+    sequence_length = 32
+    size = 96
+    batch_size = 8
+    device = get_device(device)
+
+    train_dataset = RandomTextLMDataset(
+        size=size,
+        vocab_size=vocab_size,
+        sequence_length=sequence_length,
+        use_keys=True,
+        pad_token_id=tiny_bert_tokenizer.pad_token_id,
+    )
+    for i in range(size):  # Proactively load dataset for consistent randomization
+        train_dataset[i]
+    collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer)
+
+    # Get the model's state dict before training starts, so we can reproduce results
+    model = SimpleTransformerMaskedLM(vocab_size=vocab_size)
+    state_dict = model.state_dict()
+
+    # Set up the data spec that can count the non-padding tokens in a batch
+    train_dataloader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        sampler=dist.get_sampler(train_dataset),
+        collate_fn=collator,
+    )
+    data_spec = DataSpec(
+        dataloader=train_dataloader,
+        get_num_tokens_in_batch=lambda b: (b['input_ids'] != tiny_bert_tokenizer.pad_token_id).sum().item(),
+    )
+
+    # Arbitrarily divide num tokens by 2 to simulate loss-generating tokens
+    loss_gen_data_spec = DataSpec(
+        dataloader=train_dataloader,
+        get_num_tokens_in_batch=lambda b: {
+            'total': (b['input_ids'] != tiny_bert_tokenizer.pad_token_id).sum().item(),
+            'loss_generating': (b['input_ids'] != tiny_bert_tokenizer.pad_token_id).sum().item() // 2,
+        },
+    )
+
+    trainer = Trainer(
+        model=model,
+        seed=42,
+        train_dataloader=data_spec,
+        max_duration='2ep',
+        device_train_microbatch_size=batch_size // 2,
+        accumulate_train_batch_on_tokens=False,
+        device=device,
+    )
+    trainer.fit()
+
+    # Check that there is some train cross entropy
+    assert trainer.state.train_metrics is not None
+    cross_entropy = trainer.state.train_metrics['LanguageCrossEntropy'].compute()
+    assert cross_entropy != 0.0
+
+    # Set up a trainer that accumulates train loss based on token counts, after reloading original state dict
+    model.load_state_dict(state_dict)
+    token_trainer = Trainer(
+        model=model,
+        seed=42,
+        train_dataloader=loss_gen_data_spec,
+        max_duration='2ep',
+        device_train_microbatch_size=batch_size // 2,
+        accumulate_train_batch_on_tokens=True,
+        device=device,
+    )
+    token_trainer.fit()
+
+    # Check that there is some train cross entropy
+    assert token_trainer.state.train_metrics is not None
+    token_cross_entropy = token_trainer.state.train_metrics['LanguageCrossEntropy'].compute()
+    assert token_cross_entropy != 0.0
+
+    # Require that the train cross entropies are different between the trainers
+    assert cross_entropy != token_cross_entropy
