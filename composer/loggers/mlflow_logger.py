@@ -301,10 +301,10 @@ class MLFlowLogger(LoggerDestination):
             )
             self.monitor_process.start()
 
-    def _global_exception_handler(self, exc_type, exc_value, exc_traceback):
+    def _global_exception_handler(self, original_excepthook, exc_type, exc_value, exc_traceback):
         """Catch global exception."""
         self._global_exception_occurred += 1
-        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        original_excepthook(exc_type, exc_value, exc_traceback)
 
     def init(self, state: State, logger: Logger) -> None:
         del logger  # unused
@@ -322,7 +322,13 @@ class MLFlowLogger(LoggerDestination):
             self.run_name += f'-rank{dist.get_global_rank()}'
 
         # Register the global exception handler so that uncaught exception is tracked.
-        sys.excepthook = self._global_exception_handler
+        original_excepthook = sys.excepthook
+        sys.excepthook = lambda exc_type, exc_value, exc_traceback: self._global_exception_handler(
+            original_excepthook,
+            exc_type,
+            exc_value,
+            exc_traceback,
+        )
         # Start run
         if self._enabled:
             self._start_mlflow_run(state)
