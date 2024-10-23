@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import collections.abc
+import logging
 import textwrap
 import warnings
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Sequence, Union
@@ -19,6 +20,8 @@ if TYPE_CHECKING:
     from composer.core.types import Batch
 
 __all__ = ['DataSpec', 'ensure_data_spec']
+
+log = logging.getLogger(__name__)
 
 
 def _split_list(l, microbatch_size: int):

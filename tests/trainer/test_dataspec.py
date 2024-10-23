@@ -99,7 +99,7 @@ def test_get_num_tokens_types(return_dict: bool, requested_key: Optional[str], e
     batch = {}
     extra_args = {}
     if requested_key is not None:
-        extra_args['requested_key'] = requested_key
+        extra_args['token_type'] = requested_key
 
     with error_context:
         actual = dataspec.get_num_tokens_in_batch(batch, **extra_args)

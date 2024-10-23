@@ -3120,7 +3120,8 @@ class Trainer:
 
         if self.accumulate_train_batch_on_tokens:
             microbatch_size = self._train_data_spec.get_num_tokens_in_batch(
-                self.state.batch, token_type='loss_generating'
+                self.state.batch,
+                token_type='loss_generating',
             )
         else:
             microbatch_size = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
