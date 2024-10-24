@@ -412,7 +412,9 @@ BACKEND_TO_OBJECT_STORE_FACTORY: dict[str, Callable[[str, str], ObjectStore]] = 
 
 
 def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
-    """Automatically creates an ObjectStore from supported URI formats.
+    """Automatically creates an :class:`composer.utils.ObjectStore` from supported URI formats.
+
+    Currently supported backends are ``s3://``, ``oci://``, and local paths (in which case ``None`` will be returned)
 
     Args:
         uri (str): The path to (maybe) create an :class:`composer.utils.ObjectStore` from.
@@ -439,14 +441,21 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
             store = None
             if dist.get_global_rank() == 0:
                 store = MLFlowObjectStore(path)
+
+                # The path may have had placeholders, so update it with the experiment/run IDs initialized by the store
                 path = store.get_dbfs_path(path)
+
+            # Broadcast the rank 0 updated path to all ranks for their own object stores
             path_list = [path]
             dist.broadcast_object_list(path_list, src=0)
             path = path_list[0]
+
+            # Create the object store for all other ranks
             if dist.get_global_rank() != 0:
                 store = MLFlowObjectStore(path)
             return store
         else:
+            # validate if the path conforms to the requirements for UC volume paths
             UCObjectStore.validate_path(path)
             return UCObjectStore(path=path)
 
@@ -455,7 +464,10 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
         return BACKEND_TO_OBJECT_STORE_FACTORY[backend](bucket_name, path)
 
     # If backend is unknown, raise NotImplementedError
-    raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI.')
+    raise NotImplementedError(
+        f'There is no implementation for the cloud backend {backend} via URI. Please use '
+        'one of the supported object stores',
+    )
 
 
 def maybe_create_remote_uploader_downloader_from_uri(
