@@ -429,12 +429,8 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
     if backend == '':
         return None
 
-    # Check if backend is registered
-    if backend in BACKEND_TO_OBJECT_STORE_FACTORY:
-        return BACKEND_TO_OBJECT_STORE_FACTORY[backend](bucket_name, path)
-
     # Handle special cases like WandB, MLFlow, etc.
-    if backend == 'wandb':
+    elif backend == 'wandb':
         raise NotImplementedError(
             f'There is no implementation for WandB load_object_store via URI. Please use WandBLogger',
         )
@@ -453,6 +449,10 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
         else:
             UCObjectStore.validate_path(path)
             return UCObjectStore(path=path)
+
+    # Check if backend is registered
+    elif backend in BACKEND_TO_OBJECT_STORE_FACTORY:
+        return BACKEND_TO_OBJECT_STORE_FACTORY[backend](bucket_name, path)
 
     # If backend is unknown, raise NotImplementedError
     raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI.')
