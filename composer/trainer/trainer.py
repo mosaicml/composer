@@ -990,12 +990,6 @@ class Trainer:
 
             To use DeepSpeed with default values, set to the empty dictionary ``{}``.
             To disable DeepSpeed (the default), set to ``None``.
-        fsdp_config (dict[str, Any], optional): Configuration for FSDP.
-            See :doc:`FSDP Documentation </notes/distributed_training>` for more details.
-            To use FSDP with default values, set to the empty dictionary ``{}``. To
-            disable FSDP, set to ``None``. (default: ``None``)
-        fsdp_auto_wrap (bool, optional): option to let trainer wrap the module, or if
-            the module is already wrapped outside, allow the user to disable auto-wrapping.
         parallelism_config (Union[dict[str, Any], ParallelismConfig], optional): Configuration for parallelism options.
             Currently supports fsdp and tensor parallelism, whose respective configs are specified
             as the keys ``fsdp`` and ``tp``. (default: ``None``)
