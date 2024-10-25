@@ -709,6 +709,7 @@ class TestMlflowMetrics:
         logger = MLFlowLogger(
             tracking_uri=tmp_path / Path('my-test-mlflow-uri'),
             ignore_metrics=ignore_metrics,
+            log_duplicated_metric_every_n_steps=0,
         )
 
         file_path = self.run_trainer(logger, num_batches)
@@ -854,52 +855,25 @@ def test_mlflow_logging_with_metrics_dedupping(tmp_path):
             run_name='test_run',
             logging_buffer_seconds=2,
             log_duplicated_metric_every_n_steps=3,
-            log_duplicated_metric_every_n_millis=10000,
         )
         test_mlflow_logger.init(state=mock_state, logger=mock_logger)
-        # # Test dedupping of metrics and duplicated metrics get logged per
-        # # `log_duplicated_metric_every_n_steps` steps.
-        # steps = 10
-        # for i in range(steps):
-        #     # 'foo' always have different values, while 'bar' always have the same value.
-        #     metrics = {
-        #         'foo': i,
-        #         'bar': 0,
-        #     }
-        #     test_mlflow_logger.log_metrics(metrics, step=i)
-
-        #     if i % 3 == 0:
-        #         # 'bar' will be logged every 3 steps.
-        #         mock_log_metrics.assert_called_with(metrics={'foo': float(i), 'bar': 0.0}, step=i, synchronous=False)
-        #     else:
-        #         # 'bar' will not be logged.
-        #         mock_log_metrics.assert_called_with(metrics={'foo': float(i)}, step=i, synchronous=False)
-
         # Test dedupping of metrics and duplicated metrics get logged per
-        # `log_duplicated_metric_every_n_millis` milliseconds.
-        timestamps = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45]
-        # Reset the metrics cache.
-        test_mlflow_logger._metrics_cache = {}
-        with patch('time.time', side_effect=timestamps):
-            for i in range(len(timestamps)):
-                # 'foo' always have different values, while 'bar' always have the same value.
-                metrics = {
-                    'foo': i,
-                    'bar': 0,
-                }
-                test_mlflow_logger.log_metrics(metrics, step=0)
+        # `log_duplicated_metric_every_n_steps` steps.
+        steps = 10
+        for i in range(steps):
+            # 'foo' always have different values, while 'bar' always have the same value.
+            metrics = {
+                'foo': i,
+                'bar': 0,
+            }
+            test_mlflow_logger.log_metrics(metrics, step=i)
 
-                if i % 2 == 0:
-                    # 'bar' will be logged every 2 steps.
-                    mock_log_metrics.assert_called_with(
-                        metrics={
-                            'foo': float(i),
-                            'bar': 0.0,
-                        }, step=0, synchronous=False,
-                    )
-                else:
-                    # 'bar' will not be logged.
-                    mock_log_metrics.assert_called_with(metrics={'foo': float(i)}, step=0, synchronous=False)
+            if i % 3 == 0:
+                # 'bar' will be logged every 3 steps.
+                mock_log_metrics.assert_called_with(metrics={'foo': float(i), 'bar': 0.0}, step=i, synchronous=False)
+            else:
+                # 'bar' will not be logged.
+                mock_log_metrics.assert_called_with(metrics={'foo': float(i)}, step=i, synchronous=False)
 
         test_mlflow_logger.post_close()
 

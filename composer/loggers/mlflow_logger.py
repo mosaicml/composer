@@ -35,7 +35,6 @@ __all__ = ['MLFlowLogger']
 
 DEFAULT_MLFLOW_EXPERIMENT_NAME = 'my-mlflow-experiment'
 LOG_DUPLICATED_METRIC_VALUE_PER_N_STEPS = 100
-LOG_DUPLICATED_METRIC_VALUE_PER_N_MILLIS = 600000
 
 
 class MlflowMonitorProcess(multiprocessing.Process):
@@ -123,8 +122,6 @@ class MLFlowLogger(LoggerDestination):
         log_duplicated_metric_every_n_steps (int, optional): The number of steps to wait before
             logging the duplicated metric value. Duplicated metric value means the new step has the
             same value as the previous step. (default: ``100``)
-        log_duplicated_metric_every_n_millis (int, optional): The number of milliseconds to wait
-            before logging the duplicated metric value. (default: ``600000``)
     """
 
     def __init__(
@@ -146,7 +143,6 @@ class MLFlowLogger(LoggerDestination):
         resume: bool = False,
         logging_buffer_seconds: Optional[int] = 10,
         log_duplicated_metric_every_n_steps: int = 100,
-        log_duplicated_metric_every_n_millis: int = 600000,
     ) -> None:
         try:
             import mlflow
@@ -189,7 +185,6 @@ class MLFlowLogger(LoggerDestination):
             mlflow.set_system_metrics_sampling_interval(5)
 
         self.log_duplicated_metric_every_n_steps = log_duplicated_metric_every_n_steps
-        self.log_duplicated_metric_every_n_millis = log_duplicated_metric_every_n_millis
         self._metrics_cache = {}
 
         self._rank_zero_only = rank_zero_only
@@ -403,25 +398,24 @@ class MLFlowLogger(LoggerDestination):
 
         metrics_to_log = {}
         step = step or 0
-        current_time_millis = int(time.time() * 1000)
         for k, v in metrics.items():
             if any(fnmatch.fnmatch(k, pattern) for pattern in self.ignore_metrics):
                 continue
             if k in self._metrics_cache:
-                value, last_step, last_time = self._metrics_cache[k]
-                if value == v and step < last_step + self.log_duplicated_metric_every_n_steps and current_time_millis < last_time + self.log_duplicated_metric_every_n_millis:
+                value, last_step = self._metrics_cache[k]
+                if value == v and step < last_step + self.log_duplicated_metric_every_n_steps:
                     # Skip logging the metric if it has the same value as the last step and it's
-                    # within the step and time window.
+                    # within the step window.
                     continue
                 else:
-                    # Log the metric if it has a different value or it's outside the step and time
-                    # window, and update the metrics cache.
-                    self._metrics_cache[k] = (v, step, current_time_millis)
+                    # Log the metric if it has a different value or it's outside the step window,
+                    # and update the metrics cache.
+                    self._metrics_cache[k] = (v, step)
                     metrics_to_log[self.rename(k)] = float(v)
             else:
                 # Log the metric if it's the first time it's being logged, and update the metrics
                 # cache.
-                self._metrics_cache[k] = (v, step, current_time_millis)
+                self._metrics_cache[k] = (v, step)
                 metrics_to_log[self.rename(k)] = float(v)
 
         log_metrics(
