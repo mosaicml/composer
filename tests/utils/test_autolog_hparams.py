@@ -176,8 +176,6 @@ def test_extract_hparams_trainer():
 
         # DeepSpeed
         'deepspeed_config': None,
-        'fsdp_config': None,
-        'fsdp_auto_wrap': True,
         'parallelism_config': None,
 
         # System/Numerics
