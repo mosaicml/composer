@@ -61,9 +61,16 @@ def _wrap_mlflow_exceptions(uri: str, e: Exception):
     ]
     retryable_client_codes = [ErrorCode.Name(code) for code in [ABORTED, REQUEST_LIMIT_EXCEEDED, RESOURCE_EXHAUSTED]]
     not_found_codes = [ErrorCode.Name(code) for code in [RESOURCE_DOES_NOT_EXIST, NOT_FOUND, ENDPOINT_NOT_FOUND]]
-
+    # MLflow wraps Azure data exceptions as INTERNAL_ERROR. Need to unwrap and check msg for the specific error.
+    non_retryable_internal_error_codes = [
+        '401',
+        '403',
+    ]
     if isinstance(e, MlflowException):
         error_code = e.error_code  # pyright: ignore
+        if error_code == ErrorCode.Name(INTERNAL_ERROR):
+            if any(e.message.startswith(code) for code in non_retryable_internal_error_codes):
+                raise e
         if error_code in retryable_server_codes or error_code in retryable_client_codes:
             raise ObjectStoreTransientError(error_code) from e
         elif error_code in not_found_codes:
