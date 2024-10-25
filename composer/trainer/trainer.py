@@ -3067,13 +3067,6 @@ class Trainer:
                 current_batch_size = sum([
                     self._train_data_spec.get_num_tokens_in_batch(b, token_type='loss_generating') for b in microbatches
                 ])
-                if current_batch_size == 0:
-                    raise ValueError(
-                        textwrap.dedent(
-                            'Requested loss accumulation based on number of loss generating tokens in training batch, '
-                            'but zero tokens found (perhaps due to an improper DataSpec).',
-                        ),
-                    )
             else:
                 current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(b) for b in microbatches])
             # Average the current batch size across ranks, to ensure each rank contributes appropriately
