@@ -91,7 +91,7 @@ install_requires = [
     'packaging>=21.3.0,<24.2',
     'importlib-metadata>=5.0.0,<9',
     'mosaicml-cli>=0.5.25,<0.7',
-    'pillow>=10.3.0,<11',
+    'pillow>=10.3.0,<12',
 ]
 extra_deps = {}
 
