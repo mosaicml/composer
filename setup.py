@@ -91,7 +91,7 @@ install_requires = [
     'packaging>=21.3.0,<24.2',
     'importlib-metadata>=5.0.0,<9',
     'mosaicml-cli>=0.5.25,<0.7',
-    'pillow>=10.3.0,<11',
+    'pillow>=10.3.0,<12',
 ]
 extra_deps = {}
 
@@ -225,13 +225,13 @@ extra_deps['onnx'] = [
 
 extra_deps['mlflow'] = [
     'mlflow>=2.14.1,<3.0',
-    'databricks-sdk==0.33.0',
+    'databricks-sdk==0.36.0',
     'pynvml>=11.5.0,<12',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk==0.33.0']
+extra_deps['databricks'] = ['databricks-sdk==0.36.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 
