@@ -72,7 +72,7 @@ def _wrap_mlflow_exceptions(uri: str, e: Exception):
         if error_code == ErrorCode.Name(INTERNAL_ERROR):
             error_message = e.message # pyright: ignore
             if any(code in error_message for code in non_retryable_internal_error_codes):
-                raise PermissionError(error_message)
+                raise PermissionError(f'Permission denied for object {uri} from the data provider. Details: {error_message}') from e
         elif error_code in retryable_server_codes or error_code in retryable_client_codes:
             raise ObjectStoreTransientError(error_code) from e
         elif error_code in not_found_codes:
