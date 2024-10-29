@@ -53,6 +53,7 @@ def _wrap_mlflow_exceptions(uri: str, e: Exception):
     retryable_server_codes = [
         ErrorCode.Name(code) for code in [
             DATA_LOSS,
+            INTERNAL_ERROR,
             INVALID_STATE,
             TEMPORARILY_UNAVAILABLE,
             DEADLINE_EXCEEDED,
