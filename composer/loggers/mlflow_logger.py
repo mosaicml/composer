@@ -403,14 +403,16 @@ class MLFlowLogger(LoggerDestination):
                 continue
             if k in self._metrics_cache:
                 value, last_step = self._metrics_cache[k]
-                print('MLFLOW_LOGGER:', k, value, last_step, step)
+                print('----MLFLOW_LOGGER:', k, value, last_step, step)
                 if value == v and step < last_step + self.log_duplicated_metric_every_n_steps:
                     # Skip logging the metric if it has the same value as the last step and it's
                     # within the step window.
+                    print('----MLFLOW_LOGGER:', 'SKIPPING')
                     continue
                 else:
                     # Log the metric if it has a different value or it's outside the step window,
                     # and update the metrics cache.
+                    print('----MLFLOW_LOGGER:', 'LOGGING')
                     self._metrics_cache[k] = (v, step)
                     metrics_to_log[self.rename(k)] = float(v)
             else:
