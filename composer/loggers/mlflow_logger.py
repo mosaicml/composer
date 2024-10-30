@@ -391,6 +391,7 @@ class MLFlowLogger(LoggerDestination):
         return self.rename_metrics.get(key, key)
 
     def log_metrics(self, metrics: dict[str, Any], step: Optional[int] = None) -> None:
+        print('----MLFLOW_LOGGER:', self.log_duplicated_metric_every_n_steps)
         from mlflow import log_metrics
 
         if not self._enabled:
