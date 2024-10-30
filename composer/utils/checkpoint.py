@@ -1122,7 +1122,9 @@ def _save_checkpoint(
     weights_only: bool = False,
     ignore_keys: Optional[Union[list[str], Callable[[dict], None]]] = None,
 ) -> Union[str, None]:  # noqa: D103
-
+    print("Old save filename in _save_checkpoint", save_filename)
+    save_filename = os.path.join("/mnt/data", save_filename)
+    print("New save filename in _save_checkpoint", save_filename)
     is_deepspeed = is_model_deepspeed(state.model)
 
     if weights_only and not is_deepspeed:
