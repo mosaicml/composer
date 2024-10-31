@@ -1646,7 +1646,8 @@ class State(Serializable):
                 except AttributeError:
                     # ignore AttributeError for properties that have getters but not setters.
                     pass
-
+            log.debug("FInished loading all optimizer states")
+            
     @property
     def dataloader(self):
         """The active dataloader."""

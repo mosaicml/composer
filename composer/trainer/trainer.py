@@ -2605,7 +2605,7 @@ class Trainer:
             if int(self.state.timestamp.batch_in_epoch) == 0:
                 self.engine.run_event(Event.EPOCH_START)
                 self.logger.log_metrics({'time/epoch': self.state.timestamp.epoch.value})
-
+            log.debug("Starting epoch %s", self.state.timestamp.epoch)
             dataloader = self.state.dataloader
             sampler = _get_distributed_sampler(dataloader) if isinstance(dataloader, DataLoader) else None
             if isinstance(sampler, DistributedSampler):
@@ -2643,6 +2643,7 @@ class Trainer:
                 if rank_num_tokens > 0:
                     self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
                     self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
+                log.debug("Starting epoch %s", self.state.timestamp.epoch)
 
                 total_loss_dict = self._train_batch(use_grad_scaling)
 
@@ -3004,7 +3005,7 @@ class Trainer:
 
         with context():
             self.engine.run_event(Event.BEFORE_TRAIN_BATCH)
-
+            log.debug("Starting micro batch %s", self.state.timestamp.batch)
             assert self.state.optimizers is not None
             assert self.state.scaler is not None
 
@@ -3026,6 +3027,7 @@ class Trainer:
                 current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(b) for b in microbatches])
             # Average the current batch size across ranks, to ensure each rank contributes appropriately
             current_batch_size = self.state.device.tensor_to_device(torch.tensor(current_batch_size))
+            log.debug("Current batch size %s", current_batch_size)
             dist.all_reduce(current_batch_size, reduce_operation='SUM')
             current_batch_size = current_batch_size.item() / dist.get_world_size()
 
@@ -3033,6 +3035,7 @@ class Trainer:
             current_batch = self.state.batch
 
             for microbatch_idx, self.state.batch in enumerate(microbatches):
+                log.debug("Starting micro batch before to device %s", self.state.timestamp.batch)
                 self.state.batch = self.state.device.batch_to_device(self.state.batch)
                 is_final_microbatch = microbatch_idx + 1 == len(microbatches)
                 microbatch_loss_dict = self._train_microbatch(use_grad_scaling, current_batch_size, is_final_microbatch)
@@ -3140,7 +3143,9 @@ class Trainer:
                 self.state.precision_config,
                 self.state.deepspeed_enabled,
             ):
+                log.debug("Starting micro batch loss %s", self.state.timestamp.batch)
                 self.state.loss = self._original_model.loss(self.state.outputs, self.state.batch)
+                log.debug("Finishing micro batch loss %s", self.state.timestamp.batch)
 
             assert self.state.loss is not None
             self.engine.run_event(Event.AFTER_LOSS)
