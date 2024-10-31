@@ -988,7 +988,7 @@ class State(Serializable):
                 submodules=None,
                 options=StateDictOptions(
                     full_state_dict=self.fsdp_state_dict_type == 'full',
-                    cpu_offload=self.fsdp_enabled,
+                    cpu_offload=False,
                 ),
             )
         else:
@@ -1024,13 +1024,14 @@ class State(Serializable):
                 )
 
             optimizer = ensure_tuple(self.optimizers)[0]
+            log.debug("DEBUG: get_optim_state_dict cpu_offload %s", self.fsdp_enabled)
             optim_state_dict = get_optimizer_state_dict(
                 model=self.model,
                 optimizers=optimizer,
                 submodules=None,
                 options=StateDictOptions(
                     full_state_dict=self.fsdp_state_dict_type == 'full',
-                    cpu_offload=self.fsdp_enabled,
+                    cpu_offload=False,
                 ),
             )
             return {type(optimizer).__qualname__: optim_state_dict}
@@ -1054,6 +1055,7 @@ class State(Serializable):
         state_dict = {}
         for attribute_name in self.serialized_attributes:
             attribute_value = getattr(self, attribute_name)
+            log.debug("DEBUG: state_dict attribute_name %s %s", attribute_name, attribute_value)
             if attribute_name == 'dataset_state':
                 serialized_value = self._dataset_state_dict()
             elif attribute_name == 'model':
