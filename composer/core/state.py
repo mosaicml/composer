@@ -982,13 +982,13 @@ class State(Serializable):
                         'fsdp_state_dict_type to None, "full", or "sharded".',
                     ),
                 )
-            log.debug("DEBUG: get_model_state_dict cpu_offload %s", False)
+            log.debug("DEBUG: get_model_state_dict cpu_offload %s", self.fsdp_enabled)
             model_state_dict = get_model_state_dict(
                 model=self.model,
                 submodules=None,
                 options=StateDictOptions(
                     full_state_dict=self.fsdp_state_dict_type == 'full',
-                    cpu_offload=False,
+                    cpu_offload=self.fsdp_enabled,
                 ),
             )
         else:
