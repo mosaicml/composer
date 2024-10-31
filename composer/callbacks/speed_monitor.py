@@ -258,6 +258,7 @@ class SpeedMonitor(Callback):
         self.history_flops: deque[float] = deque(maxlen=window_size + 1)
 
         self.gpu_flops_available = gpu_flops_available
+        self.time_unit = time_unit
 
         self.divider = 1
         if time_unit == 'seconds':
@@ -360,10 +361,18 @@ class SpeedMonitor(Callback):
         # Log the time
         # `state.timestamp` excludes any time spent in evaluation
         train_wct = state.timestamp.total_wct.total_seconds()
+        secs_per_step = 0
+        if len(self.history_wct) > 1:
+            secs_per_step = self.history_wct[-1] - self.history_wct[-2]
+
         logger.log_metrics({
             'time/train': train_wct / self.divider,
             'time/val': self.total_eval_wct / self.divider,
             'time/total': (train_wct + self.total_eval_wct) / self.divider,
+            f'time_{self.time_unit}/train': train_wct / self.divider,
+            f'time_{self.time_unit}/val': self.total_eval_wct / self.divider,
+            f'time_{self.time_unit}/total': (train_wct + self.total_eval_wct) / self.divider,
+            'time/secs_per_step': secs_per_step,
         })
 
     def eval_end(self, state: State, logger: Logger):
