@@ -1128,11 +1128,18 @@ def _save_checkpoint(
     is_deepspeed = is_model_deepspeed(state.model)
 
     if weights_only and not is_deepspeed:
+        log.debug("DEBUG: weights_only %s", weights_only)
+        model = state.get_model_state_dict()
+        log.debug("Model state dict size %s", sum(p.numel() for p in model.values()))
+        integrations = state._get_integrations_state_dict()
+        log.debug("Integrations state dict size %s", sum(p.numel() for p in integrations.values()))
+        metadata = state._get_state_metadata()
+        log.debug("Metadata state dict size %s", sum(p.numel() for p in metadata.values()))
         state_dict = {
             'state': {
-                'model': state.get_model_state_dict(),
-                'integrations': state._get_integrations_state_dict(),
-                'metadata': state._get_state_metadata(),
+                'model': model,
+                'integrations': integrations,
+                'metadata': metadata,
             },
         }
     else:

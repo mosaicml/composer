@@ -969,6 +969,7 @@ class State(Serializable):
         Returns:
             dict[str, Any]: The state dict for the model.
         """
+        log.debug("DEBUG: get_model_state_dict %s", self.fsdp_state_dict_type)
         if version.parse(torch.__version__) >= version.parse('2.4.0') or (
             version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized()
         ):
@@ -981,13 +982,13 @@ class State(Serializable):
                         'fsdp_state_dict_type to None, "full", or "sharded".',
                     ),
                 )
-
+            log.debug("DEBUG: get_model_state_dict cpu_offload %s", False)
             model_state_dict = get_model_state_dict(
                 model=self.model,
                 submodules=None,
                 options=StateDictOptions(
                     full_state_dict=self.fsdp_state_dict_type == 'full',
-                    cpu_offload=self.fsdp_enabled,
+                    cpu_offload=False,
                 ),
             )
         else:
@@ -1647,7 +1648,7 @@ class State(Serializable):
                     # ignore AttributeError for properties that have getters but not setters.
                     pass
             log.debug("FInished loading all optimizer states")
-            
+
     @property
     def dataloader(self):
         """The active dataloader."""
