@@ -988,7 +988,7 @@ class State(Serializable):
                 submodules=None,
                 options=StateDictOptions(
                     full_state_dict=self.fsdp_state_dict_type == 'full',
-                    cpu_offload=False,
+                    cpu_offload=self.fsdp_enabled,
                 ),
             )
         else:
