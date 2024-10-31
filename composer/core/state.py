@@ -987,7 +987,7 @@ class State(Serializable):
                 submodules=None,
                 options=StateDictOptions(
                     full_state_dict=self.fsdp_state_dict_type == 'full',
-                    cpu_offload=self.fsdp_enabled,
+                    cpu_offload=False,
                 ),
             )
         else:
@@ -1332,7 +1332,7 @@ class State(Serializable):
                         options=StateDictOptions(
                             full_state_dict=self.fsdp_state_dict_type == 'full',
                             strict=strict,
-                            cpu_offload=self.fsdp_enabled,
+                            cpu_offload=False,
                         ),
                     )
                 except AttributeError as e:
