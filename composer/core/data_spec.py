@@ -216,7 +216,7 @@ class DataSpec:
                     'transformations on CPU and `microbatch_transforms` for microbatch level transformations on target '
                     'device.',
                     'v0.28.0',
-                )
+                ),
             )
             self.batch_transforms = device_transforms
         self.batch_transforms = self._default_transforms if batch_transforms is None else batch_transforms
