@@ -150,7 +150,7 @@ A full example of a validation implementation would be:
 
         def get_metrics(self, is_train=False):
             # defines which metrics to use in each phase of training
-            return {'MulticlassAccuracy': self.train_accuracy} if train else {'MulticlassAccuracy': self.val_accuracy}
+            return {'MulticlassAccuracy': self.train_accuracy} if is_train else {'MulticlassAccuracy': self.val_accuracy}
 
 .. note::
 
