@@ -231,13 +231,13 @@ def _main():
         if not cuda_version or interconnect == 'EFA':
             entry['MOFED_VERSION'] = ''
         else:
-            entry['MOFED_VERSION'] = 'latest-23.10'
+            entry['MOFED_VERSION'] = 'latest-24.07'
 
         # Skip EFA drivers if not using EFA
         if interconnect != 'EFA':
             entry['AWS_OFI_NCCL_VERSION'] = ''
         else:
-            entry['AWS_OFI_NCCL_VERSION'] = 'v1.11.0-aws'
+            entry['AWS_OFI_NCCL_VERSION'] = 'v1.35.0-aws'
 
         pytorch_entries.append(entry)
 

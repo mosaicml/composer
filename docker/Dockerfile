@@ -31,7 +31,7 @@ ARG MOFED_VERSION=5.5-1.0.3.2
 
 # Version of EFA Drivers to install (for AWS Elastic Fabric Adapter support)
 # Leave blank for no EFA Drivers
-ARG AWS_OFI_NCCL_VERSION=v1.7.4-aws
+ARG AWS_OFI_NCCL_VERSION=v1.35.0-aws
 
 # Upgrade certifi to resolve CVE-2022-23491
 ARG CERTIFI_VERSION='>=2022.12.7'
