@@ -126,16 +126,16 @@ default_split_batch = _default_split_batch
 class DataSpec:
     """Specifications for operating and training on data.
 
-    An example of constructing a :class:`DataSpec` object with a ``device_transforms``
+    An example of constructing a :class:`DataSpec` object with a ``batch_transforms``
     callable and then using it with :class:`~.Trainer`:
 
     .. doctest::
 
        >>> # Construct DataSpec and subtract mean from the batch
-       >>> device_transform_fn = lambda xs, ys: (xs.sub_(xs.mean()), ys)
-       >>> train_dspec = DataSpec(train_dataloader, device_transforms=device_transform_fn)
+       >>> batch_transform_fn = lambda xs, ys: (xs.sub_(xs.mean()), ys)
+       >>> train_dspec = DataSpec(train_dataloader, batch_transforms=batch_transform_fn)
        >>> # The same function can be used for eval dataloader as well
-       >>> eval_dspec = DataSpec(eval_dataloader, device_transforms=device_transform_fn)
+       >>> eval_dspec = DataSpec(eval_dataloader, batch_transforms=batch_transform_fn)
        >>> # Use this DataSpec object to construct trainer
        >>> trainer = Trainer(
        ...     model=model,
