@@ -10,5 +10,5 @@ jobs:
       - name: clone repo
         uses: actions/checkout@v4
         with:
-          repo: databricks-mosaic/devops
+          repository: databricks-mosaic/devops
           token: ${{ secrets.GHCR_TOKEN }}
