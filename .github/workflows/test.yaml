@@ -3,7 +3,7 @@ on:
   pull_request: {}
 jobs:
   check-ip:
-    runs-on: linux-ubuntu-latest
+    runs-on: mosaic-4wide
     steps:
       - name: Check Runner IP
         run: curl https://ipinfo.io/ip
