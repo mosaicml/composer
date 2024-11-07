@@ -1,0 +1,14 @@
+name: Check IP
+on:
+  pull_request: {}
+jobs:
+  check-ip:
+    runs-on: linux-ubuntu-latest
+    steps:
+      - name: Check Runner IP
+        run: curl https://ipinfo.io/ip
+      - name: clone repo
+        uses: actions/checkout@v4
+        with:
+          repo: databricks-mosaic/devops
+          token: ${{ secrets.GHCR_TOKEN }}
