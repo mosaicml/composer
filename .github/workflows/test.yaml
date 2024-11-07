@@ -3,7 +3,7 @@ on:
   pull_request: {}
 jobs:
   check-ip:
-    runs-on: mosaic-4wide
+    runs-on: mosaic-8wide
     steps:
       - name: Check Runner IP
         run: curl https://ipinfo.io/ip
@@ -12,14 +12,14 @@ jobs:
         with:
           repository: databricks-mosaic/devops
           token: ${{ secrets.GHCR_TOKEN }}
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.GHCR_USERNAME }}
-          password: ${{ secrets.GHCR_TOKEN }}
-          registry: 'ghcr.io'
-      - name: Pull and tag image
-        run: |
-          docker pull ubuntu:latest
-          docker tag ubuntu:latest ghcr.io/databricks-mosaic/pytorch:test-123
-          docker push ghcr.io/databricks-mosaic/pytorch:test-123
+      # - name: Login to GHCR
+      #   uses: docker/login-action@v3
+      #   with:
+      #     username: ${{ secrets.GHCR_USERNAME }}
+      #     password: ${{ secrets.GHCR_TOKEN }}
+      #     registry: 'ghcr.io'
+      # - name: Pull and tag image
+      #   run: |
+      #     docker pull ubuntu:latest
+      #     docker tag ubuntu:latest ghcr.io/databricks-mosaic/pytorch:test-123
+      #     docker push ghcr.io/databricks-mosaic/pytorch:test-123
