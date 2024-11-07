@@ -3307,11 +3307,10 @@ class Trainer:
             self.engine.run_event(Event.PREDICT_START)
 
             for self.state.batch in self._iter_dataloader(TrainerMode.PREDICT):
+                
                 # Move the batch onto the device
-                self.state.batch = self.state.device.batch_to_device(self.state.batch)
-
-                # Perform any device transforms
                 self.state.batch = data_spec.batch_transforms(self.state.batch)
+                self.state.batch = self.state.device.batch_to_device(self.state.batch)
                 self.state.batch = data_spec.microbatch_transforms(self.state.batch)
 
                 # Count the batch size and num tokens before any events run

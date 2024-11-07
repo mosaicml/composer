@@ -215,7 +215,7 @@ class DataSpec:
                     'The `device_transforms` argument is deprecated. Please use `batch_transforms` for batch level '
                     'transformations on CPU and `microbatch_transforms` for microbatch level transformations on target '
                     'device.',
-                    'v0.28.0',
+                    'v0.29.0',
                 ),
             )
             self.batch_transforms = device_transforms
