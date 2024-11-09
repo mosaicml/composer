@@ -1741,6 +1741,7 @@ def test_transforms(device: str):
     def get_transform(device: str):
 
         def transform(batch: list[torch.Tensor]):
+            device = 'cuda' if device == 'gpu' else device
             assert batch[0].device.type == device
             return batch
 
