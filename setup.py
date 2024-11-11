@@ -88,7 +88,7 @@ install_requires = [
     'coolname>=1.1.0,<3',
     'tabulate==0.9.0',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<10',
-    'packaging>=21.3.0,<24.2',
+    'packaging>=21.3.0,<24.3',
     'importlib-metadata>=5.0.0,<9',
     'mosaicml-cli>=0.5.25,<0.7',
     'pillow>=10.3.0,<12',
