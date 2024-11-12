@@ -1055,7 +1055,7 @@ if version.parse(torch.__version__) >= version.parse('2.4.0') and version.parse(
 
 if version.parse(torch.__version__) >= version.parse('2.5.0') and version.parse(
         torch.__version__,
-) < version.parse('2.5.1'):
+) < version.parse('2.5.2'):
 
     # Save original FlatParamHandle.unshard to revert back to when dropping automicrobatching hooks
     from torch.distributed.fsdp._flat_param import FlatParamHandle

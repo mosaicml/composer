@@ -19,7 +19,7 @@ from torch.utils.data import DataLoader
 
 from composer import Callback, Evaluator, Trainer
 from composer.algorithms import CutOut, LabelSmoothing
-from composer.core import Event, Precision, State, Time, TimeUnit
+from composer.core import DataSpec, Event, Precision, State, Time, TimeUnit
 from composer.devices import Device
 from composer.loggers import InMemoryLogger, Logger, RemoteUploaderDownloader
 from composer.loss import soft_cross_entropy
@@ -1733,3 +1733,26 @@ class TestNoTrainDataTrained:
                 max_duration='1ba',
             )
             trainer.fit()
+
+
+@device('cpu', 'gpu')
+def test_transforms(device: str):
+
+    def get_transform(device: str):
+
+        def transform(batch: list[torch.Tensor]):
+            batch_device = 'gpu' if batch[0].device.type == 'cuda' else 'cpu'
+            assert batch_device == device
+            return batch
+
+        return transform
+
+    dataloader = _get_classification_dataloader()
+    data_spec = DataSpec(
+        dataloader,
+        batch_transforms=get_transform('cpu'),
+        microbatch_transforms=get_transform(device),
+    )
+    model = SimpleModel()
+    trainer = Trainer(model=model, train_dataloader=data_spec, max_duration='1ba')
+    trainer.fit()

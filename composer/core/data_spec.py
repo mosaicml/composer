@@ -14,7 +14,7 @@ import torch
 import torch.utils.data
 from torch.utils.data.distributed import DistributedSampler
 
-from composer.utils import dist, ensure_tuple
+from composer.utils import VersionedDeprecationWarning, dist, ensure_tuple
 
 if TYPE_CHECKING:
     from composer.core.types import Batch
@@ -126,16 +126,16 @@ default_split_batch = _default_split_batch
 class DataSpec:
     """Specifications for operating and training on data.
 
-    An example of constructing a :class:`DataSpec` object with a ``device_transforms``
+    An example of constructing a :class:`DataSpec` object with a ``batch_transforms``
     callable and then using it with :class:`~.Trainer`:
 
     .. doctest::
 
        >>> # Construct DataSpec and subtract mean from the batch
-       >>> device_transform_fn = lambda xs, ys: (xs.sub_(xs.mean()), ys)
-       >>> train_dspec = DataSpec(train_dataloader, device_transforms=device_transform_fn)
+       >>> batch_transform_fn = lambda xs, ys: (xs.sub_(xs.mean()), ys)
+       >>> train_dspec = DataSpec(train_dataloader, batch_transforms=batch_transform_fn)
        >>> # The same function can be used for eval dataloader as well
-       >>> eval_dspec = DataSpec(eval_dataloader, device_transforms=device_transform_fn)
+       >>> eval_dspec = DataSpec(eval_dataloader, batch_transforms=batch_transform_fn)
        >>> # Use this DataSpec object to construct trainer
        >>> trainer = Trainer(
        ...     model=model,
@@ -155,10 +155,19 @@ class DataSpec:
         num_tokens (int, optional): The total number of tokens in an epoch. This field is used by the
             :class:`.Timestamp` (training progress tracker).
 
-        device_transforms ((Batch) -> Batch, optional): Function called by the :class:`.Trainer` to modify the
-            batch once it has been moved onto the device. For example, this function can be used for GPU-based
+        device_transforms ((Batch) -> Batch, optional): Deprecated argument. Please use ``batch_transforms`` for batch
+            level transformations on CPU and ``microbatch_transforms`` for microbatch level transformations on target
+            device.
+
+        batch_transforms ((Batch) -> Batch, optional): Function called by the :class:`.Trainer` to modify the
+            batch before it is moved onto the device. For example, this function can be used for CPU-based
             normalization. It can modify the batch in-place, and it should return the modified batch. If not specified,
             the batch is not modified.
+
+        microbatch_transforms ((Batch) -> Batch, optional): Function called by the :class:`.Trainer` to modify the
+            microbatch before it is moved onto the device. For example, this function can be used for GPU-based
+            normalization. It can modify the microbatch in-place, and it should return the modified microbatch. If not
+            specified, the microbatch is not modified.
 
         split_batch ((Batch, (int | float)) -> Sequence[Batch], optional): Function called by the :class:`.Trainer` to
             split a batch (the first parameter) into microbatches of a given size (the second parameter). If
@@ -186,13 +195,32 @@ class DataSpec:
         num_samples: Optional[int] = None,
         num_tokens: Optional[int] = None,
         device_transforms: Optional[Callable[[Batch], Batch]] = None,
+        batch_transforms: Optional[Callable[[Batch], Batch]] = None,
+        microbatch_transforms: Optional[Callable[[Batch], Batch]] = None,
         split_batch: Optional[Callable[[Batch, Union[int, float]], Sequence[Batch]]] = None,
         get_num_samples_in_batch: Optional[Callable[[Batch], Union[int, float]]] = None,
         get_num_tokens_in_batch: Optional[Callable[[Batch], Union[int, dict[str, int]]]] = None,
     ) -> None:
         self.dataloader: Union[Iterable, torch.utils.data.DataLoader] = dataloader
         self.num_tokens = num_tokens
-        self.device_transforms = self._default_device_transforms if device_transforms is None else device_transforms
+        if device_transforms is not None:
+            if batch_transforms is not None:
+                raise ValueError(
+                    'Cannot specify both `device_transforms` and `batch_transforms`. Please use `batch_transforms` for '
+                    'batch level transformations on CPU and `microbatch_transforms` for microbatch level transformations '
+                    'on target device.',
+                )
+            warnings.warn(
+                VersionedDeprecationWarning(
+                    'The `device_transforms` argument is deprecated. Please use `batch_transforms` for batch level '
+                    'transformations on CPU and `microbatch_transforms` for microbatch level transformations on target '
+                    'device.',
+                    'v0.29.0',
+                ),
+            )
+            self.batch_transforms = device_transforms
+        self.batch_transforms = self._default_transforms if batch_transforms is None else batch_transforms
+        self.microbatch_transforms = self._default_transforms if microbatch_transforms is None else microbatch_transforms
         self.split_batch = default_split_batch if split_batch is None else split_batch
         self.get_num_samples_in_batch = self._default_get_num_samples_in_batch if get_num_samples_in_batch is None else get_num_samples_in_batch
         self._get_num_tokens_in_batch = self._default_get_num_tokens_in_batch if get_num_tokens_in_batch is None else get_num_tokens_in_batch
@@ -242,7 +270,7 @@ class DataSpec:
                         'For more information, see https://pytorch.org/docs/stable/data.html#torch.utils.data.distributed.DistributedSampler.',
                     )
 
-    def _default_device_transforms(self, batch: Batch):
+    def _default_transforms(self, batch: Batch):
         return batch
 
     def _default_get_num_samples_in_batch(self, batch: Batch) -> int:
