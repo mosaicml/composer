@@ -518,10 +518,12 @@ class MLFlowObjectStore(ObjectStore):
             Optional[FileInfo]: The :class:`~mlflow.entities.FileInfo` for the object, or None if it does not exist.
         """
         from mlflow.exceptions import MlflowException
+        
         # MLflow doesn't support info for a singleton artifact, so we need to list all artifacts in the
         # parent path and find the one with the matching name.
         artifact_path = self.get_artifact_path(object_name)
         artifact_dir = os.path.dirname(artifact_path)
+
         try:
             artifacts = self._mlflow_client.list_artifacts(self.run_id, artifact_dir)
             for artifact in artifacts:
