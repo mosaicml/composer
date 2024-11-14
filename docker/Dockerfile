@@ -259,7 +259,7 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
 ##########################
 # Install Flash Attention
 ##########################
-# Use the right flash attention wheel for the current PyTorch and CUDA version
+# Make sure to bump the flash attention wheel for the current PyTorch and CUDA version
 # https://github.com/Dao-AILab/flash-attention/releases
 RUN if [ -n "$CUDA_VERSION" ] ; then \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir ninja==1.11.1 && \
