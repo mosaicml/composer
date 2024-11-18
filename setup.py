@@ -78,7 +78,7 @@ while True:
 install_requires = [
     'pyyaml>=6.0,<7',
     'tqdm>=4.62.3,<5',
-    'torchmetrics>=1.0,<1.5.3',
+    'torchmetrics>=1.0,<1.6.1',
     'torch_optimizer>=0.3.0,<0.4',
     'torchvision>=0.18.0,<0.20.2',
     'torch>=2.3.0,<2.5.2',
@@ -103,7 +103,7 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
     'junitparser==3.1.2',
-    'coverage[toml]==7.6.4',
+    'coverage[toml]==7.6.7',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
     'ipython==8.11.0',
