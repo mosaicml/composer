@@ -20,14 +20,6 @@ from tests.callbacks.callback_settings import (
 from tests.common import EventCounterCallback
 
 
-@pytest.fixture(autouse=True)
-def setup_mlflow_tracking(monkeypatch, tmp_path):
-    mlflow = pytest.importorskip('mlflow')
-    tracking_uri = str(tmp_path / 'mlruns')
-    monkeypatch.setenv(mlflow.environment_variables.MLFLOW_TRACKING_URI.name, tracking_uri)
-    os.makedirs(tracking_uri, exist_ok=True)
-
-
 def test_callbacks_map_to_events():
     # callback methods must be 1:1 mapping with events
     # exception for private methods

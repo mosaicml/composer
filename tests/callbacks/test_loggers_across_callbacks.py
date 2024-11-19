@@ -17,14 +17,6 @@ from tests.callbacks.callback_settings import (
 )
 
 
-@pytest.fixture(autouse=True)
-def setup_mlflow_tracking(monkeypatch, tmp_path):
-    mlflow = pytest.importorskip('mlflow')
-    tracking_uri = str(tmp_path / 'mlruns')
-    monkeypatch.setenv(mlflow.environment_variables.MLFLOW_TRACKING_URI.name, tracking_uri)
-    os.makedirs(tracking_uri, exist_ok=True)
-
-
 @pytest.mark.parametrize('logger_cls', get_cbs_and_marks(loggers=True))
 @pytest.mark.parametrize('callback_cls', get_cbs_and_marks(callbacks=True))
 @pytest.mark.filterwarnings('ignore::UserWarning')

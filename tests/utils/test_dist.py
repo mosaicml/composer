@@ -71,6 +71,6 @@ def test_busy_wait_for_local_rank_zero(tmp_path):
     end_time = time.time()
     total_time = end_time - start_time
     gathered_times = dist.all_gather_object(total_time)
-    assert os.listdir(gathered_tmp_path) == []
+    assert os.listdir(gathered_tmp_path) == ['mlruns']
     assert len(gathered_times) == 2
     assert abs(gathered_times[0] - gathered_times[1]) < 0.1
