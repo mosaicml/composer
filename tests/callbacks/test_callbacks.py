@@ -3,6 +3,7 @@
 
 from typing import cast
 
+import os
 import pytest
 
 from composer.core import Callback, Engine, Event, State
@@ -17,6 +18,15 @@ from tests.callbacks.callback_settings import (
     get_cbs_and_marks,
 )
 from tests.common import EventCounterCallback
+
+
+@pytest.fixture(autouse=True)
+def setup_mlflow_tracking(monkeypatch, tmp_path):
+    mlflow = pytest.importorskip('mlflow')
+    # Use a temporary directory instead of 'databricks'
+    tracking_uri = str(tmp_path / 'mlruns')
+    monkeypatch.setenv(mlflow.environment_variables.MLFLOW_TRACKING_URI.name, tracking_uri)
+    os.makedirs(tracking_uri, exist_ok=True)
 
 
 def test_callbacks_map_to_events():
