@@ -19,6 +19,12 @@ ARTIFACT_PATH = 'path/to/artifact'
 DEFAULT_PATH = TEST_PATH_FORMAT.format(experiment_id=EXPERIMENT_ID, run_id=RUN_ID)
 
 
+@pytest.fixture(autouse=True)
+def setup_mlflow_tracking(monkeypatch):
+    mlflow = pytest.importorskip('mlflow')
+    monkeypatch.setattr(mlflow.environment_variables, 'MLFLOW_TRACKING_URI', None)
+
+
 def test_parse_dbfs_path():
     full_artifact_path = DEFAULT_PATH + ARTIFACT_PATH
     assert MLFlowObjectStore.parse_dbfs_path(full_artifact_path) == (EXPERIMENT_ID, RUN_ID, ARTIFACT_PATH)
