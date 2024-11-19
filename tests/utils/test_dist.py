@@ -63,7 +63,7 @@ def test_busy_wait_for_local_rank_zero(tmp_path):
 
     dist.barrier()
     start_time = time.time()
-    assert os.listdir(gathered_tmp_path) == []
+    assert os.listdir(gathered_tmp_path) == ['mlruns']
     with dist.busy_wait_for_local_rank_zero(gathered_tmp_path):
         if dist.get_local_rank() == 0:
             time.sleep(0.5)
