@@ -6,7 +6,7 @@ Scale Schedule changes the number of training steps by a dilation factor and dil
 accordingly. Doing so varies the training budget, making it possible to explore tradeoffs between cost (measured in
 time or money) and the quality of the final model.
 
-| ![scale_schedule.png](https://storage.googleapis.com/docs.mosaicml.com/images/methods/scale_schedule.png) |
+| ![scale_schedule.png](../_images/scale_schedule.png) |
 |:--|
 |*Scale schedule scales the learning rate decay schedule.*|
 

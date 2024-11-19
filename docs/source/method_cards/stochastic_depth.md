@@ -4,7 +4,7 @@
 
 Block-wise stochastic depth assigns every residual block a probability of dropping the transformation function, leaving only the skip connection. This regularizes and reduces the amount of computation.
 
-![block_wise_stochastic_depth.png](https://storage.googleapis.com/docs.mosaicml.com/images/methods/block_wise_stochastic_depth.png)
+![block_wise_stochastic_depth.png](../_images/block_wise_stochastic_depth.png)
 
 ## How to Use
 

@@ -7,7 +7,7 @@
 Cutout is a data augmentation technique that masks one or more square regions of an input image, replacing them with gray boxes.
 It is a regularization technique that improves the accuracy of models for computer vision.
 
-| ![CutOut](https://storage.googleapis.com/docs.mosaicml.com/images/methods/cutout.png) |
+| ![CutOut](../_images/cutout.png) |
 |:--:
 |*Several images from the CIFAR-10 dataset with Cutout applied. Cutout adds a gray box that occludes a portion of each image. This is [Figure 1 from DeVries & Taylor (2017)](https://arxiv.org/abs/1708.04552).*|
 

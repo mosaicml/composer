@@ -8,7 +8,7 @@ Channels Last improves the throughput of convolution operations in networks for 
 NVIDIA GPUs natively perform convolution operations in NHWC format, so storing the tensors this way eliminates transpositions that would otherwise need to take place, increasing throughput.
 This is a systems-level method that does not change the math or outcome of training in any way.
 
-| ![ChannelsLast](https://storage.googleapis.com/docs.mosaicml.com/images/methods/channels_last.png) |
+| ![ChannelsLast](../_images/channels_last.png) |
 |:--:
 |*A diagram of a convolutional layer using the standard NCHW tensor memory layout (left) and the NHWC tensor memory layout (right). Fewer operations take place in NHWC format because the convolution operation is natively performed in NHWC format (right); in contrast, the NCHW tensor must be transposed to NHWC before the convolution and transposed back to NCHW after (right). This digram is from [NVIDIA](https://developer.nvidia.com/blog/tensor-core-ai-performance-milestones/).*|
 

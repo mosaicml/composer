@@ -8,7 +8,7 @@ During training, BatchNorm normalizes each batch of inputs to have a mean of 0 a
 Ghost BatchNorm instead splits the batch into multiple "ghost" batches, each containing `ghost_batch_size` samples, and normalizes each one to have a mean of 0 and variance of 1.
 This causes training with a large batch size to behave similarly to training with a small batch size.
 
-| ![Ghost BatchNorm](https://storage.googleapis.com/docs.mosaicml.com/images/methods/ghost-batch-normalization.png) |
+| ![Ghost BatchNorm](../_images/ghost-batch-normalization.png) |
 |:--:
 |*A visualization of different normalization methods on an activation tensor in a neural network with multiple channels. M represents the batch dimension, C represents the channel dimension, and F represents the spatial dimensions (such as height and width). Ghost BatchNorm (upper right) is a modified version of BatchNorm that normalizes the mean and variance for disjoint sub-batches of the full batch. This image is Figure 1 in [Dimitriou & Arandjelovic, 2020](https://arxiv.org/abs/2007.08554).*|
 

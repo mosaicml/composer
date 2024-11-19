@@ -7,7 +7,7 @@
 
 Progressive Resizing works by initially training on images that have been downsampled to a smaller size. It slowly grows the images back to their full size by a set point in training and uses full-size images for the remainder of training. Progressive resizing reduces costs during the early phase of training when the network may learn coarse-grained features that do not require details lost by reducing image resolution.
 
-| ![ProgressiveResizing](https://storage.googleapis.com/docs.mosaicml.com/images/methods/progressive_resizing_vision.png) |
+| ![ProgressiveResizing](../_images/progressive_resizing_vision.png) |
 |:--|
 |*An example image as it would appear to the network at different stages of training with progressive resizing. At the beginning of training, each training example is at its smallest size. Throughout the pre-training phase, example size increases linearly. At the end of the pre-training phase, example size has reached its full value and remains at that value for the remainder of training (the fine-tuning phase).*|
 

@@ -7,7 +7,7 @@
 Selective Backprop prioritizes examples with high loss at each iteration, skipping backpropagation on examples with low loss.
 This speeds up training with limited impact on generalization.
 
-| ![SelectiveBackprop](https://storage.googleapis.com/docs.mosaicml.com/images/methods/selective-backprop.png) |
+| ![SelectiveBackprop](../_images/selective-backprop.png) |
 |:--|
 |*Four examples are forward propagated through the network. Selective backprop only backpropagates the two examples that have the highest loss.*|
 
