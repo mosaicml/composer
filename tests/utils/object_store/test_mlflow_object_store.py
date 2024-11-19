@@ -138,9 +138,6 @@ def test_init_with_no_experiment_and_no_run(monkeypatch):
     assert store.experiment_id == EXPERIMENT_ID
     assert store.run_id == RUN_ID
 
-@pytest.fixture(autouse=True)
-def set_mlflow_tracking_uri(monkeypatch):
-    monkeypatch.setenv('MLFLOW_TRACKING_URI', 'databricks')
 
 @pytest.fixture()
 def mlflow_object_store(monkeypatch):
