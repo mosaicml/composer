@@ -22,7 +22,7 @@ DEFAULT_PATH = TEST_PATH_FORMAT.format(experiment_id=EXPERIMENT_ID, run_id=RUN_I
 @pytest.fixture(autouse=True)
 def setup_mlflow_tracking(monkeypatch):
     mlflow = pytest.importorskip('mlflow')
-    monkeypatch.setenv(mlflow.environment_variables.MLFLOW_TRACKING_URI.name, '')
+    monkeypatch.setenv(mlflow.environment_variables.MLFLOW_TRACKING_URI.name, 'databricks')
 
 
 def test_parse_dbfs_path():
