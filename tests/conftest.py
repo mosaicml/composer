@@ -149,4 +149,3 @@ def pytest_configure():
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
     if exitstatus == 5:
         session.exitstatus = 0  # Ignore no-test-ran errors
-
