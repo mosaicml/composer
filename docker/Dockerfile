@@ -325,6 +325,9 @@ RUN pip install --no-cache-dir --upgrade \
         urllib3${URLLIB3_VERSION} \
         python-snappy
 
+RUN apt-get remove -y python3-blinker
+RUN pip install blinker
+
 ##################################################
 # Override NVIDIA mistaken env var for 11.8 images
 ##################################################
