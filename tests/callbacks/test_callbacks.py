@@ -3,7 +3,6 @@
 
 from typing import cast
 
-import os
 import pytest
 
 from composer.core import Callback, Engine, Event, State
