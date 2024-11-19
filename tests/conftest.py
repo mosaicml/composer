@@ -149,3 +149,9 @@ def pytest_configure():
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
     if exitstatus == 5:
         session.exitstatus = 0  # Ignore no-test-ran errors
+
+
+@pytest.fixture(autouse=True)
+def setup_mlflow_tracking(monkeypatch):
+    mlflow = pytest.importorskip('mlflow')
+    monkeypatch.setenv(mlflow.environment_variables.MLFLOW_TRACKING_URI.name, 'databricks')
