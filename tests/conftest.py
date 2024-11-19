@@ -155,6 +155,6 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
 def setup_mlflow_tracking(monkeypatch, tmp_path):
     mlflow = pytest.importorskip('mlflow')
     # Use a temporary directory instead of 'databricks'
-    tracking_uri = str(tmp_path / "mlruns")
+    tracking_uri = str(tmp_path / 'mlruns')
     monkeypatch.setenv(mlflow.environment_variables.MLFLOW_TRACKING_URI.name, tracking_uri)
     os.makedirs(tracking_uri, exist_ok=True)
