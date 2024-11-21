@@ -102,6 +102,7 @@ To run the tests in the provided docker containers:
 If your changes affects the documentation, please get a chance to build the docs locally and view it to verify if the changes
 are what you wanted.
 
+<!--pytest.mark.skip-->
 ```bash
 cd docs
 pip install -e '.[docs]'
