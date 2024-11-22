@@ -8,7 +8,7 @@ ColOut is a data augmentation technique that drops a fraction of the rows or col
 If the fraction of rows/columns dropped isn't too large, the image content is not significantly altered but the image size is reduced, speeding up training.
 This modification modestly reduces accuracy, but it is a worthwhile tradeoff for the increased speed.
 
-| ![ColOut](https://storage.googleapis.com/docs.mosaicml.com/images/methods/col_out.png) |
+| ![ColOut](../_images/col_out.png) |
 |:--:
 |*Several instances of an image of an apple from the CIFAR-100 dataset with ColOut applied. ColOut randomly removes different rows and columns each time it is applied.*|
 
