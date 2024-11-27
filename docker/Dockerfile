@@ -253,7 +253,8 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
         wget -qO - http://www.mellanox.com/downloads/ofed/RPM-GPG-KEY-Mellanox | sudo apt-key add - && \
         wget -P /etc/apt/sources.list.d/ http://linux.mellanox.com/public/repo/mlnx_ofed/$MOFED_VERSION/ubuntu22.04/mellanox_mlnx_ofed.list && \
         apt-get update && \
-        apt-get install -y mlnx-ofed-dpdk-upstream-libs-user-only  ; \
+        apt-get install -y mlnx-ofed-dpdk-upstream-libs-user-only && \
+	pip uninstall -y netifaces && pip install netifaces==0.11.0 ; \
     fi
 
 ##########################
