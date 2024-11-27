@@ -67,6 +67,20 @@ GPU_AVAILABLE_FLOPS = {
         'bf16': 125e12,
         'amp_bf16': 125e12,
     },
+    # source: https://www.techpowerup.com/gpu-specs/geforce-rtx-2080-ti.c3305
+    'rtx2080ti': {
+        'fp64': 420.2e9,
+        'fp32': 13.45e12,
+        'fp16': 26.90e12,
+    },
+    # source: https://www.techpowerup.com/gpu-specs/a40-pcie.c3700
+    'a40': {
+        'fp64': 584.6e9,
+        'fp32': 37.42e12,
+        'tf32': 74.8e12,
+        'fp16': 149.7e12,
+        'amp_fp16': 149.7e12,
+    },
     # source: https://images.nvidia.com/content/technologies/volta/pdf/volta-v100-datasheet-update-us-1165301-r5.pdf
     'v100-sxm': {
         'fp64': 7.8e12,
@@ -74,7 +88,7 @@ GPU_AVAILABLE_FLOPS = {
         'fp16': 125e12,
         'amp_fp16': 125e12,
     },
-    'v100-pcie': {
+    'v100-pcie': {  # torch.cuda.get_device_name().lower() == 'nvidia tesla v100-pcie-32gb'
         'fp64': 7e12,
         'fp32': 14e12,
         'fp16': 112e12,
@@ -124,6 +138,10 @@ def get_gpu_flops_available(state: State):
             device_name = 'a100'
         elif 'a10' in device_name:
             device_name = 'a10'
+        elif 'a40' in device_name:
+            device_name = 'a40'
+        elif '2080' in device_name:
+            device_name = 'rtx2080ti'
         elif 'v100-sxm' in device_name:
             device_name = 'v100-sxm'
         elif 'v100-pcie' in device_name:
