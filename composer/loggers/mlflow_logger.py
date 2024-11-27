@@ -34,6 +34,7 @@ log = logging.getLogger(__name__)
 __all__ = ['MLFlowLogger']
 
 DEFAULT_MLFLOW_EXPERIMENT_NAME = 'my-mlflow-experiment'
+LOG_DUPLICATED_METRIC_VALUE_PER_N_STEPS = 100
 
 
 class MlflowMonitorProcess(multiprocessing.Process):
@@ -118,6 +119,9 @@ class MLFlowLogger(LoggerDestination):
         logging_buffer_seconds (int, optional): The amount of time, in seconds, that MLflow
             waits before sending logs to the MLflow tracking server. Metrics/params/tags logged
             within this buffer time will be grouped in batches before being sent to the backend.
+        log_duplicated_metric_every_n_steps (int, optional): The number of steps to wait before
+            logging the duplicated metric value. Duplicated metric value means the new step has the
+            same value as the previous step. (default: ``100``)
     """
 
     def __init__(
@@ -138,6 +142,7 @@ class MLFlowLogger(LoggerDestination):
         run_group: Optional[str] = None,
         resume: bool = False,
         logging_buffer_seconds: Optional[int] = 10,
+        log_duplicated_metric_every_n_steps: int = 100,
     ) -> None:
         try:
             import mlflow
@@ -174,10 +179,13 @@ class MLFlowLogger(LoggerDestination):
 
         if log_system_metrics:
             # Set system metrics sampling interval and samples before logging so that system metrics
-            # are collected every 5s, and aggregated over 3 samples before being logged
-            # (logging per 15s).
-            mlflow.set_system_metrics_samples_before_logging(3)
+            # are collected every 5s, and aggregated over 6 samples before being logged
+            # (logging per 30s).
+            mlflow.set_system_metrics_samples_before_logging(6)
             mlflow.set_system_metrics_sampling_interval(5)
+
+        self.log_duplicated_metric_every_n_steps = log_duplicated_metric_every_n_steps
+        self._metrics_cache = {}
 
         self._rank_zero_only = rank_zero_only
         self._last_flush_time = time.time()
@@ -301,10 +309,10 @@ class MLFlowLogger(LoggerDestination):
             )
             self.monitor_process.start()
 
-    def _global_exception_handler(self, exc_type, exc_value, exc_traceback):
+    def _global_exception_handler(self, original_excepthook, exc_type, exc_value, exc_traceback):
         """Catch global exception."""
         self._global_exception_occurred += 1
-        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        original_excepthook(exc_type, exc_value, exc_traceback)
 
     def init(self, state: State, logger: Logger) -> None:
         del logger  # unused
@@ -312,10 +320,7 @@ class MLFlowLogger(LoggerDestination):
         if self.run_name is None:
             self.run_name = state.run_name
 
-        if hasattr(state, 'device'):
-            self._global_exception_occurred = state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8),)
-        else:
-            self._global_exception_occurred = 0
+        self._global_exception_occurred = 0
 
         # Store the Composer run name in the MLFlow run tags so it can be retrieved for autoresume
         self.tags['run_name'] = os.environ.get('RUN_NAME', state.run_name)
@@ -325,7 +330,13 @@ class MLFlowLogger(LoggerDestination):
             self.run_name += f'-rank{dist.get_global_rank()}'
 
         # Register the global exception handler so that uncaught exception is tracked.
-        sys.excepthook = self._global_exception_handler
+        original_excepthook = sys.excepthook
+        sys.excepthook = lambda exc_type, exc_value, exc_traceback: self._global_exception_handler(
+            original_excepthook,
+            exc_type,
+            exc_value,
+            exc_traceback,
+        )
         # Start run
         if self._enabled:
             self._start_mlflow_run(state)
@@ -382,18 +393,36 @@ class MLFlowLogger(LoggerDestination):
     def log_metrics(self, metrics: dict[str, Any], step: Optional[int] = None) -> None:
         from mlflow import log_metrics
 
-        if self._enabled:
-            # Convert all metrics to floats to placate mlflow.
-            metrics = {
-                self.rename(k): float(v)
-                for k, v in metrics.items()
-                if not any(fnmatch.fnmatch(k, pattern) for pattern in self.ignore_metrics)
-            }
-            log_metrics(
-                metrics=metrics,
-                step=step,
-                synchronous=self.synchronous,
-            )
+        if not self._enabled:
+            return
+
+        metrics_to_log = {}
+        step = step or 0
+        for k, v in metrics.items():
+            if any(fnmatch.fnmatch(k, pattern) for pattern in self.ignore_metrics):
+                continue
+            if k in self._metrics_cache:
+                value, last_step = self._metrics_cache[k]
+                if value == v and step < last_step + self.log_duplicated_metric_every_n_steps:
+                    # Skip logging the metric if it has the same value as the last step and it's
+                    # within the step window.
+                    continue
+                else:
+                    # Log the metric if it has a different value or it's outside the step window,
+                    # and update the metrics cache.
+                    self._metrics_cache[k] = (v, step)
+                    metrics_to_log[self.rename(k)] = float(v)
+            else:
+                # Log the metric if it's the first time it's being logged, and update the metrics
+                # cache.
+                self._metrics_cache[k] = (v, step)
+                metrics_to_log[self.rename(k)] = float(v)
+
+        log_metrics(
+            metrics=metrics_to_log,
+            step=step,
+            synchronous=self.synchronous,
+        )
 
     def log_hyperparameters(self, hyperparameters: dict[str, Any]):
         from mlflow import log_params
@@ -545,7 +574,11 @@ class MLFlowLogger(LoggerDestination):
         """
         if self._enabled:
             from mlflow.exceptions import MlflowException
-            from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS, ErrorCode
+            from mlflow.protos.databricks_pb2 import (
+                ALREADY_EXISTS,
+                RESOURCE_ALREADY_EXISTS,
+                ErrorCode,
+            )
 
             full_name = f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name
 
@@ -601,7 +634,7 @@ class MLFlowLogger(LoggerDestination):
                 assert isinstance(self._run_id, str)
                 self._mlflow_client.log_image(
                     image=image,
-                    key=f'{name}_{step}_{im_ind}',
+                    key=f'{name}_{im_ind}',
                     run_id=self._run_id,
                     step=step,
                 )
@@ -611,10 +644,7 @@ class MLFlowLogger(LoggerDestination):
             if hasattr(self, 'monitor_process'):
                 # Check if there is an uncaught exception, which means `post_close()` is triggered
                 # due to program crash.
-                if isinstance(self._global_exception_occurred, torch.Tensor):
-                    finish_with_exception = (self._global_exception_occurred == 1).item()
-                else:
-                    finish_with_exception = (self._global_exception_occurred == 1)
+                finish_with_exception = self._global_exception_occurred == 1
                 if finish_with_exception:
                     self.monitor_process.crash()
                     return

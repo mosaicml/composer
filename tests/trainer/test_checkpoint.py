@@ -35,6 +35,7 @@ from composer.utils.checkpoint import (
     _COMPOSER_STATES_FILENAME,
     PartialFilePath,
     _ensure_valid_checkpoint,
+    _is_rng_key,
     _write_checkpoint_file,
     glob_filter,
 )
@@ -128,6 +129,23 @@ def _assert_checkpoints_equivalent(file1, file2, atol=0.0, rtol=0.0):
         'optimizers' in checkpoint_2['state'],
     )
     assert all(keys_in) or not any(keys_in)
+
+
+@pytest.mark.parametrize(
+    'key,value,expected_result',
+    [
+        ('rng.0.cuda', ('rng', '0', 'cuda'), True),
+        ('rng.0.torch', ('rng', '0', 'torch'), True),
+        ('rng.0.numpy', ('rng', '0', 'numpy'), True),
+        ('rng.0.python', ('rng', '0', 'python'), True),
+        ('rng.0', ('rng', '0'), False),
+        ('test.test.rng', ('test', 'test', 'rng'), False),
+        ('test.rng.test', ('test', 'rng', 'test'), False),
+        ('test.notatuple.test', 0, False),
+    ],
+)
+def test_is_rng_key(key: str, value: tuple, expected_result: bool):
+    assert _is_rng_key(key, value) == expected_result
 
 
 @pytest.mark.parametrize(
@@ -399,8 +417,11 @@ class TestCheckpointSaving:
     # See https://github.com/pytorch/pytorch/issues/133415
     @pytest.mark.xfail
     @pytest.mark.skipif(
-        version.parse(torch.__version__) < version.parse('2.4.0'),
-        reason='Test only applies to PyTorch 2.4+',
+        (
+            version.parse(torch.__version__) < version.parse('2.4.0') or
+            version.parse(torch.__version__) >= version.parse('2.5.0')
+        ),
+        reason='Test only applies to PyTorch 2.4.x',
     )
     def test_sgd_checkpoint(
         self,
@@ -861,7 +882,8 @@ class TestCheckpointLoading:
 
                     if delete_local:
                         # delete files locally, forcing trainer to look in object store
-                        shutil.rmtree('first')
+                        assert trainer_1._checkpoint_saver is not None
+                        shutil.rmtree(trainer_1._checkpoint_saver.folder)
 
                     trainer_2 = self.get_trainer(
                         latest_filename=latest_filename,
@@ -1573,6 +1595,7 @@ class TestCheckpointResumption:
     )
     # trainer_2 will call compute if checkpoint is already at end of epoch
     @pytest.mark.filterwarnings('ignore:The ``compute`` method of metric MulticlassAccuracy.*:UserWarning')
+    @pytest.mark.filterwarnings('ignore:No batches were trained*:UserWarning')
     def test_resumption(
         self,
         device: str,
@@ -1677,6 +1700,33 @@ class TestCheckpointResumption:
         assert isinstance(trainer.state.train_dataloader.batch_sampler, DistributedSampler)
         # Epoch count starts at O
         assert trainer.state.train_dataloader.batch_sampler.epoch == max_duration - 1
+
+    @world_size(2)
+    @pytest.mark.gpu
+    def test_load_incorrect_path(self, world_size: int, tmp_path: pathlib.Path, caplog):
+        save_folder = tmp_path / 'checkpoints'
+        save_folder.mkdir(exist_ok=True)
+
+        # Attempt to load from an incorrect path
+        incorrect_path = str(tmp_path / 'nonexistent_checkpoint.pt')
+
+        with pytest.raises(FileNotFoundError) as exc_info:
+            self.get_trainer(
+                load_path=incorrect_path,
+                max_duration='1ep',
+            )
+
+        # Check error messages for each rank, ensure they are different.
+        if dist.get_global_rank() == 0:
+            assert f'Local path {incorrect_path} does not exist' in str(exc_info.value)
+        else:
+            assert 'No such file or directory:' in str(exc_info.value)
+            assert 'This likely implies a download failed on local rank 0, which is global rank 0' in str(
+                exc_info.value,
+            )
+            assert 'Please check the logs for global rank 0 to debug the checkpoint download issue.' in str(
+                exc_info.value,
+            )
 
     @pytest.mark.parametrize('spin_dataloaders', [False, True])
     def test_spin_dataloaders(

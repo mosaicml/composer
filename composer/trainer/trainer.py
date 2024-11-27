@@ -993,12 +993,6 @@ class Trainer:
 
             To use DeepSpeed with default values, set to the empty dictionary ``{}``.
             To disable DeepSpeed (the default), set to ``None``.
-        fsdp_config (dict[str, Any], optional): Configuration for FSDP.
-            See :doc:`FSDP Documentation </notes/distributed_training>` for more details.
-            To use FSDP with default values, set to the empty dictionary ``{}``. To
-            disable FSDP, set to ``None``. (default: ``None``)
-        fsdp_auto_wrap (bool, optional): option to let trainer wrap the module, or if
-            the module is already wrapped outside, allow the user to disable auto-wrapping.
         parallelism_config (Union[dict[str, Any], ParallelismConfig], optional): Configuration for parallelism options.
             Currently supports fsdp and tensor parallelism, whose respective configs are specified
             as the keys ``fsdp`` and ``tp``. (default: ``None``)
@@ -1030,7 +1024,10 @@ class Trainer:
                 it into sections of size ``device_train_microbatch_size``. If the batch size of the dataloader
                 is not divisible by ``device_train_microbatch_size``, the last section will be potentially smaller.
         accumulate_train_batch_on_tokens (bool, optional): Whether training loss is accumulated over the number of tokens in a batch,
-             rather than the number of samples. Only works if the train data spec implements `get_num_tokens_in_batch`. (default: ``False``)
+             rather than the number of samples. Only works if the train data spec implements `get_num_tokens_in_batch`.
+             Note: If you are using this flag, you can optionally have your `get_num_tokens_in_batch` function return a dictionary
+             with two keys (`total` and `loss_generating`). Composer will then accumulate the batch on loss generating tokens specifically,
+             even though total tokens will be used for any other time involving tokens. (default: ``False``)
         seed (int, optional): The seed used in randomization. If ``None``, then a random seed
             will be created. (default: ``None``)
 
@@ -1157,8 +1154,6 @@ class Trainer:
 
         # Parallelism
         deepspeed_config: Optional[dict[str, Any]] = None,
-        fsdp_config: Optional[dict[str, Any]] = None,
-        fsdp_auto_wrap: bool = True,
         parallelism_config: Optional[Union[dict[str, Any], ParallelismConfig]] = None,
 
         # System/Numerics
@@ -1195,7 +1190,7 @@ class Trainer:
                     +
                     'which provides similar functionality. Please use the `parallelism_config` parameter instead. Please open '
                     + 'a GitHub issue if you need help migrating from DeepSpeed to FSDP.',
-                    remove_version='0.28.0',
+                    remove_version='0.27.0',
                 ),
             )
 
@@ -1273,7 +1268,7 @@ class Trainer:
                 'the optimal device_train_microbatch_size value and then manually specify that in a '
                 'second run with profiler.',
             )
-        self.first_batch_complete = False
+        self.first_train_batch_complete = False
         # If auto_microbatching is True or `device_train_microbatch_size` is not specified, the microbatch size
         # will be determined when dataloader is specified. train_dataloader is parsed after `Event.INIT` or in
         # fit()
@@ -1286,43 +1281,6 @@ class Trainer:
         assert not isinstance(device_train_microbatch_size, str)
 
         # Distributed
-        if fsdp_config is not None:
-            warnings.warn(
-                VersionedDeprecationWarning(
-                    "fsdp_config is deprecated. Please use parallelism_config['fsdp'] instead.",
-                    remove_version='0.26.0',
-                ),
-            )
-            if parallelism_config is None:
-                parallelism_config = {}
-            if isinstance(parallelism_config, ParallelismConfig):
-                raise ValueError(
-                    'fsdp_config cannot be specified if parallelism_config is a ParallelismConfig object. '
-                    'Please instead pass fsdp_config as a FSDPConfig object when constructing ParallelismConfig.',
-                )
-            elif parallelism_config.get('fsdp') is not None:
-                raise ValueError(
-                    'fsdp_config is specified in both fsdp_config and parallelism_config. Please specify it in only in parallelism_config.',
-                )
-            parallelism_config['fsdp'] = fsdp_config
-        if not fsdp_auto_wrap:
-            warnings.warn(
-                VersionedDeprecationWarning(
-                    "fsdp_auto_wrap=False is deprecated. Please use parallelism_config['fsdp']['auto_wrap'] instead.",
-                    remove_version='0.26.0',
-                ),
-            )
-            if parallelism_config is None:
-                parallelism_config = {}
-            if isinstance(parallelism_config, ParallelismConfig):
-                raise ValueError(
-                    'fsdp_auto_wrap cannot be specified if parallelism_config is a ParallelismConfig object. '
-                    'Please instead pass fsdp_auto_wrap to FSDPConfig as part of ParallelismConfig.',
-                )
-            else:
-                if parallelism_config.get('fsdp') is None:
-                    parallelism_config['fsdp'] = {}
-                parallelism_config['fsdp']['auto_wrap'] = fsdp_auto_wrap
         if parallelism_config is not None and not isinstance(parallelism_config, ParallelismConfig):
             parallelism_config_args = {}
             if 'fsdp' in parallelism_config and parallelism_config['fsdp'] is not None:
@@ -1911,13 +1869,17 @@ class Trainer:
         # Actually load the checkpoint from potentially updated arguments
         try:
             if load_path is not None:
+                log.info(f'Loading checkpoint from {load_path}')
                 if load_object_store is None:
                     load_object_store = maybe_create_object_store_from_uri(load_path)
+                    log.debug(f'Created object store from load path: {load_object_store}')
                 if isinstance(load_object_store, WandBLogger):
                     import wandb
                     if wandb.run is None:
                         load_object_store.init(self.state, self.logger)
                 _, _, parsed_load_path = parse_uri(load_path)
+                log.debug(f'Parsed load path: {parsed_load_path}')
+
                 self._rng_state = checkpoint.load_checkpoint(
                     state=self.state,
                     logger=self.logger,
@@ -2324,9 +2286,11 @@ class Trainer:
             self.state.max_duration = duration + self.state.timestamp.get(duration.unit)
 
         # Raise error if callig fit with SGD
-        if type(
-            self.state.optimizers[0],
-        ) == torch.optim.SGD and version.parse(torch.__version__) >= version.parse('2.4.0'):
+        if (
+            type(self.state.optimizers[0]) == torch.optim.SGD and
+            version.parse(torch.__version__) >= version.parse('2.4.0') and
+            version.parse(torch.__version__) < version.parse('2.5.0')
+        ):
             raise ValueError(
                 'PyTorch 2.4 breaks (distributed) checkpointing with SGD. '
                 'Please use a different optimizer, e.g. composer.optim.DecoupledSGDW, '
@@ -2470,7 +2434,7 @@ class Trainer:
             # update scaler since precision was provided
             self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
 
-        self.first_batch_complete = False
+        self.first_train_batch_complete = False
         self._train_loop()
 
         # Zero gradients at the end of fit so same model/optimizer can be used for further training
@@ -2669,8 +2633,7 @@ class Trainer:
                         self._rng_state = None
                     continue
 
-                self.state.batch = self.state.device.batch_to_device(self.state.batch)
-                self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
+                self.state.batch = self._train_data_spec.batch_transforms(self.state.batch)
                 rank_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
                 rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
 
@@ -2770,6 +2733,11 @@ class Trainer:
                         self._increment_iteration()
                     finished_epoch_early = True
                     break
+
+            if not self.first_train_batch_complete:
+                warnings.warn(
+                    f'No batches were trained for global rank {dist.get_global_rank()}. This may be due to an issue with the train dataset, dataloader, or sampler. This may cause other issues or crashes down the line.',
+                )
 
             if not finished_epoch_early or self.state.dataloader_len == self.state.timestamp.batch_in_epoch:
                 # Trigger the epoch end events if the dataloader was exhausted.
@@ -3005,7 +2973,7 @@ class Trainer:
                 memory_stats = torch.cuda.memory_stats()
                 self.cumulative_alloc_retries = memory_stats['num_alloc_retries']
             self.logger.log_metrics({'trainer/device_train_microbatch_size': self.state.device_train_microbatch_size})
-            self.first_batch_complete = True
+            self.first_train_batch_complete = True
             return total_loss_dict
 
     def _train_microbatches(
@@ -3027,7 +2995,7 @@ class Trainer:
         if ddp_sync or not isinstance(self.state.model, DistributedDataParallel):
             context = contextlib.nullcontext
         else:
-            if self.state.auto_microbatching and not self.first_batch_complete:
+            if self.state.auto_microbatching and not self.first_train_batch_complete:
                 # PyTorch DDP rebuilds gradient reduction buckets after 1) a forward pass where the
                 # no_sync context was not set 2) a backward pass 3) a forward pass. If only a
                 # subset of ranks OOM on the first batch, this will cause a deadlock since a rank
@@ -3062,14 +3030,9 @@ class Trainer:
 
             # Tracker for gradient accumulation
             if self.accumulate_train_batch_on_tokens:
-                current_batch_size = sum([self._train_data_spec.get_num_tokens_in_batch(b) for b in microbatches])
-                if current_batch_size == 0:
-                    raise ValueError(
-                        textwrap.dedent(
-                            'Requested loss accumulation based on number of tokens in training batch, '
-                            'but zero tokens found (perhaps due to an improper DataSpec).',
-                        ),
-                    )
+                current_batch_size = sum([
+                    self._train_data_spec.get_num_tokens_in_batch(b, token_type='loss_generating') for b in microbatches
+                ])
             else:
                 current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(b) for b in microbatches])
             # Average the current batch size across ranks, to ensure each rank contributes appropriately
@@ -3081,6 +3044,8 @@ class Trainer:
             current_batch = self.state.batch
 
             for microbatch_idx, self.state.batch in enumerate(microbatches):
+                self.state.batch = self.state.device.batch_to_device(self.state.batch)
+                self.state.batch = self._train_data_spec.microbatch_transforms(self.state.batch)
                 is_final_microbatch = microbatch_idx + 1 == len(microbatches)
                 microbatch_loss_dict = self._train_microbatch(use_grad_scaling, current_batch_size, is_final_microbatch)
 
@@ -3124,12 +3089,15 @@ class Trainer:
         device_batch = deepcopy(self.state.batch)
 
         if self.accumulate_train_batch_on_tokens:
-            microbatch_size = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
+            microbatch_size = self._train_data_spec.get_num_tokens_in_batch(
+                self.state.batch,
+                token_type='loss_generating',
+            )
         else:
             microbatch_size = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
         if self.state.deepspeed_enabled or not isinstance(self.state.model, DistributedDataParallel):
             sync_context = contextlib.nullcontext()
-        elif self.state.auto_microbatching and not self.first_batch_complete:
+        elif self.state.auto_microbatching and not self.first_train_batch_complete:
             # PyTorch DDP rebuilds gradient reduction buckets after 1) a forward pass where the
             # no_sync context was not set 2) a backward pass 3) a forward pass. If only a
             # subset of ranks OOM on the first batch, this will cause a deadlock since a rank
@@ -3350,11 +3318,11 @@ class Trainer:
             self.engine.run_event(Event.PREDICT_START)
 
             for self.state.batch in self._iter_dataloader(TrainerMode.PREDICT):
-                # Move the batch onto the device
-                self.state.batch = self.state.device.batch_to_device(self.state.batch)
 
-                # Perform any device transforms
-                self.state.batch = data_spec.device_transforms(self.state.batch)
+                # Move the batch onto the device
+                self.state.batch = data_spec.batch_transforms(self.state.batch)
+                self.state.batch = self.state.device.batch_to_device(self.state.batch)
+                self.state.batch = data_spec.microbatch_transforms(self.state.batch)
 
                 # Count the batch size and num tokens before any events run
                 rank_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
@@ -3606,6 +3574,7 @@ class Trainer:
             drop_last = None
             dataset_len = None
             last_batch = False
+            first_eval_batch_complete = False
             dist_sampler = _get_distributed_sampler(dataloader) if isinstance(dataloader, DataLoader) else None
             if isinstance(dist_sampler, DistributedSampler) and isinstance(dataloader, DataLoader):
                 # The distributed sampler uses `set_epoch` to set the random seed
@@ -3629,8 +3598,7 @@ class Trainer:
                         )
 
             for self.state.batch in self._iter_dataloader(TrainerMode.EVAL):
-                self.state.batch = self.state.device.batch_to_device(self.state.batch)
-                self.state.batch = data_spec.device_transforms(self.state.batch)
+                self.state.batch = data_spec.batch_transforms(self.state.batch)
 
                 # Count the batch size and num tokens before any events run
                 rank_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
@@ -3659,6 +3627,8 @@ class Trainer:
                     try:
                         microbatches = data_spec.split_batch(device_batch, evaluator.device_eval_microbatch_size)
                         for i, self.state.batch in enumerate(microbatches):
+                            self.state.batch = self.state.device.batch_to_device(self.state.batch)
+                            self.state.batch = data_spec.microbatch_transforms(self.state.batch)
                             last_microbatch = i == len(microbatches) - 1
                             skip_metric_update = False
                             # Distributed samplers pad batches to be the same size. If using a
@@ -3769,6 +3739,7 @@ class Trainer:
                                 evaluator.device_eval_microbatch_size,
                         })
                     # Break if we've successfully completed eval without OOMing.
+                    first_eval_batch_complete = True
                     break
 
                 now = datetime.datetime.now()
@@ -3789,6 +3760,11 @@ class Trainer:
                 last_wct = now
 
                 self.engine.run_event(Event.EVAL_BATCH_END)
+
+            if not first_eval_batch_complete:
+                warnings.warn(
+                    f'No batches were evaluated for global rank {dist.get_global_rank()}. This may be due to an issue with the eval dataset, dataloader, or sampler. This may cause other issues or crashes down the line.',
+                )
 
             self._compute_and_log_metrics(dataloader_label=evaluator.label, metrics=metrics)
 

@@ -19,7 +19,7 @@ from torch.utils.data import DataLoader
 
 from composer import Callback, Evaluator, Trainer
 from composer.algorithms import CutOut, LabelSmoothing
-from composer.core import Event, Precision, State, Time, TimeUnit
+from composer.core import DataSpec, Event, Precision, State, Time, TimeUnit
 from composer.devices import Device
 from composer.loggers import InMemoryLogger, Logger, RemoteUploaderDownloader
 from composer.loss import soft_cross_entropy
@@ -206,6 +206,49 @@ class TestTrainerInit():
         eval_metric_names = trainer.state.eval_metrics['eval'].keys()
         assert len(eval_metric_names) == 1
         assert next(iter(eval_metric_names)) == single_metric
+
+    @pytest.mark.gpu
+    def test_memory_after_dataloader(self, model: ComposerModel):
+
+        def track_memory_after_dataloader(global_batch_size):
+
+            class MiniMemoryMonitor(Callback):
+
+                def __init__(self):
+                    self.batch_memory_usages = []
+
+                def epoch_start(self, state: State, logger: Logger) -> None:
+                    current_alloc_memory = torch.cuda.memory_allocated() // 2**20  # Convert to MiB
+                    self.batch_memory_usages.append(current_alloc_memory)
+
+                def after_dataloader(self, state: State, logger: Logger):
+                    current_alloc_memory = torch.cuda.memory_allocated() // 2**20  # Convert to MiB
+                    self.batch_memory_usages.append(current_alloc_memory)
+
+            microbatch_size = 1
+            input_shape = (100000,)
+            dataset = RandomClassificationDataset(shape=input_shape, size=1024)
+            train_dataloader = DataLoader(dataset, batch_size=global_batch_size)
+            mini_memory_monitor = MiniMemoryMonitor()
+
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                max_duration='1ba',
+                device='gpu',
+                device_train_microbatch_size=microbatch_size,
+                callbacks=[mini_memory_monitor],
+            )
+
+            trainer.fit()
+            return mini_memory_monitor.batch_memory_usages[1] - mini_memory_monitor.batch_memory_usages[0]
+
+        global_batch_size = 32
+        mem_change_epoch_start_and_after_dataloader = track_memory_after_dataloader(global_batch_size)
+        assert (mem_change_epoch_start_and_after_dataloader < 1), (
+            f'Memory increased between epoch start and after dataloader by more than 1 MiB: {mem_change_epoch_start_and_after_dataloader} MiB. '
+            f'None of the samples should be moved onto a GPU until the batch has already been divided into microbatches.'
+        )
 
 
 def _assert_optimizer_is_on_device(optimizer: torch.optim.Optimizer):
@@ -1647,3 +1690,69 @@ class TestAutoresumeCompatibility:
 
         # Just test that the default args for everything do not hit the above errors
         _ = Trainer(**config)
+
+
+class TestNoTrainDataTrained:
+    """Test cases where no training data is trained with the trainer.
+
+    This can happen in the following cases:
+        - The dataset has no samples.
+        - The dataset cannot split evenly across multi nodes on the first batch even
+    """
+
+    def _get_dataloader(self, dataset_size: int):
+        """Get a dataloader."""
+        dataset = RandomClassificationDataset(size=dataset_size)
+        dataloader = DataLoader(dataset=dataset, batch_size=1, sampler=dist.get_sampler(dataset=dataset))
+        return dataloader
+
+    def test_empty_train_dataloader(self):
+        """Test the case where the train dataset has no samples."""
+        with pytest.raises(UserWarning, match='No batches were trained for global rank'):
+            train_dataloader = self._get_dataloader(0)
+            model = SimpleModel()
+
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                max_duration='1ba',
+            )
+            trainer.fit()
+
+    def test_empty_eval_dataloader(self):
+        """Test the case where the eval dataset has no samples."""
+        with pytest.raises(UserWarning, match='No batches were evaluated for global rank'):
+            train_dataloader = self._get_dataloader(1)
+            eval_dataloader = self._get_dataloader(0)
+            model = SimpleModel()
+
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration='1ba',
+            )
+            trainer.fit()
+
+
+@device('cpu', 'gpu')
+def test_transforms(device: str):
+
+    def get_transform(device: str):
+
+        def transform(batch: list[torch.Tensor]):
+            batch_device = 'gpu' if batch[0].device.type == 'cuda' else 'cpu'
+            assert batch_device == device
+            return batch
+
+        return transform
+
+    dataloader = _get_classification_dataloader()
+    data_spec = DataSpec(
+        dataloader,
+        batch_transforms=get_transform('cpu'),
+        microbatch_transforms=get_transform(device),
+    )
+    model = SimpleModel()
+    trainer = Trainer(model=model, train_dataloader=data_spec, max_duration='1ba')
+    trainer.fit()

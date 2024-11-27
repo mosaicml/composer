@@ -1,7 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any
+import contextlib
+from typing import Any, Optional
 
 import pytest
 import torch
@@ -69,6 +70,40 @@ def test_get_num_tokens_hf_default(batch_size: int, sequence_length: int, use_ke
     else:
         expected = sequence_length * batch_size
     assert actual == expected
+
+
+@pytest.mark.parametrize(
+    'return_dict,requested_key,expected',
+    [
+        [True, None, 8],  # dict with default key
+        [False, None, 8],  # int with default key
+        [False, 'loss_generating', 8],  # int with non-default key
+        [True, 'loss_generating', 4],  # dict with non-default key
+    ],
+)
+def test_get_num_tokens_types(return_dict: bool, requested_key: Optional[str], expected: Optional[int]):
+    should_error = expected is None
+    error_context = pytest.raises(ValueError) if should_error else contextlib.nullcontext()
+
+    def get_num_tokens_in_batch(batch):
+        num_tokens = 8
+        num_loss_generating_tokens = 4
+
+        if return_dict:
+            return {'total': num_tokens, 'loss_generating': num_loss_generating_tokens}
+
+        return num_tokens
+
+    dataspec = DataSpec(dataloader=[], get_num_tokens_in_batch=get_num_tokens_in_batch)
+
+    batch = {}
+    extra_args = {}
+    if requested_key is not None:
+        extra_args['token_type'] = requested_key
+
+    with error_context:
+        actual = dataspec.get_num_tokens_in_batch(batch, **extra_args)
+        assert actual == expected
 
 
 def test_small_batch_at_end_warning():

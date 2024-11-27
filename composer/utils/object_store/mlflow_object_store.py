@@ -62,9 +62,21 @@ def _wrap_mlflow_exceptions(uri: str, e: Exception):
     retryable_client_codes = [ErrorCode.Name(code) for code in [ABORTED, REQUEST_LIMIT_EXCEEDED, RESOURCE_EXHAUSTED]]
     not_found_codes = [ErrorCode.Name(code) for code in [RESOURCE_DOES_NOT_EXIST, NOT_FOUND, ENDPOINT_NOT_FOUND]]
 
+    # MLflow wraps Azure data exceptions as INTERNAL_ERROR. Need to unwrap and check msg for the specific error.
+    permission_error_codes = [
+        '401',
+        '403',
+    ]
+
     if isinstance(e, MlflowException):
         error_code = e.error_code  # pyright: ignore
-        if error_code in retryable_server_codes or error_code in retryable_client_codes:
+        if error_code == ErrorCode.Name(INTERNAL_ERROR):
+            error_message = e.message  # pyright: ignore
+            if any(f'{code} Client Error' in error_message for code in permission_error_codes):
+                raise PermissionError(
+                    f'Permission denied for object {uri} from the data provider. Details: {error_message}',
+                ) from e
+        elif error_code in retryable_server_codes or error_code in retryable_client_codes:
             raise ObjectStoreTransientError(error_code) from e
         elif error_code in not_found_codes:
             raise FileNotFoundError(f'Object {uri} not found') from e

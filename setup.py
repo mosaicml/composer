@@ -78,20 +78,20 @@ while True:
 install_requires = [
     'pyyaml>=6.0,<7',
     'tqdm>=4.62.3,<5',
-    'torchmetrics>=1.4.0.post0,<1.4.1',
+    'torchmetrics>=1.0,<1.5.3',
     'torch_optimizer>=0.3.0,<0.4',
-    'torchvision>=0.14.0,<0.19.1',
-    'torch>=2.2.0,<2.4.1',
+    'torchvision>=0.18.0,<0.20.2',
+    'torch>=2.3.0,<2.5.2',
     'requests>=2.26.0,<3',
     'numpy>=1.21.5,<2.2.0',
     'psutil>=5.8.0,<7',
     'coolname>=1.1.0,<3',
     'tabulate==0.9.0',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<10',
-    'packaging>=21.3.0,<24.2',
+    'packaging>=21.3.0,<24.3',
     'importlib-metadata>=5.0.0,<9',
     'mosaicml-cli>=0.5.25,<0.7',
-    'pillow>=10.3.0,<11',
+    'pillow>=10.3.0,<12',
 ]
 extra_deps = {}
 
@@ -103,16 +103,16 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
     'junitparser==3.1.2',
-    'coverage[toml]==7.6.0',
+    'coverage[toml]==7.6.4',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
     'ipython==8.11.0',
     'ipykernel==6.29.5',
-    'jupyter==1.0.0',
+    'jupyter==1.1.1',
     'yamllint==1.35.1',
     'recommonmark==0.7.1',
     'sphinx==4.4.0',
-    'pre-commit>=3.4.0,<4',
+    'pre-commit>=3.4.0,<5',
     # embedding md in rst require docutils>=0.17. See
     # https://myst-parser.readthedocs.io/en/latest/sphinx/use.html?highlight=parser#include-markdown-files-into-an-rst-file
     'docutils==0.17.1',
@@ -136,11 +136,11 @@ extra_deps['dev'] = [
     'traitlets==5.14.3',
     'nbsphinx==0.9.1',
     'pandoc==2.4',
-    'pypandoc==1.13',
+    'pypandoc==1.14',
     'GitPython==3.1.43',
     'moto[s3]>=5.0.1,<6',
     'mock-ssh-server==0.9.1',
-    'cryptography==42.0.8',
+    'cryptography==43.0.3',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
 ]
@@ -154,12 +154,13 @@ extra_deps['slack'] = {
 }
 
 extra_deps['deepspeed'] = [
+    'numpy<2',
     'deepspeed==0.8.3',
     'pydantic>=1.0,<2',
 ]
 
 extra_deps['wandb'] = [
-    'wandb>=0.13.2,<0.18',
+    'wandb>=0.13.2,<0.19',
 ]
 
 extra_deps['comet_ml'] = [
@@ -179,17 +180,17 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,!=4.34.0,<4.45',
-    'datasets>=2.4,<3',
-    'huggingface-hub>=0.21.2,<0.25',
+    'transformers>=4.11,!=4.34.0,<4.46',
+    'datasets>=2.4,<4',
+    'huggingface-hub>=0.21.2,<0.27',
 ]
 
 extra_deps['peft'] = [
-    'peft>=0.10.0,<0.13',
+    'peft>=0.10.0,<0.14',
 ]
 
 extra_deps['sentencepiece'] = [
-    'protobuf<5.28',
+    'protobuf<5.29',
     'sentencepiece==0.2.0',
 ]
 
@@ -224,13 +225,13 @@ extra_deps['onnx'] = [
 
 extra_deps['mlflow'] = [
     'mlflow>=2.14.1,<3.0',
-    'databricks-sdk==0.30.0',
+    'databricks-sdk==0.36.0',
     'pynvml>=11.5.0,<12',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk==0.30.0']
+extra_deps['databricks'] = ['databricks-sdk==0.36.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 

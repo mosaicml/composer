@@ -62,14 +62,14 @@ class MosaicMLLogger(LoggerDestination):
             Example 2: ``ignore_keys = ["wall_clock/*"]`` would ignore all wall clock metrics.
 
             (default: ``None``)
-        ignore_exceptions: Flag to disable logging exceptions. Defaults to False.
+        ignore_exceptions: Flag to disable logging exceptions. Defaults to True.
     """
 
     def __init__(
         self,
         log_interval: int = 60,
         ignore_keys: Optional[list[str]] = None,
-        ignore_exceptions: bool = False,
+        ignore_exceptions: bool = True,
     ) -> None:
         self.log_interval = log_interval
         self.ignore_keys = ignore_keys

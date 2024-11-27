@@ -424,6 +424,24 @@ def tiny_gpt2_model(_session_tiny_gpt2_model):
     return copy.deepcopy(_session_tiny_gpt2_model)
 
 
+def _gpt2_peft_config():
+    pytest.importorskip('peft')
+    from peft import get_peft_config
+
+    peft_config = get_peft_config({
+        'peft_type': 'LORA',
+        'task_type': 'CAUSAL_LM',
+        'target_modules': ['c_attn'],
+        'fan_in_fan_out': True,
+    })
+    return peft_config
+
+
+@pytest.fixture
+def gpt2_peft_config():
+    return _gpt2_peft_config()
+
+
 @pytest.fixture
 def tiny_opt_config(_session_tiny_opt_config):
     return copy.deepcopy(_session_tiny_opt_config)

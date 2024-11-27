@@ -8,7 +8,7 @@ import torch
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.api import CPUOffload
-from torch.optim import adam
+from torch.optim import Adam
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader
 
@@ -183,7 +183,7 @@ def init_optimizer(
     inputs = torch.randn(batch_size, num_features, device=device)
     targets = torch.randint(low=0, high=num_classes, size=(batch_size,), device=device, dtype=torch.long)
     batch = (inputs, targets) if use_composer_model else inputs
-    optimizer = adam.Adam(model.parameters())
+    optimizer = Adam(model.parameters())
     outputs = model(batch)
     loss = loss_fn(outputs, targets)
     loss.backward()

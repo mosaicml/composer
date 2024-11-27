@@ -259,9 +259,11 @@ def test_automicrobatching_fsdp(world_size: int):
     trainer = Trainer(
         model=model,
         train_dataloader=train_dataloader,
-        fsdp_config={
-            'forward_prefetch_limit': 1,
-            'backward_prefetch_limit': 1,
+        parallelism_config={
+            'fsdp': {
+                'forward_prefetch_limit': 1,
+                'backward_prefetch_limit': 1,
+            },
         },
         max_duration='1ba',
         device='gpu',
@@ -310,9 +312,11 @@ def test_fsdp_automicrobatching_sync_hooks(world_size: int):
         trainer = Trainer(
             model=model,
             train_dataloader=train_dataloader,
-            fsdp_config={
-                'forward_prefetch_limit': 1,
-                'backward_prefetch_limit': 1,
+            parallelism_config={
+                'fsdp': {
+                    'forward_prefetch_limit': 1,
+                    'backward_prefetch_limit': 1,
+                },
             },
             max_duration='4ba',
             device='gpu',

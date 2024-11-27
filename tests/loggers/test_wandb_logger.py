@@ -21,7 +21,12 @@ from composer.core import Callback, Engine, Event, State
 from composer.loggers import InMemoryLogger, Logger, WandBLogger
 from composer.trainer import Trainer
 from composer.utils import dist
-from tests.callbacks.callback_settings import get_cb_kwargs, get_cb_model_and_datasets, get_cbs_and_marks
+from tests.callbacks.callback_settings import (
+    get_cb_kwargs,
+    get_cb_model_and_datasets,
+    get_cb_patches,
+    get_cbs_and_marks,
+)
 from tests.common.datasets import RandomImageDataset
 from tests.common.models import SimpleConvModel
 
@@ -269,10 +274,10 @@ def test_wandb_log_metrics(test_wandb_logger):
     eval_metrics_cross_entropy_count = all_run_text.count('metrics/eval/CrossEntropy')
     train_loss_count = all_run_text.count('loss/train/total')
 
-    expected_number_train_loss_count = (dataset_size / batch_size) + 1  # wandb includes it in the file one extra time
+    expected_number_train_loss_count = (dataset_size / batch_size) * 2  # wandb includes it twice per step
     expected_number_train_metrics_count = (
         dataset_size / batch_size
-    ) + 2  # wandb includes it in the file two extra times
+    ) * 2 + 2  # wandb includes it twice per step plus two extra times
     expected_number_eval_metrics_count = 2  # wandb includes it in the file twice
     assert train_metrics_accuracy_count == expected_number_train_metrics_count
     assert train_loss_count == expected_number_train_loss_count
@@ -290,15 +295,18 @@ def test_logged_data_is_json_serializable(callback_cls: type[Callback]):
     callback = callback_cls(**callback_kwargs)
     logger = InMemoryLogger()  # using an in memory logger to manually validate json serializability
     model, train_dataloader, _ = get_cb_model_and_datasets(callback)
-    trainer = Trainer(
-        model=model,
-        train_dataloader=train_dataloader,
-        train_subset_num_batches=2,
-        max_duration='1ep',
-        callbacks=callback,
-        loggers=logger,
-    )
-    trainer.fit()
+    maybe_patch_context = get_cb_patches(callback_cls)
+
+    with maybe_patch_context:
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            train_subset_num_batches=2,
+            max_duration='1ep',
+            callbacks=callback,
+            loggers=logger,
+        )
+        trainer.fit()
 
     for log_calls in logger.data.values():
         for _, data in log_calls:
