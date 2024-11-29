@@ -218,7 +218,7 @@ _settings: dict[type[Algorithm], Optional[dict[str, Any]]] = {
             },
         ),
         'kwargs': {
-            'stochastic_method': 'block',
+            'stochastic_method': 'residual',
             'target_layer_name': 'BasicBlock',
             'drop_rate': 0.2,
             'drop_distribution': 'linear',
