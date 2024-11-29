@@ -207,19 +207,19 @@ _settings: dict[type[Algorithm], Optional[dict[str, Any]]] = {
         'model': (
             composer_resnet,
             {
-                'model_name': 'resnet18',
+                'model_name': 'resnet50',
                 'num_classes': 2,
             },
         ),
         'dataset': (
             RandomImageDataset,
             {
-                'shape': (3, 32, 32),
+                'shape': (3, 224, 224),
             },
         ),
         'kwargs': {
-            'stochastic_method': 'residual',
-            'target_layer_name': 'BasicBlock',
+            'stochastic_method': 'block',
+            'target_layer_name': 'ResNetBottleneck',
             'drop_rate': 0.2,
             'drop_distribution': 'linear',
             'drop_warmup': '0.0dur',

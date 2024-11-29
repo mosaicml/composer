@@ -18,7 +18,7 @@ def test_algorithm_trains(alg_cls: type[Algorithm]):
     trainer = Trainer(
         model=model,
         train_dataloader=dataloader,
-        max_duration='1ep',
+        max_duration='1ba',
         algorithms=alg_cls(**alg_kwargs),
     )
     trainer.fit()
