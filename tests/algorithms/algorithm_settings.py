@@ -214,12 +214,12 @@ _settings: dict[type[Algorithm], Optional[dict[str, Any]]] = {
         'dataset': (
             RandomImageDataset,
             {
-                'shape': (3, 32, 32), 
+                'shape': (3, 32, 32),
             },
         ),
         'kwargs': {
             'stochastic_method': 'block',
-            'target_layer_name': 'BasicBlock', 
+            'target_layer_name': 'BasicBlock',
             'drop_rate': 0.2,
             'drop_distribution': 'linear',
             'drop_warmup': '0.0dur',
