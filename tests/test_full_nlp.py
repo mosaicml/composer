@@ -259,6 +259,7 @@ def test_full_nlp_pipeline(
 
     device = get_device(device)
     config = None
+    tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased', model_max_length=128)
     if model_type == 'tinybert_hf':
         # Updated minimal BERT configuration
         config = BertConfig(
@@ -267,9 +268,9 @@ def test_full_nlp_pipeline(
             num_hidden_layers=2,
             num_attention_heads=2,
             intermediate_size=256,
+            num_labels=3,
         )
         tiny_bert_model = BertForMaskedLM(config)
-        tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased', model_max_length=128)
         pretraining_metrics = [LanguageCrossEntropy(ignore_index=-100), MaskedAccuracy(ignore_index=-100)]
         pretraining_model = HuggingFaceModel(
             tiny_bert_model,
