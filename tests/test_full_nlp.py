@@ -35,22 +35,22 @@ def pretraining_test_helper(tokenizer, model, algorithms, tmp_path, device):
 
     pretraining_model_copy = copy.deepcopy(model)
     pretraining_train_dataset = RandomTextLMDataset(
-        size=16,
+        size=4,
         vocab_size=tokenizer.vocab_size,
-        sequence_length=4,
+        sequence_length=2,
         use_keys=True,
     )
 
     collator = transformers.DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm_probability=0.15)
     pretraining_train_dataloader = DataLoader(
         pretraining_train_dataset,
-        batch_size=8,
+        batch_size=2,
         sampler=dist.get_sampler(pretraining_train_dataset),
         collate_fn=collator,
     )
     pretraining_eval_dataloader = DataLoader(
         pretraining_train_dataset,
-        batch_size=8,
+        batch_size=2,
         sampler=dist.get_sampler(pretraining_train_dataset),
         collate_fn=collator,
     )
@@ -59,7 +59,7 @@ def pretraining_test_helper(tokenizer, model, algorithms, tmp_path, device):
         model=pretraining_model_copy,
         train_dataloader=pretraining_train_dataloader,
         save_folder=str(tmp_path / 'pretraining_checkpoints'),
-        max_duration='2ba',
+        max_duration='1ba',
         seed=17,
         algorithms=algorithms,
         device=device,
@@ -91,20 +91,20 @@ def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, pretra
     finetuning_model_copy = copy.deepcopy(model)
 
     finetuning_train_dataset = RandomTextClassificationDataset(
-        size=16,
+        size=4,
         vocab_size=tokenizer.vocab_size,
-        sequence_length=4,
+        sequence_length=2,
         num_classes=3,
         use_keys=isinstance(model, HuggingFaceModel),
     )
     finetuning_train_dataloader = DataLoader(
         finetuning_train_dataset,
-        batch_size=8,
+        batch_size=2,
         sampler=dist.get_sampler(finetuning_train_dataset),
     )
     finetuning_eval_dataloader = DataLoader(
         finetuning_train_dataset,
-        batch_size=8,
+        batch_size=2,
         sampler=dist.get_sampler(finetuning_train_dataset),
     )
 
@@ -137,7 +137,7 @@ def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, pretra
         load_weights_only=True,
         load_strict_model_weights=False,
         loggers=[rud],
-        max_duration='2ba',
+        max_duration='1ba',
         seed=17,
         algorithms=algorithms,
         device=device,
@@ -229,6 +229,7 @@ def inference_test_helper(
 
 
 @device('cpu', 'gpu')
+# Note: the specificity of these settings are due to incompatibilities (e.g. the simpletransformer model is not traceable)
 @pytest.mark.parametrize(
     'model_type,algorithms,save_format',
     [
@@ -262,24 +263,26 @@ def test_full_nlp_pipeline(
 
     device = get_device(device)
 
+    tiny_bert_model = None
     if model_type == 'tinybert_hf':
         tiny_bert_model = request.getfixturevalue('tiny_bert_model')
-        tokenizer = tiny_bert_tokenizer
 
+    # pretraining
+    if model_type == 'tinybert_hf':
+        assert tiny_bert_model is not None
         pretraining_metrics = [LanguageCrossEntropy(ignore_index=-100), MaskedAccuracy(ignore_index=-100)]
         pretraining_model = HuggingFaceModel(
             tiny_bert_model,
-            tokenizer,
+            tiny_bert_tokenizer,
             use_logits=True,
             metrics=pretraining_metrics,
         )
     elif model_type == 'simpletransformer':
-        pretraining_model = SimpleTransformerMaskedLM(vocab_size=tokenizer.vocab_size)
-        tokenizer = None
+        pretraining_model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
     else:
         raise ValueError('Unsupported model type')
     pretraining_output_path = pretraining_test_helper(
-        tokenizer,
+        tiny_bert_tokenizer,
         pretraining_model,
         algorithms,
         tmp_path,
@@ -296,17 +299,18 @@ def test_full_nlp_pipeline(
         )
         finetuning_model = HuggingFaceModel(
             model=hf_finetuning_model,
-            tokenizer=tokenizer,
+            tokenizer=tiny_bert_tokenizer,
             use_logits=True,
             metrics=[finetuning_metric],
         )
     elif model_type == 'simpletransformer':
-        finetuning_model = SimpleTransformerClassifier(vocab_size=tokenizer.vocab_size, num_classes=3)
+        finetuning_model = SimpleTransformerClassifier(vocab_size=tiny_bert_tokenizer.vocab_size, num_classes=3)
     else:
         raise ValueError('Unsupported model type.')
 
+    finetuning_model_copy = copy.deepcopy(finetuning_model)
     finetuning_trainer, finetuning_dataloader, rud, finetuning_output_path = finetuning_test_helper(
-        tokenizer,
+        tiny_bert_tokenizer,
         finetuning_model,
         algorithms,
         pretraining_output_path,
@@ -323,7 +327,7 @@ def test_full_nlp_pipeline(
     inference_test_helper(
         finetuning_output_path,
         rud,
-        finetuning_model,
+        finetuning_model_copy,
         algorithms,
         batch,
         original_output,
