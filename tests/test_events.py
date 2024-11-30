@@ -31,17 +31,17 @@ class TestEventCalls:
 
         train_dataset = RandomClassificationDataset()
         eval_dataset = RandomClassificationDataset()
-        train_batch_size = 4
+        train_batch_size = 2
 
         evaluator1 = DataLoader(
             dataset=eval_dataset,
-            batch_size=8,
+            batch_size=2,
             sampler=dist.get_sampler(eval_dataset),
         )
 
         evaluator2 = DataLoader(
             dataset=eval_dataset,
-            batch_size=4,
+            batch_size=2,
             sampler=dist.get_sampler(eval_dataset),
         )
 
@@ -57,7 +57,7 @@ class TestEventCalls:
             precision=precision,
             train_subset_num_batches=self.train_subset_num_batches,
             eval_subset_num_batches=self.eval_subset_num_batches,
-            max_duration='2ep',
+            max_duration='1ep1ba',
             optimizers=optimizer,
             callbacks=[EventCounterCallback()],
             **kwargs,

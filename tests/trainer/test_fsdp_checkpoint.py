@@ -83,8 +83,8 @@ def get_trainer(
     save_folder: Optional[str] = None,
     save_filename: str = 'ba{batch}-rank{rank}.pt',
     save_overwrite: bool = False,
-    num_features: int = 4,  # Reduced from default
-    num_classes: int = 2,   # Reduced from default
+    num_features: int = 4,
+    num_classes: int = 2,
     load_path: Optional[str] = None,
     autoresume: bool = False,
     run_name: Optional[str] = None,
@@ -111,7 +111,7 @@ def get_trainer(
         val_metrics=val_metrics,
     )
     model.module.to(model_init_device)
-    dataset = RandomClassificationDataset(shape=(num_features,), num_classes=num_classes, size=32)
+    dataset = RandomClassificationDataset(shape=(num_features,), num_classes=num_classes, size=8)
     dataloader = DataLoader(
         dataset,
         sampler=dist.get_sampler(dataset),
