@@ -233,7 +233,7 @@ def inference_test_helper(
 @pytest.mark.parametrize(
     'model_type,algorithms,save_format',
     [
-        ('tinybert_hf', [GradientClipping], 'onnx'),
+        ('tinybert_hf', [GradientClipping(clipping_type='norm', clipping_threshold=1.0)], 'onnx'),
         ('simpletransformer', [], 'torchscript'),
     ],
 )
