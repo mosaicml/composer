@@ -35,7 +35,7 @@ def pretraining_test_helper(tokenizer, model, algorithms, tmp_path, device):
 
     pretraining_model_copy = copy.deepcopy(model)
     pretraining_train_dataset = RandomTextLMDataset(
-        size=8,
+        size=16,
         vocab_size=tokenizer.vocab_size,
         sequence_length=4,
         use_keys=True,
@@ -44,13 +44,13 @@ def pretraining_test_helper(tokenizer, model, algorithms, tmp_path, device):
     collator = transformers.DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm_probability=0.15)
     pretraining_train_dataloader = DataLoader(
         pretraining_train_dataset,
-        batch_size=4,
+        batch_size=8,
         sampler=dist.get_sampler(pretraining_train_dataset),
         collate_fn=collator,
     )
     pretraining_eval_dataloader = DataLoader(
         pretraining_train_dataset,
-        batch_size=4,
+        batch_size=8,
         sampler=dist.get_sampler(pretraining_train_dataset),
         collate_fn=collator,
     )
@@ -59,7 +59,7 @@ def pretraining_test_helper(tokenizer, model, algorithms, tmp_path, device):
         model=pretraining_model_copy,
         train_dataloader=pretraining_train_dataloader,
         save_folder=str(tmp_path / 'pretraining_checkpoints'),
-        max_duration='1ep',
+        max_duration='2ba',
         seed=17,
         algorithms=algorithms,
         device=device,
@@ -91,7 +91,7 @@ def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, pretra
     finetuning_model_copy = copy.deepcopy(model)
 
     finetuning_train_dataset = RandomTextClassificationDataset(
-        size=8,
+        size=16,
         vocab_size=tokenizer.vocab_size,
         sequence_length=4,
         num_classes=3,
@@ -99,12 +99,12 @@ def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, pretra
     )
     finetuning_train_dataloader = DataLoader(
         finetuning_train_dataset,
-        batch_size=4,
+        batch_size=8,
         sampler=dist.get_sampler(finetuning_train_dataset),
     )
     finetuning_eval_dataloader = DataLoader(
         finetuning_train_dataset,
-        batch_size=4,
+        batch_size=8,
         sampler=dist.get_sampler(finetuning_train_dataset),
     )
 
@@ -137,7 +137,7 @@ def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, pretra
         load_weights_only=True,
         load_strict_model_weights=False,
         loggers=[rud],
-        max_duration='1ep',
+        max_duration='2ba',
         seed=17,
         algorithms=algorithms,
         device=device,
@@ -229,7 +229,6 @@ def inference_test_helper(
 
 
 @device('cpu', 'gpu')
-# Note: the specificity of these settings are due to incompatibilities (e.g. the simpletransformer model is not traceable)
 @pytest.mark.parametrize(
     'model_type,algorithms,save_format',
     [
@@ -267,9 +266,6 @@ def test_full_nlp_pipeline(
     if model_type == 'tinybert_hf':
         tiny_bert_model = request.getfixturevalue('tiny_bert_model')
 
-    # pretraining
-    if model_type == 'tinybert_hf':
-        assert tiny_bert_model is not None
         pretraining_metrics = [LanguageCrossEntropy(ignore_index=-100), MaskedAccuracy(ignore_index=-100)]
         pretraining_model = HuggingFaceModel(
             tiny_bert_model,
