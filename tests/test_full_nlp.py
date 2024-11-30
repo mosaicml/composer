@@ -260,7 +260,7 @@ def test_full_nlp_pipeline(
     algorithms = [algorithm() for algorithm in algorithms]
     device = get_device(device)
     config = None
-    small_vocab_size = 1024
+    small_vocab_size = 2048
     tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased', model_max_length=128)
     if model_type == 'tinybert_hf':
         # Updated minimal BERT configuration
