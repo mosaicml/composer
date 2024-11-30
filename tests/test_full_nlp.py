@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from torchmetrics.classification import MulticlassAccuracy
 from transformers import BertConfig, BertForMaskedLM, BertForSequenceClassification, BertTokenizerFast
 
-from composer.algorithms import LabelSmoothing
+from composer.algorithms import LayerFreezing
 from composer.loggers import RemoteUploaderDownloader
 from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.models import HuggingFaceModel
@@ -233,7 +233,7 @@ def inference_test_helper(
 @pytest.mark.parametrize(
     'model_type,algorithms,save_format',
     [
-        ('tinybert_hf', [LabelSmoothing], 'onnx'),
+        ('tinybert_hf', [LayerFreezing], 'onnx'),
         ('simpletransformer', [], 'torchscript'),
     ],
 )
