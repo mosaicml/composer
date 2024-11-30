@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from torchmetrics.classification import MulticlassAccuracy
 from transformers import BertConfig, BertForMaskedLM, BertForSequenceClassification, BertTokenizerFast
 
-from composer.algorithms import GatedLinearUnits
+from composer.algorithms import LabelSmoothing
 from composer.loggers import RemoteUploaderDownloader
 from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.models import HuggingFaceModel
@@ -233,7 +233,7 @@ def inference_test_helper(
 @pytest.mark.parametrize(
     'model_type,algorithms,save_format',
     [
-        ('tinybert_hf', [GatedLinearUnits], 'onnx'),
+        ('tinybert_hf', [LabelSmoothing], 'onnx'),
         ('simpletransformer', [], 'torchscript'),
     ],
 )
@@ -272,7 +272,7 @@ def test_full_nlp_pipeline(
         )
         tiny_bert_model = BertForMaskedLM(config)
         tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased', model_max_length=128)
-        
+
         pretraining_metrics = [LanguageCrossEntropy(ignore_index=-100), MaskedAccuracy(ignore_index=-100)]
         pretraining_model = HuggingFaceModel(
             tiny_bert_model,
