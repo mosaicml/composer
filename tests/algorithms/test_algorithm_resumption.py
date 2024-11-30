@@ -15,7 +15,6 @@ from tests.algorithms.algorithm_settings import get_alg_dataloader, get_alg_kwar
 from tests.common import deep_compare
 from tests.common.markers import world_size
 
-
 @pytest.mark.gpu
 @pytest.mark.parametrize('alg_cls', get_algs_with_marks())
 @pytest.mark.filterwarnings(
@@ -59,7 +58,7 @@ def test_algorithm_resumption(
         # Reduce training duration and data
         shared_config = {
             'max_duration': '2ba',
-            'save_filename': 'ba{batch}-rank{rank}',
+            'save_filename': 'checkpoint_ba{batch}-rank{rank}',
             'save_interval': '1ba',
             'train_subset_num_batches': 2,
             'precision': 'fp32',
@@ -94,7 +93,7 @@ def test_algorithm_resumption(
         trainer2 = Trainer(
             model=copied_model,
             train_dataloader=train_dataloader,
-            load_path=os.path.join(folder1, 'ep1-rank{rank}'),
+            load_path=os.path.join(folder1, 'checkpoint_ba1-rank{rank}'),
             load_weights_only=False,
             load_strict_model_weights=False,
             optimizers=optimizer,
@@ -108,17 +107,16 @@ def test_algorithm_resumption(
         # check that the checkpoints are equal
         if world_size == 1 or dist.get_global_rank() == 0:
             _assert_checkpoints_equal(
-                file1=os.path.join(folder1, 'ep2-rank0'),
-                file2=os.path.join(folder2, 'ep2-rank0'),
+                os.path.join(folder1, 'checkpoint_ba2-rank0'), 
+                os.path.join(folder2, 'checkpoint_ba2-rank0'), 
             )
 
-        # check that different epoch checkpoints are _not_ equal
-        # this ensures that the model weights are being updated.
-        if world_size == 1 or dist.get_global_rank() == 0:
+            # check that different epoch checkpoints are _not_ equal
+            # this ensures that the model weights are being updated.
             with pytest.raises(AssertionError):
                 _assert_model_weights_equal(
-                    file1=os.path.join(folder1, 'ep1-rank0'),
-                    file2=os.path.join(folder1, 'ep2-rank0'),
+                    os.path.join(folder1, 'checkpoint_ba1-rank0'),
+                    os.path.join(folder1, 'checkpoint_ba2-rank0'),
                 )
 
 
