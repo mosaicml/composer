@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from torchmetrics.classification import MulticlassAccuracy
 from transformers import BertConfig, BertForMaskedLM, BertForSequenceClassification, BertTokenizerFast
 
-from composer.algorithms import GradientClipping
+from composer.algorithms import GatedLinearUnits
 from composer.loggers import RemoteUploaderDownloader
 from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.models import HuggingFaceModel
@@ -233,7 +233,7 @@ def inference_test_helper(
 @pytest.mark.parametrize(
     'model_type,algorithms,save_format',
     [
-        ('tinybert_hf', [GradientClipping(clipping_type='norm', clipping_threshold=1.0)], 'onnx'),
+        ('tinybert_hf', [GatedLinearUnits], 'onnx'),
         ('simpletransformer', [], 'torchscript'),
     ],
 )
@@ -257,6 +257,7 @@ def test_full_nlp_pipeline(
     if onnx_opset_version == None and version.parse(torch.__version__) < version.parse('1.13'):
         pytest.skip("Don't test prior PyTorch version's default Opset version.")
 
+    algorithms = [algorithm() for algorithm in algorithms]
     device = get_device(device)
     config = None
     tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased', model_max_length=128)
