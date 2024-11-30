@@ -244,6 +244,7 @@ def test_full_nlp_pipeline(
     save_format,
     onnx_opset_version,
     tmp_path,
+    request,
     device,
 ):
     """This test is intended to exercise our full pipeline for NLP.
@@ -271,7 +272,7 @@ def test_full_nlp_pipeline(
         )
         tiny_bert_model = BertForMaskedLM(config)
         tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased', model_max_length=128)
-
+        
         pretraining_metrics = [LanguageCrossEntropy(ignore_index=-100), MaskedAccuracy(ignore_index=-100)]
         pretraining_model = HuggingFaceModel(
             tiny_bert_model,
@@ -283,9 +284,9 @@ def test_full_nlp_pipeline(
         pretraining_model = SimpleTransformerMaskedLM(
             vocab_size=30522,
             num_layers=2,
-            d_model=64,
+            d_model=128,
             num_heads=2,
-            dim_feedforward=256,
+            dim_feedforward=512,
         )
         tokenizer = None
     else:
