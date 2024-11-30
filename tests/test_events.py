@@ -57,7 +57,7 @@ class TestEventCalls:
             precision=precision,
             train_subset_num_batches=self.train_subset_num_batches,
             eval_subset_num_batches=self.eval_subset_num_batches,
-            max_duration='1ep1ba',
+            max_duration='1ep',
             optimizers=optimizer,
             callbacks=[EventCounterCallback()],
             **kwargs,
