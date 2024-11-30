@@ -9,6 +9,7 @@ import torch
 from packaging import version
 from torch.utils.data import DataLoader
 from torchmetrics.classification import MulticlassAccuracy
+from transformers import BertConfig, BertForMaskedLM, BertForSequenceClassification, BertTokenizerFast
 
 from composer.algorithms import GatedLinearUnits
 from composer.loggers import RemoteUploaderDownloader
@@ -229,7 +230,6 @@ def inference_test_helper(
 
 
 @device('cpu', 'gpu')
-# Note: the specificity of these settings are due to incompatibilities (e.g. the simpletransformer model is not traceable)
 @pytest.mark.parametrize(
     'model_type,algorithms,save_format',
     [
@@ -242,10 +242,8 @@ def test_full_nlp_pipeline(
     model_type,
     algorithms,
     save_format,
-    tiny_bert_tokenizer,
     onnx_opset_version,
     tmp_path,
-    request,
     device,
 ):
     """This test is intended to exercise our full pipeline for NLP.
@@ -262,27 +260,38 @@ def test_full_nlp_pipeline(
     algorithms = [algorithm() for algorithm in algorithms]
 
     device = get_device(device)
-
-    tiny_bert_model = None
     if model_type == 'tinybert_hf':
-        tiny_bert_model = request.getfixturevalue('tiny_bert_model')
-
-    # pretraining
-    if model_type == 'tinybert_hf':
-        assert tiny_bert_model is not None
+        # Updated minimal BERT configuration
+        config = BertConfig(
+            vocab_size=30522,
+            hidden_size=64,
+            num_hidden_layers=2,
+            num_attention_heads=2,
+            intermediate_size=256,
+        )
+        tiny_bert_model = BertForMaskedLM(config)
+        tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased', model_max_length=128)
+        
         pretraining_metrics = [LanguageCrossEntropy(ignore_index=-100), MaskedAccuracy(ignore_index=-100)]
         pretraining_model = HuggingFaceModel(
             tiny_bert_model,
-            tiny_bert_tokenizer,
+            tokenizer,
             use_logits=True,
             metrics=pretraining_metrics,
         )
     elif model_type == 'simpletransformer':
-        pretraining_model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
+        pretraining_model = SimpleTransformerMaskedLM(
+            vocab_size=30522,
+            num_layers=2,
+            d_model=64,
+            num_heads=2,
+            dim_feedforward=256,
+        )
+        tokenizer = None
     else:
         raise ValueError('Unsupported model type')
     pretraining_output_path = pretraining_test_helper(
-        tiny_bert_tokenizer,
+        tokenizer,
         pretraining_model,
         algorithms,
         tmp_path,
@@ -292,25 +301,27 @@ def test_full_nlp_pipeline(
     # finetuning
     if model_type == 'tinybert_hf':
         finetuning_metric = MulticlassAccuracy(num_classes=3, average='micro')
-        hf_finetuning_model, _ = HuggingFaceModel.hf_from_composer_checkpoint(
-            pretraining_output_path,
-            model_instantiation_class='transformers.AutoModelForSequenceClassification',
-            model_config_kwargs={'num_labels': 3},
-        )
         finetuning_model = HuggingFaceModel(
-            model=hf_finetuning_model,
-            tokenizer=tiny_bert_tokenizer,
+            model=BertForSequenceClassification(config),
+            tokenizer=tokenizer,
             use_logits=True,
             metrics=[finetuning_metric],
         )
     elif model_type == 'simpletransformer':
-        finetuning_model = SimpleTransformerClassifier(vocab_size=tiny_bert_tokenizer.vocab_size, num_classes=3)
+        finetuning_model = SimpleTransformerClassifier(
+            vocab_size=30522,
+            num_classes=3,
+            num_layers=2,
+            d_model=64,
+            num_heads=2,
+            dim_feedforward=256,
+        )
     else:
         raise ValueError('Unsupported model type.')
 
     finetuning_model_copy = copy.deepcopy(finetuning_model)
     finetuning_trainer, finetuning_dataloader, rud, finetuning_output_path = finetuning_test_helper(
-        tiny_bert_tokenizer,
+        tokenizer,
         finetuning_model,
         algorithms,
         pretraining_output_path,
