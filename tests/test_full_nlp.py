@@ -9,11 +9,7 @@ import torch
 from packaging import version
 from torch.utils.data import DataLoader
 from torchmetrics.classification import MulticlassAccuracy
-from transformers import (
-    AutoModelForMaskedLM,
-    AutoModelForSequenceClassification,
-    AutoTokenizer,
-)
+from transformers import BertConfig, BertForMaskedLM, BertForSequenceClassification, BertTokenizerFast
 
 from composer.algorithms import GatedLinearUnits
 from composer.loggers import RemoteUploaderDownloader
@@ -28,7 +24,7 @@ from tests.common.models import SimpleTransformerClassifier, SimpleTransformerMa
 
 def get_model_embeddings(model):
     if isinstance(model, HuggingFaceModel):
-        return model.model.get_input_embeddings().weight
+        return model.model.bert.embeddings.word_embeddings.weight
     elif isinstance(model, SimpleTransformerClassifier) or isinstance(model, SimpleTransformerMaskedLM):
         return model.transformer_base.embedding.weight
     else:
@@ -263,21 +259,28 @@ def test_full_nlp_pipeline(
 
     algorithms = [algorithm() for algorithm in algorithms]
     device = get_device(device)
-    model_name = 'hf-internal-testing/tiny-random-bert'
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    small_vocab_size = tokenizer.vocab_size
-
+    config = None
+    tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased', model_max_length=128)
     if model_type == 'tinybert_hf':
-        tiny_model = AutoModelForMaskedLM.from_pretrained(model_name)
+        # Updated minimal BERT configuration
+        config = BertConfig(
+            vocab_size=30522,
+            hidden_size=16,
+            num_hidden_layers=2,
+            num_attention_heads=2,
+            intermediate_size=64,
+            num_labels=3,
+        )
+        tiny_bert_model = BertForMaskedLM(config)
         pretraining_metrics = [LanguageCrossEntropy(ignore_index=-100), MaskedAccuracy(ignore_index=-100)]
         pretraining_model = HuggingFaceModel(
-            tiny_model,
+            tiny_bert_model,
             tokenizer,
             use_logits=True,
             metrics=pretraining_metrics,
         )
     elif model_type == 'simpletransformer':
-        pretraining_model = SimpleTransformerMaskedLM(vocab_size=small_vocab_size)
+        pretraining_model = SimpleTransformerMaskedLM(vocab_size=30522)
     else:
         raise ValueError('Unsupported model type')
     pretraining_output_path = pretraining_test_helper(
@@ -290,21 +293,16 @@ def test_full_nlp_pipeline(
 
     # finetuning
     if model_type == 'tinybert_hf':
-        tiny_model = AutoModelForSequenceClassification.from_pretrained(
-            model_name,
-            num_labels=3,
-            ignore_mismatched_sizes=True,
-        )
         finetuning_metric = MulticlassAccuracy(num_classes=3, average='micro')
         finetuning_model = HuggingFaceModel(
-            model=tiny_model,
+            model=BertForSequenceClassification(config),
             tokenizer=tokenizer,
             use_logits=True,
             metrics=[finetuning_metric],
         )
     elif model_type == 'simpletransformer':
         finetuning_model = SimpleTransformerClassifier(
-            vocab_size=small_vocab_size,
+            vocab_size=30522,
             num_classes=3,
         )
     else:

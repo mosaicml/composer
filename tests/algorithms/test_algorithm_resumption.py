@@ -57,7 +57,7 @@ def test_algorithm_resumption(
         'max_duration': '2ba',
         'save_filename': 'ba{batch}-rank{rank}',
         'save_interval': '1ba',
-        'train_subset_num_batches': 1,
+        'train_subset_num_batches': 2,
         'precision': 'amp_bf16',
     }
     train_dataloader = get_alg_dataloader(alg_cls) if world_size == 1 else get_alg_dataloader(alg_cls, multigpu=True)
