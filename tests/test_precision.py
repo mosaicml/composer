@@ -36,9 +36,9 @@ def get_trainer(precision: Precision, precision_config: Optional[dict[str, Any]]
         ),
         precision=precision,
         precision_config=precision_config,
-        max_duration='2ba',
-        eval_interval='2ba',
-        train_subset_num_batches=2,
+        max_duration='1ba',
+        eval_interval='1ba',
+        train_subset_num_batches=1,
     )
 
 
