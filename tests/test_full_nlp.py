@@ -244,7 +244,6 @@ def test_full_nlp_pipeline(
     save_format,
     onnx_opset_version,
     tmp_path,
-    request,
     device,
 ):
     """This test is intended to exercise our full pipeline for NLP.
@@ -281,7 +280,7 @@ def test_full_nlp_pipeline(
             metrics=pretraining_metrics,
         )
     elif model_type == 'simpletransformer':
-        pretraining_model = SimpleTransformerMaskedLM(vocab_size=30522,)
+        pretraining_model = SimpleTransformerMaskedLM(vocab_size=30522)
         tokenizer = None
     else:
         raise ValueError('Unsupported model type')
