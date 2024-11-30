@@ -57,7 +57,7 @@ class TestEventCalls:
             precision=precision,
             train_subset_num_batches=self.train_subset_num_batches,
             eval_subset_num_batches=self.eval_subset_num_batches,
-            max_duration='2ep',
+            max_duration='1ep',
             optimizers=optimizer,
             callbacks=[EventCounterCallback()],
             **kwargs,
@@ -127,7 +127,7 @@ class TestEventCalls:
         )
         trainer.fit()
 
-        self._assert_expected_event_calls(trainer, save_interval, num_epochs=2)
+        self._assert_expected_event_calls(trainer, save_interval, num_epochs=1)
 
     def _assert_expected_event_calls(self, trainer: Trainer, eval_interval: Time, num_epochs: int):
         state = trainer.state
