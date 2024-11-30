@@ -20,7 +20,7 @@ from tests.common.models import SimpleTransformerClassifier, configure_tiny_bert
 def simple_model_with_grads():
     # Set up small NN with one linear layer with no bias + softmax, so only
     # one set of params and get some gradients.
-    N, hin, num_classes = 8, 4, 3
+    N, hin, num_classes = 4, 2, 2
     x = torch.rand((N, hin))
     y = torch.randint(high=num_classes - 1, size=(N,))
     model = nn.Sequential(nn.Linear(hin, num_classes, bias=False), nn.Softmax(dim=1))
@@ -47,8 +47,6 @@ def cnn_model_with_grads():
             self.mlp = nn.Sequential(
                 nn.Linear(num_fmaps, h),
                 nn.ReLU(),
-                nn.Linear(h, h),
-                nn.ReLU(),
                 nn.Linear(h, num_classes),
                 nn.Softmax(dim=1),
             )
@@ -60,8 +58,8 @@ def cnn_model_with_grads():
             return out
 
     # Generate some gradients.
-    N, n_ch, num_fmaps, h, num_classes, filter_size = 8, 3, 4, 4, 3, 3
-    x = torch.rand((N, n_ch, 16, 16))
+    N, n_ch, num_fmaps, h, num_classes, filter_size = 4, 1, 2, 2, 2, 2
+    x = torch.rand((N, n_ch, 8, 8))
     y = torch.randint(high=num_classes - 1, size=(N,))
     model = myNN(n_ch, num_fmaps, h, num_classes, filter_size)
 

@@ -23,14 +23,14 @@ def get_trainer(precision: Precision, precision_config: Optional[dict[str, Any]]
     return Trainer(
         model=composer_resnet('resnet18'),
         train_dataloader=DataLoader(
-            dataset=RandomImageDataset(size=128),
-            batch_size=128,
+            dataset=RandomImageDataset(size=1024),
+            batch_size=512,
             persistent_workers=False,
             num_workers=0,
         ),
         eval_dataloader=DataLoader(
-            dataset=RandomImageDataset(size=128),
-            batch_size=128,
+            dataset=RandomImageDataset(size=1024),
+            batch_size=512,
             persistent_workers=False,
             num_workers=0,
         ),
