@@ -283,10 +283,6 @@ def test_full_nlp_pipeline(
     elif model_type == 'simpletransformer':
         pretraining_model = SimpleTransformerMaskedLM(
             vocab_size=30522,
-            num_layers=2,
-            d_model=128,
-            num_heads=2,
-            dim_feedforward=512,
         )
         tokenizer = None
     else:
@@ -312,10 +308,6 @@ def test_full_nlp_pipeline(
         finetuning_model = SimpleTransformerClassifier(
             vocab_size=30522,
             num_classes=3,
-            num_layers=2,
-            d_model=64,
-            num_heads=2,
-            dim_feedforward=256,
         )
     else:
         raise ValueError('Unsupported model type.')
