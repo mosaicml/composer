@@ -9,7 +9,12 @@ import torch
 from packaging import version
 from torch.utils.data import DataLoader
 from torchmetrics.classification import MulticlassAccuracy
-from transformers import BertConfig, BertForMaskedLM, BertForSequenceClassification, BertTokenizerFast
+from transformers import (
+    AutoConfig,
+    AutoModelForMaskedLM,
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+)
 
 from composer.algorithms import GatedLinearUnits
 from composer.loggers import RemoteUploaderDownloader
@@ -24,7 +29,7 @@ from tests.common.models import SimpleTransformerClassifier, SimpleTransformerMa
 
 def get_model_embeddings(model):
     if isinstance(model, HuggingFaceModel):
-        return model.model.bert.embeddings.word_embeddings.weight
+        return model.model.get_input_embeddings().weight
     elif isinstance(model, SimpleTransformerClassifier) or isinstance(model, SimpleTransformerMaskedLM):
         return model.transformer_base.embedding.weight
     else:
@@ -259,23 +264,15 @@ def test_full_nlp_pipeline(
 
     algorithms = [algorithm() for algorithm in algorithms]
     device = get_device(device)
-    config = None
-    small_vocab_size = 2048
-    tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased', model_max_length=128)
+    model_name = 'hf-internal-testing/tiny-random-bert'
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    small_vocab_size = tokenizer.vocab_size
+
     if model_type == 'tinybert_hf':
-        # Updated minimal BERT configuration
-        config = BertConfig(
-            vocab_size=small_vocab_size,
-            hidden_size=16,
-            num_hidden_layers=2,
-            num_attention_heads=2,
-            intermediate_size=64,
-            num_labels=3,
-        )
-        tiny_bert_model = BertForMaskedLM(config)
+        tiny_model = AutoModelForMaskedLM.from_pretrained(model_name)
         pretraining_metrics = [LanguageCrossEntropy(ignore_index=-100), MaskedAccuracy(ignore_index=-100)]
         pretraining_model = HuggingFaceModel(
-            tiny_bert_model,
+            tiny_model,
             tokenizer,
             use_logits=True,
             metrics=pretraining_metrics,
@@ -294,9 +291,10 @@ def test_full_nlp_pipeline(
 
     # finetuning
     if model_type == 'tinybert_hf':
+        tiny_model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=3)
         finetuning_metric = MulticlassAccuracy(num_classes=3, average='micro')
         finetuning_model = HuggingFaceModel(
-            model=BertForSequenceClassification(config),
+            model=tiny_model,
             tokenizer=tokenizer,
             use_logits=True,
             metrics=[finetuning_metric],
