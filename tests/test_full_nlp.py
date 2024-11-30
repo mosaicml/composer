@@ -271,7 +271,7 @@ def test_full_nlp_pipeline(
         )
         tiny_bert_model = BertForMaskedLM(config)
         tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased', model_max_length=128)
-        
+
         pretraining_metrics = [LanguageCrossEntropy(ignore_index=-100), MaskedAccuracy(ignore_index=-100)]
         pretraining_model = HuggingFaceModel(
             tiny_bert_model,
