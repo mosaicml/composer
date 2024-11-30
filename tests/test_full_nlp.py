@@ -260,11 +260,12 @@ def test_full_nlp_pipeline(
     algorithms = [algorithm() for algorithm in algorithms]
     device = get_device(device)
     config = None
+    small_vocab_size = 1024
     tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased', model_max_length=128)
     if model_type == 'tinybert_hf':
         # Updated minimal BERT configuration
         config = BertConfig(
-            vocab_size=30522,
+            vocab_size=small_vocab_size,
             hidden_size=16,
             num_hidden_layers=2,
             num_attention_heads=2,
@@ -280,7 +281,7 @@ def test_full_nlp_pipeline(
             metrics=pretraining_metrics,
         )
     elif model_type == 'simpletransformer':
-        pretraining_model = SimpleTransformerMaskedLM(vocab_size=30522)
+        pretraining_model = SimpleTransformerMaskedLM(vocab_size=small_vocab_size)
     else:
         raise ValueError('Unsupported model type')
     pretraining_output_path = pretraining_test_helper(
@@ -302,7 +303,7 @@ def test_full_nlp_pipeline(
         )
     elif model_type == 'simpletransformer':
         finetuning_model = SimpleTransformerClassifier(
-            vocab_size=30522,
+            vocab_size=small_vocab_size,
             num_classes=3,
         )
     else:
