@@ -260,6 +260,7 @@ def test_full_nlp_pipeline(
     algorithms = [algorithm() for algorithm in algorithms]
 
     device = get_device(device)
+    config = None
     if model_type == 'tinybert_hf':
         # Updated minimal BERT configuration
         config = BertConfig(
