@@ -10,7 +10,6 @@ from packaging import version
 from torch.utils.data import DataLoader
 from torchmetrics.classification import MulticlassAccuracy
 from transformers import (
-    AutoConfig,
     AutoModelForMaskedLM,
     AutoModelForSequenceClassification,
     AutoTokenizer,
@@ -291,7 +290,11 @@ def test_full_nlp_pipeline(
 
     # finetuning
     if model_type == 'tinybert_hf':
-        tiny_model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=3)
+        tiny_model = AutoModelForSequenceClassification.from_pretrained(
+            model_name,
+            num_labels=3,
+            ignore_mismatched_sizes=True,
+        )
         finetuning_metric = MulticlassAccuracy(num_classes=3, average='micro')
         finetuning_model = HuggingFaceModel(
             model=tiny_model,

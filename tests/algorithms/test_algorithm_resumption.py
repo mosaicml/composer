@@ -20,8 +20,8 @@ from tests.common.markers import world_size
 @pytest.mark.parametrize('alg_cls', get_algs_with_marks())
 @pytest.mark.filterwarnings(
     'ignore:Detected call of `lr_scheduler.step()',
-)
-@pytest.mark.filterwarnings(r'ignore:.*Plan failed with a cudnnException.*:UserWarning')
+)  # optimizer.step() sometimes skipped when NaN/inf on low batch size
+@pytest.mark.filterwarnings(r'ignore:.*Plan failed with a cudnnException.*:UserWarning')  # Torch 2.3 regression
 @world_size(1, 2)
 def test_algorithm_resumption(
     tmp_path: pathlib.Path,
