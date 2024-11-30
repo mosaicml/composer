@@ -257,10 +257,9 @@ def test_full_nlp_pipeline(
     if onnx_opset_version == None and version.parse(torch.__version__) < version.parse('1.13'):
         pytest.skip("Don't test prior PyTorch version's default Opset version.")
 
-    algorithms = [algorithm() for algorithm in algorithms]
-
     device = get_device(device)
     config = None
+    tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased', model_max_length=128)
     if model_type == 'tinybert_hf':
         # Updated minimal BERT configuration
         config = BertConfig(
@@ -271,7 +270,6 @@ def test_full_nlp_pipeline(
             intermediate_size=256,
         )
         tiny_bert_model = BertForMaskedLM(config)
-        tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased', model_max_length=128)
 
         pretraining_metrics = [LanguageCrossEntropy(ignore_index=-100), MaskedAccuracy(ignore_index=-100)]
         pretraining_model = HuggingFaceModel(
