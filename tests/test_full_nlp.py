@@ -262,23 +262,24 @@ def test_full_nlp_pipeline(
 
     device = get_device(device)
 
-    tiny_bert_model = None
     if model_type == 'tinybert_hf':
         tiny_bert_model = request.getfixturevalue('tiny_bert_model')
+        tokenizer = tiny_bert_tokenizer
 
         pretraining_metrics = [LanguageCrossEntropy(ignore_index=-100), MaskedAccuracy(ignore_index=-100)]
         pretraining_model = HuggingFaceModel(
             tiny_bert_model,
-            tiny_bert_tokenizer,
+            tokenizer,
             use_logits=True,
             metrics=pretraining_metrics,
         )
     elif model_type == 'simpletransformer':
-        pretraining_model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
+        pretraining_model = SimpleTransformerMaskedLM(vocab_size=tokenizer.vocab_size)
+        tokenizer = None
     else:
         raise ValueError('Unsupported model type')
     pretraining_output_path = pretraining_test_helper(
-        tiny_bert_tokenizer,
+        tokenizer,
         pretraining_model,
         algorithms,
         tmp_path,
@@ -295,18 +296,17 @@ def test_full_nlp_pipeline(
         )
         finetuning_model = HuggingFaceModel(
             model=hf_finetuning_model,
-            tokenizer=tiny_bert_tokenizer,
+            tokenizer=tokenizer,
             use_logits=True,
             metrics=[finetuning_metric],
         )
     elif model_type == 'simpletransformer':
-        finetuning_model = SimpleTransformerClassifier(vocab_size=tiny_bert_tokenizer.vocab_size, num_classes=3)
+        finetuning_model = SimpleTransformerClassifier(vocab_size=tokenizer.vocab_size, num_classes=3)
     else:
         raise ValueError('Unsupported model type.')
 
-    finetuning_model_copy = copy.deepcopy(finetuning_model)
     finetuning_trainer, finetuning_dataloader, rud, finetuning_output_path = finetuning_test_helper(
-        tiny_bert_tokenizer,
+        tokenizer,
         finetuning_model,
         algorithms,
         pretraining_output_path,
@@ -323,7 +323,7 @@ def test_full_nlp_pipeline(
     inference_test_helper(
         finetuning_output_path,
         rud,
-        finetuning_model_copy,
+        finetuning_model,
         algorithms,
         batch,
         original_output,
