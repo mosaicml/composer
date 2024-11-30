@@ -281,7 +281,6 @@ def test_full_nlp_pipeline(
         )
     elif model_type == 'simpletransformer':
         pretraining_model = SimpleTransformerMaskedLM(vocab_size=30522)
-        tokenizer = None
     else:
         raise ValueError('Unsupported model type')
     pretraining_output_path = pretraining_test_helper(
