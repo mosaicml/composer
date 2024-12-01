@@ -1,4 +1,4 @@
-# Copyright ...
+# Copyright 2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
 import math
@@ -33,7 +33,7 @@ class TestEventCalls:
         # Minimal dataset size to reduce batches
         train_dataset = RandomClassificationDataset(size=4)
         eval_dataset = RandomClassificationDataset(size=4)
-        train_batch_size = 4 
+        train_batch_size = 4
 
         evaluator1 = DataLoader(
             dataset=eval_dataset,
@@ -112,11 +112,36 @@ class TestEventCalls:
             # mock the save_checkpoint method to speed up batch saves
             with patch('composer.trainer.trainer.Trainer.save_checkpoint') as mock_save:
                 mock_save.return_value = None
-                self._run_event_calls_test(world_size, device, deepspeed_zero_stage, use_fsdp, precision, save_interval, num_epochs=1)
+                self._run_event_calls_test(
+                    world_size,
+                    device,
+                    deepspeed_zero_stage,
+                    use_fsdp,
+                    precision,
+                    save_interval,
+                    num_epochs=1,
+                )
         else:
-            self._run_event_calls_test(world_size, device, deepspeed_zero_stage, use_fsdp, precision, save_interval, num_epochs=1)
+            self._run_event_calls_test(
+                world_size,
+                device,
+                deepspeed_zero_stage,
+                use_fsdp,
+                precision,
+                save_interval,
+                num_epochs=1,
+            )
 
-    def _run_event_calls_test(self, world_size, device, deepspeed_zero_stage, use_fsdp, precision, save_interval, num_epochs):
+    def _run_event_calls_test(
+        self,
+        world_size,
+        device,
+        deepspeed_zero_stage,
+        use_fsdp,
+        precision,
+        save_interval,
+        num_epochs,
+    ):
         save_interval = Time.from_timestring(save_interval)
 
         deepspeed_config = None
