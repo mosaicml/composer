@@ -16,6 +16,11 @@ from tests.common import RandomClassificationDataset, SimpleModel
 from tests.common.events import EventCounterCallback
 
 
+@pytest.mark.parametrize('event', list(Event))
+def test_event_values(event: Event):
+    assert event.name.lower() == event.value
+
+
 class TestEventCalls:
 
     eval_subset_num_batches = 1
@@ -103,9 +108,9 @@ class TestEventCalls:
     )
     @pytest.mark.parametrize('save_interval', ['1ep', '1ba'])
     def test_event_calls(self, world_size, device, deepspeed_zero_stage, use_fsdp, precision, save_interval):
-        # Handle '1ba' save interval separately to optimize speed
+        # handle 1ba save interval separately to optimize speed
         if save_interval == '1ba':
-            # Mock the save_checkpoint method to speed up batch saves
+            # mock the save_checkpoint method to speed up batch saves
             with patch('composer.trainer.trainer.Trainer.save_checkpoint') as mock_save:
                 mock_save.return_value = None
                 self._run_event_calls_test(
@@ -160,8 +165,8 @@ class TestEventCalls:
             save_interval=save_interval,
             eval_interval=Time.from_timestring(save_interval),
         )
-
         trainer.fit()
+
         self._assert_expected_event_calls(trainer, Time.from_timestring(save_interval), num_epochs=num_epochs)
 
     def _assert_expected_event_calls(self, trainer: Trainer, eval_interval: Time, num_epochs: int):
