@@ -31,7 +31,7 @@ class TestEventCalls:
 
         train_dataset = RandomClassificationDataset()
         eval_dataset = RandomClassificationDataset()
-        train_batch_size = 2 
+        train_batch_size = 2
 
         evaluator1 = DataLoader(
             dataset=eval_dataset,
@@ -99,7 +99,7 @@ class TestEventCalls:
             ),
         ],
     )
-    @pytest.mark.parametrize('save_interval', ['1ep'])
+    @pytest.mark.parametrize('save_interval', ['1ep', '1ba'])
     def test_event_calls(self, world_size, device, deepspeed_zero_stage, use_fsdp, precision, save_interval):
         save_interval = Time.from_timestring(save_interval)
 
