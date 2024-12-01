@@ -29,19 +29,19 @@ class TestEventCalls:
         model = SimpleModel()
         optimizer = torch.optim.Adam(model.parameters())
 
-        train_dataset = RandomClassificationDataset()
-        eval_dataset = RandomClassificationDataset()
-        train_batch_size = 2
+        train_dataset = RandomClassificationDataset(size=16)
+        eval_dataset = RandomClassificationDataset(size=16)
+        train_batch_size = 4
 
         evaluator1 = DataLoader(
             dataset=eval_dataset,
-            batch_size=2,
+            batch_size=8,
             sampler=dist.get_sampler(eval_dataset),
         )
 
         evaluator2 = DataLoader(
             dataset=eval_dataset,
-            batch_size=2,
+            batch_size=4,
             sampler=dist.get_sampler(eval_dataset),
         )
 
