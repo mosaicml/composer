@@ -31,15 +31,16 @@ class TestEventCalls:
         optimizer = torch.optim.Adam(model.parameters())
 
         # Minimal dataset size to reduce batches
-        train_dataset = RandomClassificationDataset(size=4)
-        eval_dataset = RandomClassificationDataset(size=4)
+        train_dataset = RandomClassificationDataset(size=16)
+        eval_dataset = RandomClassificationDataset(size=16)
         train_batch_size = 4
 
         evaluator1 = DataLoader(
             dataset=eval_dataset,
-            batch_size=4,
+            batch_size=8,
             sampler=dist.get_sampler(eval_dataset),
             num_workers=0,
+            drop_last=True,
         )
 
         evaluator2 = DataLoader(
@@ -47,6 +48,7 @@ class TestEventCalls:
             batch_size=4,
             sampler=dist.get_sampler(eval_dataset),
             num_workers=0,
+            drop_last=True,
         )
 
         return Trainer(
@@ -58,7 +60,7 @@ class TestEventCalls:
                 num_workers=0,
             ),
             eval_dataloader=(evaluator1, evaluator2),
-            device_train_microbatch_size=train_batch_size,
+            device_train_microbatch_size=train_batch_size // 2,
             precision=precision,
             train_subset_num_batches=self.train_subset_num_batches,
             eval_subset_num_batches=self.eval_subset_num_batches,
