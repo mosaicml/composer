@@ -124,7 +124,6 @@ class TestEventCalls:
             parallelism_config=parallelism_config,
             save_interval=save_interval,
             eval_interval=save_interval,
-            max_duration='1ep',
         )
         trainer.fit()
 
