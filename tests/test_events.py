@@ -142,8 +142,6 @@ class TestEventCalls:
         save_interval,
         num_epochs,
     ):
-        save_interval = Time.from_timestring(save_interval)
-
         deepspeed_config = None
         if deepspeed_zero_stage:
             deepspeed_config = {'zero_optimization': {'stage': deepspeed_zero_stage}}
@@ -164,11 +162,11 @@ class TestEventCalls:
             deepspeed_config=deepspeed_config,
             parallelism_config=parallelism_config,
             save_interval=save_interval,
-            eval_interval=save_interval,
+            eval_interval=Time.from_timestring(save_interval),
         )
         trainer.fit()
 
-        self._assert_expected_event_calls(trainer, save_interval, num_epochs=num_epochs)
+        self._assert_expected_event_calls(trainer, Time.from_timestring(save_interval), num_epochs=num_epochs)
 
     def _assert_expected_event_calls(self, trainer: Trainer, eval_interval: Time, num_epochs: int):
         state = trainer.state
