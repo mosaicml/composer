@@ -25,7 +25,7 @@ class TestEventCalls:
     eval_subset_num_batches = 1
     train_subset_num_batches = 1
 
-    def get_trainer(self, precision='fp32', max_duration='1ep', **kwargs):
+    def get_trainer(self, precision='fp32', **kwargs):
         model = SimpleModel()
         optimizer = torch.optim.Adam(model.parameters())
 
@@ -57,7 +57,7 @@ class TestEventCalls:
             precision=precision,
             train_subset_num_batches=self.train_subset_num_batches,
             eval_subset_num_batches=self.eval_subset_num_batches,
-            max_duration=max_duration,
+            max_duration='1ep',
             optimizers=optimizer,
             callbacks=[EventCounterCallback()],
             **kwargs,
