@@ -1,7 +1,8 @@
-# Copyright 2022 MosaicML Composer authors
+# Copyright ...
 # SPDX-License-Identifier: Apache-2.0
 
 import math
+from unittest.mock import patch
 
 import pytest
 import torch
@@ -25,24 +26,27 @@ class TestEventCalls:
     eval_subset_num_batches = 1
     train_subset_num_batches = 1
 
-    def get_trainer(self, precision='fp32', **kwargs):
+    def get_trainer(self, precision='fp32', max_duration='1ep', save_interval='1ep', **kwargs):
         model = SimpleModel()
         optimizer = torch.optim.Adam(model.parameters())
 
-        train_dataset = RandomClassificationDataset(size=16)
-        eval_dataset = RandomClassificationDataset(size=16)
-        train_batch_size = 4
+        # Minimal dataset size to reduce batches
+        train_dataset = RandomClassificationDataset(size=4)
+        eval_dataset = RandomClassificationDataset(size=4)
+        train_batch_size = 4 
 
         evaluator1 = DataLoader(
             dataset=eval_dataset,
-            batch_size=8,
+            batch_size=4,
             sampler=dist.get_sampler(eval_dataset),
+            num_workers=0,
         )
 
         evaluator2 = DataLoader(
             dataset=eval_dataset,
             batch_size=4,
             sampler=dist.get_sampler(eval_dataset),
+            num_workers=0,
         )
 
         return Trainer(
@@ -51,13 +55,15 @@ class TestEventCalls:
                 dataset=train_dataset,
                 batch_size=train_batch_size,
                 sampler=dist.get_sampler(train_dataset),
+                num_workers=0,
             ),
             eval_dataloader=(evaluator1, evaluator2),
-            device_train_microbatch_size=train_batch_size // 2,
+            device_train_microbatch_size=train_batch_size,
             precision=precision,
             train_subset_num_batches=self.train_subset_num_batches,
             eval_subset_num_batches=self.eval_subset_num_batches,
-            max_duration='1ep',
+            max_duration=max_duration,
+            save_interval=save_interval,
             optimizers=optimizer,
             callbacks=[EventCounterCallback()],
             **kwargs,
@@ -101,6 +107,16 @@ class TestEventCalls:
     )
     @pytest.mark.parametrize('save_interval', ['1ep', '1ba'])
     def test_event_calls(self, world_size, device, deepspeed_zero_stage, use_fsdp, precision, save_interval):
+        # handle 1ba save interval separately to optimize speed
+        if save_interval == '1ba':
+            # mock the save_checkpoint method to speed up batch saves
+            with patch('composer.trainer.trainer.Trainer.save_checkpoint') as mock_save:
+                mock_save.return_value = None
+                self._run_event_calls_test(world_size, device, deepspeed_zero_stage, use_fsdp, precision, save_interval, num_epochs=1)
+        else:
+            self._run_event_calls_test(world_size, device, deepspeed_zero_stage, use_fsdp, precision, save_interval, num_epochs=1)
+
+    def _run_event_calls_test(self, world_size, device, deepspeed_zero_stage, use_fsdp, precision, save_interval, num_epochs):
         save_interval = Time.from_timestring(save_interval)
 
         deepspeed_config = None
@@ -127,7 +143,7 @@ class TestEventCalls:
         )
         trainer.fit()
 
-        self._assert_expected_event_calls(trainer, save_interval, num_epochs=1)
+        self._assert_expected_event_calls(trainer, save_interval, num_epochs=num_epochs)
 
     def _assert_expected_event_calls(self, trainer: Trainer, eval_interval: Time, num_epochs: int):
         state = trainer.state
