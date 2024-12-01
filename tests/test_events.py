@@ -10,10 +10,35 @@ from torch.utils.data import DataLoader
 
 from composer import Trainer
 from composer.core import Event, Time
+from composer.core.callback import Callback
 from composer.core.time import TimeUnit
 from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel
 from tests.common.events import EventCounterCallback
+
+
+class OptimizerInitializerCallback(Callback):
+
+    def __init__(self, optimizer_class, **optimizer_kwargs):
+        self.optimizer_class = optimizer_class
+        self.optimizer_kwargs = optimizer_kwargs
+
+    def on_run_start(self, state, logger):
+        optimizer = self.optimizer_class(state.model.parameters(), **self.optimizer_kwargs)
+        state.optimizers = optimizer
+
+
+def mock_forward(*args, **kwargs):
+    if len(args) == 1 and isinstance(args[0], tuple):
+        input_tensor = args[0][0]
+    else:
+        input_tensor = args[0]
+
+    if not isinstance(input_tensor, torch.Tensor):
+        raise TypeError(f"Expected torch.Tensor as input, got {type(input_tensor)}")
+
+    batch_size = input_tensor.size(0)
+    return torch.zeros(batch_size, 2)
 
 
 @pytest.fixture
@@ -29,15 +54,6 @@ def eval_dataset():
 @pytest.fixture
 def model():
     return SimpleModel()
-
-
-@pytest.fixture
-def optimizer():
-
-    def _create_optimizer(model):
-        return torch.optim.Adam(model.parameters())
-
-    return _create_optimizer
 
 
 @pytest.fixture
@@ -67,6 +83,12 @@ def event_counter_callback():
     return EventCounterCallback()
 
 
+@pytest.fixture
+def optimizer_initializer_callback():
+    return OptimizerInitializerCallback(torch.optim.Adam, lr=0.001)
+
+
+# Test to verify event values
 @pytest.mark.parametrize('event', list(Event))
 def test_event_values(event: Event):
     assert event.name.lower() == event.value
@@ -119,20 +141,14 @@ def test_event_calls(
     train_dataset,
     eval_dataset,
     model,
-    optimizer,
     evaluator1,
     evaluator2,
     event_counter_callback,
+    optimizer_initializer_callback,
 ):
-
-    def mock_forward(*args, **kwargs):
-        input_tensor = args[0]
-        batch_size = input_tensor.size(0)
-        return torch.zeros(batch_size, 2)
-
     with patch.object(Trainer, 'save_checkpoint', return_value=None):
         with patch.object(model, 'forward', side_effect=mock_forward):
-            # initialize the Trainer with the current parameters
+            # initialize the Trainer with the current parameters and optimizer callback
             deepspeed_config = None
             if deepspeed_zero_stage:
                 deepspeed_config = {'zero_optimization': {'stage': deepspeed_zero_stage}}
@@ -162,8 +178,8 @@ def test_event_calls(
                 eval_subset_num_batches=1,
                 max_duration='1ep',
                 save_interval=save_interval,
-                optimizers=optimizer(model),  # Create optimizer with the wrapped model
-                callbacks=[event_counter_callback],
+                optimizers=None,
+                callbacks=[event_counter_callback, optimizer_initializer_callback],
                 device=device,
                 deepspeed_config=deepspeed_config,
                 parallelism_config=parallelism_config,
