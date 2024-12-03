@@ -59,6 +59,7 @@ class TestSAMLossDict():
 @pytest.mark.filterwarnings('ignore::UserWarning')
 class TestSAMParamGroups():
 
+    @pytest.fixture
     def config(self, request):
 
         train_dataset = RandomClassificationDataset(size=16)
