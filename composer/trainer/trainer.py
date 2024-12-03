@@ -1233,7 +1233,7 @@ class Trainer:
                 **parallelism_config_args,
             ) if len(parallelism_config_args) > 0 else None
         if parallelism_config is not None or dist.get_world_size() > 1:
-            # FSDP requries torch.distributed to be initialized, even if the world size is 1
+            # FSDP requires torch.distributed to be initialized, even if the world size is 1
             # And torch.distributed is always required for multi-rank training
             dist.initialize_dist(device, dist_timeout)
         if parallelism_config is not None:

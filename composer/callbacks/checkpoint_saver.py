@@ -513,7 +513,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                         logger=logger,
                     )
             else:
-                remote_file_name = self.remote_file_name.format(state,).lstrip('/')
+                remote_file_name = self.remote_file_name.format(state).lstrip('/')
 
             log.debug(f'Uploading checkpoint to {remote_file_name}')
             try:
@@ -533,7 +533,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
             # symlinks stay the same with sharded checkpointing
             if self.latest_remote_file_name is not None:
-                symlink_name = self.latest_remote_file_name.format(state,).lstrip('/') + '.symlink'
+                symlink_name = self.latest_remote_file_name.format(state).lstrip('/') + '.symlink'
 
                 # create and upload a symlink file
                 symlink_filename = os.path.join(
