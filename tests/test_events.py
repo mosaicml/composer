@@ -80,7 +80,7 @@ class TestEventCalls:
     @pytest.mark.parametrize(
         'device,use_fsdp,precision',
         [
-            pytest.param('cpu', None, False, 'fp32', id='cpu-ddp'),
+            pytest.param('cpu', False, 'fp32', id='cpu-ddp'),
             # TODO: Remove filterwarnings after FSDP remove deprecated code
             pytest.param(
                 'gpu',
