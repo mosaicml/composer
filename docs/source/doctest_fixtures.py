@@ -61,8 +61,6 @@ from composer.utils import ensure_tuple as ensure_tuple
 # Ignore certain warnings for doctest
 warnings.filterwarnings(action='ignore', message='.*Deterministic mode.*')  # Expected
 warnings.filterwarnings(action='ignore', message='.*Some weights of Bert*')  # Expected
-warnings.filterwarnings(action='ignore', message='.*torch.cuda.amp.custom.*')  # DeepSpeed
-warnings.filterwarnings(action='ignore', message='.*The distutils.sysconfig module*')  # DeepSpeed
 
 try:
     import wandb

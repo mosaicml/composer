@@ -30,7 +30,6 @@ from composer.utils import (
     ensure_folder_has_no_conflicting_files,
     format_name_with_dist,
     format_name_with_dist_and_time,
-    is_model_deepspeed,
     parse_uri,
     partial_format,
 )
@@ -99,19 +98,12 @@ class CheckpointSaver(Callback):  # noqa: D101
 
                 *   By default, only the rank zero process will save a checkpoint file.
 
-                *   When using DeepSpeed, each rank will save a checkpoint file in tarball format. DeepSpeed
-                    requires tarball format, as it saves model and optimizer states in separate files.
-                    Ensure that ``'{{rank}}'`` appears within the ``filename``. Otherwise, multiple ranks
-                    may attempt to write to the same file(s), leading to corrupted checkpoints. If no tarball file
-                    extension is specified, ``'.tar'`` will be used.
-
-                *   To write to compressed tar files (regardless of whether DeepSpeed is enabled), set the file
+                *   To write to compressed tar files, set the file
                     extension to ``'.tar.gz'``, ``'.tgz'``, ``'.tar.bz2'``, or ``'.tar.lzma'`` (depending on the
                     desired compression algorithm).
 
-                *   To write to compressed pt files (when DeepSpeed is disabled), set the file extension to
-                    ``'.pt.bz2'``, ``'.pt.gz'``, ``'.pt.lz4'``, ``'.pt.lzma'``, ``'.pt.lzo'``, ``'.pt.xz'``,
-                    ``'.pt.zst'``
+                *   To write to compressed pt files, set the file extension to ``'.pt.bz2'``, ``'.pt.gz'``,
+                    ``'.pt.lz4'``, ``'.pt.lzma'``, ``'.pt.lzo'``, ``'.pt.xz'``, ``'.pt.zst'``
                     (depending on the desired algorithm). You must have the corresponding CLI tool installed.
                     ``lz4`` is a good choice for a modest space saving while being very fast to compress.
 
@@ -133,14 +125,8 @@ class CheckpointSaver(Callback):  # noqa: D101
             *   The current epoch count is ``1``.
             *   The current batch count is ``42``.
 
-            When DeepSpeed is not being used, the rank zero process will save the checkpoint to
+            The rank zero process will save the checkpoint to
             ``"awesome-training-run/checkpoints/ep1-ba42-rank0"``.
-
-            When DeepSpeed is being used, each rank (process) will save checkpoints to::
-
-                awesome-training-run/checkpoints/ep1-ba42-rank0.tar
-                awesome-training-run/checkpoints/ep1-ba42-rank1.tar
-                awesome-training-run/checkpoints/ep1-ba42-rank2.tar
                 ...
 
         remote_file_name (str, optional): Format string for the checkpoint's remote file name.
@@ -174,16 +160,10 @@ class CheckpointSaver(Callback):  # noqa: D101
             *   The current epoch count is ``1``.
             *   The current batch count is ``42``.
 
-            When DeepSpeed is not being used, the rank zero process will save the checkpoint to
+            The rank zero process will save the checkpoint to
             ``'awesome-training-run/checkpoints/ep1-ba42-rank0'``,
             and a symlink will be created at
             ``'awesome-training-run/checkpoints/latest-rank0' -> 'awesome-training-run/checkpoints/ep1-ba42-rank0'``
-
-            When DeepSpeed is being used, each rank (process) will save checkpoints to::
-
-                awesome-training-run/checkpoints/ep1-ba42-rank0.tar
-                awesome-training-run/checkpoints/ep1-ba42-rank1.tar
-                awesome-training-run/checkpoints/ep1-ba42-rank2.tar
                 ...
 
             Corresponding symlinks will be created at::
@@ -236,7 +216,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             remote file systems.
 
         weights_only (bool): If ``True``, save only the model weights instead of the entire training state.
-            This parameter must be ``False`` when using DeepSpeed. Default: ``False``.
+            Default: ``False``.
 
         ignore_keys (list[str] | (dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
             which, when provided, will be ignored from the state_dict before a checkpoint is saved. Each path is a list
@@ -269,10 +249,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
             .. note::
 
-                When using DeepSpeed, the index of a filepath in each list corresponds to the global rank of
-                the process that wrote that file. Each filepath is valid only on the process's (rank's) node.
-
-                Otherwise, when not using DeepSpeed, each sub-list will contain only one filepath since only rank zero
+                Each sub-list will contain only one filepath since only rank zero
                 saves checkpoints.
     """
 
@@ -393,9 +370,6 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         dist.barrier()  # holds all ranks until folder check is done
 
-        if is_model_deepspeed(state.model) and self.weights_only:
-            raise NotImplementedError('weights_only=True is not supported when using DeepSpeed.')
-
         self.start_batch = state.timestamp.batch
 
     def batch_checkpoint(self, state: State, logger: Logger):
@@ -466,13 +440,8 @@ class CheckpointSaver(Callback):  # noqa: D101
     def _save_checkpoint(self, state: State, logger: Logger):
         self.last_checkpoint_batch = state.timestamp.batch
 
-        is_deepspeed = is_model_deepspeed(state.model)
-
-        if is_deepspeed and '{rank}' not in self.filename.filename:
-            raise ValueError(f'Save filename {self.filename.filename} must have {{rank}} for deepspeed.')
-
         # save the checkpoint to the filename
-        filename_with_placeholders = self.filename.format(state, is_deepspeed, keep_placeholders=True)
+        filename_with_placeholders = self.filename.format(state, keep_placeholders=True)
         save_filename = checkpoint.get_save_filename(state, filename_with_placeholders)
         # Store before saving so state_dict in checkpoint has reference to latest checkpoint (itself)
         self.all_saved_checkpoints_to_timestamp[save_filename] = state.timestamp
@@ -505,7 +474,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         self.rank_saves_symlinks = dist.get_global_rank() == 0 or not state.fsdp_sharded_state_dict_enabled
         if self.latest_filename is not None and self.num_checkpoints_to_keep != 0:
-            symlink = self.latest_filename.format(state, is_deepspeed)
+            symlink = self.latest_filename.format(state)
             os.makedirs(os.path.dirname(symlink), exist_ok=True)
             try:
                 os.remove(symlink)
@@ -524,7 +493,6 @@ class CheckpointSaver(Callback):  # noqa: D101
             if state.fsdp_sharded_state_dict_enabled:
                 remote_file_name = self.remote_file_name.format(
                     state,
-                    is_deepspeed,
                     keep_placeholders=True,
                 ).lstrip('/')
                 assert state.fsdp_config is not None
@@ -549,10 +517,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                         logger=logger,
                     )
             else:
-                remote_file_name = self.remote_file_name.format(
-                    state,
-                    is_deepspeed,
-                ).lstrip('/')
+                remote_file_name = self.remote_file_name.format(state,).lstrip('/')
 
             log.debug(f'Uploading checkpoint to {remote_file_name}')
             try:
@@ -572,10 +537,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
             # symlinks stay the same with sharded checkpointing
             if self.latest_remote_file_name is not None:
-                symlink_name = self.latest_remote_file_name.format(
-                    state,
-                    is_deepspeed,
-                ).lstrip('/') + '.symlink'
+                symlink_name = self.latest_remote_file_name.format(state,).lstrip('/') + '.symlink'
 
                 # create and upload a symlink file
                 symlink_filename = os.path.join(

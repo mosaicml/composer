@@ -47,10 +47,6 @@ class Algorithm(Serializable, ABC):
         For example, it is used to tell :class:`torch.nn.parallel.DistributedDataParallel` (DDP) that some parameters
         will be frozen during training, and hence it should not expect gradients from them. All algorithms which do any
         kind of parameter freezing should override this function to return ``True``.
-
-        .. note::
-
-           DeepSpeed integration with this function returning True is not tested. It may not work as expected.
         """
         return False
 

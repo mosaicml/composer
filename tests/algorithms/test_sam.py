@@ -59,7 +59,7 @@ class TestSAMLossDict():
 @pytest.mark.filterwarnings('ignore::UserWarning')
 class TestSAMParamGroups():
 
-    @pytest.fixture(params=['FSDP', 'DeepSpeed'])
+    @pytest.fixture(params=['FSDP'])
     def config(self, request):
 
         distributed_mode = request.param
@@ -90,20 +90,15 @@ class TestSAMParamGroups():
                 'amp_bf16',
             'parallelism_config':
                 None,
-            'deepspeed_config':
-                None,
         }
 
         if distributed_mode == 'FSDP':
             config_dict['parallelism_config'] = {'fsdp': {'sharding_strategy': 'NO_SHARD'}}
-        else:
-            config_dict['deepspeed_config'] = {'prescale_gradients': True}
 
         # Simulate world_size checking as in LLMFoundry. See:
         # * https://github.com/mosaicml/llm-foundry/blob/bfbb8c57053eaa3cb99a5d51ba602d1a6c872aa7/scripts/train/train.py#L519-L523
-        if dist.get_world_size(
-        ) == 1 and (config_dict['parallelism_config'] is not None or config_dict['deepspeed_config'] is not None):
-            config_dict['parallelism_config'] = config_dict['deepspeed_config'] = None
+        if dist.get_world_size() == 1 and config_dict['parallelism_config'] is not None:
+            config_dict['parallelism_config'] = None
 
         return config_dict
 

@@ -158,50 +158,6 @@ def test_gradient_clipping_algorithm(monkeypatch, clipping_type, model_with_grad
     apply_gc_fn.assert_called_once()
 
 
-@pytest.mark.parametrize(
-    'model_with_grads',
-    [
-        simple_model_with_grads(),
-        cnn_model_with_grads(),
-        simple_transformer_model_with_grads(),
-        hf_model_with_grads(),
-    ],
-)
-def test_gradient_clipping_algorithm_with_deepspeed_enabled(
-    monkeypatch: pytest.MonkeyPatch,
-    model_with_grads,
-    dummy_state: State,
-):
-    clipping_threshold = 0.1191
-    apply_gc_fn = Mock()
-    monkeypatch.setattr(gc_module, 'apply_gradient_clipping', apply_gc_fn)
-    state = dummy_state
-
-    # Set clipping_type to norm to ensure that apply_gradient_clipping
-    # is not called.
-    state.algorithms = [GradientClipping(clipping_type='norm', clipping_threshold=clipping_threshold)]
-
-    # Enable deepspeed.
-    state.deepspeed_config = {}
-
-    model = model_with_grads
-    state.model = model
-    logger = Mock()
-    engine = Engine(state, logger)
-
-    # Run the Event that should cause gradient_clipping.apply to be called and deepspeed_config to be modified.
-    engine.run_event(Event.INIT)
-
-    # Make sure deepspeed_config's gradient_clipping field is set properly.
-    assert (
-        'gradient_clipping' in state.deepspeed_config and
-        state.deepspeed_config['gradient_clipping'] == clipping_threshold
-    )
-
-    # Make sure apply_gradient_clipping is not called.
-    apply_gc_fn.assert_not_called()
-
-
 def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:
     if recurse:
         return True
@@ -257,40 +213,6 @@ def test_gradient_clipping_algorithm_with_fsdp_enabled_does_not_error(
 
     engine = Engine(state, logger)
     engine.run_event(Event.AFTER_TRAIN_BATCH)
-
-
-@pytest.mark.parametrize(
-    'model_with_grads',
-    [simple_model_with_grads, cnn_model_with_grads, simple_transformer_model_with_grads, hf_model_with_grads],
-)
-def test_algorithm_with_deepspeed_enabled_errors_out_for_non_norm(
-    monkeypatch: pytest.MonkeyPatch,
-    dummy_state: State,
-    model_with_grads,
-):
-    clipping_threshold = 0.1191
-    apply_gc_fn = Mock()
-    monkeypatch.setattr(gc_module, 'apply_gradient_clipping', apply_gc_fn)
-    state = dummy_state
-
-    # Enable deepspeed and set clipping_type to norm to ensure that apply_gradient_clipping
-    # is not called.
-    state.algorithms = [GradientClipping(clipping_type='value', clipping_threshold=clipping_threshold)]
-    state.deepspeed_config = {}
-
-    model = model_with_grads()
-    state.model = model
-    logger = Mock()
-    engine = Engine(state, logger)
-
-    # Clipping type is not set to norm and deepspeed is enabled so NotImplementedError should be raised.
-    with pytest.raises(NotImplementedError):
-        engine.run_event(Event.INIT)
-
-    # Clipping threshold is less than zero and deepspeed is enabled so NotImplementedError should be raised.
-    state.algorithms = [GradientClipping(clipping_type='norm', clipping_threshold=-2.0)]
-    with pytest.raises(ValueError):
-        engine.run_event(Event.INIT)
 
 
 #### Tests Specific to AGC ######

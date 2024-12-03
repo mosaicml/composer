@@ -153,12 +153,6 @@ extra_deps['slack'] = {
     'slack_sdk>=3.19.5,<4',
 }
 
-extra_deps['deepspeed'] = [
-    'numpy<2',
-    'deepspeed==0.8.3',
-    'pydantic>=1.0,<2',
-]
-
 extra_deps['wandb'] = [
     'wandb>=0.13.2,<0.19',
 ]
