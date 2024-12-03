@@ -1227,7 +1227,6 @@ Args:
         *   The current batch count is ``42``.
 
         The rank zero process will save the checkpoint to ``'ep1-ba42-rank0'``.
-            ...
 
     weights_only (bool, optional): If ``True``, save only the model weights instead of the entire training state.
         (default: ``False``)

@@ -125,9 +125,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             *   The current epoch count is ``1``.
             *   The current batch count is ``42``.
 
-            The rank zero process will save the checkpoint to
-            ``"awesome-training-run/checkpoints/ep1-ba42-rank0"``.
-                ...
+            The rank zero process will save the checkpoint to ``"awesome-training-run/checkpoints/ep1-ba42-rank0"``.
 
         remote_file_name (str, optional): Format string for the checkpoint's remote file name.
             Default: ``"{{run_name}}/checkpoints/ep{{epoch}}-ba{{batch}}-rank{{rank}}"``.
@@ -160,11 +158,9 @@ class CheckpointSaver(Callback):  # noqa: D101
             *   The current epoch count is ``1``.
             *   The current batch count is ``42``.
 
-            The rank zero process will save the checkpoint to
-            ``'awesome-training-run/checkpoints/ep1-ba42-rank0'``,
-            and a symlink will be created at
-            ``'awesome-training-run/checkpoints/latest-rank0' -> 'awesome-training-run/checkpoints/ep1-ba42-rank0'``
-                ...
+            The rank zero process will save the checkpoint to ``'awesome-training-run/checkpoints/ep1-ba42-rank0'``,
+            and a symlink will be created at ``'awesome-training-run/checkpoints/latest-rank0' ->
+            'awesome-training-run/checkpoints/ep1-ba42-rank0'``
 
             Corresponding symlinks will be created at::
 
