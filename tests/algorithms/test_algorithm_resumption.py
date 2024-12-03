@@ -53,7 +53,7 @@ def test_algorithm_resumption(
 
         copied_model = copy.deepcopy(model)  # copy the model so the params will start from the same point
 
-        optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1)
 
         # Reduce training duration and data
@@ -82,7 +82,7 @@ def test_algorithm_resumption(
         # create second trainer, load an intermediate checkpoint
         # and continue training
 
-        optimizer = torch.optim.SGD(copied_model.parameters(), lr=0.1)
+        optimizer = torch.optim.Adam(copied_model.parameters(), lr=0.1)
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1)
 
         alg = alg_cls(**alg_kwargs)
