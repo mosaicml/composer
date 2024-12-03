@@ -513,7 +513,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                         logger=logger,
                     )
             else:
-                remote_file_name = self.remote_file_name.format(state,).lstrip('/')
+                remote_file_name = self.remote_file_name.format(state).lstrip('/')
 
             log.debug(f'Uploading checkpoint to {remote_file_name}')
             try:
