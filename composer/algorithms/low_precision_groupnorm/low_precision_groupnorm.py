@@ -44,7 +44,7 @@ class LowPrecisionGroupNorm(Algorithm):
 
     LPGroupNorm is a thin wrapper around :class:`torch.nn.GroupNorm` which forces the layer to run
     in lower precision (torch.float16 or torch.bfloat16) if autocast is enabled. This algorithm has
-    no effect in FP32 or DeepSpeed FP16 mode, where autocast is disabled.
+    no effect in FP32, where autocast is disabled.
 
     This algorithm is intended to be used instead of Fused GroupNorm. They have similar behavior and performance.
 

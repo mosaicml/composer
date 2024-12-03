@@ -78,13 +78,12 @@ class TestEventCalls:
         ],
     )
     @pytest.mark.parametrize(
-        'device,deepspeed_zero_stage,use_fsdp,precision',
+        'device,use_fsdp,precision',
         [
-            pytest.param('cpu', None, False, 'fp32', id='cpu-ddp'),
+            pytest.param('cpu', False, 'fp32', id='cpu-ddp'),
             # TODO: Remove filterwarnings after FSDP remove deprecated code
             pytest.param(
                 'gpu',
-                True,
                 False,
                 'fp32',
                 id='gpu-ddp',
@@ -95,7 +94,6 @@ class TestEventCalls:
             ),
             pytest.param(
                 'gpu',
-                None,
                 True,
                 'amp_fp16',
                 id='gpu-fsdp',
@@ -107,7 +105,7 @@ class TestEventCalls:
         ],
     )
     @pytest.mark.parametrize('save_interval', ['1ep', '1ba'])
-    def test_event_calls(self, world_size, device, deepspeed_zero_stage, use_fsdp, precision, save_interval):
+    def test_event_calls(self, world_size, device, use_fsdp, precision, save_interval):
         # handle 1ba save interval separately to optimize speed
         if save_interval == '1ba':
             # mock the save_checkpoint method to speed up batch saves
@@ -116,7 +114,6 @@ class TestEventCalls:
                 self._run_event_calls_test(
                     world_size,
                     device,
-                    deepspeed_zero_stage,
                     use_fsdp,
                     precision,
                     save_interval,
@@ -126,7 +123,6 @@ class TestEventCalls:
             self._run_event_calls_test(
                 world_size,
                 device,
-                deepspeed_zero_stage,
                 use_fsdp,
                 precision,
                 save_interval,
@@ -137,15 +133,11 @@ class TestEventCalls:
         self,
         world_size,
         device,
-        deepspeed_zero_stage,
         use_fsdp,
         precision,
         save_interval,
         num_epochs,
     ):
-        deepspeed_config = None
-        if deepspeed_zero_stage:
-            deepspeed_config = {'zero_optimization': {'stage': deepspeed_zero_stage}}
 
         parallelism_config = None
         if use_fsdp:
@@ -160,7 +152,6 @@ class TestEventCalls:
         trainer = self.get_trainer(
             precision=precision,
             device=device,
-            deepspeed_config=deepspeed_config,
             parallelism_config=parallelism_config,
             save_interval=save_interval,
             eval_interval=Time.from_timestring(save_interval),

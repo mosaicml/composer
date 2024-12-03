@@ -17,8 +17,8 @@ greatly simplifies model building and memory management. Every GPU is
 performing the same work, so inspecting the rank zero is sufficient to
 reason about memory, performance, and other properties.
 
-Within Composer, we have three options for data-parallelism-only
-execution: `Pytorch DDP`_ (default), `Pytorch FSDP`_, and `DeepSpeed Zero`_.
+Within Composer, we have two options for data-parallelism-only
+execution: `Pytorch DDP`_ (default) and `Pytorch FSDP`_.
 Although Pytorch DDP is the default, Pytorch FSDP increases memory and computational
 efficiency when configured correctly while producing the same results and is the recommended option.
 
@@ -120,53 +120,6 @@ parameters in :meth:`composer.utils.dist.get_sampler`.
 DistributedSampler is not supported as IterableDatasets need to handle multi-worker
 training internally. See IterableDataset [docs](https://pytorch.org/docs/stable/data.html#torch.utils.data.IterableDataset)
 for more information
-
-Deepspeed
----------
-
-Composer comes with DeepSpeed support, allowing you to leverage their
-full set of features that makes it easier to train large models across
-(1) any type of GPU and (2) multiple nodes. For more details on DeepSpeed,
-see `their website <https://www.deepspeed.ai>`__.
-
-We support optimizer and gradient sharing via
-`Deepspeed Zero`_ stages 1 and 2 respectively. In the future, we'll support model
-sharding via Zero-3. These methods reduce model state memory by a
-factor of (1 / the number of data-parallel devices).
-
-To enable DeepSpeed, simply pass in a config as specified in the
-DeepSpeed docs `here <https://www.deepspeed.ai/docs/config-json/>`__.
-
-.. code:: python
-
-    # run_trainer.py
-
-    from composer import Trainer
-
-    trainer = Trainer(
-        model=model,
-        train_dataloader=train_dataloader,
-        eval_dataloader=eval_dataloader,
-        max_duration='160ep',
-        device='gpu',
-        deepspeed_config={
-            "train_batch_size": 2048,
-            "fp16": {"enabled": True},
-        })
-
-Providing an empty dictionary to deepspeed is also valid. The deepspeed
-defaults will be used and other fields (such as precision) will be inferred
-from the trainer.
-
-.. warning::
-
-    The ``deepspeed_config`` must not conflict with any other parameters
-    passed to the trainer.
-
-.. warning::
-
-    Not all algorithms have been tested with Deepspeed, please proceed with
-    caution.
 
 
 FullyShardedDataParallel (FSDP)
@@ -640,5 +593,4 @@ An example code snippet for using TP and FSDP with Composer is provided below:
     This is an experimental feature and is subject to change. Many features, such as `load_monolith_rank0_only` or tensor parallelism without FSDP, are not yet supported.
 
 .. _Pytorch DDP: https://pytorch.org/docs/master/generated/torch.nn.parallel.DistributedDataParallel.html
-.. _Deepspeed Zero: https://www.deepspeed.ai/
 .. _Pytorch FSDP: https://pytorch.org/docs/stable/fsdp.html

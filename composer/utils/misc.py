@@ -21,7 +21,6 @@ if TYPE_CHECKING:
     from composer.core import Event, State, Time
 
 __all__ = [
-    'is_model_deepspeed',
     'is_model_fsdp',
     'is_notebook',
     'warning_on_one_line',
@@ -183,16 +182,6 @@ def create_interval_scheduler(
         return False
 
     return check_interval
-
-
-def is_model_deepspeed(model: torch.nn.Module) -> bool:
-    """Whether ``model`` is an instance of a :class:`~deepspeed.DeepSpeedEngine`."""
-    try:
-        import deepspeed
-    except ImportError:
-        return False
-    else:
-        return isinstance(model, deepspeed.DeepSpeedEngine)
 
 
 def is_model_ddp(model: torch.nn.Module) -> bool:

@@ -153,20 +153,7 @@ def replace_module_classes(
                 `module.module` and re-wrap the `module.module` with `torch.nn.parallel.DistributedDataParallel`""",
             ),
         )
-    try:
-        import deepspeed
-    except ImportError:
-        pass
-    else:
-        if isinstance(module, deepspeed.DeepSpeedEngine):
-            raise TypeError(
-                textwrap.dedent(
-                    """\
-                    Surgery is not supported after a module is wrapped with
-                    `deepspeed.DeepSpeedEngine` Instead, please perform surgery on the underlying module`,
-                    and re-wrap it with `deepspeed.DeepSpeedEngine`""",
-                ),
-            )
+
     replaced_pairs = {}
     children_to_parents_and_names: OrderedDict[torch.nn.Module,
                                                list[tuple[torch.nn.Module, str]],

@@ -53,8 +53,8 @@ As a general rule of thumb,
     ```python
     from typing import Optional
 
-    def configure_deepspeed(deepspeed_config: Optional[dict]):
-        if deepspeed_config is None:
+    def configure_parallelism(parallelism_config: Optional[dict]):
+        if parallelism_config is None:
             # Don't do this check in the callee, which results in a no-op
             return
         ...
@@ -67,13 +67,13 @@ As a general rule of thumb,
     ```python
     from typing import Optional
 
-    def configure_deepspeed(deepspeed_config: dict):
+    def configure_parallelism(parallelism_config: dict):
         ...
 
-    def trainer(deepspeed_config: Optional[dict]):
-        if deepspeed_config is not None:
+    def trainer(paralellism_config: Optional[dict]):
+        if paralellism_config is not None:
             # Do this check in the caller function
-            configure_deepspeed(deepspeed_config)
+            configure_paralellism(paralellism_config)
         ...
     ```
 
@@ -251,20 +251,7 @@ All imports in composer should be absolute -- that is, they do not begin with a 
         an optional dependency is missing.
 
         If the corresponding package is not published on Anaconda, then set the ``conda_package`` to the pip package
-        name, and set ``conda_channel`` to ``None``. For example, with DeepSpeed:
-
-        <!--pytest-codeblocks:importorskip(deepspeed)-->
-        ```python
-        from composer.utils import MissingConditionalImportError
-
-        try:
-            import deepspeed
-        except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group="deepspeed",
-                                                conda_package="deepspeed>=0.5.5",
-                                                conda_channel=None) from e
-        ```
-
+        name, and set ``conda_channel`` to ``None``.
 
 
     1.  If the dependency is core to Composer, add the dependency to the `install_requires` section of

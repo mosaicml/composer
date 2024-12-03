@@ -135,8 +135,7 @@ filterwarnings = [
     'ignore:distutils Version classes are deprecated:DeprecationWarning',
     # Ignore a UserWarning from TorchMetrics about potentially large memory usage when batch sizes are extremely large
     'ignore:Metric `SpearmanCorrcoef` will save all targets and predictions in the buffer:UserWarning:torchmetrics',
-    # Ignore a UserWarning from torch 1.12 due to DeepSpeed's use of positional args
-    'ignore:Positional args are being deprecated, use kwargs instead.*:UserWarning',
+    # Ignore a private function warnings for torch distributed collectives
     'ignore:torch.distributed._all_gather_base is a private function and will be deprecated.*:UserWarning',
     'ignore:torch.distributed._reduce_scatter_base is a private function and will be deprecated.*:UserWarning',
     # Ignore tensorboard deprecation warnings
@@ -162,8 +161,6 @@ filterwarnings = [
     '''ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning''',
     # Ignore torch pytree deprecated warnings
     '''ignore:torch.utils._pytree._register_pytree_node is deprecated.*:UserWarning''',
-    # Ignore autograd kernel warning inside DeepSpeed
-    '''ignore:.*an autograd kernel was not registered to the Autograd key.*:UserWarning''',
     # Ignore save_state_dict / load_state_dict deprecation warnings
     '''ignore:'.*_state_dict' is deprecated and will be removed in future versions.*:UserWarning''',
     # Ignore mlflow warnings about transformers versions,
@@ -174,10 +171,6 @@ filterwarnings = [
     '''ignore::composer.utils.warnings.VersionedDeprecationWarning''',
     # Ignore deprecation warning for torch.load
     '''ignore:You are using `torch.load` with `weights_only=False`.*:FutureWarning''',
-    # Ignore deprecation warning as DeepSpeed uses old path
-    '''ignore:.*torch.cuda.amp.custom.*:FutureWarning''',
-    # DeepSpeed uses positional arguments for PyTorch, ignore the warning
-    '''ignore:.*Positional args are being deprecated, use kwargs instead.*:FutureWarning''',
     # PyTorch uses their own deprecated function
     '''ignore:.*FSDP.state_dict_type.*:FutureWarning''',
     # Ignore PyTorch NO_SHARD deprecation

@@ -22,7 +22,7 @@ from composer.utils import dist
 from composer.utils.checkpoint import download_checkpoint, safe_torch_load
 from composer.utils.device import get_device
 from composer.utils.iter_helpers import ensure_tuple
-from composer.utils.misc import is_model_ddp, is_model_deepspeed, is_model_fsdp, model_eval_mode
+from composer.utils.misc import is_model_ddp, is_model_fsdp, model_eval_mode
 from composer.utils.object_store import ObjectStore
 from composer.utils.string_enum import StringEnum
 
@@ -145,9 +145,6 @@ def export_for_inference(
         None
     """
     save_format = ExportFormat(save_format)
-
-    if is_model_deepspeed(model):
-        raise ValueError(f'Exporting for deepspeed models is currently not supported.')
 
     if is_model_ddp(model):
         raise ValueError(
