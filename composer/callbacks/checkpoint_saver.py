@@ -533,7 +533,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
             # symlinks stay the same with sharded checkpointing
             if self.latest_remote_file_name is not None:
-                symlink_name = self.latest_remote_file_name.format(state,).lstrip('/') + '.symlink'
+                symlink_name = self.latest_remote_file_name.format(state).lstrip('/') + '.symlink'
 
                 # create and upload a symlink file
                 symlink_filename = os.path.join(
