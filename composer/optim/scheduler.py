@@ -17,7 +17,6 @@ import math
 import textwrap
 import warnings
 from typing import TYPE_CHECKING, Union
-import weakref
 
 from torch.optim.lr_scheduler import LambdaLR, LRScheduler
 
@@ -46,6 +45,7 @@ __all__ = [
     'ConstantWithWarmupScheduler',
     'LinearWithWarmupScheduler',
     'CosineAnnealingWithWarmupScheduler',
+    'ConstantWithCooldownWithWarmupScheduler',
     'PolynomialWithWarmupScheduler',
 ]
 
@@ -594,6 +594,25 @@ def _raise_if_warmup_and_max_incompatible(t_warmup: Time[int], t_max: Time[int])
         )
 
 
+def _raise_if_cooldown_and_max_incompatible(t_cooldown: Time[int], t_max: Time[int]):
+    """Checks that t_cooldown and t_max have the same units.
+
+    _convert_time should be called on both `t_cooldown` and `t_max` before this function is called. As a a result, t_cooldown and t_max will not
+    be TimeUnit.EPOCH.
+    """
+    assert t_cooldown.unit != TimeUnit.EPOCH and t_max.unit != TimeUnit.EPOCH, 't_cooldown and t_max cannot be in units of EPOCH'
+    if isinstance(t_cooldown, str):
+        t_cooldown = Time.from_timestring(t_cooldown)
+    if isinstance(t_max, str):
+        t_max = Time.from_timestring(t_max)
+    units_same = t_cooldown.unit == t_max.unit
+    if not units_same:
+        raise ValueError(
+            f'Cannot use cooldown scheduler with t_max {t_max} with units {t_max.unit} and t_cooldown {t_cooldown} with '
+            f'units {t_cooldown.unit}. t_cooldown and t_max must use the same units.',
+        )
+
+
 class MultiStepWithWarmupScheduler(ComposerScheduler):
     r"""Decays the learning rate discretely at fixed milestones, with an initial warmup.
 
@@ -874,6 +893,82 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
         frac_of_total = min(1.0, frac_of_total)
 
         return _cosine_anneal(x=frac_of_total, min_y=self.alpha_f)
+
+
+class ConstantWithCooldownWithWarmupScheduler(ComposerScheduler):
+    """
+    A scheduler that maintains a constant learning rate with optional warmup and cooldown periods.
+    
+    Inspired from https://arxiv.org/abs/2405.18392v3.
+
+    Args:
+        t_warmup (Union[str, Time]): The duration of the warmup period.
+        t_cooldown (Union[str, Time]): The duration of the cooldown period.
+        scale_warmup (bool, optional): If True, scales the learning rate during the warmup period. Defaults to False.
+        scale_cooldown (bool, optional): If True, scales the learning rate during the cooldown period. Defaults to False.
+
+    Attributes:
+        t_warmup (Union[str, Time]): The duration of the warmup period.
+        t_cooldown (Union[str, Time]): The duration of the cooldown period.
+        t_max (Union[str, Time]): The total duration of the warmup and cooldown periods.
+        scale_warmup (bool): If True, scales the learning rate during the warmup period.
+        scale_cooldown (bool): If True, scales the learning rate during the cooldown period.
+        warmup_scheduler (LinearScheduler): The scheduler used during the warmup period.
+        cooldown_scheduler (LinearScheduler): The scheduler used during the cooldown period.
+    """
+
+    def __init__(
+        self,
+        t_warmup: Union[str, Time],
+        t_cooldown: Union[str, Time],
+        scale_warmup: bool = False,
+        scale_cooldown: bool = False,
+    ) -> None:
+        self.t_warmup = t_warmup
+        self.t_cooldown = t_cooldown
+        self.t_max = t_warmup + t_cooldown
+        self.scale_warmup = scale_warmup
+        self.scale_cooldown = scale_cooldown
+        self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=1.0, t_max=t_warmup)
+        self.cooldown_scheduler = LinearScheduler(alpha_i=1.0, alpha_f=0.0, t_max=t_cooldown)
+
+    def __call__(self, state: State, ssr: float = 1.0) -> float:
+        """
+        Calculate the learning rate multiplier based on the current state and schedule.
+
+        Args:
+            state (State): The current state of training.
+            ssr (float, optional): The scale factor for the learning rate. Defaults to 1.0.
+
+        Returns:
+            float: The learning rate multiplier.
+        """
+        assert state.max_duration is not None, 'max_duration should be set whenever schedulers are invoked'
+        
+        # Convert warmup, cooldown, and max durations to the appropriate time units
+        t_warmup = _convert_time(self.t_warmup, state)
+        t_cooldown = _convert_time(self.t_cooldown, state)
+        t_max = _convert_time(self.t_max, state, ssr=ssr)
+        
+        # Raise errors if warmup, cooldown, or max durations are incompatible
+        _raise_if_warmup_and_max_incompatible(t_warmup, t_max)
+        _raise_if_cooldown_and_max_incompatible(t_cooldown, t_max)
+        _raise_if_max_duration_exceeds_t_max(t_max, state)
+
+        # If within the warmup period, use the warmup scheduler
+        if state.timestamp < t_warmup:
+            if self.scale_warmup:
+                return self.warmup_scheduler(state, ssr)
+            return self.warmup_scheduler(state)
+
+        # If within the cooldown period, use the cooldown scheduler
+        if state.timestamp >= state.max_duration - t_cooldown:
+            if self.scale_cooldown:
+                return self.cooldown_scheduler(state, ssr)
+            return self.cooldown_scheduler(state)
+        
+        # Otherwise, return a constant learning rate multiplier of 1.0
+        return 1.0
 
 
 class PolynomialWithWarmupScheduler(ComposerScheduler):
