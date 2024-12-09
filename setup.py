@@ -146,7 +146,7 @@ extra_deps['dev'] = [
 ]
 
 extra_deps['system_metrics_monitor'] = {
-    'pynvml>=11.5.0,<12',
+    'pynvml>=11.5.0,<13',
 }
 
 extra_deps['slack'] = {
@@ -220,7 +220,7 @@ extra_deps['onnx'] = [
 extra_deps['mlflow'] = [
     'mlflow>=2.14.1,<3.0',
     'databricks-sdk==0.38.0',
-    'pynvml>=11.5.0,<12',
+    'pynvml>=11.5.0,<13',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
