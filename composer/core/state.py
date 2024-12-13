@@ -503,7 +503,11 @@ class State(Serializable):
         
         # Is the model of the fine-tuning type
         is_model_finetune: bool = False,
+
+        # model grads
+        grads: Optional[list] = None,
     ):
+        self.grads = grads
         self.rank_zero_seed = rank_zero_seed
         self.model = model
         self.run_name = run_name
