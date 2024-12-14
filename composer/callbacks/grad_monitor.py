@@ -36,11 +36,16 @@ class GradMonitor(Callback):
 
     """
 
-    def __init__(self,):
-        pass
+    def __init__(
+        self,
+    )-> None:
+        self.num_microbatches = 0
 
-    def batch_end(self, state: State, logger: Logger):
-        """Called on the :attr:`.Event.BATCH_END` event.
+    def _extract_grads(self, state: State) -> None:
+        """Extracts gradients from the model and stores them in the state.
+
+        Args:
+            state (State): The state object.
         """
         group = list(state.model.parameters())
         grad_list = []
@@ -48,3 +53,12 @@ class GradMonitor(Callback):
             if p.grad is not None:
                 grad_list.append(p.grad)
         state.grads = grad_list
+
+    def after_backward(self, state: State, logger: Logger) -> None:
+        """Runs on ``Event.AFTER_BACKWARD`` in the function of _train_microbatch.
+        """
+        assert state.total_num_microbatches is not None, "The total number of microbatch must be set"
+        self.num_microbatches = self.num_microbatches + 1
+        if self.num_microbatches == state.total_num_microbatches:
+            self.num_microbatches = 0
+            self._extract_grads(state)

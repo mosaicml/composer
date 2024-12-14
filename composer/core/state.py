@@ -506,8 +506,12 @@ class State(Serializable):
 
         # model grads
         grads: Optional[list] = None,
+
+        # Microbatch numbers
+        total_num_microbatches: int | None = None,       
     ):
         self.grads = grads
+        self.total_num_microbatches = total_num_microbatches
         self.rank_zero_seed = rank_zero_seed
         self.model = model
         self.run_name = run_name
