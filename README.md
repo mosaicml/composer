@@ -282,6 +282,8 @@ P.S.: [We're hiring](https://www.databricks.com/company/careers/open-positions?
     - We built Composer to be optimized for both simplicity and efficiency. Community users have shared that they enjoy Composer for its capabilities and ease of use compared to alternative libraries.
 - **How do I use Composer to train graph neural networks (GNNs), or Generative Adversarial Networks (GANs), or models for reinforcement learning (RL)?**
     - We recommend you use alternative libraries for if you want to train these types of models - a lot of assumptions we made when designing Composer are suboptimal for GNNs, RL, and GANs
+- **How can I speed up HuggingFace downloads?
+    - You can use hf transfer (`pip install hf-transfer`) and set the environment variable `HF_HUB_ENABLE_HF_TRANSFER=1`
 
 # ✍️ Citation
 ```
