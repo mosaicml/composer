@@ -3,7 +3,6 @@
 
 """Distributed training."""
 
-from composer.distributed.deepspeed import fix_batch_precision_for_deepspeed, parse_deepspeed_config
 from composer.distributed.dist_strategy import (
     DDPSyncStrategy,
     ddp_sync_context,
@@ -13,8 +12,6 @@ from composer.distributed.dist_strategy import (
 )
 
 __all__ = [
-    'fix_batch_precision_for_deepspeed',
-    'parse_deepspeed_config',
     'DDPSyncStrategy',
     'ddp_sync_context',
     'prepare_ddp_module',

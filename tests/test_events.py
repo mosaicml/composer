@@ -1,7 +1,8 @@
-# Copyright 2022 MosaicML Composer authors
+# Copyright 2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
 import math
+from unittest.mock import patch
 
 import pytest
 import torch
@@ -22,27 +23,31 @@ def test_event_values(event: Event):
 
 class TestEventCalls:
 
-    eval_subset_num_batches = 2
-    train_subset_num_batches = 2
+    eval_subset_num_batches = 1
+    train_subset_num_batches = 1
 
-    def get_trainer(self, precision='fp32', **kwargs):
+    def get_trainer(self, precision='fp32', max_duration='1ep', save_interval='1ep', **kwargs):
         model = SimpleModel()
         optimizer = torch.optim.Adam(model.parameters())
 
-        train_dataset = RandomClassificationDataset()
-        eval_dataset = RandomClassificationDataset()
+        train_dataset = RandomClassificationDataset(size=16)
+        eval_dataset = RandomClassificationDataset(size=16)
         train_batch_size = 4
 
         evaluator1 = DataLoader(
             dataset=eval_dataset,
             batch_size=8,
             sampler=dist.get_sampler(eval_dataset),
+            num_workers=0,
+            drop_last=True,
         )
 
         evaluator2 = DataLoader(
             dataset=eval_dataset,
             batch_size=4,
             sampler=dist.get_sampler(eval_dataset),
+            num_workers=0,
+            drop_last=True,
         )
 
         return Trainer(
@@ -51,13 +56,15 @@ class TestEventCalls:
                 dataset=train_dataset,
                 batch_size=train_batch_size,
                 sampler=dist.get_sampler(train_dataset),
+                num_workers=0,
             ),
             eval_dataloader=(evaluator1, evaluator2),
             device_train_microbatch_size=train_batch_size // 2,
             precision=precision,
             train_subset_num_batches=self.train_subset_num_batches,
             eval_subset_num_batches=self.eval_subset_num_batches,
-            max_duration='2ep',
+            max_duration=max_duration,
+            save_interval=save_interval,
             optimizers=optimizer,
             callbacks=[EventCounterCallback()],
             **kwargs,
@@ -71,13 +78,12 @@ class TestEventCalls:
         ],
     )
     @pytest.mark.parametrize(
-        'device,deepspeed_zero_stage,use_fsdp,precision',
+        'device,use_fsdp,precision',
         [
-            pytest.param('cpu', None, False, 'fp32', id='cpu-ddp'),
+            pytest.param('cpu', False, 'fp32', id='cpu-ddp'),
             # TODO: Remove filterwarnings after FSDP remove deprecated code
             pytest.param(
                 'gpu',
-                True,
                 False,
                 'fp32',
                 id='gpu-ddp',
@@ -88,7 +94,6 @@ class TestEventCalls:
             ),
             pytest.param(
                 'gpu',
-                None,
                 True,
                 'amp_fp16',
                 id='gpu-fsdp',
@@ -100,12 +105,39 @@ class TestEventCalls:
         ],
     )
     @pytest.mark.parametrize('save_interval', ['1ep', '1ba'])
-    def test_event_calls(self, world_size, device, deepspeed_zero_stage, use_fsdp, precision, save_interval):
-        save_interval = Time.from_timestring(save_interval)
+    def test_event_calls(self, world_size, device, use_fsdp, precision, save_interval):
+        # handle 1ba save interval separately to optimize speed
+        if save_interval == '1ba':
+            # mock the save_checkpoint method to speed up batch saves
+            with patch('composer.trainer.trainer.Trainer.save_checkpoint') as mock_save:
+                mock_save.return_value = None
+                self._run_event_calls_test(
+                    world_size,
+                    device,
+                    use_fsdp,
+                    precision,
+                    save_interval,
+                    num_epochs=1,
+                )
+        else:
+            self._run_event_calls_test(
+                world_size,
+                device,
+                use_fsdp,
+                precision,
+                save_interval,
+                num_epochs=1,
+            )
 
-        deepspeed_config = None
-        if deepspeed_zero_stage:
-            deepspeed_config = {'zero_optimization': {'stage': deepspeed_zero_stage}}
+    def _run_event_calls_test(
+        self,
+        world_size,
+        device,
+        use_fsdp,
+        precision,
+        save_interval,
+        num_epochs,
+    ):
 
         parallelism_config = None
         if use_fsdp:
@@ -120,14 +152,13 @@ class TestEventCalls:
         trainer = self.get_trainer(
             precision=precision,
             device=device,
-            deepspeed_config=deepspeed_config,
             parallelism_config=parallelism_config,
             save_interval=save_interval,
-            eval_interval=save_interval,
+            eval_interval=Time.from_timestring(save_interval),
         )
         trainer.fit()
 
-        self._assert_expected_event_calls(trainer, save_interval, num_epochs=2)
+        self._assert_expected_event_calls(trainer, Time.from_timestring(save_interval), num_epochs=num_epochs)
 
     def _assert_expected_event_calls(self, trainer: Trainer, eval_interval: Time, num_epochs: int):
         state = trainer.state

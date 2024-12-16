@@ -26,7 +26,7 @@ from composer.loss import soft_cross_entropy
 from composer.models import ComposerModel
 from composer.optim import DecoupledSGDW, ExponentialScheduler
 from composer.trainer.trainer import _generate_run_name
-from composer.utils import dist, is_model_deepspeed, is_model_fsdp, map_collection, reproducibility
+from composer.utils import dist, is_model_fsdp, map_collection, reproducibility
 from tests.common import (
     EmptyModel,
     InfiniteClassificationDataset,
@@ -670,29 +670,6 @@ class TestTrainerInitOrFit:
         )
         with pytest.raises(RuntimeError, match='Encountered non-addressable cuda error while using auto.*'):
             trainer.fit()
-
-    @pytest.mark.gpu
-    @pytest.mark.parametrize('precision', [Precision.FP32, Precision.AMP_BF16, Precision.AMP_FP16])
-    @pytest.mark.filterwarnings('ignore::UserWarning')
-    def test_deepspeed(
-        self,
-        model: ComposerModel,
-        precision: Precision,
-        max_duration: Time[int],
-        train_dataloader: DataLoader,
-    ):
-        trainer = Trainer(
-            model=model,
-            precision=precision,
-            deepspeed_config={},
-            max_duration=max_duration,
-            train_dataloader=train_dataloader,
-        )
-
-        assert is_model_deepspeed(trainer.state.model)
-
-        assert trainer.state.deepspeed_enabled
-        trainer.fit()
 
     @pytest.mark.gpu
     @pytest.mark.parametrize('precision', [Precision.FP32, Precision.AMP_BF16, Precision.AMP_FP16])

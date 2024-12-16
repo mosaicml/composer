@@ -53,7 +53,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0'):
 else:
     from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state  # type: ignore
 
-from composer.callbacks import CheckpointSaver, MemorySnapshot, OOMObserver, OptimizerMonitor
+from composer.callbacks import CheckpointSaver, MemorySnapshot, OOMObserver
 from composer.core import (
     Algorithm,
     AlgorithmPass,
@@ -79,8 +79,6 @@ from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.distributed import (
     DDPSyncStrategy,
     ddp_sync_context,
-    fix_batch_precision_for_deepspeed,
-    parse_deepspeed_config,
     prepare_ddp_module,
     prepare_fsdp_module,
     prepare_tp_module,
@@ -107,12 +105,10 @@ from composer.utils import (
     MLFLOW_RUN_ID_FORMAT_KEY,
     ExportFormat,
     FSDPConfig,
-    MissingConditionalImportError,
     ObjectStore,
     ParallelismConfig,
     TPConfig,
     Transform,
-    VersionedDeprecationWarning,
     checkpoint,
     dist,
     ensure_tuple,
@@ -122,7 +118,6 @@ from composer.utils import (
     get_composer_env_dict,
     get_device,
     get_file,
-    is_model_deepspeed,
     is_xla_installed,
     map_collection,
     maybe_create_object_store_from_uri,
@@ -535,17 +530,6 @@ def _get_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrateg
     return ddp_sync_strategy
 
 
-def _get_precision_context(
-    precision: Precision,
-    precision_config: Optional[dict[str, Any]],
-    deepspeed_enabled: bool,
-    fp8_autocast_enabled: bool = True,
-):
-    if deepspeed_enabled:
-        return contextlib.nullcontext()
-    return get_precision_context(precision, precision_config, fp8_autocast_enabled)
-
-
 def _generate_run_name() -> str:
     # change coolname randomness for different names with same seed
     coolname.replace_random(random.Random(os.urandom(128)))
@@ -790,33 +774,8 @@ class Trainer:
             It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
             for a checkpoint in a cloud bucket. If a URI is specified, ``load_object_store`` does not need to be set.
 
-            When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, checkpoints are sharded by rank.
-            Instead of hard-coding the rank in the ``path``, use the following format variables:
-
-            +------------------------+-------------------------------------------------------+
-            | Variable               | Description                                           |
-            +========================+=======================================================+
-            | ``{rank}``             | The global rank, as returned by                       |
-            |                        | :func:`~.dist.get_global_rank`.                       |
-            +------------------------+-------------------------------------------------------+
-            | ``{local_rank}``       | The local rank of the process, as returned by         |
-            |                        | :func:`~.dist.get_local_rank`.                        |
-            +------------------------+-------------------------------------------------------+
-            | ``{node_rank}``        | The node rank, as returned by                         |
-            |                        | :func:`~.dist.get_node_rank`.                         |
-            +------------------------+-------------------------------------------------------+
-
-            For example, suppose that checkpoints are stored in the following structure:
-
-            .. code-block::
-
-                my_model/ep1-rank0.tar
-                my_model/ep1-rank1.tar
-                my_model/ep1-rank2.tar
-                ...
-
-            Then, ``load_path`` should be set to ``my_model/ep1-rank{rank}.tar``, and all ranks will load the
-            correct state.
+            When using FSDP with sharded checkpointing, checkpoint files are sharded by rank, and ``load_path``
+            should be set to the directory containing sharded checkpoint files.
 
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
         load_object_store (Union[ObjectStore, LoggerDestination], optional): If the ``load_path`` is in an
@@ -985,11 +944,6 @@ class Trainer:
             to get the starting checkpoint. For any future restarts, such as due to the spot instance being killed,
             the loggers would be queried for the latest checkpoint the object store logger would be downloaded and
             used to resume training.
-        deepspeed_config (dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
-            according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. (default: ``None``)
-
-            To use DeepSpeed with default values, set to the empty dictionary ``{}``.
-            To disable DeepSpeed (the default), set to ``None``.
         parallelism_config (Union[dict[str, Any], ParallelismConfig], optional): Configuration for parallelism options.
             Currently supports fsdp and tensor parallelism, whose respective configs are specified
             as the keys ``fsdp`` and ``tp``. (default: ``None``)
@@ -1149,7 +1103,6 @@ class Trainer:
         autoresume: bool = False,
 
         # Parallelism
-        deepspeed_config: Optional[dict[str, Any]] = None,
         parallelism_config: Optional[Union[dict[str, Any], ParallelismConfig]] = None,
 
         # System/Numerics
@@ -1176,16 +1129,6 @@ class Trainer:
         # compile config for PyTorch 2.0 or higher
         compile_config: Optional[dict[str, Any]] = None,
     ):
-        if deepspeed_config is not None:
-            warnings.warn(
-                VersionedDeprecationWarning(
-                    'The use of DeepSpeed for training new models in Composer is deprecated. Composer is tightly integrated with PyTorch FSDP '
-                    +
-                    'which provides similar functionality. Please use the `parallelism_config` parameter instead. Please open '
-                    + 'a GitHub issue if you need help migrating from DeepSpeed to FSDP.',
-                    remove_version='0.27.0',
-                ),
-            )
 
         self.auto_log_hparams = auto_log_hparams
         self.python_log_level = python_log_level
@@ -1289,12 +1232,8 @@ class Trainer:
             parallelism_config = ParallelismConfig(
                 **parallelism_config_args,
             ) if len(parallelism_config_args) > 0 else None
-        if deepspeed_config is not None and parallelism_config is not None:
-            raise ValueError(
-                'Both deepspeed_config and parallelism_config are specified but incompatible. Please specify only one.',
-            )
-        if deepspeed_config is not None or parallelism_config is not None or dist.get_world_size() > 1:
-            # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
+        if parallelism_config is not None or dist.get_world_size() > 1:
+            # FSDP requires torch.distributed to be initialized, even if the world size is 1
             # And torch.distributed is always required for multi-rank training
             dist.initialize_dist(device, dist_timeout)
         if parallelism_config is not None:
@@ -1334,7 +1273,7 @@ class Trainer:
                 raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
 
         # Move the model and optimizers to the device
-        if deepspeed_config is None and parallelism_config is None:
+        if parallelism_config is None:
             # Check if model is already on tpu
             if isinstance(device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
                 raise ValueError(
@@ -1370,7 +1309,6 @@ class Trainer:
             optimizers=optimizers,
             run_name=run_name,
             save_metrics=save_metrics,
-            deepspeed_config=deepspeed_config,
             parallelism_config=parallelism_config,
         )
         self.accumulate_train_batch_on_tokens = accumulate_train_batch_on_tokens
@@ -1696,7 +1634,7 @@ class Trainer:
         # suppressing FSDP warning when auto grad accum exits the forward pass before completing
         warnings.filterwarnings(action='ignore', message='Forward order differs from that of the first iteration')
 
-        # If using DDP or DeepSpeed, we need to wrap the ComposerModel but store a reference to the
+        # If using DDP, we need to wrap the ComposerModel but store a reference to the
         # original model for functions like `eval_forward`, `get_metrics`, etc.
         self._original_model = self.state.model
 
@@ -1704,7 +1642,6 @@ class Trainer:
         # If using TP, the model must be wrapped before FSDP.
         # If using FSDP, the model must be wrapped and then loaded unless loading a monolith
         # checkpoint on rank 0 only, in which case the model be loaded before it is wrapped.
-        # If using DeepSpeed, the engine must be initialized before the model is loaded.
 
         # TP wrap
         if self.state.tp_config is not None:
@@ -1729,45 +1666,6 @@ class Trainer:
                     auto_microbatching,
                     self.state.seed,
                 )
-
-        # Configure Deepspeed
-        if self.state.deepspeed_config is not None:
-            for callback in self.state.callbacks:
-                if isinstance(callback, OptimizerMonitor):
-                    raise ValueError(
-                        'OptimizerMonitor is not supported with DeepSpeed because DeepSpeed clears '
-                        'the gradients before in the last call to .backward see: '
-                        'https://github.com/microsoft/DeepSpeed/issues/2329 for more details.',
-                    )
-
-            try:
-                import deepspeed
-            except ImportError as e:
-                raise MissingConditionalImportError(
-                    extra_deps_group='deepspeed',
-                    conda_package='deepspeed>=0.5.5',
-                    conda_channel=None,
-                ) from e
-            self.state.deepspeed_config = parse_deepspeed_config(self.state.deepspeed_config, state=self.state)
-            optimizer = ensure_tuple(self.state.optimizers)[0]
-            log.debug('Initializing deepspeed')
-            (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(
-                config=self.state.deepspeed_config,
-                model=self.state.model,
-                optimizer=optimizer,
-            )
-            # Since the DeepSpeed ZeRO optimizer does not inherit torch.optim.Optimizer, the schedulers must be
-            # compiled and bound BEFORE DeepSpeed initialization. However, this is OK, as the the DeepSpeed Zero
-            # optimizer uses the same underlying parameter groups as the original optimizer. See
-            # * https://github.com/microsoft/DeepSpeed/blob/fee73135980e78f8be7e1a3ff556751623ef6aaa/deepspeed/runtime/zero/stage_1_and_2.py#L1911-L1917
-            # * https://github.com/microsoft/DeepSpeed/blob/ef17c89570ceae5b26a5f886e9d8cd0941afc0ac/deepspeed/runtime/zero/stage3.py#L2532-L2538
-            # In addition, the deepspeed engine is responsible for serializing the model and optimizer state,
-            # so these attributes should not be serialized with the composer state.
-            if 'model' in self.state.serialized_attributes:
-                self.state.serialized_attributes.remove('model')
-
-            if 'optimizers' in self.state.serialized_attributes:
-                self.state.serialized_attributes.remove('optimizers')
 
         self.engine.run_event(Event.BEFORE_LOAD)
 
@@ -1928,7 +1826,7 @@ class Trainer:
         reproducibility.seed_all(self.state.seed)
 
         # DDP wrap if required
-        if not self.state.deepspeed_enabled and not self.state.fsdp_enabled and dist.get_world_size() > 1:
+        if not self.state.fsdp_enabled and dist.get_world_size() > 1:
             self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
 
         # The model would need to be torch.compile()'d after being wrapped in a distributed strategy
@@ -1949,8 +1847,8 @@ class Trainer:
 
         .. note::
 
-            For DeepSpeed, which saves file on every rank, only the files corresponding to the process's rank
-            will be shown.
+            For sharded checkpointing, which saves file on every rank, only the files corresponding
+            to the process's rank will be shown.
         """
         if self._checkpoint_saver is None:
             return []
@@ -2012,87 +1910,61 @@ class Trainer:
             f'Looking for autoresume checkpoint: {save_latest_remote_file_name} (remote), {latest_checkpoint_path} (local)',
         )
 
-        if self.state.deepspeed_enabled:
-            # If latest checkpoint is not saved locally, try to fetch from loggers
-            if not os.path.exists(latest_checkpoint_path):
-                log.debug(f'Attempting to download the checkpoint on to rank {dist.get_global_rank()}')
-                os.makedirs(save_folder, exist_ok=True)
-                self._try_checkpoint_download(
-                    latest_checkpoint_path,
-                    save_latest_remote_file_name,
-                    loggers,
-                    load_progress_bar,
-                )
+        # Broadcast the local checkpoint path to all ranks
+        latest_checkpoint_path_list = [os.path.abspath(latest_checkpoint_path)]
+        dist.broadcast_object_list(latest_checkpoint_path_list, src=0)
+        latest_checkpoint_path = latest_checkpoint_path_list[0]
 
-            # List of whether the checkpoint exists on each rank
-            latest_checkpoint_exists = dist.all_gather_object(os.path.exists(latest_checkpoint_path))
+        # Broadcast the remote checkpoint path to all ranks
+        save_latest_remote_file_name_list = [save_latest_remote_file_name]
+        dist.broadcast_object_list(save_latest_remote_file_name_list, src=0)
+        save_latest_remote_file_name = save_latest_remote_file_name_list[0]
 
-            if all(latest_checkpoint_exists):  # All paths exist, so return the path.
-                return latest_checkpoint_path
-            # Require all ranks to have their own local checkpoint if we wish to restore from it for
-            # deepspeed or fsdp + sharding
-            elif any(latest_checkpoint_exists):  # Some but not all exist, which is very bad.
-                missing_ranks = [n for (n, exist) in enumerate(latest_checkpoint_exists) if not exist]
-                mode = 'Deepspeed' if self.state.deepspeed_enabled else 'FSDP sharding'
-                raise RuntimeError(f'{mode} was enabled, but checkpoints missing on ranks: {missing_ranks}')
-            else:  # None of the paths exists, so no autoresume necessary.
-                return None
-        else:
-            # broadcast the local checkpoint path to all ranks
-            latest_checkpoint_path_list = [os.path.abspath(latest_checkpoint_path)]
-            dist.broadcast_object_list(latest_checkpoint_path_list, src=0)
-            latest_checkpoint_path = latest_checkpoint_path_list[0]
-
-            # broadcast the remote checkpoint path to all ranks
-            save_latest_remote_file_name_list = [save_latest_remote_file_name]
-            dist.broadcast_object_list(save_latest_remote_file_name_list, src=0)
-            save_latest_remote_file_name = save_latest_remote_file_name_list[0]
-
-            # try to download the checkpoint on local rank 0 of all nodes
-            if dist.get_local_rank() == 0 and not os.path.exists(latest_checkpoint_path):
-                log.debug(f'Attempting to download the checkpoint {save_latest_remote_file_name} on to all nodes')
-                os.makedirs(save_folder, exist_ok=True)
-                self._try_checkpoint_download(
-                    latest_checkpoint_path,
-                    save_latest_remote_file_name,
-                    loggers,
-                    load_progress_bar,
-                )
-
-            signal_file_path = os.path.join(
-                os.path.dirname(latest_checkpoint_path),
-                dist.get_node_signal_file_name(),
+        # Try to download the checkpoint on local rank 0 of all nodes
+        if dist.get_local_rank() == 0 and not os.path.exists(latest_checkpoint_path):
+            log.debug(f'Attempting to download the checkpoint {save_latest_remote_file_name} on to all nodes')
+            os.makedirs(save_folder, exist_ok=True)
+            self._try_checkpoint_download(
+                latest_checkpoint_path,
+                save_latest_remote_file_name,
+                loggers,
+                load_progress_bar,
             )
-            if dist.get_local_rank() == 0:
-                os.makedirs(os.path.dirname(signal_file_path), exist_ok=True)
-                with open(signal_file_path, 'wb') as f:
-                    f.write(b'local_rank0_completed_autoresume')
 
-            # Avoid the collective call until the local rank zero has finished trying to download the checkpoint
-            # so that we don't timeout for large downloads. This syncs all processes on the node
-            with dist.local_rank_zero_download_and_wait(signal_file_path):
-                # Then, wait to ensure every node has finished downloading the checkpoint
-                dist.barrier()
+        signal_file_path = os.path.join(
+            os.path.dirname(latest_checkpoint_path),
+            dist.get_node_signal_file_name(),
+        )
+        if dist.get_local_rank() == 0:
+            os.makedirs(os.path.dirname(signal_file_path), exist_ok=True)
+            with open(signal_file_path, 'wb') as f:
+                f.write(b'local_rank0_completed_autoresume')
 
-            if dist.get_local_rank() == 0:
-                os.remove(signal_file_path)
+        # Avoid the collective call until the local rank zero has finished trying to download the checkpoint
+        # so that we don't timeout for large downloads. This syncs all processes on the node
+        with dist.local_rank_zero_download_and_wait(signal_file_path):
+            # Then, wait to ensure every node has finished downloading the checkpoint
             dist.barrier()
 
-            # At this point the rank 0 filepath should exist on all ranks if the download succeeded
-            # list of whether the checkpoint exists on each rank
-            latest_checkpoint_exists = dist.all_gather_object(os.path.exists(latest_checkpoint_path))
+        if dist.get_local_rank() == 0:
+            os.remove(signal_file_path)
+        dist.barrier()
 
-            log.debug(
-                f'Checkpoint {latest_checkpoint_path} exists on rank {dist.get_global_rank()}? {os.path.exists(latest_checkpoint_path)}',
-            )
+        # At this point the rank 0 filepath should exist on all ranks if the download succeeded
+        # list of whether the checkpoint exists on each rank
+        latest_checkpoint_exists = dist.all_gather_object(os.path.exists(latest_checkpoint_path))
 
-            if not latest_checkpoint_exists[0]:
-                # If the checkpoint doesn't exist on rank 0, don't crash, so the initial autoresume run can succeed
-                return None
-            elif not all(latest_checkpoint_exists):
-                raise RuntimeError('Downloading the checkpoint to all nodes failed')
+        log.debug(
+            f'Checkpoint {latest_checkpoint_path} exists on rank {dist.get_global_rank()}? {os.path.exists(latest_checkpoint_path)}',
+        )
 
-            return latest_checkpoint_path
+        if not latest_checkpoint_exists[0]:
+            # If the checkpoint doesn't exist on rank 0, don't crash, so the initial autoresume run can succeed
+            return None
+        elif not all(latest_checkpoint_exists):
+            raise RuntimeError('Downloading the checkpoint to all nodes failed')
+
+        return latest_checkpoint_path
 
     def fit(
         self,
@@ -2331,7 +2203,7 @@ class Trainer:
         # Evaluators
         if eval_dataloader is not None:
             # Need to use the `original_model` rather than `state.model`, as `state.model`
-            # could be DDP / DeepSpeed wrapped.
+            # could be DDP wrapped.
             eval_metrics = self._original_model.get_metrics(is_train=False)
             metric_names = [str(k) for k in eval_metrics.keys()]
             eval_dataloader = ensure_tuple(eval_dataloader)
@@ -2414,8 +2286,6 @@ class Trainer:
         # Precision
         if precision is not None:
             if Precision(precision) != self.state.precision:
-                if self.state.deepspeed_enabled:
-                    raise ValueError('Changing the precision when using DeepSpeed is not supported')
                 precision = Precision(precision)
                 _validate_precision(precision, self.state.device)
                 self.state.precision = precision
@@ -2460,14 +2330,7 @@ class Trainer:
                 metrics[name] = DeviceCPU().module_to_device(metric)
             else:
                 metrics[name] = self.state.device.module_to_device(metric)
-            if is_model_deepspeed(self.state.model):
-                # HACK: DeepSpeed somehow manages to convert metric internal states to its own dtype. When
-                # running with FP16, this tends to result in overflows. Let's assume FP32 is good enough.
-                for key in metric._defaults:
-                    metric_data = getattr(metric, key)
-                    if isinstance(metric_data, torch.Tensor) and metric_data.dtype == torch.float16:
-                        metric_data = metric_data.to(torch.float32)  # type: ignore
-                        setattr(metric, key, metric_data)
+
         return metrics
 
     def _compute_and_log_metrics(self, dataloader_label: str, metrics: dict[str, Metric]):
@@ -2625,9 +2488,6 @@ class Trainer:
                 self.state.batch = self._train_data_spec.batch_transforms(self.state.batch)
                 rank_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
                 rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
-
-                if self.state.deepspeed_enabled:
-                    self.state.batch = fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
                 self.engine.run_event(Event.AFTER_DATALOADER)
 
@@ -2791,7 +2651,7 @@ class Trainer:
         # https://github.com/NVIDIA/TransformerEngine/blob/8e039fdcd98fc56582d81e373880c1509c2b8f73/transformer_engine/pytorch/module/base.py#L495-L513 for more info.
         with torch.no_grad(),\
                 model_eval_mode(self.state.model),\
-                _get_precision_context(self.state.precision, self.state.precision_config, self.state.deepspeed_enabled, fp8_autocast_enabled=False):
+                get_precision_context(self.state.precision, self.state.precision_config, fp8_autocast_enabled=False):
             eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
             for metric in self.state.train_metrics.values():
                 self._original_model.update_metric(
@@ -2875,12 +2735,11 @@ class Trainer:
                             )
                 else:
                     self._train_microbatches(microbatches, total_loss_dict)
-                    if not self.state.deepspeed_enabled:
-                        for optimizer in self.state.optimizers:
-                            if use_grad_scaling:
-                                self.state.scaler.step(optimizer)
-                            else:
-                                optimizer.step()
+                    for optimizer in self.state.optimizers:
+                        if use_grad_scaling:
+                            self.state.scaler.step(optimizer)
+                        else:
+                            optimizer.step()
             except RuntimeError as e:
                 if self.state.auto_microbatching and str(e) == OOM_FOUND_ON_OTHER_RANK:
                     log.debug((f"A Different Rank OOM'd."))
@@ -3010,12 +2869,11 @@ class Trainer:
 
             use_grad_scaling = self._use_grad_scaling(self.state.precision, self.state.scaler)
 
-            if not self.state.deepspeed_enabled:
-                for optimizer in self.state.optimizers:
-                    try:
-                        optimizer.zero_grad(set_to_none=True)
-                    except TypeError:
-                        optimizer.zero_grad()
+            for optimizer in self.state.optimizers:
+                try:
+                    optimizer.zero_grad(set_to_none=True)
+                except TypeError:
+                    optimizer.zero_grad()
 
             # Tracker for gradient accumulation
             if self.accumulate_train_batch_on_tokens:
@@ -3084,7 +2942,7 @@ class Trainer:
             )
         else:
             microbatch_size = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
-        if self.state.deepspeed_enabled or not isinstance(self.state.model, DistributedDataParallel):
+        if not isinstance(self.state.model, DistributedDataParallel):
             sync_context = contextlib.nullcontext()
         elif self.state.auto_microbatching and not self.first_train_batch_complete:
             # PyTorch DDP rebuilds gradient reduction buckets after 1) a forward pass where the
@@ -3110,10 +2968,9 @@ class Trainer:
             # Forward pass
             self.engine.run_event(Event.BEFORE_FORWARD)
 
-            with _get_precision_context(
+            with get_precision_context(
                 self.state.precision,
                 self.state.precision_config,
-                self.state.deepspeed_enabled,
             ):
                 self.state.outputs = self.state.model(self.state.batch)
 
@@ -3136,10 +2993,9 @@ class Trainer:
             # Loss
             self.engine.run_event(Event.BEFORE_LOSS)
 
-            with _get_precision_context(
+            with get_precision_context(
                 self.state.precision,
                 self.state.precision_config,
-                self.state.deepspeed_enabled,
             ):
                 self.state.loss = self._original_model.loss(self.state.outputs, self.state.batch)
 
@@ -3178,12 +3034,9 @@ class Trainer:
             if use_grad_scaling:
                 microbatch_loss = cast(torch.Tensor, self.state.scaler.scale(microbatch_loss))  # type: ignore
 
-            if self.state.deepspeed_enabled:
-                self.state.deepspeed_model.backward(microbatch_loss)
-            else:
-                # Scale loss based on the number of samples in the microbatch to maintain gradient numerics
-                microbatch_loss.mul_(microbatch_size / current_batch_size)
-                microbatch_loss.backward(create_graph=self._backwards_create_graph)
+            # Scale loss based on the number of samples in the microbatch to maintain gradient numerics
+            microbatch_loss.mul_(microbatch_size / current_batch_size)
+            microbatch_loss.backward(create_graph=self._backwards_create_graph)
 
             if self.state.device.dist_backend == 'xla':
                 # For xla devices, the program between any pair of mark_steps() calls is compiled. With out this, the
@@ -3199,9 +3052,6 @@ class Trainer:
             ):
                 self.state.train_metrics = self._ensure_metrics_device_and_dtype(self.state.train_metrics)
                 self._eval_train_metrics(device_batch)
-
-        if self.state.deepspeed_enabled:
-            self.state.deepspeed_model.step()
 
         return microbatch_loss_dict
 
@@ -3317,17 +3167,12 @@ class Trainer:
                 rank_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
                 rank_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
 
-                # Fix the batch if using DeepSpeed
-                if self.state.deepspeed_enabled:
-                    self.state.batch = fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
-
                 self.engine.run_event(Event.PREDICT_BATCH_START)
 
                 self.engine.run_event(Event.PREDICT_BEFORE_FORWARD)
-                with _get_precision_context(
+                with get_precision_context(
                     self.state.precision,
                     self.state.precision_config,
-                    self.state.deepspeed_enabled,
                 ):
                     self.state.outputs = self.state.model(self.state.batch)
                 self.engine.run_event(Event.PREDICT_AFTER_FORWARD)
@@ -3602,9 +3447,6 @@ class Trainer:
                         raise ValueError('Number of samples in a batch should be an integer.')
                     last_batch = self.state.eval_timestamp.sample + batch_num_samples >= dataset_len
 
-                if self.state.deepspeed_enabled:
-                    self.state.batch = fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
-
                 self.engine.run_event(Event.EVAL_BATCH_START)
 
                 # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
@@ -3646,10 +3488,9 @@ class Trainer:
                             # Note: the activation dtype is BF16 if FSDP Mixed Precision PURE is enabled and FP32 if FSDP Mixed Precision FULL is enabled.
                             # See https://github.com/NVIDIA/TransformerEngine/blob/8e039fdcd98fc56582d81e373880c1509c2b8f73/transformer_engine/pytorch/module/linear.py#L250-L252 and \
                             # https://github.com/NVIDIA/TransformerEngine/blob/8e039fdcd98fc56582d81e373880c1509c2b8f73/transformer_engine/pytorch/module/base.py#L495-L513 for more info.
-                            with _get_precision_context(
+                            with get_precision_context(
                                 self.state.precision,
                                 self.state.precision_config,
-                                self.state.deepspeed_enabled,
                                 fp8_autocast_enabled=False,
                             ):
                                 self.state.outputs = self._original_model.eval_forward(self.state.batch)
@@ -3662,10 +3503,9 @@ class Trainer:
                                 continue
 
                             # Run in same precision context to avoid NaNs
-                            with _get_precision_context(
+                            with get_precision_context(
                                 self.state.precision,
                                 self.state.precision_config,
-                                self.state.deepspeed_enabled,
                             ):
                                 if isinstance(self.state.device, DeviceMPS):
                                     # torchmetrics math has numerical errors on M1 devices
@@ -3786,9 +3626,6 @@ class Trainer:
                 Occurs when attempting to use grad scaling without the scaler
                 enabled. Likely due to hardware not supporting the provided precision.
         """
-        if self.state.deepspeed_enabled:
-            return False
-
         precision = Precision(precision)
         use_grad_scaling = precision == Precision.AMP_FP16
 
@@ -3852,9 +3689,6 @@ class Trainer:
         We default to using closures unless AMP is enabled, in which case we only allow closures when using optimizers
         with the _step_supports_amp_closure flag.
         """
-        if self.state.deepspeed_enabled:
-            return False
-
         if self.state.device.dist_backend == 'xla':
             return False
 

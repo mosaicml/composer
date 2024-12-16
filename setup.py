@@ -140,7 +140,7 @@ extra_deps['dev'] = [
     'GitPython==3.1.43',
     'moto[s3]>=5.0.1,<6',
     'mock-ssh-server==0.9.1',
-    'cryptography==43.0.3',
+    'cryptography==44.0.0',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
 ]
@@ -152,12 +152,6 @@ extra_deps['system_metrics_monitor'] = {
 extra_deps['slack'] = {
     'slack_sdk>=3.19.5,<4',
 }
-
-extra_deps['deepspeed'] = [
-    'numpy<2',
-    'deepspeed==0.8.3',
-    'pydantic>=1.0,<2',
-]
 
 extra_deps['wandb'] = [
     'wandb>=0.13.2,<0.19',
@@ -190,7 +184,7 @@ extra_deps['peft'] = [
 ]
 
 extra_deps['sentencepiece'] = [
-    'protobuf<5.29',
+    'protobuf<5.30',
     'sentencepiece==0.2.0',
 ]
 
