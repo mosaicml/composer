@@ -257,6 +257,12 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
 	pip uninstall -y netifaces && pip install netifaces==0.11.0 ; \
     fi
 
+####################################
+# Install g++-11 (for c++20 support)
+####################################
+
+RUN apt-get install -y g++-11
+
 ##########################
 # Install Flash Attention
 ##########################
