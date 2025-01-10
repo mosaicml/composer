@@ -8,9 +8,9 @@ from __future__ import annotations
 import collections.abc
 import operator
 import pathlib
+import weakref
 from functools import reduce
 from typing import TYPE_CHECKING, Any, Optional, Sequence, Union
-import weakref
 
 import numpy as np
 import torch

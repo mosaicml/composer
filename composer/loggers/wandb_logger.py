@@ -14,11 +14,11 @@ import sys
 import tempfile
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union, cast
-from omegaconf import OmegaConf
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Union, cast
 
 import numpy as np
 import torch
+from omegaconf import OmegaConf
 
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
@@ -46,9 +46,7 @@ class WandBLogger(LoggerDestination):
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process.
             When logging `artifacts <https://docs.wandb.ai/ref/python/artifact>`_, it is
             highly recommended to log on all ranks.  Artifacts from ranks ≥1 will not be
-            stored, which may discard pertinent information. For example, when using
-            Deepspeed ZeRO, it would be impossible to restore from checkpoints without
-            artifacts from all ranks (default: ``True``).
+            stored, which may discard pertinent information (default: ``True``).
         init_kwargs (dict[str, Any], optional): Any additional init kwargs
             ``wandb.init`` (see
             `WandB documentation <https://docs.wandb.ai/ref/python/init>`_).
@@ -60,7 +58,7 @@ class WandBLogger(LoggerDestination):
         group: Optional[str] = None,
         name: Optional[str] = None,
         entity: Optional[str] = None,
-        tags: Optional[List[str]] = None,
+        tags: Optional[list[str]] = None,
         config_file: str | None = None,
         log_artifacts: bool = False,
         rank_zero_only: bool = True,
@@ -101,7 +99,7 @@ class WandBLogger(LoggerDestination):
 
         if tags is not None:
             init_kwargs['tags'] = tags
-        
+
         # NOTE: This has to be maintained separate to avoid weird Wandb errors
         self._config_file = config_file
 
@@ -126,6 +124,7 @@ class WandBLogger(LoggerDestination):
     def log_hyperparameters(self, hyperparameters: dict[str, Any]):
         if self._enabled:
             import wandb
+
             # NOTE: Allow val change is set to True to allow for hyperparameter logging when resuming a run.
             wandb.config.update(hyperparameters, allow_val_change=True)
 
@@ -209,8 +208,9 @@ class WandBLogger(LoggerDestination):
             original_cfg = OmegaConf.load(self._config_file) if self._config_file is not None else None
             wandb.init(
                 **self._init_kwargs,
-                settings=wandb.Settings(start_method="thread"),
-                config=cast(Dict[Any, Any], OmegaConf.to_container(original_cfg, resolve=True, throw_on_missing=True)) if original_cfg else None,
+                settings=wandb.Settings(start_method='thread'),
+                config=cast(dict[Any, Any], OmegaConf.to_container(original_cfg, resolve=True, throw_on_missing=True))
+                if original_cfg else None,
             )
             assert wandb.run is not None, 'The wandb run is set after init'
             if hasattr(wandb.run, 'entity') and hasattr(wandb.run, 'project'):

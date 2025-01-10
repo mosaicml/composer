@@ -11,8 +11,8 @@
 ARG CUDA_VERSION=11.3.1
 
 # Calculate the base image based on CUDA_VERSION
-ARG BASE_IMAGE=${CUDA_VERSION:+"nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu20.04"}
-ARG BASE_IMAGE=${BASE_IMAGE:-"ubuntu:20.04"}
+ARG BASE_IMAGE=${CUDA_VERSION:+"nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu22.04"}
+ARG BASE_IMAGE=${BASE_IMAGE:-"ubuntu:22.04"}
 
 # The Python version to install
 ARG PYTHON_VERSION=3.10
@@ -251,9 +251,10 @@ ARG MOFED_VERSION
 
 RUN if [ -n "$MOFED_VERSION" ] ; then \
         wget -qO - http://www.mellanox.com/downloads/ofed/RPM-GPG-KEY-Mellanox | sudo apt-key add - && \
-        wget -P /etc/apt/sources.list.d/ http://linux.mellanox.com/public/repo/mlnx_ofed/$MOFED_VERSION/ubuntu20.04/mellanox_mlnx_ofed.list && \
+        wget -P /etc/apt/sources.list.d/ http://linux.mellanox.com/public/repo/mlnx_ofed/$MOFED_VERSION/ubuntu22.04/mellanox_mlnx_ofed.list && \
         apt-get update && \
-        apt-get install -y mlnx-ofed-dpdk-upstream-libs-user-only  ; \
+        apt-get install -y mlnx-ofed-dpdk-upstream-libs-user-only && \
+	pip uninstall -y netifaces && pip install netifaces==0.11.0 ; \
     fi
 
 ##########################
@@ -324,6 +325,9 @@ RUN pip install --no-cache-dir --upgrade \
         ipython${IPYTHON_VERSION} \
         urllib3${URLLIB3_VERSION} \
         python-snappy
+
+RUN apt-get remove -y python3-blinker
+RUN pip install blinker
 
 ##################################################
 # Override NVIDIA mistaken env var for 11.8 images

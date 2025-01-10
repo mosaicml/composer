@@ -78,7 +78,7 @@ while True:
 install_requires = [
     'pyyaml>=6.0,<7',
     'tqdm>=4.62.3,<5',
-    'torchmetrics>=1.0,<1.5.3',
+    'torchmetrics>=1.0,<1.6.1',
     'torch_optimizer>=0.3.0,<0.4',
     'torchvision>=0.18.0,<0.20.2',
     'torch>=2.3.0,<2.5.2',
@@ -103,7 +103,7 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
     'junitparser==3.1.2',
-    'coverage[toml]==7.6.4',
+    'coverage[toml]==7.6.8',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
     'ipython==8.11.0',
@@ -140,7 +140,7 @@ extra_deps['dev'] = [
     'GitPython==3.1.43',
     'moto[s3]>=5.0.1,<6',
     'mock-ssh-server==0.9.1',
-    'cryptography==43.0.3',
+    'cryptography==44.0.0',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
 ]
@@ -152,12 +152,6 @@ extra_deps['system_metrics_monitor'] = {
 extra_deps['slack'] = {
     'slack_sdk>=3.19.5,<4',
 }
-
-extra_deps['deepspeed'] = [
-    'numpy<2',
-    'deepspeed==0.8.3',
-    'pydantic>=1.0,<2',
-]
 
 extra_deps['wandb'] = [
     'wandb>=0.13.2,<0.19',
@@ -190,7 +184,7 @@ extra_deps['peft'] = [
 ]
 
 extra_deps['sentencepiece'] = [
-    'protobuf<5.29',
+    'protobuf<5.30',
     'sentencepiece==0.2.0',
 ]
 
@@ -225,13 +219,13 @@ extra_deps['onnx'] = [
 
 extra_deps['mlflow'] = [
     'mlflow>=2.14.1,<3.0',
-    'databricks-sdk==0.36.0',
+    'databricks-sdk==0.38.0',
     'pynvml>=11.5.0,<12',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk==0.36.0']
+extra_deps['databricks'] = ['databricks-sdk==0.38.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 

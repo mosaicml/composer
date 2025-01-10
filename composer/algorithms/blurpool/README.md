@@ -10,7 +10,7 @@ BlurPool increases the accuracy of convolutional neural networks for computer vi
 nearly the same speed, by applying a spatial low-pass filter before pooling operations and strided convolutions.
 Doing so reduces [aliasing](https://en.wikipedia.org/wiki/Aliasing) when performing these operations.
 
-| ![BlurPool](https://storage.googleapis.com/docs.mosaicml.com/images/methods/blurpool-antialiasing.png) |
+| ![BlurPool](../_images/blurpool-antialiasing.png) |
 |:--:
 |*A diagram of the BlurPool replacements (bottom row) for typical pooling and downsampling operations (top row) in convolutional neural networks. In each case, BlurPool applies a low-pass filter before the spatial downsampling to avoid aliasing. This image is Figure 2 in [Zhang (2019)](https://proceedings.mlr.press/v97/zhang19a.html).*|
 

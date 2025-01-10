@@ -148,3 +148,11 @@ def remove_run_name_env_var():
         os.environ['COMPOSER_RUN_NAME'] = composer_run_name
     if run_name is not None:
         os.environ['RUN_NAME'] = run_name
+
+
+@pytest.fixture(autouse=True)
+def setup_mlflow_tracking(monkeypatch, tmp_path):
+    mlflow = pytest.importorskip('mlflow')
+    tracking_uri = str(tmp_path / 'mlruns')
+    monkeypatch.setenv(mlflow.environment_variables.MLFLOW_TRACKING_URI.name, tracking_uri)
+    os.makedirs(tracking_uri, exist_ok=True)

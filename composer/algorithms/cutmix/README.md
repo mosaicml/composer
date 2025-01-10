@@ -8,7 +8,7 @@ CutMix is a data augmentation technique that modifies images by cutting out a sm
 It is a regularization technique that can improve the generalization accuracy of computer
 vision models.
 
-| ![CutMix](https://storage.googleapis.com/docs.mosaicml.com/images/methods/cutmix.png) |
+| ![CutMix](../_images/cutmix.png) |
 |:--:
 |*An image with CutMix applied. A picture of a cat has been placed over the top left corner of a picture of a dog. This image is taken from [Figure 1 from Yun et al. (2019)](https://arxiv.org/abs/1905.04899).*|
 

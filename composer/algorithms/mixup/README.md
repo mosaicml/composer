@@ -10,7 +10,7 @@ For any pair of examples, it trains the network on a random convex combination o
 To create the corresponding targets, it uses the same random convex combination of the targets of the individual examples.
 Training in this fashion improves generalization.
 
-| ![MixUp](https://storage.googleapis.com/docs.mosaicml.com/images/methods/mix_up.png) |
+| ![MixUp](../_images/mix_up.png) |
 |:--:
 |*Two different training examples (a picture of a bird and a picture of a frog) that have been combined by MixUp into a single example. The corresponding targets are a convex combination of the targets for the bird class and the frog class.*|
 

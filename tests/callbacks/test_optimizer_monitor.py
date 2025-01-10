@@ -21,7 +21,10 @@ from tests.common.models import SimpleModel
 @pytest.mark.parametrize('batch_log_interval', [1, 2, 3, 5])
 def test_optimizer_monitor(log_optimizer_metrics: bool, batch_log_interval: int):
     # Construct the callback
-    grad_monitor = OptimizerMonitor(log_optimizer_metrics=log_optimizer_metrics, batch_log_interval=batch_log_interval)
+    grad_monitor = OptimizerMonitor(
+        log_optimizer_metrics=log_optimizer_metrics,
+        batch_log_interval=batch_log_interval,  # type: ignore[reportGeneralTypeIssues]
+    )
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     model = SimpleModel()
     # Construct the trainer and train

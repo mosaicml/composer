@@ -17,7 +17,7 @@ defaults:
     working-directory: .
 jobs:
   smoketest:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     if: github.repository_owner == 'mosaicml'
     strategy:

@@ -1311,7 +1311,6 @@ def test_fsdp_monolith_resumption(
         save_interval=save_interval,
         num_epochs=1,  # set in get_trainer()
         num_batches_per_epoch=8,  # set in get_trainer()
-        is_deepspeed=False,
     )
 
     resume_file = os.path.join(save_folder, 'first', resume_file)

@@ -27,7 +27,7 @@ class TensorboardLogger(LoggerDestination):
     If you are accessing your logs locally (from wherever you are running composer), the logs
     will be in the relative path: `tensorboard_logs/{run_name}` with names starting with
     `events.out.tfevents.*`
-    
+
     If a log_name is provided, the logs will be saved in a subdirectory of `tensorboard_logs/{run_name}`
     named `{log_name}`. So the final folder will be `tensorboard_logs/{run_name}/{log_name}`.
 
@@ -49,7 +49,13 @@ class TensorboardLogger(LoggerDestination):
             Default: :attr:`True`.
     """
 
-    def __init__(self, log_name: Optional[str] = None, log_dir: Optional[str] = None, flush_interval: int = 100, rank_zero_only: bool = True):
+    def __init__(
+        self,
+        log_name: Optional[str] = None,
+        log_dir: Optional[str] = None,
+        flush_interval: int = 100,
+        rank_zero_only: bool = True,
+    ):
         try:
             from torch.utils.tensorboard import SummaryWriter
         except ImportError as e:
@@ -189,11 +195,10 @@ class TensorboardLogger(LoggerDestination):
 
         file_path = self.writer.file_writer.event_writer._file_name
         event_file_name = Path(file_path).stem
-        
+
         remote_file_path = 'tensorboard_logs/{run_name}/'
         if self.log_name is not None:
             remote_file_path += f'{self.log_name}/'
-                                             
 
         logger.upload_file(
             remote_file_name=(remote_file_path + f'{event_file_name}-{dist.get_global_rank()}'),

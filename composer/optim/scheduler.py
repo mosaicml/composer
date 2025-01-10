@@ -17,7 +17,6 @@ import math
 import textwrap
 import warnings
 from typing import TYPE_CHECKING, Union
-import weakref
 
 from torch.optim.lr_scheduler import LambdaLR, LRScheduler
 

@@ -77,6 +77,8 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Callable, ContextManager, Optional, Sequence, TypeVar, Union, cast
 
+from torch.utils.data.dataloader import _MultiProcessingDataLoaderIter
+
 from composer.core import passes
 from composer.core.algorithm import Algorithm
 from composer.core.callback import Callback
@@ -85,8 +87,6 @@ from composer.core.state import State
 from composer.loggers import Logger, LoggerDestination
 from composer.profiler import ProfilerAction
 from composer.utils import ensure_tuple
-
-from torch.utils.data.dataloader import _MultiProcessingDataLoaderIter
 
 log = logging.getLogger(__name__)
 
@@ -581,7 +581,11 @@ class Engine():
         except AttributeError as e:
             pass
         except Exception as e:
-            log.error(f'Error running state.train_dataloader._iterator._shutdown_workers().', exc_info=e, stack_info=True)
+            log.error(
+                f'Error running state.train_dataloader._iterator._shutdown_workers().',
+                exc_info=e,
+                stack_info=True,
+            )
         try:
             state._dataloader._iterator._shutdown_workers()  # type: ignore [reportGeneralTypeIssues]
         except AttributeError as e:
@@ -591,15 +595,24 @@ class Engine():
         try:
             for evaluator in state._evaluators:
                 try:
-                    evaluator.dataloader.dataloader._iterator._shutdown_workers()  # type: ignore [reportGeneralTypeIssues]
+                    evaluator.dataloader.dataloader._iterator._shutdown_workers(  # type: ignore[reportGeneralTypeIssues,reportOptionalMemberAccess]
+                    )
                 except AttributeError as e:
                     pass
                 except Exception as e:
-                    log.error(f'Error running evaluator(s).dataloader.dataloader._iterator._shutdown_workers().', exc_info=e, stack_info=True)
+                    log.error(
+                        f'Error running evaluator(s).dataloader.dataloader._iterator._shutdown_workers().',
+                        exc_info=e,
+                        stack_info=True,
+                    )
         except AttributeError as e:
             pass
         except Exception as e:
-            log.error(f'Error running evaluator(s).dataloader.dataloader._iterator._shutdown_workers().', exc_info=e, stack_info=True)
+            log.error(
+                f'Error running evaluator(s).dataloader.dataloader._iterator._shutdown_workers().',
+                exc_info=e,
+                stack_info=True,
+            )
 
         # NOTE: Unregistering annoying function from `atexit` since it keeps file descriptors alive
         atexit.unregister(_MultiProcessingDataLoaderIter._clean_up_worker)

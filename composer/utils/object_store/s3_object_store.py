@@ -5,10 +5,10 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import pathlib
 import uuid
-import logging
 from typing import Any, Callable, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -155,7 +155,7 @@ class S3ObjectStore(ObjectStore):
                     raise ValueError(f'{key} is not an allowed upload argument.')
             if 'S3_CANNED_ACL' in os.environ and 'ACL' not in kwargs['ExtraArgs']:
                 kwargs['ExtraArgs']['ACL'] = os.environ['S3_CANNED_ACL']
-        
+
         # NOTE: The following is very unsafe but I am pissed off at the moment and don't care.
         success = False
         while not success:

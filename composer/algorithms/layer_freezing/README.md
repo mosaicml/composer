@@ -8,7 +8,7 @@
 Layer Freezing gradually makes early modules untrainable ("freezing" them), saving the cost of backpropagating to and updating frozen modules.
 The hypothesis behind Layer Freezing is that early layers may learn their features sooner than later layers, meaning they do not need to be updated later in training.
 
-<!--| ![LayerFreezing](https://storage.googleapis.com/docs.mosaicml.com/images/methods/layer-freezing.png) |
+<!--| ![LayerFreezing](../_images/layer-freezing.png) |
 |:--:
 |*Need a picture.*|-->
 

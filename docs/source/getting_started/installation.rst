@@ -18,7 +18,6 @@ the following installation targets are available:
 
 * ``pip install 'mosaicml[dev]'``: Installs development dependencies, which are required for running tests
   and building documentation.
-* ``pip install 'mosaicml[deepspeed]'``: Installs Composer with support for :mod:`deepspeed`.
 * ``pip install 'mosaicml[nlp]'``: Installs Composer with support for NLP models and algorithms.
 * ``pip install 'mosaicml[wandb]'``: Installs Composer with support for :mod:`wandb`.
 * ``pip install 'mosaicml[comet_ml]'``: Installs Composer with support for :mod:`comet_ml`.

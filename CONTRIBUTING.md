@@ -97,6 +97,19 @@ To run the tests in the provided docker containers:
     * `pip install -e .`
     * `pytest <args>` or `make <args>` to run the desired tests
 
+### Checking documentation
+
+If your changes affects the documentation, please get a chance to build the docs locally and view it to verify if the changes
+are what you wanted.
+
+<!--pytest.mark.skip-->
+```bash
+cd docs
+pip install -e '.[docs]'
+make clean && make html
+make host   # open the output link in a browser.
+```
+
 
 ## Code Style & Typing
 

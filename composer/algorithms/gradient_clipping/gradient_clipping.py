@@ -122,10 +122,6 @@ class GradientClipping(Algorithm):
             to (for 'value'), what values to clip the gradient norms to (for 'norm'), and
             threshold by which if grad_norm / weight_norm is greater than this threshold then
             scale gradients by this threshold * (weight_norm / grad_norm) (for 'adaptive').
-
-    Raises:
-        NotImplementedError: if deepspeed is enabled and clipping_type is not 'norm'.
-        ValueError: if deepspeed is enabled and clipping_type is not 'norm'.
     """
 
     def __init__(self, clipping_type: str, clipping_threshold: float):
@@ -136,20 +132,7 @@ class GradientClipping(Algorithm):
         return event in [Event.INIT, Event.AFTER_TRAIN_BATCH]
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        if event == Event.INIT and state.deepspeed_config is not None:
-            if self.clipping_type == 'norm':
-                if self.clipping_threshold > 0:
-                    state.deepspeed_config['gradient_clipping'] = self.clipping_threshold
-                else:
-                    raise ValueError(
-                        f'Deepspeed only supports gradient clipping thresholds that are greater than zero, but the provided one is {self.clipping_threshold}',
-                    )
-            else:
-                raise NotImplementedError(
-                    f"Deepspeed only supports gradient clipping of type 'norm' not of type '{self.clipping_type}'",
-                )
-
-        if event == Event.AFTER_TRAIN_BATCH and not state.deepspeed_enabled:
+        if event == Event.AFTER_TRAIN_BATCH:
             apply_gradient_clipping(
                 model=state.model,
                 clipping_type=self.clipping_type,

@@ -576,7 +576,9 @@ def validate_given_remote_path(remote_path: str) -> bool:
     objects_str = '\n'.join(objects)
     log.info(
         'Found %s objects at %s \n%s',
-        len(objects), remote_path, objects_str
+        len(objects),
+        remote_path,
+        objects_str,
     )
     return True
 
@@ -586,7 +588,8 @@ def get_file(
     destination: str,
     object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
     overwrite: bool = False,
-    progress_bar: bool = True):
+    progress_bar: bool = True,
+):
     """Get a file from a local folder, URL, or object store.
 
     Args:

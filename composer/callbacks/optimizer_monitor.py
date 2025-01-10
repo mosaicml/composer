@@ -5,6 +5,7 @@
 
 import warnings
 from typing import Union
+
 import torch
 
 from composer.core import Callback, State, Time, TimeUnit
@@ -65,8 +66,12 @@ class OptimizerMonitor(Callback):
     +-----------------------------------------------+-----------------------------------------------------+
     """
 
-    def __init__(self, only_global: bool = False, log_optimizer_metrics: bool = True,
-                 interval: Union[int, str, Time] = '10ba',):
+    def __init__(
+        self,
+        only_global: bool = False,
+        log_optimizer_metrics: bool = True,
+        interval: Union[int, str, Time] = '10ba',
+    ):
         self.log_optimizer_metrics = log_optimizer_metrics
         self.only_global = only_global
 
@@ -79,10 +84,12 @@ class OptimizerMonitor(Callback):
             self.interval = interval
 
         if self.interval.unit == TimeUnit.BATCH and self.interval < Time.from_timestring('10ba'):
-            warnings.warn(f'Currently the ActivationMonitor`s interval is set to {self.interval} '
-                          f'which is below our recommended value of 10ba. We recommend you raise '
-                          f'the interval to at least 10ba, as the activation monitor adds extra overhead '
-                          f'and decreases throughput.')
+            warnings.warn(
+                f'Currently the ActivationMonitor`s interval is set to {self.interval} '
+                f'which is below our recommended value of 10ba. We recommend you raise '
+                f'the interval to at least 10ba, as the activation monitor adds extra overhead '
+                f'and decreases throughput.',
+            )
 
         # Verify that the interval has supported units
         if self.interval.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
@@ -91,7 +98,7 @@ class OptimizerMonitor(Callback):
 
     def batch_end(self, state: State, logger: Logger):
         current_time_value = state.timestamp.get(self.interval.unit).value
-        
+
         if current_time_value % self.interval.value != 0:
             return
 
@@ -126,7 +133,6 @@ class OptimizerMonitor(Callback):
             if callable(dist_reduce_metrics) and self.log_optimizer_metrics:
                 optimizer_metrics = dist_reduce_metrics(optimizer_metrics)
 
-
         grad_norm, moment_norm, update_norm, param_norm = .0, .0, .0, .0
         for metric in optimizer_metrics:
             if metric.startswith('l2_norm/grad'):
@@ -137,10 +143,10 @@ class OptimizerMonitor(Callback):
                 update_norm += optimizer_metrics[metric]**2
             if metric.startswith('l2_norm/param'):
                 param_norm += optimizer_metrics[metric]**2
-        
+
         if self.only_global:
-            optimizer_metrics = {}        
-        
+            optimizer_metrics = {}
+
         optimizer_metrics['l2_norm/grad/global'] = grad_norm**0.5
         optimizer_metrics['l2_norm/moment/global'] = moment_norm**0.5
         optimizer_metrics['l2_norm/update/global'] = update_norm**0.5

@@ -7,7 +7,7 @@
 
 Sequence Length Warmup linearly increases the sequence length (number of tokens per sentence) used to train a language model from a `min_seq_length` to a `max_seq_length` over some duration at the beginning of training. The underlying motivation is that sequence length is a proxy for the difficulty of an example, and this method assumes a simple curriculum where the model is trained on easy examples (by this definition) first. Sequence Length Warmup is able to reduce the training time of GPT-style models by ~1.5x while still achieving the same loss as baselines.
 
-| ![SequenceLengthWarmup](https://storage.googleapis.com/docs.mosaicml.com/images/methods/seq_len_warmup.svg)|
+| ![SequenceLengthWarmup](../_images/seq_len_warmup.svg)|
 |:--|
 |*The sequence length used to train a model over the course of training. It increases linearly over the first 30% of training before reaching its full value for the remainder of training.*|
 

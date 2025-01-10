@@ -386,7 +386,10 @@ def test_console_logger_overlapping(console_logger_test_stream, console_logger_t
     batch_size = 1
     dataset_size = 6
 
-    grad_monitor = OptimizerMonitor(log_optimizer_metrics=True, batch_log_interval=5)
+    grad_monitor = OptimizerMonitor(
+        log_optimizer_metrics=True,
+        batch_log_interval=5,  # type: ignore[reportGeneralTypeIssues]
+    )
 
     model = SimpleModel()
     trainer = Trainer(
