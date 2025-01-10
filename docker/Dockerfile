@@ -260,10 +260,12 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
 ##########################
 # Install Flash Attention
 ##########################
+# Make sure to bump the flash attention wheel for the current PyTorch and CUDA version
+# https://github.com/Dao-AILab/flash-attention/releases
 RUN if [ -n "$CUDA_VERSION" ] ; then \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir ninja==1.11.1 && \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir --force-reinstall packaging==22.0 && \
-        MAX_JOBS=1 pip${PYTHON_VERSION} install --no-cache-dir --no-build-isolation flash-attn==2.6.3; \
+        pip${PYTHON_VERSION} install --no-cache-dir --no-build-isolation https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.0.post2/flash_attn-2.7.0.post2+cu12torch2.5cxx11abiTRUE-cp311-cp311-linux_x86_64.wh; \
         cd .. ; \
     fi
 
