@@ -2731,6 +2731,7 @@ class Trainer:
                 assert self.state.scaler is not None
                 assert self.state.device_train_microbatch_size is not None
                 microbatches = self._train_data_spec.split_batch(device_batch, self.state.device_train_microbatch_size)
+                self.state.total_num_microbatches = len(microbatches)
                 if self._use_closures():
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:

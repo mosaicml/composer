@@ -25,6 +25,7 @@ from composer.callbacks.runtime_estimator import RuntimeEstimator
 from composer.callbacks.speed_monitor import SpeedMonitor
 from composer.callbacks.system_metrics_monitor import SystemMetricsMonitor
 from composer.callbacks.threshold_stopper import ThresholdStopper
+from composer.callbacks.grad_monitor import GradMonitor
 
 __all__ = [
     'ActivationMonitor',
@@ -46,4 +47,5 @@ __all__ = [
     'MemorySnapshot',
     'OOMObserver',
     'LoadCheckpoint',
+    'GradMonitor',
 ]

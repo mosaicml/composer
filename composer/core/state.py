@@ -497,7 +497,19 @@ class State(Serializable):
 
         # Is the model of the fine-tuning type
         is_model_finetune: bool = False,
+
+        # average model grads of all batches in one global round
+        grads: Optional[list] = None,
+
+        # Microbatch numbers
+        total_num_microbatches: int | None = None,       
+
+        # local steps
+        local_steps: int | None = 1,    
     ):
+        self.grads = grads
+        self.total_num_microbatches = total_num_microbatches
+        self.local_steps = local_steps
         self.rank_zero_seed = rank_zero_seed
         self.model = model
         self.run_name = run_name
