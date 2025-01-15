@@ -496,20 +496,8 @@ class State(Serializable):
         parallelism_config: Optional[ParallelismConfig] = None,
 
         # Is the model of the fine-tuning type
-        is_model_finetune: bool = False,
-
-        # average model grads of all batches in one global round
-        grads: Optional[list] = None,
-
-        # Microbatch numbers
-        total_num_microbatches: int | None = None,       
-
-        # local steps
-        local_steps: int | None = 1,    
+        is_model_finetune: bool = False,   
     ):
-        self.grads = grads
-        self.total_num_microbatches = total_num_microbatches
-        self.local_steps = local_steps
         self.rank_zero_seed = rank_zero_seed
         self.model = model
         self.run_name = run_name
@@ -603,6 +591,9 @@ class State(Serializable):
         self.total_loss_dict: dict[str, float] = {}
 
         self.metric_outputs: dict[str, Any] = {}
+        
+        # average model grads of all batches in one global round
+        self.grads: Optional[dict[str, torch.Tensor]] = None
 
     def _validate_parallelism_configs(self):
         # Validate TP config
