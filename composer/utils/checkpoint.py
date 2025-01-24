@@ -597,12 +597,19 @@ def dist_cp_load(
             else:
                 raise e
     else:
-        dist_cp.load_state_dict(
-            state_dict=state_dict,
-            storage_reader=storage_reader,
-            planner=load_planner,
-            no_dist=(not dist.is_initialized()),
-        )
+        try:
+            from torch.distributed.checkpoint.utils import CheckpointException
+            dist_cp.load_state_dict(
+                state_dict=state_dict,
+                storage_reader=storage_reader,
+                planner=load_planner,
+                no_dist=(not dist.is_initialized()),
+            )
+        except CheckpointException as e:
+            if 'Missing key in checkpoint state_dict' in str(e) and "state.optimizers" in str(e):
+                log.info('Optimizers are not in the state_dict. Consider setting load_weights_only=True or checking if the optimizer state is saved in the checkpoint.')
+            else:
+                raise e
 
 
 def load_sharded_checkpoint(
