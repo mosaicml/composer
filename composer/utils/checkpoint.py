@@ -609,7 +609,7 @@ def dist_cp_load(
             if 'Missing key in checkpoint state_dict' in str(e) and 'state.optimizers' in str(e):
                 log.warning('Optimizer states are not in the state_dict and won\'t be loaded.')
                 log.warning(
-                    'Consider setting load_weights_only=True or ensure that the optimizer state is saved in the checkpoint.'
+                    'Consider setting load_weights_only=True or ensure that the optimizer state is saved in the checkpoint.',
                 )
             raise e
     else:
