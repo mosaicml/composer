@@ -596,9 +596,11 @@ def dist_cp_load(
                 sharded_tensor_util.traverse_state_dict = traverse_2_4_0
             else:
                 raise e
-    else:
+    elif (
+        version.parse(torch.__version__ ) >= version.parse('2.5.0')
+    ):
+        from torch.distributed.checkpoint.utils import CheckpointException
         try:
-            from torch.distributed.checkpoint.utils import CheckpointException
             dist_cp.load_state_dict(
                 state_dict=state_dict,
                 storage_reader=storage_reader,
@@ -607,9 +609,17 @@ def dist_cp_load(
             )
         except CheckpointException as e:
             if 'Missing key in checkpoint state_dict' in str(e) and "state.optimizers" in str(e):
-                log.info('Optimizers are not in the state_dict. Consider setting load_weights_only=True or checking if the optimizer state is saved in the checkpoint.')
+                log.warning('Optimizer states are not in the state_dict and won\'t be loaded. Run will continue with model weights loaded from dist_cp.load_state_dict.')
+                log.warning('Consider setting load_weights_only=True or ensure that the optimizer state is saved in the checkpoint.')
             else:
                 raise e
+    else:
+        dist_cp.load_state_dict(
+            state_dict=state_dict,
+            storage_reader=storage_reader,
+            planner=load_planner,
+            no_dist=(not dist.is_initialized()),
+        )
 
 
 def load_sharded_checkpoint(
