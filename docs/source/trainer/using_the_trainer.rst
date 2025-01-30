@@ -33,7 +33,7 @@ minimally implementing the following methods:
 
 -  ``def forward(batch) -> outputs`` : computes the forward pass based
    on the ``batch`` returned from the dataloader.
--  ``def loss(batch, outputs)``: returns the loss based on the
+-  ``def loss(outputs, batch)``: returns the loss based on the
    ``outputs`` from the forward pass and the dataloader.
 
 For more information, see the :doc:`ComposerModel</composer_model>` guide.
