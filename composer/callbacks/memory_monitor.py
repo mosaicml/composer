@@ -133,6 +133,7 @@ class MemoryMonitor(Callback):
         # Not relying on `torch.cuda.is_available()` since the model could be on CPU.
         model_device = next(state.model.parameters()).device
 
+        print('----UNGA BUNGA', model_device.type)
         if model_device.type == 'cpu':
             warnings.warn(f'The memory monitor only works on CUDA devices, but the model is on {model_device.type}.')
 
