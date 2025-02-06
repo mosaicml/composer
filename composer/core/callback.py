@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import abc
+import warnings
 from typing import TYPE_CHECKING, Any
 
 from composer.core.serializable import Serializable

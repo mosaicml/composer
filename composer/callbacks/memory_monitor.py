@@ -129,13 +129,11 @@ class MemoryMonitor(Callback):
         self.memory_keys = memory_keys
         self.dist_aggregate_batch_interval = dist_aggregate_batch_interval
 
-    def init(self, state: State, logger: Logger) -> None:
+    def after_load(self, state: State, logger: Logger) -> None:
         # Not relying on `torch.cuda.is_available()` since the model could be on CPU.
-        model_device = next(state.model.parameters()).device
-
-        print('----UNGA BUNGA', model_device.type)
-        if model_device.type == 'cpu':
-            warnings.warn(f'The memory monitor only works on CUDA devices, but the model is on {model_device.type}.')
+        devices = {p.device.type for p in state.model.parameters()}
+        if 'cuda' not in devices and 'meta' not in devices:
+            warnings.warn(f'The memory monitor only works on CUDA devices, but the model is on {devices}.')
 
     def after_train_batch(self, state: State, logger: Logger):
         memory_report = {}
