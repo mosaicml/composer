@@ -105,7 +105,7 @@ def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str],
     log.debug(f'Checkpoint at {checkpoint_filepath} is valid.')
     return checkpoint_filepath
 
-
+# TODO(Check): Whether the update with weights_only=True is going to be fine.
 def _torch_load_with_validation(checkpoint_filepath: Union[Path, str], map_location: str) -> Any:
     """Validates and loads a torch checkpoint.
 
@@ -559,7 +559,7 @@ def dist_cp_load(
 ):
     if (
         version.parse(torch.__version__) >= version.parse('2.4.0') and
-        version.parse(torch.__version__) < version.parse('2.5.0')
+        version.parse(torch.__version__) < version.parse('2.5.0') # TODO(Check): It seems that we shouldn't have a higher bound here.
     ):
         from torch.distributed.checkpoint.utils import CheckpointException
         try:
