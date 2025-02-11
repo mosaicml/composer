@@ -78,16 +78,16 @@ def _load_checkpoint(filename: Union[str, pathlib.Path]) -> dict[str, Any]:
             with tarfile.open(filename) as tarball:
                 tarball.extractall(tmp_dir)
             states_path = os.path.join(tmp_dir, _COMPOSER_STATES_FILENAME)
-            return torch.load(states_path, map_location='cpu')
+            return torch.load(states_path, map_location='cpu', weights_only=False)
 
     elif is_compressed_pt(filename):
         compressor = get_compressor(filename)
         with compressor.decompress(filename) as f:
             data = io.BytesIO(f.read())  # loading requires random access
-            return torch.load(data, map_location='cpu')
+            return torch.load(data, map_location='cpu', weights_only=False)
 
     else:
-        return torch.load(filename, map_location='cpu')
+        return torch.load(filename, map_location='cpu', weights_only=False)
 
 
 def _assert_checkpoints_equivalent(file1, file2, atol=0.0, rtol=0.0):
@@ -600,7 +600,7 @@ class TestCheckpointSaving:
         expected_integrations = trainer.state._get_integrations_state_dict()
         trainer.close()
         checkpoint_filepath = os.path.join(save_folder, save_filename.format(batch=1))
-        composer_state_dict = torch.load(checkpoint_filepath, map_location='cpu')
+        composer_state_dict = torch.load(checkpoint_filepath, map_location='cpu', weights_only=False)
 
         if save_weights_only:
             assert set(composer_state_dict['state'].keys()) == {'model', 'metadata', 'integrations'}

@@ -105,6 +105,7 @@ def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str],
     log.debug(f'Checkpoint at {checkpoint_filepath} is valid.')
     return checkpoint_filepath
 
+
 def _torch_load_with_validation(checkpoint_filepath: Union[Path, str], map_location: str) -> Any:
     """Validates and loads a torch checkpoint.
 

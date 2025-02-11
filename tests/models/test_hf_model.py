@@ -431,7 +431,7 @@ def test_hf_state_dict_info(
 
     dist.barrier()
 
-    loaded_checkpoint = torch.load(Path(gathered_paths[0]) / 'hf-checkpoint.pt')
+    loaded_checkpoint = torch.load(Path(gathered_paths[0]) / 'hf-checkpoint.pt', weights_only=False)
     hf_state = loaded_checkpoint['state']['integrations']['huggingface']
     hf_model_state = hf_state['model']
     hf_tokenizer_state = hf_state['tokenizer']
@@ -727,7 +727,7 @@ def test_hf_loading_sentencepiece_tokenizer(modify_tokenizer: bool, tmp_path: Pa
     trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
 
     if not save_fast:
-        sd = torch.load(str(tmp_path / 'hf-checkpoint.pt'))
+        sd = torch.load(str(tmp_path / 'hf-checkpoint.pt'), weights_only=False)
         # remove the fast tokenizer file from the checkpoint
         del sd['state']['integrations']['huggingface']['tokenizer']['tokenizer.json']
         torch.save(sd, str(tmp_path / 'hf-checkpoint.pt'))
@@ -1524,7 +1524,7 @@ def test_peft_fsdp_trains(
             torch.testing.assert_close(p1, p2)
 
     if dist.get_global_rank() == 0:
-        loaded_ckpt_1 = torch.load(str(tmp_path / 'trainer1' / 'hf-checkpoint.pt'))
+        loaded_ckpt_1 = torch.load(str(tmp_path / 'trainer1' / 'hf-checkpoint.pt'), weights_only=False)
 
         # Check that only the LoRA parameters were saved
         if should_save_peft_only:
