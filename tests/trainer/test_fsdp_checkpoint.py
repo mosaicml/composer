@@ -541,7 +541,7 @@ def test_fsdp_load_old_checkpoint(
              version.parse(torch.__version__) < version.parse('2.4.0')) or (
                  composer_version in ['0.26.0', '0.27.0', '0.28.0'] and
                  version.parse(torch.__version__) < version.parse('2.5.0')
-             ): # TODO(Check): Might need to add another check here?
+             ):
         pytest.skip('Current torch version is older than torch version that checkpoint was written with.')
 
     if composer_version in ['0.13.5', '0.14.0', '0.14.1', '0.15.1']:
