@@ -105,7 +105,6 @@ def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str],
     log.debug(f'Checkpoint at {checkpoint_filepath} is valid.')
     return checkpoint_filepath
 
-# TODO(Check): Whether the update with weights_only=True is going to be fine.
 def _torch_load_with_validation(checkpoint_filepath: Union[Path, str], map_location: str) -> Any:
     """Validates and loads a torch checkpoint.
 
@@ -113,7 +112,7 @@ def _torch_load_with_validation(checkpoint_filepath: Union[Path, str], map_locat
         checkpoint_filepath (Union[Path,str]): The path to the checkpoint file.
         map_location (str): The location to load the checkpoint to.
     """
-    return torch.load(_ensure_valid_checkpoint(checkpoint_filepath), map_location=map_location)
+    return torch.load(_ensure_valid_checkpoint(checkpoint_filepath), map_location=map_location, weights_only=False)
 
 
 def _format_path_with_rank_zero(path: str) -> str:
