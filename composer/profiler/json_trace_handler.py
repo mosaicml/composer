@@ -10,6 +10,7 @@ import json
 import os
 import pathlib
 import queue
+import shutil
 import tempfile
 import textwrap
 import time
@@ -336,7 +337,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
                     # Include the existing merged trace in the new trace
                     with tempfile.NamedTemporaryFile('x+', delete=False) as f:
                         merge_traces(f.name, merged_trace_filename, *trace_files_to_merge)
-                        os.rename(f.name, merged_trace_filename)
+                        shutil.move(f.name, merged_trace_filename)
                 else:
                     # Write the trace directly
                     merge_traces(merged_trace_filename, *trace_files_to_merge)
