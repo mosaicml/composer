@@ -183,6 +183,8 @@ filterwarnings = [
     '''ignore:.*NVML Shared Library Not Found. GPU usage metrics may not be reported.*''',
     # Ignore HuggingFace future warnings
     '''ignore:.*`clean_up_tokenization_spaces` was not set.*:FutureWarning''',
+    # Ignore _get_pg_default_device deprecation warning, it's used by torch internal, not composer
+    '''ignore:.*`_get_pg_default_device` will be deprecated.*:UserWarning''',
 ]
 
 # Coverage
