@@ -95,7 +95,7 @@ def enlarge_mask(module: torch.nn.Module, max_sequence_length: int) -> torch.nn.
         torch.ones(
             (max_sequence_length, max_sequence_length),  # type: ignore
             dtype=torch.uint8,
-            device=old_mask.device,
+            device=old_mask.device,  # type: ignore
         ),
     ).view(1, 1, max_sequence_length, max_sequence_length)  # type: ignore
     setattr(module, 'bias', new_mask)
