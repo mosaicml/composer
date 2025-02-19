@@ -354,7 +354,7 @@ def test_fsdp_subset_of_params_in_opt(world_size: int):
         max_duration='3ba',
     )
 
-    with trainer.state.model.module.summon_full_params(trainer.state.model.module):
+    with trainer.state.model.module.summon_full_params(trainer.state.model.module):  # type: ignore
         nb_parameters_before_fsdp = len(unwrapped_optimizer.param_groups[0]['params'])
         nb_parameters_after_fsdp = len(trainer.state.optimizers[0].param_groups[0]['params'])
 
@@ -435,17 +435,17 @@ def test_fsdp_act_ckpt_offload(
         from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import OffloadWrapper
 
         if activation_checkpointing and activation_cpu_offload:
-            assert isinstance(trainer.state.model.fc1._fsdp_wrapped_module, OffloadWrapper)
+            assert isinstance(trainer.state.model.fc1._fsdp_wrapped_module, OffloadWrapper)  # type: ignore
             assert isinstance(
-                trainer.state.model.fc1._fsdp_wrapped_module._checkpoint_wrapped_module,
+                trainer.state.model.fc1._fsdp_wrapped_module._checkpoint_wrapped_module,  # type: ignore
                 CheckpointWrapper,
             )
         elif activation_checkpointing:
-            assert isinstance(trainer.state.model.fc1._fsdp_wrapped_module, CheckpointWrapper)
+            assert isinstance(trainer.state.model.fc1._fsdp_wrapped_module, CheckpointWrapper)  # type: ignore
         elif activation_cpu_offload:
-            assert isinstance(trainer.state.model.fc1._fsdp_wrapped_module, OffloadWrapper)
+            assert isinstance(trainer.state.model.fc1._fsdp_wrapped_module, OffloadWrapper)  # type: ignore
         else:
-            assert not isinstance(trainer.state.model.fc1._fsdp_wrapped_module, CheckpointWrapper)
+            assert not isinstance(trainer.state.model.fc1._fsdp_wrapped_module, CheckpointWrapper)  # type: ignore
 
 
 @pytest.mark.gpu
@@ -473,16 +473,16 @@ def test_fsdp_reshard_after_oom(world_size: int):
         # which prevents fsdp reshard and cleanup
         torch.sum(output).backward()
 
-    fc2_flat_param = fsdp_model.fc2._flat_param
+    fc2_flat_param = fsdp_model.fc2._flat_param  # type: ignore
 
     # Without cleanup, model.fc2.flat_params is still in unshard state
     # the full param is not freed
-    assert fc2_flat_param.data_ptr() != fc2_flat_param._local_shard.data_ptr()
-    assert fc2_flat_param._full_param_padded.numel() > 0
+    assert fc2_flat_param.data_ptr() != fc2_flat_param._local_shard.data_ptr()  # type: ignore
+    assert fc2_flat_param._full_param_padded.numel() > 0  # type: ignore
 
     _fsdp_reshard_and_cleanup(fsdp_model)
-    assert fc2_flat_param.data_ptr() == fc2_flat_param._local_shard.data_ptr()
-    assert fc2_flat_param._full_param_padded._typed_storage()._size() == 0
+    assert fc2_flat_param.data_ptr() == fc2_flat_param._local_shard.data_ptr()  # type: ignore
+    assert fc2_flat_param._full_param_padded._typed_storage()._size() == 0  # type: ignore
 
 
 @pytest.mark.gpu
