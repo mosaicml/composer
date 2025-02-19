@@ -77,7 +77,7 @@ The above code, when run, will produce the checkpoints below:
     >>> trainer.saved_checkpoints
     ['./path/to/checkpoints/ep1.pt']
     >>> latest_checkpoint = trainer.saved_checkpoints[-1]
-    >>> state_dict = torch.load(latest_checkpoint)
+    >>> state_dict = torch.load(latest_checkpoint, weights_only=False)
     >>> list(state_dict)
     ['state', 'rng']
     >>> list(state_dict['state'].keys())
@@ -288,7 +288,7 @@ model outside of a :class:`.Trainer`, use :meth:`torch.load`:
 .. testcode::
 
     model = Model(num_channels, num_classes)
-    state_dict = torch.load("./path/to/checkpoints/ep1.pt")
+    state_dict = torch.load("./path/to/checkpoints/ep1.pt", weights_only=False)
     model.load_state_dict(state_dict["state"]["model"])
 
 Uploading Checkpoints to Object Store

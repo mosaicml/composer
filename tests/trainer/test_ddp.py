@@ -227,7 +227,7 @@ def _assert_inputs_different(tmp_path, max_epochs, is_train):
             is_train=is_train,
             tmp_path=tmp_path,
         )
-        state_dict = torch.load(file_path, map_location='cpu')
+        state_dict = torch.load(file_path, map_location='cpu', weights_only=False)
 
         for input in inputs:
             if torch.allclose(state_dict['last_input'], input):

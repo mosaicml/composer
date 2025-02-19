@@ -54,8 +54,8 @@ class MaskedAccuracy(Metric):
         masked_target = target[mask]
         masked_preds = preds[mask]
 
-        self.correct += torch.sum(masked_preds == masked_target)
-        self.total += mask.sum()
+        self.correct += torch.sum(masked_preds == masked_target)  # type: ignore
+        self.total += mask.sum()  # type: ignore
 
     def compute(self):
         assert isinstance(self.correct, Tensor)
@@ -154,9 +154,9 @@ class BinaryF1Score(Metric):
             target (~torch.Tensor): A Tensor of ground-truth values to compare against.
         """
         predictions = torch.argmax(output, dim=1)
-        self.true_positive += predictions[(target == 1)].sum()
-        self.false_positive += (predictions[(target == 1)] == 0).sum()
-        self.false_negative += (predictions[(target == 0)] == 1).sum()
+        self.true_positive += predictions[(target == 1)].sum()  # type: ignore
+        self.false_positive += (predictions[(target == 1)] == 0).sum()  # type: ignore
+        self.false_negative += (predictions[(target == 0)] == 1).sum()  # type: ignore
 
     def compute(self) -> Tensor:
         """Aggregate the state over all processes to compute the metric.

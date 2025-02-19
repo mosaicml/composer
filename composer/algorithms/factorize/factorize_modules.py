@@ -96,7 +96,7 @@ def _apply_solution_to_module_parameters(
 
     with torch.no_grad():
         # first op always has no bias since adds no expressivity
-        if module0.bias is not None:
+        if module0.bias is not None:  # type: ignore
             assert isinstance(module0.bias, torch.Tensor)
             module0.bias = torch.nn.parameter.Parameter(
                 torch.zeros(solution.rank, dtype=module0.bias.dtype).to(device=module0.bias.device),
@@ -130,7 +130,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
     def forward(self, input: torch.Tensor):  # type: ignore reportIncompatibleMethodOverride
         self._check_child_modules_present()
         ret = self.module0(input)  # type: ignore reportGeneralTypeIssues
-        if self.module1 is not None:
+        if self.module1 is not None:  # type: ignore
             ret = self.module1(ret)  # type: ignore reportGeneralTypeIssues
         return ret
 
@@ -167,7 +167,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
         return _clean_latent_size(latent_size, self.in_size, self.out_size)
 
     def _max_rank_with_speedup(self):
-        if hasattr(self, 'module1') and self.module1 is not None:
+        if hasattr(self, 'module1') and self.module1 is not None:  # type: ignore
             # already factorized, so reducing rank at all helps
             return self.latent_size - 1
         else:
