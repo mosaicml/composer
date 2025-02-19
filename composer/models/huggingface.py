@@ -167,7 +167,7 @@ class HuggingFaceModel(ComposerModel):
                     f' This would cause an error during training.'
                     f' Resizing the model embeddings to {len(self.tokenizer)} from {self.config.vocab_size}.',
                 )
-                self.model.resize_token_embeddings(len(self.tokenizer))
+                self.model.resize_token_embeddings(len(self.tokenizer), mean_resizing=False)
             else:
                 raise ValueError(
                     f'The number of tokens in the tokenizer is greater than the number of tokens in the model.'
