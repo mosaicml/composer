@@ -1,4 +1,4 @@
-# Copyright 2022 MosaicML Composer authors
+# Copyright 2025 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
 """Configuration file for the Sphinx documentation builder.
@@ -61,7 +61,7 @@ log = sphinx.util.logging.getLogger(__name__)
 # -- Project information -----------------------------------------------------
 
 project = 'MosaicML'
-copyright = '2022, MosaicML, Inc.'
+copyright = '2025, MosaicML, Inc.'
 author = 'MosaicML'
 
 # -- General configuration ---------------------------------------------------
