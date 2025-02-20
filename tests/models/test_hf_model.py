@@ -1447,14 +1447,18 @@ def test_peft_write_hf_from_composer(
         tmp_path / 'hf-save-pretrained',
     )
 
+    # Validating that this is an instance of a subclass of torch.nn.Module
+    # since it can either be a PeftModel or PreTrainedModel
+    assert isinstance(trainer.state.model.model, torch.nn.Module)
+
     # Test we can load back in using transformers interface
     loaded_hf_model = transformers.AutoModelForCausalLM.from_pretrained(str(tmp_path / 'hf-save-pretrained'))
-    for p1, p2 in zip(trainer.state.model.model.parameters(), loaded_hf_model.parameters()):  # type: ignore
+    for p1, p2 in zip(trainer.state.model.model.parameters(), loaded_hf_model.parameters()):
         torch.testing.assert_close(p1, p2)
 
     # Test we can load back in using peft interface
     loaded_peft_model = peft.PeftModelForCausalLM.from_pretrained(tiny_gpt2_model, str(tmp_path / 'hf-save-pretrained'))
-    for p1, p2 in zip(trainer.state.model.model.parameters(), loaded_peft_model.parameters()):  # type: ignore
+    for p1, p2 in zip(trainer.state.model.model.parameters(), loaded_peft_model.parameters()):
         torch.testing.assert_close(p1, p2)
 
 
@@ -1490,7 +1494,8 @@ def test_peft_fsdp_trains(
         should_save_peft_only=should_save_peft_only,
     )
 
-    for n, p in trainer.state.model.model.named_parameters():  # type: ignore
+    assert isinstance(trainer.state.model.model, torch.nn.Module)
+    for n, p in trainer.state.model.model.named_parameters():
         if 'lora' in n:
             assert p.requires_grad
         else:
@@ -1511,7 +1516,8 @@ def test_peft_fsdp_trains(
         should_save_peft_only=should_save_peft_only,
     )
 
-    for n, p in load_trainer.state.model.model.named_parameters():  # type: ignore
+    assert isinstance(load_trainer.state.model.model, torch.nn.Module)
+    for n, p in load_trainer.state.model.model.named_parameters():
         if 'lora' in n:
             assert p.requires_grad
         else:
