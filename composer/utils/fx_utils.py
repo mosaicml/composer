@@ -261,9 +261,6 @@ def _can_linears_be_fused(linear_nodes: list[Node], all_modules: Mapping[str, nn
     """Check if all the linears have bias."""
     # Forcing node.target to str is fine here as we are dealing with nn.Modules
     # and their target is a str.
-    # NOTE: It seems that bias is now typed Tensor | Module, so None is not valid
-    # therefore, this function always returns True. Do we need a deep dive into this?
-
     bias = all_modules[str(linear_nodes[0].target)].bias is None  # pyright: ignore[reportUnnecessaryComparison]
 
     return all(
