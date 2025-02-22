@@ -848,7 +848,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
             """Monkeypatch device_mesh __getitem__ to nightly version.
 
             Slice the current DeviceMesh based on the mesh_dim_name given to create a child
-            DeviceMesh.
+            DeviceMesh. This is a function.
 
             Args:
                 mesh_dim_name (Union[str, Tuple[str]]): the name or the tuple of names of the
