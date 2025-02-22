@@ -156,6 +156,7 @@ class BinaryF1Score(Metric):
             target (~torch.Tensor): A Tensor of ground-truth values to compare against.
         """
         predictions = torch.argmax(output, dim=1)
+
         assert isinstance(self.true_positive, Tensor)
         assert isinstance(self.false_positive, Tensor)
         assert isinstance(self.false_negative, Tensor)
