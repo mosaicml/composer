@@ -113,7 +113,7 @@ def _torch_load_with_validation(checkpoint_filepath: Union[Path, str], map_locat
         checkpoint_filepath (Union[Path,str]): The path to the checkpoint file.
         map_location (str): The location to load the checkpoint to.
     """
-    return torch.load(_ensure_valid_checkpoint(checkpoint_filepath), map_location=map_location)
+    return torch.load(_ensure_valid_checkpoint(checkpoint_filepath), map_location=map_location, weights_only=False)
 
 
 def _format_path_with_rank_zero(path: str) -> str:
@@ -557,10 +557,7 @@ def dist_cp_load(
     storage_reader: StorageReader,
     load_planner: Optional[LoadPlanner] = None,
 ):
-    if (
-        version.parse(torch.__version__) >= version.parse('2.4.0') and
-        version.parse(torch.__version__) < version.parse('2.5.0')
-    ):
+    if version.parse(torch.__version__) >= version.parse('2.4.0'):
         from torch.distributed.checkpoint.utils import CheckpointException
         try:
             dist_cp.load(

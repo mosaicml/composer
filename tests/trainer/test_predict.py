@@ -127,5 +127,5 @@ class TestTrainerPredict():
         for output in outputs:
             assert output.device.type == 'cpu'
 
-        loaded_output = torch.load(os.path.join(folder, 'batch_1.pt'), map_location='cpu')
+        loaded_output = torch.load(os.path.join(folder, 'batch_1.pt'), map_location='cpu', weights_only=False)
         assert loaded_output.shape == (1, 2)

@@ -354,6 +354,11 @@ def test_fsdp_subset_of_params_in_opt(world_size: int):
         max_duration='3ba',
     )
 
+    # Validating that the model is a subclass of torch.nn.Module and has a valid callable for `summon_full_params`
+    assert isinstance(trainer.state.model.module, torch.nn.Module)
+    assert hasattr(trainer.state.model.module, 'summon_full_params')
+    assert callable(trainer.state.model.module.summon_full_params)
+
     with trainer.state.model.module.summon_full_params(trainer.state.model.module):
         nb_parameters_before_fsdp = len(unwrapped_optimizer.param_groups[0]['params'])
         nb_parameters_after_fsdp = len(trainer.state.optimizers[0].param_groups[0]['params'])
@@ -434,6 +439,8 @@ def test_fsdp_act_ckpt_offload(
     if version.parse(torch.__version__) > version.parse('2.1.0.dev'):
         from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import OffloadWrapper
 
+        assert isinstance(trainer.state.model.fc1, torch.nn.Module)
+
         if activation_checkpointing and activation_cpu_offload:
             assert isinstance(trainer.state.model.fc1._fsdp_wrapped_module, OffloadWrapper)
             assert isinstance(
@@ -473,16 +480,18 @@ def test_fsdp_reshard_after_oom(world_size: int):
         # which prevents fsdp reshard and cleanup
         torch.sum(output).backward()
 
+    assert isinstance(fsdp_model.fc2, torch.nn.Module)
+
     fc2_flat_param = fsdp_model.fc2._flat_param
 
     # Without cleanup, model.fc2.flat_params is still in unshard state
     # the full param is not freed
-    assert fc2_flat_param.data_ptr() != fc2_flat_param._local_shard.data_ptr()
-    assert fc2_flat_param._full_param_padded.numel() > 0
+    assert fc2_flat_param.data_ptr() != fc2_flat_param._local_shard.data_ptr()  # type: ignore
+    assert fc2_flat_param._full_param_padded.numel() > 0  # type: ignore
 
     _fsdp_reshard_and_cleanup(fsdp_model)
-    assert fc2_flat_param.data_ptr() == fc2_flat_param._local_shard.data_ptr()
-    assert fc2_flat_param._full_param_padded._typed_storage()._size() == 0
+    assert fc2_flat_param.data_ptr() == fc2_flat_param._local_shard.data_ptr()  # type: ignore
+    assert fc2_flat_param._full_param_padded._typed_storage()._size() == 0  # type: ignore
 
 
 @pytest.mark.gpu

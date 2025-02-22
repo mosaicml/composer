@@ -73,14 +73,14 @@ def _svd_initialize(Wa: torch.Tensor, Wb: Optional[torch.Tensor], k: int) -> tup
 
     # TODO rank k randomized svd if k small enough
     U, s, Vt = torch.linalg.svd(W, full_matrices=False)
-    Wa = U[:, :k]
-    Wb = Vt[:k]
+    Wa_svd = U[:, :k]
+    Wb_svd = Vt[:k]
 
     # scale matrices equally for numerical "load-balancing"
     s_sqrt = torch.sqrt(s[:k])  # s is already a vector, not mat
-    Wa *= s_sqrt
-    Wb *= s_sqrt.reshape(-1, 1)
-    return Wa, Wb
+    Wa_svd *= s_sqrt
+    Wb_svd *= s_sqrt.reshape(-1, 1)
+    return Wa_svd, Wb_svd
 
 
 def factorize_matrix(
