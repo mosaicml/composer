@@ -15,8 +15,8 @@ jobs:
     strategy:
       matrix:
         include:
-        - name: gpu-3.11-2.5-1
-          container: mosaicml/pytorch:2.5.1_cu124-python3.11-ubuntu22.04
+        - name: gpu-3.11-2.6-1
+          container: mosaicml/pytorch:2.6.0_cu124-python3.11-ubuntu22.04
           markers: not daily and not remote and gpu and (doctest or not doctest)
           pytest_command: coverage run -m pytest
           composer_package_name: mosaicml
@@ -44,8 +44,8 @@ jobs:
     strategy:
       matrix:
         include:
-        - name: gpu-3.11-2.5-2
-          container: mosaicml/pytorch:2.5.1_cu124-python3.11-ubuntu22.04
+        - name: gpu-3.11-2.6-2
+          container: mosaicml/pytorch:2.6.0_cu124-python3.11-ubuntu22.04
           markers: not daily and not remote and gpu and (doctest or not doctest)
           pytest_command: coverage run -m pytest
           composer_package_name: mosaicml
@@ -74,8 +74,8 @@ jobs:
     strategy:
       matrix:
         include:
-        - name: gpu-3.11-2.5-4
-          container: mosaicml/pytorch:2.5.1_cu124-python3.11-ubuntu22.04
+        - name: gpu-3.11-2.6-4
+          container: mosaicml/pytorch:2.6.0_cu124-python3.11-ubuntu22.04
           markers: not daily and not remote and gpu and (doctest or not doctest)
           pytest_command: coverage run -m pytest
           composer_package_name: mosaicml

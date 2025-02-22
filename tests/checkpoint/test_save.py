@@ -123,7 +123,7 @@ def test_save_optim_to_disk(world_size: int, tmp_path: str, sharded_optimizer: b
     else:
         if dist.get_global_rank() == 0:
             expected_file_path = destination_dir
-            cur_state_dict = torch.load(expected_file_path, map_location='cuda')
+            cur_state_dict = torch.load(expected_file_path, map_location='cuda', weights_only=False)
 
     deep_compare(optim_state_dict_saved, cur_state_dict)
 
@@ -161,7 +161,7 @@ def test_save_model_to_disk(world_size: int, tmp_path: str, sharded_model: bool,
     else:
         if dist.get_global_rank() == 0:
             expected_file_path = destination_dir
-            cur_state_dict = torch.load(expected_file_path, map_location='cuda')
+            cur_state_dict = torch.load(expected_file_path, map_location='cuda', weights_only=False)
 
     deep_compare(state_dict_saved, cur_state_dict)
 
@@ -183,7 +183,7 @@ def test_save_full_state_dict_to_disk(world_size: int, tmp_path: str, sharded_mo
         assert path_saved is not None
         assert path_saved == destination_file_path
         assert os.path.exists(destination_file_path), f'{destination_file_path} does not exist'
-        loaded_state_dict = torch.load(path_saved, map_location='cuda')
+        loaded_state_dict = torch.load(path_saved, map_location='cuda', weights_only=False)
         deep_compare(state_dict, loaded_state_dict)
     else:
         assert path_saved is None

@@ -127,8 +127,8 @@ def test_algorithm_resumption(
 
 def _assert_checkpoints_equal(file1, file2):
     # TODO: consider merging with _assert_checkpoints_equivalent
-    checkpoint1 = torch.load(file1)
-    checkpoint2 = torch.load(file2)
+    checkpoint1 = torch.load(file1, weights_only=False)
+    checkpoint2 = torch.load(file2, weights_only=False)
 
     # compare rng
     deep_compare(checkpoint1['rng'], checkpoint2['rng'])
@@ -164,7 +164,7 @@ def _assert_checkpoints_equal(file1, file2):
 
 
 def _assert_model_weights_equal(file1, file2):
-    checkpoint1 = torch.load(file1)
-    checkpoint2 = torch.load(file2)
+    checkpoint1 = torch.load(file1, weights_only=False)
+    checkpoint2 = torch.load(file2, weights_only=False)
 
     deep_compare(checkpoint1['state']['model'], checkpoint2['state']['model'])

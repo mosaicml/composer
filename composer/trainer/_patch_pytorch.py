@@ -115,6 +115,11 @@ def patch_pytorch():
         # No monkeypatches besides unshard (below)!
         pass
 
+    elif version.parse(torch.__version__) < version.parse('2.6.1'):
+        # Monkey patch for torch < 2.6.1 ie torch == 2.6.0
+
+        # No monkeypatches besides unshard (below)!
+        pass
 
 if version.parse(torch.__version__) >= version.parse('2.2.1') and version.parse(
         torch.__version__,) < version.parse('2.2.3'):
@@ -1055,7 +1060,7 @@ if version.parse(torch.__version__) >= version.parse('2.4.0') and version.parse(
 
 if version.parse(torch.__version__) >= version.parse('2.5.0') and version.parse(
         torch.__version__,
-) < version.parse('2.5.2'):
+) < version.parse('2.6.1'):
 
     # Save original FlatParamHandle.unshard to revert back to when dropping automicrobatching hooks
     from torch.distributed.fsdp._flat_param import FlatParamHandle

@@ -91,6 +91,7 @@ def enlarge_mask(module: torch.nn.Module, max_sequence_length: int) -> torch.nn.
     This is necessary for evaluating on sequence lengths longer than the model was initialized to accommodate.
     """
     old_mask = module.bias
+    assert isinstance(old_mask.device, (torch.device, str, int))  # Asserting DeviceLikeType
     new_mask = torch.tril(
         torch.ones(
             (max_sequence_length, max_sequence_length),  # type: ignore

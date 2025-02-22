@@ -683,7 +683,7 @@ def test_fsdp_load_old_checkpoint(
 
             get_file(filled_load_path, destination=destination)
             with open(destination, 'rb') as f:
-                state_dict1 = torch.load(f)['state']
+                state_dict1 = torch.load(f, weights_only=False)['state']
 
         _compare_model_params_between_state_dicts(state_dict1, state_dict2)
         _compare_optims_between_state_dicts(state_dict1, state_dict2)
