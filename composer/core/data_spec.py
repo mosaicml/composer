@@ -14,7 +14,7 @@ import torch
 import torch.utils.data
 from torch.utils.data.distributed import DistributedSampler
 
-from composer.utils import VersionedDeprecationWarning, dist, ensure_tuple
+from composer.utils import dist, ensure_tuple
 
 if TYPE_CHECKING:
     from composer.core.types import Batch
@@ -155,10 +155,6 @@ class DataSpec:
         num_tokens (int, optional): The total number of tokens in an epoch. This field is used by the
             :class:`.Timestamp` (training progress tracker).
 
-        device_transforms ((Batch) -> Batch, optional): Deprecated argument. Please use ``batch_transforms`` for batch
-            level transformations on CPU and ``microbatch_transforms`` for microbatch level transformations on target
-            device.
-
         batch_transforms ((Batch) -> Batch, optional): Function called by the :class:`.Trainer` to modify the
             batch before it is moved onto the device. For example, this function can be used for CPU-based
             normalization. It can modify the batch in-place, and it should return the modified batch. If not specified,
@@ -194,7 +190,6 @@ class DataSpec:
         dataloader: Union[Iterable, torch.utils.data.DataLoader],
         num_samples: Optional[int] = None,
         num_tokens: Optional[int] = None,
-        device_transforms: Optional[Callable[[Batch], Batch]] = None,
         batch_transforms: Optional[Callable[[Batch], Batch]] = None,
         microbatch_transforms: Optional[Callable[[Batch], Batch]] = None,
         split_batch: Optional[Callable[[Batch, Union[int, float]], Sequence[Batch]]] = None,
@@ -203,22 +198,6 @@ class DataSpec:
     ) -> None:
         self.dataloader: Union[Iterable, torch.utils.data.DataLoader] = dataloader
         self.num_tokens = num_tokens
-        if device_transforms is not None:
-            if batch_transforms is not None:
-                raise ValueError(
-                    'Cannot specify both `device_transforms` and `batch_transforms`. Please use `batch_transforms` for '
-                    'batch level transformations on CPU and `microbatch_transforms` for microbatch level transformations '
-                    'on target device.',
-                )
-            warnings.warn(
-                VersionedDeprecationWarning(
-                    'The `device_transforms` argument is deprecated. Please use `batch_transforms` for batch level '
-                    'transformations on CPU and `microbatch_transforms` for microbatch level transformations on target '
-                    'device.',
-                    'v0.29.0',
-                ),
-            )
-            self.batch_transforms = device_transforms
         self.batch_transforms = self._default_transforms if batch_transforms is None else batch_transforms
         self.microbatch_transforms = self._default_transforms if microbatch_transforms is None else microbatch_transforms
         self.split_batch = default_split_batch if split_batch is None else split_batch
