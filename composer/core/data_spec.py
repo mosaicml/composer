@@ -155,11 +155,6 @@ class DataSpec:
         num_tokens (int, optional): The total number of tokens in an epoch. This field is used by the
             :class:`.Timestamp` (training progress tracker).
 
-        device_transforms ((Batch) -> Batch, optional): This argument has been removed as of version 0.29.0.
-            Please use ``batch_transforms`` for batch-level transformations on CPU and ``microbatch_transforms`` for
-            microbatch-level transformations on the target device. Passing this argument will now raise an error
-            and this argument will be entirely removed in version 0.30.0.
-
         batch_transforms ((Batch) -> Batch, optional): Function called by the :class:`.Trainer` to modify the
             batch before it is moved onto the device. For example, this function can be used for CPU-based
             normalization. It can modify the batch in-place, and it should return the modified batch. If not specified,
@@ -195,7 +190,6 @@ class DataSpec:
         dataloader: Union[Iterable, torch.utils.data.DataLoader],
         num_samples: Optional[int] = None,
         num_tokens: Optional[int] = None,
-        device_transforms: Optional[Callable[[Batch], Batch]] = None,
         batch_transforms: Optional[Callable[[Batch], Batch]] = None,
         microbatch_transforms: Optional[Callable[[Batch], Batch]] = None,
         split_batch: Optional[Callable[[Batch, Union[int, float]], Sequence[Batch]]] = None,
@@ -204,12 +198,6 @@ class DataSpec:
     ) -> None:
         self.dataloader: Union[Iterable, torch.utils.data.DataLoader] = dataloader
         self.num_tokens = num_tokens
-        if device_transforms is not None:
-            raise ValueError(
-                'The `device_transforms` argument has been removed as of version 0.29.0. Please use `batch_transforms` for batch level '
-                'transformations on CPU and `microbatch_transforms` for microbatch level transformations on target '
-                'device.',
-            )
         self.batch_transforms = self._default_transforms if batch_transforms is None else batch_transforms
         self.microbatch_transforms = self._default_transforms if microbatch_transforms is None else microbatch_transforms
         self.split_batch = default_split_batch if split_batch is None else split_batch
