@@ -157,8 +157,11 @@ class UCObjectStore(ObjectStore):
         """
         # remove unused variable
         del callback
-        with open(filename, 'rb') as f:
-            self.client.files.upload(self._get_object_path(object_name), f)
+        try:
+            with open(filename, 'rb') as f:
+                self.client.files.upload(self._get_object_path(object_name), f)
+        except Exception as e:
+            _wrap_errors(self.get_uri(object_name), e)
 
     def download_object(
         self,
@@ -192,7 +195,6 @@ class UCObjectStore(ObjectStore):
         tmp_path = str(filename) + f'{uuid.uuid4()}.tmp'
 
         try:
-
             try:
                 contents = self.client.files.download(self._get_object_path(object_name)).contents
                 assert contents is not None
