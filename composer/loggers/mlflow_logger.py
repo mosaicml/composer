@@ -153,7 +153,7 @@ class MLFlowLogger(LoggerDestination):
                 conda_package='mlflow',
                 conda_channel='conda-forge',
             ) from e
-        
+
         try:
             import torch
             has_gpu = torch.cuda.is_available()
