@@ -154,12 +154,6 @@ class MLFlowLogger(LoggerDestination):
                 conda_channel='conda-forge',
             ) from e
 
-        try:
-            import torch
-            has_gpu = torch.cuda.is_available()
-        except ImportError:
-            has_gpu = False
-
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
 
         self.experiment_name = experiment_name
@@ -169,7 +163,7 @@ class MLFlowLogger(LoggerDestination):
         self.model_registry_prefix = model_registry_prefix
         self.model_registry_uri = model_registry_uri
         self.synchronous = synchronous
-        self.log_system_metrics = log_system_metrics if has_gpu else False
+        self.log_system_metrics = log_system_metrics
         self.rename_metrics = {} if rename_metrics is None else rename_metrics
         self.ignore_metrics = [] if ignore_metrics is None else ignore_metrics
         self.ignore_hyperparameters = [] if ignore_hyperparameters is None else ignore_hyperparameters
