@@ -153,7 +153,6 @@ class MLFlowLogger(LoggerDestination):
                 conda_package='mlflow',
                 conda_channel='conda-forge',
             ) from e
-
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
 
         self.experiment_name = experiment_name
