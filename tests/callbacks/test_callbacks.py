@@ -96,6 +96,7 @@ class TestCallbacks:
         # Add special handling for MLFlowLogger
         if cb_cls.__name__ == 'MLFlowLogger':
             import unittest.mock as mock
+
             import mlflow.utils.file_utils
 
             original_is_directory = mlflow.utils.file_utils.is_directory
@@ -110,7 +111,7 @@ class TestCallbacks:
                 engine.close()
                 engine.close()
             return  # Exit early for MLFlowLogger
-        
+
         # Normal flow for other callbacks
         engine.run_event(Event.INIT)
         engine.close()
