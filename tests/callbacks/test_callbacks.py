@@ -258,6 +258,7 @@ class TestCallbackTrains:
         # For MLFlowLogger, add a patch for the file_utils.is_directory function
         if cb_cls.__name__ == 'MLFlowLogger':
             import unittest.mock as mock
+
             import mlflow.utils.file_utils
 
             original_is_directory = mlflow.utils.file_utils.is_directory
