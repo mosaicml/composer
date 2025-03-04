@@ -7,7 +7,6 @@ import os
 import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from types import GeneratorType
 
 import numpy as np
 import pytest
@@ -24,6 +23,7 @@ from tests.models.test_hf_model import (
     check_hf_model_equivalence,
     check_hf_tokenizer_equivalence,
 )
+
 
 @pytest.fixture(autouse=True)  # type: ignore
 def cleanup_mlflow_runs():
