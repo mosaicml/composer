@@ -7,6 +7,7 @@ import os
 import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+from types import GeneratorType
 
 import numpy as np
 import pytest
@@ -23,6 +24,19 @@ from tests.models.test_hf_model import (
     check_hf_model_equivalence,
     check_hf_tokenizer_equivalence,
 )
+
+@pytest.fixture(autouse=True)  # type: ignore
+def cleanup_mlflow_runs():
+    """Clean up any active MLflow runs before and after each test."""
+    mlflow = pytest.importorskip('mlflow')
+
+    # Clean up any existing runs before the test
+    while mlflow.active_run():
+        mlflow.end_run()
+    yield
+
+    while mlflow.active_run():
+        mlflow.end_run()
 
 
 def _get_latest_mlflow_run(experiment_name, tracking_uri=None):
