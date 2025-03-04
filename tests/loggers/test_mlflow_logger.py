@@ -24,20 +24,23 @@ from tests.models.test_hf_model import (
     check_hf_tokenizer_equivalence,
 )
 
-
-@pytest.fixture(autouse=True)  # type: ignore
-def cleanup_mlflow_runs():
-    """Clean up any active MLflow runs before and after each test."""
+@pytest.fixture(autouse=True, scope="session") #  pyright: ignore
+def patch_mlflow():
+    """Patch MLflow to ensure runs are always closed properly."""
     mlflow = pytest.importorskip('mlflow')
+    
+    original_start_run = mlflow.start_run
+    
+    def patched_start_run(*args, **kwargs):
+        # End any active runs first
+        while mlflow.active_run():
+            mlflow.end_run()
 
-    # Clean up any existing runs before the test
-    while mlflow.active_run():
-        mlflow.end_run()
-    yield
-
-    while mlflow.active_run():
-        mlflow.end_run()
-
+        return original_start_run(*args, **kwargs)
+    
+    # Apply the patch
+    with patch('mlflow.start_run', patched_start_run):
+        yield
 
 def _get_latest_mlflow_run(experiment_name, tracking_uri=None):
     pytest.importorskip('mlflow')
