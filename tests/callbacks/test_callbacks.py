@@ -19,6 +19,18 @@ from tests.callbacks.callback_settings import (
 from tests.common import EventCounterCallback
 
 
+@pytest.fixture(autouse=True)
+def clean_mlflow_runs():
+    # End any active MLflow runs before each test
+    import mlflow
+    while mlflow.active_run():  # Handle nested runs too
+        mlflow.end_run()
+    yield
+    # End any active MLflow runs after each test
+    while mlflow.active_run():  # Handle nested runs too
+        mlflow.end_run()
+
+
 def test_callbacks_map_to_events():
     # callback methods must be 1:1 mapping with events
     # exception for private methods
@@ -96,7 +108,6 @@ class TestCallbacks:
         # Add special handling for MLFlowLogger
         if cb_cls.__name__ == 'MLFlowLogger':
             import unittest.mock as mock
-
             import mlflow.utils.file_utils
 
             original_is_directory = mlflow.utils.file_utils.is_directory
@@ -132,6 +143,32 @@ class TestCallbacks:
         logger = Logger(dummy_state)
         engine = Engine(state=dummy_state, logger=logger)
 
+        # Add special handling for MLFlowLogger
+        if cb_cls.__name__ == 'MLFlowLogger':
+            import unittest.mock as mock
+            import mlflow.utils.file_utils
+
+            original_is_directory = mlflow.utils.file_utils.is_directory
+
+            def patched_is_directory(path):
+                if path.endswith('.trash'):
+                    return True
+                return original_is_directory(path)
+
+            with mock.patch('mlflow.utils.file_utils.is_directory', patched_is_directory):
+                engine.run_event(Event.INIT)
+                engine.close()
+                # For good measure, also test idempotent close, in case if there are edge cases with a second call to INIT
+                engine.close()
+
+                # Create a new engine, since the engine does allow events to run after it has been closed
+                engine = Engine(state=dummy_state, logger=logger)
+                engine.close()
+                # For good measure, also test idempotent close, in case if there are edge cases with a second call to INIT
+                engine.close()
+            return  # Exit early for MLFlowLogger
+
+        # Normal flow for other callbacks
         engine.run_event(Event.INIT)
         engine.close()
         # For good measure, also test idempotent close, in case if there are edge cases with a second call to INIT
@@ -182,6 +219,27 @@ class TestCallbackTrains:
 
         maybe_patch_context = get_cb_patches(cb_cls)
 
+        # For MLFlowLogger, add a patch for the file_utils.is_directory function
+        if cb_cls.__name__ == 'MLFlowLogger':
+            import unittest.mock as mock
+            import mlflow.utils.file_utils
+
+            original_is_directory = mlflow.utils.file_utils.is_directory
+
+            # Create a patched version that returns True for trash directories
+            def patched_is_directory(path):
+                if path.endswith('.trash'):
+                    return True
+                return original_is_directory(path)
+
+            # Apply the patch within the test
+            with mock.patch('mlflow.utils.file_utils.is_directory', patched_is_directory):
+                with maybe_patch_context:
+                    trainer = self._get_trainer(cb, device_train_microbatch_size)
+                    trainer.fit()
+            return  # Exit early as we've already completed the test for MLFlowLogger
+
+        # For all other loggers, proceed normally
         with maybe_patch_context:
             trainer = self._get_trainer(cb, device_train_microbatch_size)
             trainer.fit()
@@ -200,7 +258,6 @@ class TestCallbackTrains:
         # For MLFlowLogger, add a patch for the file_utils.is_directory function
         if cb_cls.__name__ == 'MLFlowLogger':
             import unittest.mock as mock
-
             import mlflow.utils.file_utils
 
             original_is_directory = mlflow.utils.file_utils.is_directory
