@@ -19,6 +19,32 @@ from tests.callbacks.callback_settings import (
 from tests.common import EventCounterCallback
 
 
+@pytest.fixture
+def clean_mlflow_runs():
+    """Clean up MLflow runs before and after tests.
+
+    This fixture ensures no MLflow runs persist between tests,
+    which prevents "Run already active" errors.
+    """
+    try:
+        import mlflow
+        try:
+            while mlflow.active_run():
+                mlflow.end_run()
+        except Exception:
+            pass
+
+        yield
+
+        try:
+            while mlflow.active_run():
+                mlflow.end_run()
+        except Exception:
+            pass
+    except ImportError:
+        yield
+
+
 def test_callbacks_map_to_events():
     # callback methods must be 1:1 mapping with events
     # exception for private methods
@@ -79,7 +105,7 @@ class TestCallbacks:
         engine.run_event(Event.FIT_END)
 
     @pytest.mark.filterwarnings('ignore::UserWarning')
-    def test_idempotent_close(self, cb_cls: type[Callback], dummy_state: State):
+    def test_idempotent_close(self, cb_cls: type[Callback], dummy_state: State, clean_mlflow_runs):
         """Test that callbacks do not crash when .close() and .post_close() are called multiple times."""
         cb_kwargs = get_cb_kwargs(cb_cls)
         dummy_state.callbacks.append(cb_cls(**cb_kwargs))
@@ -93,12 +119,14 @@ class TestCallbacks:
         logger = Logger(dummy_state)
         engine = Engine(state=dummy_state, logger=logger)
 
-        engine.run_event(Event.INIT)  # always runs just once per engine
-        engine.close()
-        engine.close()
+        maybe_patch_context = get_cb_patches(cb_cls)
+        with maybe_patch_context:
+            engine.run_event(Event.INIT)
+            engine.close()
+            engine.close()
 
     @pytest.mark.filterwarnings('ignore::UserWarning')
-    def test_multiple_init_and_close(self, cb_cls: type[Callback], dummy_state: State):
+    def test_multiple_init_and_close(self, cb_cls: type[Callback], dummy_state: State, clean_mlflow_runs):
         """Test that callbacks do not crash when INIT/.close()/.post_close() are called multiple times in that order."""
         cb_kwargs = get_cb_kwargs(cb_cls)
         dummy_state.callbacks.append(cb_cls(**cb_kwargs))
@@ -112,16 +140,18 @@ class TestCallbacks:
         logger = Logger(dummy_state)
         engine = Engine(state=dummy_state, logger=logger)
 
-        engine.run_event(Event.INIT)
-        engine.close()
-        # For good measure, also test idempotent close, in case if there are edge cases with a second call to INIT
-        engine.close()
+        maybe_patch_context = get_cb_patches(cb_cls)
+        with maybe_patch_context:
+            engine.run_event(Event.INIT)
+            engine.close()
+            # For good measure, also test idempotent close, in case if there are edge cases with a second call to INIT
+            engine.close()
 
-        # Create a new engine, since the engine does allow events to run after it has been closed
-        engine = Engine(state=dummy_state, logger=logger)
-        engine.close()
-        # For good measure, also test idempotent close, in case if there are edge cases with a second call to INIT
-        engine.close()
+            # Create a new engine, since the engine does allow events to run after it has been closed
+            engine = Engine(state=dummy_state, logger=logger)
+            engine.close()
+            # For good measure, also test idempotent close, in case if there are edge cases with a second call to INIT
+            engine.close()
 
 
 @pytest.mark.parametrize('cb_cls', get_cbs_and_marks(callbacks=True, loggers=True, profilers=True))
@@ -155,35 +185,37 @@ class TestCallbackTrains:
         )
 
     @pytest.mark.filterwarnings('ignore::UserWarning')
-    def test_trains(self, cb_cls: type[Callback], device_train_microbatch_size: int, _remote: bool):
+    def test_trains(self, cb_cls: type[Callback], device_train_microbatch_size: int, _remote: bool, clean_mlflow_runs):
         del _remote  # unused. `_remote` must be passed through to parameterize the test markers.
         cb_kwargs = get_cb_kwargs(cb_cls)
         cb = cb_cls(**cb_kwargs)
 
         maybe_patch_context = get_cb_patches(cb_cls)
-
         with maybe_patch_context:
             trainer = self._get_trainer(cb, device_train_microbatch_size)
             trainer.fit()
 
     @pytest.mark.filterwarnings('ignore::UserWarning')
-    def test_trains_multiple_calls(self, cb_cls: type[Callback], device_train_microbatch_size: int, _remote: bool):
+    def test_trains_multiple_calls(
+        self,
+        cb_cls: type[Callback],
+        device_train_microbatch_size: int,
+        _remote: bool,
+        clean_mlflow_runs,
+    ):
         """
-        Tests that training with multiple fits complete.
-        Note: future functional tests should test for
-        idempotency (e.g functionally)
+        Tests that training with multiple fits complete. Note: future functional tests should test for idempotency (e.g functionally)
         """
         del _remote  # unused. `_remote` must be passed through to parameterize the test markers.
         cb_kwargs = get_cb_kwargs(cb_cls)
         cb = cb_cls(**cb_kwargs)
 
         maybe_patch_context = get_cb_patches(cb_cls)
-
         with maybe_patch_context:
             trainer = self._get_trainer(cb, device_train_microbatch_size)
             trainer.fit()
 
-        assert trainer.state.max_duration is not None
-        trainer.state.max_duration = cast(Time[int], trainer.state.max_duration * 2)
+            assert trainer.state.max_duration is not None
+            trainer.state.max_duration = cast(Time[int], trainer.state.max_duration * 2)
 
-        trainer.fit()
+            trainer.fit()
