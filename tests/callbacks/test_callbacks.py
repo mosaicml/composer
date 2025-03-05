@@ -22,7 +22,7 @@ from tests.common import EventCounterCallback
 @pytest.fixture
 def clean_mlflow_runs():
     """Clean up MLflow runs before and after tests.
-    
+
     This fixture ensures no MLflow runs persist between tests,
     which prevents "Run already active" errors.
     """
