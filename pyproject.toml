@@ -186,7 +186,7 @@ filterwarnings = [
     # Ignore _get_pg_default_device deprecation warning, it's used by torch internal, not composer
     '''ignore:.*`_get_pg_default_device` will be deprecated.*:UserWarning''',
     # Ignore ROCMMonitor warnings
-    '''ignore:Exception ignored in: <function ROCMMonitor.__del__:*''',
+    '''ignore:.*`Exception ignored in: <function ROCMMonitor.__del__:*''',
 ]
 
 # Coverage
