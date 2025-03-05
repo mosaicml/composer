@@ -22,7 +22,7 @@ from tests.common import EventCounterCallback
 @pytest.fixture
 def clean_mlflow_runs():
     """Clean up MLflow runs before and after tests.
-    
+
     This fixture ensures no MLflow runs persist between tests,
     which prevents "Run already active" errors.
     """
@@ -188,7 +188,13 @@ class TestCallbackTrains:
             trainer.fit()
 
     @pytest.mark.filterwarnings('ignore::UserWarning')
-    def test_trains_multiple_calls(self, cb_cls: type[Callback], device_train_microbatch_size: int, _remote: bool, clean_mlflow_runs):
+    def test_trains_multiple_calls(
+        self,
+        cb_cls: type[Callback],
+        device_train_microbatch_size: int,
+        _remote: bool,
+        clean_mlflow_runs,
+    ):
         """
         Tests that training with multiple fits complete. Note: future functional tests should test for idempotency (e.g functionally)
         """
