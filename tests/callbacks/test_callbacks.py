@@ -60,7 +60,6 @@ def test_run_event_callbacks(event: Event, dummy_state: State):
 
 
 @pytest.mark.parametrize('cb_cls', get_cbs_and_marks(callbacks=True, loggers=True, profilers=True))
-@pytest.mark.filterwarnings(r'ignore:Exception ignored in: <function ROCMMonitor.__del__.*>:pytest.PytestUnraisableExceptionWarning')
 class TestCallbacks:
 
     @classmethod
@@ -154,7 +153,6 @@ class TestCallbacks:
     [(1, False), (2, False), pytest.param(1, True, marks=pytest.mark.remote)],
 )
 @pytest.mark.filterwarnings(r'ignore:The profiler is enabled:UserWarning')
-@pytest.mark.filterwarnings(r'ignore:Exception ignored in: <function ROCMMonitor.__del__.*>:pytest.PytestUnraisableExceptionWarning')
 class TestCallbackTrains:
 
     def _get_trainer(self, cb: Callback, device_train_microbatch_size: int):
