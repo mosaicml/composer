@@ -28,25 +28,19 @@ def clean_mlflow_runs():
     """
     try:
         import mlflow
-        try:
-            while mlflow.active_run():
-                try:
-                    mlflow.end_run()
-                except mlflow.exceptions.MlflowException:
-                    break
-        except Exception:
-            pass
+        while mlflow.active_run():
+            try:
+                mlflow.end_run()
+            except mlflow.exceptions.MlflowException:
+                break
 
         yield
 
-        try:
-            while mlflow.active_run():
-                try:
-                    mlflow.end_run()
-                except mlflow.exceptions.MlflowException:
-                    break
-        except Exception:
-            pass
+        while mlflow.active_run():
+            try:
+                mlflow.end_run()
+            except mlflow.exceptions.MlflowException:
+                break
     except ImportError:
         yield
 
