@@ -121,7 +121,7 @@ class TestCallbacks:
                 trace_handlers=[],
                 torch_prof_memory_filename=None,
             )
-            dummy_state.profiler.bind_to_state(dummy_state)å
+            dummy_state.profiler.bind_to_state(dummy_state)
 
             logger = Logger(dummy_state)
             engine = Engine(state=dummy_state, logger=logger)
