@@ -473,6 +473,7 @@ class MLFlowLogger(LoggerDestination):
 
     def save_model(self, flavor: Literal['transformers'], **kwargs):
         """Save a model to MLflow.
+
         Args:
             flavor (Literal['transformers']): The MLflow model flavor to use. Currently only ``'transformers'`` is supported.
             **kwargs: Keyword arguments to pass to the MLflow model saving function.
