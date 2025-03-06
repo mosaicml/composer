@@ -1,8 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import cast, Optional, Generator, Any, Callable, ContextManager
 import contextlib
+from typing import Generator, cast
 from unittest.mock import patch
 
 import pytest
@@ -50,7 +50,7 @@ def clean_mlflow_runs():
 @contextlib.contextmanager
 def maybe_patch_mlflow_for_trash(cb_cls: type[Callback]) -> Generator[None, None, None]:
     """Context manager that patches MLflow's is_directory function for MLFlowLogger tests.
-    
+
     For MLFlowLogger, this patches the is_directory function to return True for paths
     ending with '.trash', which fixes directory permission issues in tests.
     For all other callbacks, this is a no-op.
@@ -59,13 +59,13 @@ def maybe_patch_mlflow_for_trash(cb_cls: type[Callback]) -> Generator[None, None
         try:
             import mlflow.utils.file_utils
             original_is_directory = mlflow.utils.file_utils.is_directory
-            
+
             # Create a patched version that returns True for trash directories
             def patched_is_directory(path):
                 if path.endswith('.trash'):
                     return True
                 return original_is_directory(path)
-                
+
             with patch('mlflow.utils.file_utils.is_directory', patched_is_directory):
                 yield
         except ImportError:
@@ -121,7 +121,7 @@ class TestCallbacks:
                 trace_handlers=[],
                 torch_prof_memory_filename=None,
             )
-            dummy_state.profiler.bind_to_state(dummy_state)
+            dummy_state.profiler.bind_to_state(dummy_state)å
 
             logger = Logger(dummy_state)
             engine = Engine(state=dummy_state, logger=logger)
