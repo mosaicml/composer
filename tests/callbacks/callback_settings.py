@@ -233,6 +233,7 @@ def get_cb_patches(impl: type[Callback]):
         return patch_context()
     return patch_context
 
+
 def get_cb_kwargs(impl: type[Callback]):
     return _callback_kwargs.get(impl, {})
 
