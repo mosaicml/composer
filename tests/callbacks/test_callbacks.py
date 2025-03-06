@@ -1,7 +1,9 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import cast
+from typing import cast, Optional, Generator, Any, Callable, ContextManager
+import contextlib
+from unittest.mock import patch
 
 import pytest
 
@@ -45,6 +47,33 @@ def clean_mlflow_runs():
         yield
 
 
+@contextlib.contextmanager
+def maybe_patch_mlflow_for_trash(cb_cls: type[Callback]) -> Generator[None, None, None]:
+    """Context manager that patches MLflow's is_directory function for MLFlowLogger tests.
+    
+    For MLFlowLogger, this patches the is_directory function to return True for paths
+    ending with '.trash', which fixes directory permission issues in tests.
+    For all other callbacks, this is a no-op.
+    """
+    if cb_cls.__name__ == 'MLFlowLogger':
+        try:
+            import mlflow.utils.file_utils
+            original_is_directory = mlflow.utils.file_utils.is_directory
+            
+            # Create a patched version that returns True for trash directories
+            def patched_is_directory(path):
+                if path.endswith('.trash'):
+                    return True
+                return original_is_directory(path)
+                
+            with patch('mlflow.utils.file_utils.is_directory', patched_is_directory):
+                yield
+        except ImportError:
+            yield
+    else:
+        yield
+
+
 def test_callbacks_map_to_events():
     # callback methods must be 1:1 mapping with events
     # exception for private methods
@@ -84,74 +113,77 @@ class TestCallbacks:
     @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_multiple_fit_start_and_end(self, cb_cls: type[Callback], dummy_state: State):
         """Test that callbacks do not crash when Event.FIT_START and Event.FIT_END is called multiple times."""
-        cb_kwargs = get_cb_kwargs(cb_cls)
-        dummy_state.callbacks.append(cb_cls(**cb_kwargs))
-        dummy_state.profiler = Profiler(
-            schedule=lambda _: ProfilerAction.SKIP,
-            trace_handlers=[],
-            torch_prof_memory_filename=None,
-        )
-        dummy_state.profiler.bind_to_state(dummy_state)
+        with maybe_patch_mlflow_for_trash(cb_cls):
+            cb_kwargs = get_cb_kwargs(cb_cls)
+            dummy_state.callbacks.append(cb_cls(**cb_kwargs))
+            dummy_state.profiler = Profiler(
+                schedule=lambda _: ProfilerAction.SKIP,
+                trace_handlers=[],
+                torch_prof_memory_filename=None,
+            )
+            dummy_state.profiler.bind_to_state(dummy_state)
 
-        logger = Logger(dummy_state)
-        engine = Engine(state=dummy_state, logger=logger)
+            logger = Logger(dummy_state)
+            engine = Engine(state=dummy_state, logger=logger)
 
-        engine.run_event(Event.INIT)  # always runs just once per engine
+            engine.run_event(Event.INIT)  # always runs just once per engine
 
-        engine.run_event(Event.FIT_START)
-        engine.run_event(Event.FIT_END)
+            engine.run_event(Event.FIT_START)
+            engine.run_event(Event.FIT_END)
 
-        engine.run_event(Event.FIT_START)
-        engine.run_event(Event.FIT_END)
+            engine.run_event(Event.FIT_START)
+            engine.run_event(Event.FIT_END)
 
     @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_idempotent_close(self, cb_cls: type[Callback], dummy_state: State, clean_mlflow_runs):
         """Test that callbacks do not crash when .close() and .post_close() are called multiple times."""
-        cb_kwargs = get_cb_kwargs(cb_cls)
-        dummy_state.callbacks.append(cb_cls(**cb_kwargs))
-        dummy_state.profiler = Profiler(
-            schedule=lambda _: ProfilerAction.SKIP,
-            trace_handlers=[],
-            torch_prof_memory_filename=None,
-        )
-        dummy_state.profiler.bind_to_state(dummy_state)
+        with maybe_patch_mlflow_for_trash(cb_cls):
+            cb_kwargs = get_cb_kwargs(cb_cls)
+            dummy_state.callbacks.append(cb_cls(**cb_kwargs))
+            dummy_state.profiler = Profiler(
+                schedule=lambda _: ProfilerAction.SKIP,
+                trace_handlers=[],
+                torch_prof_memory_filename=None,
+            )
+            dummy_state.profiler.bind_to_state(dummy_state)
 
-        logger = Logger(dummy_state)
-        engine = Engine(state=dummy_state, logger=logger)
+            logger = Logger(dummy_state)
+            engine = Engine(state=dummy_state, logger=logger)
 
-        maybe_patch_context = get_cb_patches(cb_cls)
-        with maybe_patch_context:
-            engine.run_event(Event.INIT)
-            engine.close()
-            engine.close()
+            maybe_patch_context = get_cb_patches(cb_cls)
+            with maybe_patch_context:
+                engine.run_event(Event.INIT)
+                engine.close()
+                engine.close()
 
     @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_multiple_init_and_close(self, cb_cls: type[Callback], dummy_state: State, clean_mlflow_runs):
         """Test that callbacks do not crash when INIT/.close()/.post_close() are called multiple times in that order."""
-        cb_kwargs = get_cb_kwargs(cb_cls)
-        dummy_state.callbacks.append(cb_cls(**cb_kwargs))
-        dummy_state.profiler = Profiler(
-            schedule=lambda _: ProfilerAction.SKIP,
-            trace_handlers=[],
-            torch_prof_memory_filename=None,
-        )
-        dummy_state.profiler.bind_to_state(dummy_state)
+        with maybe_patch_mlflow_for_trash(cb_cls):
+            cb_kwargs = get_cb_kwargs(cb_cls)
+            dummy_state.callbacks.append(cb_cls(**cb_kwargs))
+            dummy_state.profiler = Profiler(
+                schedule=lambda _: ProfilerAction.SKIP,
+                trace_handlers=[],
+                torch_prof_memory_filename=None,
+            )
+            dummy_state.profiler.bind_to_state(dummy_state)
 
-        logger = Logger(dummy_state)
-        engine = Engine(state=dummy_state, logger=logger)
-
-        maybe_patch_context = get_cb_patches(cb_cls)
-        with maybe_patch_context:
-            engine.run_event(Event.INIT)
-            engine.close()
-            # For good measure, also test idempotent close, in case if there are edge cases with a second call to INIT
-            engine.close()
-
-            # Create a new engine, since the engine does allow events to run after it has been closed
+            logger = Logger(dummy_state)
             engine = Engine(state=dummy_state, logger=logger)
-            engine.close()
-            # For good measure, also test idempotent close, in case if there are edge cases with a second call to INIT
-            engine.close()
+
+            maybe_patch_context = get_cb_patches(cb_cls)
+            with maybe_patch_context:
+                engine.run_event(Event.INIT)
+                engine.close()
+                # For good measure, also test idempotent close, in case if there are edge cases with a second call to INIT
+                engine.close()
+
+                # Create a new engine, since the engine does allow events to run after it has been closed
+                engine = Engine(state=dummy_state, logger=logger)
+                engine.close()
+                # For good measure, also test idempotent close, in case if there are edge cases with a second call to INIT
+                engine.close()
 
 
 @pytest.mark.parametrize('cb_cls', get_cbs_and_marks(callbacks=True, loggers=True, profilers=True))
@@ -190,10 +222,11 @@ class TestCallbackTrains:
         cb_kwargs = get_cb_kwargs(cb_cls)
         cb = cb_cls(**cb_kwargs)
 
-        maybe_patch_context = get_cb_patches(cb_cls)
-        with maybe_patch_context:
-            trainer = self._get_trainer(cb, device_train_microbatch_size)
-            trainer.fit()
+        with maybe_patch_mlflow_for_trash(cb_cls):
+            maybe_patch_context = get_cb_patches(cb_cls)
+            with maybe_patch_context:
+                trainer = self._get_trainer(cb, device_train_microbatch_size)
+                trainer.fit()
 
     @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_trains_multiple_calls(
@@ -210,12 +243,13 @@ class TestCallbackTrains:
         cb_kwargs = get_cb_kwargs(cb_cls)
         cb = cb_cls(**cb_kwargs)
 
-        maybe_patch_context = get_cb_patches(cb_cls)
-        with maybe_patch_context:
-            trainer = self._get_trainer(cb, device_train_microbatch_size)
-            trainer.fit()
+        with maybe_patch_mlflow_for_trash(cb_cls):
+            maybe_patch_context = get_cb_patches(cb_cls)
+            with maybe_patch_context:
+                trainer = self._get_trainer(cb, device_train_microbatch_size)
+                trainer.fit()
 
-            assert trainer.state.max_duration is not None
-            trainer.state.max_duration = cast(Time[int], trainer.state.max_duration * 2)
+                assert trainer.state.max_duration is not None
+                trainer.state.max_duration = cast(Time[int], trainer.state.max_duration * 2)
 
-            trainer.fit()
+                trainer.fit()
