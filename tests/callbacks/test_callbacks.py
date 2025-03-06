@@ -1,9 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-import contextlib
-from typing import Generator, cast
-from unittest.mock import patch
+from typing import cast
 
 import pytest
 
@@ -47,33 +45,6 @@ def clean_mlflow_runs():
         yield
 
 
-@contextlib.contextmanager
-def maybe_patch_mlflow_for_trash(cb_cls: type[Callback]) -> Generator[None, None, None]:
-    """Context manager that patches MLflow's is_directory function for MLFlowLogger tests.
-
-    For MLFlowLogger, this patches the is_directory function to return True for paths
-    ending with '.trash', which fixes directory permission issues in tests.
-    For all other callbacks, this is a no-op.
-    """
-    if cb_cls.__name__ == 'MLFlowLogger':
-        try:
-            import mlflow.utils.file_utils
-            original_is_directory = mlflow.utils.file_utils.is_directory
-
-            # Create a patched version that returns True for trash directories
-            def patched_is_directory(path):
-                if path.endswith('.trash'):
-                    return True
-                return original_is_directory(path)
-
-            with patch('mlflow.utils.file_utils.is_directory', patched_is_directory):
-                yield
-        except ImportError:
-            yield
-    else:
-        yield
-
-
 def test_callbacks_map_to_events():
     # callback methods must be 1:1 mapping with events
     # exception for private methods
@@ -113,7 +84,8 @@ class TestCallbacks:
     @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_multiple_fit_start_and_end(self, cb_cls: type[Callback], dummy_state: State):
         """Test that callbacks do not crash when Event.FIT_START and Event.FIT_END is called multiple times."""
-        with maybe_patch_mlflow_for_trash(cb_cls):
+        maybe_patch_context = get_cb_patches(cb_cls)
+        with maybe_patch_context:
             cb_kwargs = get_cb_kwargs(cb_cls)
             dummy_state.callbacks.append(cb_cls(**cb_kwargs))
             dummy_state.profiler = Profiler(
@@ -137,7 +109,8 @@ class TestCallbacks:
     @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_idempotent_close(self, cb_cls: type[Callback], dummy_state: State, clean_mlflow_runs):
         """Test that callbacks do not crash when .close() and .post_close() are called multiple times."""
-        with maybe_patch_mlflow_for_trash(cb_cls):
+        maybe_patch_context = get_cb_patches(cb_cls)
+        with maybe_patch_context:
             cb_kwargs = get_cb_kwargs(cb_cls)
             dummy_state.callbacks.append(cb_cls(**cb_kwargs))
             dummy_state.profiler = Profiler(
@@ -159,7 +132,8 @@ class TestCallbacks:
     @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_multiple_init_and_close(self, cb_cls: type[Callback], dummy_state: State, clean_mlflow_runs):
         """Test that callbacks do not crash when INIT/.close()/.post_close() are called multiple times in that order."""
-        with maybe_patch_mlflow_for_trash(cb_cls):
+        maybe_patch_context = get_cb_patches(cb_cls)
+        with maybe_patch_context:
             cb_kwargs = get_cb_kwargs(cb_cls)
             dummy_state.callbacks.append(cb_cls(**cb_kwargs))
             dummy_state.profiler = Profiler(
@@ -222,11 +196,10 @@ class TestCallbackTrains:
         cb_kwargs = get_cb_kwargs(cb_cls)
         cb = cb_cls(**cb_kwargs)
 
-        with maybe_patch_mlflow_for_trash(cb_cls):
-            maybe_patch_context = get_cb_patches(cb_cls)
-            with maybe_patch_context:
-                trainer = self._get_trainer(cb, device_train_microbatch_size)
-                trainer.fit()
+        maybe_patch_context = get_cb_patches(cb_cls)
+        with maybe_patch_context:
+            trainer = self._get_trainer(cb, device_train_microbatch_size)
+            trainer.fit()
 
     @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_trains_multiple_calls(
@@ -243,13 +216,12 @@ class TestCallbackTrains:
         cb_kwargs = get_cb_kwargs(cb_cls)
         cb = cb_cls(**cb_kwargs)
 
-        with maybe_patch_mlflow_for_trash(cb_cls):
-            maybe_patch_context = get_cb_patches(cb_cls)
-            with maybe_patch_context:
-                trainer = self._get_trainer(cb, device_train_microbatch_size)
-                trainer.fit()
+        maybe_patch_context = get_cb_patches(cb_cls)
+        with maybe_patch_context:
+            trainer = self._get_trainer(cb, device_train_microbatch_size)
+            trainer.fit()
 
-                assert trainer.state.max_duration is not None
-                trainer.state.max_duration = cast(Time[int], trainer.state.max_duration * 2)
+            assert trainer.state.max_duration is not None
+            trainer.state.max_duration = cast(Time[int], trainer.state.max_duration * 2)
 
-                trainer.fit()
+            trainer.fit()

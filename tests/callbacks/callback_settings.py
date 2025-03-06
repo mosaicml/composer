@@ -213,6 +213,19 @@ _callback_patches: dict[type[Callback], Any] = {
 
 
 def get_cb_patches(impl: type[Callback]):
+    if impl.__name__ == 'MLFlowLogger':
+        try:
+            import mlflow.utils.file_utils
+            original_is_directory = mlflow.utils.file_utils.is_directory
+
+            def patched_is_directory(path):
+                if path.endswith('.trash'):
+                    return True
+                return original_is_directory(path)
+
+            return mock.patch('mlflow.utils.file_utils.is_directory', patched_is_directory)
+        except ImportError:
+            return contextlib.nullcontext()
     return _callback_patches.get(impl, contextlib.nullcontext())
 
 
