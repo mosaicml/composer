@@ -207,6 +207,7 @@ _callback_marks: dict[
     NeptuneLogger: [pytest.mark.skipif(not _NEPTUNE_INSTALLED, reason='neptune is optional')],
 }
 
+
 def _mlflow_patch():
     try:
         import mlflow.utils.file_utils
@@ -224,7 +225,7 @@ def _mlflow_patch():
 
 _callback_patches: dict[type[Callback], Any] = {
     LoadCheckpoint: mock.patch('composer.callbacks.load_checkpoint.load_checkpoint'),
-    MLFlowLogger: lambda: _mlflow_patch(),
+    MLFlowLogger: _mlflow_patch(),
 }
 
 
