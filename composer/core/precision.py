@@ -96,11 +96,7 @@ def get_precision_context(
                 }
             fp8_recipe = DelayedScaling(**precision_config)
             with te.fp8_autocast(enabled=fp8_autocast_enabled, fp8_recipe=fp8_recipe):
-                # The te.onnx_export flag ensures that we save all fp8 buffers
-                # as tensors instead of bytes. This is necessary for proper
-                # saving and resumption of checkpoints.
-                with te.onnx_export(enabled=True):
-                    yield
+                yield
         else:
             if te_installed:
                 raise RuntimeError('AMP_FP8 precision is used but current device does not support it.')
