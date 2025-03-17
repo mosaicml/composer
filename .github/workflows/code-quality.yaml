@@ -16,7 +16,7 @@ defaults:
     working-directory: .
 jobs:
   code-quality:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     if: github.repository_owner == 'mosaicml'
     strategy:

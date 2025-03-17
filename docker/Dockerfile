@@ -12,7 +12,7 @@ ARG CUDA_VERSION=11.3.1
 
 # Calculate the base image based on CUDA_VERSION
 ARG BASE_IMAGE=${CUDA_VERSION:+"nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu24.04"}
-ARG BASE_IMAGE=${BASE_IMAGE:-"ubuntu:22.04"}
+ARG BASE_IMAGE=${BASE_IMAGE:-"ubuntu:24.04"}
 
 # The Python version to install
 ARG PYTHON_VERSION=3.10
