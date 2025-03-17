@@ -37,7 +37,7 @@ def _get_base_image(cuda_version: str):
     if not cuda_version:
         return 'ubuntu:24.04'
     if cuda_version == '12.4.1':
-        return f'nvidia/cuda:12.4.1-cudnn-devel-ubuntu24.04'
+        return f'nvidia/cuda:12.6.1-cudnn-devel-ubuntu24.04'
     return f'nvidia/cuda:{cuda_version}-cudnn8-devel-ubuntu24.04'
 
 
