@@ -1,0 +1,13 @@
+{
+    "name": "Composer Dev Container",
+    "image": "mosaicml/pytorch:latest_cpu",
+    "mounts": [
+      "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+      "source=${env:SSH_AUTH_SOCK},target=/ssh-agent,type=bind"
+    ],
+    "postCreateCommand": "pip install -e . && pip install 'pre-commit>=3.4.0,<5' && pre-commit install",
+    "remoteUser": "mosaicml",
+    "remoteEnv": {
+      "SSH_AUTH_SOCK": "/ssh-agent"
+    }
+  }

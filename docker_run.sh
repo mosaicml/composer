@@ -1,0 +1,1 @@
+docker run -it --name composer-torch -p 8000:8000 -v $(pwd):/composer -v $SSH_AUTH_SOCK:/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent mosaicml/pytorch:latest_cpu
