@@ -8,10 +8,10 @@ EXTRA_ARGS ?=  # extra arguments for pytest
 EXTRA_LAUNCHER_ARGS ?= # extra arguments for the composer cli launcher
 
 test:
-	LOCAL_WORLD_SIZE=1 $(PYTHON) -m $(PYTEST) $(EXTRA_ARGS)
+	WORLD_SIZE=1 LOCAL_WORLD_SIZE=1 $(PYTHON) -m $(PYTEST) $(EXTRA_ARGS)
 
 test-gpu:
-	LOCAL_WORLD_SIZE=1 $(PYTHON) -m $(PYTEST) -m gpu $(EXTRA_ARGS)
+	WORLD_SIZE=1 LOCAL_WORLD_SIZE=1 $(PYTHON) -m $(PYTEST) -m gpu $(EXTRA_ARGS)
 
 # runs tests with the launcher
 test-dist:
