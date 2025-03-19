@@ -35,10 +35,10 @@ def _get_torchvision_version(pytorch_version: str):
 
 def _get_base_image(cuda_version: str):
     if not cuda_version:
-        return 'ubuntu:22.04'
+        return 'ubuntu:24.04'
     if cuda_version == '12.4.1':
-        return f'nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04'
-    return f'nvidia/cuda:{cuda_version}-cudnn8-devel-ubuntu22.04'
+        return f'nvidia/cuda:12.4.1-cudnn-devel-ubuntu24.04'
+    return f'nvidia/cuda:{cuda_version}-cudnn8-devel-ubuntu24.04'
 
 
 def _get_cuda_version(pytorch_version: str, use_cuda: bool):
@@ -112,8 +112,8 @@ def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: s
     tags = []
     cuda_version_tag = _get_cuda_version_tag(cuda_version)
     tags += [
-        f'{base_image_name}:{pytorch_version}_{cuda_version_tag}-python{python_version}-ubuntu22.04',
-        f'{ghcr_base_image_name}:{pytorch_version}_{cuda_version_tag}-python{python_version}-ubuntu22.04',
+        f'{base_image_name}:{pytorch_version}_{cuda_version_tag}-python{python_version}-ubuntu24.04',
+        f'{ghcr_base_image_name}:{pytorch_version}_{cuda_version_tag}-python{python_version}-ubuntu24.04',
     ]
 
     if python_version == PRODUCTION_PYTHON_VERSION and pytorch_version == PRODUCTION_PYTORCH_VERSION:
@@ -231,7 +231,7 @@ def _main():
         if not cuda_version or interconnect == 'EFA':
             entry['MOFED_VERSION'] = ''
         else:
-            entry['MOFED_VERSION'] = 'latest-23.10'
+            entry['MOFED_VERSION'] = 'latest-24.10'
 
         # Skip EFA drivers if not using EFA
         if interconnect != 'EFA':
@@ -294,7 +294,7 @@ def _main():
                 interconnect = 'EFA'
         cuda_version = f"{entry['CUDA_VERSION']} ({interconnect})" if entry['CUDA_VERSION'] else 'cpu'
         table.append([
-            'Ubuntu 22.04',  # Linux distro
+            'Ubuntu 24.04',  # Linux distro
             'Base',  # Flavor
             entry['PYTORCH_VERSION'],  # Pytorch version
             cuda_version,  # Cuda version
