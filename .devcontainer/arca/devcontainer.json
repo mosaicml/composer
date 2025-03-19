@@ -6,6 +6,13 @@
       "source=${env:SSH_AUTH_SOCK},target=/ssh-agent,type=bind"
     ],
     "postCreateCommand": "pip install -e . && pip install 'pre-commit>=3.4.0,<5' && pre-commit install",
+    "customizations": {
+      "vscode": {
+        "extensions": [
+          "ms-python.python"
+        ]
+      }
+    },
     "remoteUser": "mosaicml",
     "remoteEnv": {
       "SSH_AUTH_SOCK": "/ssh-agent"
