@@ -277,9 +277,9 @@ class CheckpointSaver(Callback):  # noqa: D101
             root_temp_folder = None
             if os.environ.get('TMPDIR') is not None:
                 root_temp_folder = os.environ.get('TMPDIR')
-            elif pathlib.Path('/local_disk0').exists(): # Probably we are on MLR, so we have to use /local_disk0
+            elif pathlib.Path('/local_disk0').exists():  # Probably we are on MLR, so we have to use /local_disk0
                 root_temp_folder = '/local_disk0/temp'
-            pathlib.Path(root_temp_folder).mkdir(exist_ok=True)
+            os.makedirs(root_temp_folder, exist_ok=True)
             local_folder = os.path.join(tempfile.mkdtemp(prefix=root_temp_folder), local_folder)
 
         filename = str(filename)
