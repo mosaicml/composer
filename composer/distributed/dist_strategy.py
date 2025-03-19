@@ -267,6 +267,7 @@ def prepare_fsdp_module(
     # FSPD block with a hook that checks if any other rank OOMed.
     def sync_hook(*args):
         # Check if any other rank hit an OOM
+        # QUESTION(boweny) when is this tensor ever set to [1]?
         found_cuda_oom_tensor = device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
         dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
         found_cuda_oom = found_cuda_oom_tensor.item()
@@ -299,7 +300,7 @@ def prepare_fsdp_module(
             # to do so, it relies on the ptrs of the model.parameters() in a model and the names of the params
             # for this to work, use_orig_params=True, as we need the names of the params post-wrapping
             # TP is not supported, as the underlying parameters in the model differ from the params in the param groups after being dtensorified
-
+            # QUESTION(boweny) is this still necessary after FSDP2 per param sharding?
             ptr_to_param_name = {id(p): n for n, p in model.named_parameters()}
             param_name_to_group_num = {}
             group_num_to_opt_group_info = {}
@@ -390,6 +391,7 @@ def prepare_fsdp_module(
     # This makes it safer to call ComposerModel-specific functions like 'eval_forward' that
     # may make calls to sharded submodules. If we only wrap the submodules, then any call that ComposerModel makes
     # to a FSDP-wrapped submodule's `forward()` function will be safe and all-gather the necessary weights before `forward()`.
+    # NOTE(boweny) FSDP2 also works on submodules, so this loop might be carried to FSDP2
     for obj_name, obj in model.named_children():
         if not isinstance(obj, (Metric, MetricCollection)):
 
@@ -428,6 +430,9 @@ def prepare_fsdp_module(
                 # If we do not have any parameters or buffers on meta device managed by this module directly, we do not need to call the parameter init function.
                 # It is assumed that whatever process moved the parameters off of meta device initialized them.
                 # We expect this to occur if we have tied weights, as the second module will already have the weights initialized.
+                # NOTE(boweny) Per FSDP2 on TorchTitan: FSDP2 supports a new meta-device initialization flow
+                # that does not require materializing a module on GPU before sharding it,
+                # removing the need for param_init_fn. See its main/docs/fsdp.md.
                 is_meta = any(param.is_meta for param in module.parameters(recurse=False)
                              ) or any(buffer.is_meta for buffer in module.buffers(recurse=False))
                 if not is_meta:
@@ -453,6 +458,7 @@ def prepare_fsdp_module(
                         f'to module `{obj_name}`.',
                     )
 
+            # NOTE(boweny) _auto_wrap_policy removed from FSDP2
             def lambda_fn(module: torch.nn.Module) -> Union[bool, dict]:
                 ret = False
                 if hasattr(module, '_fsdp_wrap'):
@@ -465,21 +471,22 @@ def prepare_fsdp_module(
 
             _auto_wrap_policy = CustomPolicy(lambda_fn)
 
+
             fsdp_obj = FullyShardedDataParallel(
                 obj,
-                process_group=process_group,
-                sharding_strategy=sharding_strategy,
+                process_group=process_group,  # NOTE(boweny) migrated to device mesh in FSDP2
+                sharding_strategy=sharding_strategy,  # NOTE(boweny) changed to reshard_after_forward in FSDP2
                 auto_wrap_policy=_auto_wrap_policy,  # type: ignore FSDP type bug
-                cpu_offload=cpu_offload,
-                mixed_precision=mixed_precision,
-                backward_prefetch=backward_prefetch,
-                ignored_modules=ignored_modules,
-                param_init_fn=_param_init_fn,
-                device_id=torch.cuda.current_device(),
-                sync_module_states=sync_module_states,
-                forward_prefetch=forward_prefetch,
-                limit_all_gathers=limit_all_gathers,
-                use_orig_params=use_orig_params,
+                cpu_offload=cpu_offload,  # NOTE(boweny) changed to offload_policy in FSDP2
+                mixed_precision=mixed_precision,  # NOTE(boweny) changed to mp_policy in FSDP2
+                backward_prefetch=backward_prefetch,  # NOTE(boweny) removed in FSDP2
+                ignored_modules=ignored_modules,  # NOTE(boweny) changed to ignored_params in FSDP2
+                param_init_fn=_param_init_fn,  # NOTE(boweny) removed in FSDP2
+                device_id=torch.cuda.current_device(),  # NOTE(boweny) removed in FSDP2
+                sync_module_states=sync_module_states,  # NOTE(boweny) removed in FSDP2
+                forward_prefetch=forward_prefetch,  # NOTE(boweny) not yet implemented in FSDP2, assume it is implicit
+                limit_all_gathers=limit_all_gathers,  # NOTE(boweny) removed in FSDP2
+                use_orig_params=use_orig_params,  # NOTE(boweny) removed in FSDP2
                 **kwargs,
             )
 
@@ -489,6 +496,7 @@ def prepare_fsdp_module(
                 except ModuleNotFoundError:
                     raise ModuleNotFoundError('Please install transformer-engine to use prepare_te_modules_for_fsdp')
                 log.info(f'Calling prepare_te_modules_for_fsdp to enable TE weights sharding')
+                # QUESTION(boweny) does this work with FSDP2?
                 prepare_te_modules_for_fsdp(fsdp_obj)
 
             # The following sync hooks are added to prevent FSDP deadlocks that are caused when some ranks OOM
@@ -532,6 +540,7 @@ def prepare_fsdp_module(
                 )
 
             # Activation Checkpointing
+            # QUESTION(boweny) how muc of this is still needed in current workloads?
             if activation_checkpointing or activation_cpu_offload:
                 # FP8 TE requires using the TE checkpoint function, FSDP activation checkpointing only works with TE non-reentrant checkpointing
                 if te_checkpoint_wrapper:
