@@ -3,7 +3,8 @@
     "image": "mosaicml/pytorch:latest_cpu",
     "mounts": [
       "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
-      "source=${env:SSH_AUTH_SOCK},target=/ssh-agent,type=bind"
+      "source=${env:SSH_AUTH_SOCK},target=/ssh-agent,type=bind",
+      "source=${env:HOME}/.ssh,target=/home/mosaicml/.ssh,type=bind"
     ],
     "postCreateCommand": "pip install -e . && pip install 'pre-commit>=3.4.0,<5' && pre-commit install",
     "customizations": {
