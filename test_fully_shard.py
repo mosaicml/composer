@@ -67,8 +67,8 @@ def fsdp_submodules(meta=False):
             model = SharedParamFFN()
     else:
         model = SharedParamFFN()
-    model.fc1 = fully_shard(model.fc1)
-    model.fc2 = fully_shard(model.fc2)
+    fully_shard(model.fc1)
+    fully_shard(model.fc2)
 
     print(model.fc1.weight)
     print(model.fc2.weight)
