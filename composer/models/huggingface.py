@@ -799,9 +799,10 @@ def get_hf_config_from_composer_state_dict(
         try:
             return transformers.AutoConfig.from_pretrained(hf_config_dict['_name_or_path'], **hf_config_dict)
         except KeyError:
+            model_type = hf_config_dict.get('model_type')
             raise Exception(
                 f'Could not load config from state dict using either `for_model` or `from_pretrained`.'
-                f'Please make sure that the model_type={hf_config_dict.get('model_type')} is valid, or that the'
+                f'Please make sure that the model_type={model_type} is valid, or that the'
                 f'config has a valid `_name_or_path`.',
             )
 
