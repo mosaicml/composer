@@ -74,7 +74,7 @@ def fsdp_submodules(meta=False):
     print(model.fc2.weight)
     print("Are fc1 and fc2 parameters the same?", model.fc1.weight is model.fc2.weight)
     print("Do fc1 and fc2 parameters share the same data pointer?", 
-          model.fc1.weight.data_ptr() == model.fc2.weight.data_ptr())
+          model.fc1.weight.data_ptr() == model.fc2.weight.data_ptr(), "data_ptr is: ", model.fc1.weight.data_ptr())
     print("after init")
     model.to_empty(device='cpu')
     print(model.fc1.weight)
@@ -82,6 +82,8 @@ def fsdp_submodules(meta=False):
     print("Are fc1 and fc2 parameters the same?", model.fc1.weight is model.fc2.weight)
     print("Do fc1 and fc2 parameters share the same data pointer?", 
           model.fc1.weight.data_ptr() == model.fc2.weight.data_ptr())
+    print("Do fc1 and fc2 parameters'local tensor share the same data pointer?", 
+          model.fc1.weight.to_local().data_ptr() == model.fc2.weight.to_local().data_ptr())
 
 if __name__ == '__main__':
     # Create argument parser

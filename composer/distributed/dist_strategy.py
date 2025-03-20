@@ -283,6 +283,7 @@ def prepare_fsdp_module(
     group_num_to_opt_group_info = None
     single_param_group_opt_info = None
 
+    # QUESTION(boweny) why not just give this wrapper to user to fsdp-ipy the model first and create optimizer later to avoid the this rebuild
     if optimizers:
         optimizers_tuple = ensure_tuple(optimizers)
         if len(optimizers_tuple) != 1:
