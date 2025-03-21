@@ -5,13 +5,13 @@
   IMAGE_NAME: torch-2-6-0-cu124
   MOFED_VERSION: latest-23.10
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
-  PYTHON_VERSION: '3.11'
+  PYTHON_VERSION: '3.12'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.6.0
   TAGS:
-  - mosaicml/pytorch:2.6.0_cu124-python3.11-ubuntu22.04
-  - ghcr.io/databricks-mosaic/pytorch:2.6.0_cu124-python3.11-ubuntu22.04
+  - mosaicml/pytorch:2.6.0_cu124-python3.12-ubuntu22.04
+  - ghcr.io/databricks-mosaic/pytorch:2.6.0_cu124-python3.12-ubuntu22.04
   - mosaicml/pytorch:latest
   - ghcr.io/databricks-mosaic/pytorch:latest
   TARGET: pytorch_stage
@@ -22,13 +22,13 @@
   IMAGE_NAME: torch-2-6-0-cu124-aws
   MOFED_VERSION: ''
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
-  PYTHON_VERSION: '3.11'
+  PYTHON_VERSION: '3.12'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.6.0
   TAGS:
-  - mosaicml/pytorch:2.6.0_cu124-python3.11-ubuntu22.04-aws
-  - ghcr.io/databricks-mosaic/pytorch:2.6.0_cu124-python3.11-ubuntu22.04-aws
+  - mosaicml/pytorch:2.6.0_cu124-python3.12-ubuntu22.04-aws
+  - ghcr.io/databricks-mosaic/pytorch:2.6.0_cu124-python3.12-ubuntu22.04-aws
   - mosaicml/pytorch:latest-aws
   - ghcr.io/databricks-mosaic/pytorch:latest-aws
   TARGET: pytorch_stage
@@ -39,13 +39,13 @@
   IMAGE_NAME: torch-2-6-0-cpu
   MOFED_VERSION: ''
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
-  PYTHON_VERSION: '3.11'
+  PYTHON_VERSION: '3.12'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.6.0
   TAGS:
-  - mosaicml/pytorch:2.6.0_cpu-python3.11-ubuntu22.04
-  - ghcr.io/databricks-mosaic/pytorch:2.6.0_cpu-python3.11-ubuntu22.04
+  - mosaicml/pytorch:2.6.0_cpu-python3.12-ubuntu22.04
+  - ghcr.io/databricks-mosaic/pytorch:2.6.0_cpu-python3.12-ubuntu22.04
   - mosaicml/pytorch:latest_cpu
   - ghcr.io/databricks-mosaic/pytorch:latest_cpu
   TARGET: pytorch_stage
@@ -56,13 +56,13 @@
   IMAGE_NAME: torch-2-5-1-cu124
   MOFED_VERSION: latest-23.10
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
-  PYTHON_VERSION: '3.11'
+  PYTHON_VERSION: '3.12'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.5.1
   TAGS:
-  - mosaicml/pytorch:2.5.1_cu124-python3.11-ubuntu22.04
-  - ghcr.io/databricks-mosaic/pytorch:2.5.1_cu124-python3.11-ubuntu22.04
+  - mosaicml/pytorch:2.5.1_cu124-python3.12-ubuntu22.04
+  - ghcr.io/databricks-mosaic/pytorch:2.5.1_cu124-python3.12-ubuntu22.04
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.20.1
 - AWS_OFI_NCCL_VERSION: v1.11.0-aws
@@ -71,13 +71,13 @@
   IMAGE_NAME: torch-2-5-1-cu124-aws
   MOFED_VERSION: ''
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
-  PYTHON_VERSION: '3.11'
+  PYTHON_VERSION: '3.12'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.5.1
   TAGS:
-  - mosaicml/pytorch:2.5.1_cu124-python3.11-ubuntu22.04-aws
-  - ghcr.io/databricks-mosaic/pytorch:2.5.1_cu124-python3.11-ubuntu22.04-aws
+  - mosaicml/pytorch:2.5.1_cu124-python3.12-ubuntu22.04-aws
+  - ghcr.io/databricks-mosaic/pytorch:2.5.1_cu124-python3.12-ubuntu22.04-aws
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.20.1
 - AWS_OFI_NCCL_VERSION: ''
@@ -86,13 +86,13 @@
   IMAGE_NAME: torch-2-5-1-cpu
   MOFED_VERSION: ''
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
-  PYTHON_VERSION: '3.11'
+  PYTHON_VERSION: '3.12'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.5.1
   TAGS:
-  - mosaicml/pytorch:2.5.1_cpu-python3.11-ubuntu22.04
-  - ghcr.io/databricks-mosaic/pytorch:2.5.1_cpu-python3.11-ubuntu22.04
+  - mosaicml/pytorch:2.5.1_cpu-python3.12-ubuntu22.04
+  - ghcr.io/databricks-mosaic/pytorch:2.5.1_cpu-python3.12-ubuntu22.04
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.20.1
 - AWS_OFI_NCCL_VERSION: ''
@@ -101,13 +101,13 @@
   IMAGE_NAME: torch-2-4-1-cu124
   MOFED_VERSION: latest-23.10
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
-  PYTHON_VERSION: '3.11'
+  PYTHON_VERSION: '3.12'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.4.1
   TAGS:
-  - mosaicml/pytorch:2.4.1_cu124-python3.11-ubuntu22.04
-  - ghcr.io/databricks-mosaic/pytorch:2.4.1_cu124-python3.11-ubuntu22.04
+  - mosaicml/pytorch:2.4.1_cu124-python3.12-ubuntu22.04
+  - ghcr.io/databricks-mosaic/pytorch:2.4.1_cu124-python3.12-ubuntu22.04
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.19.1
 - AWS_OFI_NCCL_VERSION: v1.11.0-aws
@@ -116,13 +116,13 @@
   IMAGE_NAME: torch-2-4-1-cu124-aws
   MOFED_VERSION: ''
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
-  PYTHON_VERSION: '3.11'
+  PYTHON_VERSION: '3.12'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.4.1
   TAGS:
-  - mosaicml/pytorch:2.4.1_cu124-python3.11-ubuntu22.04-aws
-  - ghcr.io/databricks-mosaic/pytorch:2.4.1_cu124-python3.11-ubuntu22.04-aws
+  - mosaicml/pytorch:2.4.1_cu124-python3.12-ubuntu22.04-aws
+  - ghcr.io/databricks-mosaic/pytorch:2.4.1_cu124-python3.12-ubuntu22.04-aws
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.19.1
 - AWS_OFI_NCCL_VERSION: ''
@@ -131,13 +131,13 @@
   IMAGE_NAME: torch-2-4-1-cpu
   MOFED_VERSION: ''
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
-  PYTHON_VERSION: '3.11'
+  PYTHON_VERSION: '3.12'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.4.1
   TAGS:
-  - mosaicml/pytorch:2.4.1_cpu-python3.11-ubuntu22.04
-  - ghcr.io/databricks-mosaic/pytorch:2.4.1_cpu-python3.11-ubuntu22.04
+  - mosaicml/pytorch:2.4.1_cpu-python3.12-ubuntu22.04
+  - ghcr.io/databricks-mosaic/pytorch:2.4.1_cpu-python3.12-ubuntu22.04
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.19.1
 - AWS_OFI_NCCL_VERSION: ''
@@ -147,7 +147,7 @@
   IMAGE_NAME: composer-0-29-0
   MOFED_VERSION: latest-23.10
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
-  PYTHON_VERSION: '3.11'
+  PYTHON_VERSION: '3.12'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.6.0
@@ -165,7 +165,7 @@
   IMAGE_NAME: composer-0-29-0-cpu
   MOFED_VERSION: latest-23.10
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
-  PYTHON_VERSION: '3.11'
+  PYTHON_VERSION: '3.12'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.6.0

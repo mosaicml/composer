@@ -97,6 +97,7 @@ extra_deps = {}
 
 extra_deps['base'] = []
 
+# Python 3.12 removes pkgutil.ImpImporter, which is dep of Sphinx 4.4.0
 extra_deps['dev'] = [
     # Imports for docs builds and running tests
     # Pinning versions strictly to avoid random test failures.
@@ -111,11 +112,11 @@ extra_deps['dev'] = [
     'jupyter==1.1.1',
     'yamllint==1.35.1',
     'recommonmark==0.7.1',
-    'sphinx==4.4.0',
+    'sphinx>=6.2.1,<8.0',
     'pre-commit>=3.4.0,<5',
     # embedding md in rst require docutils>=0.17. See
     # https://myst-parser.readthedocs.io/en/latest/sphinx/use.html?highlight=parser#include-markdown-files-into-an-rst-file
-    'docutils==0.17.1',
+    'docutils>=0.18.1,<0.20',
     'sphinx_markdown_tables==0.0.17',
     'sphinx-argparse==0.4.0',
     'sphinxcontrib.katex==0.9.10',
@@ -126,11 +127,12 @@ extra_deps['dev'] = [
     'sphinxcontrib-qthelp==1.0.0',
     'sphinxext.opengraph==0.9.1',
     'sphinxemoji==0.2.0',
-    'furo==2022.9.29',
+    'furo>=2024.8.6',
     'sphinx-copybutton==0.5.2',
     'testbook==0.4.2',
-    'myst-parser==0.16.1',
-    'sphinx_panels==0.6.0',
+    'myst-parser>=0.19.0,<0.20',
+    'sphinx-design>=0.6.0',
+    'sphinx-panels>=0.6.0',
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.17.0',
     'traitlets==5.14.3',
@@ -142,7 +144,7 @@ extra_deps['dev'] = [
     'mock-ssh-server==0.9.1',
     'cryptography==44.0.0',
     'pytest-httpserver>=1.0.4,<1.1',
-    'setuptools<=59.5.0',
+    'setuptools<=77.0.3',
     'scikit-learn>=1.2.0,<1.6',
 ]
 
@@ -261,6 +263,7 @@ setup(
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
     ],
     install_requires=install_requires,
     entry_points={

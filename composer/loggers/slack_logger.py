@@ -214,7 +214,7 @@ class SlackLogger(LoggerDestination):
             if slack_logging_key is None:
                 raise TypeError('SLACK_LOGGING_API_KEY cannot be None')
             self.client.chat_postMessage(
-                token=f'{self.slack_logging_api_key if self.slack_logging_api_key else ""}',
+                token=self.slack_logging_api_key if self.slack_logging_api_key else '',
                 channel=channel_id,
                 blocks=blocks,
                 text=f'Logged {len(log_entries)} items to Slack',
