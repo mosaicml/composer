@@ -366,11 +366,12 @@ class HuggingFaceModel(ComposerModel):
             try:
                 saved_class = import_object(':'.join(hf_model_state['config']['class'].rsplit('.', maxsplit=1)))
             except (ModuleNotFoundError, AttributeError):
+                model_cfg_class = hf_model_state['config']['class']
                 raise ValueError(
                     textwrap.dedent(
-                        f'The saved class {hf_model_state["config"]["class"]} could not be imported. '
+                        f'The saved class {model_cfg_class} could not be imported. '
                         'Please either pass in the class to use explicitly via the model_instantiation_class '
-                        f'parameter, or make sure that {hf_model_state["config"]["class"]} is discoverable '
+                        f'parameter, or make sure that {model_cfg_class} is discoverable '
                         'on the python path.',
                     ),
                 )
@@ -800,7 +801,7 @@ def get_hf_config_from_composer_state_dict(
         except KeyError:
             raise Exception(
                 f'Could not load config from state dict using either `for_model` or `from_pretrained`.'
-                f'Please make sure that the model_type={hf_config_dict.get("model_type")} is valid, or that the'
+                f'Please make sure that the model_type={hf_config_dict.get('model_type')} is valid, or that the'
                 f'config has a valid `_name_or_path`.',
             )
 
