@@ -99,7 +99,7 @@ extra_deps['base'] = []
 extra_deps['dev'] = [
     # Imports for docs builds and running tests
     # Pinning versions strictly to avoid random test failures.
-    # Should manually update dependency versions occasionally.
+    # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
     'junitparser==3.1.2',
     'coverage[toml]==7.6.8',
@@ -110,9 +110,11 @@ extra_deps['dev'] = [
     'jupyter==1.1.1',
     'yamllint==1.35.1',
     'recommonmark==0.7.1',
-    'sphinx==6.2.1',
+    'sphinx==4.4.0',
     'pre-commit>=3.4.0,<5',
-    'docutils==0.19.0',
+    # embedding md in rst require docutils>=0.17. See
+    # https://myst-parser.readthedocs.io/en/latest/sphinx/use.html?highlight=parser#include-markdown-files-into-an-rst-file
+    'docutils==0.17.1',
     'sphinx_markdown_tables==0.0.17',
     'sphinx-argparse==0.4.0',
     'sphinxcontrib.katex==0.9.10',
@@ -123,10 +125,11 @@ extra_deps['dev'] = [
     'sphinxcontrib-qthelp==1.0.0',
     'sphinxext.opengraph==0.9.1',
     'sphinxemoji==0.2.0',
-    'furo==2024.8.6',
+    'furo==2022.9.29',
     'sphinx-copybutton==0.5.2',
     'testbook==0.4.2',
-    'myst-parser==0.19.2',
+    'myst-parser==0.16.1',
+    'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.17.0',
     'traitlets==5.14.3',
@@ -135,7 +138,7 @@ extra_deps['dev'] = [
     'pypandoc==1.14',
     'GitPython==3.1.43',
     'moto[s3]>=5.0.1,<6',
-    'mock-ssh-server==0.9.1',
+    'mock-ssh-server==0.9.å1',
     'cryptography==44.0.0',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools==78.0.2',
