@@ -21,7 +21,7 @@ if not len(methods):
     raise ValueError(f'Found 0 methods in {folder_path}')
 
 print(f'Found {len(methods)} methods with metadata.')
-badges = {'nlp': ':badge:`NLP,badge-success`', 'cv': ':badge:`CV,badge-primary`'}
+domain_names = {'nlp': 'NLP', 'cv': 'CV'}
 
 overview_path = os.path.join(os.path.dirname(__file__), '..', 'method_cards', 'methods_overview.rst')
 print('table_path ', overview_path)
@@ -31,8 +31,15 @@ with open(overview_path, 'w') as overview_file:
 |:black_joker:| Methods Overview
 ================================
 
-.. panels::
-   :card: shadow
+.. _method_cards:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 15 65
+
+   * - Method
+     - Domains
+     - Description
 """,
     )
 
@@ -42,18 +49,12 @@ with open(overview_path, 'w') as overview_file:
         with open(json_path, 'r') as f:
             metadata[name] = json.load(f)[name]
 
-            badge_string = ' '.join([badges[domain] for domain in metadata[name]['domains']])
+            domains_string = ', '.join([domain_names[domain] for domain in metadata[name]['domains']])
 
             overview_file.write(
-                f"""
-   ---
-   .. link-button:: {name}.html
-      :text: {metadata[name]['class_name']}
-      :classes: card-title
-
-   {badge_string}
-   ++++++++++++++
-   {metadata[name]['tldr']}
+                f"""   * - `{metadata[name]['class_name']} <{name}.html>`_
+     - {domains_string}
+     - {metadata[name]['tldr']}
 """,
             )
 

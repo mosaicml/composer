@@ -84,7 +84,6 @@ extensions = [
     'myst_parser',
     'sphinxarg.ext',
     'sphinx.ext.doctest',
-    'sphinx_panels',
     'sphinxcontrib.images',
     'nbsphinx',
 ]
