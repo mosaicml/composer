@@ -213,7 +213,7 @@ def test_list_objects(test_oci_obj_store, mock_bucket_name, monkeypatch, result:
         )
         with monkeypatch.context() as m:
             m.setattr(oci_os.client, 'list_objects', mock_list_objects_fn_with_exception)
-            empty_str = '' # to avoid pyright errors
+            empty_str = ''  # to avoid pyright errors
             with pytest.raises(
                 ValueError,
                 match=
