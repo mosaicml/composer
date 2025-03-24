@@ -123,7 +123,7 @@ extra_deps['dev'] = [
     'sphinxcontrib-htmlhelp==2.0.0',
     'sphinxcontrib-serializinghtml==1.1.5',
     'sphinxcontrib-qthelp==1.0.0',
-    'sphinxext-opengraph==0.9.1',
+    'sphinxext.opengraph==0.9.1',
     'sphinxemoji==0.2.0',
     'furo==2024.8.6',
     'sphinx-copybutton==0.5.2',
