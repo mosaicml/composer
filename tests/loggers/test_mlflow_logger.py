@@ -27,6 +27,7 @@ from tests.models.test_hf_model import (
 
 assert clean_mlflow_runs is not None, 'clean_mlflow_runs fixture must be available'  # Pre-commit will erase clean_mlflow_runs without this check
 
+
 def _get_latest_mlflow_run(experiment_name, tracking_uri=None):
     pytest.importorskip('mlflow')
     from mlflow import MlflowClient
