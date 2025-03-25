@@ -143,8 +143,8 @@ def test_mlflow_init_ids(monkeypatch):
     assert id_logger.run_name == 'dummy-run-name'  # Defaults are set, but we don't use them
     assert id_logger.experiment_name == 'my-mlflow-experiment'
     assert mlflow.set_tracking_uri.call_count == 1  # We call this once in the init
-    assert mlflow.set_experiment.called_with(experiment_id=mlflow_exp_id)
-    assert mlflow.start_run.called_with(run_id=mlflow_run_id)
+    mlflow.set_experiment.assert_called_with(experiment_id=mlflow_exp_id)
+    mlflow.start_run.assert_called_with(run_id=mlflow_run_id)
 
 
 def test_mlflow_init_experiment_name(monkeypatch):
@@ -168,7 +168,7 @@ def test_mlflow_init_experiment_name(monkeypatch):
     id_logger.init(state=mock_state, logger=MagicMock())
 
     assert id_logger.experiment_name == exp_name
-    assert mlflow.set_experiment.called_with(experiment_name=exp_name)
+    mlflow.set_experiment.assert_called_with(experiment_name=exp_name)
 
     id_logger.post_close()
 
@@ -530,7 +530,7 @@ def test_mlflow_register_model_non_databricks(tmp_path, monkeypatch):
         name='my_model',
     )
 
-    assert mlflow.register_model.called_with(
+    mlflow.register_model.assert_called_with(
         model_uri=local_mlflow_save_path,
         name='my_model',
         await_registration_for=300,
@@ -559,7 +559,7 @@ def test_mlflow_register_uc_error(tmp_path, monkeypatch):
 
 
 @device('cpu')
-def test_mlflow_log_image_works(tmp_path, device):
+def test_mlflow_log_image_works(tmp_path, device, clean_mlflow_runs):
     pytest.importorskip('mlflow')
 
     class ImageLogger(Callback):
@@ -662,7 +662,7 @@ class TestMlflowMetrics:
             ],
         ],
     )
-    def test_mlflow_ignore_metrics(self, num_batches, device, ignore_metrics, expected, ignored, tmp_path):
+    def test_mlflow_ignore_metrics(self, num_batches, device, ignore_metrics, expected, ignored, tmp_path, clean_mlflow_runs):
         logger = MLFlowLogger(
             tracking_uri=tmp_path / Path('my-test-mlflow-uri'),
             ignore_metrics=ignore_metrics,
