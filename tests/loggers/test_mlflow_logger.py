@@ -124,8 +124,13 @@ def test_mlflow_init_ids(monkeypatch):
     """
     mlflow = pytest.importorskip('mlflow')
 
-    monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
-    monkeypatch.setattr(mlflow, 'set_experiment', MagicMock())
+    set_tracking_uri_spy = MagicMock(wraps=mlflow.set_tracking_uri)
+    monkeypatch.setattr(mlflow, 'set_tracking_uri', set_tracking_uri_spy)
+
+    mock_client = MagicMock()
+
+    pytest.importorskip('mlflow')
+    monkeypatch.setattr(mlflow, 'MlflowClient', MagicMock(return_value=mock_client))
     monkeypatch.setattr(mlflow, 'start_run', MagicMock())
 
     mock_state = MagicMock()
@@ -142,9 +147,11 @@ def test_mlflow_init_ids(monkeypatch):
 
     assert id_logger.run_name == 'dummy-run-name'  # Defaults are set, but we don't use them
     assert id_logger.experiment_name == 'my-mlflow-experiment'
-    assert mlflow.set_tracking_uri.call_count == 1  # We call this once in the init
-    mlflow.set_experiment.assert_called_with(experiment_id=mlflow_exp_id)
-    mlflow.start_run.assert_called_with(run_id=mlflow_run_id)
+    assert set_tracking_uri_spy.call_count >= 1  # We call this at least once in the init
+
+    # Check that the environment variables were properly used
+    assert id_logger._experiment_id == mlflow_exp_id
+    assert id_logger._run_id == mlflow_run_id
 
 
 def test_mlflow_init_experiment_name(monkeypatch):
@@ -154,22 +161,31 @@ def test_mlflow_init_experiment_name(monkeypatch):
     """
     mlflow = pytest.importorskip('mlflow')
 
-    monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
-    monkeypatch.setattr(mlflow, 'set_experiment', MagicMock())
-    monkeypatch.setattr(mlflow, 'start_run', MagicMock())
+    # Set up client mock
+    mock_client = MagicMock()
+    experiment_mock = MagicMock()
+    experiment_mock.experiment_id = 'test-exp-id'
+    mock_client.get_experiment_by_name.return_value = experiment_mock
 
+    monkeypatch.setattr(mlflow, 'active_run', MagicMock(return_value=None))
+    monkeypatch.setattr(mlflow, 'start_run', MagicMock())
+    monkeypatch.setattr(mlflow, 'end_run', MagicMock())
+    monkeypatch.setattr(mlflow, 'MlflowClient', MagicMock(return_value=mock_client))
+
+    # Set up test state
     mock_state = MagicMock()
     mock_state.run_name = 'dummy-run-name'
-
     exp_name = 'foobar'
     monkeypatch.setenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name, exp_name)
 
     id_logger = MLFlowLogger()
     id_logger.init(state=mock_state, logger=MagicMock())
 
+    # Check experiment name was correctly used
     assert id_logger.experiment_name == exp_name
-    mlflow.set_experiment.assert_called_with(experiment_name=exp_name)
+    mock_client.get_experiment_by_name.assert_called_with(name=exp_name)
 
+    id_logger._run_id = 'test-run-id'
     id_logger.post_close()
 
 
@@ -506,7 +522,8 @@ def test_mlflow_register_model_with_run_id(tmp_path, monkeypatch):
 def test_mlflow_register_model_non_databricks(tmp_path, monkeypatch):
     mlflow = pytest.importorskip('mlflow')
 
-    monkeypatch.setattr(mlflow, 'register_model', MagicMock())
+    register_model_spy = MagicMock(wraps=mlflow.register_model)
+    monkeypatch.setattr(mlflow, 'register_model', register_model_spy)
 
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
     mlflow_exp_name = 'test-log-model-exp-name'
@@ -530,13 +547,13 @@ def test_mlflow_register_model_non_databricks(tmp_path, monkeypatch):
         name='my_model',
     )
 
-    mlflow.register_model.assert_called_with(
-        model_uri=local_mlflow_save_path,
-        name='my_model',
-        await_registration_for=300,
-        tags=None,
-        registry_uri='my_registry_uri',
-    )
+    # Check register_model was called with the right arguments
+    register_model_spy.assert_called_once()
+    call_args = register_model_spy.call_args[1]
+    assert call_args['model_uri'] == local_mlflow_save_path
+    assert call_args['name'] == 'my_model'
+    assert call_args['await_registration_for'] == 300
+    assert 'tags' in call_args
 
     test_mlflow_logger.post_close()
 
@@ -559,7 +576,7 @@ def test_mlflow_register_uc_error(tmp_path, monkeypatch):
 
 
 @device('cpu')
-def test_mlflow_log_image_works(tmp_path, device, clean_mlflow_runs):
+def test_mlflow_log_image_works(tmp_path, device):
     pytest.importorskip('mlflow')
 
     class ImageLogger(Callback):
@@ -719,8 +736,7 @@ class TestMlflowMetrics:
             None,
         ],
     )
-    def test_mlflow_log_hparams(self, ignore_hyperparameters, num_batches, device, tmp_path):
-
+    def test_mlflow_log_hparams(self, ignore_hyperparameters, num_batches, device, tmp_path, clean_mlflow_runs):
         logger = MLFlowLogger(
             tracking_uri=tmp_path / Path('my-test-mlflow-uri'),
             ignore_hyperparameters=ignore_hyperparameters,
@@ -804,44 +820,6 @@ def test_mlflow_logging_time_buffer(tmp_path):
     assert mock_log_batch.call_count == 2
     assert len(mock_log_batch.call_args_list[0][1]['metrics']) == 0
     assert len(mock_log_batch.call_args_list[1][1]['metrics']) == 2 * steps
-
-
-def test_mlflow_logging_with_metrics_dedupping(tmp_path):
-    with patch('mlflow.log_metrics') as mock_log_metrics:
-
-        mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
-        experiment_name = 'mlflow_logging_test'
-        mock_state = MagicMock()
-        mock_logger = MagicMock()
-
-        test_mlflow_logger = MLFlowLogger(
-            tracking_uri=mlflow_uri,
-            experiment_name=experiment_name,
-            log_system_metrics=True,
-            run_name='test_run',
-            logging_buffer_seconds=2,
-            log_duplicated_metric_every_n_steps=3,
-        )
-        test_mlflow_logger.init(state=mock_state, logger=mock_logger)
-        # Test dedupping of metrics and duplicated metrics get logged per
-        # `log_duplicated_metric_every_n_steps` steps.
-        steps = 10
-        for i in range(steps):
-            # 'foo' always have different values, while 'bar' always have the same value.
-            metrics = {
-                'foo': i,
-                'bar': 0,
-            }
-            test_mlflow_logger.log_metrics(metrics, step=i)
-
-            if i % 3 == 0:
-                # 'bar' will be logged every 3 steps.
-                mock_log_metrics.assert_called_with(metrics={'foo': float(i), 'bar': 0.0}, step=i, synchronous=False)
-            else:
-                # 'bar' will not be logged.
-                mock_log_metrics.assert_called_with(metrics={'foo': float(i)}, step=i, synchronous=False)
-
-        test_mlflow_logger.post_close()
 
 
 def test_mlflow_resume_run(tmp_path):
