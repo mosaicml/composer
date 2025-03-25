@@ -10,9 +10,9 @@
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.6.0
   TAGS:
-  - mosaicml/pytorch:2.6.0_cu124-python3.11-ubuntu22.04
+  - # mosaicml/pytorch:2.6.0_cu124-python3.11-ubuntu22.04
   - ghcr.io/databricks-mosaic/pytorch:2.6.0_cu124-python3.11-ubuntu22.04
-  - mosaicml/pytorch:latest
+  - # mosaicml/pytorch:latest
   - ghcr.io/databricks-mosaic/pytorch:latest
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.21.0
@@ -27,9 +27,9 @@
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.6.0
   TAGS:
-  - mosaicml/pytorch:2.6.0_cu124-python3.11-ubuntu22.04-aws
+  - # mosaicml/pytorch:2.6.0_cu124-python3.11-ubuntu22.04-aws
   - ghcr.io/databricks-mosaic/pytorch:2.6.0_cu124-python3.11-ubuntu22.04-aws
-  - mosaicml/pytorch:latest-aws
+  - # mosaicml/pytorch:latest-aws
   - ghcr.io/databricks-mosaic/pytorch:latest-aws
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.21.0
@@ -44,9 +44,9 @@
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.6.0
   TAGS:
-  - mosaicml/pytorch:2.6.0_cpu-python3.11-ubuntu22.04
+  - # mosaicml/pytorch:2.6.0_cpu-python3.11-ubuntu22.04
   - ghcr.io/databricks-mosaic/pytorch:2.6.0_cpu-python3.11-ubuntu22.04
-  - mosaicml/pytorch:latest_cpu
+  - # mosaicml/pytorch:latest_cpu
   - ghcr.io/databricks-mosaic/pytorch:latest_cpu
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.21.0
@@ -61,7 +61,7 @@
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.5.1
   TAGS:
-  - mosaicml/pytorch:2.5.1_cu124-python3.11-ubuntu22.04
+  - # mosaicml/pytorch:2.5.1_cu124-python3.11-ubuntu22.04
   - ghcr.io/databricks-mosaic/pytorch:2.5.1_cu124-python3.11-ubuntu22.04
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.20.1
@@ -76,7 +76,7 @@
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.5.1
   TAGS:
-  - mosaicml/pytorch:2.5.1_cu124-python3.11-ubuntu22.04-aws
+  - # mosaicml/pytorch:2.5.1_cu124-python3.11-ubuntu22.04-aws
   - ghcr.io/databricks-mosaic/pytorch:2.5.1_cu124-python3.11-ubuntu22.04-aws
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.20.1
@@ -91,7 +91,7 @@
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.5.1
   TAGS:
-  - mosaicml/pytorch:2.5.1_cpu-python3.11-ubuntu22.04
+  - # mosaicml/pytorch:2.5.1_cpu-python3.11-ubuntu22.04
   - ghcr.io/databricks-mosaic/pytorch:2.5.1_cpu-python3.11-ubuntu22.04
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.20.1
@@ -106,7 +106,7 @@
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.4.1
   TAGS:
-  - mosaicml/pytorch:2.4.1_cu124-python3.11-ubuntu22.04
+  - # mosaicml/pytorch:2.4.1_cu124-python3.11-ubuntu22.04
   - ghcr.io/databricks-mosaic/pytorch:2.4.1_cu124-python3.11-ubuntu22.04
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.19.1
@@ -121,7 +121,7 @@
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.4.1
   TAGS:
-  - mosaicml/pytorch:2.4.1_cu124-python3.11-ubuntu22.04-aws
+  - # mosaicml/pytorch:2.4.1_cu124-python3.11-ubuntu22.04-aws
   - ghcr.io/databricks-mosaic/pytorch:2.4.1_cu124-python3.11-ubuntu22.04-aws
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.19.1
@@ -136,13 +136,13 @@
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.4.1
   TAGS:
-  - mosaicml/pytorch:2.4.1_cpu-python3.11-ubuntu22.04
+  - # mosaicml/pytorch:2.4.1_cpu-python3.11-ubuntu22.04
   - ghcr.io/databricks-mosaic/pytorch:2.4.1_cpu-python3.11-ubuntu22.04
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.19.1
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
-  COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.29.0
+  COMPOSER_INSTALL_COMMAND: # mosaicml[all]==0.29.0
   CUDA_VERSION: 12.4.1
   IMAGE_NAME: composer-0-29-0
   MOFED_VERSION: latest-23.10
@@ -152,15 +152,15 @@
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.6.0
   TAGS:
-  - mosaicml/composer:0.29.0
+  - # mosaicml/composer:0.29.0
   - ghcr.io/databricks-mosaic/composer:0.29.0
-  - mosaicml/composer:latest
+  - # mosaicml/composer:latest
   - ghcr.io/databricks-mosaic/composer:latest
   TARGET: composer_stage
   TORCHVISION_VERSION: 0.21.0
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: ubuntu:22.04
-  COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.29.0
+  COMPOSER_INSTALL_COMMAND: # mosaicml[all]==0.29.0
   CUDA_VERSION: ''
   IMAGE_NAME: composer-0-29-0-cpu
   MOFED_VERSION: latest-23.10
@@ -170,9 +170,9 @@
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.6.0
   TAGS:
-  - mosaicml/composer:0.29.0_cpu
+  - # mosaicml/composer:0.29.0_cpu
   - ghcr.io/databricks-mosaic/composer:0.29.0_cpu
-  - mosaicml/composer:latest_cpu
+  - # mosaicml/composer:latest_cpu
   - ghcr.io/databricks-mosaic/composer:latest_cpu
   TARGET: composer_stage
   TORCHVISION_VERSION: 0.21.0
