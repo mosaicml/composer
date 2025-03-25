@@ -70,5 +70,5 @@ jobs:
     secrets:
       username: ${{ secrets.DOCKER_HUB_USERNAME }}
       password: ${{ secrets.DOCKER_HUB_PASSWORD }}
-      ghcr_username: ${{ secrets.GHCR_USERNAME }}
-      ghcr_password: ${{ secrets.GHCR_TOKEN }}
+      GHCR_APP_PEM: ${{ secrets.DEVOGE_BOT_PUB_PEM }}
+      GHCR_APP_ID: ${{ secrets.DEVOGE_BOT_PUB_APPID }}

@@ -12,7 +12,6 @@ on:
         required: true
       GHCR_APP_ID:
         required: true
-  pull_request: {} #<-- test
 
 defaults:
   run:
