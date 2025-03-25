@@ -39,7 +39,7 @@ jobs:
 
   stage-docker-build:
     needs: build-image-matrix
-    uses: ./.github/workflows/docker-configure-build-push.yaml
+    uses: mosaicml/composer/.github/workflows/docker-configure-build-push.yaml@kevin/gh-app-integration
     strategy:
       fail-fast: true
       matrix: ${{ fromJSON(needs.build-image-matrix.outputs.matrix) }}
