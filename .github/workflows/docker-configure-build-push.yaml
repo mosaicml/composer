@@ -39,6 +39,10 @@ on:
         required: true
       ghcr_pem:
         required: true
+      ghcr_app_id:
+        required: true
+      ghcr_app_org:
+        required: true
 jobs:
   configure-build-push:
     runs-on: mosaic-4wide
@@ -54,9 +58,9 @@ jobs:
     - uses: actions/create-github-app-token@v1
       id: app-token
       with:
-        app-id: ${{ secrets.DEVOGE_BOT_PUB_APPID }}
+        app-id: ${{ secrets.ghcr_app_id }}
         private-key: ${{ secrets.ghcr_pem }}
-        owner: ${{ secrets.DB_GH_APP_ORG }}
+        owner: ${{ secrets.ghcr_app_org }}
     - name: Login to DockerHub
       uses: docker/login-action@v2
       with:
