@@ -69,5 +69,5 @@ jobs:
     secrets:
       username: ${{ secrets.DOCKER_HUB_USERNAME }}
       password: ${{ secrets.DOCKER_HUB_PASSWORD }}
-      ghcr_app_pem: ${{ secrets.GHCR_APP_PEM }}
       ghcr_app_id: ${{ secrets.GHCR_APP_ID }}
+      ghcr_app_pem: ${{ secrets.GHCR_APP_PEM }}
