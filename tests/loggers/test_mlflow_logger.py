@@ -662,7 +662,16 @@ class TestMlflowMetrics:
             ],
         ],
     )
-    def test_mlflow_ignore_metrics(self, num_batches, device, ignore_metrics, expected, ignored, tmp_path, clean_mlflow_runs):
+    def test_mlflow_ignore_metrics(
+        self,
+        num_batches,
+        device,
+        ignore_metrics,
+        expected,
+        ignored,
+        tmp_path,
+        clean_mlflow_runs,
+    ):
         logger = MLFlowLogger(
             tracking_uri=tmp_path / Path('my-test-mlflow-uri'),
             ignore_metrics=ignore_metrics,
