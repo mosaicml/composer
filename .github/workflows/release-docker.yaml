@@ -8,7 +8,9 @@ on:
         required: true
       DOCKER_HUB_PASSWORD:
         required: true
-      GHCR_PEM:
+      GHCR_APP_PEM:
+        required: true
+      GHCR_APP_ID:
         required: true
   pull_request: {} #<-- test
 
@@ -67,6 +69,5 @@ jobs:
     secrets:
       username: ${{ secrets.DOCKER_HUB_USERNAME }}
       password: ${{ secrets.DOCKER_HUB_PASSWORD }}
-      ghcr_pem: ${{ secrets.DEVOGE_BOT_PUB_PEM }}
-      ghcr_app_id: ${{ secrets.DEVOGE_BOT_PUB_APPID }}
-      ghcr_app_org: ${{ secrets.DB_GH_APP_ORG }}
+      ghcr_app_pem: ${{ secrets.GHCR_APP_PEM }}
+      ghcr_app_id: ${{ secrets.GHCR_APP_ID }}

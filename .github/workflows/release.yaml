@@ -111,4 +111,5 @@ jobs:
     secrets:
       DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
       DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
-      GHCR_PEM: ${{ secrets.DEVOGE_BOT_PUB_PEM }}
+      GHCR_APP_PEM: ${{ secrets.DEVOGE_BOT_PUB_PEM }}
+      GHCR_APP_ID: ${{ secrets.DEVOGE_BOT_PUB_APPID }}

@@ -37,11 +37,9 @@ on:
         required: true
       password:
         required: true
-      ghcr_pem:
+      ghcr_app_pem:
         required: true
       ghcr_app_id:
-        required: true
-      ghcr_app_org:
         required: true
 jobs:
   configure-build-push:
@@ -59,7 +57,7 @@ jobs:
       id: app-token
       with:
         app-id: ${{ secrets.ghcr_app_id }}
-        private-key: ${{ secrets.ghcr_pem }}
+        private-key: ${{ secrets.ghcr_app_pem }}
         owner: ${{ secrets.ghcr_app_org }}
     - name: Login to DockerHub
       uses: docker/login-action@v2
