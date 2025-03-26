@@ -12,7 +12,6 @@ To run::
 
 import itertools
 import os
-import re
 import sys
 
 import packaging.version
