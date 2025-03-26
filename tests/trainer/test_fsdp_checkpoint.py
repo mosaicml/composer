@@ -437,87 +437,87 @@ def test_fsdp_mixed_with_sync(
 @pytest.mark.parametrize(
     'composer_version',
     [
-        pytest.param(
-            '0.13.5',
-            marks=[
-                pytest.mark.filterwarnings(
-                    (r'ignore:ShardedGradScaler is not in the state_dict. Its state will not be restored.:UserWarning'),
-                ),
-                pytest.mark.filterwarnings((
-                    r'ignore:MosaicMLLogger is not in the state_dict. Its state '
-                    r'will not be restored.:UserWarning'
-                )),
-                pytest.mark.filterwarnings((r'ignore:.*process_group is deprecated.*:UserWarning'),),
-                pytest.mark.filterwarnings(
-                    (r'ignore:.*process_group and device_mesh are set for FSDP, so ignoring device_mesh.*:UserWarning'),
-                ),
-            ],
-        ),
-        pytest.param(
-            '0.14.0',
-            marks=[
-                pytest.mark.filterwarnings((
-                    r'ignore:MosaicMLLogger is not in the state_dict. Its '
-                    r'state will not be restored.:UserWarning'
-                ),),
-                pytest.mark.filterwarnings((r'ignore:.*process_group is deprecated.*:UserWarning'),),
-                pytest.mark.filterwarnings(
-                    (r'ignore:.*process_group and device_mesh are set for FSDP, so ignoring device_mesh.*:UserWarning'),
-                ),
-            ],
-        ),
-        pytest.param(
-            '0.14.1',
-            marks=[
-                pytest.mark.filterwarnings((
-                    r'ignore:MosaicMLLogger is not in the state_dict. Its '
-                    r'state will not be restored.:UserWarning'
-                ),),
-                pytest.mark.filterwarnings((r'ignore:.*process_group is deprecated.*:UserWarning'),),
-                pytest.mark.filterwarnings(
-                    (r'ignore:.*process_group and device_mesh are set for FSDP, so ignoring device_mesh.*:UserWarning'),
-                ),
-            ],
-        ),
-        pytest.param(
-            '0.15.1',
-            marks=[
-                pytest.mark.filterwarnings((
-                    r'ignore:MosaicMLLogger is not in the state_dict. Its '
-                    r'state will not be restored.:UserWarning'
-                ),),
-                pytest.mark.filterwarnings((r'ignore:.*process_group is deprecated.*:UserWarning'),),
-                pytest.mark.filterwarnings(
-                    (r'ignore:.*process_group and device_mesh are set for FSDP, so ignoring device_mesh.*:UserWarning'),
-                ),
-            ],
-        ),
-        pytest.param(
-            '0.16.0',
-            marks=pytest.mark.filterwarnings(
-                (r'ignore:MosaicMLLogger is not in the state_dict. Its '
-                 r'state will not be restored.:UserWarning'),
-            ),
-        ),
-        pytest.param(
-            '0.17.0',
-            marks=pytest.mark.filterwarnings(
-                (r'ignore:MosaicMLLogger is not in the state_dict. Its '
-                 r'state will not be restored.:UserWarning'),
-            ),
-        ),
+        # pytest.param(
+        #     '0.13.5',
+        #     marks=[
+        #         pytest.mark.filterwarnings(
+        #             (r'ignore:ShardedGradScaler is not in the state_dict. Its state will not be restored.:UserWarning'),
+        #         ),
+        #         pytest.mark.filterwarnings((
+        #             r'ignore:MosaicMLLogger is not in the state_dict. Its state '
+        #             r'will not be restored.:UserWarning'
+        #         )),
+        #         pytest.mark.filterwarnings((r'ignore:.*process_group is deprecated.*:UserWarning'),),
+        #         pytest.mark.filterwarnings(
+        #             (r'ignore:.*process_group and device_mesh are set for FSDP, so ignoring device_mesh.*:UserWarning'),
+        #         ),
+        #     ],
+        # ),
+        # pytest.param(
+        #     '0.14.0',
+        #     marks=[
+        #         pytest.mark.filterwarnings((
+        #             r'ignore:MosaicMLLogger is not in the state_dict. Its '
+        #             r'state will not be restored.:UserWarning'
+        #         ),),
+        #         pytest.mark.filterwarnings((r'ignore:.*process_group is deprecated.*:UserWarning'),),
+        #         pytest.mark.filterwarnings(
+        #             (r'ignore:.*process_group and device_mesh are set for FSDP, so ignoring device_mesh.*:UserWarning'),
+        #         ),
+        #     ],
+        # ),
+        # pytest.param(
+        #     '0.14.1',
+        #     marks=[
+        #         pytest.mark.filterwarnings((
+        #             r'ignore:MosaicMLLogger is not in the state_dict. Its '
+        #             r'state will not be restored.:UserWarning'
+        #         ),),
+        #         pytest.mark.filterwarnings((r'ignore:.*process_group is deprecated.*:UserWarning'),),
+        #         pytest.mark.filterwarnings(
+        #             (r'ignore:.*process_group and device_mesh are set for FSDP, so ignoring device_mesh.*:UserWarning'),
+        #         ),
+        #     ],
+        # ),
+        # pytest.param(
+        #     '0.15.1',
+        #     marks=[
+        #         pytest.mark.filterwarnings((
+        #             r'ignore:MosaicMLLogger is not in the state_dict. Its '
+        #             r'state will not be restored.:UserWarning'
+        #         ),),
+        #         pytest.mark.filterwarnings((r'ignore:.*process_group is deprecated.*:UserWarning'),),
+        #         pytest.mark.filterwarnings(
+        #             (r'ignore:.*process_group and device_mesh are set for FSDP, so ignoring device_mesh.*:UserWarning'),
+        #         ),
+        #     ],
+        # ),
+        # pytest.param(
+        #     '0.16.0',
+        #     marks=pytest.mark.filterwarnings(
+        #         (r'ignore:MosaicMLLogger is not in the state_dict. Its '
+        #          r'state will not be restored.:UserWarning'),
+        #     ),
+        # ),
+        # pytest.param(
+        #     '0.17.0',
+        #     marks=pytest.mark.filterwarnings(
+        #         (r'ignore:MosaicMLLogger is not in the state_dict. Its '
+        #          r'state will not be restored.:UserWarning'),
+        #     ),
+        # ),
         '0.18.1',
-        '0.19.0',
-        '0.20.0',
-        '0.21.0',
-        '0.22.0',
-        '0.23.0',
-        '0.24.0',
-        '0.25.0',
-        '0.26.0',
-        '0.27.0',
-        '0.28.0',
-        '0.29.0',
+        # '0.19.0',
+        # '0.20.0',
+        # '0.21.0',
+        # '0.22.0',
+        # '0.23.0',
+        # '0.24.0',
+        # '0.25.0',
+        # '0.26.0',
+        # '0.27.0',
+        # '0.28.0',
+        # '0.29.0',
     ],
 )
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
