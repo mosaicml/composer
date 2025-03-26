@@ -12,7 +12,6 @@ To run::
 
 import itertools
 import os
-import re
 import sys
 
 import packaging.version
@@ -106,21 +105,19 @@ def _get_cuda_override(cuda_version: str):
 def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: str, stage: str, interconnect: str):
     if stage == 'pytorch_stage':
         base_image_name = 'mosaicml/pytorch'
-        ghcr_base_image_name = 'ghcr.io/databricks-mosaic/pytorch'
     else:
         raise ValueError(f'Invalid stage: {stage}')
     tags = []
     cuda_version_tag = _get_cuda_version_tag(cuda_version)
     tags += [
         f'{base_image_name}:{pytorch_version}_{cuda_version_tag}-python{python_version}-ubuntu22.04',
-        f'{ghcr_base_image_name}:{pytorch_version}_{cuda_version_tag}-python{python_version}-ubuntu22.04',
     ]
 
     if python_version == PRODUCTION_PYTHON_VERSION and pytorch_version == PRODUCTION_PYTORCH_VERSION:
         if not cuda_version:
-            tags += [f'{base_image_name}:latest_cpu', f'{ghcr_base_image_name}:latest_cpu']
+            tags += [f'{base_image_name}:latest_cpu']
         else:
-            tags += [f'{base_image_name}:latest', f'{ghcr_base_image_name}:latest']
+            tags += [f'{base_image_name}:latest']
 
     if interconnect == 'EFA':
         tags = [f'{tag}-aws' for tag in tags]
@@ -129,15 +126,14 @@ def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: s
 
 def _get_composer_tags(composer_version: str, use_cuda: bool):
     base_image_name = 'mosaicml/composer'
-    ghcr_base_image_name = 'ghcr.io/databricks-mosaic/composer'
 
     tags = []
     if not use_cuda:
-        tags += [f'{base_image_name}:{composer_version}_cpu', f'{ghcr_base_image_name}:{composer_version}_cpu']
-        tags += [f'{base_image_name}:latest_cpu', f'{ghcr_base_image_name}:latest_cpu']
+        tags += [f'{base_image_name}:{composer_version}_cpu']
+        tags += [f'{base_image_name}:latest_cpu']
     else:
-        tags += [f'{base_image_name}:{composer_version}', f'{ghcr_base_image_name}:{composer_version}']
-        tags += [f'{base_image_name}:latest', f'{ghcr_base_image_name}:latest']
+        tags += [f'{base_image_name}:{composer_version}']
+        tags += [f'{base_image_name}:latest']
     print(tags)
     return tags
 
@@ -173,7 +169,6 @@ def _write_table(table_tag: str, table_contents: str):
         print(f"Warning: '{end_table_tag}' not found in contents.")
         post = ''
     new_readme = f'{pre}{begin_table_tag}\n{table_contents}\n{end_table_tag}{post}'
-    new_readme = re.sub(r'`ghcr\.io\S*, ', '', new_readme)
 
     with open(os.path.join(os.path.dirname(__name__), 'README.md'), 'w') as f:
         f.write(new_readme)
