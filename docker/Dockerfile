@@ -174,8 +174,6 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
 RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} - && \
     pip${PYTHON_VERSION} install --no-cache-dir --upgrade pip 'setuptools<70.0.0'
 
-RUN pip${PYTHON_VERSION} install wheel
-
 #################
 # Install Pytorch
 #################
@@ -264,6 +262,7 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
 ##########################
 RUN if [ -n "$CUDA_VERSION" ] ; then \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir ninja==1.11.1 && \
+        pip${PYTHON_VERSION} install --upgrade --no-cache-dir wheel && \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir --force-reinstall packaging==22.0 && \
         MAJOR_CUDA_VERSION=$(echo $CUDA_VERSION | cut -d. -f1) && \
         MINOR_CUDA_VERSION=$(echo $CUDA_VERSION | cut -d. -f2) && \
