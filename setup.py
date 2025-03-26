@@ -90,7 +90,7 @@ install_requires = [
     'py-cpuinfo>=8.0.0,<10',
     'packaging>=21.3.0,<24.3',
     'importlib-metadata>=5.0.0,<9',
-    'mosaicml-cli>=0.5.25,<0.7',
+    'mosaicml-cli>=0.5.25,<0.8',
     'pillow>=10.3.0,<12',
 ]
 extra_deps = {}
