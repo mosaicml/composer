@@ -90,7 +90,7 @@ install_requires = [
     'py-cpuinfo>=8.0.0,<10',
     'packaging>=21.3.0,<24.3',
     'importlib-metadata>=5.0.0,<9',
-    'mosaicml-cli>=0.5.25,<0.7',
+    'mosaicml-cli>=0.5.25,<0.8',
     'pillow>=10.3.0,<12',
 ]
 extra_deps = {}
@@ -137,7 +137,7 @@ extra_deps['dev'] = [
     'nbsphinx==0.9.1',
     'pandoc==2.4',
     'pypandoc==1.14',
-    'GitPython==3.1.43',
+    'GitPython==3.1.44',
     'moto[s3]>=5.0.1,<6',
     'mock-ssh-server==0.9.1',
     'cryptography==44.0.0',
