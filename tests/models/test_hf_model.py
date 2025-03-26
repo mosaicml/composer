@@ -386,10 +386,13 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
                     token_map2[key] = token_map2[key].content
 
             if 'additional_special_tokens' in token_map1:
-                token_map1['additional_special_tokens'] = [t.content if hasattr(t, 'content') else t for t in token_map1['additional_special_tokens']]
+                token_map1['additional_special_tokens'] = [
+                    t.content if hasattr(t, 'content') else t for t in token_map1['additional_special_tokens']
+                ]
             if 'additional_special_tokens' in token_map2:
-                token_map2['additional_special_tokens'] = [t.content if hasattr(t, 'content') else t for t in token_map2['additional_special_tokens']]
-
+                token_map2['additional_special_tokens'] = [
+                    t.content if hasattr(t, 'content') else t for t in token_map2['additional_special_tokens']
+                ]
 
     assert tokenizer1.__dict__ == tokenizer2.__dict__
 
@@ -740,7 +743,7 @@ def test_hf_loading_load_save_paths(
             checkpoint_path=checkpoint_load_path,
             local_checkpoint_save_location=local_save_checkpoint_path,
         )
-    
+
     check_hf_model_equivalence(hf_loaded_model, tiny_bert_model)
     check_hf_tokenizer_equivalence(hf_loaded_tokenizer, tiny_bert_tokenizer)
 
@@ -778,7 +781,7 @@ def test_hf_loading_sentencepiece_tokenizer(modify_tokenizer: bool, tmp_path: Pa
     if not save_fast:
         # Not sure exactly which transformers version caused this change, but fast tokenizer format has been the norm
         # for a long time, so we skip this test for now
-        pytest.skip("The slow tokenizer no longer matches the loaded fast tokenizer.")
+        pytest.skip('The slow tokenizer no longer matches the loaded fast tokenizer.')
         sd = torch.load(str(tmp_path / 'hf-checkpoint.pt'), weights_only=False)
         # remove the fast tokenizer file from the checkpoint
         del sd['state']['integrations']['huggingface']['tokenizer']['tokenizer.json']
