@@ -11,9 +11,7 @@
   PYTORCH_VERSION: 2.6.0
   TAGS:
   - mosaicml/pytorch:2.6.0_cu124-python3.11-ubuntu22.04
-  - ghcr.io/databricks-mosaic/pytorch:2.6.0_cu124-python3.11-ubuntu22.04
   - mosaicml/pytorch:latest
-  - ghcr.io/databricks-mosaic/pytorch:latest
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.21.0
 - AWS_OFI_NCCL_VERSION: v1.11.0-aws
@@ -28,9 +26,7 @@
   PYTORCH_VERSION: 2.6.0
   TAGS:
   - mosaicml/pytorch:2.6.0_cu124-python3.11-ubuntu22.04-aws
-  - ghcr.io/databricks-mosaic/pytorch:2.6.0_cu124-python3.11-ubuntu22.04-aws
   - mosaicml/pytorch:latest-aws
-  - ghcr.io/databricks-mosaic/pytorch:latest-aws
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.21.0
 - AWS_OFI_NCCL_VERSION: ''
@@ -45,9 +41,7 @@
   PYTORCH_VERSION: 2.6.0
   TAGS:
   - mosaicml/pytorch:2.6.0_cpu-python3.11-ubuntu22.04
-  - ghcr.io/databricks-mosaic/pytorch:2.6.0_cpu-python3.11-ubuntu22.04
   - mosaicml/pytorch:latest_cpu
-  - ghcr.io/databricks-mosaic/pytorch:latest_cpu
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.21.0
 - AWS_OFI_NCCL_VERSION: ''
@@ -62,7 +56,6 @@
   PYTORCH_VERSION: 2.5.1
   TAGS:
   - mosaicml/pytorch:2.5.1_cu124-python3.11-ubuntu22.04
-  - ghcr.io/databricks-mosaic/pytorch:2.5.1_cu124-python3.11-ubuntu22.04
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.20.1
 - AWS_OFI_NCCL_VERSION: v1.11.0-aws
@@ -77,7 +70,6 @@
   PYTORCH_VERSION: 2.5.1
   TAGS:
   - mosaicml/pytorch:2.5.1_cu124-python3.11-ubuntu22.04-aws
-  - ghcr.io/databricks-mosaic/pytorch:2.5.1_cu124-python3.11-ubuntu22.04-aws
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.20.1
 - AWS_OFI_NCCL_VERSION: ''
@@ -92,7 +84,6 @@
   PYTORCH_VERSION: 2.5.1
   TAGS:
   - mosaicml/pytorch:2.5.1_cpu-python3.11-ubuntu22.04
-  - ghcr.io/databricks-mosaic/pytorch:2.5.1_cpu-python3.11-ubuntu22.04
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.20.1
 - AWS_OFI_NCCL_VERSION: ''
@@ -107,7 +98,6 @@
   PYTORCH_VERSION: 2.4.1
   TAGS:
   - mosaicml/pytorch:2.4.1_cu124-python3.11-ubuntu22.04
-  - ghcr.io/databricks-mosaic/pytorch:2.4.1_cu124-python3.11-ubuntu22.04
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.19.1
 - AWS_OFI_NCCL_VERSION: v1.11.0-aws
@@ -122,7 +112,6 @@
   PYTORCH_VERSION: 2.4.1
   TAGS:
   - mosaicml/pytorch:2.4.1_cu124-python3.11-ubuntu22.04-aws
-  - ghcr.io/databricks-mosaic/pytorch:2.4.1_cu124-python3.11-ubuntu22.04-aws
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.19.1
 - AWS_OFI_NCCL_VERSION: ''
@@ -137,7 +126,6 @@
   PYTORCH_VERSION: 2.4.1
   TAGS:
   - mosaicml/pytorch:2.4.1_cpu-python3.11-ubuntu22.04
-  - ghcr.io/databricks-mosaic/pytorch:2.4.1_cpu-python3.11-ubuntu22.04
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.19.1
 - AWS_OFI_NCCL_VERSION: ''
@@ -153,9 +141,7 @@
   PYTORCH_VERSION: 2.6.0
   TAGS:
   - mosaicml/composer:0.29.0
-  - ghcr.io/databricks-mosaic/composer:0.29.0
   - mosaicml/composer:latest
-  - ghcr.io/databricks-mosaic/composer:latest
   TARGET: composer_stage
   TORCHVISION_VERSION: 0.21.0
 - AWS_OFI_NCCL_VERSION: ''
@@ -171,8 +157,6 @@
   PYTORCH_VERSION: 2.6.0
   TAGS:
   - mosaicml/composer:0.29.0_cpu
-  - ghcr.io/databricks-mosaic/composer:0.29.0_cpu
   - mosaicml/composer:latest_cpu
-  - ghcr.io/databricks-mosaic/composer:latest_cpu
   TARGET: composer_stage
   TORCHVISION_VERSION: 0.21.0
