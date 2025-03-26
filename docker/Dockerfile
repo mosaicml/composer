@@ -270,7 +270,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         PYTORCH_MINOR=$(echo $PYTORCH_VERSION | cut -d. -f2) && \
         PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d. -f1) && \
         PYTHON_MINOR=$(echo $PYTHON_VERSION | cut -d. -f2) && \
-        RUN pip${PYTHON_VERSION} install wheel \
+        pip${PYTHON_VERSION} install wheel && \
         WHEEL_URL="https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4/flash_attn-2.7.4.post1+${CUDA_STRING}torch${PYTORCH_MAJOR}.${PYTORCH_MINOR}cxx11abiTRUE-cp${PYTHON_MAJOR}${PYTHON_MINOR}-cp${PYTHON_MAJOR}${PYTHON_MINOR}-linux_x86_64.whl" && \
         echo "Installing Flash Attention from: $WHEEL_URL" && \
         pip${PYTHON_VERSION} install --no-cache-dir $WHEEL_URL || \
