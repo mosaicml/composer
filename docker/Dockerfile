@@ -265,8 +265,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir wheel && \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir --force-reinstall packaging==22.0 && \
         MAJOR_CUDA_VERSION=$(echo $CUDA_VERSION | cut -d. -f1) && \
-        MINOR_CUDA_VERSION=$(echo $CUDA_VERSION | cut -d. -f2) && \
-        CUDA_STRING="cu${MAJOR_CUDA_VERSION}${MINOR_CUDA_VERSION}" && \
+        CUDA_STRING="cu${MAJOR_CUDA_VERSION}" && \
         PYTORCH_MAJOR=$(echo $PYTORCH_VERSION | cut -d. -f1) && \
         PYTORCH_MINOR=$(echo $PYTORCH_VERSION | cut -d. -f2) && \
         PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d. -f1) && \
