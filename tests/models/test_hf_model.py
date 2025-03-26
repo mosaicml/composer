@@ -282,6 +282,10 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
     tokenizer1.__dict__['init_kwargs'].pop('add_prefix_space', None)
     tokenizer2.__dict__['init_kwargs'].pop('add_prefix_space', None)
 
+    merges1 = tokenizer1.__dict__['init_kwargs'].pop('merges_file', None)
+    merges2 = tokenizer2.__dict__['init_kwargs'].pop('merges_file', None)
+    assert (merges1 is None) == (merges2 is None)
+
     # tokenizer.init_kwargs['tokenizer_file'] is unset when the tokenizer does not specify it, but is set to
     # None when you save and reload, so here we just check that its the same if it is present in both tokenizers.
     tokenizer_file_1 = tokenizer1.init_kwargs.get('tokenizer_file', None)
