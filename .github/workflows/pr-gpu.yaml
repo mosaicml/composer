@@ -15,8 +15,8 @@ jobs:
     strategy:
       matrix:
         include:
-        - name: gpu-3.11-2.6-1
-          container: mosaicml/pytorch:2.6.0_cu124-python3.11-ubuntu22.04
+        - name: gpu-3.12-2.6-1
+          container: mosaicml/pytorch:2.6.0_cu124-python3.12-ubuntu22.04
           markers: not daily and not remote and gpu and (doctest or not doctest)
           pytest_command: coverage run -m pytest
           composer_package_name: mosaicml
@@ -34,7 +34,7 @@ jobs:
         pip_deps: "[all]"
         pytest_command: ${{ matrix.pytest_command }}
         pytest_markers: ${{ matrix.markers }}
-        python_version: 3.11
+        python_version: 3.12
         gpu_num: 1
         mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
         ci_repo_gpu_test_ref: v0.3.3
@@ -44,8 +44,8 @@ jobs:
     strategy:
       matrix:
         include:
-        - name: gpu-3.11-2.6-2
-          container: mosaicml/pytorch:2.6.0_cu124-python3.11-ubuntu22.04
+        - name: gpu-3.12-2.6-2
+          container: mosaicml/pytorch:2.6.0_cu124-python3.12-ubuntu22.04
           markers: not daily and not remote and gpu and (doctest or not doctest)
           pytest_command: coverage run -m pytest
           composer_package_name: mosaicml
@@ -64,7 +64,7 @@ jobs:
         pip_deps: "[all]"
         pytest_command: ${{ matrix.pytest_command }}
         pytest_markers: ${{ matrix.markers }}
-        python_version: 3.11
+        python_version: 3.12
         gpu_num: 2
         mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
         ci_repo_gpu_test_ref: v0.3.3
@@ -74,8 +74,8 @@ jobs:
     strategy:
       matrix:
         include:
-        - name: gpu-3.11-2.6-4
-          container: mosaicml/pytorch:2.6.0_cu124-python3.11-ubuntu22.04
+        - name: gpu-3.12-2.6-4
+          container: mosaicml/pytorch:2.6.0_cu124-python3.12-ubuntu22.04
           markers: not daily and not remote and gpu and (doctest or not doctest)
           pytest_command: coverage run -m pytest
           composer_package_name: mosaicml
@@ -94,7 +94,7 @@ jobs:
         pip_deps: "[all]"
         pytest_command: ${{ matrix.pytest_command }}
         pytest_markers: ${{ matrix.markers }}
-        python_version: 3.11
+        python_version: 3.12
         gpu_num: 4
         mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
         ci_repo_gpu_test_ref: v0.3.3

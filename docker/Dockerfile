@@ -159,13 +159,13 @@ ARG PYTHON_VERSION
 # Python 3.10 changes where packages are installed. Workaround until all packages support new format
 ENV DEB_PYTHON_INSTALL_LAYOUT=deb
 
+# Python 3.12 no longer supports distutils
 RUN add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
     python3-apt \
     python${PYTHON_VERSION} \
     python${PYTHON_VERSION}-dev \
-    python${PYTHON_VERSION}-distutils \
     python${PYTHON_VERSION}-venv && \
     apt-get autoclean && \
     apt-get clean && \
@@ -262,15 +262,15 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
 ##########################
 RUN if [ -n "$CUDA_VERSION" ] ; then \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir ninja==1.11.1 && \
+        pip${PYTHON_VERSION} install --upgrade --no-cache-dir wheel && \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir --force-reinstall packaging==22.0 && \
         MAJOR_CUDA_VERSION=$(echo $CUDA_VERSION | cut -d. -f1) && \
-        MINOR_CUDA_VERSION=$(echo $CUDA_VERSION | cut -d. -f2) && \
-        CUDA_STRING="cu${MAJOR_CUDA_VERSION}${MINOR_CUDA_VERSION}" && \
+        CUDA_STRING="cu${MAJOR_CUDA_VERSION}" && \
         PYTORCH_MAJOR=$(echo $PYTORCH_VERSION | cut -d. -f1) && \
         PYTORCH_MINOR=$(echo $PYTORCH_VERSION | cut -d. -f2) && \
         PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d. -f1) && \
         PYTHON_MINOR=$(echo $PYTHON_VERSION | cut -d. -f2) && \
-        WHEEL_URL="https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4/flash_attn-2.7.4.post1+${CUDA_STRING}torch${PYTORCH_MAJOR}.${PYTORCH_MINOR}cxx11abiTRUE-cp${PYTHON_MAJOR}${PYTHON_MINOR}-cp${PYTHON_MAJOR}${PYTHON_MINOR}-linux_x86_64.whl" && \
+        WHEEL_URL="https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+${CUDA_STRING}torch${PYTORCH_MAJOR}.${PYTORCH_MINOR}cxx11abiFALSE-cp${PYTHON_MAJOR}${PYTHON_MINOR}-cp${PYTHON_MAJOR}${PYTHON_MINOR}-linux_x86_64.whl" && \
         echo "Installing Flash Attention from: $WHEEL_URL" && \
         pip${PYTHON_VERSION} install --no-cache-dir $WHEEL_URL || \
         (echo "Pre-built wheel not found, falling back to source installation" && \
