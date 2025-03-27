@@ -161,6 +161,7 @@ def tiny_bert_config_helper():
         'num_attention_heads': 2,
         'num_hidden_layers': 2,
         'intermediate_size': 512,
+        'attn_implementation': 'eager',
     }
     return transformers.AutoConfig.from_pretrained('google-bert/bert-base-uncased', **tiny_overrides)
 
