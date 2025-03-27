@@ -16,7 +16,6 @@ from torch.utils.data import DataLoader
 from composer.core import Callback, State
 from composer.loggers import Logger, MLFlowLogger
 from composer.trainer import Trainer
-from tests.callbacks.test_callbacks import clean_mlflow_runs
 from tests.common.datasets import RandomClassificationDataset, RandomImageDataset
 from tests.common.markers import device
 from tests.common.models import SimpleConvModel, SimpleModel
@@ -24,8 +23,6 @@ from tests.models.test_hf_model import (
     check_hf_model_equivalence,
     check_hf_tokenizer_equivalence,
 )
-
-assert clean_mlflow_runs is not None, 'clean_mlflow_runs fixture must be available'  # Pre-commit will erase clean_mlflow_runs without this check
 
 
 def _get_latest_mlflow_run(experiment_name, tracking_uri=None):

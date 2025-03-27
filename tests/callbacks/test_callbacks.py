@@ -19,32 +19,6 @@ from tests.callbacks.callback_settings import (
 from tests.common import EventCounterCallback
 
 
-@pytest.fixture
-def clean_mlflow_runs():
-    """Clean up MLflow runs before and after tests.
-
-    This fixture ensures no MLflow runs persist between tests,
-    which prevents "Run already active" errors.
-    """
-    try:
-        import mlflow
-        try:
-            while mlflow.active_run():
-                mlflow.end_run()
-        except Exception:
-            pass
-
-        yield
-
-        try:
-            while mlflow.active_run():
-                mlflow.end_run()
-        except Exception:
-            pass
-    except ImportError:
-        yield
-
-
 def test_callbacks_map_to_events():
     # callback methods must be 1:1 mapping with events
     # exception for private methods
