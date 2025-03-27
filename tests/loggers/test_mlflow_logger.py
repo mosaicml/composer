@@ -129,7 +129,6 @@ def test_mlflow_init_ids(monkeypatch):
 
     mock_client = MagicMock()
 
-    pytest.importorskip('mlflow')
     monkeypatch.setattr(mlflow, 'MlflowClient', MagicMock(return_value=mock_client))
     monkeypatch.setattr(mlflow, 'start_run', MagicMock())
 
