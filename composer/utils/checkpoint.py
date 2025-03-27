@@ -566,7 +566,6 @@ def dist_cp_load(
                 planner=load_planner,
             )
         except CheckpointException as e:
-            raise e
             checkpoint_metadata = storage_reader.read_metadata().state_dict_metadata
             if 'state.metadata' in checkpoint_metadata and 'state.metadata.composer_env_info.composer_version' not in checkpoint_metadata:
                 # Torch 2.4 changed the way how state dict is flattened. It broke backward compatibility.
