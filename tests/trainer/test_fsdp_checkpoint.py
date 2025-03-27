@@ -965,7 +965,7 @@ def test_fsdp_partitioned_state_dict_load(
 
 
 @pytest.mark.gpu
-# @pytest.mark.remote
+@pytest.mark.remote
 @world_size(2)
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.parametrize('autoresume', [False, True])
