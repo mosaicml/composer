@@ -557,6 +557,7 @@ def dist_cp_load(
     storage_reader: StorageReader,
     load_planner: Optional[LoadPlanner] = None,
 ):
+    print(state_dict)
     if version.parse(torch.__version__) >= version.parse('2.4.0'):
         from torch.distributed.checkpoint.utils import CheckpointException
         try:
