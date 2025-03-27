@@ -161,6 +161,7 @@ def tiny_bert_config_helper():
         'num_attention_heads': 2,
         'num_hidden_layers': 2,
         'intermediate_size': 512,
+        'attn_implementation': 'eager',
     }
     return transformers.AutoConfig.from_pretrained('google-bert/bert-base-uncased', **tiny_overrides)
 
@@ -485,3 +486,29 @@ def tiny_mpt_tokenizer(_session_tiny_mpt_tokenizer):
 @pytest.fixture
 def tiny_mpt_model(_session_tiny_mpt_model):
     return copy.deepcopy(_session_tiny_mpt_model)
+
+
+@pytest.fixture
+def clean_mlflow_runs():
+    """Clean up MLflow runs before and after tests.
+
+    This fixture ensures no MLflow runs persist between tests,
+    which prevents "Run already active" errors.
+    """
+    try:
+        import mlflow
+        try:
+            while mlflow.active_run():
+                mlflow.end_run()
+        except Exception:
+            pass
+
+        yield
+
+        try:
+            while mlflow.active_run():
+                mlflow.end_run()
+        except Exception:
+            pass
+    except ImportError:
+        yield

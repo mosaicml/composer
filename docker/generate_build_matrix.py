@@ -18,7 +18,7 @@ import packaging.version
 import tabulate
 import yaml
 
-PRODUCTION_PYTHON_VERSION = '3.11'
+PRODUCTION_PYTHON_VERSION = '3.12'
 PRODUCTION_PYTORCH_VERSION = '2.6.0'
 
 
@@ -175,7 +175,7 @@ def _write_table(table_tag: str, table_contents: str):
 
 
 def _main():
-    python_pytorch_versions = [('3.11', '2.6.0'), ('3.11', '2.5.1'), ('3.11', '2.4.1')]
+    python_pytorch_versions = [('3.12', '2.6.0'), ('3.12', '2.5.1'), ('3.12', '2.4.1')]
     cuda_options = [True, False]
     stages = ['pytorch_stage']
     interconnects = ['mellanox', 'EFA']  # mellanox is default, EFA needed for AWS
