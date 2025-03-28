@@ -989,12 +989,11 @@ def test_elastic_resumption(
     else:
         run_name = None
 
-    # base_path = (
-    #     f's3://{s3_bucket}/{s3_read_only_prefix}/elastic_test/'
-    #     f'{sharding_strategy.lower()}_sharded_{precision}_'
-    #     f'{num_shards}/'
-    # )
-    base_path = "/mnt/workdisk/danielking/checkpoints-for-ethan/"
+    base_path = (
+        f's3://{s3_bucket}/{s3_read_only_prefix}/elastic_test/'
+        f'{sharding_strategy.lower()}_sharded_{precision}_'
+        f'{num_shards}/'
+    )
 
     mono_load_path = os.path.join(base_path, 'mono.pt')
     mono_trainer = get_trainer(
