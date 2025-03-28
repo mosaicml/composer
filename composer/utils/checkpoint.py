@@ -567,7 +567,7 @@ def dist_cp_load(
                 planner=load_planner,
             )
         except CheckpointException as e:
-            if re.search(r'Size mismatch.+torch.Size([816]).+rng.+cuda', str(e)) is not None:
+            if re.search(r'Size mismatch.+torch\.Size\(\[816\]\).+rng\.\d+\.cuda', str(e)) is not None:
                 # In torch 2.6, Pytorch (throughout) is strictly enforcing the sizes of the
                 # state dict values vs the size in the checkpoint. However starting in torch 2.1.0,
                 # we have moved from using RNG of size 816 to 16, therefore causing errors if we
