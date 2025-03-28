@@ -9,6 +9,7 @@ import contextlib
 import fnmatch
 import logging
 import os
+import re
 import shutil
 import tarfile
 import tempfile
@@ -566,6 +567,21 @@ def dist_cp_load(
                 planner=load_planner,
             )
         except CheckpointException as e:
+            if re.search(r'Size mismatch.+torch\.Size\(\[816\]\).+rng\.\d+\.cuda', str(e)) is not None:
+                # Pytorch 2.6 is strictly enforcing the sizes of the state dict values vs the size
+                # in the checkpoint. However Pytorch starting in 2.1.0
+                # have moved from using RNG of size 816 to 16, therefore causing errors if we
+                # load a ckpt at or after 2.6.0 if the ckpt was created before 2.1.0
+                for idx in range(len(state_dict['rng'])):
+                    state_dict['rng'][idx]['cuda'] = torch.zeros(816, dtype=torch.uint8)
+
+                dist_cp.load(
+                    state_dict=state_dict,
+                    storage_reader=storage_reader,
+                    planner=load_planner,
+                )
+                return
+
             checkpoint_metadata = storage_reader.read_metadata().state_dict_metadata
             if 'state.metadata' in checkpoint_metadata and 'state.metadata.composer_env_info.composer_version' not in checkpoint_metadata:
                 # Torch 2.4 changed the way how state dict is flattened. It broke backward compatibility.
