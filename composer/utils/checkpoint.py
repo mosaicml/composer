@@ -557,7 +557,6 @@ def dist_cp_load(
     storage_reader: StorageReader,
     load_planner: Optional[LoadPlanner] = None,
 ):
-    print(state_dict)
     if version.parse(torch.__version__) >= version.parse('2.4.0'):
         from torch.distributed.checkpoint.utils import CheckpointException
         try:
@@ -567,7 +566,21 @@ def dist_cp_load(
                 planner=load_planner,
             )
         except CheckpointException as e:
-            raise e
+            if "torch.Size([816])" in str(e) and "rng" in str(e) and "cuda" in str(e):
+                # In torch 2.6, we are strictly enforcing the sizes of the state dict values vs
+                # the size in the checkpoint. However starting in torch 2.1.0, we have moved from
+                # using RNG of size 816 to 16, therefore causing errors if we load a ckpt created
+                # before that version of torch.
+                for idx in range(len(state_dict['rng'])):
+                    state_dict['rng'][idx]['cuda'] = torch.zeros(816, dtype=torch.uint8)
+                
+                dist_cp.load(
+                    state_dict=state_dict,
+                    storage_reader=storage_reader,
+                    planner=load_planner,
+                )
+                return
+
             checkpoint_metadata = storage_reader.read_metadata().state_dict_metadata
             if 'state.metadata' in checkpoint_metadata and 'state.metadata.composer_env_info.composer_version' not in checkpoint_metadata:
                 # Torch 2.4 changed the way how state dict is flattened. It broke backward compatibility.
