@@ -956,7 +956,7 @@ if version.parse(torch.__version__) >= version.parse('2.3.0') and version.parse(
 
 if version.parse(torch.__version__) >= version.parse('2.4.0') and version.parse(
         torch.__version__,
-) < version.parse('2.4.3'):
+) < version.parse('2.4.2'):
     # PyTorch issue: https://github.com/pytorch/pytorch/issues/133923
     from torch.distributed.checkpoint.metadata import STATE_DICT_TYPE
     from typing import Mapping, Collection
