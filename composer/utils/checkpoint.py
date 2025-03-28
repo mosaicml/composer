@@ -568,10 +568,10 @@ def dist_cp_load(
             )
         except CheckpointException as e:
             if re.search(r'Size mismatch.+torch\.Size\(\[816\]\).+rng\.\d+\.cuda', str(e)) is not None:
-                # In torch 2.6, Pytorch (throughout) is strictly enforcing the sizes of the
-                # state dict values vs the size in the checkpoint. However starting in torch 2.1.0,
+                # Pytorch 2.6 is strictly enforcing the sizes of the state dict values vs the size
+                # in the checkpoint. However starting in Pytorch 2.1.0,
                 # we have moved from using RNG of size 816 to 16, therefore causing errors if we
-                # load a ckpt created before that version of torch.
+                # load a ckpt created before that version of Pytorch.
                 for idx in range(len(state_dict['rng'])):
                     state_dict['rng'][idx]['cuda'] = torch.zeros(816, dtype=torch.uint8)
                 
