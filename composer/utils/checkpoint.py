@@ -574,7 +574,7 @@ def dist_cp_load(
                 # load a ckpt created before that version of Pytorch.
                 for idx in range(len(state_dict['rng'])):
                     state_dict['rng'][idx]['cuda'] = torch.zeros(816, dtype=torch.uint8)
-                
+
                 dist_cp.load(
                     state_dict=state_dict,
                     storage_reader=storage_reader,
