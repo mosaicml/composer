@@ -140,7 +140,7 @@ extra_deps['dev'] = [
     'moto[s3]>=5.0.1,<6',
     'mock-ssh-server==0.9.1',
     'cryptography==44.0.0',
-    'pytest-httpserver>=1.0.4,<1.1',
+    'pytest-httpserver>=1.0.4,<1.2',
     'setuptools==78.0.2',
     'scikit-learn>=1.2.0,<1.6',
 ]
