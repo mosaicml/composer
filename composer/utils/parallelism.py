@@ -4,7 +4,7 @@
 """Parallelism configs."""
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from torch.distributed._tensor.device_mesh import DeviceMesh
 
@@ -59,6 +59,30 @@ class FSDPConfig:
     @device_mesh.setter
     def device_mesh(self, value: Optional[DeviceMesh]):
         self._device_mesh = value
+
+
+@dataclass
+class FSDP2Config:
+    """Configuration for Fully Sharded Data Parallelism (FSDP2).
+
+    Args:
+        device_mesh (Optional[DeviceMesh]): The DeviceMesh for sharding. If None, a default 1D mesh is created.
+            For 1D mesh, parameters are fully sharded across the mesh (FSDP).
+            For 2D mesh, parameters are sharded across the 1st dimension and replicated across the 0th dimension (HSDP).
+        reshard_after_forward (Union[bool, int]): Controls parameter behavior after forward:
+            - If True, reshards parameters after forward, re-all-gathers in backward.
+            - If False, keeps unsharded parameters in memory, avoids all-gather in backward.
+            - If int, reshards to smaller world size after forward.
+            Default: True
+        mp_policy (Optional[MixedPrecisionPolicy]): Mixed precision policy. Default: None
+        offload_policy (Optional[OffloadPolicy]): Offloading policy. Default: None
+        ignored_params (Optional[list[str]]): List of parameter names to ignore for FSDP. Default: None
+    """
+    device_mesh: Optional[DeviceMesh] = None
+    reshard_after_forward: Union[bool, int] = True
+    mp_policy: Optional[Any] = None  # MixedPrecisionPolicy
+    offload_policy: Optional[Any] = None  # OffloadPolicy
+    ignored_params: Optional[list[str]] = None
 
 
 @dataclass

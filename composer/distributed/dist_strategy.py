@@ -10,6 +10,7 @@ from typing import Any, Callable, ContextManager, Iterator, Optional, Sequence, 
 
 import torch
 from packaging import version
+from torch import nn
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     CheckpointImpl,
     apply_activation_checkpointing,
@@ -18,6 +19,7 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
 )
 from torch.distributed.fsdp import FullyShardedDataParallel, ShardingStrategy
 from torch.distributed.fsdp._common_utils import clean_tensor_name
+from torch.distributed.fsdp._fully_shard import fully_shard
 from torch.distributed.fsdp.wrap import CustomPolicy
 from torch.nn.parallel import DistributedDataParallel
 from torchmetrics import Metric, MetricCollection
@@ -33,8 +35,16 @@ from composer.distributed.mosaic_parallelism import (
     set_custom_fsdp_module_kwargs,
 )
 from composer.utils import FSDPConfig, StringEnum, TPConfig, dist, ensure_tuple, get_device
+from composer.utils.parallelism import FSDP2Config
 
-__all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare_fsdp_module', 'prepare_tp_module']
+__all__ = [
+    'DDPSyncStrategy',
+    'ddp_sync_context',
+    'prepare_ddp_module',
+    'prepare_fsdp_module',
+    'prepare_tp_module',
+    'prepare_fully_shard',
+]
 
 log = logging.getLogger(__name__)
 
@@ -642,3 +652,66 @@ def prepare_fsdp_module(
                 optim.add_param_group(param_group)
 
     return hook_handles, fsdp_obj_named_modules
+
+
+def prepare_fully_shard(
+    model: torch.nn.Module,
+    fsdp2_config: FSDP2Config,
+) -> None:
+    """Applies FSDP2's `fully_shard` to direct children of the model while handling tied weights.
+
+    Args:
+        model (torch.nn.Module): The model to prepare.
+        fsdp2_config (FSDP2Config): The FSDP2 configuration.
+
+    Returns:
+        None
+    """
+    # Find any direct children of the model that have tied parameters
+    # This is done by checking if any parameters in the child module share the same memory address
+    modules_with_tied_params = set()
+    # Find all tied parameters (parameters that share the same memory) between direct children submodule of the model.
+    # if a parameter is only shared within a submodule, it is not a tied parameter
+    seen_params: set[int] = set()
+    tied_params: set[nn.Parameter] = set()
+    for child in model.children():
+        for param in child.parameters():
+            param_id = id(param)
+            if param_id in seen_params:
+                tied_params.add(param)
+        # seen_params i only updated at submodule granularity
+        for param in child.parameters():
+            seen_params.add(id(param))
+
+    # if a module has tied parameters, we add it to modules_with_tied_params
+    for child in model.children():
+        for param in child.parameters():
+            if param in tied_params:
+                modules_with_tied_params.add(child)
+
+    # For each direct child of the model
+    for child in model.children():
+        # Skip metrics and modules with tied parameters
+        if isinstance(child, (Metric, MetricCollection)) or child in modules_with_tied_params:
+            continue
+
+        # Apply fully_shard to this child module
+        fully_shard(
+            child,
+            mesh=fsdp2_config.device_mesh,
+            reshard_after_forward=fsdp2_config.reshard_after_forward,
+            mp_policy=fsdp2_config.mp_policy,
+            offload_policy=fsdp2_config.offload_policy,
+            ignored_params=fsdp2_config.ignored_params,
+        )
+
+    # If there are modules with tied parameters, apply fully_shard to the parent model
+    # to ensure tied parameters are handled correctly
+    fully_shard(
+        model,
+        mesh=fsdp2_config.device_mesh,
+        reshard_after_forward=fsdp2_config.reshard_after_forward,
+        mp_policy=fsdp2_config.mp_policy,
+        offload_policy=fsdp2_config.offload_policy,
+        ignored_params=fsdp2_config.ignored_params,
+    )
