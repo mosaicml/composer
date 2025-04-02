@@ -188,10 +188,11 @@ class Engine():
         self,
         state: State,
         logger: Logger,
-        algorithm_passes: Optional[Union[passes.AlgorithmPass,
-                                         tuple[passes.AlgorithmPass, int],
-                                         Sequence[Union[passes.AlgorithmPass, tuple[passes.AlgorithmPass, int]]],
-                                        ]] = None,
+        algorithm_passes: Optional[Union[
+            passes.AlgorithmPass,
+            tuple[passes.AlgorithmPass, int],
+            Sequence[Union[passes.AlgorithmPass, tuple[passes.AlgorithmPass, int]]],
+        ]] = None,
     ):
         self.logger = logger
         self.state = state

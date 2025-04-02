@@ -381,18 +381,21 @@ class HuggingFaceModel(ComposerModel):
     @staticmethod
     def hf_from_composer_checkpoint(
         checkpoint_path: str,
-        model_instantiation_class: Optional[Union[type[transformers.PreTrainedModel],
-                                                  type['_BaseAutoModelClass'],
-                                                  str,
-                                                 ]] = None,
+        model_instantiation_class: Optional[Union[
+            type[transformers.PreTrainedModel],
+            type['_BaseAutoModelClass'],
+            str,
+        ]] = None,
         model_config_kwargs: Optional[dict] = None,
         local_checkpoint_save_location: Optional[Union[Path, str]] = None,
         trust_remote_code: bool = False,
-    ) -> tuple[transformers.PreTrainedModel,
-               Optional[Union[transformers.PreTrainedTokenizer,
-                              transformers.PreTrainedTokenizerFast,
-                             ]],
-              ]:
+    ) -> tuple[
+        transformers.PreTrainedModel,
+        Optional[Union[
+            transformers.PreTrainedTokenizer,
+            transformers.PreTrainedTokenizerFast,
+        ]],
+    ]:
         """Loads a HuggingFace model (and tokenizer if present) from a composer checkpoint.
 
         .. note:: This function does not load the weights from the checkpoint. It just loads the correctly configured

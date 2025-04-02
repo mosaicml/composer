@@ -118,7 +118,9 @@ def test_overwrite(overwrite: bool):
     with patch('composer.utils.object_store.utils.S3ObjectStore', DummyObjectStore):
         with patch('tempfile.TemporaryDirectory', _get_tmp_dir):
             with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
-                remote_uploader = RemoteUploader(remote_folder='S3://whatever/path',)
+                remote_uploader = RemoteUploader(
+                    remote_folder='S3://whatever/path',
+                )
                 local_tmp_path = local_tmp_dir.name
                 file_path = os.path.join(local_tmp_path, 'a')
                 with open(file_path, 'w') as f:
@@ -163,7 +165,9 @@ def test_check_workers():
     fork_context = multiprocessing.get_context('fork')
     with patch('composer.utils.object_store.utils.S3ObjectStore', AlwaysFailDummyObjectStore):
         with patch('composer.utils.remote_uploader.multiprocessing.get_context', lambda _: fork_context):
-            remote_uploader = RemoteUploader(remote_folder='S3://whatever/path',)
+            remote_uploader = RemoteUploader(
+                remote_folder='S3://whatever/path',
+            )
             tmp_dir = tempfile.TemporaryDirectory()
             tmp_path = tmp_dir.name
             file_path = os.path.join(tmp_path, 'a')
