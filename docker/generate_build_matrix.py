@@ -13,6 +13,7 @@ To run::
 import itertools
 import os
 import sys
+from typing import Optional
 
 import packaging.version
 import tabulate
@@ -40,10 +41,12 @@ def _get_base_image(cuda_version: str):
     return f'nvidia/cuda:{cuda_version}-cudnn8-devel-ubuntu22.04'
 
 
-def _get_cuda_version(pytorch_version: str, use_cuda: bool):
+def _get_cuda_version(pytorch_version: str, use_cuda: bool, cuda_variant: Optional[str]):
     # From https://docs.nvidia.com/deeplearning/frameworks/pytorch-release-notes/
     if not use_cuda:
         return ''
+    if cuda_variant:
+        return cuda_variant
     if pytorch_version == '2.6.0':
         return '12.4.1'
     if pytorch_version == '2.5.1':
@@ -174,18 +177,47 @@ def _write_table(table_tag: str, table_contents: str):
         f.write(new_readme)
 
 
+def _cross_product_extra_cuda(
+    python_pytorch_versions: dict,
+    pytorch_cuda_variants_extra: dict,
+    cuda_options: list,
+    stages: list,
+    interconnects: list,
+):
+    for product in itertools.product(python_pytorch_versions, cuda_options, stages, interconnects):
+        (python_version, pytorch_version), use_cuda, stage, interconnect = product
+        cuda_variants = ['']
+        if pytorch_version in pytorch_cuda_variants_extra:
+            cuda_variants.append(pytorch_cuda_variants_extra[pytorch_version])
+        for cuda_variant in cuda_variants:
+            yield (python_version, pytorch_version), use_cuda, cuda_variant, stage, interconnect
+
+
 def _main():
     python_pytorch_versions = [('3.12', '2.6.0'), ('3.12', '2.5.1'), ('3.12', '2.4.1')]
+    cuda_options = {
+        '2.6.0': [(True, '12.4.1'), (True, '12.6.0'), (False, '')],  # Default 12.4.1, new 12.6.0, and CPU
+        'default': [True, False],  # For all other versions
+    }
+    pytorch_cuda_variants_extra = {
+        '2.6.0': ['12.6.0'],
+    }  # Extra cuda variants to be built in addition to the defaults
     cuda_options = [True, False]
     stages = ['pytorch_stage']
     interconnects = ['mellanox', 'EFA']  # mellanox is default, EFA needed for AWS
 
     pytorch_entries = []
 
-    for product in itertools.product(python_pytorch_versions, cuda_options, stages, interconnects):
-        (python_version, pytorch_version), use_cuda, stage, interconnect = product
+    for product in _cross_product_extra_cuda(
+        python_pytorch_versions,
+        pytorch_cuda_variants_extra,
+        cuda_options,
+        stages,
+        interconnects,
+    ):
+        (python_version, pytorch_version), use_cuda, cuda_variant, stage, interconnect = product
 
-        cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
+        cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda, cuda_variant=cuda_variant)
 
         entry = {
             'IMAGE_NAME':
