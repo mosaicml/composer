@@ -20,7 +20,7 @@ from tests.common import (
 _INIT_DEVICES = ['cuda']
 
 
-@pytest.mark.parametrize('model', [SimpleWeightTiedModel])
+@pytest.mark.parametrize('model', [SimpleWeightTiedModel, EmbeddedWeightTiedModel])
 @pytest.mark.parametrize('device', _INIT_DEVICES)
 @world_size(2)
 @pytest.mark.gpu
@@ -60,12 +60,11 @@ def test_fsdp_device_initialization(
     if isinstance(model, SimpleWeightTiedModel):
         weight_1 = model.mlp.fc1.weight.full_tensor()
         weight_2 = model.mlp.fc2.weight.full_tensor()
-        assert (id(model.mlp.fc1.weight) == id(model.mlp.fc2.weight))
+        assert (model.mlp.fc1.weight is model.mlp.fc2.weight)
         assert (torch.equal(weight_1, weight_2))
 
     if isinstance(model, EmbeddedWeightTiedModel):
-        with trainer.state.model.module.summon_full_params(trainer.state.model.module):  # type: ignore
-            weight_1 = model.net1.fc1.weight
-            weight_2 = model.net2.fc1.weight
-            assert (id(weight_1) == id(weight_2))
-            assert (torch.equal(weight_1, weight_2))
+        weight_1 = model.net1.fc1.weight.full_tensor()
+        weight_2 = model.net2.fc1.weight.full_tensor()
+        assert (model.net1.fc1.weight is model.net2.fc1.weight)
+        assert (torch.equal(weight_1, weight_2))

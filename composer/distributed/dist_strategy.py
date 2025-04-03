@@ -672,16 +672,15 @@ def prepare_fully_shard(
     modules_with_tied_params = set()
     # Find all tied parameters (parameters that share the same memory) between direct children submodule of the model.
     # if a parameter is only shared within a submodule, it is not a tied parameter
-    seen_params: set[int] = set()
+    seen_params: set[nn.Parameter] = set()
     tied_params: set[nn.Parameter] = set()
     for child in model.children():
         for param in child.parameters():
-            param_id = id(param)
-            if param_id in seen_params:
+            if param in seen_params:
                 tied_params.add(param)
         # seen_params i only updated at submodule granularity
         for param in child.parameters():
-            seen_params.add(id(param))
+            seen_params.add(param)
 
     # if a module has tied parameters, we add it to modules_with_tied_params
     for child in model.children():
