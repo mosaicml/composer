@@ -13,12 +13,11 @@ To run::
 import itertools
 import os
 import sys
+from typing import Optional
 
 import packaging.version
 import tabulate
 import yaml
-
-from typing import Optional
 
 PRODUCTION_PYTHON_VERSION = '3.12'
 PRODUCTION_PYTORCH_VERSION = '2.6.0'
@@ -177,7 +176,14 @@ def _write_table(table_tag: str, table_contents: str):
     with open(os.path.join(os.path.dirname(__name__), 'README.md'), 'w') as f:
         f.write(new_readme)
 
-def _cross_product_extra_cuda(python_pytorch_versions: dict, pytorch_cuda_variants_extra: dict, cuda_options: list, stages: list, interconnects: list):
+
+def _cross_product_extra_cuda(
+    python_pytorch_versions: dict,
+    pytorch_cuda_variants_extra: dict,
+    cuda_options: list,
+    stages: list,
+    interconnects: list,
+):
     for product in itertools.product(python_pytorch_versions, cuda_options, stages, interconnects):
         (python_version, pytorch_version), use_cuda, stage, interconnect = product
         cuda_variants = ['']
@@ -186,22 +192,29 @@ def _cross_product_extra_cuda(python_pytorch_versions: dict, pytorch_cuda_varian
         for cuda_variant in cuda_variants:
             yield (python_version, pytorch_version), use_cuda, cuda_variant, stage, interconnect
 
+
 def _main():
     python_pytorch_versions = [('3.12', '2.6.0'), ('3.12', '2.5.1'), ('3.12', '2.4.1')]
     cuda_options = {
         '2.6.0': [(True, '12.4.1'), (True, '12.6.0'), (False, '')],  # Default 12.4.1, new 12.6.0, and CPU
-        'default': [True, False]  # For all other versions
+        'default': [True, False],  # For all other versions
     }
     pytorch_cuda_variants_extra = {
-        '2.6.0': ['12.6.0']
-    } # Extra cuda variants to be built in addition to the defaults
+        '2.6.0': ['12.6.0'],
+    }  # Extra cuda variants to be built in addition to the defaults
     cuda_options = [True, False]
     stages = ['pytorch_stage']
     interconnects = ['mellanox', 'EFA']  # mellanox is default, EFA needed for AWS
 
     pytorch_entries = []
 
-    for product in _cross_product_extra_cuda(python_pytorch_versions, pytorch_cuda_variants_extra, cuda_options, stages, interconnects):
+    for product in _cross_product_extra_cuda(
+        python_pytorch_versions,
+        pytorch_cuda_variants_extra,
+        cuda_options,
+        stages,
+        interconnects,
+    ):
         (python_version, pytorch_version), use_cuda, cuda_variant, stage, interconnect = product
 
         cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda, cuda_variant=cuda_variant)
