@@ -48,8 +48,12 @@ def test_fsdp_device_initialization(
         mp_policy=None,
         offload_policy=None,
     )
-    prepare_fully_shard(model=model, fsdp2_config=fsdp2_config)
-
+    prepare_fully_shard(model=model.module, fsdp2_config=fsdp2_config)
+    # if dist.get_global_rank() == 0:
+    #     print(model)
+    #     for name, child in model.named_children():
+    #         print(f'Child: {name}')
+    #         print(child._forward_pre_hooks)
     trainer = Trainer(
         model=model,
         train_dataloader=dataloader,
@@ -58,12 +62,19 @@ def test_fsdp_device_initialization(
 
     trainer.fit()
     if isinstance(model, SimpleWeightTiedModel):
+        assert len(model.mlp._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the mlp module'
+        assert len(model.mlp.fc1._forward_hooks) == 0, 'Expected 0 forward hook on the fc1 module'
+        assert len(model.mlp.fc2._forward_hooks) == 0, 'Expected 0 forward hook on the fc2 module'
+        assert len(model.module._forward_hooks) == 1, 'Expected 1 forward hook on the root module'
         weight_1 = model.mlp.fc1.weight.full_tensor()
         weight_2 = model.mlp.fc2.weight.full_tensor()
         assert (model.mlp.fc1.weight is model.mlp.fc2.weight)
         assert (torch.equal(weight_1, weight_2))
 
     if isinstance(model, EmbeddedWeightTiedModel):
+        assert len(model.module._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the root module'
+        assert len(model.net1._forward_pre_hooks) == 0, 'Expected 0 forward hook on the net1 module'
+        assert len(model.net2._forward_hooks) == 0, 'Expected 0 forward hook on the net2 module'
         weight_1 = model.net1.fc1.weight.full_tensor()
         weight_2 = model.net2.fc1.weight.full_tensor()
         assert (model.net1.fc1.weight is model.net2.fc1.weight)

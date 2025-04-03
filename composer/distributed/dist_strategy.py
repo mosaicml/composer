@@ -683,6 +683,7 @@ def prepare_fully_shard(
             seen_params.add(param)
 
     # if a module has tied parameters, we add it to modules_with_tied_params
+    # TODO(boweny) maybe consider filter out modules with no parameters
     for child in model.children():
         for param in child.parameters():
             if param in tied_params:
