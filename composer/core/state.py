@@ -25,6 +25,7 @@ from torch.distributed.fsdp.fully_sharded_data_parallel import (
     ShardedOptimStateDictConfig,
     StateDictType,
 )
+from torch.distributed.fsdp._fully_shard import fully_shard
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LRScheduler
@@ -876,6 +877,8 @@ class State(Serializable):
     @property
     def fsdp_enabled(self):
         """Indicates if FSDP is enabled."""
+        if fully_shard.state(self.model):
+            return True
         for module in self.model.modules():
             if isinstance(module, FSDP):
                 return True

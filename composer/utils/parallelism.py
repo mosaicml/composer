@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional, Union
 
 from torch.distributed._tensor.device_mesh import DeviceMesh
+from torch.distributed.fsdp._fully_shard._fsdp_api import MixedPrecisionPolicy, OffloadPolicy
 
 
 @dataclass
@@ -76,13 +77,11 @@ class FSDP2Config:
             Default: True
         mp_policy (Optional[MixedPrecisionPolicy]): Mixed precision policy. Default: None
         offload_policy (Optional[OffloadPolicy]): Offloading policy. Default: None
-        ignored_params (Optional[list[str]]): List of parameter names to ignore for FSDP. Default: None
     """
     device_mesh: Optional[DeviceMesh] = None
     reshard_after_forward: Union[bool, int] = True
-    mp_policy: Optional[Any] = None  # MixedPrecisionPolicy
-    offload_policy: Optional[Any] = None  # OffloadPolicy
-    ignored_params: Optional[list[str]] = None
+    mp_policy: Optional[MixedPrecisionPolicy] = None
+    offload_policy: Optional[OffloadPolicy] = None
 
 
 @dataclass

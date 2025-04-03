@@ -689,6 +689,11 @@ def prepare_fully_shard(
             if param in tied_params:
                 modules_with_tied_params.add(child)
 
+    fully_shard_kwargs = {'mesh': fsdp2_config.device_mesh, 'reshard_after_forward': fsdp2_config.reshard_after_forward}
+    if fsdp2_config.mp_policy:
+        fully_shard_kwargs['mp_policy'] = fsdp2_config.mp_policy
+    if fsdp2_config.offload_policy:
+        fully_shard_kwargs['offload_policy'] = fsdp2_config.offload_policy
     # For each direct child of the model
     for child in model.children():
         # Skip metrics and modules with tied parameters
@@ -698,20 +703,12 @@ def prepare_fully_shard(
         # Apply fully_shard to this child module
         fully_shard(
             child,
-            mesh=fsdp2_config.device_mesh,
-            reshard_after_forward=fsdp2_config.reshard_after_forward,
-            mp_policy=fsdp2_config.mp_policy,
-            offload_policy=fsdp2_config.offload_policy,
-            ignored_params=fsdp2_config.ignored_params,
+            **fully_shard_kwargs
         )
 
     # If there are modules with tied parameters, apply fully_shard to the parent model
     # to ensure tied parameters are handled correctly
     fully_shard(
         model,
-        mesh=fsdp2_config.device_mesh,
-        reshard_after_forward=fsdp2_config.reshard_after_forward,
-        mp_policy=fsdp2_config.mp_policy,
-        offload_policy=fsdp2_config.offload_policy,
-        ignored_params=fsdp2_config.ignored_params,
+        **fully_shard_kwargs
     )
