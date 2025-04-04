@@ -32,6 +32,9 @@ To install composer, once inside the image, run `pip install mosaicml`.
 |----------------|----------|-------------------|---------------------|------------------|------------------------------------------------------------------------------------------|
 | Ubuntu 22.04   | Base     | 2.6.0             | 12.4.1 (Infiniband) | 3.12             | `mosaicml/pytorch:latest`, `mosaicml/pytorch:2.6.0_cu124-python3.12-ubuntu22.04`         |
 | Ubuntu 22.04   | Base     | 2.6.0             | 12.4.1 (EFA)        | 3.12             | `mosaicml/pytorch:latest-aws`, `mosaicml/pytorch:2.6.0_cu124-python3.12-ubuntu22.04-aws` |
+| Ubuntu 22.04   | Base     | 2.6.0             | 12.6.0 (Infiniband) | 3.12             | `mosaicml/pytorch:latest`, `mosaicml/pytorch:2.6.0_cu126-python3.12-ubuntu22.04`         |
+| Ubuntu 22.04   | Base     | 2.6.0             | 12.6.0 (EFA)        | 3.12             | `mosaicml/pytorch:latest-aws`, `mosaicml/pytorch:2.6.0_cu126-python3.12-ubuntu22.04-aws` |
+| Ubuntu 22.04   | Base     | 2.6.0             | cpu                 | 3.12             | `mosaicml/pytorch:latest_cpu`, `mosaicml/pytorch:2.6.0_cpu-python3.12-ubuntu22.04`       |
 | Ubuntu 22.04   | Base     | 2.6.0             | cpu                 | 3.12             | `mosaicml/pytorch:latest_cpu`, `mosaicml/pytorch:2.6.0_cpu-python3.12-ubuntu22.04`       |
 | Ubuntu 22.04   | Base     | 2.5.1             | 12.4.1 (Infiniband) | 3.12             | `mosaicml/pytorch:2.5.1_cu124-python3.12-ubuntu22.04`                                    |
 | Ubuntu 22.04   | Base     | 2.5.1             | 12.4.1 (EFA)        | 3.12             | `mosaicml/pytorch:2.5.1_cu124-python3.12-ubuntu22.04-aws`                                |
