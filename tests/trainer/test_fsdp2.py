@@ -52,11 +52,12 @@ def test_fsdp2_initialization_with_tied_params(
     assert len(model.mlp.fc1._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc1 module'
     assert len(model.mlp.fc2._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc2 module'
     assert len(model.module._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the root module'
-    assert isinstance(model.mlp.fc1.weight, DTensor), "mlp.fc1.weight should be a DTensor"
-    assert isinstance(model.mlp.fc2.weight, DTensor), "mlp.fc2.weight should be a DTensor"
+    assert isinstance(model.mlp.fc1.weight, DTensor), 'mlp.fc1.weight should be a DTensor'
+    assert isinstance(model.mlp.fc2.weight, DTensor), 'mlp.fc2.weight should be a DTensor'
     if isinstance(model, PartialWeightTiedModel):
         assert len(model.fc3._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the fc3 module'
-    assert model.mlp.fc1.weight.size(0) == model.mlp.fc2.weight.to_local().size(0) * world_size, 'Expect global weight size to be equal to local weight size * world_size on dim 0'
+    assert model.mlp.fc1.weight.size(0) == model.mlp.fc2.weight.to_local(
+    ).size(0) * world_size, 'Expect global weight size to be equal to local weight size * world_size on dim 0'
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
     trainer = Trainer(

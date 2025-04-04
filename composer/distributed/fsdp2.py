@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from typing import Optional, Union
 
 from torch import nn
-from torch.distributed.fsdp._fully_shard import fully_shard
 from torch.distributed._tensor.device_mesh import DeviceMesh
+from torch.distributed.fsdp._fully_shard import fully_shard
 from torch.distributed.fsdp._fully_shard._fsdp_api import MixedPrecisionPolicy, OffloadPolicy
 
 
@@ -75,11 +75,11 @@ def identify_shardable_modules(modules: list[nn.Module]) -> tuple[list[nn.Module
 
 def legalize_param_sharing_between_modules(model: nn.Module, modules_to_shard: list[nn.Module]) -> None:
     """Checks if there's parameter sharing between modules to be sharded and other modules in model.
-    
+
     Args:
         model (nn.Module): The root model.
         modules_to_shard (list[nn.Module]): The modules that will be sharded.
-        
+
     Raises:
         ValueError: If parameter sharing is detected between modules to be sharded and other modules.
     """
@@ -87,29 +87,29 @@ def legalize_param_sharing_between_modules(model: nn.Module, modules_to_shard: l
     modules_to_shard_params = set()
     for module in modules_to_shard:
         modules_to_shard_params.update(p for p in module.parameters())
-    
+
     visited_modules = set()
     modules_to_shard_set = set(modules_to_shard)
-    
+
     # Define a DFS function to check for parameter sharing
     def _check_param_sharing(module: nn.Module):
         if module in modules_to_shard_set or module in visited_modules:
             return
         visited_modules.add(module)
-        
+
         # Check if this module shares parameters with modules_to_shard
         for param in module.parameters(recurse=False):
             if param in modules_to_shard_params:
                 raise ValueError(
                     f"Parameter sharing detected between modules to be sharded and module '{module}'. "
-                    f"This will cause errors with FSDP. Either ensure no parameter sharing exists "
-                    f"or include all modules with shared parameters in modules_to_shard."
+                    f'This will cause errors with FSDP. Either ensure no parameter sharing exists '
+                    f'or include all modules with shared parameters in modules_to_shard.',
                 )
-                
+
         # Continue DFS with children
         for child in module.children():
             _check_param_sharing(child)
-    
+
     # Start the check from the root model
     _check_param_sharing(model)
 
