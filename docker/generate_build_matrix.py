@@ -34,7 +34,7 @@ def _get_torchvision_version(pytorch_version: str):
 
 
 def _version_greater_than(v1: str, v2: str):
-    return version.parse(v1) > version.parse(v2)
+    return packaging.version.parse(v1) > packaging.version.parse(v2)
 
 
 def _get_base_image(cuda_version: str):
