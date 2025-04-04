@@ -655,11 +655,10 @@ def prepare_fsdp_module(
     return hook_handles, fsdp_obj_named_modules
 
 
-def identify_fsdp_sub_modules(
-    model: torch.nn.Module,
-) -> tuple[list[torch.nn.Module], set[torch.nn.Module]]:
-    """Identifies modules that could be fully sharded and modules with tied parameters. Currently, it only looks for
-    direct children modules of the model. auto_wrap_policy is not supported yet.
+def identify_fsdp_sub_modules(model: torch.nn.Module,) -> tuple[list[torch.nn.Module], set[torch.nn.Module]]:
+    """Identifies modules that could be fully sharded and modules with tied parameters.
+
+    Currently, it only looks for direct children modules of the model. auto_wrap_policy is not supported yet.
 
     Args:
         model (torch.nn.Module): The model to analyze.
@@ -681,7 +680,7 @@ def identify_fsdp_sub_modules(
     # due to `child2` is not a FSDPModule, it will try to fully_shard params in `child2` again which is already sharded by `child1`,
     # and it errors out with misleading error as it thinks it is applying FSDP on top of another parallelism.
     # TODO(boweny) we may handle this by temporarily removing the child module from the model before calling fully_shard
-    # then re-adding it back to the model after fully_shard or 
+    # then re-adding it back to the model after fully_shard or
     # alternatively we can fix torch/distributed/fsdp/_fully_shard/_fsdp_init.py::_get_managed_modules
     children = list(model.children())
     direct_children_modules = _get_root_modules(children)
@@ -713,11 +712,10 @@ def identify_fsdp_sub_modules(
     # Modules to shard are direct children that have parameters, and don't have tied parameters
     # NOTE(boweny) since Metric and MetricCollection do not have params? we don't need to explicitly check for them
     modules_to_shard = [
-        child for child in direct_children_modules
-        if child not in modules_with_tied_params
-        and next(child.parameters(), None) is not None  # Filter out modules with no parameters
+        child for child in direct_children_modules if child not in modules_with_tied_params and
+        next(child.parameters(), None) is not None  # Filter out modules with no parameters
     ]
-    
+
     return modules_to_shard, modules_with_tied_params
 
 
@@ -741,10 +739,12 @@ def apply_fully_shard(
         fully_shard_kwargs['mp_policy'] = fsdp2_config.mp_policy
     if fsdp2_config.offload_policy:
         fully_shard_kwargs['offload_policy'] = fsdp2_config.offload_policy
-    
+
     # Apply fully_shard to each module in the list
     if len(modules_to_shard) == 0:
-        raise RuntimeError("Can't find any submodules to apply FSDP, e.g., the submodules may all have tied weights. Applying FSDP to the root model does not provide any memory savings.")
+        raise RuntimeError(
+            "Can't find any submodules to apply FSDP, e.g., the submodules may all have tied weights. Applying FSDP to the root model does not provide any memory savings.",
+        )
     fully_shard(modules_to_shard, **fully_shard_kwargs)
     # Apply fully_shard to the parent model to ensure all parameters are sharded
     fully_shard(model, **fully_shard_kwargs)
