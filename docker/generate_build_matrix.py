@@ -41,7 +41,7 @@ def _get_base_image(cuda_version: str):
     if not cuda_version:
         return 'ubuntu:22.04'
     if _version_geq(cuda_version, '12.2.0'):
-        return f'nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04'
+        return f'nvidia/cuda:{cuda_version}-cudnn-devel-ubuntu22.04'
     return f'nvidia/cuda:{cuda_version}-cudnn8-devel-ubuntu22.04'
 
 
@@ -199,7 +199,7 @@ def _cross_product_extra_cuda(
 def _main():
     python_pytorch_versions = [('3.12', '2.6.0'), ('3.12', '2.5.1'), ('3.12', '2.4.1')]
     pytorch_cuda_variants_extra = {
-        '2.6.0': ['12.6.0'],
+        '2.6.0': ['12.6.3'],
     }  # Extra cuda variants to be built in addition to the defaults
     cuda_options = [True, False]
     stages = ['pytorch_stage']
