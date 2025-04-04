@@ -33,14 +33,14 @@ def _get_torchvision_version(pytorch_version: str):
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
-def _version_greater_than(v1: str, v2: str):
-    return packaging.version.parse(v1) > packaging.version.parse(v2)
+def _version_geq(v1: str, v2: str):
+    return packaging.version.parse(v1) >= packaging.version.parse(v2)
 
 
 def _get_base_image(cuda_version: str):
     if not cuda_version:
         return 'ubuntu:22.04'
-    if _version_greater_than(cuda_version, '12.2.0'):
+    if _version_geq(cuda_version, '12.2.0'):
         return f'nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04'
     return f'nvidia/cuda:{cuda_version}-cudnn8-devel-ubuntu22.04'
 
