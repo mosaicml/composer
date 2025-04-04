@@ -41,7 +41,7 @@ def _get_base_image(cuda_version: str):
     return f'nvidia/cuda:{cuda_version}-cudnn8-devel-ubuntu22.04'
 
 
-def _get_cuda_version(pytorch_version: str, use_cuda: bool, cuda_variant: Optional[str]):
+def _get_cuda_version(pytorch_version: str, use_cuda: bool, cuda_variant: Optional[str] = ''):
     # From https://docs.nvidia.com/deeplearning/frameworks/pytorch-release-notes/
     if not use_cuda:
         return ''
@@ -181,16 +181,15 @@ def _cross_product_extra_cuda(
     python_pytorch_versions: dict,
     pytorch_cuda_variants_extra: dict,
     cuda_options: list,
-    stages: list,
-    interconnects: list,
+    *args,
 ):
-    for product in itertools.product(python_pytorch_versions, cuda_options, stages, interconnects):
-        (python_version, pytorch_version), use_cuda, stage, interconnect = product
+    for product in itertools.product(python_pytorch_versions, cuda_options, *args):
+        (python_version, pytorch_version), use_cuda, *rest = product
         cuda_variants = ['']
         if pytorch_version in pytorch_cuda_variants_extra:
-            cuda_variants.append(pytorch_cuda_variants_extra[pytorch_version])
+            cuda_variants.extend(pytorch_cuda_variants_extra[pytorch_version])
         for cuda_variant in cuda_variants:
-            yield (python_version, pytorch_version), use_cuda, cuda_variant, stage, interconnect
+            yield (python_version, pytorch_version), use_cuda, cuda_variant, *rest
 
 
 def _main():
