@@ -67,7 +67,7 @@ class HuggingFaceModel(ComposerModel):
     Example:
 
     .. testcode::
-       :skip:
+       :skipif: True
 
         import transformers
         from composer.models import HuggingFaceModel
