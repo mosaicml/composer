@@ -198,10 +198,6 @@ def _cross_product_extra_cuda(
 
 def _main():
     python_pytorch_versions = [('3.12', '2.6.0'), ('3.12', '2.5.1'), ('3.12', '2.4.1')]
-    cuda_options = {
-        '2.6.0': [(True, '12.4.1'), (True, '12.6.0'), (False, '')],  # Default 12.4.1, new 12.6.0, and CPU
-        'default': [True, False],  # For all other versions
-    }
     pytorch_cuda_variants_extra = {
         '2.6.0': ['12.6.0'],
     }  # Extra cuda variants to be built in addition to the defaults
