@@ -190,7 +190,7 @@ def _cross_product_extra_cuda(
     for product in itertools.product(python_pytorch_versions, cuda_options, *args):
         (python_version, pytorch_version), use_cuda, *rest = product
         cuda_variants = ['']
-        if pytorch_version in pytorch_cuda_variants_extra:
+        if use_cuda and pytorch_version in pytorch_cuda_variants_extra:
             cuda_variants.extend(pytorch_cuda_variants_extra[pytorch_version])
         for cuda_variant in cuda_variants:
             yield (python_version, pytorch_version), use_cuda, cuda_variant, *rest
