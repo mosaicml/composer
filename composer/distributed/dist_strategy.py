@@ -655,6 +655,101 @@ def prepare_fsdp_module(
     return hook_handles, fsdp_obj_named_modules
 
 
+def identify_fsdp_sub_modules(
+    model: torch.nn.Module,
+) -> tuple[list[torch.nn.Module], set[torch.nn.Module]]:
+    """Identifies modules that could be fully sharded and modules with tied parameters. Currently, it only looks for
+    direct children modules of the model. auto_wrap_policy is not supported yet.
+
+    Args:
+        model (torch.nn.Module): The model to analyze.
+
+    Returns:
+        tuple: A tuple containing:
+            - list[torch.nn.Module]: Direct children modules that should be sharded
+            - set[torch.nn.Module]: Modules with tied parameters
+    """
+    # TODO(boweny) supports auto_wrap_policy
+    # NOTE there is a bug fully_shard can not handle when the model has a direct child module which is the child of another
+    # to be FSDPed child module. For example:
+    # model
+    #  self.child1
+    #    ├── grandchild1
+    #    └── grandchild2
+    #  self.child2 = self.child1.grandchild2
+    # Then `direct_children_modules` will contain `child1`, but not `child2`. But if we call fully_shard on `model` again, then
+    # due to `child2` is not a FSDPModule, it will try to fully_shard params in `child2` again which is already sharded by `child1`,
+    # and it errors out with misleading error as it thinks it is applying FSDP on top of another parallelism.
+    # TODO(boweny) we may handle this by temporarily removing the child module from the model before calling fully_shard
+    # then re-adding it back to the model after fully_shard or 
+    # alternatively we can fix torch/distributed/fsdp/_fully_shard/_fsdp_init.py::_get_managed_modules
+    children = list(model.children())
+    direct_children_modules = _get_root_modules(children)
+    if len(direct_children_modules) != len(children):
+        raise RuntimeError(
+            'FSDP2 does not support the case where a direct child module is a child of another FSDPed module. ',
+        )
+
+    # Find all tied parameters (parameters that share the same memory) between direct children submodule of the model.
+    # if a parameter is only shared within a submodule, it is not a tied parameter
+    seen_params: set[nn.Parameter] = set()
+    tied_params: set[nn.Parameter] = set()
+    for child in direct_children_modules:
+        for param in child.parameters():
+            if param in seen_params:
+                tied_params.add(param)
+        # seen_params is only updated at submodule granularity
+        for param in child.parameters():
+            seen_params.add(param)
+
+    # if a module has tied parameters, we add it to modules_with_tied_params
+    modules_with_tied_params = set()
+    for child in direct_children_modules:
+        for param in child.parameters():
+            if param in tied_params:
+                modules_with_tied_params.add(child)
+                break
+
+    # Modules to shard are direct children that have parameters, and don't have tied parameters
+    # NOTE(boweny) since Metric and MetricCollection do not have params? we don't need to explicitly check for them
+    modules_to_shard = [
+        child for child in direct_children_modules
+        if child not in modules_with_tied_params
+        and next(child.parameters(), None) is not None  # Filter out modules with no parameters
+    ]
+    
+    return modules_to_shard, modules_with_tied_params
+
+
+def apply_fully_shard(
+    model: torch.nn.Module,
+    modules_to_shard: list[torch.nn.Module],
+    fsdp2_config: FSDP2Config,
+) -> None:
+    """Applies FSDP2's `fully_shard` to the specified modules and then to the parent model.
+
+    Args:
+        model (torch.nn.Module): The parent model.
+        modules_to_shard (list[torch.nn.Module]): The modules to apply fully_shard to.
+        fsdp2_config (FSDP2Config): The FSDP2 configuration.
+
+    Returns:
+        None
+    """
+    fully_shard_kwargs = {'mesh': fsdp2_config.device_mesh, 'reshard_after_forward': fsdp2_config.reshard_after_forward}
+    if fsdp2_config.mp_policy:
+        fully_shard_kwargs['mp_policy'] = fsdp2_config.mp_policy
+    if fsdp2_config.offload_policy:
+        fully_shard_kwargs['offload_policy'] = fsdp2_config.offload_policy
+    
+    # Apply fully_shard to each module in the list
+    if len(modules_to_shard) == 0:
+        raise RuntimeError("Can't find any submodules to apply FSDP, e.g., the submodules may all have tied weights. Applying FSDP to the root model does not provide any memory savings.")
+    fully_shard(modules_to_shard, **fully_shard_kwargs)
+    # Apply fully_shard to the parent model to ensure all parameters are sharded
+    fully_shard(model, **fully_shard_kwargs)
+
+
 def prepare_fully_shard(
     model: torch.nn.Module,
     fsdp2_config: FSDP2Config,
@@ -668,67 +763,5 @@ def prepare_fully_shard(
     Returns:
         None
     """
-    # Only install FSDP hook on those direct children modules of the model
-    # TODO(boweny) supports auto_wrap_policy later
-    # NOTE there is a bug fully_shard can not handle when the model has a direct child module which is the child of another
-    # to be FSDPed child module. For example:
-    # model
-    #  self.child1
-    #    ├── grandchild1
-    #    └── grandchild2
-    #  self.child2 = self.child1.grandchild2
-    # Then `direct_children_modules` will contain `child1`, but not `child2`. But if we call fully_shard on `model` again, then
-    # due to `child2` is not a FSDPModule, it will try to fully_shard params in `child2` again which is already sharded by `child1`,
-    # and it errors out with misleading error as it thinks it is applying FSDP on top of another parallelism.
-    # TODO(boweny) altertanatively we can fix torch/distributed/fsdp/_fully_shard/_fsdp_init.py::_get_managed_modules
-    children = list(model.children())
-    direct_children_modules = _get_root_modules(children)
-    if len(direct_children_modules) != len(children):
-        raise RuntimeError(
-            'FSDP2 does not support the case where a direct child module is a child of another FSDPed module. ',
-        )
-
-    # Find any direct children of the model that have tied parameters
-    # This is done by checking if any parameters in the child module share the same memory address
-    modules_with_tied_params = set()
-    # Find all tied parameters (parameters that share the same memory) between direct children submodule of the model.
-    # if a parameter is only shared within a submodule, it is not a tied parameter
-    seen_params: set[nn.Parameter] = set()
-    tied_params: set[nn.Parameter] = set()
-    for child in direct_children_modules:
-        for param in child.parameters():
-            if param in seen_params:
-                tied_params.add(param)
-        # seen_params i only updated at submodule granularity
-        for param in child.parameters():
-            seen_params.add(param)
-
-    # if a module has tied parameters, we add it to modules_with_tied_params
-    # TODO(boweny) maybe consider filter out modules with no parameters
-    for child in direct_children_modules:
-        for param in child.parameters():
-            if param in tied_params:
-                modules_with_tied_params.add(child)
-
-    fully_shard_kwargs = {'mesh': fsdp2_config.device_mesh, 'reshard_after_forward': fsdp2_config.reshard_after_forward}
-    if fsdp2_config.mp_policy:
-        fully_shard_kwargs['mp_policy'] = fsdp2_config.mp_policy
-    if fsdp2_config.offload_policy:
-        fully_shard_kwargs['offload_policy'] = fsdp2_config.offload_policy
-    # For each direct child of the model
-    for child in direct_children_modules:
-        # Skip metrics and modules with tied parameters
-        if isinstance(child, (Metric, MetricCollection)) or child in modules_with_tied_params:
-            continue
-
-        # Apply fully_shard to this child module
-        fully_shard(
-            child,
-            **fully_shard_kwargs,
-        )
-
-    # apply fully_shard to the parent model to ensure all parameters are sharded
-    fully_shard(
-        model,
-        **fully_shard_kwargs,
-    )
+    modules_to_shard, _ = identify_fsdp_sub_modules(model)
+    apply_fully_shard(model, modules_to_shard, fsdp2_config)

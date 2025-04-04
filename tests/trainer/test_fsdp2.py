@@ -11,7 +11,6 @@ from composer.trainer.trainer import Trainer
 from composer.utils import dist
 from composer.utils.parallelism import FSDP2Config
 from tests.common import (
-    EmbeddedWeightTiedModel,
     PartialWeightTiedModel,
     RandomClassificationDataset,
     SimpleWeightTiedModel,
@@ -21,25 +20,23 @@ from tests.common import (
 _INIT_DEVICES = ['cuda']
 
 
-@pytest.mark.parametrize('model', [SimpleWeightTiedModel, EmbeddedWeightTiedModel, PartialWeightTiedModel])
+@pytest.mark.parametrize('model', [SimpleWeightTiedModel, PartialWeightTiedModel])
 @pytest.mark.parametrize('device', _INIT_DEVICES)
 @world_size(2)
 @pytest.mark.gpu
-@pytest.mark.filterwarnings('ignore:The passed in model appears to have tied weights.*:UserWarning')
-def test_fsdp_device_initialization(
+def test_fsdp2_initialization_with_tied_params(
     model: ComposerClassifier,
     world_size: int,
     device: str,
 ):
-    """test FSDP device initialization for a simple model with weight tying and a model where two modules
-    from separate submodules have weight tying applied. This test also covers both 'cpu' and
-    'meta' devices. This is because 'meta' will result in deferred initialization until FSDP is initialized
-
+    """test FSDP2 initialization for a simple model with weight tying and a model where two modules
+    from separate submodules have weight tying applied.
     """
     num_classes = 10
 
     resolved_device = device
     model = model(num_features=num_classes, device=resolved_device)
+    assert isinstance(model, (SimpleWeightTiedModel, PartialWeightTiedModel))
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
 
@@ -50,6 +47,7 @@ def test_fsdp_device_initialization(
         offload_policy=None,
     )
     prepare_fully_shard(model=model.module, fsdp2_config=fsdp2_config)
+    print(model)
     trainer = Trainer(
         model=model,
         train_dataloader=dataloader,
@@ -57,24 +55,15 @@ def test_fsdp_device_initialization(
     )
 
     trainer.fit()
-    if isinstance(model, (SimpleWeightTiedModel, PartialWeightTiedModel)):
-        assert len(model.mlp._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the mlp module'
-        assert len(model.mlp.fc1._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc1 module'
-        assert len(model.mlp.fc2._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc2 module'
-        assert len(model.module._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the root module'
-        weight_1 = model.mlp.fc1.weight.full_tensor()  # type: ignore[reportAttributeAccessIssue]
-        weight_2 = model.mlp.fc2.weight.full_tensor()  # type: ignore[reportAttributeAccessIssue]
-        assert (model.mlp.fc1.weight is model.mlp.fc2.weight)
-        assert (torch.equal(weight_1, weight_2))
+    assert len(model.mlp._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the mlp module'
+    assert len(model.mlp.fc1._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc1 module'
+    assert len(model.mlp.fc2._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc2 module'
+    assert len(model.module._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the root module'
+    weight_1 = model.mlp.fc1.weight.full_tensor()  # type: ignore[reportAttributeAccessIssue]
+    weight_2 = model.mlp.fc2.weight.full_tensor()  # type: ignore[reportAttributeAccessIssue]
+    assert (model.mlp.fc1.weight is model.mlp.fc2.weight)
+    assert (torch.equal(weight_1, weight_2))
 
     if isinstance(model, PartialWeightTiedModel):
         assert len(model.fc3._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the fc3 module'
 
-    if isinstance(model, EmbeddedWeightTiedModel):
-        assert len(model.module._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the root module'
-        assert len(model.net1._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the net1 module'
-        assert len(model.net2._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the net2 module'
-        weight_1 = model.net1.fc1.weight.full_tensor()  # type: ignore[reportAttributeAccessIssue]
-        weight_2 = model.net2.fc1.weight.full_tensor()  # type: ignore[reportAttributeAccessIssue]
-        assert (model.net1.fc1.weight is model.net2.fc1.weight)
-        assert (torch.equal(weight_1, weight_2))
