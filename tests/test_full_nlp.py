@@ -9,7 +9,7 @@ import torch
 from packaging import version
 from torch.utils.data import DataLoader
 from torchmetrics.classification import MulticlassAccuracy
-from transformers import BertConfig, BertForMaskedLM, BertForSequenceClassification, BertTokenizerFast
+from transformers import BertConfig, BertForMaskedLM, BertForSequenceClassification
 
 from composer.algorithms import GatedLinearUnits
 from composer.loggers import RemoteUploaderDownloader
