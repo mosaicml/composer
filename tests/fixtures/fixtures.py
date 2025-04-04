@@ -146,7 +146,7 @@ def _session_tiny_bert_model(_session_tiny_bert_config):  # type: ignore
 def tiny_bert_tokenizer_helper():
     transformers = pytest.importorskip('transformers')
 
-    return transformers.AutoTokenizer.from_pretrained('google-bert/bert-base-uncased')
+    return transformers.AutoTokenizer.from_pretrained('google-bert/bert-base-uncased', model_max_length=128)
 
 
 @pytest.fixture(scope='session')
