@@ -6,11 +6,10 @@ import torch
 from torch.distributed.tensor import DTensor
 from torch.utils.data import DataLoader
 
-from composer.distributed.dist_strategy import prepare_fully_shard
+from composer.distributed.fsdp2 import FSDP2Config, prepare_fully_shard
 from composer.models import ComposerClassifier
 from composer.trainer.trainer import Trainer
 from composer.utils import dist
-from composer.utils.parallelism import FSDP2Config
 from tests.common import (
     PartialWeightTiedModel,
     RandomClassificationDataset,
