@@ -17,11 +17,17 @@ We want to update our DLE codebase (Composer, LLM Foundry, etc) to use Pytorch F
 - **Potential slight performance gain**
 
 > **NOTE:**
-> The design philosophy of FSDP2 and Torchtitan (or torch's modern distributed approach) is to make parallelisms declarative on top of model definition (similar to JAX) instead of directly inlined with model definition (like Megatron/DeepSpeed). This is generally more scalable and modularized and we adopted the same philosophy by isolating model definition and parallelisms through (FSDP/TP) configs.
+> The design philosophy of FSDP2 and Torchtitan (or torch's modern distributed approach) is to make parallelisms declarative on top of model definition (similar to JAX) instead of directly inlined with model definition (like Megatron/DeepSpeed). This is generally more scalable and modularized and we adopted the same philosophy by isolating model definition and parallelisms through (FSDP/TP) YAML configs.
 
 ## Functionality between FSDP2 vs FSDP1 wrapper in Composer
 
 ### FSDP2 wrapper `prepare_fully_shard` is backward compatible with FSDP1 wrapper `prepare_fsdp_module` on following supports:
+
+#### Inherited from FSDP1 to FSDP2
+| Feature | Details |
+|---------|---------|
+| **Mixed Precision** | from MixedPrecision to MixedPrecisionPolicy |
+| **CPU offload** | from CPUOffload to OffloadPolicy |
 
 #### Integrated
 
