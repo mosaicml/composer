@@ -9,7 +9,7 @@ import torch
 from packaging import version
 from torch.utils.data import DataLoader
 from torchmetrics.classification import MulticlassAccuracy
-from transformers import BertConfig, BertForMaskedLM, BertForSequenceClassification, BertTokenizerFast
+from transformers import BertConfig, BertForMaskedLM, BertForSequenceClassification
 
 from composer.algorithms import GatedLinearUnits
 from composer.loggers import RemoteUploaderDownloader
@@ -245,6 +245,7 @@ def test_full_nlp_pipeline(
     onnx_opset_version,
     tmp_path,
     device,
+    tiny_bert_tokenizer,
 ):
     """This test is intended to exercise our full pipeline for NLP.
 
@@ -260,7 +261,7 @@ def test_full_nlp_pipeline(
     algorithms = [algorithm() for algorithm in algorithms]
     device = get_device(device)
     config = None
-    tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased', model_max_length=128)
+    tokenizer = tiny_bert_tokenizer
     if model_type == 'tinybert_hf':
         # Updated minimal BERT configuration
         config = BertConfig(
