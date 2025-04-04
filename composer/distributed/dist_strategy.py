@@ -685,7 +685,7 @@ def prepare_fully_shard(
     direct_children_modules = _get_root_modules(children)
     if len(direct_children_modules) != len(children):
         raise RuntimeError(
-            'FSDP2 does not support the case where a direct child module is a child of another FSDPed module. '
+            'FSDP2 does not support the case where a direct child module is a child of another FSDPed module. ',
         )
 
     # Find any direct children of the model that have tied parameters
