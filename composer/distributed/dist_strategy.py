@@ -655,73 +655,89 @@ def prepare_fsdp_module(
     return hook_handles, fsdp_obj_named_modules
 
 
-def identify_fsdp_sub_modules(model: torch.nn.Module,) -> tuple[list[torch.nn.Module], set[torch.nn.Module]]:
+def identify_shardable_modules(modules: list[torch.nn.Module]) -> tuple[list[torch.nn.Module], set[torch.nn.Module]]:
     """Identifies modules that could be fully sharded and modules with tied parameters.
 
-    Currently, it only looks for direct children modules of the model. auto_wrap_policy is not supported yet.
-
     Args:
-        model (torch.nn.Module): The model to analyze.
+        modules (list[torch.nn.Module]): List of modules to analyze.
 
     Returns:
         tuple: A tuple containing:
-            - list[torch.nn.Module]: Direct children modules that should be sharded
+            - list[torch.nn.Module]: Modules that should be sharded
             - set[torch.nn.Module]: Modules with tied parameters
     """
-    # TODO(boweny) supports auto_wrap_policy
-    # NOTE there is a bug fully_shard can not handle when the model has a direct child module which is the child of another
-    # to be FSDPed child module. For example:
-    # model
-    #  self.child1
-    #    ├── grandchild1
-    #    └── grandchild2
-    #  self.child2 = self.child1.grandchild2
-    # Then `direct_children_modules` will contain `child1`, but not `child2`. But if we call fully_shard on `model` again, then
-    # due to `child2` is not a FSDPModule, it will try to fully_shard params in `child2` again which is already sharded by `child1`,
-    # and it errors out with misleading error as it thinks it is applying FSDP on top of another parallelism.
-    # TODO(boweny) we may handle this by temporarily removing the child module from the model before calling fully_shard
-    # then re-adding it back to the model after fully_shard or
-    # alternatively we can fix torch/distributed/fsdp/_fully_shard/_fsdp_init.py::_get_managed_modules
-    children = list(model.children())
-    direct_children_modules = _get_root_modules(children)
-    if len(direct_children_modules) != len(children):
-        raise RuntimeError(
-            'FSDP2 does not support the case where a direct child module is a child of another FSDPed module. ',
-        )
-
-    # Find all tied parameters (parameters that share the same memory) between direct children submodule of the model.
-    # if a parameter is only shared within a submodule, it is not a tied parameter
+    # Find all tied parameters (parameters that share the same memory) between modules
     seen_params: set[nn.Parameter] = set()
     tied_params: set[nn.Parameter] = set()
-    for child in direct_children_modules:
-        for param in child.parameters():
+    for module in modules:
+        for param in module.parameters():
             if param in seen_params:
                 tied_params.add(param)
-        # seen_params is only updated at submodule granularity
-        for param in child.parameters():
+        # seen_params is only updated at module granularity
+        for param in module.parameters():
             seen_params.add(param)
 
     # if a module has tied parameters, we add it to modules_with_tied_params
     modules_with_tied_params = set()
-    for child in direct_children_modules:
-        for param in child.parameters():
+    for module in modules:
+        for param in module.parameters():
             if param in tied_params:
-                modules_with_tied_params.add(child)
+                modules_with_tied_params.add(module)
                 break
 
-    # Modules to shard are direct children that have parameters, and don't have tied parameters
-    # NOTE(boweny) since Metric and MetricCollection do not have params? we don't need to explicitly check for them
+    # Modules to shard are those that have parameters and don't have tied parameters
     modules_to_shard = [
-        child for child in direct_children_modules if child not in modules_with_tied_params and
-        next(child.parameters(), None) is not None  # Filter out modules with no parameters
+        module for module in modules if module not in modules_with_tied_params and
+        next(module.parameters(), None) is not None  # Filter out modules with no parameters
     ]
 
     return modules_to_shard, modules_with_tied_params
 
 
+def legalize_param_sharing_between_modules(model: nn.Module, modules_to_shard: list[nn.Module]) -> None:
+    """Checks if there's parameter sharing between modules to be sharded and other modules in model.
+    
+    Args:
+        model (nn.Module): The root model.
+        modules_to_shard (list[nn.Module]): The modules that will be sharded.
+        
+    Raises:
+        ValueError: If parameter sharing is detected between modules to be sharded and other modules.
+    """
+    # Collect all parameters from modules to be sharded
+    modules_to_shard_params = set()
+    for module in modules_to_shard:
+        modules_to_shard_params.update(p for p in module.parameters())
+    
+    visited_modules = set()
+    modules_to_shard_set = set(modules_to_shard)
+    
+    # Define a DFS function to check for parameter sharing
+    def _check_param_sharing(module: nn.Module):
+        if module in modules_to_shard_set or module in visited_modules:
+            return
+        visited_modules.add(module)
+        
+        # Check if this module shares parameters with modules_to_shard
+        for param in module.parameters(recurse=False):
+            if param in modules_to_shard_params:
+                raise ValueError(
+                    f"Parameter sharing detected between modules to be sharded and module '{module}'. "
+                    f"This will cause errors with FSDP. Either ensure no parameter sharing exists "
+                    f"or include all modules with shared parameters in modules_to_shard."
+                )
+                
+        # Continue DFS with children
+        for child in module.children():
+            _check_param_sharing(child)
+    
+    # Start the check from the root model
+    _check_param_sharing(model)
+
+
 def apply_fully_shard(
-    model: torch.nn.Module,
-    modules_to_shard: list[torch.nn.Module],
+    model: nn.Module,
+    modules_to_shard: list[nn.Module],
     fsdp2_config: FSDP2Config,
 ) -> None:
     """Applies FSDP2's `fully_shard` to the specified modules and then to the parent model.
@@ -745,6 +761,24 @@ def apply_fully_shard(
         raise RuntimeError(
             "Can't find any submodules to apply FSDP, e.g., the submodules may all have tied weights. Applying FSDP to the root model does not provide any memory savings.",
         )
+
+    # NOTE there is a bug fully_shard can not handle when the model has a child module which is the child of another
+    # to be FSDPed child module. For example:
+    # model
+    #  self.child1
+    #  self.child2
+    #    ├── self.child1
+    #    └── grandchild
+    # We can fully_shard self.child2 however if we call fully_shard on `model` again, then
+    # due to `child1` is not a FSDPModule, it will try to fully_shard params in `child1` which is already sharded by `child2`,
+    # and it errors out with misleading error as it thinks it is applying FSDP on top of another parallelism.
+
+    # Currently identify_shardable_modules avoids this case through generally handling weight tying so that only parent of child1 and child2
+    # is sharded. However if we allow users to call this function directly with custom modules_to_shard, we need to:
+    # legalize that no module outside modules_to_shard shares parameters with modules_to_shard or
+    # TODO(bowney) alternatively we can fix torch/distributed/fsdp/_fully_shard/_fsdp_init.py::_get_managed_modules
+    legalize_param_sharing_between_modules(model, modules_to_shard)
+
     fully_shard(modules_to_shard, **fully_shard_kwargs)
     # Apply fully_shard to the parent model to ensure all parameters are sharded
     fully_shard(model, **fully_shard_kwargs)
@@ -754,7 +788,7 @@ def prepare_fully_shard(
     model: torch.nn.Module,
     fsdp2_config: FSDP2Config,
 ) -> None:
-    """Applies FSDP2's `fully_shard` to direct children of the model while handling tied weights.
+    """Applies FSDP2's `fully_shard` to the model according to given fsdp2_config.
 
     Args:
         model (torch.nn.Module): The model to prepare.
@@ -763,5 +797,5 @@ def prepare_fully_shard(
     Returns:
         None
     """
-    modules_to_shard, _ = identify_fsdp_sub_modules(model)
+    modules_to_shard, _ = identify_shardable_modules(list(model.children()))
     apply_fully_shard(model, modules_to_shard, fsdp2_config)
