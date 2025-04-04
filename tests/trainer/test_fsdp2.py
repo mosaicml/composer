@@ -39,7 +39,6 @@ def test_fsdp2_initialization_with_tied_params(
     assert isinstance(model, (SimpleWeightTiedModel, PartialWeightTiedModel))
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
-
     fsdp2_config = FSDP2Config(
         device_mesh=None,
         reshard_after_forward=True,
@@ -47,13 +46,13 @@ def test_fsdp2_initialization_with_tied_params(
         offload_policy=None,
     )
     prepare_fully_shard(model=model.module, fsdp2_config=fsdp2_config)
-    print(model)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
     trainer = Trainer(
         model=model,
+        optimizers=optimizer,
         train_dataloader=dataloader,
-        max_duration='3ba',
+        max_duration='10ep',
     )
-
     trainer.fit()
     assert len(model.mlp._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the mlp module'
     assert len(model.mlp.fc1._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc1 module'
@@ -66,4 +65,3 @@ def test_fsdp2_initialization_with_tied_params(
 
     if isinstance(model, PartialWeightTiedModel):
         assert len(model.fc3._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the fc3 module'
-
