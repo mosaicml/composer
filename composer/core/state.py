@@ -19,13 +19,13 @@ import torch.nn.modules.utils
 from packaging import version
 from torch.distributed._tensor.device_mesh import DeviceMesh, init_device_mesh
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp._fully_shard import FSDPModule
 from torch.distributed.fsdp.fully_sharded_data_parallel import (
     FullOptimStateDictConfig,
     FullStateDictConfig,
     ShardedOptimStateDictConfig,
     StateDictType,
 )
-from torch.distributed.fsdp._fully_shard import FSDPModule
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LRScheduler

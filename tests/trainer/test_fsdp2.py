@@ -12,9 +12,9 @@ from composer.utils import dist
 from composer.utils.parallelism import FSDP2Config
 from tests.common import (
     EmbeddedWeightTiedModel,
+    PartialWeightTiedModel,
     RandomClassificationDataset,
     SimpleWeightTiedModel,
-    PartialWeightTiedModel,
     world_size,
 )
 
@@ -61,12 +61,12 @@ def test_fsdp_device_initialization(
         assert len(model.mlp._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the mlp module'
         assert len(model.mlp.fc1._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc1 module'
         assert len(model.mlp.fc2._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc2 module'
-        assert len(model.module._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the root module'            
+        assert len(model.module._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the root module'
         weight_1 = model.mlp.fc1.weight.full_tensor()  # type: ignore[reportAttributeAccessIssue]
         weight_2 = model.mlp.fc2.weight.full_tensor()  # type: ignore[reportAttributeAccessIssue]
         assert (model.mlp.fc1.weight is model.mlp.fc2.weight)
         assert (torch.equal(weight_1, weight_2))
-    
+
     if isinstance(model, PartialWeightTiedModel):
         assert len(model.fc3._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the fc3 module'
 

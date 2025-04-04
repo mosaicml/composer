@@ -20,8 +20,8 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
 from torch.distributed.fsdp import FullyShardedDataParallel, ShardingStrategy
 from torch.distributed.fsdp._common_utils import clean_tensor_name
 from torch.distributed.fsdp._fully_shard import fully_shard
-from torch.distributed.utils import _get_root_modules
 from torch.distributed.fsdp.wrap import CustomPolicy
+from torch.distributed.utils import _get_root_modules
 from torch.nn.parallel import DistributedDataParallel
 from torchmetrics import Metric, MetricCollection
 
@@ -684,7 +684,9 @@ def prepare_fully_shard(
     children = list(model.children())
     direct_children_modules = _get_root_modules(children)
     if len(direct_children_modules) != len(children):
-        raise RuntimeError('FSDP2 does not support the case where a direct child module is a child of another FSDPed module. ')
+        raise RuntimeError(
+            'FSDP2 does not support the case where a direct child module is a child of another FSDPed module. '
+        )
 
     # Find any direct children of the model that have tied parameters
     # This is done by checking if any parameters in the child module share the same memory address
@@ -722,11 +724,11 @@ def prepare_fully_shard(
         # Apply fully_shard to this child module
         fully_shard(
             child,
-            **fully_shard_kwargs
+            **fully_shard_kwargs,
         )
 
     # apply fully_shard to the parent model to ensure all parameters are sharded
     fully_shard(
         model,
-        **fully_shard_kwargs
+        **fully_shard_kwargs,
     )

@@ -222,7 +222,6 @@ class PartialWeightTiedModel(ComposerClassifier):
 
         self.module.param_init_fn = self.param_init_fn  # pyright: ignore[reportGeneralTypeIssues]
 
-
     def param_init_fn(self, module):
         init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
 
