@@ -3,7 +3,6 @@
 
 import pytest
 import torch
-from torch.distributed.tensor import DTensor
 from torch.utils.data import DataLoader
 
 from composer.models import ComposerClassifier
@@ -40,6 +39,7 @@ def test_fsdp2_initialization_with_tied_params(
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
     # TODO(boweny) move this to top once we decprecate torch-cpu 2.5
     from composer.distributed.fsdp2 import FSDP2Config, prepare_fully_shard
+    from torch.distributed.tensor import DTensor
     fsdp2_config = FSDP2Config(
         device_mesh=None,
         reshard_after_forward=True,
