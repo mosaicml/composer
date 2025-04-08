@@ -3,19 +3,20 @@ from typing import Callable, Optional
 
 import torch.nn as nn
 import torch
+import pytest
 
 if version.parse(torch.__version__) >= version.parse('2.6.0'):
-    from composer.distributed.fsdp2 import get_standalone_and_tied_modules
+    from composer.distributed.fsdp2 import get_standalone_and_tied_modules, legalize_param_sharing_between_modules
     RUN_TEST = True
 else:
     RUN_TEST = False
     get_standalone_and_tied_modules = lambda x: ([], set())
+    legalize_param_sharing_between_modules = lambda x, y: None
 
 
-def test_context(func: Callable) -> Optional[Callable]:
+def _context(func: Callable) -> Optional[Callable]:
     """Decorator to run tests with models initialized on the meta device for torch version 2.6+."""
-    if not RUN_TEST:
-        return None
+    @pytest.mark.skipif(not RUN_TEST, reason="Skipping test for torch version < 2.6.0")
     def wrapper(*args, **kwargs):
         with torch.device('meta'):
             return func(*args, **kwargs)
@@ -50,7 +51,7 @@ class ComplexTiedModel(nn.Module):
         return x
 
 
-@test_context
+@_context
 def test_no_tied_params():
     """Test when there are no tied parameters."""
     module1 = nn.Linear(10, 20)
@@ -64,7 +65,7 @@ def test_no_tied_params():
     assert set(modules_to_shard) == {module1, module2, module3}
 
 
-@test_context
+@_context
 def test_with_tied_params_in_single_module():
     """Test when there are tied parameters within a single module."""
     module = ModuleWithTiedParams()
@@ -78,7 +79,7 @@ def test_with_tied_params_in_single_module():
     assert modules_to_shard[0] == module
 
 
-@test_context
+@_context
 def test_with_tied_params_across_modules():
     """Test when there are tied parameters across different modules."""
     model = ComplexTiedModel()
@@ -93,7 +94,7 @@ def test_with_tied_params_across_modules():
     assert model.module3 in modules_with_tied_params
 
 
-@test_context
+@_context
 def test_empty_module_list():
     """Test with an empty list of modules."""
     modules_to_shard, modules_with_tied_params = get_standalone_and_tied_modules([])
@@ -102,7 +103,7 @@ def test_empty_module_list():
     assert len(modules_with_tied_params) == 0
 
 
-@test_context
+@_context
 def test_modules_with_no_params():
     """Test with modules that have no parameters."""
     module1 = nn.ReLU()
@@ -114,7 +115,7 @@ def test_modules_with_no_params():
     assert len(modules_with_tied_params) == 0
 
 
-@test_context
+@_context
 def test_mixed_param_and_no_param_modules():
     """Test with a mix of modules with and without parameters."""
     module1 = nn.Linear(10, 10)
@@ -129,7 +130,7 @@ def test_mixed_param_and_no_param_modules():
     assert len(modules_with_tied_params) == 0
 
 
-@test_context
+@_context
 def test_mixed_tied_and_untied_modules():
     """Test with a mix of modules with and without tied parameters."""
     module1 = nn.Linear(10, 20)
@@ -149,7 +150,7 @@ def test_mixed_tied_and_untied_modules():
     assert module3 in modules_with_tied_params
 
 
-@test_context
+@_context
 def test_tied_bias_only():
     """Test when only bias parameters are tied."""
     module1 = nn.Linear(10, 20)
@@ -165,7 +166,7 @@ def test_tied_bias_only():
     assert module2 in modules_with_tied_params
 
 
-@test_context
+@_context
 def test_complex_nested_tied_params():
     """Test with complex nested modules with tied parameters."""
     class NestedModule(nn.Module):
@@ -187,3 +188,120 @@ def test_complex_nested_tied_params():
     assert len(modules_with_tied_params) == 2
     assert nested1 in modules_with_tied_params
     assert nested2 in modules_with_tied_params
+
+
+@_context
+def test_legalize_param_sharing_no_sharing():
+    """Test when there's no parameter sharing between modules_to_shard and other modules."""
+    class RootModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.module1 = nn.Linear(10, 20)
+            self.module2 = nn.Linear(20, 30)
+            self.module3 = nn.Linear(30, 10)
+    
+    model = RootModel()
+    # No sharing between these modules, so should pass without error
+    modules_to_shard = [model.module1, model.module3]
+    
+    # Should not raise an error
+    legalize_param_sharing_between_modules(model, modules_to_shard)
+
+
+@_context
+def test_legalize_param_sharing_with_illegal_sharing():
+    """Test when there's parameter sharing between modules_to_shard and other modules."""
+    class RootModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.module1 = nn.Linear(10, 20)
+            self.module2 = nn.Linear(20, 30)
+            self.module3 = nn.Linear(30, 10)
+            # Create illegal parameter sharing
+            self.module3.weight = self.module1.weight
+    
+    model = RootModel()
+    # Only include module1 in modules_to_shard, not module3
+    modules_to_shard = [model.module1]
+    
+    # Should raise a ValueError
+    with pytest.raises(ValueError):
+        legalize_param_sharing_between_modules(model, modules_to_shard)
+
+
+@_context
+def test_legalize_param_sharing_with_nested_modules():
+    """Test with nested modules and parameter sharing."""
+    class NestedModule(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear1 = nn.Linear(10, 20)
+            self.linear2 = nn.Linear(20, 10)
+    
+    class RootModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.nested1 = NestedModule()
+            self.nested2 = NestedModule()
+            # Tie weights between nested modules
+            self.nested2.linear1.weight = self.nested1.linear1.weight
+    
+    model = RootModel()
+    # Only include nested1 but not nested2
+    modules_to_shard = [model.nested1]
+    
+    # Should raise a ValueError
+    with pytest.raises(ValueError):
+        legalize_param_sharing_between_modules(model, modules_to_shard)
+
+
+@_context
+def test_legalize_param_sharing_empty_modules_to_shard():
+    """Test with an empty list of modules_to_shard."""
+    class RootModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.module1 = nn.Linear(10, 20)
+            self.module2 = nn.Linear(20, 30)
+    
+    model = RootModel()
+    modules_to_shard = []
+    
+    # Should not raise an error
+    legalize_param_sharing_between_modules(model, modules_to_shard)
+
+
+@_context
+def test_legalize_param_sharing_all_modules_to_shard():
+    """Test when all modules that share parameters are in modules_to_shard."""
+    class RootModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.module1 = nn.Linear(10, 20)
+            self.module2 = nn.Linear(20, 30)
+            self.module3 = nn.Linear(30, 10)
+            # Create parameter sharing
+            self.module3.weight = self.module1.weight
+    
+    model = RootModel()
+    # Include both module1 and module3 (which share parameters)
+    modules_to_shard = [model.module1, model.module3]
+    
+    # Should not raise an error
+    legalize_param_sharing_between_modules(model, modules_to_shard)
+
+
+@_context
+def test_legalize_param_sharing_with_no_param_modules():
+    """Test with modules that have no parameters."""
+    class RootModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.module1 = nn.Linear(10, 20)
+            self.module2 = nn.ReLU()  # No parameters
+    
+    model = RootModel()
+    modules_to_shard = [model.module1]
+    
+    # Should not raise an error
+    legalize_param_sharing_between_modules(model, modules_to_shard)
