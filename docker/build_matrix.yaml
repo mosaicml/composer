@@ -14,6 +14,21 @@
   - mosaicml/pytorch:latest
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.21.0
+- AWS_OFI_NCCL_VERSION: ''
+  BASE_IMAGE: nvidia/cuda:12.6.3-cudnn-devel-ubuntu22.04
+  CUDA_VERSION: 12.6.3
+  IMAGE_NAME: torch-2-6-0-cu126
+  MOFED_VERSION: latest-23.10
+  NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
+  PYTHON_VERSION: '3.12'
+  PYTORCH_NIGHTLY_URL: ''
+  PYTORCH_NIGHTLY_VERSION: ''
+  PYTORCH_VERSION: 2.6.0
+  TAGS:
+  - mosaicml/pytorch:2.6.0_cu126-python3.12-ubuntu22.04
+  - mosaicml/pytorch:latest
+  TARGET: pytorch_stage
+  TORCHVISION_VERSION: 0.21.0
 - AWS_OFI_NCCL_VERSION: v1.11.0-aws
   BASE_IMAGE: nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
   CUDA_VERSION: 12.4.1
@@ -26,6 +41,21 @@
   PYTORCH_VERSION: 2.6.0
   TAGS:
   - mosaicml/pytorch:2.6.0_cu124-python3.12-ubuntu22.04-aws
+  - mosaicml/pytorch:latest-aws
+  TARGET: pytorch_stage
+  TORCHVISION_VERSION: 0.21.0
+- AWS_OFI_NCCL_VERSION: v1.11.0-aws
+  BASE_IMAGE: nvidia/cuda:12.6.3-cudnn-devel-ubuntu22.04
+  CUDA_VERSION: 12.6.3
+  IMAGE_NAME: torch-2-6-0-cu126-aws
+  MOFED_VERSION: ''
+  NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
+  PYTHON_VERSION: '3.12'
+  PYTORCH_NIGHTLY_URL: ''
+  PYTORCH_NIGHTLY_VERSION: ''
+  PYTORCH_VERSION: 2.6.0
+  TAGS:
+  - mosaicml/pytorch:2.6.0_cu126-python3.12-ubuntu22.04-aws
   - mosaicml/pytorch:latest-aws
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.21.0
