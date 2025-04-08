@@ -15,7 +15,7 @@ from tests.common import (
     world_size,
 )
 
-_INIT_DEVICES = ['cuda']
+_INIT_DEVICES = ['cuda', 'meta']
 
 
 @pytest.mark.parametrize('model', [SimpleWeightTiedModel, PartialWeightTiedModel])
@@ -32,12 +32,11 @@ def test_fsdp2_initialization_with_tied_params(
     """
     num_classes = 10
 
-    resolved_device = device
-    model = model(num_features=num_classes, device=resolved_device)
+    model = model(num_features=num_classes, device=device)
     assert isinstance(model, (SimpleWeightTiedModel, PartialWeightTiedModel))
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
-    # TODO(boweny) move this to top once we deprecate torch-cpu 2.5
+    # TODO move this to top once we decprecate torch-cpu 2.5
     from torch.distributed.tensor import DTensor
 
     from composer.distributed.fsdp2 import FSDP2Config, prepare_fully_shard
@@ -48,7 +47,6 @@ def test_fsdp2_initialization_with_tied_params(
         offload_policy=None,
     )
     prepare_fully_shard(model=model.module, fsdp2_config=fsdp2_config)
-
     # Initialization checks
     assert len(model.mlp._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the mlp module'
     assert len(model.mlp.fc1._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc1 module'
@@ -60,6 +58,10 @@ def test_fsdp2_initialization_with_tied_params(
         assert len(model.fc3._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the fc3 module'
     assert model.mlp.fc1.weight.size(0) == model.mlp.fc2.weight.to_local(
     ).size(0) * world_size, 'Expect global weight size to be equal to local weight size * world_size on dim 0'
+
+    model.to_empty(device='cuda')
+    for module in model.modules():
+        model.param_init_fn(module)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
     trainer = Trainer(

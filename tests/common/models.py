@@ -213,7 +213,7 @@ class PartialWeightTiedModel(ComposerClassifier):
         )
 
         # fc1 would be a child module of the Sequential module now but only the mlp should be FSDP wrapped
-        # TODO(boweny) support this or add negative test for this
+        # TODO support this or add negative test for this
         # net.fc1 = mlp.fc1
 
         super().__init__(module=net, num_classes=num_features)
