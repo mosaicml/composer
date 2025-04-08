@@ -266,3 +266,42 @@ def test_legalize_param_sharing_with_no_param_modules():
     
     # Should not raise an error
     legalize_param_sharing_between_modules(model, modules_to_shard)
+
+
+@_context
+def test_legalize_param_sharing_with_nested_shared_module():
+    """Test where a module B is a submodule of both the root model and another module A."""
+    class ModuleB(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = nn.Linear(10, 15)
+            
+    class ModuleA(nn.Module):
+        def __init__(self, module_b):
+            super().__init__()
+            self.linear = nn.Linear(15, 20)
+            self.shared_module = module_b  # B is a submodule of A
+            
+    class RootModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.module_b = ModuleB()  # B is a direct submodule of root
+            self.module_a = ModuleA(self.module_b)  # A contains B
+            
+    model = RootModel()
+    
+    # Test 1: Include module_a but not module_b
+    # Should raise error since module_b is used in module_a but not included
+    modules_to_shard: list[nn.Module] = [model.module_a]
+    with pytest.raises(ValueError):
+        legalize_param_sharing_between_modules(model, modules_to_shard)
+        
+    # Test 2: Include both module_a and module_b
+    # Should not raise an error
+    modules_to_shard = [model.module_a, model.module_b]
+    legalize_param_sharing_between_modules(model, modules_to_shard)
+    
+    # Test 3: Include only module_b
+    # Should not raise an error
+    modules_to_shard = [model.module_b]
+    legalize_param_sharing_between_modules(model, modules_to_shard)
