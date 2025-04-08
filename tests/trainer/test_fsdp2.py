@@ -22,6 +22,7 @@ _INIT_DEVICES = ['cuda', 'meta']
 @pytest.mark.parametrize('device', _INIT_DEVICES)
 @world_size(2)
 @pytest.mark.gpu
+@pytest.mark.filterwarnings('ignore:FSDP2 Config/APIs are experimental*:UserWarning')
 def test_fsdp2_initialization_with_tied_params(
     model: ComposerClassifier,
     world_size: int,

@@ -5,6 +5,7 @@
 
 from dataclasses import dataclass
 from typing import Optional, Union
+import warnings
 
 from torch import nn
 from torch.distributed._tensor.device_mesh import DeviceMesh
@@ -32,6 +33,9 @@ class FSDP2Config:
     reshard_after_forward: Union[bool, int] = True
     mp_policy: Optional[MixedPrecisionPolicy] = None
     offload_policy: Optional[OffloadPolicy] = None
+
+    def __post_init__(self):
+        warnings.warn("FSDP2 Config/APIs are experimental and subject to heavy changes", UserWarning)
 
 
 def identify_shardable_modules(modules: list[nn.Module]) -> tuple[list[nn.Module], set[nn.Module]]:
