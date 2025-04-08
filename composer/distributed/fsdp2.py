@@ -3,9 +3,9 @@
 
 """Helpers for FSDP2."""
 
+import warnings
 from dataclasses import dataclass
 from typing import Optional, Union
-import warnings
 
 from torch import nn
 from torch.distributed._tensor.device_mesh import DeviceMesh
@@ -35,7 +35,7 @@ class FSDP2Config:
     offload_policy: Optional[OffloadPolicy] = None
 
     def __post_init__(self):
-        warnings.warn("FSDP2 Config/APIs are experimental and subject to heavy changes", UserWarning)
+        warnings.warn('FSDP2 Config/APIs are experimental and subject to heavy changes', UserWarning)
 
 
 def get_standalone_and_tied_modules(modules: list[nn.Module]) -> tuple[list[nn.Module], set[nn.Module]]:
@@ -146,12 +146,12 @@ def apply_fully_shard(
         raise RuntimeError(
             "Can't find any submodules to apply FSDP, e.g., the submodules may all have tied weights. Applying FSDP to the root model does not provide any memory savings.",
         )
-    
+
     independent_submodules, modules_tied = get_standalone_and_tied_modules(independent_submodules)
     if len(modules_tied) > 0:
         raise RuntimeError(
-            "Submodules to be sharded have tied weights. FSDP cannot be applied to modules with tied weights independently. "
-            "Please ensure that the submodules do not have tied weights.",
+            'Submodules to be sharded have tied weights. FSDP cannot be applied to modules with tied weights independently. '
+            'Please ensure that the submodules do not have tied weights.',
         )
 
     # NOTE there is a bug fully_shard can not handle when the model has a child module which is the child of another
