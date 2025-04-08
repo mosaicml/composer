@@ -38,16 +38,16 @@ class FSDP2Config:
         warnings.warn("FSDP2 Config/APIs are experimental and subject to heavy changes", UserWarning)
 
 
-def identify_shardable_modules(modules: list[nn.Module]) -> tuple[list[nn.Module], set[nn.Module]]:
-    """Identifies modules that could be fully sharded and modules with tied parameters.
+def get_standalone_and_tied_modules(modules: list[nn.Module]) -> tuple[list[nn.Module], set[nn.Module]]:
+    """Filter modules that don't have tied params thus can be fully sharded independently and those with tied params.
 
     Args:
         modules (list[torch.nn.Module]): List of modules to analyze.
 
     Returns:
         tuple: A tuple containing:
-            - list[torch.nn.Module]: Modules that should be sharded
-            - set[torch.nn.Module]: Modules with tied parameters
+            - list[torch.nn.Module]: Modules that don't share parameters with other modules.
+            - set[torch.nn.Module]: Modules with shared/tied parameters
     """
     # Find all tied parameters (parameters that share the same memory) between modules
     seen_params: set[nn.Parameter] = set()
@@ -180,5 +180,5 @@ def prepare_fully_shard(
     Returns:
         None
     """
-    modules_to_shard, _ = identify_shardable_modules(list(model.children()))
+    modules_to_shard, _ = get_standalone_and_tied_modules(list(model.children()))
     apply_fully_shard(model, modules_to_shard, fsdp2_config)
