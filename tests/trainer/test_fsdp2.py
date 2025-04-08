@@ -47,6 +47,7 @@ def test_fsdp2_initialization_with_tied_params(
         offload_policy=None,
     )
     prepare_fully_shard(model=model.module, fsdp2_config=fsdp2_config)
+
     # Initialization checks
     assert len(model.mlp._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the mlp module'
     assert len(model.mlp.fc1._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc1 module'
@@ -59,6 +60,8 @@ def test_fsdp2_initialization_with_tied_params(
     assert model.mlp.fc1.weight.size(0) == model.mlp.fc2.weight.to_local(
     ).size(0) * world_size, 'Expect global weight size to be equal to local weight size * world_size on dim 0'
 
+    # manual param init
+    # TODO remove this once we integrate param init into fsdp2 helper functions
     model.to_empty(device='cuda')
     for module in model.modules():
         model.param_init_fn(module)
