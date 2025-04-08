@@ -39,7 +39,9 @@ class FSDP2Config:
 
 
 def get_standalone_and_tied_modules(modules: list[nn.Module]) -> tuple[list[nn.Module], set[nn.Module]]:
-    """Filter modules that don't have tied params thus can be fully sharded independently and those with tied params.
+    """Filter modules that have standalone params thus can be fully sharded independently and those with tied params.
+
+    Note if a module does not have any params, it is not included in the output.
 
     Args:
         modules (list[torch.nn.Module]): List of modules to analyze.
