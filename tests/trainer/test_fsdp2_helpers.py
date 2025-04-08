@@ -35,20 +35,32 @@ class ModuleWithTiedParams(nn.Module):
         return self.linear2(self.linear1(x))
 
 
-class ComplexTiedModel(nn.Module):
+class MultiLinearTiedModel(nn.Module):
+    """Base class for root models with three linear modules."""
+    def __init__(self, in_features=10, out_features=20, share_weights=False):
+        super().__init__()
+        self.module1 = nn.Linear(in_features, out_features)
+        self.module2 = nn.Linear(out_features, 10)
+        self.module3 = nn.Linear(in_features, out_features)
+        
+        # Create parameter sharing if flag is True
+        if share_weights:
+            self.module3.weight = self.module1.weight
+
+class NestedModule(nn.Module):
     def __init__(self):
         super().__init__()
-        self.module1 = nn.Linear(10, 20)
-        self.module2 = nn.Linear(20, 10)
-        self.module3 = nn.Linear(10, 20)
-        # Tie weights between module1 and module3
-        self.module3.weight = self.module1.weight
-    
-    def forward(self, x):
-        x = self.module1(x)
-        x = self.module2(x)
-        x = self.module3(x)
-        return x
+        self.submodule1 = nn.Linear(10, 20)
+        self.submodule2 = nn.Linear(20, 10)
+
+
+class RootModelWithNestedSharing(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.nested1 = NestedModule()
+        self.nested2 = NestedModule()
+        # Tie weights between nested modules
+        self.nested2.submodule1.weight = self.nested1.submodule1.weight
 
 
 @_context
@@ -82,7 +94,7 @@ def test_with_tied_params_in_single_module():
 @_context
 def test_with_tied_params_across_modules():
     """Test when there are tied parameters across different modules."""
-    model = ComplexTiedModel()
+    model = MultiLinearTiedModel(share_weights=True)
     modules: list[nn.Module] = [model.module1, model.module2, model.module3]
     
     modules_to_shard, modules_with_tied_params = get_standalone_and_tied_modules(modules)
@@ -169,12 +181,6 @@ def test_tied_bias_only():
 @_context
 def test_complex_nested_tied_params():
     """Test with complex nested modules with tied parameters."""
-    class NestedModule(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.submodule1 = nn.Linear(10, 20)
-            self.submodule2 = nn.Linear(20, 10)
-    
     nested1 = NestedModule()
     nested2 = NestedModule()
     # Tie a parameter between the nested modules
@@ -193,16 +199,9 @@ def test_complex_nested_tied_params():
 @_context
 def test_legalize_param_sharing_no_sharing():
     """Test when there's no parameter sharing between modules_to_shard and other modules."""
-    class RootModel(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.module1 = nn.Linear(10, 20)
-            self.module2 = nn.Linear(20, 30)
-            self.module3 = nn.Linear(30, 10)
-    
-    model = RootModel()
+    model = MultiLinearTiedModel(share_weights=False)
     # No sharing between these modules, so should pass without error
-    modules_to_shard = [model.module1, model.module3]
+    modules_to_shard: list[nn.Module] = [model.module1, model.module3]
     
     # Should not raise an error
     legalize_param_sharing_between_modules(model, modules_to_shard)
@@ -211,18 +210,9 @@ def test_legalize_param_sharing_no_sharing():
 @_context
 def test_legalize_param_sharing_with_illegal_sharing():
     """Test when there's parameter sharing between modules_to_shard and other modules."""
-    class RootModel(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.module1 = nn.Linear(10, 20)
-            self.module2 = nn.Linear(20, 30)
-            self.module3 = nn.Linear(30, 10)
-            # Create illegal parameter sharing
-            self.module3.weight = self.module1.weight
-    
-    model = RootModel()
+    model = MultiLinearTiedModel(share_weights=True)
     # Only include module1 in modules_to_shard, not module3
-    modules_to_shard = [model.module1]
+    modules_to_shard: list[nn.Module] = [model.module1]
     
     # Should raise a ValueError
     with pytest.raises(ValueError):
@@ -232,23 +222,9 @@ def test_legalize_param_sharing_with_illegal_sharing():
 @_context
 def test_legalize_param_sharing_with_nested_modules():
     """Test with nested modules and parameter sharing."""
-    class NestedModule(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.linear1 = nn.Linear(10, 20)
-            self.linear2 = nn.Linear(20, 10)
-    
-    class RootModel(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.nested1 = NestedModule()
-            self.nested2 = NestedModule()
-            # Tie weights between nested modules
-            self.nested2.linear1.weight = self.nested1.linear1.weight
-    
-    model = RootModel()
+    model = RootModelWithNestedSharing()
     # Only include nested1 but not nested2
-    modules_to_shard = [model.nested1]
+    modules_to_shard: list[nn.Module] = [model.nested1]
     
     # Should raise a ValueError
     with pytest.raises(ValueError):
@@ -258,14 +234,8 @@ def test_legalize_param_sharing_with_nested_modules():
 @_context
 def test_legalize_param_sharing_empty_modules_to_shard():
     """Test with an empty list of modules_to_shard."""
-    class RootModel(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.module1 = nn.Linear(10, 20)
-            self.module2 = nn.Linear(20, 30)
-    
-    model = RootModel()
-    modules_to_shard = []
+    model = MultiLinearTiedModel(share_weights=False)
+    modules_to_shard: list[nn.Module] = []
     
     # Should not raise an error
     legalize_param_sharing_between_modules(model, modules_to_shard)
@@ -274,18 +244,9 @@ def test_legalize_param_sharing_empty_modules_to_shard():
 @_context
 def test_legalize_param_sharing_all_modules_to_shard():
     """Test when all modules that share parameters are in modules_to_shard."""
-    class RootModel(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.module1 = nn.Linear(10, 20)
-            self.module2 = nn.Linear(20, 30)
-            self.module3 = nn.Linear(30, 10)
-            # Create parameter sharing
-            self.module3.weight = self.module1.weight
-    
-    model = RootModel()
+    model = MultiLinearTiedModel(share_weights=True)
     # Include both module1 and module3 (which share parameters)
-    modules_to_shard = [model.module1, model.module3]
+    modules_to_shard: list[nn.Module] = [model.module1, model.module3]
     
     # Should not raise an error
     legalize_param_sharing_between_modules(model, modules_to_shard)
@@ -301,7 +262,7 @@ def test_legalize_param_sharing_with_no_param_modules():
             self.module2 = nn.ReLU()  # No parameters
     
     model = RootModel()
-    modules_to_shard = [model.module1]
+    modules_to_shard: list[nn.Module] = [model.module1]
     
     # Should not raise an error
     legalize_param_sharing_between_modules(model, modules_to_shard)
