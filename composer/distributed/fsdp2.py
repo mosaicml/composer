@@ -155,7 +155,7 @@ def apply_fully_shard(
     # Currently identify_shardable_modules avoids this case through generally handling weight tying so that only parent of child1 and child2
     # is sharded. However if we allow users to call this function directly with custom modules_to_shard, we need to:
     # legalize that no module outside modules_to_shard shares parameters with modules_to_shard or
-    # TODO(bowney) alternatively we can fix torch/distributed/fsdp/_fully_shard/_fsdp_init.py::_get_managed_modules
+    # TODO(boweny) alternatively we can fix torch/distributed/fsdp/_fully_shard/_fsdp_init.py::_get_managed_modules
     legalize_param_sharing_between_modules(model, modules_to_shard)
 
     fully_shard(modules_to_shard, **fully_shard_kwargs)
