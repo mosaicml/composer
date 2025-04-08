@@ -122,14 +122,14 @@ def legalize_param_sharing_between_modules(model: nn.Module, modules_to_shard: l
 
 def apply_fully_shard(
     model: nn.Module,
-    modules_to_shard: list[nn.Module],
+    independent_submodules: list[nn.Module],
     fsdp2_config: FSDP2Config,
 ) -> None:
     """Applies FSDP2's `fully_shard` to the specified modules and then to the parent model.
 
     Args:
         model (torch.nn.Module): The parent model.
-        modules_to_shard (list[torch.nn.Module]): The modules to apply fully_shard to.
+        independent_submodules (list[torch.nn.Module]): The modules to apply fully_shard to.
         fsdp2_config (FSDP2Config): The FSDP2 configuration.
 
     Returns:
@@ -142,9 +142,16 @@ def apply_fully_shard(
         fully_shard_kwargs['offload_policy'] = fsdp2_config.offload_policy
 
     # Apply fully_shard to each module in the list
-    if len(modules_to_shard) == 0:
+    if len(independent_submodules) == 0:
         raise RuntimeError(
             "Can't find any submodules to apply FSDP, e.g., the submodules may all have tied weights. Applying FSDP to the root model does not provide any memory savings.",
+        )
+    
+    independent_submodules, modules_tied = get_standalone_and_tied_modules(independent_submodules)
+    if len(modules_tied) > 0:
+        raise RuntimeError(
+            "Submodules to be sharded have tied weights. FSDP cannot be applied to modules with tied weights independently. "
+            "Please ensure that the submodules do not have tied weights.",
         )
 
     # NOTE there is a bug fully_shard can not handle when the model has a child module which is the child of another
@@ -162,9 +169,9 @@ def apply_fully_shard(
     # is sharded. However if we allow users to call this function directly with custom modules_to_shard, we need to:
     # legalize that no module outside modules_to_shard shares parameters with modules_to_shard or
     # TODO alternatively we can fix torch/distributed/fsdp/_fully_shard/_fsdp_init.py::_get_managed_modules
-    legalize_param_sharing_between_modules(model, modules_to_shard)
+    legalize_param_sharing_between_modules(model, independent_submodules)
 
-    fully_shard(modules_to_shard, **fully_shard_kwargs)
+    fully_shard(independent_submodules, **fully_shard_kwargs)
     # Apply fully_shard to the parent model to ensure all parameters are sharded
     fully_shard(model, **fully_shard_kwargs)
 
