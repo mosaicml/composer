@@ -135,13 +135,13 @@ extra_deps['dev'] = [
     'traitlets==5.14.3',
     'nbsphinx==0.9.1',
     'pandoc==2.4',
-    'pypandoc==1.14',
+    'pypandoc==1.15',
     'GitPython==3.1.44',
     'moto[s3]>=5.0.1,<6',
     'mock-ssh-server==0.9.1',
     'cryptography==44.0.0',
     'pytest-httpserver>=1.0.4,<1.2',
-    'setuptools==78.0.2',
+    'setuptools<79.0.0',
     'scikit-learn>=1.2.0,<1.7',
 ]
 
@@ -209,7 +209,7 @@ extra_deps['oci'] = [
 ]
 
 extra_deps['gcs'] = [
-    'google-cloud-storage>=2.0.0,<3.0',
+    'google-cloud-storage>=2.0.0,<4.0',
 ]
 
 extra_deps['onnx'] = [
@@ -219,13 +219,13 @@ extra_deps['onnx'] = [
 
 extra_deps['mlflow'] = [
     'mlflow>=2.14.1,<3.0',
-    'databricks-sdk==0.47.0',
+    'databricks-sdk==0.49.0',
     'pynvml>=11.5.0,<12',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk==0.47.0']
+extra_deps['databricks'] = ['databricks-sdk==0.49.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 

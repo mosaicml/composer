@@ -13,6 +13,7 @@ To run::
 import itertools
 import os
 import sys
+from typing import Optional
 
 import packaging.version
 import tabulate
@@ -32,18 +33,24 @@ def _get_torchvision_version(pytorch_version: str):
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
+def _version_geq(v1: str, v2: str):
+    return packaging.version.parse(v1) >= packaging.version.parse(v2)
+
+
 def _get_base_image(cuda_version: str):
     if not cuda_version:
         return 'ubuntu:22.04'
-    if cuda_version == '12.4.1':
-        return f'nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04'
+    if _version_geq(cuda_version, '12.2.0'):
+        return f'nvidia/cuda:{cuda_version}-cudnn-devel-ubuntu22.04'
     return f'nvidia/cuda:{cuda_version}-cudnn8-devel-ubuntu22.04'
 
 
-def _get_cuda_version(pytorch_version: str, use_cuda: bool):
+def _get_cuda_version(pytorch_version: str, use_cuda: bool, cuda_variant: Optional[str] = ''):
     # From https://docs.nvidia.com/deeplearning/frameworks/pytorch-release-notes/
     if not use_cuda:
         return ''
+    if cuda_variant:
+        return cuda_variant
     if pytorch_version == '2.6.0':
         return '12.4.1'
     if pytorch_version == '2.5.1':
@@ -174,18 +181,42 @@ def _write_table(table_tag: str, table_contents: str):
         f.write(new_readme)
 
 
+def _cross_product_extra_cuda(
+    python_pytorch_versions: dict,
+    pytorch_cuda_variants_extra: dict,
+    cuda_options: list,
+    *args,
+):
+    for product in itertools.product(python_pytorch_versions, cuda_options, *args):
+        (python_version, pytorch_version), use_cuda, *rest = product
+        cuda_variants = ['']
+        if use_cuda and pytorch_version in pytorch_cuda_variants_extra:
+            cuda_variants.extend(pytorch_cuda_variants_extra[pytorch_version])
+        for cuda_variant in cuda_variants:
+            yield (python_version, pytorch_version), use_cuda, cuda_variant, *rest
+
+
 def _main():
     python_pytorch_versions = [('3.12', '2.6.0'), ('3.12', '2.5.1'), ('3.12', '2.4.1')]
+    pytorch_cuda_variants_extra = {
+        '2.6.0': ['12.6.3'],
+    }  # Extra cuda variants to be built in addition to the defaults
     cuda_options = [True, False]
     stages = ['pytorch_stage']
     interconnects = ['mellanox', 'EFA']  # mellanox is default, EFA needed for AWS
 
     pytorch_entries = []
 
-    for product in itertools.product(python_pytorch_versions, cuda_options, stages, interconnects):
-        (python_version, pytorch_version), use_cuda, stage, interconnect = product
+    for product in _cross_product_extra_cuda(
+        python_pytorch_versions,
+        pytorch_cuda_variants_extra,
+        cuda_options,
+        stages,
+        interconnects,
+    ):
+        (python_version, pytorch_version), use_cuda, cuda_variant, stage, interconnect = product
 
-        cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
+        cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda, cuda_variant=cuda_variant)
 
         entry = {
             'IMAGE_NAME':
