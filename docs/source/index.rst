@@ -92,6 +92,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
 
    notes/distributed_training.rst
    notes/early_stopping.rst
+   notes/fsdp2.md
    notes/numerics.md
    notes/auto_microbatching.rst
    notes/resumption.rst
