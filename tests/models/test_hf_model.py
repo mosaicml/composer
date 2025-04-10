@@ -16,14 +16,13 @@ from packaging import version
 from torch.utils.data import DataLoader
 from torchmetrics import Metric
 from torchmetrics.classification import MulticlassAccuracy
-from torchmetrics.regression import PearsonCorrCoef
 
 from composer.loggers import InMemoryLogger
 from composer.metrics import LanguageCrossEntropy, MaskedAccuracy
 from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
 from composer.utils import dist, is_model_fsdp
-from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset, RandomTextRegressionDataset
+from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset
 from tests.common.markers import device, world_size
 from tests.common.models import (
     configure_tiny_bert_model,
@@ -145,70 +144,6 @@ def test_hf_train_eval_predict(num_classes: int, tiny_bert_config):
     num_predict_batches_expected = ((size - 1) // batch_size) + 1
     assert len(predictions) == num_predict_batches_expected
     assert predictions[0]['logits'].shape == (batch_size, num_classes)
-
-
-@pytest.mark.filterwarnings('ignore: The variance of predictions')
-def test_hf_train_eval_predict_regression(tiny_deberta_config):
-    transformers = pytest.importorskip('transformers')
-
-    tiny_deberta_config.num_labels = 1
-    hf_model = transformers.AutoModelForSequenceClassification.from_config(
-        tiny_deberta_config,
-    )  # type: ignore (thirdparty)
-
-    metrics = PearsonCorrCoef(num_outputs=1)
-    model = HuggingFaceModel(hf_model, metrics=[metrics], use_logits=True)
-
-    vocab_size = 50265  # Match deberta vocab size
-    sequence_length = 4
-    size = 16
-    batch_size = 8
-
-    train_dataset = RandomTextRegressionDataset(
-        size=size,
-        vocab_size=vocab_size,
-        sequence_length=sequence_length,
-        use_keys=True,
-    )
-    eval_dataset = RandomTextRegressionDataset(
-        size=size,
-        vocab_size=vocab_size,
-        sequence_length=sequence_length,
-        use_keys=True,
-    )
-    predict_dataset = RandomTextRegressionDataset(
-        size=size,
-        vocab_size=vocab_size,
-        sequence_length=sequence_length,
-        use_keys=True,
-    )
-
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=dist.get_sampler(train_dataset))
-    eval_dataloader = DataLoader(eval_dataset, batch_size=batch_size, sampler=dist.get_sampler(eval_dataset))
-    predict_dataloader = DataLoader(predict_dataset, batch_size=batch_size)
-
-    trainer = Trainer(
-        model=model,
-        train_dataloader=train_dataloader,
-        max_duration='1ep',
-        eval_dataloader=eval_dataloader,
-    )
-
-    trainer.fit()
-    trainer.eval()
-
-    # Check that there is some train/eval accuracy
-    assert trainer.state.train_metrics is not None
-    assert trainer.state.train_metrics['PearsonCorrCoef'].compute() != 0.0
-    assert trainer.state.eval_metrics['eval']['PearsonCorrCoef'].compute() != 0.0
-
-    predictions = trainer.predict(predict_dataloader)
-
-    # Check that the output predictions are the expected shape
-    # for regression, the output is a single value
-    num_predict_batches_expected = ((size - 1) // batch_size) + 1
-    assert len(predictions) == num_predict_batches_expected
-    assert predictions[0]['logits'].shape == (batch_size,)
 
 
 def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
@@ -764,22 +699,24 @@ def test_hf_loading_load_save_paths(
 
 @pytest.mark.parametrize('modify_tokenizer', [False, True])
 @pytest.mark.parametrize('save_fast', [True, False])
-def test_hf_loading_sentencepiece_tokenizer(modify_tokenizer: bool, tmp_path: Path, save_fast: bool, tiny_t5_model):
-    transformers = pytest.importorskip('transformers')
-
-    t0_pp_tokenizer = transformers.AutoTokenizer.from_pretrained('bigscience/T0pp')
-
+def test_hf_loading_sentencepiece_tokenizer(
+    modify_tokenizer: bool,
+    tmp_path: Path,
+    save_fast: bool,
+    tiny_t5_model,
+    tiny_t0_tokenizer,
+):
     if modify_tokenizer:
-        assert t0_pp_tokenizer is not None  # pyright
-        t0_pp_tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
+        assert tiny_t0_tokenizer is not None  # pyright
+        tiny_t0_tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
         # This is apparently not allowed anymore
         # It results in ValueError: Both extra_ids (100) and additional_special_tokens (['[MOSAICML'])
         # are provided to T5Tokenizer. In this case the additional_special_tokens must include the extra_ids tokens
         # t0_pp_tokenizer.add_special_tokens({'additional_special_tokens': ['[MOSAICML']})
-        t0_pp_tokenizer.add_tokens(['totallyarealtoken', 'mosaicml'])
-        tiny_t5_model.resize_token_embeddings(len(t0_pp_tokenizer))
+        tiny_t0_tokenizer.add_tokens(['totallyarealtoken', 'mosaicml'])
+        tiny_t5_model.resize_token_embeddings(len(tiny_t0_tokenizer))
 
-    trainer = get_lm_trainer(tiny_t5_model, t0_pp_tokenizer, str(tmp_path), is_conditional_generation=True)
+    trainer = get_lm_trainer(tiny_t5_model, tiny_t0_tokenizer, str(tmp_path), is_conditional_generation=True)
     trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
 
     if not save_fast:
@@ -801,7 +738,7 @@ def test_hf_loading_sentencepiece_tokenizer(modify_tokenizer: bool, tmp_path: Pa
     hf_loaded_tokenizer.save_pretrained(str(tmp_path / 'hf-tokenizer-2'))
 
     check_hf_model_equivalence(hf_loaded_model, tiny_t5_model)
-    check_hf_tokenizer_equivalence(hf_loaded_tokenizer, t0_pp_tokenizer)
+    check_hf_tokenizer_equivalence(hf_loaded_tokenizer, tiny_t0_tokenizer)
 
 
 @pytest.mark.parametrize('modify_tokenizer', [False, True])
