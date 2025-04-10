@@ -877,8 +877,14 @@ class State(Serializable):
     def fsdp_enabled(self):
         """Indicates if FSDP is enabled."""
         for module in self.model.modules():
+            # FSDP is FSDP1, FSDPModule is FSDP2
             if isinstance(module, FSDP):
                 return True
+            # TODO remove this once we deprecate torch 2.5
+            if version.parse(torch.__version__) >= version.parse('2.6.0'):
+                from torch.distributed.fsdp._fully_shard import FSDPModule
+                if isinstance(module, FSDPModule):
+                    return True
         return False
 
     @property
