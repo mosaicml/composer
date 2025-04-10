@@ -18,7 +18,7 @@ from tests.common import (
 
 SKIP_TEST = version.parse(torch.__version__) < version.parse('2.6.0')
 if not SKIP_TEST:
-    # TODO move this to top once we decprecate torch-cpu 2.5
+    # TODO move this to top once we decprecate torch 2.5
     from torch.distributed.tensor import DTensor
 
     from composer.distributed.fsdp2 import FSDP2Config, prepare_fully_shard

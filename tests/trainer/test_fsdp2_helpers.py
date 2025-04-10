@@ -8,19 +8,17 @@ import torch
 import torch.nn as nn
 from packaging import version
 
-if version.parse(torch.__version__) >= version.parse('2.6.0'):
+SKIP_TEST = version.parse(torch.__version__) < version.parse('2.6.0')
+
+if not SKIP_TEST:
+    # TODO move this to top once we decprecate torch 2.5
     from composer.distributed.fsdp2 import get_standalone_and_tied_modules, legalize_param_sharing_between_modules
-    RUN_TEST = True
-else:
-    RUN_TEST = False
-    get_standalone_and_tied_modules = lambda x: ([], set())
-    legalize_param_sharing_between_modules = lambda x, y: None
 
 
 def _context(func: Callable) -> Optional[Callable]:
     """Decorator to run tests with models initialized on the meta device for torch version 2.6+."""
 
-    @pytest.mark.skipif(not RUN_TEST, reason='Skipping test for torch version < 2.6.0')
+    @pytest.mark.skipif(SKIP_TEST, reason='Skipping test for torch version < 2.6.0')
     def wrapper(*args, **kwargs):
         with torch.device('meta'):
             return func(*args, **kwargs)
