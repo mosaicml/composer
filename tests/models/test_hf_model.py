@@ -700,7 +700,11 @@ def test_hf_loading_load_save_paths(
 @pytest.mark.parametrize('modify_tokenizer', [False, True])
 @pytest.mark.parametrize('save_fast', [True, False])
 def test_hf_loading_sentencepiece_tokenizer(
-    modify_tokenizer: bool, tmp_path: Path, save_fast: bool, tiny_t5_model, tiny_t0_tokenizer
+    modify_tokenizer: bool,
+    tmp_path: Path,
+    save_fast: bool,
+    tiny_t5_model,
+    tiny_t0_tokenizer,
 ):
     if modify_tokenizer:
         assert tiny_t0_tokenizer is not None  # pyright
