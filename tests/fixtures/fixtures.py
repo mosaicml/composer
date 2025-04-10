@@ -376,7 +376,7 @@ def _session_tiny_bert_tokenizer():  # type: ignore
 
 @pytest.fixture(scope='session')
 def _session_tiny_t0_tokenizer():  # type: ignore
-    return assets_tokenizer_helper('t0')
+    return assets_tokenizer_helper('t0pp')
 
 
 ## MODEL FIXTURES ##
