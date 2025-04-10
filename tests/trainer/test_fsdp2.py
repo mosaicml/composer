@@ -3,6 +3,7 @@
 
 import pytest
 import torch
+from packaging import version
 from torch.utils.data import DataLoader
 
 from composer.models import ComposerClassifier
@@ -15,6 +16,13 @@ from tests.common import (
     world_size,
 )
 
+SKIP_TEST = version.parse(torch.__version__) < version.parse('2.6.0')
+if not SKIP_TEST:
+    # TODO move this to top once we decprecate torch-cpu 2.5
+    from torch.distributed.tensor import DTensor
+
+    from composer.distributed.fsdp2 import FSDP2Config, prepare_fully_shard
+
 _INIT_DEVICES = ['cuda', 'meta']
 
 
@@ -23,6 +31,7 @@ _INIT_DEVICES = ['cuda', 'meta']
 @world_size(2)
 @pytest.mark.gpu
 @pytest.mark.filterwarnings('ignore:FSDP2 Config/APIs are experimental*:UserWarning')
+@pytest.mark.skipif(SKIP_TEST, reason='FSDP2 is not available in torch < 2.6.0')
 def test_fsdp2_initialization_with_tied_params(
     model: ComposerClassifier,
     world_size: int,
@@ -37,10 +46,6 @@ def test_fsdp2_initialization_with_tied_params(
     assert isinstance(model, (SimpleWeightTiedModel, PartialWeightTiedModel))
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
-    # TODO move this to top once we decprecate torch-cpu 2.5
-    from torch.distributed.tensor import DTensor
-
-    from composer.distributed.fsdp2 import FSDP2Config, prepare_fully_shard
     fsdp2_config = FSDP2Config(
         device_mesh=None,
         reshard_after_forward=True,
