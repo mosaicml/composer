@@ -307,54 +307,21 @@ def tiny_t5_config_helper():
 
     return T5Config(**config_object)
 
+@pytest.fixture
+def assets_path():
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'assets', 'tokenizers')
 
 ## TOKENIZER HELPERS ##
-@retry(
-    wait=wait_fixed(5),
-    stop=stop_after_attempt(1),
-)
-def tiny_gpt2_tokenizer_helper(add_pad: bool = True):
+def assets_tokenizer_helper(request: pytest.FixtureRequest, name: str):
+    """Load a tokenizer from the assets directory."""
     transformers = pytest.importorskip('transformers')
 
-    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('gpt2')
+    assets_dir = request.getfixturevalue('assets_path')
+    tokenizer_path = os.path.join(assets_dir, name)
 
-    if add_pad:
-        hf_tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+    # Load the tokenizer
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_path)
     return hf_tokenizer
-
-
-@retry(
-    wait=wait_fixed(5),
-    stop=stop_after_attempt(1),
-)
-def tiny_t5_tokenizer_helper():
-    transformers = pytest.importorskip('transformers')
-
-    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('t5-base',)
-    return hf_tokenizer
-
-
-@retry(
-    wait=wait_fixed(5),
-    stop=stop_after_attempt(1),
-)
-def tiny_bert_tokenizer_helper():
-    transformers = pytest.importorskip('transformers')
-
-    return transformers.AutoTokenizer.from_pretrained('google-bert/bert-base-uncased',)
-
-
-@retry(
-    wait=wait_fixed(5),
-    stop=stop_after_attempt(1),
-)
-def tiny_mpt_tokenizer_helper():
-    transformers = pytest.importorskip('transformers')
-
-    return transformers.AutoTokenizer.from_pretrained(
-        'mosaicml/mpt-7b',
-        model_max_length=2048,
-    )
 
 
 ## SESSION MODELS ##
@@ -391,18 +358,18 @@ def _session_tiny_t5_config():  # type: ignore
 
 ## SESSION TOKENIZERS ##
 @pytest.fixture(scope='session')
-def _session_tiny_gpt2_tokenizer():  # type: ignore
-    return tiny_gpt2_tokenizer_helper()
+def _session_tiny_gpt2_tokenizer(request: pytest.FixtureRequest):  # type: ignore
+    return assets_tokenizer_helper(request, 'gpt2')
 
 
 @pytest.fixture(scope='session')
-def _session_tiny_t5_tokenizer():  # type: ignore
-    return tiny_t5_tokenizer_helper()
+def _session_tiny_t5_tokenizer(request: pytest.FixtureRequest):  # type: ignore
+    return assets_tokenizer_helper(request, 't5')
 
 
 @pytest.fixture(scope='session')
-def _session_tiny_bert_tokenizer():  # type: ignore
-    return tiny_bert_tokenizer_helper()
+def _session_tiny_bert_tokenizer(request: pytest.FixtureRequest):  # type: ignore
+    return assets_tokenizer_helper(request, 'bert')
 
 
 ## MODEL FIXTURES ##
