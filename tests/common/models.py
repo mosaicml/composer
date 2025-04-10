@@ -614,15 +614,6 @@ def configure_tiny_gpt2_tokenizer() -> Union['PreTrainedTokenizer', 'PreTrainedT
         pytest.skip('Composer installed without NLP support')
 
 
-def configure_tiny_gpt2_config() -> 'PretrainedConfig':
-    try:
-        from transformers import PretrainedConfig
-        assert isinstance(pytest.tiny_gpt2_config, PretrainedConfig)
-        return copy.deepcopy(pytest.tiny_gpt2_config)
-    except AttributeError:
-        pytest.skip('Composer installed without NLP support')
-
-
 def configure_tiny_gpt2_hf_model(use_logits: bool = True) -> HuggingFaceModel:
     return HuggingFaceModel(configure_tiny_gpt2_model(), configure_tiny_gpt2_tokenizer(), use_logits)
 
@@ -645,19 +636,6 @@ def configure_tiny_t5_tokenizer() -> Union['PreTrainedTokenizer', 'PreTrainedTok
         pytest.skip('Composer installed without NLP support')
 
 
-def configure_tiny_t5_config() -> 'PretrainedConfig':
-    try:
-        from transformers import PretrainedConfig
-        assert isinstance(pytest.tiny_t5_config, PretrainedConfig)
-        return copy.deepcopy(pytest.tiny_t5_config)
-    except AttributeError:
-        pytest.skip('Composer installed without NLP support')
-
-
-def configure_tiny_t5_hf_model(use_logits: bool = True) -> HuggingFaceModel:
-    return HuggingFaceModel(configure_tiny_t5_model(), configure_tiny_t5_tokenizer(), use_logits)
-
-
 def configure_tiny_mpt_model() -> 'PreTrainedModel':
     try:
         from transformers import PreTrainedModel
@@ -674,16 +652,3 @@ def configure_tiny_mpt_tokenizer() -> Union['PreTrainedTokenizer', 'PreTrainedTo
         return copy.deepcopy(pytest.tiny_mpt_tokenizer)
     except AttributeError:
         pytest.skip('Composer installed without NLP support')
-
-
-def configure_tiny_mpt_config() -> 'PretrainedConfig':
-    try:
-        from transformers import PretrainedConfig
-        assert isinstance(pytest.tiny_mpt_config, PretrainedConfig)
-        return copy.deepcopy(pytest.tiny_mpt_config)
-    except AttributeError:
-        pytest.skip('Composer installed without NLP support')
-
-
-def configure_tiny_mpt_hf_model(use_logits: bool = True) -> HuggingFaceModel:
-    return HuggingFaceModel(configure_tiny_mpt_model(), configure_tiny_mpt_tokenizer(), use_logits)

@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 from composer.core import State
 from composer.devices import DeviceCPU, DeviceGPU
 from composer.loggers import Logger
-from composer.utils import dist, retry
+from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel
 from tests.conftest import _get_option
 
@@ -331,11 +331,6 @@ def _session_tiny_bert_tokenizer():  # type: ignore
     return tiny_bert_tokenizer_helper()
 
 
-@pytest.fixture(scope='session')
-def _session_tiny_mpt_tokenizer():  # type: ignore
-    return tiny_mpt_tokenizer_helper()
-
-
 ## MODEL FIXTURES ##
 @pytest.fixture
 def tiny_bert_model(_session_tiny_bert_model):  # type: ignore
@@ -388,7 +383,7 @@ def tiny_bert_tokenizer(_session_tiny_bert_tokenizer):  # type: ignore
 
 
 @pytest.fixture
-def tiny_mpt_tokenizer(_session_tiny_mpt_tokenizer):  # type: ignore
+def tiny_mpt_tokenizer(_session_tiny_mpt_tokenizer):
     return copy.deepcopy(_session_tiny_mpt_tokenizer)
 
 
