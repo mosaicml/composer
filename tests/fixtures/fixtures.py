@@ -9,6 +9,7 @@ import time
 import coolname
 import pytest
 import torch
+from tenacity import retry, stop_after_attempt, wait_fixed
 from torch.utils.data import DataLoader
 
 from composer.core import State
@@ -128,42 +129,185 @@ def s3_read_only_prefix():
     return 'read_only'
 
 
-# Note: These session scoped fixtures should not be used directly in tests, but the non session scoped fixtures
-# below should be used instead. This is because the session scoped fixtures return the same object to every
-# test that requests it, so tests would have side effects on each other. Instead, the non session
-# scoped fixtures below perform a deepcopy before returning the fixture.
-def tiny_bert_model_helper(config):
+## MODEL HELPERS ##
+def causal_lm_model_helper(config):  # type: ignore
     transformers = pytest.importorskip('transformers')
 
-    return transformers.AutoModelForMaskedLM.from_config(config)  # type: ignore (thirdparty)
+    return transformers.AutoModelForCausalLM.from_config(config)
+
+
+def masked_lm_model_helper(config):  # type: ignore
+    transformers = pytest.importorskip('transformers')
+
+    return transformers.AutoModelForMaskedLM.from_config(config,)  # type: ignore (thirdparty)
+
+
+## CONFIG HELPERS ##
+def tiny_gpt2_config_helper():
+    pytest.importorskip('transformers')
+    from transformers.models.gpt2.configuration_gpt2 import GPT2Config
+    config_dict = {
+        'activation_function': 'gelu_new',
+        'architectures': ['GPT2LMHeadModel',],
+        'attn_pdrop': 0.1,
+        'bos_token_id': 50256,
+        'embd_pdrop': 0.1,
+        'eos_token_id': 50256,
+        'initializer_range': 0.02,
+        'layer_norm_epsilon': 1e-05,
+        'model_type': 'gpt2',
+        'n_ctx': 1024,
+        'n_embd': 2,
+        'n_head': 2,
+        'n_layer': 2,
+        'n_positions': 1024,
+        'resid_pdrop': 0.1,
+        'summary_activation': None,
+        'summary_first_dropout': 0.1,
+        'summary_proj_to_labels': True,
+        'summary_type': 'cls_index',
+        'summary_use_proj': True,
+        'task_specific_params': {
+            'text-generation': {
+                'do_sample': True,
+                'max_length': 50,
+            },
+        },
+        'vocab_size': 50258,
+    }
+
+    config_object = GPT2Config(**config_dict,)
+    return config_object
+
+
+def tiny_codellama_config_helper(tie_word_embeddings: bool = False):
+    pytest.importorskip('transformers')
+    from transformers.models.llama.configuration_llama import LlamaConfig
+
+    config_dict = {
+        '_name_or_path': 'codellama/CodeLlama-7b-hf',
+        'architectures': ['LlamaForCausalLM',],
+        'bos_token_id': 1,
+        'eos_token_id': 2,
+        'hidden_act': 'silu',
+        'hidden_size': 32,
+        'initializer_range': 0.02,
+        'intermediate_size': 64,
+        'max_position_embeddings': 16384,
+        'model_type': 'llama',
+        'num_attention_heads': 32,
+        'num_hidden_layers': 2,
+        'num_key_value_heads': 32,
+        'pretraining_tp': 1,
+        'rms_norm_eps': 1e-05,
+        'rope_scaling': None,
+        'rope_theta': 1000000,
+        'tie_word_embeddings': tie_word_embeddings,
+        'torch_dtype': 'bfloat16',
+        'transformers_version': '4.33.0.dev0',
+        'use_cache': True,
+        'vocab_size': 32016,
+    }
+
+    config_object = LlamaConfig(**config_dict,)
+    return config_object
+
+
+def tiny_bert_config_helper():
+    pytest.importorskip('transformers')
+    from transformers.models.bert.configuration_bert import BertConfig
+
+    config_object = {
+        'architectures': ['BertForMaskedLM',],
+        'attn_implementation': 'eager',
+        'attention_probs_dropout_prob': 0.1,
+        'gradient_checkpointing': False,
+        'hidden_act': 'gelu',
+        'hidden_dropout_prob': 0.1,
+        'hidden_size': 128,
+        'initializer_range': 0.02,
+        'intermediate_size': 512,
+        'layer_norm_eps': 1e-12,
+        'max_position_embeddings': 512,
+        'model_type': 'bert',
+        'num_attention_heads': 2,
+        'num_hidden_layers': 2,
+        'pad_token_id': 0,
+        'position_embedding_type': 'absolute',
+        'transformers_version': '4.6.0.dev0',
+        'type_vocab_size': 2,
+        'use_cache': True,
+        'vocab_size': 30522,
+    }
+
+    config_object = BertConfig(**config_object,)
+    return config_object
+
+
+## TOKENIZER HELPERS ##
+@retry(
+    wait=wait_fixed(5),
+    stop=stop_after_attempt(1),
+)
+def tiny_gpt2_tokenizer_helper(add_pad: bool = False):
+    transformers = pytest.importorskip('transformers')
+
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('gpt2')
+
+    if add_pad:
+        hf_tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+    return hf_tokenizer
+
+
+@retry(
+    wait=wait_fixed(5),
+    stop=stop_after_attempt(1),
+)
+def tiny_t5_tokenizer_helper():
+    transformers = pytest.importorskip('transformers')
+
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('t5-base',)
+    return hf_tokenizer
+
+
+@retry(
+    wait=wait_fixed(5),
+    stop=stop_after_attempt(1),
+)
+def tiny_bert_tokenizer_helper():
+    transformers = pytest.importorskip('transformers')
+
+    return transformers.AutoTokenizer.from_pretrained('google-bert/bert-base-uncased',)
+
+
+@retry(
+    wait=wait_fixed(5),
+    stop=stop_after_attempt(1),
+)
+def tiny_mpt_tokenizer_helper():
+    transformers = pytest.importorskip('transformers')
+
+    return transformers.AutoTokenizer.from_pretrained(
+        'mosaicml/mpt-7b',
+        model_max_length=2048,
+    )
+
+
+## SESSION MODELS ##
+@pytest.fixture(scope='session')
+def _session_tiny_gpt2_model(_session_tiny_gpt2_config):  # type: ignore
+    return causal_lm_model_helper(_session_tiny_gpt2_config)
 
 
 @pytest.fixture(scope='session')
 def _session_tiny_bert_model(_session_tiny_bert_config):  # type: ignore
-    return tiny_bert_model_helper(_session_tiny_bert_config)
+    return masked_lm_model_helper(_session_tiny_bert_config)
 
 
-def tiny_bert_tokenizer_helper():
-    transformers = pytest.importorskip('transformers')
-
-    return transformers.AutoTokenizer.from_pretrained('google-bert/bert-base-uncased', model_max_length=128)
-
-
+## SESSION CONFIGS ##
 @pytest.fixture(scope='session')
-def _session_tiny_bert_tokenizer():  # type: ignore
-    return tiny_bert_tokenizer_helper()
-
-
-def tiny_bert_config_helper():
-    transformers = pytest.importorskip('transformers')
-    tiny_overrides = {
-        'hidden_size': 128,
-        'num_attention_heads': 2,
-        'num_hidden_layers': 2,
-        'intermediate_size': 512,
-        'attn_implementation': 'eager',
-    }
-    return transformers.AutoConfig.from_pretrained('google-bert/bert-base-uncased', **tiny_overrides)
+def _session_tiny_gpt2_config():  # type: ignore
+    return tiny_gpt2_config_helper()
 
 
 @pytest.fixture(scope='session')
@@ -171,104 +315,10 @@ def _session_tiny_bert_config():  # type: ignore
     return tiny_bert_config_helper()
 
 
-def tiny_deberta_model_helper(config):
-    transformers = pytest.importorskip('transformers')
-
-    return transformers.AutoModelForMaskedLM.from_config(config)  # type: ignore (thirdparty)
-
-
-@pytest.fixture(scope='session')
-def _session_tiny_deberta_model(_session_tiny_deberta_config):  # type: ignore
-    return tiny_deberta_model_helper(_session_tiny_deberta_config)
-
-
-def tiny_deberta_tokenizer_helper():
-    transformers = pytest.importorskip('transformers')
-
-    return transformers.AutoTokenizer.from_pretrained('microsoft/deberta-base')
-
-
-@pytest.fixture(scope='session')
-def _session_tiny_deberta_tokenizer():  # type: ignore
-    return tiny_deberta_tokenizer_helper()
-
-
-def tiny_deberta_config_helper():
-    transformers = pytest.importorskip('transformers')
-    tiny_overrides = {
-        'hidden_size': 128,
-        'pooler_hidden_size': 128,
-        'num_attention_heads': 2,
-        'num_hidden_layers': 2,
-        'intermediate_size': 512,
-    }
-    return transformers.AutoConfig.from_pretrained('microsoft/deberta-base', **tiny_overrides)
-
-
-@pytest.fixture(scope='session')
-def _session_tiny_deberta_config():  # type: ignore
-    return tiny_deberta_config_helper()
-
-
-def tiny_gpt2_model_helper(config):
-    transformers = pytest.importorskip('transformers')
-
-    return transformers.AutoModelForCausalLM.from_config(config)
-
-
-@pytest.fixture(scope='session')
-def _session_tiny_gpt2_model(_session_tiny_gpt2_config):  # type: ignore
-    return tiny_gpt2_model_helper(_session_tiny_gpt2_config)
-
-
-def tiny_gpt2_config_helper():
-    transformers = pytest.importorskip('transformers')
-
-    tiny_overrides = {
-        'n_embd': 2,
-        'n_head': 2,
-        'n_layer': 2,
-        'vocab_size': 50258,  # 50257 + 1 for pad token
-    }
-    return transformers.AutoConfig.from_pretrained('gpt2', **tiny_overrides)
-
-
-@pytest.fixture(scope='session')
-def _session_tiny_gpt2_config():  # type: ignore
-    return tiny_gpt2_config_helper()
-
-
-def tiny_gpt2_tokenizer_helper():
-    transformers = pytest.importorskip('transformers')
-
-    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('gpt2')
-    hf_tokenizer.add_special_tokens({'pad_token': '[PAD]'})
-    return hf_tokenizer
-
-
+## SESSION TOKENIZERS ##
 @pytest.fixture(scope='session')
 def _session_tiny_gpt2_tokenizer():  # type: ignore
     return tiny_gpt2_tokenizer_helper()
-
-
-def tiny_t5_config_helper():
-    transformers = pytest.importorskip('transformers')
-
-    tiny_overrides = {'d_ff': 128, 'd_model': 64, 'num_layers': 2, 'num_decoder_layers': 2, 'num_heads': 2}
-    return transformers.AutoConfig.from_pretrained('google-t5/t5-small', **tiny_overrides)
-
-
-@pytest.fixture(scope='session')
-def _session_tiny_t5_config():  # type: ignore
-    return tiny_t5_config_helper()
-
-
-@retry(num_attempts=3)
-def tiny_t5_tokenizer_helper():
-    transformers = pytest.importorskip('transformers')
-
-    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('google-t5/t5-small', model_max_length=512)
-    return hf_tokenizer
 
 
 @pytest.fixture(scope='session')
@@ -276,39 +326,9 @@ def _session_tiny_t5_tokenizer():  # type: ignore
     return tiny_t5_tokenizer_helper()
 
 
-def tiny_t5_model_helper(config):
-    transformers = pytest.importorskip('transformers')
-
-    return transformers.T5ForConditionalGeneration(config=config)
-
-
 @pytest.fixture(scope='session')
-def _session_tiny_t5_model(_session_tiny_t5_config):  # type: ignore
-    return tiny_t5_model_helper(_session_tiny_t5_config)
-
-
-def tiny_mpt_config_helper():
-    transformers = pytest.importorskip('transformers')
-
-    tiny_overrides = {
-        'd_model': 128,
-        'expansion_ratio': 1,
-        'n_heads': 8,
-        'n_layers': 2,
-    }
-    return transformers.AutoConfig.from_pretrained('mosaicml/mpt-7b', **tiny_overrides)
-
-
-@pytest.fixture(scope='session')
-def _session_tiny_mpt_config():  # type: ignore
-    return tiny_mpt_config_helper()
-
-
-def tiny_mpt_tokenizer_helper():
-    transformers = pytest.importorskip('transformers')
-
-    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('mosaicml/mpt-7b', model_max_length=512)
-    return hf_tokenizer
+def _session_tiny_bert_tokenizer():  # type: ignore
+    return tiny_bert_tokenizer_helper()
 
 
 @pytest.fixture(scope='session')
@@ -316,60 +336,21 @@ def _session_tiny_mpt_tokenizer():  # type: ignore
     return tiny_mpt_tokenizer_helper()
 
 
-def tiny_mpt_model_helper(config):
-    transformers = pytest.importorskip('transformers')
-
-    return transformers.AutoModelForCausalLM.from_config(config)
-
-
-@pytest.fixture(scope='session')
-def _session_tiny_mpt_model(_session_tiny_mpt_config):  # type: ignore
-    return tiny_mpt_model_helper(_session_tiny_mpt_config)
-
-
+## MODEL FIXTURES ##
 @pytest.fixture
-def tiny_bert_model(_session_tiny_bert_model):
+def tiny_bert_model(_session_tiny_bert_model):  # type: ignore
     return copy.deepcopy(_session_tiny_bert_model)
 
 
 @pytest.fixture
-def tiny_bert_tokenizer(_session_tiny_bert_tokenizer):
-    return copy.deepcopy(_session_tiny_bert_tokenizer)
-
-
-@pytest.fixture
-def tiny_bert_config(_session_tiny_bert_config):
-    return copy.deepcopy(_session_tiny_bert_config)
-
-
-@pytest.fixture
-def tiny_deberta_model(_session_tiny_deberta_model):
-    return copy.deepcopy(_session_tiny_deberta_model)
-
-
-@pytest.fixture
-def tiny_deberta_tokenizer(_session_tiny_deberta_tokenizer):
-    return copy.deepcopy(_session_tiny_deberta_tokenizer)
-
-
-@pytest.fixture
-def tiny_deberta_config(_session_tiny_deberta_config):
-    return copy.deepcopy(_session_tiny_deberta_config)
-
-
-@pytest.fixture
-def tiny_gpt2_config(_session_tiny_gpt2_config):
-    return copy.deepcopy(_session_tiny_gpt2_config)
-
-
-@pytest.fixture
-def tiny_gpt2_tokenizer(_session_tiny_gpt2_tokenizer):
-    return copy.deepcopy(_session_tiny_gpt2_tokenizer)
-
-
-@pytest.fixture
-def tiny_gpt2_model(_session_tiny_gpt2_model):
+def tiny_gpt2_model(_session_tiny_gpt2_model):  # type: ignore
     return copy.deepcopy(_session_tiny_gpt2_model)
+
+
+## CONFIG FIXTURES ##
+@pytest.fixture
+def tiny_bert_config(_session_tiny_bert_config):  # type: ignore
+    return copy.deepcopy(_session_tiny_bert_config)
 
 
 def _gpt2_peft_config():
@@ -390,34 +371,25 @@ def gpt2_peft_config():
     return _gpt2_peft_config()
 
 
+## TOKENIZER FIXTURES ##
 @pytest.fixture
-def tiny_t5_config(_session_tiny_t5_config):
-    return copy.deepcopy(_session_tiny_t5_config)
+def tiny_gpt2_tokenizer(_session_tiny_gpt2_tokenizer):  # type: ignore
+    return copy.deepcopy(_session_tiny_gpt2_tokenizer)
 
 
 @pytest.fixture
-def tiny_t5_tokenizer(_session_tiny_t5_tokenizer):
+def tiny_t5_tokenizer(_session_tiny_t5_tokenizer):  # type: ignore
     return copy.deepcopy(_session_tiny_t5_tokenizer)
 
 
 @pytest.fixture
-def tiny_t5_model(_session_tiny_t5_model):
-    return copy.deepcopy(_session_tiny_t5_model)
+def tiny_bert_tokenizer(_session_tiny_bert_tokenizer):  # type: ignore
+    return copy.deepcopy(_session_tiny_bert_tokenizer)
 
 
 @pytest.fixture
-def tiny_mpt_config(_session_tiny_mpt_config):
-    return copy.deepcopy(_session_tiny_mpt_config)
-
-
-@pytest.fixture
-def tiny_mpt_tokenizer(_session_tiny_mpt_tokenizer):
+def tiny_mpt_tokenizer(_session_tiny_mpt_tokenizer):  # type: ignore
     return copy.deepcopy(_session_tiny_mpt_tokenizer)
-
-
-@pytest.fixture
-def tiny_mpt_model(_session_tiny_mpt_model):
-    return copy.deepcopy(_session_tiny_mpt_model)
 
 
 @pytest.fixture
