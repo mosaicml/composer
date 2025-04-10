@@ -699,22 +699,20 @@ def test_hf_loading_load_save_paths(
 
 @pytest.mark.parametrize('modify_tokenizer', [False, True])
 @pytest.mark.parametrize('save_fast', [True, False])
-def test_hf_loading_sentencepiece_tokenizer(modify_tokenizer: bool, tmp_path: Path, save_fast: bool, tiny_t5_model):
-    transformers = pytest.importorskip('transformers')
-
-    t0_pp_tokenizer = transformers.AutoTokenizer.from_pretrained('bigscience/T0pp')
-
+def test_hf_loading_sentencepiece_tokenizer(
+    modify_tokenizer: bool, tmp_path: Path, save_fast: bool, tiny_t5_model, tiny_t0_tokenizer
+):
     if modify_tokenizer:
-        assert t0_pp_tokenizer is not None  # pyright
-        t0_pp_tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
+        assert tiny_t0_tokenizer is not None  # pyright
+        tiny_t0_tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
         # This is apparently not allowed anymore
         # It results in ValueError: Both extra_ids (100) and additional_special_tokens (['[MOSAICML'])
         # are provided to T5Tokenizer. In this case the additional_special_tokens must include the extra_ids tokens
         # t0_pp_tokenizer.add_special_tokens({'additional_special_tokens': ['[MOSAICML']})
-        t0_pp_tokenizer.add_tokens(['totallyarealtoken', 'mosaicml'])
-        tiny_t5_model.resize_token_embeddings(len(t0_pp_tokenizer))
+        tiny_t0_tokenizer.add_tokens(['totallyarealtoken', 'mosaicml'])
+        tiny_t5_model.resize_token_embeddings(len(tiny_t0_tokenizer))
 
-    trainer = get_lm_trainer(tiny_t5_model, t0_pp_tokenizer, str(tmp_path), is_conditional_generation=True)
+    trainer = get_lm_trainer(tiny_t5_model, tiny_t0_tokenizer, str(tmp_path), is_conditional_generation=True)
     trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
 
     if not save_fast:
@@ -736,7 +734,7 @@ def test_hf_loading_sentencepiece_tokenizer(modify_tokenizer: bool, tmp_path: Pa
     hf_loaded_tokenizer.save_pretrained(str(tmp_path / 'hf-tokenizer-2'))
 
     check_hf_model_equivalence(hf_loaded_model, tiny_t5_model)
-    check_hf_tokenizer_equivalence(hf_loaded_tokenizer, t0_pp_tokenizer)
+    check_hf_tokenizer_equivalence(hf_loaded_tokenizer, tiny_t0_tokenizer)
 
 
 @pytest.mark.parametrize('modify_tokenizer', [False, True])
