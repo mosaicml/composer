@@ -142,6 +142,12 @@ def masked_lm_model_helper(config):  # type: ignore
     return transformers.AutoModelForMaskedLM.from_config(config,)  # type: ignore (thirdparty)
 
 
+def tiny_t5_model_helper(config):
+    transformers = pytest.importorskip('transformers')
+
+    return transformers.T5ForConditionalGeneration(config=config)  # type: ignore (thirdparty)
+
+
 ## CONFIG HELPERS ##
 def tiny_gpt2_config_helper():
     pytest.importorskip('transformers')
@@ -244,6 +250,64 @@ def tiny_bert_config_helper():
     return config_object
 
 
+def tiny_t5_config_helper():
+    pytest.importorskip('transformers')
+    from transformers.models.t5.configuration_t5 import T5Config
+
+    config_object = {
+        'architectures': ['T5ForConditionalGeneration',],
+        'd_ff': 128,
+        'd_kv': 64,
+        'd_model': 64,
+        'decoder_start_token_id': 0,
+        'dropout_rate': 0.1,
+        'eos_token_id': 1,
+        'initializer_factor': 1.0,
+        'is_encoder_decoder': True,
+        'layer_norm_epsilon': 1e-06,
+        'model_type': 't5',
+        'n_positions': 512,
+        'num_heads': 2,
+        'num_layers': 2,
+        'num_decoder_layers': 2,
+        'output_past': True,
+        'pad_token_id': 0,
+        'relative_attention_num_buckets': 32,
+        'task_specific_params': {
+            'summarization': {
+                'early_stopping': True,
+                'length_penalty': 2.0,
+                'max_length': 200,
+                'min_length': 30,
+                'no_repeat_ngram_size': 3,
+                'num_beams': 4,
+                'prefix': 'summarize: ',
+            },
+            'translation_en_to_de': {
+                'early_stopping': True,
+                'max_length': 300,
+                'num_beams': 4,
+                'prefix': 'translate English to German: ',
+            },
+            'translation_en_to_fr': {
+                'early_stopping': True,
+                'max_length': 300,
+                'num_beams': 4,
+                'prefix': 'translate English to French: ',
+            },
+            'translation_en_to_ro': {
+                'early_stopping': True,
+                'max_length': 300,
+                'num_beams': 4,
+                'prefix': 'translate English to Romanian: ',
+            },
+        },
+        'vocab_size': 32128,
+    }
+
+    return T5Config(**config_object)
+
+
 ## TOKENIZER HELPERS ##
 @retry(
     wait=wait_fixed(5),
@@ -304,6 +368,11 @@ def _session_tiny_bert_model(_session_tiny_bert_config):  # type: ignore
     return masked_lm_model_helper(_session_tiny_bert_config)
 
 
+@pytest.fixture(scope='session')
+def _session_tiny_t5_model(_session_tiny_t5_config):  # type: ignore
+    return tiny_t5_model_helper(_session_tiny_t5_config)
+
+
 ## SESSION CONFIGS ##
 @pytest.fixture(scope='session')
 def _session_tiny_gpt2_config():  # type: ignore
@@ -313,6 +382,11 @@ def _session_tiny_gpt2_config():  # type: ignore
 @pytest.fixture(scope='session')
 def _session_tiny_bert_config():  # type: ignore
     return tiny_bert_config_helper()
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_t5_config():  # type: ignore
+    return tiny_t5_config_helper()
 
 
 ## SESSION TOKENIZERS ##
@@ -340,6 +414,11 @@ def tiny_bert_model(_session_tiny_bert_model):  # type: ignore
 @pytest.fixture
 def tiny_gpt2_model(_session_tiny_gpt2_model):  # type: ignore
     return copy.deepcopy(_session_tiny_gpt2_model)
+
+
+@pytest.fixture
+def tiny_t5_model(_session_tiny_t5_model):  # type: ignore
+    return copy.deepcopy(_session_tiny_t5_model)
 
 
 ## CONFIG FIXTURES ##
