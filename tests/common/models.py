@@ -596,41 +596,6 @@ def configure_tiny_bert_hf_model(use_logits: bool = True) -> HuggingFaceModel:
     return HuggingFaceModel(configure_tiny_bert_model(), configure_tiny_bert_tokenizer(), use_logits)
 
 
-def configure_tiny_deberta_model() -> 'PreTrainedModel':
-    try:
-        from transformers import PreTrainedModel
-        assert isinstance(pytest.tiny_deberta_model, PreTrainedModel)
-        return copy.deepcopy(pytest.tiny_deberta_model)
-    except AttributeError:
-        pytest.skip('Composer installed without NLP support')
-
-
-def configure_tiny_deberta_tokenizer() -> Union['PreTrainedTokenizer', 'PreTrainedTokenizerFast']:
-    try:
-        from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
-        assert isinstance(pytest.tiny_deberta_tokenizer, (PreTrainedTokenizer, PreTrainedTokenizerFast))
-        return copy.deepcopy(pytest.tiny_deberta_tokenizer)
-    except AttributeError:
-        pytest.skip('Composer installed without NLP support')
-
-
-def configure_tiny_deberta_config() -> 'PretrainedConfig':
-    try:
-        from transformers import PretrainedConfig
-        assert isinstance(pytest.tiny_deberta_config, PretrainedConfig)
-        return copy.deepcopy(pytest.tiny_deberta_config)
-    except AttributeError:
-        pytest.skip('Composer installed without NLP support')
-
-
-def configure_tiny_deberta_hf_model(use_logits: bool = True) -> HuggingFaceModel:
-    return HuggingFaceModel(
-        configure_tiny_deberta_model(),
-        configure_tiny_deberta_tokenizer(),
-        use_logits,
-    )
-
-
 def configure_tiny_gpt2_model() -> 'PreTrainedModel':
     try:
         from transformers import PreTrainedModel
