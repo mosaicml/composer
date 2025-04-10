@@ -359,7 +359,9 @@ def _session_tiny_t5_config():  # type: ignore
 ## SESSION TOKENIZERS ##
 @pytest.fixture(scope='session')
 def _session_tiny_gpt2_tokenizer():  # type: ignore
-    return assets_tokenizer_helper('gpt2')
+    tokenizer = assets_tokenizer_helper('gpt2')
+    tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+    return tokenizer
 
 
 @pytest.fixture(scope='session')
