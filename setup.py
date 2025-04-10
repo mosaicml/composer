@@ -91,6 +91,7 @@ install_requires = [
     'importlib-metadata>=5.0.0,<9',
     'mosaicml-cli>=0.5.25,<0.8',
     'pillow>=10.3.0,<12',
+    'tenacity>=8.2.3,<10',
 ]
 extra_deps = {}
 
@@ -143,7 +144,6 @@ extra_deps['dev'] = [
     'pytest-httpserver>=1.0.4,<1.2',
     'setuptools<79.0.0',
     'scikit-learn>=1.2.0,<1.7',
-    'tenacity>=8.2.3,<10',
 ]
 
 extra_deps['system_metrics_monitor'] = {
