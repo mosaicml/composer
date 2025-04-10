@@ -439,6 +439,7 @@ def tiny_bert_tokenizer(_session_tiny_bert_tokenizer):  # type: ignore
 def tiny_mpt_tokenizer(_session_tiny_mpt_tokenizer):
     return copy.deepcopy(_session_tiny_mpt_tokenizer)
 
+
 @pytest.fixture
 def tiny_t0_tokenizer(_session_tiny_t0_tokenizer):  # type: ignore
     return copy.deepcopy(_session_tiny_t0_tokenizer)
