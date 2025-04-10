@@ -9,7 +9,6 @@ import time
 import coolname
 import pytest
 import torch
-from tenacity import retry, stop_after_attempt, wait_fixed
 from torch.utils.data import DataLoader
 
 from composer.core import State
@@ -307,9 +306,11 @@ def tiny_t5_config_helper():
 
     return T5Config(**config_object)
 
+
 @pytest.fixture
 def assets_path():
     return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'assets', 'tokenizers')
+
 
 ## TOKENIZER HELPERS ##
 def assets_tokenizer_helper(request: pytest.FixtureRequest, name: str):
