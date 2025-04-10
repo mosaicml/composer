@@ -111,6 +111,7 @@ def pytest_configure():
 
     if TRANSFORMERS_INSTALLED:
         from tests.fixtures.fixtures import (
+            masked_lm_model_helper,
             tiny_bert_config_helper,
             tiny_bert_tokenizer_helper,
             tiny_gpt2_config_helper,
@@ -118,6 +119,7 @@ def pytest_configure():
             tiny_mpt_tokenizer_helper,
             tiny_t5_tokenizer_helper,
         )
+        pytest.tiny_bert_model = masked_lm_model_helper(tiny_bert_config_helper())  # type: ignore
         pytest.tiny_bert_config = tiny_bert_config_helper()  # type: ignore
         pytest.tiny_bert_tokenizer = tiny_bert_tokenizer_helper()  # type: ignore
         pytest.tiny_gpt2_config = tiny_gpt2_config_helper()  # type: ignore

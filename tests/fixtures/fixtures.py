@@ -249,7 +249,7 @@ def tiny_bert_config_helper():
     wait=wait_fixed(5),
     stop=stop_after_attempt(1),
 )
-def tiny_gpt2_tokenizer_helper(add_pad: bool = False):
+def tiny_gpt2_tokenizer_helper(add_pad: bool = True):
     transformers = pytest.importorskip('transformers')
 
     hf_tokenizer = transformers.AutoTokenizer.from_pretrained('gpt2')
