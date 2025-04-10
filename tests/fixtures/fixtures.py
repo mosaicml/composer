@@ -307,17 +307,16 @@ def tiny_t5_config_helper():
     return T5Config(**config_object)
 
 
-@pytest.fixture
 def assets_path():
     return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'assets', 'tokenizers')
 
 
 ## TOKENIZER HELPERS ##
-def assets_tokenizer_helper(request: pytest.FixtureRequest, name: str):
+def assets_tokenizer_helper(name: str):
     """Load a tokenizer from the assets directory."""
     transformers = pytest.importorskip('transformers')
 
-    assets_dir = request.getfixturevalue('assets_path')
+    assets_dir = assets_path()
     tokenizer_path = os.path.join(assets_dir, name)
 
     # Load the tokenizer
@@ -359,18 +358,18 @@ def _session_tiny_t5_config():  # type: ignore
 
 ## SESSION TOKENIZERS ##
 @pytest.fixture(scope='session')
-def _session_tiny_gpt2_tokenizer(request: pytest.FixtureRequest):  # type: ignore
-    return assets_tokenizer_helper(request, 'gpt2')
+def _session_tiny_gpt2_tokenizer():  # type: ignore
+    return assets_tokenizer_helper('gpt2')
 
 
 @pytest.fixture(scope='session')
-def _session_tiny_t5_tokenizer(request: pytest.FixtureRequest):  # type: ignore
-    return assets_tokenizer_helper(request, 't5')
+def _session_tiny_t5_tokenizer():  # type: ignore
+    return assets_tokenizer_helper('t5')
 
 
 @pytest.fixture(scope='session')
-def _session_tiny_bert_tokenizer(request: pytest.FixtureRequest):  # type: ignore
-    return assets_tokenizer_helper(request, 'bert')
+def _session_tiny_bert_tokenizer():  # type: ignore
+    return assets_tokenizer_helper('bert')
 
 
 ## MODEL FIXTURES ##
