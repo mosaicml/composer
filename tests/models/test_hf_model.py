@@ -16,14 +16,13 @@ from packaging import version
 from torch.utils.data import DataLoader
 from torchmetrics import Metric
 from torchmetrics.classification import MulticlassAccuracy
-from torchmetrics.regression import PearsonCorrCoef
 
 from composer.loggers import InMemoryLogger
 from composer.metrics import LanguageCrossEntropy, MaskedAccuracy
 from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
 from composer.utils import dist, is_model_fsdp
-from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset, RandomTextRegressionDataset
+from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset
 from tests.common.markers import device, world_size
 from tests.common.models import (
     configure_tiny_bert_model,
