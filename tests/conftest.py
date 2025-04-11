@@ -118,11 +118,11 @@ def pytest_configure():
         )
         pytest.tiny_bert_model = masked_lm_model_helper(tiny_bert_config_helper())  # type: ignore
         pytest.tiny_bert_config = tiny_bert_config_helper()  # type: ignore
-        pytest.tiny_bert_tokenizer = assets_tokenizer_helper('bert')  # type: ignore
+        pytest.tiny_bert_tokenizer = assets_tokenizer_helper('bertt')  # type: ignore
         pytest.tiny_gpt2_config = tiny_gpt2_config_helper()  # type: ignore
         pytest.tiny_gpt2_tokenizer = assets_tokenizer_helper('gpt2')  # type: ignore
         pytest.tiny_t5_tokenizer = assets_tokenizer_helper('t5')  # type: ignore
-        pytest.tiny_mpt_tokenizer = assets_tokenizer_helper('mpt')  # type: ignore
+        pytest.tiny_mpt_tokenizer = assets_tokenizer_helper('mptt')  # type: ignore
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int):

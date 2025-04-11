@@ -4,7 +4,9 @@
 """These fixtures are shared globally across the test suite."""
 import copy
 import os
+import requests
 import time
+import zipfile
 
 import coolname
 import pytest
@@ -307,14 +309,57 @@ def tiny_t5_config_helper():
     return T5Config(**config_object)
 
 
+
 def assets_path():
     return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'assets', 'tokenizers')
+
+
+@pytest.fixture(scope="session")
+def tokenizers_assets():
+    """
+    Download tokenizers.zip and extract it to tests/assets/tokenizers.
+    This fixture runs automatically once per test session.
+    """
+    download_tokenizers_files()
+
+def download_tokenizers_files():
+    # Define paths
+    tokenizers_dir = assets_path()
+
+    if os.path.exists(tokenizers_dir):
+        return
+    
+    # Create assets directory if it doesn't exist
+    os.makedirs(tokenizers_dir, exist_ok=True)
+    
+    # URL for the tokenizers.zip file
+    url = "https://github.com/mosaicml/ci-testing/releases/download/tokenizers/tokenizers.zip"
+    
+    # Download the zip file
+    response = requests.get(url, stream=True)
+    response.raise_for_status()
+    
+    zip_path = os.path.join(tokenizers_dir, "tokenizers.zip")
+
+    with open(zip_path, "wb") as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            f.write(chunk)
+    
+    # Extract the zip file
+    print(f"Extracting tokenizers.zip to {tokenizers_dir}")
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        zip_ref.extractall(tokenizers_dir)
+    
+    # Optionally remove the zip file after extraction
+    os.remove(zip_path)
 
 
 ## TOKENIZER HELPERS ##
 def assets_tokenizer_helper(name: str):
     """Load a tokenizer from the assets directory."""
     transformers = pytest.importorskip('transformers')
+
+    download_tokenizers_files()
 
     assets_dir = assets_path()
     tokenizer_path = os.path.join(assets_dir, name)
@@ -358,24 +403,24 @@ def _session_tiny_t5_config():  # type: ignore
 
 ## SESSION TOKENIZERS ##
 @pytest.fixture(scope='session')
-def _session_tiny_gpt2_tokenizer():  # type: ignore
+def _session_tiny_gpt2_tokenizer(tokenizers_assets):  # type: ignore
     tokenizer = assets_tokenizer_helper('gpt2')
     tokenizer.add_special_tokens({'pad_token': '[PAD]'})
     return tokenizer
 
 
 @pytest.fixture(scope='session')
-def _session_tiny_t5_tokenizer():  # type: ignore
+def _session_tiny_t5_tokenizer(tokenizers_assets):  # type: ignore
     return assets_tokenizer_helper('t5')
 
 
 @pytest.fixture(scope='session')
-def _session_tiny_bert_tokenizer():  # type: ignore
-    return assets_tokenizer_helper('bert')
+def _session_tiny_bert_tokenizer(tokenizers_assets):  # type: ignore
+    return assets_tokenizer_helper('bertt')
 
 
 @pytest.fixture(scope='session')
-def _session_tiny_t0_tokenizer():  # type: ignore
+def _session_tiny_t0_tokenizer(tokenizers_assets):  # type: ignore
     return assets_tokenizer_helper('t0pp')
 
 
