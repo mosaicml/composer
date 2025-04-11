@@ -49,8 +49,6 @@ def test_fsdp2_initialization_with_tied_params(
     fsdp2_config = FSDP2Config(
         device_mesh=None,
         reshard_after_forward=True,
-        mp_policy=None,
-        offload_policy=None,
     )
     prepare_fully_shard(model=model.module, fsdp2_config=fsdp2_config)
 
@@ -86,3 +84,40 @@ def test_fsdp2_initialization_with_tied_params(
     weight_2 = model.mlp.fc2.weight.full_tensor()
     assert (model.mlp.fc1.weight is model.mlp.fc2.weight)
     assert (torch.equal(weight_1, weight_2))
+
+
+@pytest.mark.skipif(SKIP_TEST, reason='FSDP2 is not available in torch < 2.6.0')
+@pytest.mark.filterwarnings('ignore:FSDP2 Config/APIs are experimental*:UserWarning')
+def test_fsdp2_readonly_properties():
+    """Test that FSDP2Config read-only properties work as expected."""
+    if not SKIP_TEST:
+        # Create a config instance
+        config = FSDP2Config()
+        
+        # Test reading properties (should succeed)
+        assert config.auto_wrap is True
+        assert config.load_monolith_rank0_only is False
+        assert config.sync_module_states is False
+        assert config.activation_cpu_offload is False
+        assert config.state_dict_type == 'sharded'
+        assert config.use_orig_params is True
+        
+        # Test setting properties (should fail)
+        read_only_props = [
+            ("auto_wrap", False),
+            ("load_monolith_rank0_only", True),
+            ("sync_module_states", True),
+            ("activation_cpu_offload", True),
+            ("state_dict_type", "full"),
+            ("use_orig_params", False)
+        ]
+        
+        for prop, value in read_only_props:
+            with pytest.raises(AttributeError):
+                setattr(config, prop, value)
+        
+        # Test that core properties can be set
+        config.device_mesh = None
+        config.reshard_after_forward = False
+        assert config.device_mesh is None
+        assert config.reshard_after_forward is False

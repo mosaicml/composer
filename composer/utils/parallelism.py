@@ -9,6 +9,7 @@ from typing import Any, Optional
 
 from torch.distributed._tensor.device_mesh import DeviceMesh
 
+
 @dataclass
 class FSDPConfig:
     """Configuration for Fully Sharded Data Parallelism (FSDP)."""
@@ -61,6 +62,22 @@ class FSDPConfig:
         self._device_mesh = value
 
 
+class _FSDP2ReadOnlyProperty:
+    """Descriptor for FSDP2Config properties that are read-only. For FSDP1 compatibility/deprecation usage only.
+    """
+    
+    def __init__(self, default_value):
+        self.default_value = default_value
+        
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+        return self.default_value
+    
+    def __set__(self, obj, value):
+        raise AttributeError(f"Cannot modify read-only FSDP2Config attribute")
+
+
 @dataclass
 class FSDP2Config:
     """Configuration for Fully Sharded Data Parallelism (FSDP2).
@@ -69,16 +86,25 @@ class FSDP2Config:
         device_mesh (Optional[DeviceMesh]): The DeviceMesh for sharding. If None, a default 1D mesh is created.
             For 1D mesh, parameters are fully sharded across the mesh (FSDP).
             For 2D mesh, parameters are sharded across the 1st dimension and replicated across the 0th dimension (HSDP).
-        reshard_after_forward (Union[bool, int]): Controls parameter behavior after forward:
-            - If True, reshards parameters after forward, re-all-gathers in backward.
-            - If False, keeps unsharded parameters in memory, avoids all-gather in backward.
-            - If int, reshards to smaller world size after forward.
-            Default: True
+        reshard_after_forward (Union[bool, int]): Controls parameter behavior after forward.
     """
+    
+    # Settable core FSDP2 parameters 
     device_mesh: Optional[DeviceMesh] = None
     reshard_after_forward: bool | int = True
+    
+    # Read-only compatibility properties
+    # to be supported in FSDP2
+    auto_wrap = _FSDP2ReadOnlyProperty(True)
+    load_monolith_rank0_only = _FSDP2ReadOnlyProperty(False)
+    sync_module_states = _FSDP2ReadOnlyProperty(False)
+    activation_cpu_offload = _FSDP2ReadOnlyProperty(False)
+    # to be deprecated in FSDP2
+    state_dict_type = _FSDP2ReadOnlyProperty('sharded')
+    use_orig_params = _FSDP2ReadOnlyProperty(True)
 
-    def __post_init__(self):
+    
+    def __post_init__(self):        
         warnings.warn('FSDP2 Config/APIs are experimental and subject to heavy changes', UserWarning)
 
 
