@@ -3,6 +3,7 @@
 
 """These fixtures are shared globally across the test suite."""
 import copy
+import hashlib
 import os
 import requests
 import time
@@ -334,12 +335,18 @@ def download_tokenizers_files():
     
     # URL for the tokenizers.zip file
     url = "https://github.com/mosaicml/ci-testing/releases/download/tokenizers/tokenizers.zip"
+    expected_checksum = "12dc1f254270582f7806588f1f1d47945590c5b42dee28925e5dab95f2d08075"
     
     # Download the zip file
     response = requests.get(url, stream=True)
     response.raise_for_status()
     
     zip_path = os.path.join(tokenizers_dir, "tokenizers.zip")
+
+    # Check the checksum
+    checksum = hashlib.sha256(response.content).hexdigest()
+    if checksum != expected_checksum:
+        raise ValueError(f"Checksum mismatch: expected {expected_checksum}, got {checksum}")
 
     with open(zip_path, "wb") as f:
         for chunk in response.iter_content(chunk_size=8192):
