@@ -3,39 +3,10 @@
 
 """Helpers for FSDP2."""
 
-import warnings
-from dataclasses import dataclass
-from typing import Optional, Union
-
-from torch import nn
-from torch.distributed._tensor.device_mesh import DeviceMesh
+import torch.nn as nn
 from torch.distributed.fsdp._fully_shard import fully_shard
-from torch.distributed.fsdp._fully_shard._fsdp_api import MixedPrecisionPolicy, OffloadPolicy
 
-
-@dataclass
-class FSDP2Config:
-    """Configuration for Fully Sharded Data Parallelism (FSDP2).
-
-    Args:
-        device_mesh (Optional[DeviceMesh]): The DeviceMesh for sharding. If None, a default 1D mesh is created.
-            For 1D mesh, parameters are fully sharded across the mesh (FSDP).
-            For 2D mesh, parameters are sharded across the 1st dimension and replicated across the 0th dimension (HSDP).
-        reshard_after_forward (Union[bool, int]): Controls parameter behavior after forward:
-            - If True, reshards parameters after forward, re-all-gathers in backward.
-            - If False, keeps unsharded parameters in memory, avoids all-gather in backward.
-            - If int, reshards to smaller world size after forward.
-            Default: True
-        mp_policy (Optional[MixedPrecisionPolicy]): Mixed precision policy. Default: None
-        offload_policy (Optional[OffloadPolicy]): Offloading policy. Default: None
-    """
-    device_mesh: Optional[DeviceMesh] = None
-    reshard_after_forward: Union[bool, int] = True
-    mp_policy: Optional[MixedPrecisionPolicy] = None
-    offload_policy: Optional[OffloadPolicy] = None
-
-    def __post_init__(self):
-        warnings.warn('FSDP2 Config/APIs are experimental and subject to heavy changes', UserWarning)
+from composer.utils.parallelism import FSDP2Config
 
 
 def get_standalone_and_tied_modules(modules: list[nn.Module]) -> tuple[list[nn.Module], set[nn.Module]]:
@@ -127,6 +98,8 @@ def apply_fully_shard(
 ) -> None:
     """Applies FSDP2's `fully_shard` to the specified modules and then to the parent model.
 
+    NOTE FSDP are only applied to nn.Parameters not Buffers.
+
     Args:
         model (torch.nn.Module): The parent model.
         independent_submodules (list[torch.nn.Module]): The modules to apply fully_shard to.
@@ -136,22 +109,18 @@ def apply_fully_shard(
         None
     """
     fully_shard_kwargs = {'mesh': fsdp2_config.device_mesh, 'reshard_after_forward': fsdp2_config.reshard_after_forward}
-    if fsdp2_config.mp_policy:
-        fully_shard_kwargs['mp_policy'] = fsdp2_config.mp_policy
-    if fsdp2_config.offload_policy:
-        fully_shard_kwargs['offload_policy'] = fsdp2_config.offload_policy
 
     # Apply fully_shard to each module in the list
     if len(independent_submodules) == 0:
         raise RuntimeError(
-            "Can't find any submodules to apply FSDP, e.g., the submodules may all have tied weights. Applying FSDP to the root model does not provide any memory savings.",
+            "Can't find any submodules to apply FSDP, e.g., the submodules may all have tied parameters. Applying FSDP to the root model does not provide any memory savings.",
         )
 
     independent_submodules, modules_tied = get_standalone_and_tied_modules(independent_submodules)
     if len(modules_tied) > 0:
         raise RuntimeError(
-            'Submodules to be sharded have tied weights. FSDP cannot be applied to modules with tied weights independently. '
-            'Please ensure that the submodules do not have tied weights.',
+            'Submodules to be sharded have tied parameters. FSDP cannot be applied to modules with tied parameters independently. '
+            'Please ensure that the submodules do not have tied parameters.',
         )
 
     # NOTE there is a bug fully_shard can not handle when the model has a child module which is the child of another

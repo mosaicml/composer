@@ -3,11 +3,11 @@
 
 """Parallelism configs."""
 
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from torch.distributed._tensor.device_mesh import DeviceMesh
-
 
 @dataclass
 class FSDPConfig:
@@ -62,6 +62,27 @@ class FSDPConfig:
 
 
 @dataclass
+class FSDP2Config:
+    """Configuration for Fully Sharded Data Parallelism (FSDP2).
+
+    Args:
+        device_mesh (Optional[DeviceMesh]): The DeviceMesh for sharding. If None, a default 1D mesh is created.
+            For 1D mesh, parameters are fully sharded across the mesh (FSDP).
+            For 2D mesh, parameters are sharded across the 1st dimension and replicated across the 0th dimension (HSDP).
+        reshard_after_forward (Union[bool, int]): Controls parameter behavior after forward:
+            - If True, reshards parameters after forward, re-all-gathers in backward.
+            - If False, keeps unsharded parameters in memory, avoids all-gather in backward.
+            - If int, reshards to smaller world size after forward.
+            Default: True
+    """
+    device_mesh: Optional[DeviceMesh] = None
+    reshard_after_forward: bool | int = True
+
+    def __post_init__(self):
+        warnings.warn('FSDP2 Config/APIs are experimental and subject to heavy changes', UserWarning)
+
+
+@dataclass
 class TPConfig:
     """Configuration for tensor parallelism (TP)."""
     device_mesh: Optional[DeviceMesh] = None
@@ -74,3 +95,4 @@ class ParallelismConfig:
     """Configuration for parallelism."""
     fsdp: Optional[FSDPConfig] = None
     tp: Optional[TPConfig] = None
+    fsdp2: Optional[FSDP2Config] = None

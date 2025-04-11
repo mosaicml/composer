@@ -44,6 +44,7 @@ from composer.core.time import Time, Timestamp, TimeUnit, ensure_time
 from composer.devices import Device
 from composer.utils import (
     FSDPConfig,
+    FSDP2Config,
     ParallelismConfig,
     ParallelismType,
     TPConfig,
@@ -537,6 +538,7 @@ class State(Serializable):
         self.profiler: Optional[Profiler] = None
 
         self.fsdp_config = parallelism_config.fsdp if parallelism_config is not None else None
+        self.fsdp2_config = parallelism_config.fsdp2 if parallelism_config is not None else None
         self.tp_config = parallelism_config.tp if parallelism_config is not None else None
 
         self.automicrobatch_fsdp_hook_handles = []

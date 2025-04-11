@@ -75,7 +75,7 @@ from composer.utils.object_store import (
     UCObjectStore,
     build_remote_backend,
 )
-from composer.utils.parallelism import FSDPConfig, ParallelismConfig, TPConfig
+from composer.utils.parallelism import FSDPConfig, ParallelismConfig, TPConfig, FSDP2Config
 from composer.utils.remote_uploader import RemoteFilesExistingCheckStatus, RemoteUploader
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
@@ -152,6 +152,7 @@ __all__ = [
     'STR_TO_DTYPE',
     'ParallelismType',
     'FSDPConfig',
+    'FSDP2Config',
     'TPConfig',
     'ParallelismConfig',
     'MLFLOW_EXPERIMENT_ID_FORMAT_KEY',
