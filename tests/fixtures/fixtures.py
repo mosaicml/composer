@@ -318,14 +318,17 @@ def assets_path():
 
 @pytest.fixture(scope='session')
 def tokenizers_assets():
-    """
-    Download tokenizers.zip and extract it to tests/assets/tokenizers.
-    This fixture runs automatically once per test session.
-    """
     download_tokenizers_files()
 
 
 def download_tokenizers_files():
+    """Download the tokenizers assets
+
+    We download from github, because downloading from HF directly is flaky and gets rate limited easily.
+
+    Raises:
+        ValueError: If the checksum of the downloaded file does not match the expected checksum.
+    """
     # Define paths
     tokenizers_dir = assets_path()
 
