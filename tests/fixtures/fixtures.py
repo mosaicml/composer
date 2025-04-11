@@ -311,7 +311,9 @@ def tiny_t5_config_helper():
 
 
 def assets_path():
-    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'assets', 'tokenizers')
+    rank = os.environ.get('RANK', '0')
+    folder_name = 'tokenizers' + (f'_{rank}' if rank != '0' else '')
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'assets', folder_name)
 
 
 @pytest.fixture(scope='session')
