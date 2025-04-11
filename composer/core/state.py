@@ -197,7 +197,7 @@ def _ensure_backwards_compatible_checkpointing(state_dict: dict[str, Any]):
 
 def _create_device_mesh(
     device: Device,
-    fsdp_config: Optional[FSDPConfig],
+    fsdp_config: Optional[FSDPConfig | FSDP2Config],
     tp_config: Optional[TPConfig],
 ) -> Optional[DeviceMesh]:
     if version.parse(torch.__version__.split('.dev')[0]) < version.parse('2.3.0'):
@@ -537,8 +537,8 @@ class State(Serializable):
 
         self.profiler: Optional[Profiler] = None
 
-        self.fsdp_config = parallelism_config.fsdp if parallelism_config is not None else None
-        self.fsdp2_config = parallelism_config.fsdp2 if parallelism_config is not None else None
+        self._fsdp_config = parallelism_config.fsdp if parallelism_config is not None else None
+        self._fsdp2_config = parallelism_config.fsdp2 if parallelism_config is not None else None
         self.tp_config = parallelism_config.tp if parallelism_config is not None else None
 
         self.automicrobatch_fsdp_hook_handles = []
@@ -874,6 +874,27 @@ class State(Serializable):
     @evaluators.setter
     def evaluators(self, evaluators: Union[Evaluator, Sequence[Evaluator]]):
         self._evaluators[:] = list(ensure_tuple(evaluators))
+
+    @property
+    def fsdp_config(self):
+        """Returns the appropriate FSDP configuration to use.
+        
+        Prioritizes FSDP2 config if available, otherwise falls back to FSDP1 config.
+        """
+        return self._fsdp2_config if self._fsdp2_config is not None else self._fsdp_config
+    
+    # For backward compatibility
+    @fsdp_config.setter
+    def fsdp_config(self, value: Union[FSDPConfig, FSDP2Config]):
+        """Sets the FSDP configuration, handling both FSDP1 and FSDP2 configurations."""
+        if isinstance(value, FSDPConfig):
+            self._fsdp_config = value
+            self._fsdp2_config = None
+        elif isinstance(value, FSDP2Config):
+            self._fsdp2_config = value
+            self._fsdp_config = None
+        else:
+            raise TypeError(f"Expected value to be of type FSDPConfig or FSDP2Config, but got {type(value)}.")
 
     @property
     def fsdp_enabled(self):
@@ -1385,7 +1406,7 @@ class State(Serializable):
             log.info('Wrapping model with FSDP after loading model_state.')
             with reproducibility.seed_context(self.rank_zero_seed):
                 from composer.distributed import prepare_fsdp_module
-
+                assert isinstance(self.fsdp_config, FSDPConfig), f'prepare_fsdp_module requires FSDPConfig, got: {type(self.fsdp_config)}'
                 self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(
                     self.model,
                     self.optimizers,

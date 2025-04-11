@@ -62,22 +62,6 @@ class FSDPConfig:
         self._device_mesh = value
 
 
-class _FSDP2ReadOnlyProperty:
-    """Descriptor for FSDP2Config properties that are read-only. For FSDP1 compatibility/deprecation usage only.
-    """
-    
-    def __init__(self, default_value):
-        self.default_value = default_value
-        
-    def __get__(self, obj, objtype=None):
-        if obj is None:
-            return self
-        return self.default_value
-    
-    def __set__(self, obj, value):
-        raise AttributeError(f"Cannot modify read-only FSDP2Config attribute")
-
-
 @dataclass
 class FSDP2Config:
     """Configuration for Fully Sharded Data Parallelism (FSDP2).
@@ -89,20 +73,44 @@ class FSDP2Config:
         reshard_after_forward (Union[bool, int]): Controls parameter behavior after forward.
     """
     
-    # Settable core FSDP2 parameters 
+    # Settable core FSDP2 attrs
     device_mesh: Optional[DeviceMesh] = None
     reshard_after_forward: bool | int = True
     
-    # Read-only compatibility properties
+    ### Temporary read-only properties for FSDP 1 compatibility  ###
     # to be supported in FSDP2
-    auto_wrap = _FSDP2ReadOnlyProperty(True)
-    load_monolith_rank0_only = _FSDP2ReadOnlyProperty(False)
-    sync_module_states = _FSDP2ReadOnlyProperty(False)
-    activation_cpu_offload = _FSDP2ReadOnlyProperty(False)
-    # to be deprecated in FSDP2
-    state_dict_type = _FSDP2ReadOnlyProperty('sharded')
-    use_orig_params = _FSDP2ReadOnlyProperty(True)
+    @property
+    def auto_wrap(self) -> bool:
+        return True
 
+    @property
+    def load_monolith_rank0_only(self) -> bool:
+        return False
+
+    @property
+    def sync_module_states(self) -> bool:
+        return False
+
+    @property
+    def activation_cpu_offload(self) -> bool:
+        return False
+
+    @property
+    def data_parallel_shard_degree(self) -> int:
+        return -1
+
+    @property
+    def data_parallel_replicate_degree(self) -> Optional[int]:
+        return None
+
+    # to be deprecated in FSDP2
+    @property
+    def state_dict_type(self) -> str:
+        return 'sharded'
+
+    @property
+    def use_orig_params(self) -> bool:
+        return True
     
     def __post_init__(self):        
         warnings.warn('FSDP2 Config/APIs are experimental and subject to heavy changes', UserWarning)

@@ -88,7 +88,7 @@ def test_fsdp2_initialization_with_tied_params(
 
 @pytest.mark.skipif(SKIP_TEST, reason='FSDP2 is not available in torch < 2.6.0')
 @pytest.mark.filterwarnings('ignore:FSDP2 Config/APIs are experimental*:UserWarning')
-def test_fsdp2_readonly_properties():
+def test_fsdp2_config():
     """Test that FSDP2Config read-only properties work as expected."""
     if not SKIP_TEST:
         # Create a config instance
@@ -99,6 +99,8 @@ def test_fsdp2_readonly_properties():
         assert config.load_monolith_rank0_only is False
         assert config.sync_module_states is False
         assert config.activation_cpu_offload is False
+        assert config.data_parallel_shard_degree == -1
+        assert config.data_parallel_replicate_degree is None
         assert config.state_dict_type == 'sharded'
         assert config.use_orig_params is True
         
@@ -108,6 +110,8 @@ def test_fsdp2_readonly_properties():
             ("load_monolith_rank0_only", True),
             ("sync_module_states", True),
             ("activation_cpu_offload", True),
+            ("data_parallel_shard_degree", 2),
+            ("data_parallel_replicate_degree", 2),
             ("state_dict_type", "full"),
             ("use_orig_params", False)
         ]
@@ -121,3 +125,4 @@ def test_fsdp2_readonly_properties():
         config.reshard_after_forward = False
         assert config.device_mesh is None
         assert config.reshard_after_forward is False
+
