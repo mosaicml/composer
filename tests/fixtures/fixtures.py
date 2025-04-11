@@ -5,12 +5,12 @@
 import copy
 import hashlib
 import os
-import requests
 import time
 import zipfile
 
 import coolname
 import pytest
+import requests
 import torch
 from torch.utils.data import DataLoader
 
@@ -310,12 +310,11 @@ def tiny_t5_config_helper():
     return T5Config(**config_object)
 
 
-
 def assets_path():
     return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'assets', 'tokenizers')
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope='session')
 def tokenizers_assets():
     """
     Download tokenizers.zip and extract it to tests/assets/tokenizers.
@@ -323,40 +322,41 @@ def tokenizers_assets():
     """
     download_tokenizers_files()
 
+
 def download_tokenizers_files():
     # Define paths
     tokenizers_dir = assets_path()
 
     if os.path.exists(tokenizers_dir):
         return
-    
+
     # Create assets directory if it doesn't exist
     os.makedirs(tokenizers_dir, exist_ok=True)
-    
+
     # URL for the tokenizers.zip file
-    url = "https://github.com/mosaicml/ci-testing/releases/download/tokenizers/tokenizers.zip"
-    expected_checksum = "12dc1f254270582f7806588f1f1d47945590c5b42dee28925e5dab95f2d08075"
-    
+    url = 'https://github.com/mosaicml/ci-testing/releases/download/tokenizers/tokenizers.zip'
+    expected_checksum = '12dc1f254270582f7806588f1f1d47945590c5b42dee28925e5dab95f2d08075'
+
     # Download the zip file
     response = requests.get(url, stream=True)
     response.raise_for_status()
-    
-    zip_path = os.path.join(tokenizers_dir, "tokenizers.zip")
+
+    zip_path = os.path.join(tokenizers_dir, 'tokenizers.zip')
 
     # Check the checksum
     checksum = hashlib.sha256(response.content).hexdigest()
     if checksum != expected_checksum:
-        raise ValueError(f"Checksum mismatch: expected {expected_checksum}, got {checksum}")
+        raise ValueError(f'Checksum mismatch: expected {expected_checksum}, got {checksum}')
 
-    with open(zip_path, "wb") as f:
+    with open(zip_path, 'wb') as f:
         for chunk in response.iter_content(chunk_size=8192):
             f.write(chunk)
-    
+
     # Extract the zip file
-    print(f"Extracting tokenizers.zip to {tokenizers_dir}")
+    print(f'Extracting tokenizers.zip to {tokenizers_dir}')
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall(tokenizers_dir)
-    
+
     # Optionally remove the zip file after extraction
     os.remove(zip_path)
 
