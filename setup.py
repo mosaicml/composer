@@ -154,7 +154,7 @@ extra_deps['slack'] = {
 }
 
 extra_deps['wandb'] = [
-    'wandb>=0.13.2,<0.19',
+    'wandb>=0.13.2,<0.20',
 ]
 
 extra_deps['comet_ml'] = [
