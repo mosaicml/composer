@@ -264,7 +264,6 @@ def _create_device_mesh(
     device_type = device.name
     if device_type == 'gpu':
         device_type = 'cuda'
-
     return init_device_mesh(device_type=device_type, mesh_shape=tuple(dims), mesh_dim_names=tuple(names))
 
 

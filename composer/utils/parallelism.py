@@ -81,7 +81,7 @@ class FSDP2Config:
     # to be supported in FSDP2
     @property
     def auto_wrap(self) -> bool:
-        return True
+        return False
 
     @property
     def load_monolith_rank0_only(self) -> bool:

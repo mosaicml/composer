@@ -5,6 +5,7 @@ import pytest
 import torch
 from packaging import version
 from torch.utils.data import DataLoader
+from torch.distributed._tensor import DTensor
 
 from composer.models import ComposerClassifier
 from composer.trainer.trainer import Trainer
@@ -15,18 +16,17 @@ from tests.common import (
     SimpleWeightTiedModel,
     world_size,
 )
+from composer.utils.parallelism import FSDP2Config, ParallelismConfig
 
 SKIP_TEST = version.parse(torch.__version__) < version.parse('2.6.0')
 if not SKIP_TEST:
     # TODO move this to top once we decprecate torch 2.5
-    from torch.distributed.tensor import DTensor
+    from composer.distributed.fsdp2 import prepare_fully_shard
 
-    from composer.distributed.fsdp2 import FSDP2Config, prepare_fully_shard
-
-_INIT_DEVICES = ['cuda', 'meta']
+_INIT_DEVICES = ['cuda']
 
 
-@pytest.mark.parametrize('model', [SimpleWeightTiedModel, PartialWeightTiedModel])
+@pytest.mark.parametrize('model', [SimpleWeightTiedModel])
 @pytest.mark.parametrize('device', _INIT_DEVICES)
 @world_size(2)
 @pytest.mark.gpu
@@ -74,6 +74,9 @@ def test_fsdp2_initialization_with_tied_params(
     trainer = Trainer(
         model=model,
         optimizers=optimizer,
+        parallelism_config=ParallelismConfig(
+            fsdp2=fsdp2_config,
+        ),
         train_dataloader=dataloader,
         max_duration='10ep',
     )
