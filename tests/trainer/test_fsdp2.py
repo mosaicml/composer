@@ -1,15 +1,15 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import pathlib
 import pytest
 import torch
 from packaging import version
 from torch.utils.data import DataLoader
 from torch.distributed._tensor import DTensor
 
-from composer.models import ComposerClassifier
 from composer.trainer.trainer import Trainer
-from composer.utils import dist
+from composer.utils import dist, load_checkpoint
 from tests.common import (
     PartialWeightTiedModel,
     RandomClassificationDataset,
@@ -33,9 +33,10 @@ _INIT_DEVICES = ['cuda']
 @pytest.mark.filterwarnings('ignore:FSDP2 Config/APIs are experimental*:UserWarning')
 @pytest.mark.skipif(SKIP_TEST, reason='FSDP2 is not available in torch < 2.6.0')
 def test_fsdp2_initialization_with_tied_params(
-    model: ComposerClassifier,
+    model: type,
     world_size: int,
     device: str,
+    tmp_path: pathlib.Path,
 ):
     """test FSDP2 initialization for a simple model with weight tying and a model where two modules
     from separate submodules have weight tying applied.
@@ -87,7 +88,13 @@ def test_fsdp2_initialization_with_tied_params(
     weight_2 = model.mlp.fc2.weight.full_tensor()
     assert (model.mlp.fc1.weight is model.mlp.fc2.weight)
     assert (torch.equal(weight_1, weight_2))
-
+    checkpoint_path = [tmp_path / 'dummy.pt']
+    # Broadcast the path from rank 0 to all other ranks
+    dist.broadcast_object_list(checkpoint_path, src=0)
+    
+    ckpt_path = trainer.save_checkpoint(str(checkpoint_path[0]), weights_only=True)
+    assert isinstance(ckpt_path, str)
+    load_checkpoint(str(pathlib.Path(ckpt_path).parent), trainer.state, trainer.logger, load_weights_only=True)
 
 @pytest.mark.skipif(SKIP_TEST, reason='FSDP2 is not available in torch < 2.6.0')
 @pytest.mark.filterwarnings('ignore:FSDP2 Config/APIs are experimental*:UserWarning')
