@@ -92,6 +92,18 @@ class FSDP2Config:
         return False
 
     @property
+    def load_planner(self) -> Optional[Any]:
+        return None
+
+    @property
+    def save_planner(self) -> Optional[Any]:
+        return None
+
+    @property
+    def sharded_ckpt_prefix_dir(self) -> str:
+        return 'ep{epoch}-ba{batch}'
+
+    @property
     def activation_cpu_offload(self) -> bool:
         return False
 
