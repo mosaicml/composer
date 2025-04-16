@@ -166,3 +166,4 @@ package-lock.json
 
 # composer
 data/
+tests/assets/tokenizers
