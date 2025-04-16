@@ -5,7 +5,6 @@ import pytest
 import torch
 from packaging import version
 from torch.utils.data import DataLoader
-
 from composer.models import ComposerClassifier
 from composer.trainer.trainer import Trainer
 from composer.utils import dist
@@ -28,6 +27,7 @@ _INIT_DEVICES = ['cuda', 'meta']
 
 @pytest.mark.parametrize('model', [SimpleWeightTiedModel, PartialWeightTiedModel])
 @pytest.mark.parametrize('device', _INIT_DEVICES)
+@pytest.mark.parametrize('optimizer', [torch.optim.Adam, torch.optim.SGD])
 @world_size(2)
 @pytest.mark.gpu
 @pytest.mark.filterwarnings('ignore:FSDP2 Config/APIs are experimental*:UserWarning')
@@ -36,6 +36,7 @@ def test_fsdp2_initialization_with_tied_params(
     model: ComposerClassifier,
     world_size: int,
     device: str,
+    optimizer: type[torch.optim.Optimizer],
 ):
     """test FSDP2 initialization for a simple model with weight tying and a model where two modules
     from separate submodules have weight tying applied.
@@ -52,15 +53,27 @@ def test_fsdp2_initialization_with_tied_params(
         mp_policy=None,
         offload_policy=None,
     )
-    prepare_fully_shard(model=model.module, fsdp2_config=fsdp2_config)
+    optimizer = optimizer(model.parameters(), lr=0.1)
+    prepare_fully_shard(model=model.module, optimizer=optimizer, fsdp2_config=fsdp2_config)
 
     # Initialization checks
     assert len(model.mlp._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the mlp module'
     assert len(model.mlp.fc1._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc1 module'
     assert len(model.mlp.fc2._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc2 module'
     assert len(model.module._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the root module'
+
+    # Check that the weights are DTensor
     assert isinstance(model.mlp.fc1.weight, DTensor), 'mlp.fc1.weight should be a DTensor'
     assert isinstance(model.mlp.fc2.weight, DTensor), 'mlp.fc2.weight should be a DTensor'
+    # Check that all optimizer parameters are DTensor (we only have one param group)
+    assert len(optimizer.param_groups) == 1, 'Expected 1 param group in optimizer'
+    assert len(optimizer.param_groups[0]['params']) >= 1, 'Expected at least 1 parameter in optimizer (depends on the model)'
+    assert all(isinstance(param, DTensor) for param in optimizer.param_groups[0]['params']), 'All parameters in optimizer should be DTensor'
+    # Validate that the ids of the parameters in the optimizer exist in the model
+    model_param_ids = [id(p) for p in model.parameters()]
+    for param in optimizer.param_groups[0]['params']:
+        assert id(param) in model_param_ids, 'Parameter id in optimizer does not match parameter id in model'
+
     if isinstance(model, PartialWeightTiedModel):
         assert len(model.fc3._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the fc3 module'
     assert model.mlp.fc1.weight.size(0) == model.mlp.fc2.weight.to_local(
@@ -72,7 +85,6 @@ def test_fsdp2_initialization_with_tied_params(
     for module in model.modules():
         model.param_init_fn(module)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
     trainer = Trainer(
         model=model,
         optimizers=optimizer,
