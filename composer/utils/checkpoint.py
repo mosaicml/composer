@@ -1061,6 +1061,7 @@ def _save_checkpoint(
                 'metadata': state._get_state_metadata(),
             },
         }
+        print('state_dict: ', state_dict['state']['model'])
     else:
         state_dict = {
             'state': state.state_dict(),
@@ -1095,7 +1096,7 @@ def _save_checkpoint(
 
     # Only some ranks are meant to save checkpoint and produce a file
     expect_file = False
-
+    assert state.fsdp_sharded_state_dict_enabled, f'my rank is {dist.get_global_rank()} and my fsdp_state_dict_type is {state.fsdp_state_dict_type}'
     # Save sharded checkpoint
     if state.fsdp_sharded_state_dict_enabled:
         if state.fsdp_config is None:
@@ -1152,7 +1153,7 @@ def _save_checkpoint(
         log.debug(f'Only rank 0 is saving a checkpoint, so rank {dist.get_global_rank()} skips checkpointing.')
 
     dist.barrier()  # Ensure all ranks saved their files
-
+    assert expect_file, f'my rank is {dist.get_global_rank()}'
     if expect_file:
         assert os.path.exists(save_filename), 'Expected file to have been saved.'
         return save_filename

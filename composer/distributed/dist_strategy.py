@@ -356,7 +356,8 @@ def prepare_fsdp_module(
                 sharding_strategy = ShardingStrategy.HYBRID_SHARD
                 warnings.warn('FULL_SHARD is not supported with 2D device mesh. Using HYBRID_SHARD instead.')
             kwargs['device_mesh'] = fsdp_config.device_mesh
-
+    from torch.distributed.device_mesh import DeviceMesh
+    assert isinstance(kwargs['device_mesh'], DeviceMesh), f'my rank is: {dist.get_global_rank()}'
     cpu_offload = get_cpu_offload(cpu_offload=fsdp_config.cpu_offload)
 
     mixed_precision = fsdp_config.mixed_precision
