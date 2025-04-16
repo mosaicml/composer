@@ -22,6 +22,8 @@ SKIP_TEST = version.parse(torch.__version__) < version.parse('2.6.0')
 if not SKIP_TEST:
     # TODO move this to top once we decprecate torch 2.5
     from composer.distributed.fsdp2 import prepare_fully_shard
+else:
+    prepare_fully_shard = lambda *args, **kwargs: None
 
 _INIT_DEVICES = ['cuda', 'meta']
 
@@ -45,7 +47,7 @@ def create_trainer_with_model(
     prepare_fully_shard(model=model.module, fsdp2_config=fsdp2_config)
     # NOTE module to_empty should only happen after the model is fully sharded and parameters are coverted to Dtensor
     # otherwise to_empty breaks weight tying
-    # TODO we should guardrail this in Trainer
+    # TODO we should guardrail this in prepare_fully_shard
     model.to_empty(device='cuda')
     for module in model.modules():
         model.param_init_fn(module)
