@@ -264,6 +264,7 @@ def _create_device_mesh(
     device_type = device.name
     if device_type == 'gpu':
         device_type = 'cuda'
+
     return init_device_mesh(device_type=device_type, mesh_shape=tuple(dims), mesh_dim_names=tuple(names))
 
 
@@ -884,7 +885,7 @@ class State(Serializable):
     
     # For backward compatibility
     @fsdp_config.setter
-    def fsdp_config(self, value: Union[FSDPConfig, FSDP2Config]):
+    def fsdp_config(self, value: FSDPConfig | FSDP2Config):
         """Sets the FSDP configuration, handling both FSDP1 and FSDP2 configurations."""
         if isinstance(value, FSDPConfig):
             self._fsdp_config = value
@@ -1405,6 +1406,7 @@ class State(Serializable):
             log.info('Wrapping model with FSDP after loading model_state.')
             with reproducibility.seed_context(self.rank_zero_seed):
                 from composer.distributed import prepare_fsdp_module
+                # TODO (FSDP2): support calling FSDP2 wrapper depending on the config type
                 assert isinstance(self.fsdp_config, FSDPConfig), f'prepare_fsdp_module requires FSDPConfig, got: {type(self.fsdp_config)}'
                 self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(
                     self.model,

@@ -1630,11 +1630,10 @@ class Trainer:
                     f' with FSDP. Please use another optimizer or precision type.',
                 )
             if isinstance(self.state.fsdp_config, FSDPConfig):
+                # Per TorchTitan doc and FSDP2 test: TODO,
+                # GradScaler can already handle state synchronization via torch._amp_foreach_non_finite_check_and_unscale_,
+                # so we don't need to use ShardedGradScaler
                 self.state.scaler = ShardedGradScaler()
-            else:
-                # Per TorchTitan doc and FSDP2 test: ,
-                # GradScaler can already handle state synchronization via torch._amp_foreach_non_finite_check_and_unscale_
-                pass
 
         # suppressing FSDP warning when auto grad accum exits the forward pass before completing
         warnings.filterwarnings(action='ignore', message='Forward order differs from that of the first iteration')
@@ -1662,6 +1661,7 @@ class Trainer:
         if self.state.fsdp_config is not None and self.state.fsdp_config.auto_wrap and not self.state.load_monolith_rank0_only:
             # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
+                # TODO (FSDP2): support calling FSDP2 wrapper depending on the config type
                 assert isinstance(self.state.fsdp_config, FSDPConfig), f'prepare_fsdp_module requires FSDPConfig, got: {type(self.state.fsdp_config)}'
                 self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
                     model,
@@ -1796,6 +1796,7 @@ class Trainer:
             not self.state.fsdp_enabled and self.state.fsdp_config is not None and self.state.fsdp_config.auto_wrap and
             self.state.load_monolith_rank0_only
         ):
+            # TODO (FSDP2): support calling FSDP2 wrapper depending on the config type
             assert isinstance(self.state.fsdp_config, FSDPConfig), f'prepare_fsdp_module requires FSDPConfig, got: {type(self.state.fsdp_config)}'
             # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
@@ -2912,10 +2913,12 @@ class Trainer:
 
             # Restore batch
             self.state.batch = current_batch
+
             # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
             if use_grad_scaling:
                 for optimizer in ensure_tuple(self.state.optimizers):
                     self.state.scaler.unscale_(optimizer)
+
             self.engine.run_event(Event.AFTER_TRAIN_BATCH)
 
             return total_loss_dict['loss/train/total']
