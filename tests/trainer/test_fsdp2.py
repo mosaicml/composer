@@ -23,50 +23,29 @@ if not SKIP_TEST:
     # TODO move this to top once we decprecate torch 2.5
     from composer.distributed.fsdp2 import prepare_fully_shard
 
-_INIT_DEVICES = ['cuda']
+_INIT_DEVICES = ['cuda', 'meta']
 
 
-@pytest.mark.parametrize('model', [SimpleWeightTiedModel])
-@pytest.mark.parametrize('device', _INIT_DEVICES)
-@world_size(2)
-@pytest.mark.gpu
-@pytest.mark.filterwarnings('ignore:FSDP2 Config/APIs are experimental*:UserWarning')
-@pytest.mark.skipif(SKIP_TEST, reason='FSDP2 is not available in torch < 2.6.0')
-def test_fsdp2_initialization_with_tied_params(
-    model: type,
-    world_size: int,
+def create_trainer_with_model(
+    cls: type,
     device: str,
-    tmp_path: pathlib.Path,
-):
-    """test FSDP2 initialization for a simple model with weight tying and a model where two modules
-    from separate submodules have weight tying applied.
-    """
-    num_classes = 10
-
-    model = model(num_features=num_classes, device=device)
-    assert isinstance(model, (SimpleWeightTiedModel, PartialWeightTiedModel))
+    num_classes: int = 10,
+    max_duration: str = '10ep',
+) -> Trainer:
+    """Helper function to create a Trainer with a model, dataloader, and FSDP2 configuration."""
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
+    
+    model = cls(num_features=num_classes, device=device)
+
     fsdp2_config = FSDP2Config(
         device_mesh=None,
         reshard_after_forward=True,
     )
     prepare_fully_shard(model=model.module, fsdp2_config=fsdp2_config)
-
-    # Initialization checks
-    assert len(model.mlp._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the mlp module'
-    assert len(model.mlp.fc1._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc1 module'
-    assert len(model.mlp.fc2._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc2 module'
-    assert len(model.module._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the root module'
-    assert isinstance(model.mlp.fc1.weight, DTensor), 'mlp.fc1.weight should be a DTensor'
-    assert isinstance(model.mlp.fc2.weight, DTensor), 'mlp.fc2.weight should be a DTensor'
-    if isinstance(model, PartialWeightTiedModel):
-        assert len(model.fc3._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the fc3 module'
-    assert model.mlp.fc1.weight.size(0) == model.mlp.fc2.weight.to_local(
-    ).size(0) * world_size, 'Expect global weight size to be equal to local weight size * world_size on dim 0'
-
-    # manual param init
-    # TODO remove this once we integrate param init into fsdp2 helper functions
+    # NOTE module to_empty should only happen after the model is fully sharded and parameters are coverted to Dtensor
+    # otherwise to_empty breaks weight tying
+    # TODO we should guardrail this in Trainer
     model.to_empty(device='cuda')
     for module in model.modules():
         model.param_init_fn(module)
@@ -75,12 +54,46 @@ def test_fsdp2_initialization_with_tied_params(
     trainer = Trainer(
         model=model,
         optimizers=optimizer,
-        parallelism_config=ParallelismConfig(
-            fsdp2=fsdp2_config,
-        ),
         train_dataloader=dataloader,
-        max_duration='10ep',
+        max_duration=max_duration,
+        parallelism_config=ParallelismConfig(fsdp2=fsdp2_config),
     )
+    return trainer
+
+
+@pytest.mark.parametrize('model_class', [SimpleWeightTiedModel, PartialWeightTiedModel])
+@pytest.mark.parametrize('device', _INIT_DEVICES)
+@world_size(2)
+@pytest.mark.gpu
+@pytest.mark.filterwarnings('ignore:FSDP2 Config/APIs are experimental*:UserWarning')
+@pytest.mark.skipif(SKIP_TEST, reason='FSDP2 is not available in torch < 2.6.0')
+def test_fsdp2_initialization_with_tied_params(
+    model_class: type,
+    device: str,
+    world_size: int,
+):
+    """test FSDP2 initialization for a simple model with weight tying and a model where two modules
+    from separate submodules have weight tying applied.
+    """
+    trainer = create_trainer_with_model(
+        cls=model_class,
+        device=device,
+    )
+
+    # Initialization checks
+    model = trainer.state.model
+    assert isinstance(model, SimpleWeightTiedModel | PartialWeightTiedModel), f'Expected model to be SimpleWeightTiedModel or PartialWeightTiedModel, got {type(model)}'
+    assert isinstance(model.mlp.fc1.weight, DTensor), 'mlp.fc1.weight should be a DTensor'
+    assert isinstance(model.mlp.fc2.weight, DTensor), 'mlp.fc2.weight should be a DTensor'
+    assert len(model.mlp._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the mlp module'
+    assert len(model.mlp.fc1._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc1 module'
+    assert len(model.mlp.fc2._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc2 module'
+    assert len(model.module._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the root module'
+    if isinstance(model, PartialWeightTiedModel):
+        assert len(model.fc3._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the fc3 module'
+    assert model.mlp.fc1.weight.size(0) == model.mlp.fc2.weight.to_local(
+    ).size(0) * world_size, 'Expect global weight size to be equal to local weight size * world_size on dim 0'
+
     trainer.fit()
 
     # Check that the weights are correctly tied
@@ -89,19 +102,56 @@ def test_fsdp2_initialization_with_tied_params(
     assert (model.mlp.fc1.weight is model.mlp.fc2.weight)
     assert (torch.equal(weight_1, weight_2))
 
-    weight_1_local = model.mlp.fc1.weight.to_local()
-    weight_2_local = model.mlp.fc2.weight.to_local()
+
+@pytest.mark.parametrize('model_class', [SimpleWeightTiedModel])
+@pytest.mark.parametrize('device', _INIT_DEVICES)
+@world_size(2)
+@pytest.mark.gpu
+@pytest.mark.filterwarnings('ignore:FSDP2 Config/APIs are experimental*:UserWarning')
+@pytest.mark.skipif(SKIP_TEST, reason='FSDP2 is not available in torch < 2.6.0')
+def test_fsdp2_checkpointing(
+    model_class: type,
+    device: str,
+    world_size: int,
+    tmp_path: pathlib.Path,
+):
+    """Test FSDP2 checkpointing and weight tying after loading."""
+    trainer = create_trainer_with_model(
+        cls=model_class,
+        device=device,
+    )
+
+    # Checkpointing and reloading
+    model = trainer.state.model
+    assert isinstance(model, SimpleWeightTiedModel), f'Expected model to be SimpleWeightTiedModel, got {type(model)}'
+    assert isinstance(model.mlp.fc1.weight, DTensor), 'mlp.fc1.weight should be a DTensor'
+    assert isinstance(model.mlp.fc2.weight, DTensor), 'mlp.fc2.weight should be a DTensor'
     checkpoint_path = [tmp_path / 'dummy.pt']
     # Broadcast the path from rank 0 to all other ranks
     dist.broadcast_object_list(checkpoint_path, src=0)
-    
     ckpt_path = trainer.save_checkpoint(str(checkpoint_path[0]), weights_only=True)
     assert isinstance(ckpt_path, str)
-    model.to_empty(device='cuda')
+    
+    # cache previous weights for comparison
+    weight_1_local = model.mlp.fc1.weight.to_local()
+    weight_2_local = model.mlp.fc2.weight.to_local()
+
+    # reinitialize the trainer
+    trainer = create_trainer_with_model(
+        cls=model_class,
+        device=device,
+    )
     load_checkpoint(str(pathlib.Path(ckpt_path).parent), trainer.state, trainer.logger, load_weights_only=True)
+
+    model = trainer.state.model
+    assert isinstance(model, SimpleWeightTiedModel), f'Expected model to be SimpleWeightTiedModel, got {type(model)}'
+    assert isinstance(model.mlp.fc1.weight, DTensor), 'mlp.fc1.weight should be a DTensor'
+    assert isinstance(model.mlp.fc2.weight, DTensor), 'mlp.fc2.weight should be a DTensor'
+    # Check that the weights are still tied after loading and that the local weights are the same
     assert torch.equal(weight_1_local, model.mlp.fc1.weight.to_local())
     assert torch.equal(weight_2_local, model.mlp.fc2.weight.to_local())
     assert model.mlp.fc1.weight is model.mlp.fc2.weight
+
 
 @pytest.mark.skipif(SKIP_TEST, reason='FSDP2 is not available in torch < 2.6.0')
 @pytest.mark.filterwarnings('ignore:FSDP2 Config/APIs are experimental*:UserWarning')
