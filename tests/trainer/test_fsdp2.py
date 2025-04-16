@@ -88,13 +88,20 @@ def test_fsdp2_initialization_with_tied_params(
     weight_2 = model.mlp.fc2.weight.full_tensor()
     assert (model.mlp.fc1.weight is model.mlp.fc2.weight)
     assert (torch.equal(weight_1, weight_2))
+
+    weight_1_local = model.mlp.fc1.weight.to_local()
+    weight_2_local = model.mlp.fc2.weight.to_local()
     checkpoint_path = [tmp_path / 'dummy.pt']
     # Broadcast the path from rank 0 to all other ranks
     dist.broadcast_object_list(checkpoint_path, src=0)
     
     ckpt_path = trainer.save_checkpoint(str(checkpoint_path[0]), weights_only=True)
     assert isinstance(ckpt_path, str)
+    model.to_empty(device='cuda')
     load_checkpoint(str(pathlib.Path(ckpt_path).parent), trainer.state, trainer.logger, load_weights_only=True)
+    assert torch.equal(weight_1_local, model.mlp.fc1.weight.to_local())
+    assert torch.equal(weight_2_local, model.mlp.fc2.weight.to_local())
+    assert model.mlp.fc1.weight is model.mlp.fc2.weight
 
 @pytest.mark.skipif(SKIP_TEST, reason='FSDP2 is not available in torch < 2.6.0')
 @pytest.mark.filterwarnings('ignore:FSDP2 Config/APIs are experimental*:UserWarning')
