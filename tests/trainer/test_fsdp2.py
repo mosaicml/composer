@@ -16,7 +16,7 @@ from tests.common import (
     SimpleWeightTiedModel,
     world_size,
 )
-from composer.utils.parallelism import FSDP2Config, ParallelismConfig
+from composer.utils.parallelism import FSDPConfig, FSDP2Config, ParallelismConfig
 
 SKIP_TEST = version.parse(torch.__version__) < version.parse('2.6.0')
 if not SKIP_TEST:
@@ -33,6 +33,7 @@ def create_trainer_with_model(
     device: str,
     num_classes: int = 10,
     max_duration: str = '10ep',
+    use_fsdp2: bool = True,
 ) -> Trainer:
     """Helper function to create a Trainer with a model, dataloader, and FSDP2 configuration."""
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
@@ -40,25 +41,29 @@ def create_trainer_with_model(
     
     model = cls(num_features=num_classes, device=device)
 
-    fsdp2_config = FSDP2Config(
-        device_mesh=None,
-        reshard_after_forward=True,
-    )
-    prepare_fully_shard(model=model.module, fsdp2_config=fsdp2_config)
-    # NOTE module to_empty should only happen after the model is fully sharded and parameters are coverted to Dtensor
-    # otherwise to_empty breaks weight tying
-    # TODO we should guardrail this in prepare_fully_shard
-    model.to_empty(device='cuda')
-    for module in model.modules():
-        model.param_init_fn(module)
-
+    parallelism_config = ParallelismConfig()
+    if use_fsdp2:
+        fsdp2_config = FSDP2Config(
+            device_mesh=None,
+            reshard_after_forward=True,
+        )
+        prepare_fully_shard(model=model.module, fsdp2_config=fsdp2_config)
+        # NOTE module to_empty should only happen after the model is fully sharded and parameters are coverted to Dtensor
+        # otherwise to_empty breaks weight tying
+        # TODO we should guardrail this in prepare_fully_shard
+        model.to_empty(device='cuda')
+        for module in model.modules():
+            model.param_init_fn(module)
+        parallelism_config.fsdp2 = fsdp2_config
+    else:
+        parallelism_config.fsdp = FSDPConfig(state_dict_type='sharded')
     optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
     trainer = Trainer(
         model=model,
         optimizers=optimizer,
         train_dataloader=dataloader,
         max_duration=max_duration,
-        parallelism_config=ParallelismConfig(fsdp2=fsdp2_config),
+        parallelism_config=parallelism_config,
     )
     return trainer
 
@@ -153,6 +158,59 @@ def test_fsdp2_checkpointing(
     assert torch.equal(weight_1_local, model.mlp.fc1.weight.to_local())
     assert torch.equal(weight_2_local, model.mlp.fc2.weight.to_local())
     assert model.mlp.fc1.weight is model.mlp.fc2.weight
+
+
+@pytest.mark.parametrize('model_class', [SimpleWeightTiedModel])
+@pytest.mark.parametrize('device', ['cuda'])
+@world_size(2)
+@pytest.mark.gpu
+@pytest.mark.filterwarnings('ignore:FSDP2 Config/APIs are experimental*:UserWarning')
+@pytest.mark.skipif(SKIP_TEST, reason='FSDP2 is not available in torch < 2.6.0')
+def test_fsdp2_load_from_fsdp1(
+    model_class: type,
+    device: str,
+    world_size: int,
+    tmp_path: pathlib.Path,
+):
+    """Test FSDP2 can load from FSDP1 checkpoint"""
+    trainer = create_trainer_with_model(
+        cls=model_class,
+        device=device,
+        use_fsdp2=True
+    )
+
+    # Checkpointing
+    model = trainer.state.model
+    print(model)
+    assert isinstance(model, SimpleWeightTiedModel), f'Expected model to be SimpleWeightTiedModel, got {type(model)}'
+    checkpoint_path = [tmp_path / 'dummy.pt']
+    # Broadcast the path from rank 0 to all other ranks
+    dist.broadcast_object_list(checkpoint_path, src=0)
+    ckpt_path = trainer.save_checkpoint(str(checkpoint_path[0]), weights_only=True)
+    assert isinstance(ckpt_path, str)
+    import os
+    print(f'Checkpoints: {os.listdir(str(pathlib.Path(ckpt_path).parent))}')
+    # cache previous weights for comparison
+    # with trainer.state.model.module.summon_full_params(trainer.state.model.module):  # type: ignore
+    #     weight_1_full = model.mlp.fc1.weight
+    #     weight_2_full = model.mlp.fc2.weight
+
+    # # reinitialize the trainer
+    # trainer = create_trainer_with_model(
+    #     cls=model_class,
+    #     device=device,
+    #     use_fsdp2=True,
+    # )
+    # load_checkpoint(str(pathlib.Path(ckpt_path).parent), trainer.state, trainer.logger, load_weights_only=True)
+
+    # model = trainer.state.model
+    # assert isinstance(model, SimpleWeightTiedModel), f'Expected model to be SimpleWeightTiedModel, got {type(model)}'
+    # assert isinstance(model.mlp.fc1.weight, DTensor), 'mlp.fc1.weight should be a DTensor'
+    # assert isinstance(model.mlp.fc2.weight, DTensor), 'mlp.fc2.weight should be a DTensor'
+    # # Check that the weights are still tied after loading and that the local weights are the same
+    # assert torch.equal(weight_1_full, model.mlp.fc1.weight.full_tensor())
+    # assert torch.equal(weight_2_full, model.mlp.fc2.weight.full_tensor())
+    # assert model.mlp.fc1.weight is model.mlp.fc2.weight
 
 
 @pytest.mark.skipif(SKIP_TEST, reason='FSDP2 is not available in torch < 2.6.0')
