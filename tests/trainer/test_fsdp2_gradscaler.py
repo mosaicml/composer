@@ -9,7 +9,6 @@ import torch.nn.functional as F
 from torch.amp.grad_scaler import GradScaler
 from torch.distributed._tensor import DTensor
 
-from composer.distributed.fsdp2 import prepare_fully_shard
 from composer.utils.parallelism import FSDP2Config
 from tests.common import (
     world_size,
