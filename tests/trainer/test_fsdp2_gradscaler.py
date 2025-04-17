@@ -18,7 +18,7 @@ from tests.trainer.fsdp2_context import fsdp2_context, prepare_fully_shard
 
 class SimpleModel(nn.Module):
     """Simple model for testing FSDP2 with GradScaler.
-    
+
     we need a submodule to test out FSDP2 wrapper.
     """
 
