@@ -72,11 +72,11 @@ class FSDP2Config:
             For 2D mesh, parameters are sharded across the 1st dimension and replicated across the 0th dimension (HSDP).
         reshard_after_forward (Union[bool, int]): Controls parameter behavior after forward.
     """
-    
+
     # Settable core FSDP2 attrs
     device_mesh: Optional[DeviceMesh] = None
     reshard_after_forward: bool | int = True
-    
+
     ### Temporary read-only properties for FSDP 1 compatibility  ###
     # to be supported in FSDP2
     @property
@@ -123,8 +123,8 @@ class FSDP2Config:
     @property
     def use_orig_params(self) -> bool:
         return True
-    
-    def __post_init__(self):        
+
+    def __post_init__(self):
         warnings.warn('FSDP2 Config/APIs are experimental and subject to heavy changes', UserWarning)
 
 

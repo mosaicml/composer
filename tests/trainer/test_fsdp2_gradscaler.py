@@ -1,15 +1,16 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.distributed as dist
-from torch.distributed._tensor import DTensor
-from torch.amp.grad_scaler import GradScaler
+# Copyright 2024 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import pytest
+import torch
+import torch.distributed as dist
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.amp.grad_scaler import GradScaler
+from torch.distributed._tensor import DTensor
 
-from composer.utils.parallelism import FSDP2Config
 from composer.distributed.fsdp2 import prepare_fully_shard
-
+from composer.utils.parallelism import FSDP2Config
 from tests.common import (
     world_size,
 )
@@ -17,6 +18,7 @@ from tests.trainer.fsdp2_context import fsdp2_context, prepare_fully_shard
 
 
 class SimpleModel(nn.Module):
+
     def __init__(self, in_features=2, out_features=2):
         super().__init__()
         self.linear1 = nn.Linear(in_features, out_features, bias=False)
@@ -30,10 +32,10 @@ class SimpleModel(nn.Module):
 @pytest.mark.gpu
 @fsdp2_context
 def test_fsdp2_with_gradscaler_inf(world_size: int):
-    """Test FSDP2 with GradScaler can handle inf in grad."""  
+    """Test FSDP2 with GradScaler can handle inf in grad."""
     # Setup GradScaler for mixed precision training
     scaler = GradScaler(enabled=True)
-    
+
     # Choose dtype
     dtype = torch.float16
 
@@ -45,10 +47,10 @@ def test_fsdp2_with_gradscaler_inf(world_size: int):
     # dummy inputs and targets
     inputs = torch.randn(1, 2, device='cuda', dtype=dtype)
     targets = torch.randn(1, 2, device='cuda', dtype=dtype)
-    
+
     # Zero gradients
     optimizer.zero_grad()
-    
+
     # Forward pass with autocast if using mixed precision
     with torch.amp.autocast(dtype=dtype, device_type='cuda'):
         outputs = model(inputs)
@@ -69,15 +71,15 @@ def test_fsdp2_with_gradscaler_inf(world_size: int):
     # Unscale gradients and check for infs/NaNs
     scaler.unscale_(optimizer)
     assert scaler._found_inf_per_device(optimizer), 'Found infs in gradients'
-    
+
     # Step optimizer, since there is an inf, none of the ranks should update
     assert isinstance(model.linear1.weight, DTensor)
     prev_weight = model.linear1.weight.to_local().clone()
     scaler.step(optimizer)
     new_weight = model.linear1.weight
     assert torch.equal(prev_weight, new_weight.to_local())
-    
+
     scaler.update()
-    
+
     # Synchronize ranks
     dist.destroy_process_group()

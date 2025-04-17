@@ -75,7 +75,7 @@ from composer.utils.object_store import (
     UCObjectStore,
     build_remote_backend,
 )
-from composer.utils.parallelism import FSDPConfig, ParallelismConfig, TPConfig, FSDP2Config
+from composer.utils.parallelism import FSDP2Config, FSDPConfig, ParallelismConfig, TPConfig
 from composer.utils.remote_uploader import RemoteFilesExistingCheckStatus, RemoteUploader
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum

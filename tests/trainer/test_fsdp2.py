@@ -2,24 +2,23 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pathlib
+
 import pytest
 import torch
-from torch.utils.data import DataLoader
 from torch.distributed._tensor import DTensor
+from torch.utils.data import DataLoader
 
 from composer.models import ComposerClassifier
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, load_checkpoint
-from composer.utils.parallelism import FSDPConfig, FSDP2Config, ParallelismConfig
-
+from composer.utils.parallelism import FSDP2Config, FSDPConfig, ParallelismConfig
 from tests.common import (
-    SimpleComposerMLP,
     PartialWeightTiedModel,
     RandomClassificationDataset,
+    SimpleComposerMLP,
     SimpleWeightTiedModel,
     world_size,
 )
-
 from tests.trainer.fsdp2_context import fsdp2_context, prepare_fully_shard
 
 
@@ -28,7 +27,7 @@ def test_fsdp2_config():
     """Test that FSDP2Config read-only properties work as expected."""
     # Create a config instance
     config = FSDP2Config()
-    
+
     # Test reading properties (should succeed)
     assert config.auto_wrap is False
     assert config.load_monolith_rank0_only is False
@@ -38,23 +37,23 @@ def test_fsdp2_config():
     assert config.data_parallel_replicate_degree is None
     assert config.state_dict_type == 'sharded'
     assert config.use_orig_params is True
-    
+
     # Test setting properties (should fail)
     read_only_props = [
-        ("auto_wrap", False),
-        ("load_monolith_rank0_only", True),
-        ("sync_module_states", True),
-        ("activation_cpu_offload", True),
-        ("data_parallel_shard_degree", 2),
-        ("data_parallel_replicate_degree", 2),
-        ("state_dict_type", "full"),
-        ("use_orig_params", False)
+        ('auto_wrap', False),
+        ('load_monolith_rank0_only', True),
+        ('sync_module_states', True),
+        ('activation_cpu_offload', True),
+        ('data_parallel_shard_degree', 2),
+        ('data_parallel_replicate_degree', 2),
+        ('state_dict_type', 'full'),
+        ('use_orig_params', False),
     ]
-    
+
     for prop, value in read_only_props:
         with pytest.raises(AttributeError):
             setattr(config, prop, value)
-    
+
     # Test that core properties can be set
     config.device_mesh = None
     config.reshard_after_forward = False
@@ -74,7 +73,7 @@ def create_trainer_with_model(
     """Helper function to create a Trainer with a model, dataloader, and FSDP2 configuration."""
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
-    
+
     parallelism_config = ParallelismConfig()
     if use_fsdp2:
         # Trainer is not calling prepare_fully_shard yet, so we need to do it manually
@@ -117,13 +116,13 @@ def test_fsdp2_initialization_with_tied_params(
     from separate submodules have weight tying applied.
     """
     model = model_class(num_features=10, device=device)
-    trainer = create_trainer_with_model(
-        model=model,
-    )
+    trainer = create_trainer_with_model(model=model,)
 
     # Initialization checks
     model = trainer.state.model
-    assert isinstance(model, SimpleWeightTiedModel | PartialWeightTiedModel), f'Expected model to be SimpleWeightTiedModel or PartialWeightTiedModel, got {type(model)}'
+    assert isinstance(
+        model, SimpleWeightTiedModel | PartialWeightTiedModel
+    ), f'Expected model to be SimpleWeightTiedModel or PartialWeightTiedModel, got {type(model)}'
     assert isinstance(model.mlp.fc1.weight, DTensor), 'mlp.fc1.weight should be a DTensor'
     assert isinstance(model.mlp.fc2.weight, DTensor), 'mlp.fc2.weight should be a DTensor'
     assert len(model.mlp._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the mlp module'
@@ -157,9 +156,7 @@ def test_fsdp2_checkpointing(
 ):
     """Test FSDP2 checkpointing and weight tying after loading."""
     model = model_class(num_features=10, device=device)
-    trainer = create_trainer_with_model(
-        model=model,
-    )
+    trainer = create_trainer_with_model(model=model,)
 
     # Checkpointing and reloading
     model = trainer.state.model
@@ -171,16 +168,14 @@ def test_fsdp2_checkpointing(
     dist.broadcast_object_list(checkpoint_path, src=0)
     ckpt_path = trainer.save_checkpoint(str(checkpoint_path[0]), weights_only=True)
     assert isinstance(ckpt_path, str)
-    
+
     # cache previous weights for comparison
     weight_1_local = model.mlp.fc1.weight.to_local()
     weight_2_local = model.mlp.fc2.weight.to_local()
 
     # reinitialize the trainer
     new_model = model_class(num_features=10, device=device)
-    trainer = create_trainer_with_model(
-        model=new_model,
-    )
+    trainer = create_trainer_with_model(model=new_model,)
     load_checkpoint(str(pathlib.Path(ckpt_path).parent), trainer.state, trainer.logger, load_weights_only=True)
 
     model = trainer.state.model
@@ -207,7 +202,7 @@ def test_fsdp2_load_from_fsdp1(
     trainer = create_trainer_with_model(
         model=model,
         num_classes=NUM_CLASSES,
-        use_fsdp2=False
+        use_fsdp2=False,
     )
 
     # Checkpointing
@@ -218,7 +213,7 @@ def test_fsdp2_load_from_fsdp1(
     ckpt_path = trainer.save_checkpoint(str(checkpoint_path[0]), weights_only=True)
     assert isinstance(ckpt_path, str)
 
-    # cache previous weights for comparison    
+    # cache previous weights for comparison
     with model.module.summon_full_params(model.module):  # type: ignore
         fsdp1_param = [param.clone() for param in model.parameters()]
 
@@ -227,9 +222,11 @@ def test_fsdp2_load_from_fsdp1(
     trainer = create_trainer_with_model(
         model=model,
         num_classes=NUM_CLASSES,
-        use_fsdp2=True
+        use_fsdp2=True,
     )
     load_checkpoint(str(pathlib.Path(ckpt_path).parent), trainer.state, trainer.logger, load_weights_only=True)
     for (name, param), fsdp1_param in zip(trainer.state.model.named_parameters(recurse=True), fsdp1_param):
         assert isinstance(param, DTensor), f'{name} should be a DTensor'
-        assert torch.equal(fsdp1_param, param.full_tensor()), f'Weights: {name} should be equal after loading, however one is {fsdp1_param} and the other is {param.full_tensor()}'
+        assert torch.equal(
+            fsdp1_param, param.full_tensor()
+        ), f'Weights: {name} should be equal after loading, however one is {fsdp1_param} and the other is {param.full_tensor()}'

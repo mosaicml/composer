@@ -1,8 +1,11 @@
-from packaging import version
-from typing import Optional, Callable
+# Copyright 2024 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
-import torch
+from typing import Callable, Optional
+
 import pytest
+import torch
+from packaging import version
 
 SKIP_TEST = version.parse(torch.__version__) < version.parse('2.6.0')
 if not SKIP_TEST:
