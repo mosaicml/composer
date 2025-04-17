@@ -1663,7 +1663,8 @@ class Trainer:
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 # TODO (FSDP2): support calling FSDP2 wrapper depending on the config type
                 assert isinstance(
-                    self.state.fsdp_config, FSDPConfig
+                    self.state.fsdp_config,
+                    FSDPConfig,
                 ), f'prepare_fsdp_module requires FSDPConfig, got: {type(self.state.fsdp_config)}'
                 self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
                     model,
@@ -1800,7 +1801,8 @@ class Trainer:
         ):
             # TODO (FSDP2): support calling FSDP2 wrapper depending on the config type
             assert isinstance(
-                self.state.fsdp_config, FSDPConfig
+                self.state.fsdp_config,
+                FSDPConfig,
             ), f'prepare_fsdp_module requires FSDPConfig, got: {type(self.state.fsdp_config)}'
             # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):

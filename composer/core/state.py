@@ -1409,7 +1409,8 @@ class State(Serializable):
 
                 # TODO (FSDP2): support calling FSDP2 wrapper depending on the config type
                 assert isinstance(
-                    self.fsdp_config, FSDPConfig
+                    self.fsdp_config,
+                    FSDPConfig,
                 ), f'prepare_fsdp_module requires FSDPConfig, got: {type(self.fsdp_config)}'
                 self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(
                     self.model,

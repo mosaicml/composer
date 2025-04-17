@@ -121,7 +121,8 @@ def test_fsdp2_initialization_with_tied_params(
     # Initialization checks
     model = trainer.state.model
     assert isinstance(
-        model, SimpleWeightTiedModel | PartialWeightTiedModel
+        model,
+        SimpleWeightTiedModel | PartialWeightTiedModel,
     ), f'Expected model to be SimpleWeightTiedModel or PartialWeightTiedModel, got {type(model)}'
     assert isinstance(model.mlp.fc1.weight, DTensor), 'mlp.fc1.weight should be a DTensor'
     assert isinstance(model.mlp.fc2.weight, DTensor), 'mlp.fc2.weight should be a DTensor'
@@ -228,5 +229,6 @@ def test_fsdp2_load_from_fsdp1(
     for (name, param), fsdp1_param in zip(trainer.state.model.named_parameters(recurse=True), fsdp1_param):
         assert isinstance(param, DTensor), f'{name} should be a DTensor'
         assert torch.equal(
-            fsdp1_param, param.full_tensor()
+            fsdp1_param,
+            param.full_tensor(),
         ), f'Weights: {name} should be equal after loading, however one is {fsdp1_param} and the other is {param.full_tensor()}'
