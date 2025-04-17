@@ -12,14 +12,14 @@ To run::
 
 import itertools
 import os
-import re
 import sys
+from typing import Optional
 
 import packaging.version
 import tabulate
 import yaml
 
-PRODUCTION_PYTHON_VERSION = '3.11'
+PRODUCTION_PYTHON_VERSION = '3.12'
 PRODUCTION_PYTORCH_VERSION = '2.6.0'
 
 
@@ -33,18 +33,24 @@ def _get_torchvision_version(pytorch_version: str):
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
+def _version_geq(v1: str, v2: str):
+    return packaging.version.parse(v1) >= packaging.version.parse(v2)
+
+
 def _get_base_image(cuda_version: str):
     if not cuda_version:
         return 'ubuntu:22.04'
-    if cuda_version == '12.4.1':
-        return f'nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04'
+    if _version_geq(cuda_version, '12.2.0'):
+        return f'nvidia/cuda:{cuda_version}-cudnn-devel-ubuntu22.04'
     return f'nvidia/cuda:{cuda_version}-cudnn8-devel-ubuntu22.04'
 
 
-def _get_cuda_version(pytorch_version: str, use_cuda: bool):
+def _get_cuda_version(pytorch_version: str, use_cuda: bool, cuda_variant: Optional[str] = ''):
     # From https://docs.nvidia.com/deeplearning/frameworks/pytorch-release-notes/
     if not use_cuda:
         return ''
+    if cuda_variant:
+        return cuda_variant
     if pytorch_version == '2.6.0':
         return '12.4.1'
     if pytorch_version == '2.5.1':
@@ -106,21 +112,19 @@ def _get_cuda_override(cuda_version: str):
 def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: str, stage: str, interconnect: str):
     if stage == 'pytorch_stage':
         base_image_name = 'mosaicml/pytorch'
-        ghcr_base_image_name = 'ghcr.io/databricks-mosaic/pytorch'
     else:
         raise ValueError(f'Invalid stage: {stage}')
     tags = []
     cuda_version_tag = _get_cuda_version_tag(cuda_version)
     tags += [
         f'{base_image_name}:{pytorch_version}_{cuda_version_tag}-python{python_version}-ubuntu22.04',
-        f'{ghcr_base_image_name}:{pytorch_version}_{cuda_version_tag}-python{python_version}-ubuntu22.04',
     ]
 
     if python_version == PRODUCTION_PYTHON_VERSION and pytorch_version == PRODUCTION_PYTORCH_VERSION:
         if not cuda_version:
-            tags += [f'{base_image_name}:latest_cpu', f'{ghcr_base_image_name}:latest_cpu']
+            tags += [f'{base_image_name}:latest_cpu']
         else:
-            tags += [f'{base_image_name}:latest', f'{ghcr_base_image_name}:latest']
+            tags += [f'{base_image_name}:latest']
 
     if interconnect == 'EFA':
         tags = [f'{tag}-aws' for tag in tags]
@@ -129,15 +133,14 @@ def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: s
 
 def _get_composer_tags(composer_version: str, use_cuda: bool):
     base_image_name = 'mosaicml/composer'
-    ghcr_base_image_name = 'ghcr.io/databricks-mosaic/composer'
 
     tags = []
     if not use_cuda:
-        tags += [f'{base_image_name}:{composer_version}_cpu', f'{ghcr_base_image_name}:{composer_version}_cpu']
-        tags += [f'{base_image_name}:latest_cpu', f'{ghcr_base_image_name}:latest_cpu']
+        tags += [f'{base_image_name}:{composer_version}_cpu']
+        tags += [f'{base_image_name}:latest_cpu']
     else:
-        tags += [f'{base_image_name}:{composer_version}', f'{ghcr_base_image_name}:{composer_version}']
-        tags += [f'{base_image_name}:latest', f'{ghcr_base_image_name}:latest']
+        tags += [f'{base_image_name}:{composer_version}']
+        tags += [f'{base_image_name}:latest']
     print(tags)
     return tags
 
@@ -173,24 +176,47 @@ def _write_table(table_tag: str, table_contents: str):
         print(f"Warning: '{end_table_tag}' not found in contents.")
         post = ''
     new_readme = f'{pre}{begin_table_tag}\n{table_contents}\n{end_table_tag}{post}'
-    new_readme = re.sub(r'`ghcr\.io\S*, ', '', new_readme)
 
     with open(os.path.join(os.path.dirname(__name__), 'README.md'), 'w') as f:
         f.write(new_readme)
 
 
+def _cross_product_extra_cuda(
+    python_pytorch_versions: dict,
+    pytorch_cuda_variants_extra: dict,
+    cuda_options: list,
+    *args,
+):
+    for product in itertools.product(python_pytorch_versions, cuda_options, *args):
+        (python_version, pytorch_version), use_cuda, *rest = product
+        cuda_variants = ['']
+        if use_cuda and pytorch_version in pytorch_cuda_variants_extra:
+            cuda_variants.extend(pytorch_cuda_variants_extra[pytorch_version])
+        for cuda_variant in cuda_variants:
+            yield (python_version, pytorch_version), use_cuda, cuda_variant, *rest
+
+
 def _main():
-    python_pytorch_versions = [('3.11', '2.6.0'), ('3.11', '2.5.1'), ('3.11', '2.4.1')]
+    python_pytorch_versions = [('3.12', '2.6.0'), ('3.12', '2.5.1'), ('3.12', '2.4.1')]
+    pytorch_cuda_variants_extra = {
+        '2.6.0': ['12.6.3'],
+    }  # Extra cuda variants to be built in addition to the defaults
     cuda_options = [True, False]
     stages = ['pytorch_stage']
     interconnects = ['mellanox', 'EFA']  # mellanox is default, EFA needed for AWS
 
     pytorch_entries = []
 
-    for product in itertools.product(python_pytorch_versions, cuda_options, stages, interconnects):
-        (python_version, pytorch_version), use_cuda, stage, interconnect = product
+    for product in _cross_product_extra_cuda(
+        python_pytorch_versions,
+        pytorch_cuda_variants_extra,
+        cuda_options,
+        stages,
+        interconnects,
+    ):
+        (python_version, pytorch_version), use_cuda, cuda_variant, stage, interconnect = product
 
-        cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
+        cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda, cuda_variant=cuda_variant)
 
         entry = {
             'IMAGE_NAME':
@@ -244,7 +270,7 @@ def _main():
     composer_entries = []
 
     # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
-    composer_versions = ['0.29.0']  # Only build images for the latest composer version
+    composer_versions = ['0.30.0']  # Only build images for the latest composer version
     composer_python_versions = [PRODUCTION_PYTHON_VERSION]  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):

@@ -1,4 +1,4 @@
-name: PR Docker/GHCR
+name: PR Docker
 on:
   pull_request:
     branches:
@@ -23,7 +23,7 @@ jobs:
     steps:
     - uses: actions/setup-python@v4
       with:
-        python-version: 3.9
+        python-version: "3.10"
     - uses: actions/checkout@v3
     - id: set-matrix
       run: |
@@ -64,11 +64,8 @@ jobs:
       push: true
       staging: true
       staging-repo: mosaicml/ci-staging
-      ghcr-staging-repo: ghcr.io/databricks-mosaic/ci-staging
       tags: ${{ matrix.TAGS }}
       target: ${{ matrix.TARGET }}
     secrets:
       username: ${{ secrets.DOCKER_HUB_USERNAME }}
       password: ${{ secrets.DOCKER_HUB_PASSWORD }}
-      ghcr_username: ${{ secrets.GHCR_USERNAME }}
-      ghcr_password: ${{ secrets.GHCR_TOKEN }}

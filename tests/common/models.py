@@ -161,7 +161,6 @@ class SimpleWeightTiedModel(ComposerClassifier):
 
     Args:
         num_features (int): number of input features (default: 1)
-        tie_weights (bool): whether or not to tie weights (default: True)
         device (str): the device to initialize the model (default: 'cpu')
     """
 
@@ -182,6 +181,46 @@ class SimpleWeightTiedModel(ComposerClassifier):
         self.net.param_init_fn = self.param_init_fn  # pyright: ignore[reportGeneralTypeIssues]
 
         self.mlp.fc1.weight = self.mlp.fc2.weight
+
+    def param_init_fn(self, module):
+        init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
+
+        if isinstance(module, torch.nn.Linear):
+            init_fn(module.weight)
+            if module.bias is not None:  # pyright: ignore[reportUnnecessaryComparison]
+                torch.nn.init.zeros_(module.bias)
+
+
+class PartialWeightTiedModel(ComposerClassifier):
+    """Small classification model with partially tied weights.
+    Typically this model will be used to test weight tying w/ FSDP
+
+    Args:
+        num_features (int): number of input features (default: 1)
+        device (str): the device to initialize the model (default: 'cpu')
+    """
+
+    def __init__(self, num_features: int = 1, device: str = 'cpu') -> None:
+        mlp = SimpleMLP(num_features, device)
+        mlp.fc1.weight = mlp.fc2.weight
+        # a third fc layer that is not tied to the above mlp
+        fc3 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+
+        net = torch.nn.Sequential(
+            mlp,
+            fc3,
+            torch.nn.Softmax(dim=-1),
+        )
+
+        # fc1 would be a child module of the Sequential module now but only the mlp should be FSDP wrapped
+        # TODO support this or add negative test for this
+        # net.fc1 = mlp.fc1
+
+        super().__init__(module=net, num_classes=num_features)
+        self.mlp = mlp
+        self.fc3 = fc3
+
+        self.module.param_init_fn = self.param_init_fn  # pyright: ignore[reportGeneralTypeIssues]
 
     def param_init_fn(self, module):
         init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
@@ -596,41 +635,6 @@ def configure_tiny_bert_hf_model(use_logits: bool = True) -> HuggingFaceModel:
     return HuggingFaceModel(configure_tiny_bert_model(), configure_tiny_bert_tokenizer(), use_logits)
 
 
-def configure_tiny_deberta_model() -> 'PreTrainedModel':
-    try:
-        from transformers import PreTrainedModel
-        assert isinstance(pytest.tiny_deberta_model, PreTrainedModel)
-        return copy.deepcopy(pytest.tiny_deberta_model)
-    except AttributeError:
-        pytest.skip('Composer installed without NLP support')
-
-
-def configure_tiny_deberta_tokenizer() -> Union['PreTrainedTokenizer', 'PreTrainedTokenizerFast']:
-    try:
-        from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
-        assert isinstance(pytest.tiny_deberta_tokenizer, (PreTrainedTokenizer, PreTrainedTokenizerFast))
-        return copy.deepcopy(pytest.tiny_deberta_tokenizer)
-    except AttributeError:
-        pytest.skip('Composer installed without NLP support')
-
-
-def configure_tiny_deberta_config() -> 'PretrainedConfig':
-    try:
-        from transformers import PretrainedConfig
-        assert isinstance(pytest.tiny_deberta_config, PretrainedConfig)
-        return copy.deepcopy(pytest.tiny_deberta_config)
-    except AttributeError:
-        pytest.skip('Composer installed without NLP support')
-
-
-def configure_tiny_deberta_hf_model(use_logits: bool = True) -> HuggingFaceModel:
-    return HuggingFaceModel(
-        configure_tiny_deberta_model(),
-        configure_tiny_deberta_tokenizer(),
-        use_logits,
-    )
-
-
 def configure_tiny_gpt2_model() -> 'PreTrainedModel':
     try:
         from transformers import PreTrainedModel
@@ -645,15 +649,6 @@ def configure_tiny_gpt2_tokenizer() -> Union['PreTrainedTokenizer', 'PreTrainedT
         from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
         assert isinstance(pytest.tiny_gpt2_tokenizer, (PreTrainedTokenizer, PreTrainedTokenizerFast))
         return copy.deepcopy(pytest.tiny_gpt2_tokenizer)
-    except AttributeError:
-        pytest.skip('Composer installed without NLP support')
-
-
-def configure_tiny_gpt2_config() -> 'PretrainedConfig':
-    try:
-        from transformers import PretrainedConfig
-        assert isinstance(pytest.tiny_gpt2_config, PretrainedConfig)
-        return copy.deepcopy(pytest.tiny_gpt2_config)
     except AttributeError:
         pytest.skip('Composer installed without NLP support')
 
@@ -680,19 +675,6 @@ def configure_tiny_t5_tokenizer() -> Union['PreTrainedTokenizer', 'PreTrainedTok
         pytest.skip('Composer installed without NLP support')
 
 
-def configure_tiny_t5_config() -> 'PretrainedConfig':
-    try:
-        from transformers import PretrainedConfig
-        assert isinstance(pytest.tiny_t5_config, PretrainedConfig)
-        return copy.deepcopy(pytest.tiny_t5_config)
-    except AttributeError:
-        pytest.skip('Composer installed without NLP support')
-
-
-def configure_tiny_t5_hf_model(use_logits: bool = True) -> HuggingFaceModel:
-    return HuggingFaceModel(configure_tiny_t5_model(), configure_tiny_t5_tokenizer(), use_logits)
-
-
 def configure_tiny_mpt_model() -> 'PreTrainedModel':
     try:
         from transformers import PreTrainedModel
@@ -709,16 +691,3 @@ def configure_tiny_mpt_tokenizer() -> Union['PreTrainedTokenizer', 'PreTrainedTo
         return copy.deepcopy(pytest.tiny_mpt_tokenizer)
     except AttributeError:
         pytest.skip('Composer installed without NLP support')
-
-
-def configure_tiny_mpt_config() -> 'PretrainedConfig':
-    try:
-        from transformers import PretrainedConfig
-        assert isinstance(pytest.tiny_mpt_config, PretrainedConfig)
-        return copy.deepcopy(pytest.tiny_mpt_config)
-    except AttributeError:
-        pytest.skip('Composer installed without NLP support')
-
-
-def configure_tiny_mpt_hf_model(use_logits: bool = True) -> HuggingFaceModel:
-    return HuggingFaceModel(configure_tiny_mpt_model(), configure_tiny_mpt_tokenizer(), use_logits)
