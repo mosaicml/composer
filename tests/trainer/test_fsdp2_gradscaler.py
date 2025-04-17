@@ -83,6 +83,3 @@ def test_fsdp2_with_gradscaler_inf(world_size: int):
     assert torch.equal(prev_weight, new_weight.to_local())
 
     scaler.update()
-
-    # Synchronize ranks
-    dist.destroy_process_group()

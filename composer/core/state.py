@@ -43,8 +43,8 @@ from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit, ensure_time
 from composer.devices import Device
 from composer.utils import (
-    FSDPConfig,
     FSDP2Config,
+    FSDPConfig,
     ParallelismConfig,
     ParallelismType,
     TPConfig,
