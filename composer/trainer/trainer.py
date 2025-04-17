@@ -1629,7 +1629,11 @@ class Trainer:
                     f'Using closures and precision {self.state.precision} is not supported'
                     f' with FSDP. Please use another optimizer or precision type.',
                 )
-            self.state.scaler = ShardedGradScaler()
+            if isinstance(self.state.fsdp_config, FSDPConfig):
+                # Per TorchTitan doc and FSDP2 test: test_fsdp2_gradscaler.py,
+                # GradScaler can already handle state synchronization via torch._amp_foreach_non_finite_check_and_unscale_,
+                # so we don't need to use ShardedGradScaler
+                self.state.scaler = ShardedGradScaler()
 
         # suppressing FSDP warning when auto grad accum exits the forward pass before completing
         warnings.filterwarnings(action='ignore', message='Forward order differs from that of the first iteration')
@@ -1657,6 +1661,11 @@ class Trainer:
         if self.state.fsdp_config is not None and self.state.fsdp_config.auto_wrap and not self.state.load_monolith_rank0_only:
             # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
+                # TODO (FSDP2): support calling FSDP2 wrapper depending on the config type
+                assert isinstance(
+                    self.state.fsdp_config,
+                    FSDPConfig,
+                ), f'prepare_fsdp_module requires FSDPConfig, got: {type(self.state.fsdp_config)}'
                 self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
                     model,
                     optimizers,
@@ -1790,6 +1799,11 @@ class Trainer:
             not self.state.fsdp_enabled and self.state.fsdp_config is not None and self.state.fsdp_config.auto_wrap and
             self.state.load_monolith_rank0_only
         ):
+            # TODO (FSDP2): support calling FSDP2 wrapper depending on the config type
+            assert isinstance(
+                self.state.fsdp_config,
+                FSDPConfig,
+            ), f'prepare_fsdp_module requires FSDPConfig, got: {type(self.state.fsdp_config)}'
             # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
                 self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(

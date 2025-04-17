@@ -3,6 +3,7 @@
 
 """Parallelism configs."""
 
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -62,6 +63,72 @@ class FSDPConfig:
 
 
 @dataclass
+class FSDP2Config:
+    """Configuration for Fully Sharded Data Parallelism (FSDP2).
+
+    Args:
+        device_mesh (Optional[DeviceMesh]): The DeviceMesh for sharding. If None, a default 1D mesh is created.
+            For 1D mesh, parameters are fully sharded across the mesh (FSDP).
+            For 2D mesh, parameters are sharded across the 1st dimension and replicated across the 0th dimension (HSDP).
+        reshard_after_forward (Union[bool, int]): Controls parameter behavior after forward.
+    """
+
+    # Settable core FSDP2 attrs
+    device_mesh: Optional[DeviceMesh] = None
+    reshard_after_forward: bool | int = True
+
+    ### Temporary read-only properties for FSDP 1 compatibility  ###
+    # to be supported in FSDP2
+    @property
+    def auto_wrap(self) -> bool:
+        return False
+
+    @property
+    def load_monolith_rank0_only(self) -> bool:
+        return False
+
+    @property
+    def sync_module_states(self) -> bool:
+        return False
+
+    @property
+    def load_planner(self) -> Optional[Any]:
+        return None
+
+    @property
+    def save_planner(self) -> Optional[Any]:
+        return None
+
+    @property
+    def sharded_ckpt_prefix_dir(self) -> str:
+        return 'ep{epoch}-ba{batch}'
+
+    @property
+    def activation_cpu_offload(self) -> bool:
+        return False
+
+    @property
+    def data_parallel_shard_degree(self) -> int:
+        return -1
+
+    @property
+    def data_parallel_replicate_degree(self) -> Optional[int]:
+        return None
+
+    # to be deprecated in FSDP2
+    @property
+    def state_dict_type(self) -> str:
+        return 'sharded'
+
+    @property
+    def use_orig_params(self) -> bool:
+        return True
+
+    def __post_init__(self):
+        warnings.warn('FSDP2 Config/APIs are experimental and subject to heavy changes', UserWarning)
+
+
+@dataclass
 class TPConfig:
     """Configuration for tensor parallelism (TP)."""
     device_mesh: Optional[DeviceMesh] = None
@@ -74,3 +141,4 @@ class ParallelismConfig:
     """Configuration for parallelism."""
     fsdp: Optional[FSDPConfig] = None
     tp: Optional[TPConfig] = None
+    fsdp2: Optional[FSDP2Config] = None
