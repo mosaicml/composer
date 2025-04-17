@@ -10,8 +10,11 @@ from packaging import version
 SKIP_TEST = version.parse(torch.__version__) < version.parse('2.6.0')
 if not SKIP_TEST:
     # TODO (FSDP2) move this to top once we decprecate torch 2.5
-    from composer.distributed.fsdp2 import (get_standalone_and_tied_modules, legalize_param_sharing_between_modules,
-                                            prepare_fully_shard,)
+    from composer.distributed.fsdp2 import (
+        get_standalone_and_tied_modules,
+        legalize_param_sharing_between_modules,
+        prepare_fully_shard,
+    )
 else:
     prepare_fully_shard = lambda *args, **kwargs: None
     legalize_param_sharing_between_modules = lambda *args, **kwargs: None
