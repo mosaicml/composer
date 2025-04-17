@@ -4,7 +4,6 @@
 import pathlib
 import pytest
 import torch
-from packaging import version
 from torch.utils.data import DataLoader
 from torch.distributed._tensor import DTensor
 
@@ -21,12 +20,47 @@ from tests.common import (
     world_size,
 )
 
-SKIP_TEST = version.parse(torch.__version__) < version.parse('2.6.0')
-if not SKIP_TEST:
-    # TODO move this to top once we decprecate torch 2.5
-    from composer.distributed.fsdp2 import prepare_fully_shard
-else:
-    prepare_fully_shard = lambda *args, **kwargs: None
+from tests.trainer.fsdp2_context import fsdp2_context, prepare_fully_shard
+
+
+@fsdp2_context
+def test_fsdp2_config():
+    """Test that FSDP2Config read-only properties work as expected."""
+    # Create a config instance
+    config = FSDP2Config()
+    
+    # Test reading properties (should succeed)
+    assert config.auto_wrap is False
+    assert config.load_monolith_rank0_only is False
+    assert config.sync_module_states is False
+    assert config.activation_cpu_offload is False
+    assert config.data_parallel_shard_degree == -1
+    assert config.data_parallel_replicate_degree is None
+    assert config.state_dict_type == 'sharded'
+    assert config.use_orig_params is True
+    
+    # Test setting properties (should fail)
+    read_only_props = [
+        ("auto_wrap", False),
+        ("load_monolith_rank0_only", True),
+        ("sync_module_states", True),
+        ("activation_cpu_offload", True),
+        ("data_parallel_shard_degree", 2),
+        ("data_parallel_replicate_degree", 2),
+        ("state_dict_type", "full"),
+        ("use_orig_params", False)
+    ]
+    
+    for prop, value in read_only_props:
+        with pytest.raises(AttributeError):
+            setattr(config, prop, value)
+    
+    # Test that core properties can be set
+    config.device_mesh = None
+    config.reshard_after_forward = False
+    assert config.device_mesh is None
+    assert config.reshard_after_forward is False
+
 
 _INIT_DEVICES = ['cuda', 'meta']
 
@@ -44,15 +78,12 @@ def create_trainer_with_model(
     parallelism_config = ParallelismConfig()
     if use_fsdp2:
         # Trainer is not calling prepare_fully_shard yet, so we need to do it manually
-        fsdp2_config = FSDP2Config(
-            device_mesh=None,
-            reshard_after_forward=True,
-        )
+        fsdp2_config = FSDP2Config()
         # NOTE we can only apply FSDP2 to ComposerClassifier's module field until we support auto_wrap
         prepare_fully_shard(model=model.module, fsdp2_config=fsdp2_config)
         # NOTE module to_empty should only happen after the model is fully sharded and parameters are coverted to Dtensor
         # otherwise to_empty breaks weight tying
-        # TODO we should guardrail this in prepare_fully_shard
+        # TODO (FSDP2) we should guardrail this in prepare_fully_shard
         model.to_empty(device='cuda')
         param_init_fn = getattr(model, 'param_init_fn', None)
         if param_init_fn is not None:
@@ -76,8 +107,7 @@ def create_trainer_with_model(
 @pytest.mark.parametrize('device', _INIT_DEVICES)
 @world_size(2)
 @pytest.mark.gpu
-@pytest.mark.filterwarnings('ignore:FSDP2 Config/APIs are experimental*:UserWarning')
-@pytest.mark.skipif(SKIP_TEST, reason='FSDP2 is not available in torch < 2.6.0')
+@fsdp2_context
 def test_fsdp2_initialization_with_tied_params(
     model_class: type,
     device: str,
@@ -118,8 +148,7 @@ def test_fsdp2_initialization_with_tied_params(
 @pytest.mark.parametrize('device', _INIT_DEVICES)
 @world_size(2)
 @pytest.mark.gpu
-@pytest.mark.filterwarnings('ignore:FSDP2 Config/APIs are experimental*:UserWarning')
-@pytest.mark.skipif(SKIP_TEST, reason='FSDP2 is not available in torch < 2.6.0')
+@fsdp2_context
 def test_fsdp2_checkpointing(
     model_class: type,
     device: str,
@@ -166,8 +195,7 @@ def test_fsdp2_checkpointing(
 
 @world_size(2)
 @pytest.mark.gpu
-@pytest.mark.filterwarnings('ignore:FSDP2 Config/APIs are experimental*:UserWarning')
-@pytest.mark.skipif(SKIP_TEST, reason='FSDP2 is not available in torch < 2.6.0')
+@fsdp2_context
 def test_fsdp2_load_from_fsdp1(
     world_size: int,
     tmp_path: pathlib.Path,
@@ -178,7 +206,7 @@ def test_fsdp2_load_from_fsdp1(
     model = SimpleComposerMLP(num_features=NUM_FEATURES, device='cuda', num_classes=NUM_CLASSES)
     trainer = create_trainer_with_model(
         model=model,
-        num_classes=2,
+        num_classes=NUM_CLASSES,
         use_fsdp2=False
     )
 
@@ -189,10 +217,8 @@ def test_fsdp2_load_from_fsdp1(
     dist.broadcast_object_list(checkpoint_path, src=0)
     ckpt_path = trainer.save_checkpoint(str(checkpoint_path[0]), weights_only=True)
     assert isinstance(ckpt_path, str)
-    import os
-    print(f'Checkpoints: {os.listdir(str(pathlib.Path(ckpt_path).parent))}')
-    # cache previous weights for comparison
-    
+
+    # cache previous weights for comparison    
     with model.module.summon_full_params(model.module):  # type: ignore
         fsdp1_param = [param.clone() for param in model.parameters()]
 
@@ -200,52 +226,10 @@ def test_fsdp2_load_from_fsdp1(
     model = SimpleComposerMLP(num_features=NUM_FEATURES, device='cuda', num_classes=NUM_CLASSES)
     trainer = create_trainer_with_model(
         model=model,
-        num_classes=2,
+        num_classes=NUM_CLASSES,
         use_fsdp2=True
     )
     load_checkpoint(str(pathlib.Path(ckpt_path).parent), trainer.state, trainer.logger, load_weights_only=True)
     for (name, param), fsdp1_param in zip(trainer.state.model.named_parameters(recurse=True), fsdp1_param):
         assert isinstance(param, DTensor), f'{name} should be a DTensor'
         assert torch.equal(fsdp1_param, param.full_tensor()), f'Weights: {name} should be equal after loading, however one is {fsdp1_param} and the other is {param.full_tensor()}'
-
-
-@pytest.mark.skipif(SKIP_TEST, reason='FSDP2 is not available in torch < 2.6.0')
-@pytest.mark.filterwarnings('ignore:FSDP2 Config/APIs are experimental*:UserWarning')
-def test_fsdp2_config():
-    """Test that FSDP2Config read-only properties work as expected."""
-    if not SKIP_TEST:
-        # Create a config instance
-        config = FSDP2Config()
-        
-        # Test reading properties (should succeed)
-        assert config.auto_wrap is True
-        assert config.load_monolith_rank0_only is False
-        assert config.sync_module_states is False
-        assert config.activation_cpu_offload is False
-        assert config.data_parallel_shard_degree == -1
-        assert config.data_parallel_replicate_degree is None
-        assert config.state_dict_type == 'sharded'
-        assert config.use_orig_params is True
-        
-        # Test setting properties (should fail)
-        read_only_props = [
-            ("auto_wrap", False),
-            ("load_monolith_rank0_only", True),
-            ("sync_module_states", True),
-            ("activation_cpu_offload", True),
-            ("data_parallel_shard_degree", 2),
-            ("data_parallel_replicate_degree", 2),
-            ("state_dict_type", "full"),
-            ("use_orig_params", False)
-        ]
-        
-        for prop, value in read_only_props:
-            with pytest.raises(AttributeError):
-                setattr(config, prop, value)
-        
-        # Test that core properties can be set
-        config.device_mesh = None
-        config.reshard_after_forward = False
-        assert config.device_mesh is None
-        assert config.reshard_after_forward is False
-
