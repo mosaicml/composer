@@ -216,6 +216,7 @@ def test_fsdp2_load_from_fsdp1(
 
     # cache previous weights for comparison
     with model.module.summon_full_params(model.module):  # type: ignore
+        # need clone since after context exit param be flat again
         fsdp1_param = [param.clone() for param in model.parameters()]
 
     # reinitialize the trainer

@@ -1630,7 +1630,7 @@ class Trainer:
                     f' with FSDP. Please use another optimizer or precision type.',
                 )
             if isinstance(self.state.fsdp_config, FSDPConfig):
-                # Per TorchTitan doc and FSDP2 test: TODO,
+                # Per TorchTitan doc and FSDP2 test: test_fsdp2_gradscaler.py,
                 # GradScaler can already handle state synchronization via torch._amp_foreach_non_finite_check_and_unscale_,
                 # so we don't need to use ShardedGradScaler
                 self.state.scaler = ShardedGradScaler()

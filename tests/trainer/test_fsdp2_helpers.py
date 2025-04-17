@@ -8,15 +8,10 @@ import torch
 import torch.nn as nn
 
 from tests.trainer.fsdp2_context import (
-    SKIP_TEST,
     fsdp2_context,
     get_standalone_and_tied_modules,
     legalize_param_sharing_between_modules,
 )
-
-if not SKIP_TEST:
-    # TODO move this to top once we decprecate torch 2.5
-    from composer.distributed.fsdp2 import get_standalone_and_tied_modules, legalize_param_sharing_between_modules
 
 
 def _context(func: Callable) -> Optional[Callable]:
