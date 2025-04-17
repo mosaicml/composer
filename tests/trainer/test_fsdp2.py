@@ -119,6 +119,7 @@ def test_fsdp2_initialization_with_tied_params(
     from separate submodules have weight tying applied.
     """
     model = model_class(num_features=10, device=device)
+    model.add_fsdp_wrap_attribute_to_children()
     trainer = create_trainer_with_model(model=model,)
 
     # Initialization checks
@@ -160,6 +161,7 @@ def test_fsdp2_checkpointing(
 ):
     """Test FSDP2 checkpointing and weight tying after loading."""
     model = model_class(num_features=10, device=device)
+    model.add_fsdp_wrap_attribute_to_children()
     trainer = create_trainer_with_model(model=model,)
 
     # Checkpointing and reloading
@@ -179,6 +181,7 @@ def test_fsdp2_checkpointing(
 
     # reinitialize the trainer
     new_model = model_class(num_features=10, device=device)
+    new_model.add_fsdp_wrap_attribute_to_children()
     trainer = create_trainer_with_model(model=new_model,)
     load_checkpoint(str(pathlib.Path(ckpt_path).parent), trainer.state, trainer.logger, load_weights_only=True)
 
@@ -203,6 +206,7 @@ def test_fsdp2_load_from_fsdp1(
     NUM_FEATURES = 10
     NUM_CLASSES = 2
     model = SimpleComposerMLP(num_features=NUM_FEATURES, device='cuda', num_classes=NUM_CLASSES)
+    model.add_fsdp_wrap_attribute_to_children()
     trainer = create_trainer_with_model(
         model=model,
         num_classes=NUM_CLASSES,
@@ -224,6 +228,7 @@ def test_fsdp2_load_from_fsdp1(
 
     # reinitialize the trainer
     model = SimpleComposerMLP(num_features=NUM_FEATURES, device='cuda', num_classes=NUM_CLASSES)
+    model.add_fsdp_wrap_attribute_to_children()
     trainer = create_trainer_with_model(
         model=model,
         num_classes=NUM_CLASSES,

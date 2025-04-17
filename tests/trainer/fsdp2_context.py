@@ -14,11 +14,12 @@ if not SKIP_TEST:
     prepare_fully_shard = fsdp2.prepare_fully_shard
     legalize_param_sharing_between_modules = fsdp2.legalize_param_sharing_between_modules
     get_standalone_and_tied_modules = fsdp2.get_standalone_and_tied_modules
+    get_valid_modules_to_shard = fsdp2.get_valid_modules_to_shard
 else:
     prepare_fully_shard = lambda *args, **kwargs: None
     legalize_param_sharing_between_modules = lambda *args, **kwargs: None
     get_standalone_and_tied_modules = lambda *args, **kwargs: ([], set())
-
+    get_valid_modules_to_shard = lambda *args, **kwargs: []
 
 def fsdp2_context(func: Callable) -> Optional[Callable]:
     """Decorator to run tests with models initialized on the meta device for torch version 2.6+."""

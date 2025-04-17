@@ -220,6 +220,49 @@ def apply_fully_shard(
     fully_shard(model, **fully_shard_kwargs)
 
 
+def get_valid_modules_to_shard(model: nn.Module) -> list[nn.Module]:
+    """
+    Identifies modules within the root_module hierarchy that should be wrapped by FSDP,
+    respecting the `_fsdp_wrap` attribute.
+
+    - If a module has `_fsdp_wrap = True`, it is added to the list, and its descendants are not checked further (as we run into issues with tied weights).
+    - If a module has `_fsdp_wrap = False`, it is not added, and its descendants are not checked further (as is the case with FSDP1)
+    - If `_fsdp_wrap` is not set, the module itself is not added, but its children are recursively checked.
+
+    Args:
+        root_module (nn.Module): The root module to start the search from.
+
+    Returns:
+        list[nn.Module]: The list of modules identified for FSDP wrapping based on `_fsdp_wrap`.
+            Modules are returned in depth-first traversal order.
+    """
+    modules_to_wrap = []
+    visited_modules = set()
+
+    def find_modules_to_wrap_recursive(module: nn.Module):
+        if module in visited_modules:
+            return
+        visited_modules.add(module)
+
+        fsdp_wrap_setting = getattr(module, '_fsdp_wrap', None)
+
+        if fsdp_wrap_setting is True:
+            # Found a module to wrap. Add it and stop descending this branch.
+            modules_to_wrap.append(module)
+            return
+        elif fsdp_wrap_setting is False:
+            # Explicitly told not to wrap this module or its descendants. Stop descending.
+            return
+        else:
+            # This module isn't wrapped, check its children.
+            for child_module in module.children():
+                find_modules_to_wrap_recursive(child_module)
+
+    # We start the search from the model itself
+    find_modules_to_wrap_recursive(model)
+
+    return modules_to_wrap
+
 def prepare_fully_shard(
     model: nn.Module,
     optimizer: Optional[torch.optim.Optimizer],
@@ -237,9 +280,13 @@ def prepare_fully_shard(
     # Build the parameter to name mapping
     orig_param_to_name = {p: n for n, p in model.named_parameters(recurse=True)}
 
-    # Get the modules to shard
-    modules_to_shard, _ = get_standalone_and_tied_modules(list(model.children()))
+    # We firstly get the modules that should be sharded given the _fsdp_wrap attribute
+    modules_to_shard = get_valid_modules_to_shard(model)
 
+    # We then filter out the modules that have tied weights
+    modules_to_shard, _ = get_standalone_and_tied_modules(modules_to_shard)
+
+    # Apply FSDP2 to the valid modules and the model itself
     apply_fully_shard(model, modules_to_shard, fsdp2_config)
 
     # If the optimizer is provided, update the optimizer's parameter groups to use the sharded model's DTensor parameters
