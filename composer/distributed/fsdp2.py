@@ -3,8 +3,11 @@
 
 """Helpers for FSDP2."""
 
+import torch
 import torch.nn as nn
 from torch.distributed.fsdp._fully_shard import fully_shard
+from typing import Optional
+import warnings
 
 from composer.utils.parallelism import FSDP2Config
 
@@ -91,6 +94,59 @@ def legalize_param_sharing_between_modules(model: nn.Module, modules_to_shard: l
     _check_param_sharing(model)
 
 
+def update_optimizer_modules(
+    optimizer: torch.optim.Optimizer,
+    model: nn.Module,
+    orig_param_id_to_name: dict[int, str],
+) -> None:
+    """Updates the optimizer's parameter groups to use the sharded model parameters.
+    Assumes no training has occurred yet and the optimizer state is empty. If the optimizer state is not empty,
+    it will be cleared with a warning.
+
+    Args:
+        optimizer (Optimizer): The optimizer to update.
+        modules_to_shard (list[nn.Module]): The modules that will be sharded.
+        model (nn.Module): The parent model that is also sharded.
+        orig_param_id_to_name (dict[int, str]): Mapping from original parameter IDs to their names.
+    """
+    # Check if the optimizer state is empty
+
+    if optimizer.state:
+        warnings.warn(
+            "FSDP2 wrapping assumes the optimizer state is empty (i.e., training has not started). "
+            "but non-empty optimizer state was found. Optimizer state will be cleared."
+        )
+        optimizer.state.clear()
+
+    # Build a mapping from parameter name to sharded parameter (after sharding)
+    name_to_sharded_param = dict(model.named_parameters(recurse=True))
+
+    # Create a mapping from old parameters to new DTensor parameters
+    # Note: if params are tied and the same parameter is in multiple groups, pytorch will raise an error
+    old_to_new_param = {}
+    for group in optimizer.param_groups:
+        for param in group['params']:
+            param_name = orig_param_id_to_name.get(param, None)
+            # Note: the names of the parameters stay the same after sharding so we can do the following.
+            if param_name is not None and param_name in name_to_sharded_param:
+                old_to_new_param[param] = name_to_sharded_param[param_name]
+            else:
+                raise ValueError(f"The same model must be passed to the optimizer and trainer.")
+
+    # Update param groups with new parameters
+    new_param_groups = []
+    for group in optimizer.param_groups:
+        new_group = {k: v for k, v in group.items() if k != 'params'}
+        new_params = [old_to_new_param[param] for param in group['params']]
+        new_group['params'] = new_params
+        new_param_groups.append(new_group)
+
+    # Update param groups
+    optimizer.param_groups.clear()
+    for group in new_param_groups:
+        optimizer.add_param_group(group)
+
+
 def apply_fully_shard(
     model: nn.Module,
     independent_submodules: list[nn.Module],
@@ -147,6 +203,7 @@ def apply_fully_shard(
 
 def prepare_fully_shard(
     model: nn.Module,
+    optimizer: Optional[torch.optim.Optimizer],
     fsdp2_config: FSDP2Config,
 ) -> None:
     """Applies FSDP2's `fully_shard` to the model according to given fsdp2_config.
@@ -158,5 +215,14 @@ def prepare_fully_shard(
     Returns:
         None
     """
+    # Build the paramter to name mapping
+    orig_param_id_to_name = {p: n for n, p in model.named_parameters(recurse=True)}
+
+    # Get the modules to shard
     modules_to_shard, _ = get_standalone_and_tied_modules(list(model.children()))
+
     apply_fully_shard(model, modules_to_shard, fsdp2_config)
+
+    # If the optimizer is provided, update the optimizer's parameter groups to use the sharded model's DTensor parameters
+    if optimizer is not None:
+        update_optimizer_modules(optimizer, model, orig_param_id_to_name)
