@@ -173,7 +173,7 @@ class ConsoleLogger(LoggerDestination):
         self.logged_metrics = {}  # Clear logged metrics before eval so they don't get logged subsequently.
         total_eval_batches = self._get_total_eval_batches(state)
         deciles = np.linspace(0, 1, NUM_EVAL_LOGGING_EVENTS)
-        batch_idxs = np.arange(1, total_eval_batches + 1)
+        batch_idxs = np.arange(1, total_eval_batches + 1).astype(dtype=int)
         if total_eval_batches < NUM_EVAL_LOGGING_EVENTS:
             self.eval_batch_idxs_to_log = list(batch_idxs)
         else:
