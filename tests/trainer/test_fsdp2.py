@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pathlib
+from typing import Optional
 
 import pytest
 import torch
 from torch.distributed._tensor import DTensor
 from torch.utils.data import DataLoader
-from typing import Optional
 
 from composer.models import ComposerClassifier
 from composer.trainer.trainer import Trainer
@@ -237,6 +237,7 @@ def test_fsdp2_load_from_fsdp1(
             param.full_tensor(),
         ), f'Weights: {name} should be equal after loading, however one is {fsdp1_param} and the other is {param.full_tensor()}'
 
+
 @world_size(2)
 @pytest.mark.gpu
 @fsdp2_context
@@ -261,19 +262,27 @@ def test_fsdp2_optimizer_handling(
     if case == 'all_params_one_group':
         optimizer_input = [{'params': all_params_list, 'lr': 0.01}]
     elif case == 'subset_one_group':
-        optimizer_input = [{'params': fc1_params_list, 'lr': 0.02}] # Same as fc2_params_list (since tied weights)
+        optimizer_input = [{'params': fc1_params_list, 'lr': 0.02}]  # Same as fc2_params_list (since tied weights)
     elif case == 'multiple_groups':
         optimizer_input = [
-            {'params': fc1_params_list, 'lr': 0.01}, # Same as fc2_params_list (since tied weights)
-            {'params': fc3_params_list, 'lr': 0.02},
+            {
+                'params': fc1_params_list,
+                'lr': 0.01,
+            },  # Same as fc2_params_list (since tied weights)
+            {
+                'params': fc3_params_list,
+                'lr': 0.02,
+            },
         ]
+    else:
+        raise ValueError(f'Invalid case: {case}')
 
     optimizer = torch.optim.Adam(optimizer_input)
     trainer = create_trainer_with_model(model=model, num_classes=NUM_CLASSES, use_fsdp2=True, optimizer=optimizer)
 
     def validate_optimizer_state(current_optimizer: torch.optim.Optimizer, stage: str):
         assert len(current_optimizer.param_groups) == len(optimizer_input), \
-            f"[{case}/{stage}] Group count mismatch. Expected {len(optimizer_input)}, Got {len(current_optimizer.param_groups)}"
+            f'[{case}/{stage}] Group count mismatch. Expected {len(optimizer_input)}, Got {len(current_optimizer.param_groups)}'
         for i, group in enumerate(current_optimizer.param_groups):
             opt_params = group['params']
             # Check that the number of parameters in the optimizer group matches the number of parameters in the input
@@ -282,24 +291,24 @@ def test_fsdp2_optimizer_handling(
 
             # Check that all parameters are DTensor
             assert all(isinstance(p, DTensor) for p in opt_params), \
-                f"[{case}/{stage}] Group {i}: Not all parameters are DTensors"
+                f'[{case}/{stage}] Group {i}: Not all parameters are DTensors'
 
             # Check that all keys match between input and current groups
             input_keys = set(optimizer_input[i].keys())
             group_keys = set(group.keys())
             assert input_keys == group_keys, \
-                f"[{case}/{stage}] Group {i}: Key mismatch. Expected {input_keys}, Got {group_keys}"
+                f'[{case}/{stage}] Group {i}: Key mismatch. Expected {input_keys}, Got {group_keys}'
 
             # Check values for all keys
             for key in input_keys:
                 if key != 'params':
                     assert group[key] == optimizer_input[i][key], \
-                        f"[{case}/{stage}] Group {i}: {key} mismatch. Expected {optimizer_input[i][key]}, Got {group[key]}"
+                        f'[{case}/{stage}] Group {i}: {key} mismatch. Expected {optimizer_input[i][key]}, Got {group[key]}'
 
     # Validate optimizer state after sharding and before training
-    validate_optimizer_state(optimizer, stage="after_fully_shard")
+    validate_optimizer_state(optimizer, stage='after_fully_shard')
 
     trainer.fit()
 
     # Validate optimizer state after training
-    validate_optimizer_state(optimizer, stage="after_fit")
+    validate_optimizer_state(optimizer, stage='after_fit')

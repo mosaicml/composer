@@ -3,11 +3,12 @@
 
 """Helpers for FSDP2."""
 
+import warnings
+from typing import Optional
+
 import torch
 import torch.nn as nn
 from torch.distributed.fsdp._fully_shard import fully_shard
-from typing import Optional
-import warnings
 
 from composer.utils.parallelism import FSDP2Config
 
@@ -97,7 +98,7 @@ def legalize_param_sharing_between_modules(model: nn.Module, modules_to_shard: l
 def update_optimizer_modules(
     optimizer: torch.optim.Optimizer,
     model: nn.Module,
-    orig_param_id_to_name: dict[int, str],
+    orig_param_id_to_name: dict[torch.nn.Parameter, str],
 ) -> None:
     """Updates the optimizer's parameter groups to use the sharded model parameters.
     Assumes no training has occurred yet and the optimizer state is empty. If the optimizer state is not empty,
@@ -110,11 +111,11 @@ def update_optimizer_modules(
         orig_param_id_to_name (dict[int, str]): Mapping from original parameter IDs to their names.
     """
     # Check if the optimizer state is empty
-
+    # If not, clear it and warn the user
     if optimizer.state:
         warnings.warn(
-            "FSDP2 wrapping assumes the optimizer state is empty (i.e., training has not started). "
-            "but non-empty optimizer state was found. Optimizer state will be cleared."
+            'FSDP2 wrapping assumes the optimizer state is empty (i.e., training has not started). '
+            'but non-empty optimizer state was found. Optimizer state will be cleared.',
         )
         optimizer.state.clear()
 
@@ -131,7 +132,7 @@ def update_optimizer_modules(
             if param_name is not None and param_name in name_to_sharded_param:
                 old_to_new_param[param] = name_to_sharded_param[param_name]
             else:
-                raise ValueError(f"The same model must be passed to the optimizer and trainer.")
+                raise ValueError(f'The same model must be passed to the optimizer and trainer.')
 
     # Update param groups with new parameters
     new_param_groups = []
