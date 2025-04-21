@@ -77,7 +77,7 @@ while True:
 install_requires = [
     'pyyaml>=6.0,<7',
     'tqdm>=4.62.3,<5',
-    'torchmetrics>=1.0,<1.6.1',
+    'torchmetrics>=1.0,<1.7.2',
     'torch_optimizer>=0.3.0,<0.4',
     'torchvision>=0.19.0,<0.21.1',
     'torch>=2.4.0,<2.6.1',
