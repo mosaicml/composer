@@ -76,7 +76,11 @@ class MlflowMonitorProcess(multiprocessing.Process):
             client.set_terminated(self.mlflow_run_id, status='FAILED')
 
     def stop(self):
+        log.debug("Setting exit event")
+        print("Setting exit event")
         self.exit_event.set()
+        log.debug("Setting exit event done")
+        print("Setting exit event done")
 
     def crash(self):
         self.crash_event.set()
