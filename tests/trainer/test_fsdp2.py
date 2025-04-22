@@ -312,3 +312,23 @@ def test_fsdp2_optimizer_handling(
 
     # Validate optimizer state after training
     validate_optimizer_state(optimizer, stage='after_fit')
+
+
+@world_size(2)
+@pytest.mark.gpu
+@fsdp2_context
+def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(world_size: int,):
+    """Test FSDP2 raises an error when the optimizer modules don't match the model modules."""
+    del world_size
+
+    NUM_FEATURES = 10
+    NUM_CLASSES = 10
+    model = SimpleComposerMLP(num_features=NUM_FEATURES, device='cuda', num_classes=NUM_CLASSES)
+    other_model = SimpleWeightTiedModel(num_features=NUM_FEATURES, device='cuda')
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    with pytest.raises(ValueError) as e:
+        create_trainer_with_model(model=other_model, num_classes=NUM_CLASSES, use_fsdp2=True, optimizer=optimizer)
+    # Check that error message uses the correct prefix implying optimizer difference
+    # We check with `optimizer.param_id.` (with the period) since `optimizer.param_id` exists
+    # by default in the error message's legend
+    assert 'optimizer.param_id.' in str(e.value)

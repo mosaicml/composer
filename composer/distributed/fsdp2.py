@@ -98,9 +98,10 @@ def legalize_param_sharing_between_modules(model: nn.Module, modules_to_shard: l
 def update_optimizer_modules(
     optimizer: torch.optim.Optimizer,
     model: nn.Module,
-    orig_param_id_to_name: dict[torch.nn.Parameter, str],
+    orig_param_to_name: dict[torch.nn.Parameter, str],
 ) -> None:
     """Updates the optimizer's parameter groups to use the sharded model parameters.
+
     Assumes no training has occurred yet and the optimizer state is empty. If the optimizer state is not empty,
     it will be cleared with a warning.
 
@@ -108,7 +109,7 @@ def update_optimizer_modules(
         optimizer (Optimizer): The optimizer to update.
         modules_to_shard (list[nn.Module]): The modules that will be sharded.
         model (nn.Module): The parent model that is also sharded.
-        orig_param_id_to_name (dict[int, str]): Mapping from original parameter IDs to their names.
+        orig_param_to_name (dict[torch.nn.Parameter, str]): Mapping from original parameters to their names.
     """
     # Check if the optimizer state is empty
     # If not, clear it and warn the user
@@ -125,14 +126,32 @@ def update_optimizer_modules(
     # Create a mapping from old parameters to new DTensor parameters
     # Note: if params are tied and the same parameter is in multiple groups, pytorch will raise an error
     old_to_new_param = {}
+    unseen_params = set()
     for group in optimizer.param_groups:
         for param in group['params']:
-            param_name = orig_param_id_to_name.get(param, None)
             # Note: the names of the parameters stay the same after sharding so we can do the following.
-            if param_name is not None and param_name in name_to_sharded_param:
-                old_to_new_param[param] = name_to_sharded_param[param_name]
+            param_name = orig_param_to_name.get(param, None)
+            if param_name is None:
+                # This means that the parameter is not in the original model
+                # And as `apply_fully_shard` takes in the optimizer itself, we don't have a way to
+                # identify the parameter name so we just use the id
+                unseen_params.add(f'optimizer.param_id.{id(param)}')
+            elif param_name not in name_to_sharded_param:
+                # This means that the base model parameter is not in the sharded model
+                # This should never happen, we note this in the error message
+                unseen_params.add(f'model.param_name.{param_name}')
             else:
-                raise ValueError(f'The same model must be passed to the optimizer and trainer.')
+                old_to_new_param[param] = name_to_sharded_param[param_name]
+
+    # Raise an error with all the parameters that were not found in the sharded model
+    if len(unseen_params) > 0:
+        raise ValueError(
+            f'The same model must be passed to the optimizer and trainer but the '
+            f'following parameters were not found in the sharded model: {list(unseen_params)}.'
+            'All parameters prefixed with "optimizer.param_id" imply that the optimizer has the wrong model.'
+            'All parameters prefixed with "model.param_name" imply a significant issue where sharding '
+            'has not been applied correctly.',
+        )
 
     # Update param groups with new parameters
     new_param_groups = []
@@ -216,8 +235,8 @@ def prepare_fully_shard(
     Returns:
         None
     """
-    # Build the paramter to name mapping
-    orig_param_id_to_name = {p: n for n, p in model.named_parameters(recurse=True)}
+    # Build the parameter to name mapping
+    orig_param_to_name = {p: n for n, p in model.named_parameters(recurse=True)}
 
     # Get the modules to shard
     modules_to_shard, _ = get_standalone_and_tied_modules(list(model.children()))
@@ -226,4 +245,4 @@ def prepare_fully_shard(
 
     # If the optimizer is provided, update the optimizer's parameter groups to use the sharded model's DTensor parameters
     if optimizer is not None:
-        update_optimizer_modules(optimizer, model, orig_param_id_to_name)
+        update_optimizer_modules(optimizer, model, orig_param_to_name)
