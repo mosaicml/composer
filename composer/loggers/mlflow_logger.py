@@ -57,8 +57,8 @@ class MlflowMonitorProcess(spawn_context.Process):
             client.set_terminated(self.mlflow_run_id, status='KILLED')
 
     def run(self):
-        self.exit_event = threading.Event()
-        self.crash_event = threading.Event()
+        self.exit_event = threading.Event()  # type: ignore
+        self.crash_event = threading.Event()  # type: ignore
 
         from mlflow import MlflowClient
 
@@ -91,9 +91,11 @@ class MlflowMonitorProcess(spawn_context.Process):
             client.set_terminated(self.mlflow_run_id, status='FAILED')
 
     def stop(self):
+        assert self.pid is not None
         os.kill(self.pid, signal.SIGUSR1)
 
     def crash(self):
+        assert self.pid is not None
         os.kill(self.pid, signal.SIGUSR2)
 
 
