@@ -4,22 +4,20 @@
 """Helpers for FSDP2."""
 
 import warnings
-from typing import Callable, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 import torch
 import torch.nn as nn
 from torch.distributed.fsdp._fully_shard import fully_shard
+from torch.distributed.fsdp.wrap import CustomPolicy
 
 from composer.utils.parallelism import FSDP2Config
 
 
-def _generate_default_policy(parent_model: nn.Module) -> Callable[[nn.Module], Union[bool, dict, None]]:
-    # Similar to dist_strategy.py (FSDP1 implementation)
-    # The difference is that we can also return None to indicate that the module should not be wrapped,
-    # but to continue checking descendants. FSDP1 does a flat scan of all submodules using .modules()
-    # so we need to work around that using our recursive function.
-    def lambda_fn(current_module: nn.Module) -> Union[bool, dict, None]:
-        ret = None
+def _generate_default_policy(parent_model: nn.Module) -> CustomPolicy:
+    # The same policy as FSDP1
+    def lambda_fn(current_module: nn.Module) -> Union[bool, Dict[str, Any]]:
+        ret = False
         if hasattr(current_module, '_fsdp_wrap'):
             ret = bool(current_module._fsdp_wrap)
         elif hasattr(parent_model, 'fsdp_wrap_fn') and isinstance(parent_model.fsdp_wrap_fn, Callable):
@@ -30,35 +28,17 @@ def _generate_default_policy(parent_model: nn.Module) -> Callable[[nn.Module], U
                     'fsdp_wrap_fn must return a dict with keys "mesh" or "device_mesh" and "reshard_after_forward"'
         return ret
 
-    return lambda_fn
-
-
-def _find_direct_children_to_wrap(
-    module: nn.Module,
-    auto_wrap_policy: Callable[[nn.Module], Union[bool, dict, None]],
-) -> tuple[list[nn.Module], dict[nn.Module, dict]]:
-    """Identifies direct children of a module that should be wrapped based on the policy."""
-    candidates = []
-    candidate_kwargs = {}
-    for child in module.children():
-        policy_result = auto_wrap_policy(child)
-        if policy_result is True:
-            candidates.append(child)
-        elif isinstance(policy_result, dict):
-            candidates.append(child)
-            candidate_kwargs[child] = policy_result
-    return candidates, candidate_kwargs
+    return CustomPolicy(lambda_fn)
 
 
 def _recursive_apply_fully_shard(
     root_module: nn.Module,
     module: nn.Module,
-    auto_wrap_policy: Callable[[nn.Module], Union[bool, dict, None]],
-    default_kwargs: dict,
+    target_modules_to_kwargs: dict[nn.Module, dict],
 ) -> None:
     """Recursive helper to apply fully_shard based on policy and legalization."""
-    # 1. Identify direct children candidates for sharding based on the policy
-    child_candidates, child_candidate_kwargs = _find_direct_children_to_wrap(module, auto_wrap_policy)
+    # 1. Identify direct children candidates for sharding based on whether they are in target_modules_to_kwargs
+    child_candidates = [child for child in module.children() if child in target_modules_to_kwargs]
 
     # 2. Legalize child candidates
     standalone_child_candidates: list[nn.Module] = []
@@ -77,11 +57,12 @@ def _recursive_apply_fully_shard(
 
     # 3. Recurse on module's children for downstream sharding
     for child in module.children():
-        _recursive_apply_fully_shard(root_module, child, auto_wrap_policy, default_kwargs)
+        _recursive_apply_fully_shard(root_module, child, target_modules_to_kwargs)
 
     # 4. Apply fully_shard to the standalone children identified earlier (Post-order application)
+    # Note that all modules that we fully_shard will be in target_modules_to_kwargs
     for child in standalone_child_candidates:
-        kwargs = child_candidate_kwargs.get(child, default_kwargs)
+        kwargs = target_modules_to_kwargs[child]
         fully_shard(child, **kwargs)
 
 
@@ -257,7 +238,7 @@ def update_optimizer_modules(
 def apply_fully_shard(
     model: nn.Module,
     fsdp2_config: FSDP2Config,
-    auto_wrap_policy: Callable[[nn.Module], Union[bool, dict, None]],
+    auto_wrap_policy: CustomPolicy,
 ) -> None:
     """Applies FSDP2's `fully_shard` to the specified modules and then to the parent model.
 
@@ -266,7 +247,7 @@ def apply_fully_shard(
     Args:
         model (torch.nn.Module): The parent model.
         fsdp2_config (FSDP2Config): The FSDP2 configuration.
-        auto_wrap_policy (Callable[[nn.Module], Union[bool, Dict, None]]): The policy to apply to the model.
+        auto_wrap_policy (CustomPolicy): The policy to apply to the model.
 
     Returns:
         None
@@ -279,8 +260,11 @@ def apply_fully_shard(
     # Define the default kwargs for fully_shard
     fully_shard_kwargs = {'mesh': fsdp2_config.device_mesh, 'reshard_after_forward': fsdp2_config.reshard_after_forward}
 
-    # Apply fully_shard to each relevant submodule defined by the policy
-    _recursive_apply_fully_shard(model, model, auto_wrap_policy, fully_shard_kwargs)
+    # Get a dictionary of all submodules to wrap and their kwargs
+    target_modules_to_kwargs = auto_wrap_policy._run_policy(root_module=model, ignored_modules=set(), root_kwargs=fully_shard_kwargs)
+
+    # Recursively apply fully_shard to each relevant submodule defined by the policy (and the corresponding target_modules_to_kwargs)
+    _recursive_apply_fully_shard(model, model, target_modules_to_kwargs)
 
     # Apply fully_shard to the model itself
     fully_shard(model, **fully_shard_kwargs)
@@ -290,14 +274,14 @@ def prepare_fully_shard(
     model: nn.Module,
     optimizer: Optional[torch.optim.Optimizer],
     fsdp2_config: FSDP2Config,
-    auto_wrap_policy: Optional[Callable[[nn.Module], Union[bool, dict, None]]] = None,
+    auto_wrap_policy: Optional[CustomPolicy] = None,
 ) -> None:
     """Applies FSDP2's `fully_shard` to the model according to given fsdp2_config.
 
     Args:
         model (torch.nn.Module): The model to prepare.
         fsdp2_config (FSDP2Config): The FSDP2 configuration.
-        auto_wrap_policy (Callable[[nn.Module], Union[bool, Dict, None]]): The policy to apply to the model.
+        auto_wrap_policy (CustomPolicy): The policy to apply to the model.
 
     Returns:
         None

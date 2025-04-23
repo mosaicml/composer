@@ -468,7 +468,52 @@ def test_deep_nested_model_with_tied_weights_and_fsdp_wrap_mechanics(world_size:
     m1 = DeepNestedModel()
     m1.m2._fsdp_wrap = False  # type: ignore
     m1.m2.m3._fsdp_wrap = True  # type: ignore
-    _recursive_apply_fully_shard(m1, m1.m2, _generate_default_policy(m1), {})
+    auto_wrap_policy = _generate_default_policy(m1)
+    target_modules_to_kwargs = auto_wrap_policy._run_policy(root_module=m1, ignored_modules=set(), root_kwargs={})
+    _recursive_apply_fully_shard(m1, m1, target_modules_to_kwargs)
     assert isinstance(m1.m2.m3.weight, DTensor), 'm1.m2.m3.weight should be a DTensor'  # type: ignore
     assert not isinstance(m1.m2.m4.weight, DTensor), 'm1.m2.m4.weight should not be a DTensor'  # type: ignore
     assert not isinstance(m1.m5.m6.weight, DTensor), 'm1.m5.m6.weight should not be a DTensor'  # type: ignore
+
+    # Testing parent (M2) sharing weights with child (M3) - this should work since parent has _fsdp_wrap=True
+    # and will wrap both parent and child together
+    m1 = DeepNestedModel()
+    m1.m2._fsdp_wrap = True  # type: ignore
+    m1.m2.weight = m1.m2.m3.weight  # type: ignore
+    opt = torch.optim.Adam(m1.parameters(), lr=0.01)
+    prepare_fully_shard(m1, opt, fsdp2_config)
+    assert isinstance(m1.m2.weight, DTensor), 'm1.m2.weight should be a DTensor'  # type: ignore
+    assert isinstance(m1.m2.m3.weight, DTensor), 'm1.m2.m3.weight should be a DTensor'  # type: ignore
+    assert id(m1.m2.weight) == id(m1.m2.m3.weight), 'm1.m2.weight and m1.m2.m3.weight should be the same object'  # type: ignore
+
+    # Testing parent (M2) sharing weights with child (M3) - this shouldn't work since M3 is asking to be wrapped
+    # when it can't because it shares weights with M2 (which also requests to be wrapped)
+    m1 = DeepNestedModel()
+    m1.m2._fsdp_wrap = True  # type: ignore
+    m1.m2.m3._fsdp_wrap = True  # type: ignore
+    m1.m2.weight = m1.m2.m3.weight  # type: ignore
+    opt = torch.optim.Adam(m1.parameters(), lr=0.01)
+    with pytest.raises(ValueError) as e:
+        prepare_fully_shard(m1, opt, fsdp2_config)
+    assert str(e.value).startswith('Parameter sharing'), str(e.value)
+
+    # Testing parent (M2) sharing weights with child (M3) - this shouldn't work since M3 is asking to be wrapped
+    # when it can't because it shares weights with M2 (which also requests to be wrapped)
+    m1 = DeepNestedModel()
+    m1.m2.m3._fsdp_wrap = True  # type: ignore
+    m1.m2.weight = m1.m2.m3.weight  # type: ignore
+    opt = torch.optim.Adam(m1.parameters(), lr=0.01)
+    with pytest.raises(ValueError) as e:
+        prepare_fully_shard(m1, opt, fsdp2_config)
+    assert str(e.value).startswith('Parameter sharing'), str(e.value)
+
+    # Testing parent (M2) sharing weights with child (M3) and other branch (M5) - this should work since parent has _fsdp_wrap=True
+    # and will wrap both parent and child together
+    m1 = DeepNestedModel()
+    m1.m2._fsdp_wrap = True  # type: ignore
+    m1.m2.weight = m1.m2.m3.weight  # type: ignore
+    m1.m2.m3.weight = m1.m5.m6.weight  # type: ignore
+    opt = torch.optim.Adam(m1.parameters(), lr=0.01)
+    with pytest.raises(ValueError) as e:
+        prepare_fully_shard(m1, opt, fsdp2_config)
+    assert str(e.value).startswith('Parameter sharing'), str(e.value)
