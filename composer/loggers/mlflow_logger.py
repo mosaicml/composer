@@ -304,14 +304,14 @@ class MLFlowLogger(LoggerDestination):
             tags=self.tags,
             log_system_metrics=self.log_system_metrics,
         )
-        # if self.tracking_uri == 'databricks':
+        if self.tracking_uri == 'databricks':
             # Start a background process to monitor the job to report the job status to MLflow.
-            # self.monitor_process = MlflowMonitorProcess(
-            #     os.getpid(),
-            #     self._run_id,
-            #     self.tracking_uri,
-            # )
-            # self.monitor_process.start()
+            self.monitor_process = MlflowMonitorProcess(
+                os.getpid(),
+                self._run_id,
+                self.tracking_uri,
+            )
+            self.monitor_process.start()
 
     def _global_exception_handler(self, original_excepthook, exc_type, exc_value, exc_traceback):
         """Catch global exception."""
