@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pathlib
+from typing import Optional
 
 import pytest
 import torch
@@ -69,6 +70,7 @@ def create_trainer_with_model(
     num_classes: int = 10,
     max_duration: str = '10ep',
     use_fsdp2: bool = True,
+    optimizer: Optional[torch.optim.Optimizer] = None,
 ) -> Trainer:
     """Helper function to create a Trainer with a model, dataloader, and FSDP2 configuration."""
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
@@ -79,7 +81,7 @@ def create_trainer_with_model(
         # Trainer is not calling prepare_fully_shard yet, so we need to do it manually
         fsdp2_config = FSDP2Config()
         # NOTE we can only apply FSDP2 to ComposerClassifier's module field until we support auto_wrap
-        prepare_fully_shard(model=model.module, fsdp2_config=fsdp2_config)
+        prepare_fully_shard(model=model.module, fsdp2_config=fsdp2_config, optimizer=optimizer)
         # NOTE module to_empty should only happen after the model is fully sharded and parameters are coverted to Dtensor
         # otherwise to_empty breaks weight tying
         # TODO (FSDP2) we should guardrail this in prepare_fully_shard
@@ -91,7 +93,8 @@ def create_trainer_with_model(
         parallelism_config.fsdp2 = fsdp2_config
     else:
         parallelism_config.fsdp = FSDPConfig(state_dict_type='sharded')
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
+    if optimizer is None:
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
     trainer = Trainer(
         model=model,
         optimizers=optimizer,
@@ -233,3 +236,99 @@ def test_fsdp2_load_from_fsdp1(
             fsdp1_param,
             param.full_tensor(),
         ), f'Weights: {name} should be equal after loading, however one is {fsdp1_param} and the other is {param.full_tensor()}'
+
+
+@world_size(2)
+@pytest.mark.gpu
+@fsdp2_context
+@pytest.mark.parametrize('case', ['all_params_one_group', 'subset_one_group', 'multiple_groups'])
+@pytest.mark.parametrize('device', _INIT_DEVICES)
+def test_fsdp2_optimizer_handling(
+    world_size: int,
+    case: str,
+    device: str,
+):
+    """Test FSDP2 correctly updates optimizer state for various configurations."""
+    del world_size
+
+    NUM_FEATURES = 10
+    NUM_CLASSES = 10
+    model = PartialWeightTiedModel(num_features=NUM_FEATURES, device=device)
+
+    all_params_list = list(model.parameters())
+    fc1_params_list = list(model.mlp.fc1.parameters())
+    fc3_params_list = list(model.fc3.parameters())
+
+    if case == 'all_params_one_group':
+        optimizer_input = [{'params': all_params_list, 'lr': 0.01}]
+    elif case == 'subset_one_group':
+        optimizer_input = [{'params': fc1_params_list, 'lr': 0.02}]  # Same as fc2_params_list (since tied weights)
+    elif case == 'multiple_groups':
+        optimizer_input = [
+            {
+                'params': fc1_params_list,
+                'lr': 0.01,
+            },  # Same as fc2_params_list (since tied weights)
+            {
+                'params': fc3_params_list,
+                'lr': 0.02,
+            },
+        ]
+    else:
+        raise ValueError(f'Invalid case: {case}')
+
+    optimizer = torch.optim.Adam(optimizer_input)
+    trainer = create_trainer_with_model(model=model, num_classes=NUM_CLASSES, use_fsdp2=True, optimizer=optimizer)
+
+    def validate_optimizer_state(current_optimizer: torch.optim.Optimizer, stage: str):
+        assert len(current_optimizer.param_groups) == len(optimizer_input), \
+            f'[{case}/{stage}] Group count mismatch. Expected {len(optimizer_input)}, Got {len(current_optimizer.param_groups)}'
+        for i, group in enumerate(current_optimizer.param_groups):
+            opt_params = group['params']
+            # Check that the number of parameters in the optimizer group matches the number of parameters in the input
+            assert len(opt_params) == len(optimizer_input[i]['params']), \
+                f"[{case}/{stage}] Group {i}: Param count mismatch. Expected {len(optimizer_input[i]['params'])}, Got {len(opt_params)}"
+
+            # Check that all parameters are DTensor
+            assert all(isinstance(p, DTensor) for p in opt_params), \
+                f'[{case}/{stage}] Group {i}: Not all parameters are DTensors'
+
+            # Check that all keys match between input and current groups
+            input_keys = set(optimizer_input[i].keys())
+            group_keys = set(group.keys())
+            assert input_keys == group_keys, \
+                f'[{case}/{stage}] Group {i}: Key mismatch. Expected {input_keys}, Got {group_keys}'
+
+            # Check values for all keys
+            for key in input_keys:
+                if key != 'params':
+                    assert group[key] == optimizer_input[i][key], \
+                        f'[{case}/{stage}] Group {i}: {key} mismatch. Expected {optimizer_input[i][key]}, Got {group[key]}'
+
+    # Validate optimizer state after sharding and before training
+    validate_optimizer_state(optimizer, stage='after_fully_shard')
+
+    trainer.fit()
+
+    # Validate optimizer state after training
+    validate_optimizer_state(optimizer, stage='after_fit')
+
+
+@world_size(2)
+@pytest.mark.gpu
+@fsdp2_context
+def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(world_size: int,):
+    """Test FSDP2 raises an error when the optimizer modules don't match the model modules."""
+    del world_size
+
+    NUM_FEATURES = 10
+    NUM_CLASSES = 10
+    model = SimpleComposerMLP(num_features=NUM_FEATURES, device='cuda', num_classes=NUM_CLASSES)
+    other_model = SimpleWeightTiedModel(num_features=NUM_FEATURES, device='cuda')
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    with pytest.raises(ValueError) as e:
+        create_trainer_with_model(model=other_model, num_classes=NUM_CLASSES, use_fsdp2=True, optimizer=optimizer)
+    # Check that error message uses the correct prefix implying optimizer difference
+    # We check with `optimizer.param_id.` (with the period) since `optimizer.param_id` exists
+    # by default in the error message's legend
+    assert 'optimizer.param_id.' in str(e.value)
