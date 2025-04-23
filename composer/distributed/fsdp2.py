@@ -3,17 +3,18 @@
 
 """Helpers for FSDP2."""
 
+
 import warnings
-from typing import Optional
+from typing import Callable, Optional, Union
 
 import torch
 import torch.nn as nn
 from torch.distributed.fsdp._fully_shard import fully_shard
-from typing import Callable, Optional, Union, Dict
 
 from composer.utils.parallelism import FSDP2Config
 
-def generate_default_policy(parent_model: nn.Module) -> Callable[[nn.Module], Union[bool, Dict, None]]:
+
+def _generate_default_policy(parent_model: nn.Module) -> Callable[[nn.Module], Union[bool, dict, None]]:
     # Similar to dist_strategy.py (FSDP1 implementation)
     # The difference is that we can also return None to indicate that the module should not be wrapped,
     # but to continue checking descendants. FSDP1 does a flat scan of all submodules using .modules()
@@ -30,13 +31,14 @@ def generate_default_policy(parent_model: nn.Module) -> Callable[[nn.Module], Un
                     'reshard_after_forward': ret['reshard_after_forward'],
                 }
         return ret
+
     return lambda_fn
 
 
 def _find_direct_children_to_wrap(
     module: nn.Module,
-    auto_wrap_policy: Callable[[nn.Module], Union[bool, Dict, None]],
-) -> tuple[list[nn.Module], Dict[nn.Module, Dict]]:
+    auto_wrap_policy: Callable[[nn.Module], Union[bool, dict, None]],
+) -> tuple[list[nn.Module], dict[nn.Module, dict]]:
     """Identifies direct children of a module that should be wrapped based on the policy."""
     candidates = []
     candidate_kwargs = {}
@@ -50,24 +52,28 @@ def _find_direct_children_to_wrap(
     return candidates, candidate_kwargs
 
 
-def legalize_fsdp_wrap_policy(module: nn.Module, auto_wrap_policy: Callable[[nn.Module], Union[bool, Dict, None]]) -> None:
+def legalize_fsdp_wrap_policy(
+    module: nn.Module,
+    auto_wrap_policy: Callable[[nn.Module], Union[bool, dict, None]],
+) -> None:
     """Legalizes the FSDP wrap policy by ensuring that no submodule has _fsdp_wrap set to True if if the ancestor has _fsdp_wrap set to False."""
-    assert auto_wrap_policy(module) is False, "The root module must not be wrapped"
+    assert auto_wrap_policy(module) is False, 'The root module must not be wrapped'
     for submodule in module.modules():
         submodule_policy = auto_wrap_policy(submodule)
         if submodule_policy is True or isinstance(submodule_policy, dict):
-            raise ValueError(f"Submodule {submodule} has _fsdp_wrap set to True even though its ancestor {module} has _fsdp_wrap set to False. "
-                             f"This will cause errors with FSDP. Please adjust the auto_wrap_policy accordingly.")
+            raise ValueError(
+                f'Submodule {submodule} has _fsdp_wrap set to True even though its ancestor {module} has _fsdp_wrap set to False. '
+                f'This will cause errors with FSDP. Please adjust the auto_wrap_policy accordingly.',
+            )
 
 
 def _recursive_apply_fully_shard(
     module: nn.Module,
     fsdp2_config: FSDP2Config,
-    auto_wrap_policy: Callable[[nn.Module], Union[bool, Dict, None]],
-    default_kwargs: Dict,
+    auto_wrap_policy: Callable[[nn.Module], Union[bool, dict, None]],
+    default_kwargs: dict,
 ) -> None:
     """Recursive helper to apply fully_shard based on policy and legalization."""
-
     # 1. Identify direct children candidates for sharding based on the policy
     child_candidates, child_candidate_kwargs = _find_direct_children_to_wrap(module, auto_wrap_policy)
 
@@ -78,9 +84,9 @@ def _recursive_apply_fully_shard(
         standalone_child_candidates, tied_children = get_standalone_and_tied_modules(child_candidates)
         if tied_children:
             raise ValueError(
-                f"Detected tied parameters between modules designated for FSDP wrapping within {type(module).__name__}. "
-                f"FSDP cannot wrap modules with tied parameters independently at the same level. "
-                f"Please adjust the auto_wrap_policy to ensure no parameter sharing exists between modules to be sharded."
+                f'Detected tied parameters between modules designated for FSDP wrapping within {type(module).__name__}. '
+                f'FSDP cannot wrap modules with tied parameters independently at the same level. '
+                f'Please adjust the auto_wrap_policy to ensure no parameter sharing exists between modules to be sharded.',
             )
 
         # Check for tying between candidates and the parent/other non-candidate children
@@ -274,7 +280,7 @@ def update_optimizer_modules(
 def apply_fully_shard(
     model: nn.Module,
     fsdp2_config: FSDP2Config,
-    auto_wrap_policy: Callable[[nn.Module], Union[bool, Dict, None]],
+    auto_wrap_policy: Callable[[nn.Module], Union[bool, dict, None]],
 ) -> None:
     """Applies FSDP2's `fully_shard` to the specified modules and then to the parent model.
 
@@ -310,7 +316,7 @@ def prepare_fully_shard(
     model: nn.Module,
     optimizer: Optional[torch.optim.Optimizer],
     fsdp2_config: FSDP2Config,
-    auto_wrap_policy: Optional[Callable[[nn.Module], Union[bool, Dict, None]]] = None,
+    auto_wrap_policy: Optional[Callable[[nn.Module], Union[bool, dict, None]]] = None,
 ) -> None:
     """Applies FSDP2's `fully_shard` to the model according to given fsdp2_config.
 
@@ -318,6 +324,7 @@ def prepare_fully_shard(
         model (torch.nn.Module): The model to prepare.
         fsdp2_config (FSDP2Config): The FSDP2 configuration.
         auto_wrap_policy (Callable[[nn.Module], Union[bool, Dict, None]]): The policy to apply to the model.
+
     Returns:
         None
     """
@@ -326,7 +333,7 @@ def prepare_fully_shard(
     
     # If the auto_wrap_policy is not provided, generate the default policy
     if auto_wrap_policy is None:
-        auto_wrap_policy = generate_default_policy(model)
+        auto_wrap_policy = _generate_default_policy(model)
 
     apply_fully_shard(model, fsdp2_config, auto_wrap_policy)
 

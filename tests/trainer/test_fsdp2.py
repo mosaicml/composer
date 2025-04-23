@@ -243,6 +243,7 @@ def test_fsdp2_load_from_fsdp1(
             param.full_tensor(),
         ), f'Weights: {name} should be equal after loading, however one is {fsdp1_param} and the other is {param.full_tensor()}'
 
+
 @world_size(2)
 @pytest.mark.gpu
 @fsdp2_context
@@ -346,6 +347,7 @@ class NestedModule(nn.Module):
         setattr(self, f'm{parent_num+1}', nn.Linear(10, 10))
         setattr(self, f'm{parent_num+2}', nn.Linear(10, 10))
 
+
 class DeepNestedModel(nn.Module):
     """A model with a deep nested structure."""
 
@@ -354,10 +356,11 @@ class DeepNestedModel(nn.Module):
         self.m2 = NestedModule(parent_num=2)
         self.m5 = NestedModule(parent_num=5)
 
-    
-def test_deep_nested_model(
-    world_size: int,
-):
+
+@world_size(2)
+@pytest.mark.gpu
+@fsdp2_context
+def test_deep_nested_model(world_size: int,):
     """Test with a deep nested model."""
     # Define the module hierarchy for the test:
     # M1 (root)
@@ -387,7 +390,9 @@ def test_deep_nested_model(
     m1.m2.m4._fsdp_wrap = True
     with pytest.raises(ValueError) as e:
         prepare_fully_shard(m1, fsdp2_config)
-    assert str(e.value).startswith("Detected tied parameters between modules designated for FSDP wrapping"), str(e.value)
+    assert str(
+        e.value,
+    ).startswith('Detected tied parameters between modules designated for FSDP wrapping'), str(e.value)
 
     # Testing M3 has _fsdp_wrap set to True but M3 and M4 have tied weights
     # This means only one is a candidate for sharding, but the other has tied weights, so we
@@ -397,7 +402,7 @@ def test_deep_nested_model(
     m1.m2.m3._fsdp_wrap = True
     with pytest.raises(ValueError) as e:
         prepare_fully_shard(m1, fsdp2_config)
-    assert str(e.value).startswith("Parameter sharing detected between modules to be sharded and module"), str(e.value)
+    assert str(e.value).startswith('Parameter sharing detected between modules to be sharded and module'), str(e.value)
 
     # Testing M2 has _fsdp_wrap set to True but M3 and M4 have tied weights
     # Shouldn't return an error and fully_sharding should be applied to M2 and M1
@@ -416,7 +421,7 @@ def test_deep_nested_model(
     m1.m2.m3.weight = m1.m5.m6.weight
     with pytest.raises(ValueError) as e:
         prepare_fully_shard(m1, fsdp2_config)
-    assert str(e.value).startswith("Parameter sharing"), str(e.value)
+    assert str(e.value).startswith('Parameter sharing'), str(e.value)
 
     # Testing M1 has _fsdp_wrap set to True and M3 and M6 have tied weights
     # This shouldn't return an error and all tensors are expected to be DTensors

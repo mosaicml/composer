@@ -190,7 +190,6 @@ class SimpleWeightTiedModel(ComposerClassifier):
         for child in self.module.children():
             child._fsdp_wrap = True
 
-
     def param_init_fn(self, module):
         init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
 
@@ -234,7 +233,6 @@ class PartialWeightTiedModel(ComposerClassifier):
     def add_fsdp_wrap_attribute_to_children(self):
         for child in self.module.children():
             child._fsdp_wrap = True
-
 
     def param_init_fn(self, module):
         init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
