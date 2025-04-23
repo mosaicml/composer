@@ -304,7 +304,7 @@ class MLFlowLogger(LoggerDestination):
             tags=self.tags,
             log_system_metrics=self.log_system_metrics,
         )
-        if self.tracking_uri == 'databricks':
+        # if self.tracking_uri == 'databricks':
             # Start a background process to monitor the job to report the job status to MLflow.
             # self.monitor_process = MlflowMonitorProcess(
             #     os.getpid(),
