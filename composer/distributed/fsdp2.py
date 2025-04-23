@@ -107,7 +107,6 @@ def update_optimizer_modules(
 
     Args:
         optimizer (Optimizer): The optimizer to update.
-        modules_to_shard (list[nn.Module]): The modules that will be sharded.
         model (nn.Module): The parent model that is also sharded.
         orig_param_to_name (dict[torch.nn.Parameter, str]): Mapping from original parameters to their names.
     """
