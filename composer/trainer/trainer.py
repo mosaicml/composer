@@ -2119,9 +2119,6 @@ class Trainer:
             device_train_microbatch_size (int | float | str, optional): See :class:`.Trainer`.
             precision (Precision | str, optional): See :class:`.Trainer`.
         """
-        if dist.get_global_rank() == 0:
-            dist.barrier()
-
         # Check Optimizer
         if len(self.state.optimizers) == 0:
             raise ValueError(
