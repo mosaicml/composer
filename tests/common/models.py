@@ -143,7 +143,7 @@ class SimpleComposerMLP(ComposerClassifier):
 
     def add_fsdp_wrap_attribute_to_children(self):
         for child in self.module.children():
-            child._fsdp_wrap = True
+            child._fsdp_wrap = True  # type: ignore
 
 
 # Like SimpleComposerMLP but saves each layer which is necessary to TP to it.
@@ -188,7 +188,7 @@ class SimpleWeightTiedModel(ComposerClassifier):
 
     def add_fsdp_wrap_attribute_to_children(self):
         for child in self.module.children():
-            child._fsdp_wrap = True
+            child._fsdp_wrap = True  # type: ignore
 
     def param_init_fn(self, module):
         init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
@@ -232,7 +232,7 @@ class PartialWeightTiedModel(ComposerClassifier):
 
     def add_fsdp_wrap_attribute_to_children(self):
         for child in self.module.children():
-            child._fsdp_wrap = True
+            child._fsdp_wrap = True  # type: ignore
 
     def param_init_fn(self, module):
         init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
