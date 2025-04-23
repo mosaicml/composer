@@ -39,6 +39,7 @@ LOG_DUPLICATED_METRIC_VALUE_PER_N_STEPS = 100
 
 spawn_context = multiprocessing.get_context('spawn')
 
+
 class MlflowMonitorProcess(spawn_context.Process):
 
     def __init__(self, main_pid, mlflow_run_id, mlflow_tracking_uri):
@@ -62,18 +63,19 @@ class MlflowMonitorProcess(spawn_context.Process):
         from mlflow import MlflowClient
 
         os.setsid()
+
         # Define signal handlers for communication
         def handle_exit_signal(signum, frame):
             self.exit_event.set()
-            
+
         def handle_crash_signal(signum, frame):
             self.crash_event.set()
             self.exit_event.set()
-        
+
         # Register the signal handlers
         signal.signal(signal.SIGUSR1, handle_exit_signal)  # For normal exit
-        signal.signal(signal.SIGUSR2, handle_crash_signal) # For crash exit
-        signal.signal(signal.SIGTERM, self.handle_sigterm) # For termination
+        signal.signal(signal.SIGUSR2, handle_crash_signal)  # For crash exit
+        signal.signal(signal.SIGTERM, self.handle_sigterm)  # For termination
 
         while not self.exit_event.wait(10):
             try:
@@ -89,11 +91,11 @@ class MlflowMonitorProcess(spawn_context.Process):
             client.set_terminated(self.mlflow_run_id, status='FAILED')
 
     def stop(self):
-        log.debug("Setting exit event")
-        print("Setting exit event")
+        log.debug('Setting exit event')
+        print('Setting exit event')
         os.kill(self.pid, signal.SIGUSR1)
-        log.debug("Setting exit event done")
-        print("Setting exit event done")
+        log.debug('Setting exit event done')
+        print('Setting exit event done')
 
     def crash(self):
         os.kill(self.pid, signal.SIGUSR2)
@@ -608,50 +610,50 @@ class MLFlowLogger(LoggerDestination):
     def post_close(self):
         if self._enabled:
             if hasattr(self, 'monitor_process'):
-                log.debug("Stopping the monitor process")
+                log.debug('Stopping the monitor process')
                 # Check if there is an uncaught exception, which means `post_close()` is triggered
                 # due to program crash.
                 finish_with_exception = self._global_exception_occurred == 1
                 if finish_with_exception:
-                    log.debug("Crashing the monitor process")
+                    log.debug('Crashing the monitor process')
                     self.monitor_process.crash()
-                    log.debug("Returning 1")
+                    log.debug('Returning 1')
                     return
 
-                log.debug("Stopping the monitor process")
+                log.debug('Stopping the monitor process')
                 # Stop the monitor process since it's entering the cleanup phase.
                 self.monitor_process.stop()
-                log.debug("Stopped the monitor process")
+                log.debug('Stopped the monitor process')
 
             import mlflow
 
             assert isinstance(self._run_id, str)
 
-            log.debug("Flushing")
+            log.debug('Flushing')
             mlflow.flush_async_logging()
-            log.debug("Flushed")
+            log.debug('Flushed')
             exc_tpe, exc_info, tb = sys.exc_info()
             if (exc_tpe, exc_info, tb) == (None, None, None):
-                log.debug("Get run")
+                log.debug('Get run')
                 current_status = self._mlflow_client.get_run(self._run_id).info.status
-                log.debug("Gotten run")
+                log.debug('Gotten run')
                 if current_status == 'RUNNING':
-                    log.debug("Set terminated")
+                    log.debug('Set terminated')
                     self._mlflow_client.set_terminated(self._run_id, status='FINISHED')
-                    log.debug("Set terminated done")
+                    log.debug('Set terminated done')
             else:
-                log.debug("Set terminated 2")
+                log.debug('Set terminated 2')
                 # Record there was an error
                 self._mlflow_client.set_terminated(self._run_id, status='FAILED')
-                log.debug("Set terminated done 2")
+                log.debug('Set terminated done 2')
 
-            log.debug("End run")
+            log.debug('End run')
             mlflow.end_run()
-            log.debug("End run done")
+            log.debug('End run done')
             if hasattr(self, 'monitor_process'):
-                log.debug("Join the monitor process")
+                log.debug('Join the monitor process')
                 self.monitor_process.join()
-                log.debug("Joined the monitor process")
+                log.debug('Joined the monitor process')
 
 
 def _convert_to_mlflow_image(
