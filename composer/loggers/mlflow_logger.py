@@ -36,8 +36,9 @@ __all__ = ['MLFlowLogger']
 DEFAULT_MLFLOW_EXPERIMENT_NAME = 'my-mlflow-experiment'
 LOG_DUPLICATED_METRIC_VALUE_PER_N_STEPS = 100
 
+spawn_context = multiprocessing.get_context('spawn')
 
-class MlflowMonitorProcess(multiprocessing.Process):
+class MlflowMonitorProcess(spawn_context.Process):
 
     def __init__(self, main_pid, mlflow_run_id, mlflow_tracking_uri):
         super().__init__()
