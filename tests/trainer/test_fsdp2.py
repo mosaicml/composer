@@ -360,7 +360,7 @@ class DeepNestedModel(nn.Module):
 @world_size(2)
 @pytest.mark.gpu
 @fsdp2_context
-def test_deep_nested_model(world_size: int,):
+def test_deep_nested_model_with_tied_weights_and_fsdp_wrap_mechanics(world_size: int):
     """Test with a deep nested model."""
     # Define the module hierarchy for the test:
     # M1 (root)
@@ -432,3 +432,17 @@ def test_deep_nested_model(world_size: int,):
     assert isinstance(m1.m2.m3.weight, DTensor), 'm1.m2.m3.weight should be a DTensor'
     assert isinstance(m1.m5.m6.weight, DTensor), 'm1.m5.m6.weight should be a DTensor'
     assert id(m1.m2.m3.weight) == id(m1.m5.m6.weight), 'm1.m2.m3.weight and m1.m5.m6.weight should be the same object'
+
+    # Testing M1 has _fsdp_wrap set to False, M2 has _fsdp_wrap set to True, and M3 and M4 have tied weights
+    # This shouldn't return an error and all tensors in the M2 module should be DTensors but the other modules should not be
+    # This test is to make sure that recursive apply fully_shard is working as expected
+    m1 = DeepNestedModel()
+    m1._fsdp_wrap = False
+    m1.m2._fsdp_wrap = True
+    m1.m2.m3.weight = m1.m2.m4.weight
+    prepare_fully_shard(m1, fsdp2_config)
+    assert isinstance(m1.m2.m3.weight, DTensor), 'm1.m2.m3.weight should be a DTensor'
+    assert isinstance(m1.m2.m4.weight, DTensor), 'm1.m2.m4.weight should be a DTensor'
+    assert id(m1.m2.m3.weight) == id(m1.m2.m4.weight), 'm1.m2.m3.weight and m1.m2.m4.weight should be the same object'
+    assert not isinstance(m1.m5.m6.weight, DTensor), 'm1.m5.m6.weight should not be a DTensor'
+    assert not isinstance(m1.m5.m6.bias, DTensor), 'm1.m5.m6.bias should not be a DTensor'
