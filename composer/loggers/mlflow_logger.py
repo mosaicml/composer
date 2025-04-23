@@ -14,6 +14,7 @@ import posixpath
 import signal
 import sys
 import textwrap
+import threading
 import time
 import warnings
 from typing import TYPE_CHECKING, Any, Literal, Optional, Sequence, Union
@@ -45,8 +46,6 @@ class MlflowMonitorProcess(spawn_context.Process):
         self.main_pid = main_pid
         self.mlflow_run_id = mlflow_run_id
         self.mlflow_tracking_uri = mlflow_tracking_uri
-        self.exit_event = multiprocessing.Event()
-        self.crash_event = multiprocessing.Event()
 
     def handle_sigterm(self, signum, frame):
         from mlflow import MlflowClient
@@ -57,11 +56,24 @@ class MlflowMonitorProcess(spawn_context.Process):
             client.set_terminated(self.mlflow_run_id, status='KILLED')
 
     def run(self):
+        self.exit_event = threading.Event()
+        self.crash_event = threading.Event()
+
         from mlflow import MlflowClient
 
         os.setsid()
-        # Register the signal handler in the child process
-        signal.signal(signal.SIGTERM, self.handle_sigterm)
+        # Define signal handlers for communication
+        def handle_exit_signal(signum, frame):
+            self.exit_event.set()
+            
+        def handle_crash_signal(signum, frame):
+            self.crash_event.set()
+            self.exit_event.set()
+        
+        # Register the signal handlers
+        signal.signal(signal.SIGUSR1, handle_exit_signal)  # For normal exit
+        signal.signal(signal.SIGUSR2, handle_crash_signal) # For crash exit
+        signal.signal(signal.SIGTERM, self.handle_sigterm) # For termination
 
         while not self.exit_event.wait(10):
             try:
@@ -79,13 +91,12 @@ class MlflowMonitorProcess(spawn_context.Process):
     def stop(self):
         log.debug("Setting exit event")
         print("Setting exit event")
-        self.exit_event.set()
+        os.kill(self.pid, signal.SIGUSR1)
         log.debug("Setting exit event done")
         print("Setting exit event done")
 
     def crash(self):
-        self.crash_event.set()
-        self.exit_event.set()
+        os.kill(self.pid, signal.SIGUSR2)
 
 
 class MLFlowLogger(LoggerDestination):
