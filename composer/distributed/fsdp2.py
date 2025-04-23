@@ -3,7 +3,6 @@
 
 """Helpers for FSDP2."""
 
-
 import warnings
 from typing import Callable, Optional, Union
 
@@ -332,7 +331,7 @@ def prepare_fully_shard(
     """
     # Build the parameter to name mapping
     orig_param_to_name = {p: n for n, p in model.named_parameters(recurse=True)}
-    
+
     # If the auto_wrap_policy is not provided, generate the default policy
     if auto_wrap_policy is None:
         auto_wrap_policy = _generate_default_policy(model)

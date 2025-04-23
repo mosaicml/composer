@@ -339,6 +339,7 @@ def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(world_si
     # by default in the error message's legend
     assert 'optimizer.param_id.' in str(e.value)
 
+
 class NestedModule(nn.Module):
     """A nested module with a deep nested structure."""
 
