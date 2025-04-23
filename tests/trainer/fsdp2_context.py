@@ -9,17 +9,15 @@ from packaging import version
 
 SKIP_TEST = version.parse(torch.__version__) < version.parse('2.6.0')
 if not SKIP_TEST:
-    # TODO (FSDP2) move this to top once we decprecate torch 2.5
+    # TODO (FSDP2) move this to top once we deprecate torch 2.5
     from composer.distributed import fsdp2
     prepare_fully_shard = fsdp2.prepare_fully_shard
     legalize_param_sharing_between_modules = fsdp2.legalize_param_sharing_between_modules
     get_standalone_and_tied_modules = fsdp2.get_standalone_and_tied_modules
-    get_valid_modules_to_shard = fsdp2.get_valid_modules_to_shard
 else:
     prepare_fully_shard = lambda *args, **kwargs: None
     legalize_param_sharing_between_modules = lambda *args, **kwargs: None
     get_standalone_and_tied_modules = lambda *args, **kwargs: ([], set())
-    get_valid_modules_to_shard = lambda *args, **kwargs: []
 
 def fsdp2_context(func: Callable) -> Optional[Callable]:
     """Decorator to run tests with models initialized on the meta device for torch version 2.6+."""

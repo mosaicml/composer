@@ -11,7 +11,6 @@ from tests.trainer.fsdp2_context import (
     fsdp2_context,
     get_standalone_and_tied_modules,
     legalize_param_sharing_between_modules,
-    get_valid_modules_to_shard,
 )
 
 
@@ -319,99 +318,3 @@ def test_legalize_param_sharing_with_nested_shared_module():
     # Should not raise an error
     modules_to_shard = [model.module_b]
     legalize_param_sharing_between_modules(model, modules_to_shard)
-
-class ComprehensiveWrapModel(nn.Module):
-    """A model combining various _fsdp_wrap scenarios."""
-
-    def __init__(self):
-        super().__init__()
-        # block_a will be added since it has _fsdp_wrap set to True,
-        # but block_a's child will not be added
-        self.block_a = nn.Sequential(nn.Linear(10, 10))
-        self.block_a._fsdp_wrap = True
-
-        # block_b and it's children will not be added since block_b has _fsdp_wrap set to False
-        self.block_b = nn.Sequential(nn.Linear(10, 10))
-        self.block_b._fsdp_wrap = False
-        self.block_b[0]._fsdp_wrap = True  # block_b_child
-
-        # block_c won't be added since it has no _fsdp_wrap attribute
-        # but block_c's children will be added
-        self.block_c = nn.Sequential(
-            nn.Linear(10, 10),
-            nn.Linear(10, 10),
-        )
-        self.block_c[0]._fsdp_wrap = True
-        self.block_c[1]._fsdp_wrap = True
-
-        # block_d will be added since it has _fsdp_wrap set to True,
-        # but block_d's child will not be added
-        self.block_d = nn.Sequential(nn.Linear(10, 10))
-        self.block_d._fsdp_wrap = True
-        self.block_d[0]._fsdp_wrap = True
-
-        # block_e won't be added since it has no _fsdp_wrap attribute
-        self.block_e = nn.Linear(10, 10)
-
-        # shared_block will be added since it has _fsdp_wrap set to True
-        # but shared_block's parents will not be added
-        self.shared_block = nn.Linear(10, 10)
-        self.shared_block._fsdp_wrap = True
-        self.shared_parent_1 = nn.Sequential(self.shared_block)
-        self.shared_parent_2 = nn.Sequential(self.shared_block)
-
-        # tied1 and tied2 will be added since they have _fsdp_wrap set to True
-        # this is used for later tests
-        self.tied1 = nn.Linear(10, 10)
-        self.tied2 = nn.Linear(10, 10)
-        self.untied = nn.Linear(10, 10)
-        self.tied1._fsdp_wrap = True
-        self.tied2._fsdp_wrap = True
-        self.untied._fsdp_wrap = True
-        self.tied2.weight = self.tied1.weight
-
-
-@_context
-def test_get_valid_modules_to_shard_comprehensive():
-    """Tests get_valid_modules_to_shard with the comprehensive model."""
-    model = ComprehensiveWrapModel()
-    actual_modules = get_valid_modules_to_shard(model)
-
-    # Define expected modules based on _fsdp_wrap rules
-    expected_modules = {
-        model.block_a,          # block_a has _fsdp_wrap set to True
-        model.block_c[0],       # block_c has no _fsdp_wrap attribute, but block_c's children will be added
-        model.block_c[1],       # block_c has no _fsdp_wrap attribute, but block_c's children will be added
-        model.block_d,          # block_d has _fsdp_wrap set to True
-        model.shared_block,     # shared_block has _fsdp_wrap set to True
-        model.tied1,            # tied1 has _fsdp_wrap set to True
-        model.tied2,            # tied2 has _fsdp_wrap set to True
-        model.untied,           # untied has _fsdp_wrap set to True
-    }
-
-    assert set(actual_modules) == expected_modules, \
-        f"Comprehensive test failed. Expected: {expected_modules}, Got: {set(actual_modules)}"
-
-
-@_context
-def test_interaction_tied_modules_selected_by_wrap():
-    """Test interaction with tied weights using the comprehensive model."""
-    model = ComprehensiveWrapModel()
-
-    # Get modules based on _fsdp_wrap
-    modules_from_wrap = get_valid_modules_to_shard(model)
-
-    # Filter based on tied weights (simulating prepare_fully_shard)
-    modules_to_shard, modules_with_tied_params = get_standalone_and_tied_modules(modules_from_wrap)
-
-    # Expect only non-tied modules from the 'wrap' list
-    # model.tied1 and model.tied2 are tied, so they won't be added, but
-    # apply_fully_shard will apply the sharding to the parent model.
-    expected_standalone = {
-        model.block_a, model.block_c[0], model.block_c[1], model.block_d,
-        model.shared_block, model.untied
-    }
-    expected_tied = {model.tied1, model.tied2}
-
-    assert set(modules_to_shard) == expected_standalone
-    assert modules_with_tied_params == expected_tied

@@ -6,6 +6,7 @@ from typing import Optional
 
 import pytest
 import torch
+import torch.nn as nn
 from torch.distributed._tensor import DTensor
 from torch.utils.data import DataLoader
 
@@ -242,7 +243,6 @@ def test_fsdp2_load_from_fsdp1(
             param.full_tensor(),
         ), f'Weights: {name} should be equal after loading, however one is {fsdp1_param} and the other is {param.full_tensor()}'
 
-
 @world_size(2)
 @pytest.mark.gpu
 @fsdp2_context
@@ -337,3 +337,93 @@ def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(world_si
     # We check with `optimizer.param_id.` (with the period) since `optimizer.param_id` exists
     # by default in the error message's legend
     assert 'optimizer.param_id.' in str(e.value)
+
+class NestedModule(nn.Module):
+    """A nested module with a deep nested structure."""
+
+    def __init__(self, parent_num):
+        super().__init__()
+        setattr(self, f'm{parent_num+1}', nn.Linear(10, 10))
+        setattr(self, f'm{parent_num+2}', nn.Linear(10, 10))
+
+class DeepNestedModel(nn.Module):
+    """A model with a deep nested structure."""
+
+    def __init__(self):
+        super().__init__()
+        self.m2 = NestedModule(parent_num=2)
+        self.m5 = NestedModule(parent_num=5)
+
+    
+def test_deep_nested_model(
+    world_size: int,
+):
+    """Test with a deep nested model."""
+    # Define the module hierarchy for the test:
+    # M1 (root)
+    #   |- M2 (NestedModule)
+    #   |   |- M3 (Linear)
+    #   |   |- M4 (Linear)
+    #   |- M5 (NestedModule)
+    #   |   |- M6 (Linear)
+    #   |   |- M7 (Linear)
+
+    fsdp2_config = FSDP2Config()
+
+    # M2 and M5 are candidates for sharding with no weight tying so this should work fine
+    m1 = DeepNestedModel()
+    m1.m2._fsdp_wrap = True
+    m1.m5._fsdp_wrap = True
+    prepare_fully_shard(m1, fsdp2_config)
+    assert isinstance(m1.m2.m3.weight, DTensor), 'm1.m2.m3.weight should be a DTensor'
+    assert isinstance(m1.m5.m6.weight, DTensor), 'm1.m5.m6.weight should be a DTensor'
+
+    # Testing M4 and M3 has _fsdp_wrap set to True but M3 and M4 have tied weights
+    # This means both are candidates for sharding, but they have tied weights so we should detect tied
+    # parameters between modules designated for sharding and return an error
+    m1 = DeepNestedModel()
+    m1.m2.m4.weight = m1.m2.m3.weight
+    m1.m2.m3._fsdp_wrap = True
+    m1.m2.m4._fsdp_wrap = True
+    with pytest.raises(ValueError) as e:
+        prepare_fully_shard(m1, fsdp2_config)
+    assert str(e.value).startswith("Detected tied parameters between modules designated for FSDP wrapping"), str(e.value)
+
+    # Testing M3 has _fsdp_wrap set to True but M3 and M4 have tied weights
+    # This means only one is a candidate for sharding, but the other has tied weights, so we
+    # should detect parameter sharing between modules for sharding and other modules
+    m1 = DeepNestedModel()
+    m1.m2.m4.weight = m1.m2.m3.weight
+    m1.m2.m3._fsdp_wrap = True
+    with pytest.raises(ValueError) as e:
+        prepare_fully_shard(m1, fsdp2_config)
+    assert str(e.value).startswith("Parameter sharing detected between modules to be sharded and module"), str(e.value)
+
+    # Testing M2 has _fsdp_wrap set to True but M3 and M4 have tied weights
+    # Shouldn't return an error and fully_sharding should be applied to M2 and M1
+    m1 = DeepNestedModel()
+    m1.m2._fsdp_wrap = True
+    m1.m2.m3.weight = m1.m2.m4.weight
+    prepare_fully_shard(m1, fsdp2_config)
+    assert isinstance(m1.m2.m3.weight, DTensor), 'm1.m2.m3.weight should be a DTensor'
+    assert isinstance(m1.m2.m4.weight, DTensor), 'm1.m2.m4.weight should be a DTensor'
+    assert id(m1.m2.m3.weight) == id(m1.m2.m4.weight), 'm1.m2.m3.weight and m1.m2.m4.weight should be the same object'
+
+    # Testing M3 and M6 have tied weights but M2 has _fsdp_wrap set to True
+    # This should return an error when the recursive function is called
+    m1 = DeepNestedModel()
+    m1.m2._fsdp_wrap = True
+    m1.m2.m3.weight = m1.m5.m6.weight
+    with pytest.raises(ValueError) as e:
+        prepare_fully_shard(m1, fsdp2_config)
+    assert str(e.value).startswith("Parameter sharing"), str(e.value)
+
+    # Testing M1 has _fsdp_wrap set to True and M3 and M6 have tied weights
+    # This shouldn't return an error and all tensors are expected to be DTensors
+    m1 = DeepNestedModel()
+    m1._fsdp_wrap = True
+    m1.m2.m3.weight = m1.m5.m6.weight
+    prepare_fully_shard(m1, fsdp2_config)
+    assert isinstance(m1.m2.m3.weight, DTensor), 'm1.m2.m3.weight should be a DTensor'
+    assert isinstance(m1.m5.m6.weight, DTensor), 'm1.m5.m6.weight should be a DTensor'
+    assert id(m1.m2.m3.weight) == id(m1.m5.m6.weight), 'm1.m2.m3.weight and m1.m5.m6.weight should be the same object'
