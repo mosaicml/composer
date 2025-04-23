@@ -4,7 +4,7 @@
 """Helpers for FSDP2."""
 
 import warnings
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 import torch
 import torch.nn as nn
@@ -16,7 +16,7 @@ from composer.utils.parallelism import FSDP2Config
 
 def _generate_default_policy(parent_model: nn.Module) -> CustomPolicy:
     # The same policy as FSDP1
-    def lambda_fn(current_module: nn.Module) -> Union[bool, Dict[str, Any]]:
+    def lambda_fn(current_module: nn.Module) -> Union[bool, dict[str, Any]]:
         ret = False
         if hasattr(current_module, '_fsdp_wrap'):
             ret = bool(current_module._fsdp_wrap)
@@ -261,7 +261,11 @@ def apply_fully_shard(
     fully_shard_kwargs = {'mesh': fsdp2_config.device_mesh, 'reshard_after_forward': fsdp2_config.reshard_after_forward}
 
     # Get a dictionary of all submodules to wrap and their kwargs
-    target_modules_to_kwargs = auto_wrap_policy._run_policy(root_module=model, ignored_modules=set(), root_kwargs=fully_shard_kwargs)
+    target_modules_to_kwargs = auto_wrap_policy._run_policy(
+        root_module=model,
+        ignored_modules=set(),
+        root_kwargs=fully_shard_kwargs,
+    )
 
     # Recursively apply fully_shard to each relevant submodule defined by the policy (and the corresponding target_modules_to_kwargs)
     _recursive_apply_fully_shard(model, model, target_modules_to_kwargs)

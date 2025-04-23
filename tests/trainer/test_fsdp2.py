@@ -484,7 +484,8 @@ def test_deep_nested_model_with_tied_weights_and_fsdp_wrap_mechanics(world_size:
     prepare_fully_shard(m1, opt, fsdp2_config)
     assert isinstance(m1.m2.weight, DTensor), 'm1.m2.weight should be a DTensor'  # type: ignore
     assert isinstance(m1.m2.m3.weight, DTensor), 'm1.m2.m3.weight should be a DTensor'  # type: ignore
-    assert id(m1.m2.weight) == id(m1.m2.m3.weight), 'm1.m2.weight and m1.m2.m3.weight should be the same object'  # type: ignore
+    error_msg = 'm1.m2.weight and m1.m2.m3.weight should be the same object'
+    assert id(m1.m2.weight) == id(m1.m2.m3.weight), error_msg  # type: ignore
 
     # Testing parent (M2) sharing weights with child (M3) - this shouldn't work since M3 is asking to be wrapped
     # when it can't because it shares weights with M2 (which also requests to be wrapped)
