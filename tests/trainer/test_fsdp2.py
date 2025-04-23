@@ -21,7 +21,12 @@ from tests.common import (
     SimpleWeightTiedModel,
     world_size,
 )
-from tests.trainer.fsdp2_context import fsdp2_context, prepare_fully_shard
+from tests.trainer.fsdp2_context import (
+    _generate_default_policy,
+    _recursive_apply_fully_shard,
+    fsdp2_context,
+    prepare_fully_shard,
+)
 
 
 @fsdp2_context
@@ -378,7 +383,8 @@ def test_deep_nested_model_with_tied_weights_and_fsdp_wrap_mechanics(world_size:
     m1 = DeepNestedModel()
     m1.m2._fsdp_wrap = True  # type: ignore
     m1.m5._fsdp_wrap = True  # type: ignore
-    prepare_fully_shard(m1, fsdp2_config)
+    opt = torch.optim.Adam(m1.parameters(), lr=0.01)
+    prepare_fully_shard(m1, opt, fsdp2_config)
     assert isinstance(m1.m2.m3.weight, DTensor), 'm1.m2.m3.weight should be a DTensor'  # type: ignore
     assert isinstance(m1.m5.m6.weight, DTensor), 'm1.m5.m6.weight should be a DTensor'  # type: ignore
 
@@ -389,8 +395,9 @@ def test_deep_nested_model_with_tied_weights_and_fsdp_wrap_mechanics(world_size:
     m1.m2.m4.weight = m1.m2.m3.weight  # type: ignore
     m1.m2.m3._fsdp_wrap = True  # type: ignore
     m1.m2.m4._fsdp_wrap = True  # type: ignore
+    opt = torch.optim.Adam(m1.parameters(), lr=0.01)
     with pytest.raises(ValueError) as e:
-        prepare_fully_shard(m1, fsdp2_config)
+        prepare_fully_shard(m1, opt, fsdp2_config)
     assert str(
         e.value,
     ).startswith('Detected tied parameters between modules designated for FSDP wrapping'), str(e.value)
@@ -401,8 +408,9 @@ def test_deep_nested_model_with_tied_weights_and_fsdp_wrap_mechanics(world_size:
     m1 = DeepNestedModel()
     m1.m2.m4.weight = m1.m2.m3.weight  # type: ignore
     m1.m2.m3._fsdp_wrap = True  # type: ignore
+    opt = torch.optim.Adam(m1.parameters(), lr=0.01)
     with pytest.raises(ValueError) as e:
-        prepare_fully_shard(m1, fsdp2_config)
+        prepare_fully_shard(m1, opt, fsdp2_config)
     assert str(e.value).startswith('Parameter sharing detected between modules to be sharded and module'), str(e.value)
 
     # Testing M2 has _fsdp_wrap set to True but M3 and M4 have tied weights
@@ -410,7 +418,8 @@ def test_deep_nested_model_with_tied_weights_and_fsdp_wrap_mechanics(world_size:
     m1 = DeepNestedModel()
     m1.m2._fsdp_wrap = True  # type: ignore
     m1.m2.m3.weight = m1.m2.m4.weight  # type: ignore
-    prepare_fully_shard(m1, fsdp2_config)
+    opt = torch.optim.Adam(m1.parameters(), lr=0.01)
+    prepare_fully_shard(m1, opt, fsdp2_config)
     assert isinstance(m1.m2.m3.weight, DTensor), 'm1.m2.m3.weight should be a DTensor'  # type: ignore
     assert isinstance(m1.m2.m4.weight, DTensor), 'm1.m2.m4.weight should be a DTensor'  # type: ignore
 
@@ -422,8 +431,9 @@ def test_deep_nested_model_with_tied_weights_and_fsdp_wrap_mechanics(world_size:
     m1 = DeepNestedModel()
     m1.m2._fsdp_wrap = True  # type: ignore
     m1.m2.m3.weight = m1.m5.m6.weight  # type: ignore
+    opt = torch.optim.Adam(m1.parameters(), lr=0.01)
     with pytest.raises(ValueError) as e:
-        prepare_fully_shard(m1, fsdp2_config)
+        prepare_fully_shard(m1, opt, fsdp2_config)
     assert str(e.value).startswith('Parameter sharing'), str(e.value)
 
     # Testing M1 has _fsdp_wrap set to True and M3 and M6 have tied weights
@@ -431,26 +441,34 @@ def test_deep_nested_model_with_tied_weights_and_fsdp_wrap_mechanics(world_size:
     m1 = DeepNestedModel()
     m1._fsdp_wrap = True  # type: ignore
     m1.m2.m3.weight = m1.m5.m6.weight  # type: ignore
-    prepare_fully_shard(m1, fsdp2_config)
+    opt = torch.optim.Adam(m1.parameters(), lr=0.01)
+    prepare_fully_shard(m1, opt, fsdp2_config)
     assert isinstance(m1.m2.m3.weight, DTensor), 'm1.m2.m3.weight should be a DTensor'  # type: ignore
     assert isinstance(m1.m5.m6.weight, DTensor), 'm1.m5.m6.weight should be a DTensor'  # type: ignore
 
     error_msg = 'm1.m2.m3.weight and m1.m5.m6.weight should be the same object'
     assert id(m1.m2.m3.weight) == id(m1.m5.m6.weight), error_msg  # type: ignore
 
-    # Testing M1 has _fsdp_wrap set to False, M2 has _fsdp_wrap set to True, and M3 and M4 have tied weights
-    # This shouldn't return an error and all tensors in the M2 module should be DTensors but the other modules should not be
-    # This test is to make sure that recursive apply fully_shard is working as expected
+    # Testing M1 has _fsdp_wrap set to False, (regardless of downstream configuration)
+    # there should be no FSDP wrapping applied to M1
     m1 = DeepNestedModel()
     m1._fsdp_wrap = False  # type: ignore
     m1.m2._fsdp_wrap = True  # type: ignore
     m1.m2.m3.weight = m1.m2.m4.weight  # type: ignore
-    prepare_fully_shard(m1, fsdp2_config)
-    assert isinstance(m1.m2.m3.weight, DTensor), 'm1.m2.m3.weight should be a DTensor'  # type: ignore
-    assert isinstance(m1.m2.m4.weight, DTensor), 'm1.m2.m4.weight should be a DTensor'  # type: ignore
-
-    error_msg = 'm1.m2.m3.weight and m1.m2.m4.weight should be the same object'
-    assert id(m1.m2.m3.weight) == id(m1.m2.m4.weight), error_msg  # type: ignore
-
+    opt = torch.optim.Adam(m1.parameters(), lr=0.01)
+    prepare_fully_shard(m1, opt, fsdp2_config)
+    # Testing a couple of random submodules (since all should not be DTensors)
+    assert not isinstance(m1.m2.m3.weight, DTensor), 'm1.m2.m3.weight should not be a DTensor'  # type: ignore
     assert not isinstance(m1.m5.m6.weight, DTensor), 'm1.m5.m6.weight should not be a DTensor'  # type: ignore
-    assert not isinstance(m1.m5.m7.weight, DTensor), 'm1.m5.m7.weight should not be a DTensor'  # type: ignore
+
+    # Testing the case when submodule has `_fsdp_wrap` set to True but ancestor has `_fsdp_wrap` set to False
+    # This should wrap the model fine. We use the internal _recursive_apply_fully_shard function to apply fully_shard
+    # Otherwise, running `prepare_fully_shard` will just make everything a DTensor since it shards from the root module
+    # Optimizer is not required for this test
+    m1 = DeepNestedModel()
+    m1.m2._fsdp_wrap = False  # type: ignore
+    m1.m2.m3._fsdp_wrap = True  # type: ignore
+    _recursive_apply_fully_shard(m1, m1.m2, _generate_default_policy(m1), {})
+    assert isinstance(m1.m2.m3.weight, DTensor), 'm1.m2.m3.weight should be a DTensor'  # type: ignore
+    assert not isinstance(m1.m2.m4.weight, DTensor), 'm1.m2.m4.weight should not be a DTensor'  # type: ignore
+    assert not isinstance(m1.m5.m6.weight, DTensor), 'm1.m5.m6.weight should not be a DTensor'  # type: ignore

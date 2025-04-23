@@ -14,10 +14,14 @@ if not SKIP_TEST:
     prepare_fully_shard = fsdp2.prepare_fully_shard
     legalize_param_sharing_between_modules = fsdp2.legalize_param_sharing_between_modules
     get_standalone_and_tied_modules = fsdp2.get_standalone_and_tied_modules
+    _recursive_apply_fully_shard = fsdp2._recursive_apply_fully_shard
+    _generate_default_policy = fsdp2._generate_default_policy
 else:
     prepare_fully_shard = lambda *args, **kwargs: None
     legalize_param_sharing_between_modules = lambda *args, **kwargs: None
     get_standalone_and_tied_modules = lambda *args, **kwargs: ([], set())
+    _recursive_apply_fully_shard = lambda *args, **kwargs: None
+    _generate_default_policy = lambda *args, **kwargs: lambda *args, **kwargs: None
 
 
 def fsdp2_context(func: Callable) -> Optional[Callable]:

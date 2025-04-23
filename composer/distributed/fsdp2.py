@@ -25,10 +25,9 @@ def _generate_default_policy(parent_model: nn.Module) -> Callable[[nn.Module], U
         elif hasattr(parent_model, 'fsdp_wrap_fn') and isinstance(parent_model.fsdp_wrap_fn, Callable):
             ret = parent_model.fsdp_wrap_fn(current_module)
             if isinstance(ret, dict):
-                ret = {
-                    'mesh': ret['mesh'],
-                    'reshard_after_forward': ret['reshard_after_forward'],
-                }
+                assert set(ret.keys()) == {'mesh', 'reshard_after_forward'} \
+                    or set(ret.keys()) == {'device_mesh', 'reshard_after_forward'}, \
+                    'fsdp_wrap_fn must return a dict with keys "mesh" or "device_mesh" and "reshard_after_forward"'
         return ret
 
     return lambda_fn
@@ -51,25 +50,9 @@ def _find_direct_children_to_wrap(
     return candidates, candidate_kwargs
 
 
-def legalize_fsdp_wrap_policy(
-    module: nn.Module,
-    auto_wrap_policy: Callable[[nn.Module], Union[bool, dict, None]],
-) -> None:
-    """Legalizes the FSDP wrap policy by ensuring that no submodule has _fsdp_wrap set to True if if the ancestor has _fsdp_wrap set to False."""
-    assert auto_wrap_policy(module) is False, 'The root module must not be wrapped'
-    for submodule in module.modules():
-        submodule_policy = auto_wrap_policy(submodule)
-        if submodule_policy is True or isinstance(submodule_policy, dict):
-            raise ValueError(
-                f'Submodule {submodule} has _fsdp_wrap set to True even though its ancestor {module} has _fsdp_wrap set to False. '
-                f'This will cause errors with FSDP. Please adjust the auto_wrap_policy accordingly.',
-            )
-
-
 def _recursive_apply_fully_shard(
     root_module: nn.Module,
     module: nn.Module,
-    fsdp2_config: FSDP2Config,
     auto_wrap_policy: Callable[[nn.Module], Union[bool, dict, None]],
     default_kwargs: dict,
 ) -> None:
@@ -92,17 +75,11 @@ def _recursive_apply_fully_shard(
         # Check for tying between candidates and the rest of the model (using root_module)
         legalize_param_sharing_between_modules(root_module, standalone_child_candidates)
 
-    # 3. Legalize all submodules for the modules where _fsdp_wrap is False (none of the descendants should be candidates for sharding)
-    candidates_to_not_wrap = [child for child in module.children() if auto_wrap_policy(child) is False]
-    for child in candidates_to_not_wrap:
-        legalize_fsdp_wrap_policy(child, auto_wrap_policy)
+    # 3. Recurse on module's children for downstream sharding
+    for child in module.children():
+        _recursive_apply_fully_shard(root_module, child, auto_wrap_policy, default_kwargs)
 
-    # 4. Recurse on children that were candidates for sharding or whose descendants are candidates for sharding
-    recursive_candidates = [child for child in module.children() if auto_wrap_policy(child) is not False]
-    for child in recursive_candidates:
-        _recursive_apply_fully_shard(root_module, child, fsdp2_config, auto_wrap_policy, default_kwargs)
-
-    # 5. Apply fully_shard to the standalone children identified earlier (Post-order application)
+    # 4. Apply fully_shard to the standalone children identified earlier (Post-order application)
     for child in standalone_child_candidates:
         kwargs = child_candidate_kwargs.get(child, default_kwargs)
         fully_shard(child, **kwargs)
@@ -294,23 +271,19 @@ def apply_fully_shard(
     Returns:
         None
     """
+    # Skip wrapping the model if the top level has _fsdp_wrap set to False
+    # Following the same approach as dist_strategy.py:L397 (FSDP1 implementation)
+    if hasattr(model, '_fsdp_wrap') and not bool(model._fsdp_wrap):
+        return
+
     # Define the default kwargs for fully_shard
     fully_shard_kwargs = {'mesh': fsdp2_config.device_mesh, 'reshard_after_forward': fsdp2_config.reshard_after_forward}
 
-    # Apply fully_shard to each relevant module defined by the policy
-    _recursive_apply_fully_shard(model, model, fsdp2_config, auto_wrap_policy, fully_shard_kwargs)
+    # Apply fully_shard to each relevant submodule defined by the policy
+    _recursive_apply_fully_shard(model, model, auto_wrap_policy, fully_shard_kwargs)
 
-    # Get the wrapping policy of the root model and apply fully_shard as specified
-    root_policy_decision = auto_wrap_policy(model)
-
-    # We default to wrapping the root module as long as its wrapping policy is not explicitly set to False
-    if root_policy_decision is True or root_policy_decision is None:
-        fully_shard(model, **fully_shard_kwargs)
-    elif isinstance(root_policy_decision, dict):
-        kwargs = root_policy_decision
-        fully_shard(model, **kwargs)
-    else:
-        pass
+    # Apply fully_shard to the model itself
+    fully_shard(model, **fully_shard_kwargs)
 
 
 def prepare_fully_shard(
