@@ -15,7 +15,7 @@ from composer.utils.parallelism import FSDP2Config
 
 
 def _generate_default_policy(parent_model: nn.Module) -> CustomPolicy:
-    # The same policy as FSDP1
+    # The same policy as FSDP1 with some caveats around the parent_model (root_module)
     def lambda_fn(current_module: nn.Module) -> Union[bool, dict[str, Any]]:
         ret = False
         if hasattr(current_module, '_fsdp_wrap'):
@@ -69,7 +69,7 @@ def _recursive_apply_fully_shard(
         _recursive_apply_fully_shard(root_module, child, target_modules_to_kwargs)
 
     # 4. Apply fully_shard to the standalone children identified earlier (Post-order application)
-    # Note that all modules that we fully_shard will be in target_modules_to_kwargs
+    # Note that all modules that we fully_shard will have kwargs in target_modules_to_kwargs
     for child in standalone_child_candidates:
         kwargs = target_modules_to_kwargs[child]
         fully_shard(child, **kwargs)
