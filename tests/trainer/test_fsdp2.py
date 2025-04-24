@@ -74,6 +74,8 @@ def create_trainer_with_model(
     max_duration: str = '10ep',
     use_fsdp2: bool = True,
     optimizer: Optional[torch.optim.Optimizer] = None,
+    activation_checkpointing: bool = False,
+    activation_cpu_offload: bool = False,
 ) -> Trainer:
     """Helper function to create a Trainer with a model, dataloader, and FSDP2 configuration."""
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
@@ -83,6 +85,10 @@ def create_trainer_with_model(
     if use_fsdp2:
         # Trainer is not calling prepare_fully_shard yet, so we need to do it manually
         fsdp2_config = FSDP2Config()
+        if activation_checkpointing:
+            fsdp2_config.activation_checkpointing = True
+        if activation_cpu_offload:
+            fsdp2_config.activation_cpu_offload = True
         # NOTE we can only apply FSDP2 to ComposerClassifier's module field until we support auto_wrap
         prepare_fully_shard(model=model.module, fsdp2_config=fsdp2_config, optimizer=optimizer)
         # NOTE module to_empty should only happen after the model is fully sharded and parameters are coverted to Dtensor
@@ -340,3 +346,51 @@ def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(world_si
     # We check with `optimizer.param_id.` (with the period) since `optimizer.param_id` exists
     # by default in the error message's legend
     assert 'optimizer.param_id.' in str(e.value)
+
+def validate_module_checkpointing(module: torch.nn.Module) -> bool:
+    """Validates that all modules marked for checkpointing have checkpoint hooks properly applied."""
+    # Check if any modules marked for checkpointing are missing their hooks
+    def validate_module_checkpointing(mod):
+        # If module is marked for checkpointing, verify it has checkpoint hooks
+        if hasattr(mod, '_activation_checkpointing') and bool(mod._activation_checkpointing):
+            has_checkpoint_hook = any(
+                'CheckpointFunctionBackward' in str(hook) 
+                for hook in mod._forward_pre_hooks.values()
+            )
+            # Module is marked but hooks aren't applied
+            if not has_checkpoint_hook:
+                return False
+        
+        # Recursively check all children
+        for child in mod.children():
+            if not validate_module_checkpointing(child):
+                return False
+        
+        return True
+    
+    return validate_module_checkpointing(module)
+
+@world_size(2)
+@pytest.mark.gpu
+@fsdp2_context
+def test_fsdp2_activation_checkpointing(world_size: int):
+    """Test FSDP2 activation checkpointing."""
+    del world_size
+
+    # Testing without activation checkpointing
+    model = SimpleComposerMLP(num_features=10, device='cuda', num_classes=10)
+    trainer = create_trainer_with_model(model=model, num_classes=10, use_fsdp2=True)
+    trainer.fit()
+    assert validate_module_checkpointing(trainer.state.model.module), "Model should not have activation checkpointing applied"
+
+    # Testing with activation checkpointing
+    # Mark specific modules for checkpointing by setting _activation_checkpointing attribute
+    model = SimpleComposerMLP(num_features=10, device='cuda', num_classes=10)
+    for module in model.module.mlp.children():
+        module._activation_checkpointing = True
+    
+    trainer = create_trainer_with_model(model=model, num_classes=10, use_fsdp2=True, activation_checkpointing=True)
+    trainer.fit()
+    assert validate_module_checkpointing(trainer.state.model.module), "Model should have activation checkpointing applied"
+
+    # TODO: Test with `activation_checkpointing_fn`

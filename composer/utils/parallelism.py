@@ -76,6 +76,8 @@ class FSDP2Config:
     # Settable core FSDP2 attrs
     device_mesh: Optional[DeviceMesh] = None
     reshard_after_forward: bool | int = True
+    activation_checkpointing: bool = False
+    activation_cpu_offload: bool = False
 
     ### Temporary read-only properties for FSDP 1 compatibility  ###
     # to be supported in FSDP2

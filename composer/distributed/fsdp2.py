@@ -3,12 +3,13 @@
 
 """Helpers for FSDP2."""
 
-from typing import Optional
+from typing import Callable, Optional
 
 import torch
 import torch.nn as nn
 from torch.distributed.fsdp._fully_shard import fully_shard
 from torch.distributed.fsdp.wrap import CustomPolicy
+from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import checkpoint_wrapper, CheckpointImpl, offload_wrapper, apply_activation_checkpointing
 
 from composer.distributed.fsdp2_utils import (
     check_param_tying,
@@ -18,6 +19,38 @@ from composer.distributed.fsdp2_utils import (
     update_optimizer_modules,
 )
 from composer.utils.parallelism import FSDP2Config
+
+def apply_ac(model: nn.Module, fsdp2_config: FSDP2Config) -> None:
+    """Apply activation checkpointing to the model. This is orthogonal to FSDP2 so it can be applied pre-sharding or post-sharding."""
+    activation_checkpointing = fsdp2_config.activation_checkpointing
+    activation_cpu_offload = fsdp2_config.activation_cpu_offload
+
+    # Create the base checkpointing wrapper using no_reentrant checkpointing by default as
+    # PyTorch notes that reentrant checkpointing is deprecated and will be removed in a future release
+    opt_checkpoint_wrapper = lambda m: checkpoint_wrapper(
+        m,
+        checkpoint_impl=CheckpointImpl.NO_REENTRANT,
+    ) if activation_checkpointing else (lambda module: module)
+    # Create the combined wrapper which takes cpu offloading into consideration
+    opt_combined_wrapper = (
+        lambda module: offload_wrapper(
+            opt_checkpoint_wrapper(module)
+            if activation_checkpointing else module,  # type: ignore reportGeneralTypeIssues
+        )
+    ) if activation_cpu_offload else opt_checkpoint_wrapper
+    # Create the check function to determine if a module should be checkpointed
+    def _check_fn(module: torch.nn.Module) -> bool:
+        if hasattr(module, '_activation_checkpointing'):
+            return bool(module._activation_checkpointing)
+        if hasattr(
+            model,
+            'activation_checkpointing_fn',
+        ) and isinstance(model.activation_checkpointing_fn, Callable):
+            return model.activation_checkpointing_fn(module)
+        return False
+    # Apply the activation checkpointing on the model, this uses _recursive_wrap to apply the wrapper all submodules
+    # but doesn't apply the wrapper to the root module
+    apply_activation_checkpointing(model, opt_combined_wrapper, _check_fn)
 
 
 def _recursive_apply_fully_shard(
@@ -124,3 +157,7 @@ def prepare_fully_shard(
     # If the optimizer is provided, update the optimizer's parameter groups to use the sharded model's DTensor parameters
     if optimizer is not None:
         update_optimizer_modules(optimizer, model, orig_param_to_name)
+
+    # Apply activation checkpointing
+    if fsdp2_config.activation_checkpointing or fsdp2_config.activation_cpu_offload:
+        apply_ac(model, fsdp2_config)
