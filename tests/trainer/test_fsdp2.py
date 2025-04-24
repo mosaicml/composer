@@ -369,13 +369,15 @@ class DeepNestedModel(nn.Module):
 def test_deep_nested_model_with_tied_weights_and_fsdp_wrap_mechanics(world_size: int):
     """Test with a deep nested model."""
     # Define the module hierarchy for the test:
+    # Model hierarchy:
+    #
     # M1 (root)
-    #   |- M2 (NestedModule)
-    #   |   |- M3 (Linear)
-    #   |   |- M4 (Linear)
-    #   |- M5 (NestedModule)
-    #   |   |- M6 (Linear)
-    #   |   |- M7 (Linear)
+    # ├── M2 (NestedModule)
+    # │   ├── M3 (Linear)
+    # │   └── M4 (Linear)
+    # └── M5 (NestedModule)
+    #     ├── M6 (Linear)
+    #     └── M7 (Linear)
 
     fsdp2_config = FSDP2Config()
 
@@ -449,23 +451,11 @@ def test_deep_nested_model_with_tied_weights_and_fsdp_wrap_mechanics(world_size:
     error_msg = 'm1.m2.m3.weight and m1.m5.m6.weight should be the same object'
     assert id(m1.m2.m3.weight) == id(m1.m5.m6.weight), error_msg  # type: ignore
 
-    # Testing M1 has _fsdp_wrap set to False, (regardless of downstream configuration)
-    # there should be no FSDP wrapping applied to M1
+    # Testing the case when submodule has `_fsdp_wrap` set to True but ancestor has `_fsdp_wrap` set to False
+    # This should wrap the model fine, we have to make sure that m1.fsdp_wrap is set to False to not allow
+    # for general FSDP wrapping to happen.
     m1 = DeepNestedModel()
     m1._fsdp_wrap = False  # type: ignore
-    m1.m2._fsdp_wrap = True  # type: ignore
-    m1.m2.m3.weight = m1.m2.m4.weight  # type: ignore
-    opt = torch.optim.Adam(m1.parameters(), lr=0.01)
-    prepare_fully_shard(m1, opt, fsdp2_config)
-    # Testing a couple of random submodules (since all should not be DTensors)
-    assert not isinstance(m1.m2.m3.weight, DTensor), 'm1.m2.m3.weight should not be a DTensor'  # type: ignore
-    assert not isinstance(m1.m5.m6.weight, DTensor), 'm1.m5.m6.weight should not be a DTensor'  # type: ignore
-
-    # Testing the case when submodule has `_fsdp_wrap` set to True but ancestor has `_fsdp_wrap` set to False
-    # This should wrap the model fine. We use the internal _recursive_apply_fully_shard function to apply fully_shard
-    # Otherwise, running `prepare_fully_shard` will just make everything a DTensor since it shards from the root module
-    # Optimizer is not required for this test
-    m1 = DeepNestedModel()
     m1.m2._fsdp_wrap = False  # type: ignore
     m1.m2.m3._fsdp_wrap = True  # type: ignore
     auto_wrap_policy = _generate_default_policy(m1)
@@ -513,6 +503,19 @@ def test_deep_nested_model_with_tied_weights_and_fsdp_wrap_mechanics(world_size:
     m1 = DeepNestedModel()
     m1.m2._fsdp_wrap = True  # type: ignore
     m1.m2.weight = m1.m2.m3.weight  # type: ignore
+    m1.m2.m3.weight = m1.m5.m6.weight  # type: ignore
+    opt = torch.optim.Adam(m1.parameters(), lr=0.01)
+    with pytest.raises(ValueError) as e:
+        prepare_fully_shard(m1, opt, fsdp2_config)
+    assert str(e.value).startswith('Parameter sharing'), str(e.value)
+
+    # NOTE!! EDGE CASE THAT ERRORS OUT WHEN IT SHOULD NOT:
+    # Testing M1 has _fsdp_wrap set to False, but M6 and M3 have tied weights
+    # and M6 has _fsdp_wrap set to True and M3 has _fsdp_wrap set to False
+    # This raises an error even though this should be allowed.
+    m1 = DeepNestedModel()
+    m1.m2.m3._fsdp_wrap = False  # type: ignore
+    m1.m5.m6._fsdp_wrap = True  # type: ignore
     m1.m2.m3.weight = m1.m5.m6.weight  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
     with pytest.raises(ValueError) as e:

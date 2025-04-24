@@ -21,11 +21,20 @@ def _generate_default_policy(parent_model: nn.Module) -> CustomPolicy:
         if hasattr(current_module, '_fsdp_wrap'):
             ret = bool(current_module._fsdp_wrap)
         elif hasattr(parent_model, 'fsdp_wrap_fn') and isinstance(parent_model.fsdp_wrap_fn, Callable):
+            # There are certain situations where _fsdp_wrap for the parent model is not set, but we wrap submodules
+            # with _fsdp_wrap_fn (e.g. wrapping all GPTBlocks). In those situations, we generally also want to wrap
+            # the parent model, so we have an additional check here.
+            if current_module == parent_model:
+                return True
             ret = parent_model.fsdp_wrap_fn(current_module)
             if isinstance(ret, dict):
                 assert set(ret.keys()) == {'mesh', 'reshard_after_forward'} \
                     or set(ret.keys()) == {'device_mesh', 'reshard_after_forward'}, \
                     'fsdp_wrap_fn must return a dict with keys "mesh" or "device_mesh" and "reshard_after_forward"'
+        elif current_module == parent_model:
+            # Unless the user specifically sets the _fsdp_wrap attribute to False for the parent model,
+            # we default to wrapping the parent model.
+            ret = True
         return ret
 
     return CustomPolicy(lambda_fn)
@@ -252,11 +261,6 @@ def apply_fully_shard(
     Returns:
         None
     """
-    # Skip wrapping the model if the top level has _fsdp_wrap set to False
-    # Following the same approach as dist_strategy.py:L397 (FSDP1 implementation)
-    if hasattr(model, '_fsdp_wrap') and not bool(model._fsdp_wrap):
-        return
-
     # Define the default kwargs for fully_shard
     fully_shard_kwargs = {'mesh': fsdp2_config.device_mesh, 'reshard_after_forward': fsdp2_config.reshard_after_forward}
 
@@ -270,8 +274,17 @@ def apply_fully_shard(
     # Recursively apply fully_shard to each relevant submodule defined by the policy (and the corresponding target_modules_to_kwargs)
     _recursive_apply_fully_shard(model, model, target_modules_to_kwargs)
 
-    # Apply fully_shard to the model itself
-    fully_shard(model, **fully_shard_kwargs)
+    # Apply fully_shard to the model itself if it's set to be wrapped
+    # NOTE: There is a slight caveat with this approach. View the following example:
+    # M0 (_fsdp_wrap = False)
+    # ├── M1 (_fsdp_wrap not set)
+    # └── M2 (_fsdp_wrap = True)
+    # and M1 and M2 have tied weights.
+    # In this situation, we will raise an error even though this is perfectly valid and duplicate wrapping
+    # is not done.
+    # TODO: Address this caveat if it does become an issue for customers.
+    if model in target_modules_to_kwargs:
+        fully_shard(model, **target_modules_to_kwargs[model])
 
 
 def prepare_fully_shard(
