@@ -7,6 +7,7 @@ from typing import Optional
 import pytest
 import torch
 from torch.distributed._tensor import DTensor
+from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import _CHECKPOINT_WRAPPED_MODULE, ActivationWrapper
 from torch.utils.data import DataLoader
 
 from composer.models import ComposerClassifier
@@ -347,28 +348,45 @@ def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(world_si
     # by default in the error message's legend
     assert 'optimizer.param_id.' in str(e.value)
 
-def validate_module_checkpointing(module: torch.nn.Module) -> bool:
-    """Validates that all modules marked for checkpointing have checkpoint hooks properly applied."""
-    # Check if any modules marked for checkpointing are missing their hooks
-    def validate_module_checkpointing(mod):
-        # If module is marked for checkpointing, verify it has checkpoint hooks
-        if hasattr(mod, '_activation_checkpointing') and bool(mod._activation_checkpointing):
-            has_checkpoint_hook = any(
-                'CheckpointFunctionBackward' in str(hook) 
-                for hook in mod._forward_pre_hooks.values()
-            )
-            # Module is marked but hooks aren't applied
-            if not has_checkpoint_hook:
-                return False
-        
-        # Recursively check all children
-        for child in mod.children():
-            if not validate_module_checkpointing(child):
-                return False
-        
-        return True
-    
-    return validate_module_checkpointing(module)
+
+def validate_activation_checkpointing(module: torch.nn.Module) -> None:
+    """
+    Verify that activation checkpointing wrappers (`ActivationWrapper`) exist where
+    expected based on the `_activation_checkpointing` flag.
+
+    Raises ValueError if validation fails, listing the offending module names.
+
+    Args:
+        module (torch.nn.Module): The root model module to inspect.
+    """
+    offenders: list[str] = []
+
+    def _walk(mod: torch.nn.Module, prefix: str) -> None:
+        is_ckpt_wrapper = isinstance(mod, ActivationWrapper)
+        # If this module is a checkpoint wrapper, we validate that it was applied to the right module
+        # and we recurse on the children of the inner module
+        if is_ckpt_wrapper:
+            inner = getattr(mod, _CHECKPOINT_WRAPPED_MODULE, None)
+            assert inner is not None, f'{prefix}: ActivationWrapper missing inner module'
+            assert hasattr(
+                inner,
+                '_activation_checkpointing',
+            ), f'{prefix}: Inner module missing _activation_checkpointing attribute'
+            mod = inner
+        # If the module is not a checkpoint wrapper, we add it to offenders if it has the _activation_checkpointing attribute
+        else:
+            want_ckpt = getattr(mod, '_activation_checkpointing', False)
+            if want_ckpt:
+                offenders.append(prefix or mod.__class__.__name__)
+        # Recurse on the children (of the valid module)
+        for name, child in mod.named_children():
+            child_prefix = f'{prefix}.{name}' if prefix else name
+            _walk(child, child_prefix)
+
+    _walk(module, '')
+    if len(offenders) > 0:
+        raise ValueError(f'Activation checkpointing validation failed. Offending modules: {offenders}')
+
 
 @world_size(2)
 @pytest.mark.gpu
@@ -381,16 +399,19 @@ def test_fsdp2_activation_checkpointing(world_size: int):
     model = SimpleComposerMLP(num_features=10, device='cuda', num_classes=10)
     trainer = create_trainer_with_model(model=model, num_classes=10, use_fsdp2=True)
     trainer.fit()
-    assert validate_module_checkpointing(trainer.state.model.module), "Model should not have activation checkpointing applied"
+    validate_activation_checkpointing(trainer.state.model.module)
 
     # Testing with activation checkpointing
     # Mark specific modules for checkpointing by setting _activation_checkpointing attribute
     model = SimpleComposerMLP(num_features=10, device='cuda', num_classes=10)
-    for module in model.module.mlp.children():
-        module._activation_checkpointing = True
-    
+    # Set the activation checkpointing attribute for the fc1 module
+    model.module[0]._activation_checkpointing = True
+
     trainer = create_trainer_with_model(model=model, num_classes=10, use_fsdp2=True, activation_checkpointing=True)
     trainer.fit()
-    assert validate_module_checkpointing(trainer.state.model.module), "Model should have activation checkpointing applied"
+    validate_activation_checkpointing(trainer.state.model.module)
 
     # TODO: Test with `activation_checkpointing_fn`
+    # TODO: Test with `activation_cpu_offload`
+    # TODO: Test with selective activation checkpointing
+    # TODO: Test with actually checking if model's backwards pass recomputes activations instead of just checking if the wrapper is applied

@@ -7,9 +7,14 @@ from typing import Callable, Optional
 
 import torch
 import torch.nn as nn
+from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
+    CheckpointImpl,
+    apply_activation_checkpointing,
+    checkpoint_wrapper,
+    offload_wrapper,
+)
 from torch.distributed.fsdp._fully_shard import fully_shard
 from torch.distributed.fsdp.wrap import CustomPolicy
-from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import checkpoint_wrapper, CheckpointImpl, offload_wrapper, apply_activation_checkpointing
 
 from composer.distributed.fsdp2_utils import (
     check_param_tying,
@@ -20,8 +25,17 @@ from composer.distributed.fsdp2_utils import (
 )
 from composer.utils.parallelism import FSDP2Config
 
+
 def apply_ac(model: nn.Module, fsdp2_config: FSDP2Config) -> None:
-    """Apply activation checkpointing to the model. This is orthogonal to FSDP2 so it can be applied pre-sharding or post-sharding."""
+    """Apply activation checkpointing to the model. This is orthogonal to FSDP2 so it can be applied pre-sharding or post-sharding.
+
+    This method follows the same logic as FSDP1 as well as TorchTitan's AC example.
+
+    Args:
+        model (nn.Module): The model to apply activation checkpointing to.
+        fsdp2_config (FSDP2Config): The FSDP2 configuration.
+    """
+    # TODO: Add support for selective activation checkpointing
     activation_checkpointing = fsdp2_config.activation_checkpointing
     activation_cpu_offload = fsdp2_config.activation_cpu_offload
 
@@ -38,6 +52,7 @@ def apply_ac(model: nn.Module, fsdp2_config: FSDP2Config) -> None:
             if activation_checkpointing else module,  # type: ignore reportGeneralTypeIssues
         )
     ) if activation_cpu_offload else opt_checkpoint_wrapper
+
     # Create the check function to determine if a module should be checkpointed
     def _check_fn(module: torch.nn.Module) -> bool:
         if hasattr(module, '_activation_checkpointing'):
@@ -48,6 +63,7 @@ def apply_ac(model: nn.Module, fsdp2_config: FSDP2Config) -> None:
         ) and isinstance(model.activation_checkpointing_fn, Callable):
             return model.activation_checkpointing_fn(module)
         return False
+
     # Apply the activation checkpointing on the model, this uses _recursive_wrap to apply the wrapper all submodules
     # but doesn't apply the wrapper to the root module
     apply_activation_checkpointing(model, opt_combined_wrapper, _check_fn)
