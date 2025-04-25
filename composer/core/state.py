@@ -16,7 +16,15 @@ import numpy as np
 import torch
 import torch.nn.modules.utils
 from packaging import version
+from torch.amp.grad_scaler import GradScaler
 from torch.distributed._tensor.device_mesh import DeviceMesh, init_device_mesh
+from torch.distributed.checkpoint.state_dict import (
+    StateDictOptions,
+    get_model_state_dict,
+    get_optimizer_state_dict,
+    set_model_state_dict,
+    set_optimizer_state_dict,
+)
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.fully_sharded_data_parallel import (
     FullOptimStateDictConfig,
@@ -29,8 +37,6 @@ from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader, Dataset
 from torchmetrics import Metric
-
-from torch.amp.grad_scaler import GradScaler
 
 from composer.core.data_spec import DataSpec
 from composer.core.event import Event
@@ -68,7 +74,7 @@ log = logging.getLogger(__name__)
 @contextmanager
 def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str = 'full'):
     """Context manager for materializing or loading an fsdp module's state dict.
-    
+
     .. warning::
         This function is deprecated and will be removed in a future release.
         It is maintained for backwards compatibility with tests.
@@ -88,11 +94,11 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
     # Torch forgot to put ShardedStateDictConfig in torch/distributed/fsdp/__init__.py, so we
     # have to import it this way.
     warnings.warn(
-        "fsdp_state_dict_type_context is deprecated and will be removed in a future release",
+        'fsdp_state_dict_type_context is deprecated and will be removed in a future release',
         DeprecationWarning,
         stacklevel=2,
     )
-    
+
     from torch.distributed.fsdp.fully_sharded_data_parallel import ShardedStateDictConfig
 
     fsdp_state_dict_type = None
@@ -131,7 +137,7 @@ def fsdp_get_optim_state_dict(
     state_dict_type: str = 'full',
 ) -> dict[str, Any]:
     """Materializes a given model's optimizer's state_dict.
-    
+
     .. warning::
         This function is deprecated and will be removed in a future release.
         It is maintained for backwards compatibility with tests.
@@ -151,11 +157,11 @@ def fsdp_get_optim_state_dict(
         dict[str, Any]: The state_dict for the given optimizer.
     """
     warnings.warn(
-        "fsdp_get_optim_state_dict is deprecated and will be removed in a future release",
+        'fsdp_get_optim_state_dict is deprecated and will be removed in a future release',
         DeprecationWarning,
         stacklevel=2,
     )
-    
+
     with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
         return FSDP.optim_state_dict(model, optim)  # type: ignore
 
@@ -998,7 +1004,6 @@ class State(Serializable):
         Returns:
             dict[str, Any]: The state dict for the model.
         """
-        from torch.distributed.checkpoint.state_dict import StateDictOptions, get_model_state_dict
         if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
             raise NotImplementedError(
                 textwrap.dedent(
@@ -1024,7 +1029,6 @@ class State(Serializable):
         Returns:
             dict[str, Any]: The state dict for the optimizer.
         """
-        from torch.distributed.checkpoint.state_dict import StateDictOptions, get_optimizer_state_dict
         if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
             raise NotImplementedError(
                 textwrap.dedent(
@@ -1322,7 +1326,6 @@ class State(Serializable):
         model_on_rank = state_dict['model'] is not None
 
         if model_on_rank:
-            from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
             try:
                 set_model_state_dict(
                     model=self.model,
@@ -1397,12 +1400,11 @@ class State(Serializable):
                 continue
 
             optim_state_dict = serialized_value[type(optimizer).__qualname__] if serialized_value is not None else None
-            from torch.distributed.checkpoint.state_dict import StateDictOptions, set_optimizer_state_dict
 
             set_optimizer_state_dict(
                 model=self.model,
                 optimizers=optimizer,
-                optim_state_dict=optim_state_dict,
+                optim_state_dict=optim_state_dict,  # type: ignore
                 options=StateDictOptions(
                     full_state_dict=self.fsdp_state_dict_type == 'full',
                     strict=strict,
