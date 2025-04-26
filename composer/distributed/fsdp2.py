@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 from torch.distributed.fsdp._fully_shard import fully_shard
 from torch.distributed.fsdp.wrap import CustomPolicy
+import contextlib
 
 from composer.utils.parallelism import FSDP2Config
 
@@ -28,9 +29,10 @@ def _generate_default_policy(parent_model: nn.Module) -> CustomPolicy:
                 return True
             ret = parent_model.fsdp_wrap_fn(current_module)
             if isinstance(ret, dict):
-                assert set(ret.keys()) == {'mesh', 'reshard_after_forward'} \
-                    or set(ret.keys()) == {'device_mesh', 'reshard_after_forward'}, \
-                    'fsdp_wrap_fn must return a dict with keys "mesh" or "device_mesh" and "reshard_after_forward"'
+                # Ensure all keys in the returned dict are valid FSDP2Config attributes
+                valid_keys = set(FSDP2Config.__annotations__.keys())
+                if not set(ret.keys()).issubset(valid_keys):
+                    raise ValueError(f'Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {valid_keys}')
         elif current_module == parent_model:
             # Unless the user specifically sets the _fsdp_wrap attribute to False for the parent model,
             # we default to wrapping the parent model.
@@ -45,7 +47,28 @@ def _recursive_apply_fully_shard(
     module: nn.Module,
     target_modules_to_kwargs: dict[nn.Module, dict],
 ) -> None:
-    """Recursive helper to apply fully_shard based on policy and legalization."""
+    """Recursive helper to apply fully_shard based on policy and legalization.
+
+    NOTE: There is a slight caveat with this function. View the following example:
+
+    M0 (_fsdp_wrap = False)
+    ├── M1 (_fsdp_wrap not set)
+    └── M2 (_fsdp_wrap = True)
+    and M1 and M2 have tied weights.
+
+    In this situation, we will raise an error even though this is perfectly valid and duplicate wrapping
+    is not done.
+    TODO: Address this caveat if it does become an issue for customers.
+
+    Args:
+        root_module (nn.Module): The root module to check for parameter sharing.
+        module (nn.Module): The current module being processed.
+        target_modules_to_kwargs (dict[nn.Module, dict]): Dictionary mapping modules to their fully_shard kwargs.
+
+    Returns:
+        None (fully_shards modules in place)
+    """
+
     # 1. Identify direct children candidates for sharding based on whether they are in target_modules_to_kwargs
     child_candidates = [child for child in module.children() if child in target_modules_to_kwargs]
 
@@ -61,19 +84,18 @@ def _recursive_apply_fully_shard(
                 f'Please adjust the auto_wrap_policy to ensure no parameter sharing exists between modules to be sharded.',
             )
 
-        # Check for tying between candidates and the rest of the model (using root_module)
+        # Check for tying between candidates and the rest of the model (using root_module);
+        # As the docstring discusses, we don't allow weight sharing between fsdp and non-fsdp modules, even if the parent
+        # module is not FSDP wrapped. We may consider to relax this constraint in the future.
         legalize_param_sharing_between_modules(root_module, standalone_child_candidates)
 
     # 3. Recurse on module's children for downstream sharding
     for child in module.children():
         _recursive_apply_fully_shard(root_module, child, target_modules_to_kwargs)
 
-    # 4. Apply fully_shard to the standalone children identified earlier (Post-order application)
-    # Note that all modules that we fully_shard will have kwargs in target_modules_to_kwargs
-    for child in standalone_child_candidates:
-        kwargs = target_modules_to_kwargs[child]
-        fully_shard(child, **kwargs)
-
+    # 4. Apply fully_shard to the module if it is in target_modules_to_kwargs
+    if module in target_modules_to_kwargs:
+        fully_shard(module, **target_modules_to_kwargs[module])
 
 def get_standalone_and_tied_modules(modules: list[nn.Module]) -> tuple[list[nn.Module], set[nn.Module]]:
     """Filter modules that have standalone params thus can be fully sharded independently and those with tied params.
@@ -136,11 +158,6 @@ def legalize_param_sharing_between_modules(model: nn.Module, modules_to_shard: l
     # We can fully_shard self.child2 however if we call fully_shard on `model` again, then
     # due to `child1` is not a FSDPModule, it will try to fully_shard params in `child1` which is already sharded by `child2`,
     # and it errors out with misleading error as it thinks it is applying FSDP on top of another parallelism.
-
-    # Currently identify_shardable_modules avoids this case through generally handling weight tying so that only parent of child1 and child2
-    # is sharded. However if we allow users to call this function directly with custom modules_to_shard, we need to:
-    # legalize that no module outside modules_to_shard shares parameters with modules_to_shard or
-    # TODO alternatively we can fix torch/distributed/fsdp/_fully_shard/_fsdp_init.py::_get_managed_modules
 
     # Collect all parameters from modules to be sharded
     modules_to_shard_params = set()
@@ -274,17 +291,50 @@ def apply_fully_shard(
     # Recursively apply fully_shard to each relevant submodule defined by the policy (and the corresponding target_modules_to_kwargs)
     _recursive_apply_fully_shard(model, model, target_modules_to_kwargs)
 
-    # Apply fully_shard to the model itself if it's set to be wrapped
-    # NOTE: There is a slight caveat with this approach. View the following example:
-    # M0 (_fsdp_wrap = False)
-    # ├── M1 (_fsdp_wrap not set)
-    # └── M2 (_fsdp_wrap = True)
-    # and M1 and M2 have tied weights.
-    # In this situation, we will raise an error even though this is perfectly valid and duplicate wrapping
-    # is not done.
-    # TODO: Address this caveat if it does become an issue for customers.
-    if model in target_modules_to_kwargs:
-        fully_shard(model, **target_modules_to_kwargs[model])
+
+def _get_param_tying_groups(model: nn.Module) -> list[set[str]]:
+    """Identifies groups of tied parameters within a model based on object identity.
+
+    A parameter is considered tied if the same nn.Parameter object appears multiple
+    times when iterating through model.named_parameters().
+    """
+    # Map parameter object to the set of FQNs associated with it
+    param_object_to_fqns: dict[nn.Parameter, set[str]] = {}
+
+    for fqn, param in model.named_parameters():
+        if param not in param_object_to_fqns:
+            param_object_to_fqns[param] = set()
+        param_object_to_fqns[param].add(fqn)
+
+    # Filter to keep only groups where the same parameter object has multiple FQNs
+    print(param_object_to_fqns)
+    tying_groups = [fqns for fqns in param_object_to_fqns.values() if len(fqns) > 1]
+    return tying_groups
+
+
+@contextlib.contextmanager
+def check_param_tying(model: nn.Module):
+    """Context manager to verify that parameter tying relationships remain consistent.
+
+    Checks parameter tying based on shared parameter object identity before and after the context.
+    """
+    pre_shard_tying_groups = _get_param_tying_groups(model)
+    sorted_pre_shard_groups = sorted([sorted(list(group)) for group in pre_shard_tying_groups])
+    print(f'Pre-shard tying groups: {sorted_pre_shard_groups}')
+
+    try:
+        yield
+    finally:
+        post_shard_tying_groups = _get_param_tying_groups(model)
+        sorted_post_shard_groups = sorted([sorted(list(group)) for group in post_shard_tying_groups])
+        print(f'Post-shard tying groups: {sorted_post_shard_groups}')
+
+        if sorted_pre_shard_groups != sorted_post_shard_groups:
+            raise RuntimeError(
+                f'Parameter tying relationship changed during the context.\n'
+                f'Pre-shard tying groups (object id): {sorted_pre_shard_groups}\n'
+                f'Post-shard tying groups (object id): {sorted_post_shard_groups}',
+            )
 
 
 def prepare_fully_shard(
@@ -310,7 +360,8 @@ def prepare_fully_shard(
     if auto_wrap_policy is None:
         auto_wrap_policy = _generate_default_policy(model)
 
-    apply_fully_shard(model, fsdp2_config, auto_wrap_policy)
+    with check_param_tying(model):
+        apply_fully_shard(model, fsdp2_config, auto_wrap_policy)
 
     # If the optimizer is provided, update the optimizer's parameter groups to use the sharded model's DTensor parameters
     if optimizer is not None:
