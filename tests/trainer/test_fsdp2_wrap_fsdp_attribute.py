@@ -1,16 +1,21 @@
-import torch
-from composer.utils.parallelism import FSDP2Config
-import torch.nn as nn
+# Copyright 2024 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 import pytest
+import torch
+import torch.nn as nn
+from torch.distributed._tensor import DTensor
+
+from composer.utils.parallelism import FSDP2Config
+from tests.common import world_size
 from tests.trainer.fsdp2_context import (
     _generate_default_policy,
     _recursive_apply_fully_shard,
+    check_param_tying,
     fsdp2_context,
     prepare_fully_shard,
-    check_param_tying
 )
-from tests.common import world_size
-from torch.distributed._tensor import DTensor
+
 
 class NestedModule(nn.Module):
     """A nested module with a deep nested structure."""
@@ -39,6 +44,7 @@ def check_not_dtensors(params: list[torch.nn.Parameter]):
     for param in params:
         assert not isinstance(param, DTensor), f'{param} should not be a DTensor'
 
+
 def check_dtensors(params: list[torch.nn.Parameter]):
     for param in params:
         assert isinstance(param, DTensor), f'{param} should be a DTensor'
@@ -52,6 +58,7 @@ def check_dtensors(params: list[torch.nn.Parameter]):
 # └── M5 (NestedModule)
 #     ├── M6 (Linear)
 #     └── M7 (Linear)
+
 
 @world_size(2)
 @fsdp2_context
@@ -169,7 +176,7 @@ def test_fsdp_wrap_parent_shares_with_child_parent_wrap(world_size: int):
     m2_final = m1.get_submodule('m2')
     m3_final = m2_final.get_submodule('m3')
     assert hasattr(m2_final, 'weight'), "Wrapped M2 should still have a 'weight' attribute"
-    assert id(m2_final.weight) == id(m3_final.weight), error_msg # type: ignore
+    assert id(m2_final.weight) == id(m3_final.weight), error_msg  # type: ignore
 
 
 @world_size(2)
@@ -193,7 +200,7 @@ def test_fsdp_wrap_error_parent_child_share_child_wrap(world_size: int):
     """Test error when parent (M2) and child (M3) share weights and only the child is marked for wrapping."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
-    m1.m2._fsdp_wrap = False
+    m1.m2._fsdp_wrap = False  # type: ignore
     m1.m2.m3._fsdp_wrap = True  # type: ignore
     m1.m2.weight = m1.m2.m3.weight  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
@@ -222,7 +229,7 @@ def test_fsdp_wrap_error_tied_across_branches_one_wrap(world_size: int):
     """Test error (as noted in original comments) when weights are tied (M3, M6) but only one (M6) is marked for wrap."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
-    m1.m2.m3._fsdp_wrap = False
+    m1.m2.m3._fsdp_wrap = False  # type: ignore
     m1.m5.m6._fsdp_wrap = True  # type: ignore
     m1.m2.m3.weight = m1.m5.m6.weight  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
@@ -230,15 +237,18 @@ def test_fsdp_wrap_error_tied_across_branches_one_wrap(world_size: int):
     with pytest.raises(ValueError, match='Parameter sharing detected between modules to be sharded and module'):
         prepare_fully_shard(m1, opt, fsdp2_config)
 
+
 @world_size(2)
 @fsdp2_context
 def test_fsdp_wrap_fn_base(world_size: int):
     """Test that a custom wrap function can be provided to the FSDP2Config."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+
     def wrap_fn(module: nn.Module):
         return True
-    m1.fsdp_wrap_fn = wrap_fn
+
+    m1.fsdp_wrap_fn = wrap_fn  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
     prepare_fully_shard(m1, opt, fsdp2_config)
     # all parameters should be DTensors
@@ -251,9 +261,11 @@ def test_fsdp_wrap_fn_invalid_keys(world_size: int):
     """Test that an error is raised if the wrap function returns a dict with invalid keys."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+
     def wrap_fn(module: nn.Module):
         return {'tacos': False}
-    m1.fsdp_wrap_fn = wrap_fn
+
+    m1.fsdp_wrap_fn = wrap_fn  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
     with pytest.raises(ValueError, match='Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {'):
         prepare_fully_shard(m1, opt, fsdp2_config)
@@ -265,10 +277,12 @@ def test_fsdp_wrap_fn_target_module(world_size: int):
     """Test that if root module is not wrapped, the wrap function will wrap the target module."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
-    m1._fsdp_wrap = False
+    m1._fsdp_wrap = False  # type: ignore
+
     def wrap_fn(module: nn.Module):
         return module == m1.m2
-    m1.fsdp_wrap_fn = wrap_fn
+
+    m1.fsdp_wrap_fn = wrap_fn  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
     prepare_fully_shard(m1, opt, fsdp2_config)
     # only m1.m2 should be wrapped
@@ -283,9 +297,11 @@ def test_fsdp_wrap_fn_error_tied_siblings(world_size: int):
     """Test that if weights are tied and wrapped incorrectly, an error is raised."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+
     def wrap_fn(module: nn.Module):
         return module == m1.m2
-    m1.fsdp_wrap_fn = wrap_fn
+
+    m1.fsdp_wrap_fn = wrap_fn  # type: ignore
     m1.m2.m3.weight = m1.m5.m6.weight
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
     with pytest.raises(ValueError, match='Parameter sharing detected'):
@@ -298,18 +314,20 @@ def test_fsdp_wrap_fn_reshard_after_forward(world_size: int):
     """Test if the wrap function can correctly return a dictionary of kwargs."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+
     def wrap_fn(module: nn.Module):
         return {'reshard_after_forward': False}
-    m1.fsdp_wrap_fn = wrap_fn
+
+    m1.fsdp_wrap_fn = wrap_fn  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
     prepare_fully_shard(m1, opt, fsdp2_config)
 
     def check_reshard_after_forward(module: nn.Module):
-        fsdp_state = module._get_fsdp_state()
+        fsdp_state = module._get_fsdp_state()  # type: ignore
         param_group = fsdp_state._fsdp_param_group
         assert param_group.post_forward_mesh_info is None, \
-            f"reshard_after_forward should be False, but got {param_group.post_forward_mesh_info}"
-    
+            f'reshard_after_forward should be False, but got {param_group.post_forward_mesh_info}'
+
     # For this, we can only check leaf modules otherwise, we will run into errors
     for module in [m1.m2.m3, m1.m2.m4, m1.m5.m6, m1.m5.m7]:
         check_reshard_after_forward(module)
@@ -321,10 +339,12 @@ def test_check_param_tying(world_size: int):
     """Test that if weights are tied different before and after the context, an error is raised."""
     m1 = DeepNestedModel()
     m1.m2.m3.weight = m1.m2.m4.weight
+
     def update_model(m1):
         m1.m2.m3.weight = m1.m5.m6.weight
+
     with pytest.raises(RuntimeError, match='Parameter tying relationship changed during the context'):
-        with check_param_tying(m1):
+        with check_param_tying(m1):  # type: ignore
             update_model(m1)
 
 
@@ -336,9 +356,11 @@ def test_check_param_tying_fsdp_wrap(world_size: int):
     m1 = DeepNestedModel()
     m1.m2.m3.weight = m1.m2.m4.weight
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
+
     def update_model(m1):
         prepare_fully_shard(m1, opt, fsdp2_config)
         m1.m2.m3.weight = m1.m5.m6.weight
+
     with pytest.raises(RuntimeError, match='Parameter tying relationship changed during the context'):
-        with check_param_tying(m1):
+        with check_param_tying(m1):  # type: ignore
             update_model(m1)

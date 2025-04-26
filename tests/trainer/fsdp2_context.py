@@ -25,6 +25,7 @@ else:
     _generate_default_policy = lambda *args, **kwargs: lambda *args, **kwargs: None
     check_param_tying = lambda *args, **kwargs: None
 
+
 def fsdp2_context(func: Callable) -> Optional[Callable]:
     """Decorator to run tests with models initialized on the meta device for torch version 2.6+."""
     func = pytest.mark.skipif(SKIP_TEST, reason='Skipping test for torch version < 2.6.0')(func)

@@ -3,6 +3,7 @@
 
 """Helpers for FSDP2."""
 
+import contextlib
 import warnings
 from typing import Any, Callable, Optional, Union
 
@@ -10,7 +11,6 @@ import torch
 import torch.nn as nn
 from torch.distributed.fsdp._fully_shard import fully_shard
 from torch.distributed.fsdp.wrap import CustomPolicy
-import contextlib
 
 from composer.utils.parallelism import FSDP2Config
 
@@ -68,7 +68,6 @@ def _recursive_apply_fully_shard(
     Returns:
         None (fully_shards modules in place)
     """
-
     # 1. Identify direct children candidates for sharding based on whether they are in target_modules_to_kwargs
     child_candidates = [child for child in module.children() if child in target_modules_to_kwargs]
 
@@ -96,6 +95,7 @@ def _recursive_apply_fully_shard(
     # 4. Apply fully_shard to the module if it is in target_modules_to_kwargs
     if module in target_modules_to_kwargs:
         fully_shard(module, **target_modules_to_kwargs[module])
+
 
 def get_standalone_and_tied_modules(modules: list[nn.Module]) -> tuple[list[nn.Module], set[nn.Module]]:
     """Filter modules that have standalone params thus can be fully sharded independently and those with tied params.
@@ -297,17 +297,30 @@ def _get_param_tying_groups(model: nn.Module) -> list[set[str]]:
 
     A parameter is considered tied if the same nn.Parameter object appears multiple
     times when iterating through model.named_parameters().
+
+    NOTE: We take the recursive approach since .named_parameters() has a weird behavior where if you do
+    m1.m2.m3.weight = m1.m2.m4.weight and then call m1.named_parameters(), it will only return the FQN for m1.m2.m3.weight
+    but not m1.m2.m4.weight.
     """
     # Map parameter object to the set of FQNs associated with it
     param_object_to_fqns: dict[nn.Parameter, set[str]] = {}
 
-    for fqn, param in model.named_parameters():
-        if param not in param_object_to_fqns:
-            param_object_to_fqns[param] = set()
-        param_object_to_fqns[param].add(fqn)
+    def _recursive_get_params(module: nn.Module, prefix: str = '') -> None:
+        # Add parameters from current module
+        for name, param in module.named_parameters(recurse=False):
+            fqn = f'{prefix}.{name}' if prefix else name
+            if param not in param_object_to_fqns:
+                param_object_to_fqns[param] = set()
+            param_object_to_fqns[param].add(fqn)
+
+        # Recursively process child modules
+        for child_name, child in module.named_children():
+            child_prefix = f'{prefix}.{child_name}' if prefix else child_name
+            _recursive_get_params(child, child_prefix)
+
+    _recursive_get_params(model)
 
     # Filter to keep only groups where the same parameter object has multiple FQNs
-    print(param_object_to_fqns)
     tying_groups = [fqns for fqns in param_object_to_fqns.values() if len(fqns) > 1]
     return tying_groups
 
@@ -319,15 +332,13 @@ def check_param_tying(model: nn.Module):
     Checks parameter tying based on shared parameter object identity before and after the context.
     """
     pre_shard_tying_groups = _get_param_tying_groups(model)
-    sorted_pre_shard_groups = sorted([sorted(list(group)) for group in pre_shard_tying_groups])
-    print(f'Pre-shard tying groups: {sorted_pre_shard_groups}')
+    sorted_pre_shard_groups = sorted([sorted(group) for group in pre_shard_tying_groups])
 
     try:
         yield
     finally:
         post_shard_tying_groups = _get_param_tying_groups(model)
-        sorted_post_shard_groups = sorted([sorted(list(group)) for group in post_shard_tying_groups])
-        print(f'Post-shard tying groups: {sorted_post_shard_groups}')
+        sorted_post_shard_groups = sorted([sorted(group) for group in post_shard_tying_groups])
 
         if sorted_pre_shard_groups != sorted_post_shard_groups:
             raise RuntimeError(
