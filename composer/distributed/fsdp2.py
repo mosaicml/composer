@@ -49,17 +49,6 @@ def _recursive_apply_fully_shard(
 ) -> None:
     """Recursive helper to apply fully_shard based on policy and legalization.
 
-    NOTE: There is a slight caveat with this function. View the following example:
-
-    M0 (_fsdp_wrap = False)
-    ├── M1 (_fsdp_wrap not set)
-    └── M2 (_fsdp_wrap = True)
-    and M1 and M2 have tied weights.
-
-    In this situation, we will raise an error even though this is perfectly valid and duplicate wrapping
-    is not done.
-    TODO: Address this caveat if it does become an issue for customers.
-
     Args:
         root_module (nn.Module): The root module to check for parameter sharing.
         module (nn.Module): The current module being processed.
