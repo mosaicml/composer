@@ -11,7 +11,7 @@ from torch.distributed.fsdp._fully_shard import fully_shard
 from torch.distributed.fsdp.wrap import CustomPolicy
 
 from composer.distributed.fsdp2_utils import (
-    _generate_default_policy,
+    generate_default_policy,
     check_param_tying,
     get_standalone_and_tied_modules,
     legalize_param_sharing_between_modules,
@@ -116,7 +116,7 @@ def prepare_fully_shard(
 
     # If the auto_wrap_policy is not provided, generate the default policy
     if auto_wrap_policy is None:
-        auto_wrap_policy = _generate_default_policy(model)
+        auto_wrap_policy = generate_default_policy(model)
 
     with check_param_tying(model):
         apply_fully_shard(model, fsdp2_config, auto_wrap_policy)

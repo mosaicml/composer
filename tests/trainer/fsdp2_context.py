@@ -15,7 +15,7 @@ if not SKIP_TEST:
     legalize_param_sharing_between_modules = fsdp2.legalize_param_sharing_between_modules
     get_standalone_and_tied_modules = fsdp2.get_standalone_and_tied_modules
     _recursive_apply_fully_shard = fsdp2._recursive_apply_fully_shard
-    _generate_default_policy = fsdp2._generate_default_policy
+    _generate_default_policy = fsdp2.generate_default_policy
     check_param_tying = fsdp2.check_param_tying
 else:
     prepare_fully_shard = lambda *args, **kwargs: None

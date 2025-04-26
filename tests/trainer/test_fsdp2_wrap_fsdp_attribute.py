@@ -60,8 +60,8 @@ def check_dtensors(params: list[torch.nn.Parameter]):
 #     └── M7 (Linear)
 
 
-@world_size(2)
 @fsdp2_context
+@world_size(2)
 def test_fsdp_wrap_separate_modules(world_size: int):
     """Test FSDP wrapping applied to separate, non-overlapping modules (M2, M5)."""
     fsdp2_config = FSDP2Config()
@@ -73,8 +73,8 @@ def test_fsdp_wrap_separate_modules(world_size: int):
     check_dtensors(list(m1.parameters()))
 
 
-@world_size(2)
 @fsdp2_context
+@world_size(2)
 def test_fsdp_wrap_error_tied_siblings(world_size: int):
     """Test error when siblings (M3, M4) with tied weights are both marked for FSDP wrapping."""
     fsdp2_config = FSDP2Config()
@@ -87,8 +87,8 @@ def test_fsdp_wrap_error_tied_siblings(world_size: int):
         prepare_fully_shard(m1, opt, fsdp2_config)
 
 
-@world_size(2)
 @fsdp2_context
+@world_size(2)
 def test_fsdp_wrap_error_tied_sibling_one_wrapped(world_size: int):
     """Test error when one module (M3) marked for FSDP wrap shares weights with a sibling (M4)."""
     fsdp2_config = FSDP2Config()
@@ -100,8 +100,8 @@ def test_fsdp_wrap_error_tied_sibling_one_wrapped(world_size: int):
         prepare_fully_shard(m1, opt, fsdp2_config)
 
 
-@world_size(2)
 @fsdp2_context
+@world_size(2)
 def test_fsdp_wrap_ancestor_with_tied_children(world_size: int):
     """Test wrapping an ancestor (M2) whose children (M3, M4) have tied weights. Should succeed."""
     fsdp2_config = FSDP2Config()
@@ -115,8 +115,8 @@ def test_fsdp_wrap_ancestor_with_tied_children(world_size: int):
     assert id(m1.m2.m3.weight) == id(m1.m2.m4.weight), error_msg
 
 
-@world_size(2)
 @fsdp2_context
+@world_size(2)
 def test_fsdp_wrap_error_tied_across_branches_ancestor_wrap(world_size: int):
     """Test error when a wrapped module (M2) has a child (M3) tied to a module (M6) in another branch."""
     fsdp2_config = FSDP2Config()
@@ -128,8 +128,8 @@ def test_fsdp_wrap_error_tied_across_branches_ancestor_wrap(world_size: int):
         prepare_fully_shard(m1, opt, fsdp2_config)
 
 
-@world_size(2)
 @fsdp2_context
+@world_size(2)
 def test_fsdp_wrap_root_with_tied_descendants(world_size: int):
     """Test wrapping the root (M1) when descendants (M3, M6) have tied weights. Should succeed."""
     fsdp2_config = FSDP2Config()
@@ -143,8 +143,8 @@ def test_fsdp_wrap_root_with_tied_descendants(world_size: int):
     assert id(m1.m2.m3.weight) == id(m1.m5.m6.weight), error_msg  # type: ignore
 
 
-@world_size(2)
 @fsdp2_context
+@world_size(2)
 def test_fsdp_manual_policy_submodule_only(world_size: int):
     """Test manual policy application where only a submodule (M3) is wrapped."""
     m1 = DeepNestedModel()
@@ -160,8 +160,8 @@ def test_fsdp_manual_policy_submodule_only(world_size: int):
     check_not_dtensors(other_params)
 
 
-@world_size(2)
 @fsdp2_context
+@world_size(2)
 def test_fsdp_wrap_parent_shares_with_child_parent_wrap(world_size: int):
     """Test wrapping a parent (M2) that shares weights with its child (M3). Should succeed."""
     fsdp2_config = FSDP2Config()
@@ -179,8 +179,8 @@ def test_fsdp_wrap_parent_shares_with_child_parent_wrap(world_size: int):
     assert id(m2_final.weight) == id(m3_final.weight), error_msg  # type: ignore
 
 
-@world_size(2)
 @fsdp2_context
+@world_size(2)
 def test_fsdp_wrap_error_parent_child_share_both_wrap(world_size: int):
     """Test error when parent (M2) and child (M3) share weights and both are marked for wrapping."""
     fsdp2_config = FSDP2Config()
@@ -194,8 +194,8 @@ def test_fsdp_wrap_error_parent_child_share_both_wrap(world_size: int):
         prepare_fully_shard(m1, opt, fsdp2_config)
 
 
-@world_size(2)
 @fsdp2_context
+@world_size(2)
 def test_fsdp_wrap_error_parent_child_share_child_wrap(world_size: int):
     """Test error when parent (M2) and child (M3) share weights and only the child is marked for wrapping."""
     fsdp2_config = FSDP2Config()
@@ -208,8 +208,8 @@ def test_fsdp_wrap_error_parent_child_share_child_wrap(world_size: int):
         prepare_fully_shard(m1, opt, fsdp2_config)
 
 
-@world_size(2)
 @fsdp2_context
+@world_size(2)
 def test_fsdp_wrap_error_complex_sharing_parent_wrap(world_size: int):
     """Test error with complex sharing: parent (M2) shares with child (M3), child shares with other branch (M6), parent is wrapped."""
     fsdp2_config = FSDP2Config()
@@ -223,8 +223,8 @@ def test_fsdp_wrap_error_complex_sharing_parent_wrap(world_size: int):
         prepare_fully_shard(m1, opt, fsdp2_config)
 
 
-@world_size(2)
 @fsdp2_context
+@world_size(2)
 def test_fsdp_wrap_error_tied_across_branches_one_wrap(world_size: int):
     """Test error (as noted in original comments) when weights are tied (M3, M6) but only one (M6) is marked for wrap."""
     fsdp2_config = FSDP2Config()
@@ -238,8 +238,8 @@ def test_fsdp_wrap_error_tied_across_branches_one_wrap(world_size: int):
         prepare_fully_shard(m1, opt, fsdp2_config)
 
 
-@world_size(2)
 @fsdp2_context
+@world_size(2)
 def test_fsdp_wrap_fn_base(world_size: int):
     """Test that a custom wrap function can be provided to the FSDP2Config."""
     fsdp2_config = FSDP2Config()
@@ -255,8 +255,8 @@ def test_fsdp_wrap_fn_base(world_size: int):
     check_dtensors(list(m1.parameters()))
 
 
-@world_size(2)
 @fsdp2_context
+@world_size(2)
 def test_fsdp_wrap_fn_invalid_keys(world_size: int):
     """Test that an error is raised if the wrap function returns a dict with invalid keys."""
     fsdp2_config = FSDP2Config()
@@ -271,8 +271,8 @@ def test_fsdp_wrap_fn_invalid_keys(world_size: int):
         prepare_fully_shard(m1, opt, fsdp2_config)
 
 
-@world_size(2)
 @fsdp2_context
+@world_size(2)
 def test_fsdp_wrap_fn_target_module(world_size: int):
     """Test that if root module is not wrapped, the wrap function will wrap the target module."""
     fsdp2_config = FSDP2Config()
@@ -291,8 +291,8 @@ def test_fsdp_wrap_fn_target_module(world_size: int):
     check_not_dtensors(other_params)
 
 
-@world_size(2)
 @fsdp2_context
+@world_size(2)
 def test_fsdp_wrap_fn_error_tied_siblings(world_size: int):
     """Test that if weights are tied and wrapped incorrectly, an error is raised."""
     fsdp2_config = FSDP2Config()
@@ -308,8 +308,8 @@ def test_fsdp_wrap_fn_error_tied_siblings(world_size: int):
         prepare_fully_shard(m1, opt, fsdp2_config)
 
 
-@world_size(2)
 @fsdp2_context
+@world_size(2)
 def test_fsdp_wrap_fn_reshard_after_forward(world_size: int):
     """Test if the wrap function can correctly return a dictionary of kwargs."""
     fsdp2_config = FSDP2Config()
@@ -334,8 +334,7 @@ def test_fsdp_wrap_fn_reshard_after_forward(world_size: int):
 
 
 @fsdp2_context
-@world_size(2)
-def test_check_param_tying(world_size: int):
+def test_check_param_tying():
     """Test that if weights are tied different before and after the context, an error is raised."""
     m1 = DeepNestedModel()
     m1.m2.m3.weight = m1.m2.m4.weight
@@ -348,8 +347,8 @@ def test_check_param_tying(world_size: int):
             update_model(m1)
 
 
-@world_size(2)
 @fsdp2_context
+@world_size(2)
 def test_check_param_tying_fsdp_wrap(world_size: int):
     """Test that if weights are tied different before and after the context, an error is raised."""
     fsdp2_config = FSDP2Config()

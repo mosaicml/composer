@@ -244,7 +244,7 @@ def update_optimizer_modules(
 # FSDP2 Policy Functions
 
 
-def _generate_default_policy(parent_model: nn.Module) -> CustomPolicy:
+def generate_default_policy(parent_model: nn.Module) -> CustomPolicy:
     # The same policy as FSDP1 with some caveats around the parent_model (root_module)
     def lambda_fn(current_module: nn.Module) -> Union[bool, dict[str, Any]]:
         ret = False
