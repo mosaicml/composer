@@ -5,14 +5,9 @@ from collections import defaultdict
 from typing import Optional, Union
 
 import torch
-from packaging import version
-from torch.cuda.amp.grad_scaler import GradScaler, OptState
 from torch.optim import Optimizer
+from torch.amp.grad_scaler import _refresh_per_optimizer_state, GradScaler, OptState
 
-if version.parse(torch.__version__) >= version.parse('2.3.0'):
-    from torch.amp.grad_scaler import _refresh_per_optimizer_state  # type: ignore
-else:
-    from torch.cuda.amp.grad_scaler import _refresh_per_optimizer_state  # type: ignore
 
 from composer.utils import dist
 
