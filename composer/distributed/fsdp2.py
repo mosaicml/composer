@@ -11,8 +11,8 @@ from torch.distributed.fsdp._fully_shard import fully_shard
 from torch.distributed.fsdp.wrap import CustomPolicy
 
 from composer.distributed.fsdp2_utils import (
-    generate_default_policy,
     check_param_tying,
+    generate_default_policy,
     get_standalone_and_tied_modules,
     legalize_param_sharing_between_modules,
     update_optimizer_modules,

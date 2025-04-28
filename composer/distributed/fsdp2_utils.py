@@ -15,7 +15,8 @@ from composer.utils.parallelism import FSDP2Config
 
 # FSDP2 Weight Tying Functions
 # TODO: These functions are all relatively similar to each other, we should consider
-# refactoring them in the future to be simpler.
+# refactoring them in the future to be simpler. We also might benefit from moving these
+# weight tying functions to a new file (in a potential `fsdp2_utils` directory).
 
 
 def legalize_param_sharing_between_modules(model: nn.Module, modules_to_shard: list[nn.Module]) -> None:
@@ -139,9 +140,8 @@ def _get_param_tying_groups(model: nn.Module) -> list[set[str]]:
 
     _recursive_get_params(model)
 
-    # Filter to keep only groups where the same parameter object has multiple FQNs
-    tying_groups = [fqns for fqns in param_object_to_fqns.values() if len(fqns) > 1]
-    return tying_groups
+    # Return a list of sets, each set contains the FQNs for a tied parameter group
+    return list(param_object_to_fqns.values())
 
 
 @contextlib.contextmanager
@@ -245,7 +245,12 @@ def update_optimizer_modules(
 
 
 def generate_default_policy(parent_model: nn.Module) -> CustomPolicy:
-    # The same policy as FSDP1 with some caveats around the parent_model (root_module)
+    """Generates the default fsdp wrap policy for FSDP2.
+
+    This policy is the same as the default policy in FSDP1 with some caveats around
+    how the root_module (parent_model) is handled to best support FSDP2.
+    """
+
     def lambda_fn(current_module: nn.Module) -> Union[bool, dict[str, Any]]:
         ret = False
         if hasattr(current_module, '_fsdp_wrap'):
