@@ -363,3 +363,33 @@ def test_check_param_tying_fsdp_wrap(world_size: int):
     with pytest.raises(RuntimeError, match='Parameter tying relationship changed during the context'):
         with check_param_tying(m1):  # type: ignore
             update_model(m1)
+
+
+@fsdp2_context
+@world_size(2)
+def test_fsdp_wrap_attribute_warning(world_size: int):
+    """Test that only one warning is raised if _fsdp_wrap is set in the model instead of fsdp_wrap_fn."""
+    fsdp2_config = FSDP2Config()
+    m1 = DeepNestedModel()
+    m1.m2._fsdp_wrap = True  # type: ignore
+    m1.m5._fsdp_wrap = True  # type: ignore
+    opt = torch.optim.Adam(m1.parameters(), lr=0.01)
+    with pytest.warns(
+        DeprecationWarning,
+        match='The _fsdp_wrap attribute will be removed in a future release. Please use fsdp_wrap_fn instead.',
+    ) as record:
+        prepare_fully_shard(m1, opt, fsdp2_config)
+    assert len(record) == 1, f'Expected exactly one warning but got {len(record)} warnings'
+
+
+@fsdp2_context
+@world_size(2)
+def test_fsdp_wrap_attribute_not_raised_when_using_fsdp_wrap_fn(world_size: int):
+    """Test that a warning is not raised when using fsdp_wrap_fn."""
+    fsdp2_config = FSDP2Config()
+    m1 = DeepNestedModel()
+    m1.fsdp_wrap_fn = lambda x: True  # type: ignore
+    opt = torch.optim.Adam(m1.parameters(), lr=0.01)
+    with pytest.warns(None) as record:  # type: ignore
+        prepare_fully_shard(m1, opt, fsdp2_config)
+    assert len(record) == 0, f'Expected no warnings but got warnings: {record}'
