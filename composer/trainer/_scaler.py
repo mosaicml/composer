@@ -5,9 +5,8 @@ from collections import defaultdict
 from typing import Optional, Union
 
 import torch
+from torch.amp.grad_scaler import GradScaler, OptState, _refresh_per_optimizer_state
 from torch.optim import Optimizer
-from torch.amp.grad_scaler import _refresh_per_optimizer_state, GradScaler, OptState
-
 
 from composer.utils import dist
 
