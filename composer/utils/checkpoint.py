@@ -20,13 +20,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 import torch
-from packaging import version
 from torch.distributed import checkpoint as dist_cp
 from torch.distributed._tensor import DeviceMesh
+from torch.distributed.checkpoint.default_planner import DefaultSavePlanner
 from torch.distributed.checkpoint.metadata import Metadata
 from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
 from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
 from torch.distributed.checkpoint.storage import StorageReader
+from torch.distributed.checkpoint.utils import CheckpointException
 from torch.distributed.distributed_c10d import ProcessGroup
 
 from composer.utils import dist, reproducibility
@@ -558,64 +559,28 @@ def dist_cp_load(
     storage_reader: StorageReader,
     load_planner: Optional[LoadPlanner] = None,
 ):
-    if version.parse(torch.__version__) >= version.parse('2.4.0'):
-        from torch.distributed.checkpoint.utils import CheckpointException
-        try:
+    try:
+        dist_cp.load(
+            state_dict=state_dict,
+            storage_reader=storage_reader,
+            planner=load_planner,
+        )
+    except CheckpointException as e:
+        if re.search(r'Size mismatch.+torch\.Size\(\[816\]\).+rng\.\d+\.cuda', str(e)) is not None:
+            # Pytorch 2.6 is strictly enforcing the sizes of the state dict values vs the size
+            # in the checkpoint. However Pytorch starting in 2.1.0
+            # have moved from using RNG of size 816 to 16, therefore causing errors if we
+            # load a ckpt at or after 2.6.0 if the ckpt was created before 2.1.0
+            for idx in range(len(state_dict['rng'])):
+                state_dict['rng'][idx]['cuda'] = torch.zeros(816, dtype=torch.uint8)
+
             dist_cp.load(
                 state_dict=state_dict,
                 storage_reader=storage_reader,
                 planner=load_planner,
             )
-        except CheckpointException as e:
-            if re.search(r'Size mismatch.+torch\.Size\(\[816\]\).+rng\.\d+\.cuda', str(e)) is not None:
-                # Pytorch 2.6 is strictly enforcing the sizes of the state dict values vs the size
-                # in the checkpoint. However Pytorch starting in 2.1.0
-                # have moved from using RNG of size 816 to 16, therefore causing errors if we
-                # load a ckpt at or after 2.6.0 if the ckpt was created before 2.1.0
-                for idx in range(len(state_dict['rng'])):
-                    state_dict['rng'][idx]['cuda'] = torch.zeros(816, dtype=torch.uint8)
-
-                dist_cp.load(
-                    state_dict=state_dict,
-                    storage_reader=storage_reader,
-                    planner=load_planner,
-                )
-                return
-
-            checkpoint_metadata = storage_reader.read_metadata().state_dict_metadata
-            if 'state.metadata' in checkpoint_metadata and 'state.metadata.composer_env_info.composer_version' not in checkpoint_metadata:
-                # Torch 2.4 changed the way how state dict is flattened. It broke backward compatibility.
-                # Torch issue: https://github.com/pytorch/pytorch/issues/133923.
-                # We override the traverse_state_dict so that the load planner could
-                # use the old way of flattening the state dict
-                log.debug('Trying to load checkpointing saved before torch 2.4')
-
-                import torch.distributed.checkpoint._nested_dict as nested_dict
-                import torch.distributed.checkpoint._sharded_tensor_utils as sharded_tensor_util
-                from torch.distributed.checkpoint._traverse import traverse_state_dict as traverse_2_4_0
-
-                from composer.trainer._patch_pytorch import traverse_state_dict as backward_compatible_traverse
-
-                nested_dict.traverse_state_dict = backward_compatible_traverse
-                sharded_tensor_util.traverse_state_dict = backward_compatible_traverse
-
-                dist_cp.load(
-                    state_dict=state_dict,
-                    storage_reader=storage_reader,
-                    planner=load_planner,
-                )
-                # Revert the override
-                nested_dict.traverse_state_dict = traverse_2_4_0
-                sharded_tensor_util.traverse_state_dict = traverse_2_4_0
-            else:
-                raise e
-    else:
-        dist_cp.load_state_dict(
-            state_dict=state_dict,
-            storage_reader=storage_reader,
-            planner=load_planner,
-            no_dist=(not dist.is_initialized()),
-        )
+            return
+        raise e
 
 
 def load_sharded_checkpoint(
@@ -630,12 +595,6 @@ def load_sharded_checkpoint(
     exclude_algorithms: Optional[list[str]] = None,
     algorithm_passes: Optional[list[AlgorithmPass]] = None,
 ) -> Union[list[dict], None]:
-    using_multinode = dist.get_world_size() != dist.get_local_world_size()
-    if not version.parse(torch.__version__) >= version.parse('2.0.1') and using_multinode:
-        raise ValueError(
-            f'Sharded checkpoint loading on >1 node requires torch version >= 2.0.1. You have torch version {torch.__version__}',
-        )
-
     if state.fsdp_config is None:
         raise ValueError('Loading a sharded checkpoint requires passing an FSDP config to Trainer.')
 
@@ -1039,7 +998,7 @@ def get_save_filename(
     assert remote_prefix is not None
     save_dirpath = Path(Path(filename).parent) / Path(remote_prefix)
     save_dirpath = format_name_with_dist_and_time(str(save_dirpath), state.run_name, state.timestamp)
-    # New name is now Trainer.save_folder / sharded_ckpt_prefix_dir / __{dist.get_global_rank()}_0.distcp’
+    # New name is now Trainer.save_folder / sharded_ckpt_prefix_dir / __{dist.get_global_rank()}_0.distcp'
     # e.g. path/to/my/checkpoints/ep1-ba2/__1_0.distcp
     ckpt_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
     return str(Path(save_dirpath) / Path(ckpt_filename))
@@ -1080,13 +1039,7 @@ def _save_checkpoint(
         # Only rank 0 saves RNG
         if dist.get_global_rank() > 0:
             state_dict.pop('rng')
-        # To load optimizer states with 2.0 <= torch < 2.2.3 , the optimizer state must be at the top
-        # level of the state dict because the load_sharded_optimizer_state_dict function
-        # requires a top level state dict key for the optimizer.
-        # See https://github.com/pytorch/pytorch/blob/v2.0.1/torch/distributed/checkpoint/optimizer.py#L271
-        # for more info.
-        if version.parse(torch.__version__) < version.parse('2.2.3'):
-            state_dict['optimizers'] = state_dict['state'].pop('optimizers')
+        # For older versions of PyTorch, we don't need this special handling anymore
 
     log.debug('State dict created.')
     dirname = os.path.dirname(save_filename)
@@ -1116,31 +1069,15 @@ def _save_checkpoint(
             expect_file = True
 
         if expect_file:
-            if version.parse(torch.__version__) >= version.parse('2.3.0'):
-                save_planner = state.fsdp_config.save_planner
-                if save_planner is None:
-                    if version.parse(torch.__version__) < version.parse('2.4.0'):
-                        # Dedup is only broken on <2.4
-                        from composer.trainer._patch_pytorch import SavePlannerWithDedupFix
-
-                        save_planner = SavePlannerWithDedupFix()
-                    else:
-                        from torch.distributed.checkpoint.default_planner import DefaultSavePlanner
-
-                        save_planner = DefaultSavePlanner(dedup_save_to_lowest_rank=True)
-                dist_cp.save(
-                    state_dict=state_dict,
-                    storage_writer=dist_cp.FileSystemWriter(dirname),
-                    planner=save_planner,
-                    process_group=process_group,
-                )
-            else:
-                dist_cp.save_state_dict(
-                    state_dict=state_dict,
-                    storage_writer=dist_cp.FileSystemWriter(dirname),
-                    planner=state.fsdp_config.save_planner,
-                    process_group=process_group,
-                )
+            save_planner = state.fsdp_config.save_planner
+            if save_planner is None:
+                save_planner = DefaultSavePlanner(dedup_save_to_lowest_rank=True)
+            dist_cp.save(
+                state_dict=state_dict,
+                storage_writer=dist_cp.FileSystemWriter(dirname),
+                planner=save_planner,
+                process_group=process_group,
+            )
         log.debug('Finished pytorch save state dict')
     # Save monolith checkpoint
     elif dist.get_global_rank() == 0:
