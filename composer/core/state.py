@@ -75,10 +75,6 @@ log = logging.getLogger(__name__)
 def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str = 'full'):
     """Context manager for materializing or loading an fsdp module's state dict.
 
-    .. warning::
-        This function is deprecated and will be removed in a future release.
-        It is maintained for backwards compatibility with tests.
-
     Args:
         module (torch.nn.Module): The torch module that you want to call `state_dict()`
             or `load_state_dict()` on.
@@ -93,12 +89,6 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
     """
     # Torch forgot to put ShardedStateDictConfig in torch/distributed/fsdp/__init__.py, so we
     # have to import it this way.
-    warnings.warn(
-        'fsdp_state_dict_type_context is deprecated and will be removed in a future release',
-        DeprecationWarning,
-        stacklevel=2,
-    )
-
     from torch.distributed.fsdp.fully_sharded_data_parallel import ShardedStateDictConfig
 
     fsdp_state_dict_type = None
@@ -139,7 +129,7 @@ def fsdp_get_optim_state_dict(
     """Materializes a given model's optimizer's state_dict.
 
     .. warning::
-        This function is deprecated and will be removed in a future release.
+        This function is deprecated and will be removed in Composer version 0.32.
         It is maintained for backwards compatibility with tests.
 
     Args:
@@ -157,7 +147,7 @@ def fsdp_get_optim_state_dict(
         dict[str, Any]: The state_dict for the given optimizer.
     """
     warnings.warn(
-        'fsdp_get_optim_state_dict is deprecated and will be removed in a future release',
+        'fsdp_get_optim_state_dict is deprecated and will be removed in Composer version 0.32',
         DeprecationWarning,
         stacklevel=2,
     )
