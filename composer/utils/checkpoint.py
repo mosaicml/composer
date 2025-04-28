@@ -1066,7 +1066,6 @@ def _save_checkpoint(
         # Only rank 0 saves RNG
         if dist.get_global_rank() > 0:
             state_dict.pop('rng')
-        # For older versions of PyTorch, we don't need this special handling anymore
 
     log.debug('State dict created.')
     dirname = os.path.dirname(save_filename)
