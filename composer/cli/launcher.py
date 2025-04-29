@@ -19,7 +19,6 @@ from typing import Any, Union
 
 import psutil
 import torch
-from packaging import version
 
 import composer
 from composer.loggers.mosaicml_logger import (
@@ -321,10 +320,7 @@ def _launch_processes(
     log.info('Distributed KV store: tcp://%s:%s', master_addr, master_port)
 
     nccl_env_variable = {
-        (
-            'NCCL_ASYNC_ERROR_HANDLING' if version.parse(torch.__version__) < version.parse('2.2.0') else 'TORCH_NCCL_ASYNC_ERROR_HANDLING'
-        ):
-            '1',
+        'TORCH_NCCL_ASYNC_ERROR_HANDLING': '1',
     }
 
     for local_rank in range(nproc):
