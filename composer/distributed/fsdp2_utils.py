@@ -264,8 +264,8 @@ def generate_default_policy(parent_model: nn.Module) -> CustomPolicy:
         if hasattr(current_module, '_fsdp_wrap'):
             warnings.warn(
                 DeprecationWarning(
-                    'The _fsdp_wrap attribute will be removed in a future release. Please use fsdp_wrap_fn instead.'
-                )
+                    'The _fsdp_wrap attribute will be removed in a future release. Please use fsdp_wrap_fn instead.',
+                ),
             )
             ret = bool(current_module._fsdp_wrap)
         elif hasattr(parent_model, 'fsdp_wrap_fn') and isinstance(parent_model.fsdp_wrap_fn, Callable):
