@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pathlib
-from typing import Optional
+from typing import Callable, Optional
 
 import pytest
 import torch
@@ -15,6 +15,8 @@ from composer.trainer.trainer import Trainer
 from composer.utils import dist, load_checkpoint
 from composer.utils.parallelism import FSDP2Config, FSDPConfig, ParallelismConfig
 from tests.common import (
+    ComposerCounterModel,
+    CountModule,
     PartialWeightTiedModel,
     RandomClassificationDataset,
     SimpleComposerMLP,
@@ -88,8 +90,7 @@ def create_trainer_with_model(
         fsdp2_config = FSDP2Config()
         if activation_checkpointing:
             fsdp2_config.activation_checkpointing = True
-        if activation_cpu_offload:
-            fsdp2_config.activation_cpu_offload = True
+
         # NOTE we can only apply FSDP2 to ComposerClassifier's module field until we support auto_wrap
         prepare_fully_shard(model=model.module, fsdp2_config=fsdp2_config, optimizer=optimizer)
         # NOTE module to_empty should only happen after the model is fully sharded and parameters are coverted to Dtensor
@@ -113,6 +114,9 @@ def create_trainer_with_model(
         parallelism_config=parallelism_config,
     )
     return trainer
+
+
+# Base tests
 
 
 @pytest.mark.parametrize('model_class', [SimpleWeightTiedModel, PartialWeightTiedModel])
@@ -156,6 +160,9 @@ def test_fsdp2_initialization_with_tied_params(
     weight_2 = model.mlp.fc2.weight.full_tensor()
     assert (model.mlp.fc1.weight is model.mlp.fc2.weight)
     assert (torch.equal(weight_1, weight_2))
+
+
+# Testing checkpointing and weight tying after loading
 
 
 @pytest.mark.parametrize('model_class', [SimpleWeightTiedModel])
@@ -251,6 +258,9 @@ def test_fsdp2_load_from_fsdp1(
             fsdp1_param,
             param.full_tensor(),
         ), f'Weights: {name} should be equal after loading, however one is {fsdp1_param} and the other is {param.full_tensor()}'
+
+
+# Testing optimizer handling
 
 
 @world_size(2)
@@ -349,7 +359,13 @@ def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(world_si
     assert 'optimizer.param_id.' in str(e.value)
 
 
-def validate_activation_checkpointing(module: torch.nn.Module) -> None:
+# Testing activation checkpointing
+
+
+def validate_activation_checkpointing_wrapper(
+    module: torch.nn.Module,
+    checkpoint_fn: Optional[Callable] = None,
+) -> None:
     """
     Verify that activation checkpointing wrappers (`ActivationWrapper`) exist where
     expected based on the `_activation_checkpointing` flag.
@@ -361,6 +377,12 @@ def validate_activation_checkpointing(module: torch.nn.Module) -> None:
     """
     offenders: list[str] = []
 
+    def check_module_needs_wrapping(module: torch.nn.Module) -> bool:
+        if checkpoint_fn is None:
+            return hasattr(module, '_activation_checkpointing')
+        else:
+            return checkpoint_fn(module) or hasattr(module, '_activation_checkpointing')
+
     def _walk(mod: torch.nn.Module, prefix: str) -> None:
         is_ckpt_wrapper = isinstance(mod, ActivationWrapper)
         # If this module is a checkpoint wrapper, we validate that it was applied to the right module
@@ -368,14 +390,11 @@ def validate_activation_checkpointing(module: torch.nn.Module) -> None:
         if is_ckpt_wrapper:
             inner = getattr(mod, _CHECKPOINT_WRAPPED_MODULE, None)
             assert inner is not None, f'{prefix}: ActivationWrapper missing inner module'
-            assert hasattr(
-                inner,
-                '_activation_checkpointing',
-            ), f'{prefix}: Inner module missing _activation_checkpointing attribute'
+            assert check_module_needs_wrapping(inner), f'{prefix}: Inner module should be wrapped'
             mod = inner
         # If the module is not a checkpoint wrapper, we add it to offenders if it has the _activation_checkpointing attribute
         else:
-            want_ckpt = getattr(mod, '_activation_checkpointing', False)
+            want_ckpt = check_module_needs_wrapping(mod)
             if want_ckpt:
                 offenders.append(prefix or mod.__class__.__name__)
         # Recurse on the children (of the valid module)
@@ -391,27 +410,71 @@ def validate_activation_checkpointing(module: torch.nn.Module) -> None:
 @world_size(2)
 @pytest.mark.gpu
 @fsdp2_context
-def test_fsdp2_activation_checkpointing(world_size: int):
+@pytest.mark.parametrize('activation_checkpointing,expected_forward_count', [(True, 2), (False, 1)])
+def test_fsdp2_activation_checkpointing(world_size: int, activation_checkpointing: bool, expected_forward_count: int):
     """Test FSDP2 activation checkpointing."""
     del world_size
 
-    # Testing without activation checkpointing
-    model = SimpleComposerMLP(num_features=10, device='cuda', num_classes=10)
-    trainer = create_trainer_with_model(model=model, num_classes=10, use_fsdp2=True)
+    model = ComposerCounterModel(num_inputs=10, num_outputs=10, num_classes=10, device='cuda')
+    if activation_checkpointing:
+        model.module[0]._activation_checkpointing = True  # type: ignore
+
+    # Train the model on one batch to make sure forward is called the expected number of times
+    trainer = create_trainer_with_model(
+        model=model,
+        num_classes=10,
+        use_fsdp2=True,
+        activation_checkpointing=activation_checkpointing,
+        max_duration='1ba',
+    )
+    # Validate that the activation checkpointing wrapper is applied correctly pre-training
+    validate_activation_checkpointing_wrapper(trainer.state.model.module)  # type: ignore
     trainer.fit()
-    validate_activation_checkpointing(trainer.state.model.module)
+    # validate that the activation checkpointing wrapper is applied correctly post-training
+    validate_activation_checkpointing_wrapper(trainer.state.model.module)  # type: ignore
+    assert model.module[
+        0
+    ].call_count == expected_forward_count, f'Expected forward hook to be called {expected_forward_count} times, but called {model.module[0].call_count} times.'
 
-    # Testing with activation checkpointing
-    # Mark specific modules for checkpointing by setting _activation_checkpointing attribute
-    model = SimpleComposerMLP(num_features=10, device='cuda', num_classes=10)
-    # Set the activation checkpointing attribute for the fc1 module
-    model.module[0]._activation_checkpointing = True
 
-    trainer = create_trainer_with_model(model=model, num_classes=10, use_fsdp2=True, activation_checkpointing=True)
+@world_size(2)
+@pytest.mark.gpu
+@fsdp2_context
+@pytest.mark.parametrize('activation_checkpointing,expected_forward_count', [(True, 2), (False, 1)])
+def test_fsdp2_activation_checkpointing_fn(
+    world_size: int,
+    activation_checkpointing: bool,
+    expected_forward_count: int,
+):
+    """Test FSDP2 activation checkpointing."""
+    del world_size
+
+    model = ComposerCounterModel(num_inputs=10, num_outputs=10, num_classes=10, device='cuda')
+    activation_checkpointing_fn = None  # type: ignore
+
+    if activation_checkpointing:
+
+        def activation_checkpointing_fn(module: torch.nn.Module) -> bool:
+            return isinstance(module, CountModule)
+
+        model.module.activation_checkpointing_fn = activation_checkpointing_fn  # type: ignore
+
+    # Train the model on one batch to make sure forward is called the expected number of times
+    trainer = create_trainer_with_model(
+        model=model,
+        num_classes=10,
+        use_fsdp2=True,
+        activation_checkpointing=activation_checkpointing,
+        max_duration='1ba',
+    )
+    # Validate that the activation checkpointing wrapper is applied correctly pre-training
+    validate_activation_checkpointing_wrapper(trainer.state.model.module, activation_checkpointing_fn)  # type: ignore
     trainer.fit()
-    validate_activation_checkpointing(trainer.state.model.module)
-
-    # TODO: Test with `activation_checkpointing_fn`
-    # TODO: Test with `activation_cpu_offload`
-    # TODO: Test with selective activation checkpointing
-    # TODO: Test with actually checking if model's backwards pass recomputes activations instead of just checking if the wrapper is applied
+    # validate that the activation checkpointing wrapper is applied correctly post-training
+    validate_activation_checkpointing_wrapper(trainer.state.model.module, activation_checkpointing_fn)  # type: ignore
+    assert model.module[
+        0
+    ].call_count == expected_forward_count, f'Expected forward hook to be called {expected_forward_count} times, but called {model.module[0].call_count} times.'
+    assert model.module[
+        -1
+    ].call_count == expected_forward_count, f'Expected forward hook to be called {expected_forward_count} times, but called {model.module[1].call_count} times.'

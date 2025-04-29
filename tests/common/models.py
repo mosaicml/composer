@@ -146,6 +146,33 @@ class SimpleComposerMLP(ComposerClassifier):
             child._fsdp_wrap = True  # type: ignore
 
 
+class CountModule(torch.nn.Module):
+
+    def __init__(self, num_inputs: int, num_outputs: int, device: Union[str, torch.device]):
+        super().__init__()
+        self.call_count = 0
+        self.inner = torch.nn.Linear(num_inputs, num_outputs, device=device, bias=False)
+
+    def forward(self, x):
+        self.call_count += 1
+        return self.inner(x)
+
+
+# A simple MLP with two hidden layers where the module counts the number of times it calls forward
+# This is used to test activation checkpointing
+class ComposerCounterModel(ComposerClassifier):
+
+    def __init__(self, num_inputs: int, num_outputs: int, num_classes: int, device: Union[str, torch.device]):
+        num_hidden_layer_features = 8
+        module = torch.nn.Sequential(
+            CountModule(num_inputs, num_hidden_layer_features, device),
+            torch.nn.ReLU(),
+            CountModule(num_hidden_layer_features, num_outputs, device),
+        )
+        super().__init__(num_classes=num_classes, module=module)
+        self.module = module
+
+
 # Like SimpleComposerMLP but saves each layer which is necessary to TP to it.
 class TPSimpleComposerMLP(ComposerClassifier):
 
