@@ -432,9 +432,12 @@ def test_fsdp2_activation_checkpointing(world_size: int, activation_checkpointin
     trainer.fit()
     # validate that the activation checkpointing wrapper is applied correctly post-training
     validate_activation_checkpointing_wrapper(trainer.state.model.module)  # type: ignore
-    assert model.module[
-        0
-    ].call_count == expected_forward_count, f'Expected forward hook to be called {expected_forward_count} times, but called {model.module[0].call_count} times.'
+    error_msg = 'forward hook called {actual_forward_count} times, but expected {expected_forward_count} times.'
+    counter_module_0_call_count = model.module[0].call_count  # type: ignore
+    counter_module_1_call_count = model.module[-1].call_count  # type: ignore
+    assert counter_module_0_call_count == expected_forward_count, \
+        error_msg.format(expected_forward_count=expected_forward_count, actual_forward_count=counter_module_0_call_count)
+    assert counter_module_1_call_count == 1, 'Expected last module to be called once since it is not checkpointed'
 
 
 @world_size(2)
@@ -472,9 +475,11 @@ def test_fsdp2_activation_checkpointing_fn(
     trainer.fit()
     # validate that the activation checkpointing wrapper is applied correctly post-training
     validate_activation_checkpointing_wrapper(trainer.state.model.module, activation_checkpointing_fn)  # type: ignore
-    assert model.module[
-        0
-    ].call_count == expected_forward_count, f'Expected forward hook to be called {expected_forward_count} times, but called {model.module[0].call_count} times.'
-    assert model.module[
-        -1
-    ].call_count == expected_forward_count, f'Expected forward hook to be called {expected_forward_count} times, but called {model.module[1].call_count} times.'
+
+    error_msg = 'forward hook called {actual_forward_count} times, but expected {expected_forward_count} times.'
+    counter_module_0_call_count = model.module[0].call_count  # type: ignore
+    counter_module_1_call_count = model.module[-1].call_count  # type: ignore
+    assert counter_module_0_call_count == expected_forward_count, \
+        error_msg.format(expected_forward_count=expected_forward_count, actual_forward_count=counter_module_0_call_count)
+    assert counter_module_1_call_count == expected_forward_count, \
+        error_msg.format(expected_forward_count=expected_forward_count, actual_forward_count=counter_module_1_call_count)
