@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pathlib
+from contextlib import contextmanager
 from typing import Callable, Optional
 
 import pytest
@@ -87,9 +88,10 @@ def create_trainer_with_model(
     parallelism_config = ParallelismConfig()
     if use_fsdp2:
         # Trainer is not calling prepare_fully_shard yet, so we need to do it manually
-        fsdp2_config = FSDP2Config()
-        if activation_checkpointing:
-            fsdp2_config.activation_checkpointing = True
+        fsdp2_config = FSDP2Config(
+            activation_checkpointing=activation_checkpointing,
+            activation_cpu_offload=activation_cpu_offload,
+        )
 
         # NOTE we can only apply FSDP2 to ComposerClassifier's module field until we support auto_wrap
         prepare_fully_shard(model=model.module, fsdp2_config=fsdp2_config, optimizer=optimizer)
@@ -407,6 +409,25 @@ def validate_activation_checkpointing_wrapper(
         raise ValueError(f'Activation checkpointing validation failed. Offending modules: {offenders}')
 
 
+@contextmanager
+def check_saved_tensor_device():
+    """Context manager to check the device of tensors saved by activation checkpointing."""
+    captured_devices = []
+
+    # This is used whenever a tensor is saved for backward
+    # We use this hook to capture the device of a tensor when it is saved
+    def pack_hook(saved_tensor):
+        captured_devices.append(saved_tensor.device.type)
+        return saved_tensor
+
+    # This is used whenever a saved tensor is used for backward
+    def unpack_hook(packed_tensor):
+        return packed_tensor
+
+    with torch.autograd.graph.saved_tensors_hooks(pack_hook, unpack_hook):
+        yield captured_devices
+
+
 @world_size(2)
 @pytest.mark.gpu
 @fsdp2_context
@@ -455,11 +476,10 @@ def test_fsdp2_activation_checkpointing_fn(
     model = ComposerCounterModel(num_inputs=10, num_outputs=10, num_classes=10, device='cuda')
     activation_checkpointing_fn = None  # type: ignore
 
+    # Checkpoint both CountModules
     if activation_checkpointing:
-
         def activation_checkpointing_fn(module: torch.nn.Module) -> bool:
             return isinstance(module, CountModule)
-
         model.module.activation_checkpointing_fn = activation_checkpointing_fn  # type: ignore
 
     # Train the model on one batch to make sure forward is called the expected number of times
@@ -483,3 +503,94 @@ def test_fsdp2_activation_checkpointing_fn(
         error_msg.format(expected_forward_count=expected_forward_count, actual_forward_count=counter_module_0_call_count)
     assert counter_module_1_call_count == expected_forward_count, \
         error_msg.format(expected_forward_count=expected_forward_count, actual_forward_count=counter_module_1_call_count)
+
+
+@world_size(2)
+@pytest.mark.gpu
+@fsdp2_context
+@pytest.mark.parametrize('activation_cpu_offload', [True, False])
+def test_fsdp2_activation_cpu_offload(world_size: int, activation_cpu_offload: bool):
+    """Test FSDP2 activation CPU offload by checking saved tensor devices."""
+    del world_size
+
+    model = ComposerCounterModel(num_inputs=10, num_outputs=10, num_classes=10, device='cuda')
+    model.module[0]._activation_checkpointing = True  # type: ignore
+
+    trainer = create_trainer_with_model(
+        model=model,
+        num_classes=10,
+        use_fsdp2=True,
+        activation_checkpointing=True,
+        activation_cpu_offload=activation_cpu_offload,
+        max_duration='1ba',
+    )
+
+    with check_saved_tensor_device() as captured_devices:
+        trainer.fit()
+    
+    assert len(captured_devices) > 0, 'No tensors were saved by activation checkpointing'
+    num_tensors_offloaded_to_cpu = captured_devices.count('cpu')
+    if activation_cpu_offload:
+        assert num_tensors_offloaded_to_cpu == 1, \
+            f'Expected 1 tensor to be offloaded to cpu, but got {num_tensors_offloaded_to_cpu} on devices: {captured_devices}'
+    else:
+        assert num_tensors_offloaded_to_cpu == 0, \
+            f'Expected no tensors to be offloaded to cpu, but got {num_tensors_offloaded_to_cpu} on devices: {captured_devices}'
+
+    # Regular forward count check (as done in previous tests)
+    # To make sure that we still do activation checkpointing correctly
+    error_msg = 'forward hook called {actual_forward_count} times, but expected 2 times.'
+    counter_module_0_call_count = model.module[0].call_count  # type: ignore
+    counter_module_1_call_count = model.module[-1].call_count  # type: ignore
+    assert counter_module_0_call_count == 2, \
+        error_msg.format(actual_forward_count=counter_module_0_call_count)
+    assert counter_module_1_call_count == 1, 'Expected last module to be called once since it is not checkpointed'
+
+
+@world_size(2)
+@pytest.mark.gpu
+@fsdp2_context
+@pytest.mark.parametrize('activation_cpu_offload', [True, False])
+def test_fsdp2_activation_cpu_offload_fn(world_size: int, activation_cpu_offload: bool):
+    """Test FSDP2 activation CPU offload using a function by checking saved tensor devices."""
+    del world_size
+
+    model = ComposerCounterModel(num_inputs=10, num_outputs=10, num_classes=10, device='cuda')
+    activation_checkpointing_fn = None  # type: ignore
+
+    # Checkpoint both CountModules
+    def activation_checkpointing_fn(module: torch.nn.Module) -> bool:
+        return isinstance(module, CountModule)
+    model.module.activation_checkpointing_fn = activation_checkpointing_fn  # type: ignore
+
+    trainer = create_trainer_with_model(
+        model=model,
+        num_classes=10,
+        use_fsdp2=True,
+        activation_checkpointing=True,
+        activation_cpu_offload=activation_cpu_offload,
+        max_duration='1ba',
+    )
+
+    with check_saved_tensor_device() as captured_devices:
+        trainer.fit()
+
+    assert len(captured_devices) > 0, 'No tensors were saved by activation checkpointing'
+    num_tensors_offloaded_to_cpu = captured_devices.count('cpu')
+    if activation_cpu_offload:
+        # Check that tensors from both CountModules are offloaded to cpu
+        assert num_tensors_offloaded_to_cpu == 2, \
+            f'Expected 2 tensors to be offloaded to cpu, but got {num_tensors_offloaded_to_cpu} on devices: {captured_devices}'
+    else:
+        assert num_tensors_offloaded_to_cpu == 0, \
+            f'Expected no tensors to be offloaded to cpu, but got {num_tensors_offloaded_to_cpu} on devices: {captured_devices}'
+
+    # Regular forward count check (as done in previous tests)
+    # To make sure that we still do activation checkpointing correctly
+    error_msg = 'forward hook called {actual_forward_count} times, but expected 2 times.'
+    counter_module_0_call_count = model.module[0].call_count  # type: ignore
+    counter_module_1_call_count = model.module[-1].call_count  # type: ignore
+    assert counter_module_0_call_count == 2, \
+        error_msg.format(actual_forward_count=counter_module_0_call_count)
+    assert counter_module_1_call_count == 2, \
+        error_msg.format(actual_forward_count=counter_module_1_call_count)
