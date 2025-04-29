@@ -77,6 +77,7 @@ class FSDP2Config:
     device_mesh: Optional[DeviceMesh] = None
     reshard_after_forward: bool | int = True
     activation_checkpointing: bool = False
+    activation_cpu_offload: bool = False
 
     ### Temporary read-only properties for FSDP 1 compatibility  ###
     # to be supported in FSDP2
@@ -103,10 +104,6 @@ class FSDP2Config:
     @property
     def sharded_ckpt_prefix_dir(self) -> str:
         return 'ep{epoch}-ba{batch}'
-
-    @property
-    def activation_cpu_offload(self) -> bool:
-        return False
 
     @property
     def data_parallel_shard_degree(self) -> int:

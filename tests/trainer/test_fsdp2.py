@@ -429,7 +429,9 @@ def validate_activation_wrapper(
         if module_needs_wrapping:
             if actual_is_checkpointed != is_activation_checkpoint_enabled:
                 validation_failed = True
-                error_reasons.append(f'Expected checkpointed={is_activation_checkpoint_enabled}, Got={actual_is_checkpointed}')
+                error_reasons.append(
+                    f'Expected checkpointed={is_activation_checkpoint_enabled}, Got={actual_is_checkpointed}',
+                )
             if actual_is_offloaded != is_activation_offload_enabled:
                 validation_failed = True
                 error_reasons.append(f'Expected offloaded={is_activation_offload_enabled}, Got={actual_is_offloaded}')
@@ -457,7 +459,8 @@ def validate_activation_wrapper(
 @world_size(2)
 @pytest.mark.gpu
 @fsdp2_context
-@pytest.mark.parametrize('activation_checkpointing,expected_forward_count,activation_cpu_offload',
+@pytest.mark.parametrize(
+    'activation_checkpointing,expected_forward_count,activation_cpu_offload',
     [
         (True, 2, True),
         (True, 2, False),
@@ -489,10 +492,18 @@ def test_fsdp2_activation_checkpointing_attribute(
     )
     print(trainer.state.model.module)
     # Validate that the activation checkpointing wrapper is applied correctly pre-training
-    validate_activation_wrapper(trainer.state.model.module, activation_checkpointing, activation_cpu_offload)  # type: ignore
+    validate_activation_wrapper(
+        trainer.state.model.module,  # type: ignore
+        activation_checkpointing,
+        activation_cpu_offload,
+    )
     trainer.fit()
     # validate that the activation checkpointing wrapper is applied correctly post-training
-    validate_activation_wrapper(trainer.state.model.module, activation_checkpointing, activation_cpu_offload)  # type: ignore
+    validate_activation_wrapper(
+        trainer.state.model.module,  # type: ignore
+        activation_checkpointing,
+        activation_cpu_offload,
+    )
     error_msg = 'forward hook called {actual_forward_count} times, but expected {expected_forward_count} times.'
     counter_module_0_call_count = model.module[0].call_count  # type: ignore
     counter_module_1_call_count = model.module[-1].call_count  # type: ignore
@@ -504,7 +515,8 @@ def test_fsdp2_activation_checkpointing_attribute(
 @world_size(2)
 @pytest.mark.gpu
 @fsdp2_context
-@pytest.mark.parametrize('activation_checkpointing,expected_forward_count,activation_cpu_offload',
+@pytest.mark.parametrize(
+    'activation_checkpointing,expected_forward_count,activation_cpu_offload',
     [
         (True, 2, True),
         (True, 2, False),
@@ -526,8 +538,10 @@ def test_fsdp2_activation_checkpointing_fn(
 
     # Checkpoint both CountModules
     if activation_checkpointing:
+
         def activation_checkpointing_fn(module: torch.nn.Module) -> bool:
             return isinstance(module, CountModule)
+
         model.module.activation_checkpointing_fn = activation_checkpointing_fn  # type: ignore
 
     # Train the model on one batch to make sure forward is called the expected number of times
@@ -540,10 +554,20 @@ def test_fsdp2_activation_checkpointing_fn(
         max_duration='1ba',
     )
     # Validate that the activation checkpointing wrapper is applied correctly pre-training
-    validate_activation_wrapper(trainer.state.model.module, activation_checkpointing, activation_cpu_offload, activation_checkpointing_fn)  # type: ignore
+    validate_activation_wrapper(
+        trainer.state.model.module,  # type: ignore
+        activation_checkpointing,
+        activation_cpu_offload,
+        activation_checkpointing_fn,
+    )
     trainer.fit()
     # validate that the activation checkpointing wrapper is applied correctly post-training
-    validate_activation_wrapper(trainer.state.model.module, activation_checkpointing, activation_cpu_offload, activation_checkpointing_fn)  # type: ignore
+    validate_activation_wrapper(
+        trainer.state.model.module,  # type: ignore
+        activation_checkpointing,
+        activation_cpu_offload,
+        activation_checkpointing_fn,
+    )
 
     error_msg = 'forward hook called {actual_forward_count} times, but expected {expected_forward_count} times.'
     counter_module_0_call_count = model.module[0].call_count  # type: ignore
