@@ -252,20 +252,21 @@ def generate_default_policy(parent_model: nn.Module) -> CustomPolicy:
     raise a deprecation warning once if _fsdp_wrap is set in the model instead of
     using the fsdp_wrap_fn.
     """
-    attribute_warning_raised = False
+    # Filter the specific deprecation warning to only appear once.
+    warnings.filterwarnings(
+        'once',
+        category=DeprecationWarning,
+        message='The _fsdp_wrap attribute will be removed in a future release. Please use fsdp_wrap_fn instead.',
+    )
 
     def lambda_fn(current_module: nn.Module) -> Union[bool, dict[str, Any]]:
-        nonlocal attribute_warning_raised
-
         ret = False
         if hasattr(current_module, '_fsdp_wrap'):
-            if not attribute_warning_raised:
-                warnings.warn(
-                    DeprecationWarning(
-                        'The _fsdp_wrap attribute will be removed in a future release. Please use fsdp_wrap_fn instead.',
-                    ),
+            warnings.warn(
+                DeprecationWarning(
+                    'The _fsdp_wrap attribute will be removed in a future release. Please use fsdp_wrap_fn instead.'
                 )
-                attribute_warning_raised = True
+            )
             ret = bool(current_module._fsdp_wrap)
         elif hasattr(parent_model, 'fsdp_wrap_fn') and isinstance(parent_model.fsdp_wrap_fn, Callable):
             # There are certain situations where _fsdp_wrap for the parent model is not set, but we wrap submodules
