@@ -2,13 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pathlib
-from contextlib import contextmanager
 from typing import Callable, Optional
 
 import pytest
 import torch
 from torch.distributed._tensor import DTensor
-from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import _CHECKPOINT_WRAPPED_MODULE, ActivationWrapper
+from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
+    _CHECKPOINT_WRAPPED_MODULE,
+    ActivationWrapper,
+    OffloadWrapper,
+)
 from torch.utils.data import DataLoader
 
 from composer.models import ComposerClassifier
@@ -364,75 +367,110 @@ def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(world_si
 # Testing activation checkpointing
 
 
-def validate_activation_checkpointing_wrapper(
+def validate_activation_wrapper(
     module: torch.nn.Module,
+    is_activation_checkpoint_enabled: bool,
+    is_activation_offload_enabled: bool,
     checkpoint_fn: Optional[Callable] = None,
 ) -> None:
     """
-    Verify that activation checkpointing wrappers (`ActivationWrapper`) exist where
-    expected based on the `_activation_checkpointing` flag.
+    Verify that activation checkpointing and offload wrappers exist where expected
+    based on the `_activation_checkpointing` flag or `checkpoint_fn` and the
+    provided boolean flags.
 
     Raises ValueError if validation fails, listing the offending module names.
 
     Args:
         module (torch.nn.Module): The root model module to inspect.
+        is_activation_checkpointed (bool): Whether activation checkpointing wrappers (`ActivationWrapper`) are expected.
+        is_activation_offloaded (bool): Whether activation offload wrappers (`OffloadWrapper`) are expected.
+        checkpoint_fn (Optional[Callable]): An optional function to determine if a module should be checkpointed.
     """
     offenders: list[str] = []
 
-    def check_module_needs_wrapping(module: torch.nn.Module) -> bool:
-        if checkpoint_fn is None:
-            return hasattr(module, '_activation_checkpointing')
-        else:
-            return checkpoint_fn(module) or hasattr(module, '_activation_checkpointing')
+    def check_module_needs_wrapping(inner_module: torch.nn.Module) -> bool:
+        if checkpoint_fn is not None and checkpoint_fn(inner_module):
+            return True
+        return hasattr(inner_module, '_activation_checkpointing') and bool(inner_module._activation_checkpointing)
 
     def _walk(mod: torch.nn.Module, prefix: str) -> None:
-        is_ckpt_wrapper = isinstance(mod, ActivationWrapper)
-        # If this module is a checkpoint wrapper, we validate that it was applied to the right module
-        # and we recurse on the children of the inner module
-        if is_ckpt_wrapper:
-            inner = getattr(mod, _CHECKPOINT_WRAPPED_MODULE, None)
-            assert inner is not None, f'{prefix}: ActivationWrapper missing inner module'
-            assert check_module_needs_wrapping(inner), f'{prefix}: Inner module should be wrapped'
-            mod = inner
-        # If the module is not a checkpoint wrapper, we add it to offenders if it has the _activation_checkpointing attribute
+        inner_mod = mod
+        actual_is_offloaded = isinstance(mod, OffloadWrapper)
+        actual_is_checkpointed = False
+
+        if actual_is_offloaded:
+            offload_inner = getattr(mod, _CHECKPOINT_WRAPPED_MODULE, None)
+            if offload_inner is None:
+                # We shouldn't ever see this, but it's good to have the check
+                offenders.append(f'{prefix}: OffloadWrapper missing inner module')
+                return
+
+            actual_is_checkpointed = isinstance(offload_inner, ActivationWrapper)
+            if actual_is_checkpointed:
+                inner_mod = getattr(offload_inner, _CHECKPOINT_WRAPPED_MODULE, None)
+                if inner_mod is None:
+                    # We shouldn't ever see this, but it's good to have the check
+                    offenders.append(f'{prefix}: ActivationWrapper missing inner module')
+                    return
+            else:
+                inner_mod = offload_inner
+        elif isinstance(mod, ActivationWrapper):
+            actual_is_checkpointed = True
+            inner_mod = getattr(mod, _CHECKPOINT_WRAPPED_MODULE, None)
+            if inner_mod is None:
+                # We shouldn't ever see this, but it's good to have the check
+                offenders.append(f'{prefix}: ActivationWrapper missing inner module')
+                return
+
+        module_needs_wrapping = check_module_needs_wrapping(inner_mod)
+
+        validation_failed = False
+        error_reasons = []
+        if module_needs_wrapping:
+            if actual_is_checkpointed != is_activation_checkpoint_enabled:
+                validation_failed = True
+                error_reasons.append(f'Expected checkpointed={is_activation_checkpoint_enabled}, Got={actual_is_checkpointed}')
+            if actual_is_offloaded != is_activation_offload_enabled:
+                validation_failed = True
+                error_reasons.append(f'Expected offloaded={is_activation_offload_enabled}, Got={actual_is_offloaded}')
         else:
-            want_ckpt = check_module_needs_wrapping(mod)
-            if want_ckpt:
-                offenders.append(prefix or mod.__class__.__name__)
-        # Recurse on the children (of the valid module)
-        for name, child in mod.named_children():
+            if actual_is_checkpointed:
+                validation_failed = True
+                error_reasons.append('Should not be checkpointed, but is')
+            if actual_is_offloaded:
+                validation_failed = True
+                error_reasons.append('Should not be offloaded, but is')
+
+        if validation_failed:
+            offenders.append(f"{prefix or inner_mod.__class__.__name__}: {', '.join(error_reasons)}")
+
+        # Recurse on the children of the *original* module structure
+        for name, child in inner_mod.named_children():
             child_prefix = f'{prefix}.{name}' if prefix else name
             _walk(child, child_prefix)
 
     _walk(module, '')
     if len(offenders) > 0:
-        raise ValueError(f'Activation checkpointing validation failed. Offending modules: {offenders}')
-
-
-@contextmanager
-def check_saved_tensor_device():
-    """Context manager to check the device of tensors saved by activation checkpointing."""
-    captured_devices = []
-
-    # This is used whenever a tensor is saved for backward
-    # We use this hook to capture the device of a tensor when it is saved
-    def pack_hook(saved_tensor):
-        captured_devices.append(saved_tensor.device.type)
-        return saved_tensor
-
-    # This is used whenever a saved tensor is used for backward
-    def unpack_hook(packed_tensor):
-        return packed_tensor
-
-    with torch.autograd.graph.saved_tensors_hooks(pack_hook, unpack_hook):
-        yield captured_devices
+        raise ValueError(f'Activation wrapper validation failed. Offending modules: {offenders}')
 
 
 @world_size(2)
 @pytest.mark.gpu
 @fsdp2_context
-@pytest.mark.parametrize('activation_checkpointing,expected_forward_count', [(True, 2), (False, 1)])
-def test_fsdp2_activation_checkpointing(world_size: int, activation_checkpointing: bool, expected_forward_count: int):
+@pytest.mark.parametrize('activation_checkpointing,expected_forward_count,activation_cpu_offload',
+    [
+        (True, 2, True),
+        (True, 2, False),
+        (False, 1, True),
+        (False, 1, False),
+    ],
+)
+def test_fsdp2_activation_checkpointing_attribute(
+    world_size: int,
+    activation_checkpointing: bool,
+    expected_forward_count: int,
+    activation_cpu_offload: bool,
+):
     """Test FSDP2 activation checkpointing."""
     del world_size
 
@@ -446,13 +484,15 @@ def test_fsdp2_activation_checkpointing(world_size: int, activation_checkpointin
         num_classes=10,
         use_fsdp2=True,
         activation_checkpointing=activation_checkpointing,
+        activation_cpu_offload=activation_cpu_offload,
         max_duration='1ba',
     )
+    print(trainer.state.model.module)
     # Validate that the activation checkpointing wrapper is applied correctly pre-training
-    validate_activation_checkpointing_wrapper(trainer.state.model.module)  # type: ignore
+    validate_activation_wrapper(trainer.state.model.module, activation_checkpointing, activation_cpu_offload)  # type: ignore
     trainer.fit()
     # validate that the activation checkpointing wrapper is applied correctly post-training
-    validate_activation_checkpointing_wrapper(trainer.state.model.module)  # type: ignore
+    validate_activation_wrapper(trainer.state.model.module, activation_checkpointing, activation_cpu_offload)  # type: ignore
     error_msg = 'forward hook called {actual_forward_count} times, but expected {expected_forward_count} times.'
     counter_module_0_call_count = model.module[0].call_count  # type: ignore
     counter_module_1_call_count = model.module[-1].call_count  # type: ignore
@@ -464,11 +504,19 @@ def test_fsdp2_activation_checkpointing(world_size: int, activation_checkpointin
 @world_size(2)
 @pytest.mark.gpu
 @fsdp2_context
-@pytest.mark.parametrize('activation_checkpointing,expected_forward_count', [(True, 2), (False, 1)])
+@pytest.mark.parametrize('activation_checkpointing,expected_forward_count,activation_cpu_offload',
+    [
+        (True, 2, True),
+        (True, 2, False),
+        (False, 1, True),
+        (False, 1, False),
+    ],
+)
 def test_fsdp2_activation_checkpointing_fn(
     world_size: int,
     activation_checkpointing: bool,
     expected_forward_count: int,
+    activation_cpu_offload: bool,
 ):
     """Test FSDP2 activation checkpointing."""
     del world_size
@@ -488,13 +536,14 @@ def test_fsdp2_activation_checkpointing_fn(
         num_classes=10,
         use_fsdp2=True,
         activation_checkpointing=activation_checkpointing,
+        activation_cpu_offload=activation_cpu_offload,
         max_duration='1ba',
     )
     # Validate that the activation checkpointing wrapper is applied correctly pre-training
-    validate_activation_checkpointing_wrapper(trainer.state.model.module, activation_checkpointing_fn)  # type: ignore
+    validate_activation_wrapper(trainer.state.model.module, activation_checkpointing, activation_cpu_offload, activation_checkpointing_fn)  # type: ignore
     trainer.fit()
     # validate that the activation checkpointing wrapper is applied correctly post-training
-    validate_activation_checkpointing_wrapper(trainer.state.model.module, activation_checkpointing_fn)  # type: ignore
+    validate_activation_wrapper(trainer.state.model.module, activation_checkpointing, activation_cpu_offload, activation_checkpointing_fn)  # type: ignore
 
     error_msg = 'forward hook called {actual_forward_count} times, but expected {expected_forward_count} times.'
     counter_module_0_call_count = model.module[0].call_count  # type: ignore
@@ -503,94 +552,3 @@ def test_fsdp2_activation_checkpointing_fn(
         error_msg.format(expected_forward_count=expected_forward_count, actual_forward_count=counter_module_0_call_count)
     assert counter_module_1_call_count == expected_forward_count, \
         error_msg.format(expected_forward_count=expected_forward_count, actual_forward_count=counter_module_1_call_count)
-
-
-@world_size(2)
-@pytest.mark.gpu
-@fsdp2_context
-@pytest.mark.parametrize('activation_cpu_offload', [True, False])
-def test_fsdp2_activation_cpu_offload(world_size: int, activation_cpu_offload: bool):
-    """Test FSDP2 activation CPU offload by checking saved tensor devices."""
-    del world_size
-
-    model = ComposerCounterModel(num_inputs=10, num_outputs=10, num_classes=10, device='cuda')
-    model.module[0]._activation_checkpointing = True  # type: ignore
-
-    trainer = create_trainer_with_model(
-        model=model,
-        num_classes=10,
-        use_fsdp2=True,
-        activation_checkpointing=True,
-        activation_cpu_offload=activation_cpu_offload,
-        max_duration='1ba',
-    )
-
-    with check_saved_tensor_device() as captured_devices:
-        trainer.fit()
-    
-    assert len(captured_devices) > 0, 'No tensors were saved by activation checkpointing'
-    num_tensors_offloaded_to_cpu = captured_devices.count('cpu')
-    if activation_cpu_offload:
-        assert num_tensors_offloaded_to_cpu == 1, \
-            f'Expected 1 tensor to be offloaded to cpu, but got {num_tensors_offloaded_to_cpu} on devices: {captured_devices}'
-    else:
-        assert num_tensors_offloaded_to_cpu == 0, \
-            f'Expected no tensors to be offloaded to cpu, but got {num_tensors_offloaded_to_cpu} on devices: {captured_devices}'
-
-    # Regular forward count check (as done in previous tests)
-    # To make sure that we still do activation checkpointing correctly
-    error_msg = 'forward hook called {actual_forward_count} times, but expected 2 times.'
-    counter_module_0_call_count = model.module[0].call_count  # type: ignore
-    counter_module_1_call_count = model.module[-1].call_count  # type: ignore
-    assert counter_module_0_call_count == 2, \
-        error_msg.format(actual_forward_count=counter_module_0_call_count)
-    assert counter_module_1_call_count == 1, 'Expected last module to be called once since it is not checkpointed'
-
-
-@world_size(2)
-@pytest.mark.gpu
-@fsdp2_context
-@pytest.mark.parametrize('activation_cpu_offload', [True, False])
-def test_fsdp2_activation_cpu_offload_fn(world_size: int, activation_cpu_offload: bool):
-    """Test FSDP2 activation CPU offload using a function by checking saved tensor devices."""
-    del world_size
-
-    model = ComposerCounterModel(num_inputs=10, num_outputs=10, num_classes=10, device='cuda')
-    activation_checkpointing_fn = None  # type: ignore
-
-    # Checkpoint both CountModules
-    def activation_checkpointing_fn(module: torch.nn.Module) -> bool:
-        return isinstance(module, CountModule)
-    model.module.activation_checkpointing_fn = activation_checkpointing_fn  # type: ignore
-
-    trainer = create_trainer_with_model(
-        model=model,
-        num_classes=10,
-        use_fsdp2=True,
-        activation_checkpointing=True,
-        activation_cpu_offload=activation_cpu_offload,
-        max_duration='1ba',
-    )
-
-    with check_saved_tensor_device() as captured_devices:
-        trainer.fit()
-
-    assert len(captured_devices) > 0, 'No tensors were saved by activation checkpointing'
-    num_tensors_offloaded_to_cpu = captured_devices.count('cpu')
-    if activation_cpu_offload:
-        # Check that tensors from both CountModules are offloaded to cpu
-        assert num_tensors_offloaded_to_cpu == 2, \
-            f'Expected 2 tensors to be offloaded to cpu, but got {num_tensors_offloaded_to_cpu} on devices: {captured_devices}'
-    else:
-        assert num_tensors_offloaded_to_cpu == 0, \
-            f'Expected no tensors to be offloaded to cpu, but got {num_tensors_offloaded_to_cpu} on devices: {captured_devices}'
-
-    # Regular forward count check (as done in previous tests)
-    # To make sure that we still do activation checkpointing correctly
-    error_msg = 'forward hook called {actual_forward_count} times, but expected 2 times.'
-    counter_module_0_call_count = model.module[0].call_count  # type: ignore
-    counter_module_1_call_count = model.module[-1].call_count  # type: ignore
-    assert counter_module_0_call_count == 2, \
-        error_msg.format(actual_forward_count=counter_module_0_call_count)
-    assert counter_module_1_call_count == 2, \
-        error_msg.format(actual_forward_count=counter_module_1_call_count)
