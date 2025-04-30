@@ -162,7 +162,13 @@ class CountModule(torch.nn.Module):
 # This is used to test activation checkpointing
 class ComposerCounterModel(ComposerClassifier):
 
-    def __init__(self, num_inputs: int, num_outputs: int, device: Union[str, torch.device], num_hidden_layer_features: int = 8):
+    def __init__(
+        self,
+        num_inputs: int,
+        num_outputs: int,
+        device: Union[str, torch.device],
+        num_hidden_layer_features: int = 8,
+    ):
         module = torch.nn.Sequential(
             CountModule(num_inputs, num_hidden_layer_features, device),
             torch.nn.ReLU(),

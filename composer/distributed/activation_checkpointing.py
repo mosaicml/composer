@@ -8,13 +8,13 @@ from typing import Callable, Optional
 import torch
 import torch.nn as nn
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
+    _CHECKPOINT_WRAPPED_MODULE,
+    ActivationWrapper,
     CheckpointImpl,
+    OffloadWrapper,
     apply_activation_checkpointing,
     checkpoint_wrapper,
     offload_wrapper,
-    OffloadWrapper,
-    ActivationWrapper,
-    _CHECKPOINT_WRAPPED_MODULE,
 )
 
 from composer.utils.parallelism import FSDP2Config
@@ -26,17 +26,14 @@ def validate_activation_wrapper(
     is_activation_offload_enabled: bool,
     checkpoint_fn: Optional[Callable] = None,
 ) -> None:
-    """
-    Verify that activation checkpointing and offload wrappers exist where expected
-    based on the `_activation_checkpointing` flag or `checkpoint_fn` and the
-    provided boolean flags.
+    """Verify that activation checkpointing and offload wrappers exist where expected based on the boolean flags.
 
     Raises ValueError if validation fails, listing the offending module names.
 
     Args:
         module (torch.nn.Module): The root model module to inspect.
-        is_activation_checkpointed (bool): Whether activation checkpointing wrappers (`ActivationWrapper`) are expected.
-        is_activation_offloaded (bool): Whether activation offload wrappers (`OffloadWrapper`) are expected.
+        is_activation_checkpoint_enabled (bool): Whether activation checkpointing wrappers (`ActivationWrapper`) are expected.
+        is_activation_offload_enabled (bool): Whether activation offload wrappers (`OffloadWrapper`) are expected.
         checkpoint_fn (Optional[Callable]): An optional function to determine if a module should be checkpointed.
     """
     offenders: list[str] = []
@@ -110,7 +107,8 @@ def validate_activation_wrapper(
 
 
 def generate_default_check_fn(model: nn.Module) -> Callable:
-    """Generates the default check fn"""
+    """Generates the default check fn for activation checkpointing/offloading."""
+
     def _check_fn(module: torch.nn.Module) -> bool:
         if hasattr(module, '_activation_checkpointing'):
             return bool(module._activation_checkpointing)
@@ -120,6 +118,7 @@ def generate_default_check_fn(model: nn.Module) -> Callable:
         ) and isinstance(model.activation_checkpointing_fn, Callable):
             return model.activation_checkpointing_fn(module)
         return False
+
     return _check_fn
 
 

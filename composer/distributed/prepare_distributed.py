@@ -4,12 +4,14 @@
 """Entrypoint for distributed training (using FSDP2)."""
 
 from typing import Callable, Optional
+
 import torch
 from torch.distributed.fsdp.wrap import CustomPolicy
+
+from composer.distributed.activation_checkpointing import apply_ac
+from composer.distributed.fsdp2 import prepare_fully_shard
 from composer.utils.parallelism import FSDP2Config, FSDPConfig
 
-from composer.distributed.fsdp2 import prepare_fully_shard
-from composer.distributed.activation_checkpointing import apply_ac
 
 def parallelize_model(
     model: torch.nn.Module,
@@ -18,7 +20,7 @@ def parallelize_model(
     auto_wrap_policy: Optional[CustomPolicy] = None,
     activation_checkpointing_check_fn: Optional[Callable] = None,
 ):
-    """Prepare a model for distributed training
+    """Prepare a model for distributed training.
 
     Args:
         model (torch.nn.Module): The model to prepare for distributed training.
@@ -28,11 +30,11 @@ def parallelize_model(
         activation_checkpointing_check_fn (Optional[Callable]): The function to use to check if a module's activations should be checkpointed or offloaded.
     """
     if isinstance(config, FSDPConfig):
-        raise ValueError("FSDPConfig is not supported for now, use FSDP2Config instead")
-    
+        raise ValueError('FSDPConfig is not supported for now, use FSDP2Config instead')
+
     if activation_checkpointing_check_fn is not None:
-        assert config.activation_checkpointing or config.activation_cpu_offload, "Activation checkpointing or offloading must be enabled if activation_checkpointing_check_fn is provided"
-    
+        assert config.activation_checkpointing or config.activation_cpu_offload, 'Activation checkpointing or offloading must be enabled if activation_checkpointing_check_fn is provided'
+
     prepare_fully_shard(model, optimizer, config, auto_wrap_policy)
 
     if config.activation_checkpointing or config.activation_cpu_offload:

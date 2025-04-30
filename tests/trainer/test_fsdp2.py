@@ -354,5 +354,3 @@ def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(world_si
     # We check with `optimizer.param_id.` (with the period) since `optimizer.param_id` exists
     # by default in the error message's legend
     assert 'optimizer.param_id.' in str(e.value)
-
-
