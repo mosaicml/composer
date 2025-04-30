@@ -10,7 +10,6 @@ import torch.nn as nn
 from torch.distributed.fsdp._fully_shard import fully_shard
 from torch.distributed.fsdp.wrap import CustomPolicy
 
-from composer.distributed.activation_checkpointing import apply_ac
 from composer.distributed.fsdp2_utils import (
     check_param_tying,
     generate_default_policy,
@@ -125,7 +124,3 @@ def prepare_fully_shard(
     # If the optimizer is provided, update the optimizer's parameter groups to use the sharded model's DTensor parameters
     if optimizer is not None:
         update_optimizer_modules(optimizer, model, orig_param_to_name)
-
-    # Apply activation checkpointing
-    if fsdp2_config.activation_checkpointing or fsdp2_config.activation_cpu_offload:
-        apply_ac(model, fsdp2_config)
