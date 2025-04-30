@@ -57,10 +57,12 @@ def test_eval_call():
 
     # Evaluate the model
     dataset = RandomClassificationDataset()
-    trainer.eval(eval_dataloader=DataLoader(
-        dataset=dataset,
-        sampler=dist.get_sampler(dataset),
-    ),)
+    trainer.eval(
+        eval_dataloader=DataLoader(
+            dataset=dataset,
+            sampler=dist.get_sampler(dataset),
+        ),
+    )
 
     # Assert that there is some accuracy
     assert trainer.state.eval_metrics['eval']['MulticlassAccuracy'].compute() != 0.0
@@ -101,7 +103,9 @@ def test_amp_fp8_eval_casts_to_bf16():
     try:
         import transformer_engine  # pyright: ignore # noqa: F401
     except ImportError:
-        pytest.skip('Precision amp_fp8 requires transformer-engine to be installed',)
+        pytest.skip(
+            'Precision amp_fp8 requires transformer-engine to be installed',
+        )
 
     # Mocking the transformer_engine.pytorch.fp8_autocast and running model eval.
     with patch('transformer_engine.pytorch.fp8_autocast') as mock_fp8_autocast:
@@ -109,11 +113,13 @@ def test_amp_fp8_eval_casts_to_bf16():
         trainer = Trainer(model=SimpleModel(), device='gpu', precision='amp_fp8')
         # Evaluate the model
         dataset = RandomClassificationDataset()
-        trainer.eval(eval_dataloader=DataLoader(
-            dataset=dataset,
-            batch_size=10,
-            sampler=dist.get_sampler(dataset),
-        ),)
+        trainer.eval(
+            eval_dataloader=DataLoader(
+                dataset=dataset,
+                batch_size=10,
+                sampler=dist.get_sampler(dataset),
+            ),
+        )
 
     # Check that te.fp8_autocast was called with enabled=False.
     # This ensures that we disable the FP8 context on eval.

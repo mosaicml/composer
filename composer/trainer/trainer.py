@@ -414,7 +414,9 @@ def _update_num_consecutive_thrashes(state: State, num_consecutive_thrashes: int
         alloc_retry_this_batch = 0
 
     # Propagate across all ranks if any rank had alloc retries this batch
-    alloc_retry_tensor = state.device.tensor_to_device(torch.tensor([alloc_retry_this_batch], dtype=torch.uint8),)
+    alloc_retry_tensor = state.device.tensor_to_device(
+        torch.tensor([alloc_retry_this_batch], dtype=torch.uint8),
+    )
     dist.all_reduce(alloc_retry_tensor, reduce_operation='MAX')
     alloc_retry_this_batch = alloc_retry_tensor.item() == 1
     if alloc_retry_this_batch:
@@ -1043,19 +1045,22 @@ class Trainer:
         algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
 
         # Engine Pass Registration
-        algorithm_passes: Optional[Union[AlgorithmPass,
-                                         tuple[AlgorithmPass, int],
-                                         Sequence[Union[AlgorithmPass, tuple[AlgorithmPass, int]]],
-                                        ]] = None,
+        algorithm_passes: Optional[Union[
+            AlgorithmPass,
+            tuple[AlgorithmPass, int],
+            Sequence[Union[AlgorithmPass, tuple[AlgorithmPass, int]]],
+        ]] = None,
 
         # Optimizers and Scheduling
         optimizers: Optional[torch.optim.Optimizer] = None,
-        schedulers: Optional[Union[ComposerScheduler,
-                                   LRScheduler,
-                                   Sequence[Union[ComposerScheduler,
-                                                  LRScheduler,
-                                                 ]],
-                                  ]] = None,
+        schedulers: Optional[Union[
+            ComposerScheduler,
+            LRScheduler,
+            Sequence[Union[
+                ComposerScheduler,
+                LRScheduler,
+            ]],
+        ]] = None,
         scale_schedule_ratio: float = 1.0,
         step_schedulers_every_batch: Optional[bool] = None,
 
@@ -1990,10 +1995,11 @@ class Trainer:
         reset_time: bool = False,
 
         # Schedulers
-        schedulers: Optional[Union[ComposerScheduler,
-                                   LRScheduler,
-                                   Sequence[Union[ComposerScheduler, LRScheduler]],
-                                  ]] = None,
+        schedulers: Optional[Union[
+            ComposerScheduler,
+            LRScheduler,
+            Sequence[Union[ComposerScheduler, LRScheduler]],
+        ]] = None,
         scale_schedule_ratio: float = 1.0,
         step_schedulers_every_batch: Optional[bool] = None,
 

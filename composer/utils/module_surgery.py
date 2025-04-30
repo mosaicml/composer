@@ -155,9 +155,10 @@ def replace_module_classes(
         )
 
     replaced_pairs = {}
-    children_to_parents_and_names: OrderedDict[torch.nn.Module,
-                                               list[tuple[torch.nn.Module, str]],
-                                              ] = collections.OrderedDict()
+    children_to_parents_and_names: OrderedDict[
+        torch.nn.Module,
+        list[tuple[torch.nn.Module, str]],
+    ] = collections.OrderedDict()
     _add_children_recursive(module, children_to_parents_and_names)
     indices = indices if indices is not None else {c: 0 for c in policies}
 

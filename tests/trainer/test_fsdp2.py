@@ -123,7 +123,9 @@ def test_fsdp2_initialization_with_tied_params(
     """
     model = model_class(num_features=10, device=device)
     model.add_fsdp_wrap_attribute_to_children()
-    trainer = create_trainer_with_model(model=model,)
+    trainer = create_trainer_with_model(
+        model=model,
+    )
 
     # Initialization checks
     model = trainer.state.model
@@ -165,7 +167,9 @@ def test_fsdp2_checkpointing(
     """Test FSDP2 checkpointing and weight tying after loading."""
     model = model_class(num_features=10, device=device)
     model.add_fsdp_wrap_attribute_to_children()
-    trainer = create_trainer_with_model(model=model,)
+    trainer = create_trainer_with_model(
+        model=model,
+    )
 
     # Checkpointing and reloading
     model = trainer.state.model
@@ -185,7 +189,9 @@ def test_fsdp2_checkpointing(
     # reinitialize the trainer
     new_model = model_class(num_features=10, device=device)
     new_model.add_fsdp_wrap_attribute_to_children()
-    trainer = create_trainer_with_model(model=new_model,)
+    trainer = create_trainer_with_model(
+        model=new_model,
+    )
     load_checkpoint(str(pathlib.Path(ckpt_path).parent), trainer.state, trainer.logger, load_weights_only=True)
 
     model = trainer.state.model
@@ -325,7 +331,9 @@ def test_fsdp2_optimizer_handling(
 @world_size(2)
 @pytest.mark.gpu
 @fsdp2_context
-def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(world_size: int,):
+def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(
+    world_size: int,
+):
     """Test FSDP2 raises an error when the optimizer modules don't match the model modules."""
     del world_size
 
