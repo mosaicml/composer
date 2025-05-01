@@ -12,7 +12,6 @@ ARG CUDA_VERSION=11.3.1
 
 # Ubuntu version of base image.
 ARG UBUNTU_VERSION=22.04
-ENV UBUNTU_VERSION_NO_DOT=${UBUNTU_VERSION//./}
 
 # Calculate the base image based on CUDA_VERSION
 ARG BASE_IMAGE=${CUDA_VERSION:+"nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${UBUNTU_VERSION}"}
@@ -80,6 +79,7 @@ RUN if [ -n "$CUDA_VERSION" ]; then \
 
 # update repository keys
 # https://developer.nvidia.com/blog/updating-the-cuda-linux-gpg-repository-key/
+ENV UBUNTU_VERSION_NO_DOT=${UBUNTU_VERSION//./}
 RUN if [ -n "$CUDA_VERSION" ] ; then \
         rm -f /etc/apt/sources.list.d/cuda.list && \
         rm -f /etc/apt/sources.list.d/nvidia-ml.list && \
