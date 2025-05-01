@@ -4,7 +4,6 @@
 """Test activation checkpointing and offloading. Note that currently, this is only testing support for FSDP2 + activation checkpointing/offloading."""
 
 import pytest
-
 import torch
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     _CHECKPOINT_WRAPPED_MODULE,
@@ -18,10 +17,10 @@ from tests.common import (
     world_size,
 )
 from tests.trainer.fsdp2_context import (
-    fsdp2_context,
     apply_ac,
+    fsdp2_context,
 )
-from tests.trainer.test_fsdp2 import create_trainer_with_model, FSDP2Config
+from tests.trainer.test_fsdp2 import FSDP2Config, create_trainer_with_model
 
 
 @world_size(2)
@@ -248,30 +247,33 @@ def test_activation_checkpointing_cuda_memory_usage(world_size: int, type_of_che
 @world_size(2)
 @pytest.mark.gpu
 @fsdp2_context
-@pytest.mark.parametrize("activation_checkpointing,activation_cpu_offload", [
-    (False, False),
-    (False, True),
-    (True,  False),
-    (True,  True),
-])
+@pytest.mark.parametrize(
+    'activation_checkpointing,activation_cpu_offload',
+    [
+        (False, False),
+        (False, True),
+        (True, False),
+        (True, True),
+    ],
+)
 def test_apply_ac_memory(
     world_size: int,
     activation_checkpointing: bool,
     activation_cpu_offload: bool,
 ):
     del world_size
-    num_inputs = 1024 
+    num_inputs = 1024
 
     model = ComposerCounterModel(
         num_inputs=num_inputs,
         num_outputs=num_inputs,
         num_hidden_layer_features=num_inputs,
-        device='cuda'
+        device='cuda',
     )
 
     # checkpoint both count modules
-    model.module[0]._activation_checkpointing = True
-    model.module[1]._activation_checkpointing = True
+    model.module[0]._activation_checkpointing = True  # type: ignore
+    model.module[1]._activation_checkpointing = True  # type: ignore
 
     # apply activation checkpointing and offloading
     fsdp2_config = FSDP2Config(
@@ -283,12 +285,12 @@ def test_apply_ac_memory(
 
     # create input (we will use 1 sample for simplicity)
     x = torch.randn(1, num_inputs, device='cuda')
-    elem_size = x.element_size() # 4B (for float32)
+    elem_size = x.element_size()  # 4B (for float32)
 
     # reset memory stats and set the baseline after params and input are allocated
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats()
-    baseline = torch.cuda.memory_allocated() 
+    baseline = torch.cuda.memory_allocated()
 
     # forward pass (we set y to save final layer activation)
     y = model.module(x)
@@ -296,7 +298,6 @@ def test_apply_ac_memory(
     # get memory allocated after forward pass (since this is easy to calculate)
     after = torch.cuda.memory_allocated()
     delta = after - baseline
-    print(f'ac={activation_checkpointing}, off={activation_cpu_offload}, delta: {delta / 1024:.2f} KB')
 
     if not activation_checkpointing and not activation_cpu_offload:
         # 4 linear layers in the model (2 count modules each with 2 linear layers)
@@ -314,5 +315,5 @@ def test_apply_ac_memory(
         # Same as offload only case
         # 4B * 1024 = 4KB
         assert delta == pytest.approx(elem_size * num_inputs, abs=1000)
-    
+
     del y

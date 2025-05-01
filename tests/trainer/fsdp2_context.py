@@ -10,8 +10,7 @@ from packaging import version
 SKIP_TEST = version.parse(torch.__version__) < version.parse('2.6.0')
 if not SKIP_TEST:
     # TODO (FSDP2) move this to top once we deprecate torch 2.5
-    from composer.distributed import fsdp2, prepare_distributed
-    from composer.distributed import activation_checkpointing
+    from composer.distributed import activation_checkpointing, fsdp2, prepare_distributed
     apply_ac = activation_checkpointing.apply_ac
     parallelize_model = prepare_distributed.parallelize_model
     prepare_fully_shard = fsdp2.prepare_fully_shard
