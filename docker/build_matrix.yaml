@@ -215,6 +215,7 @@
   - mosaicml/composer:latest
   TARGET: composer_stage
   TORCHVISION_VERSION: 0.21.0
+  UBUNTU_VERSION: '22.04'
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: ubuntu:22.04
   COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.30.0
@@ -231,3 +232,4 @@
   - mosaicml/composer:latest_cpu
   TARGET: composer_stage
   TORCHVISION_VERSION: 0.21.0
+  UBUNTU_VERSION: '22.04'

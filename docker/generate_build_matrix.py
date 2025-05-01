@@ -311,6 +311,7 @@ def _main():
             'CUDA_VERSION': cuda_version,
             'PYTHON_VERSION': python_version,
             'PYTORCH_VERSION': pytorch_version,
+            'UBUNTU_VERSION': PRODUCTION_UBUNTU_VERSION,
             'PYTORCH_NIGHTLY_URL': '',
             'PYTORCH_NIGHTLY_VERSION': '',
             'TARGET': 'composer_stage',
