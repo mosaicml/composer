@@ -38,9 +38,7 @@ def _version_geq(v1: str, v2: str):
     return packaging.version.parse(v1) >= packaging.version.parse(v2)
 
 
-def _get_base_image(cuda_version: str, ubuntu_version: str = ''):
-    if not ubuntu_version:
-        ubuntu_version = '22.04'
+def _get_base_image(cuda_version: str, ubuntu_version: str = '22.04'):
     if not cuda_version:
         return f'ubuntu:{ubuntu_version}'
     if _version_geq(cuda_version, '12.2.0'):
