@@ -89,7 +89,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         rm -rf /var/lib/apt/lists/* \
         apt-key del 7fa2af80 && \
         mkdir -p /tmp/cuda-keyring && \
-        wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/ubuntu{$UBUNTU_VERSION/./}/x86_64/cuda-keyring_1.0-1_all.deb && \
+        wget -P /tmp/cuda-keyring "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VERSION/./}/x86_64/cuda-keyring_1.0-1_all.deb" && \
         dpkg -i /tmp/cuda-keyring/cuda-keyring_1.0-1_all.deb && \
         rm -rf /tmp/cuda-keyring ; \
     fi
