@@ -151,11 +151,14 @@ class CountModule(torch.nn.Module):
     def __init__(self, num_inputs: int, num_outputs: int, device: Union[str, torch.device]):
         super().__init__()
         self.call_count = 0
-        self.inner = torch.nn.Linear(num_inputs, num_outputs, device=device, bias=False)
+        self.inner_1 = torch.nn.Linear(num_inputs, num_outputs, device=device, bias=False)
+        self.inner_2 = torch.nn.Linear(num_outputs, num_outputs, device=device, bias=False)
 
     def forward(self, x):
         self.call_count += 1
-        return self.inner(x)
+        x = self.inner_1(x)
+        x = self.inner_2(x)
+        return x
 
 
 # A simple MLP with two hidden layers where the module counts the number of times it calls forward
@@ -171,7 +174,6 @@ class ComposerCounterModel(ComposerClassifier):
     ):
         module = torch.nn.Sequential(
             CountModule(num_inputs, num_hidden_layer_features, device),
-            torch.nn.ReLU(),
             CountModule(num_hidden_layer_features, num_outputs, device),
         )
         super().__init__(num_classes=num_outputs, module=module)

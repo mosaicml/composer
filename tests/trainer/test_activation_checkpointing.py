@@ -4,14 +4,13 @@
 """Test activation checkpointing and offloading. Note that currently, this is only testing support for FSDP2 + activation checkpointing/offloading."""
 
 import pytest
+
 import torch
-import torch.nn as nn
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     _CHECKPOINT_WRAPPED_MODULE,
     ActivationWrapper,
     OffloadWrapper,
 )
-from torch.utils.checkpoint import _Holder
 
 from tests.common import (
     ComposerCounterModel,
@@ -20,8 +19,9 @@ from tests.common import (
 )
 from tests.trainer.fsdp2_context import (
     fsdp2_context,
+    apply_ac,
 )
-from tests.trainer.test_fsdp2 import create_trainer_with_model, parallelize_model, FSDP2Config
+from tests.trainer.test_fsdp2 import create_trainer_with_model, FSDP2Config
 
 
 @world_size(2)
@@ -227,6 +227,7 @@ def test_activation_checkpointing_cuda_memory_usage(world_size: int, type_of_che
     base_mem = cuda_memory[(False, False)]
     ckpt_mem = cuda_memory[(True, False)]
     offload_mem = cuda_memory[(False, True)]
+    both_mem = cuda_memory[(True, True)]
 
     # Checkpointing only should use less memory than base
     assert ckpt_mem < base_mem, 'Checkpointing should use less memory than baseline'
@@ -235,7 +236,6 @@ def test_activation_checkpointing_cuda_memory_usage(world_size: int, type_of_che
     assert offload_mem < base_mem, 'Offloading should use less memory than baseline'
 
     # Checkpointing and offloading should use less memory than base
-    both_mem = cuda_memory[(True, True)]
     assert both_mem < base_mem, 'Checkpointing and Offloading should use less memory than baseline'
 
     # Checkpointing and offloading should ideally use less memory than checkpointing alone
@@ -246,83 +246,73 @@ def test_activation_checkpointing_cuda_memory_usage(world_size: int, type_of_che
 
 
 @world_size(2)
-@fsdp2_context
 @pytest.mark.gpu
-@pytest.mark.parametrize('activation_checkpointing,activation_cpu_offload', [
-    (True, True),
-    (True, False),
-    (False, True),
+@fsdp2_context
+@pytest.mark.parametrize("activation_checkpointing,activation_cpu_offload", [
     (False, False),
+    (False, True),
+    (True,  False),
+    (True,  True),
 ])
-def test_offloading_wrapper_works(world_size: int, activation_checkpointing: bool, activation_cpu_offload: bool):
-    """Test FSDP2 activation checkpointing CPU memory usage.
-    
-    We use the same methodology as pytorch (https://sourcegraph.com/github.com/pytorch/pytorch/-/blob/test/distributed/fsdp/test_checkpoint_wrapper.py?L341)
-    with some slight adjustments to support activation checkpointing wrapping as well.
-    """
+def test_apply_ac_memory(
+    world_size: int,
+    activation_checkpointing: bool,
+    activation_cpu_offload: bool,
+):
     del world_size
+    num_inputs = 1024 
 
-    model = nn.Sequential(
-        nn.Linear(10, 10),
-        nn.Linear(10, 10),
-        nn.Linear(10, 10),
-    ).to('cuda')
+    model = ComposerCounterModel(
+        num_inputs=num_inputs,
+        num_outputs=num_inputs,
+        num_hidden_layer_features=num_inputs,
+        device='cuda'
+    )
 
+    # checkpoint both count modules
+    model.module[0]._activation_checkpointing = True
+    model.module[1]._activation_checkpointing = True
+
+    # apply activation checkpointing and offloading
+    fsdp2_config = FSDP2Config(
+        activation_checkpointing=activation_checkpointing,
+        activation_cpu_offload=activation_cpu_offload,
+    )
     if activation_checkpointing or activation_cpu_offload:
-        for module in model.children():
-            module._activation_checkpointing = True
+        apply_ac(model.module, fsdp2_config)
+
+    # create input (we will use 1 sample for simplicity)
+    x = torch.randn(1, num_inputs, device='cuda')
+    elem_size = x.element_size() # 4B (for float32)
+
+    # reset memory stats and set the baseline after params and input are allocated
+    torch.cuda.empty_cache()
+    torch.cuda.reset_peak_memory_stats()
+    baseline = torch.cuda.memory_allocated() 
+
+    # forward pass (we set y to save final layer activation)
+    y = model.module(x)
+
+    # get memory allocated after forward pass (since this is easy to calculate)
+    after = torch.cuda.memory_allocated()
+    delta = after - baseline
+    print(f'ac={activation_checkpointing}, off={activation_cpu_offload}, delta: {delta / 1024:.2f} KB')
+
+    if not activation_checkpointing and not activation_cpu_offload:
+        # 4 linear layers in the model (2 count modules each with 2 linear layers)
+        # 4 * (4B * 1024) = 16KB for activations
+        assert delta >= 4 * elem_size * num_inputs
+    elif not activation_checkpointing and activation_cpu_offload:
+        # only final layer activation remains on GPU everything else is offloaded
+        # 4B * 1024 = 4KB
+        assert delta == pytest.approx(elem_size * num_inputs, abs=1000)
+    elif activation_checkpointing and not activation_cpu_offload:
+        # Saved segment input + output = 2 * (4B * 1024) = 8MB
+        # Added a 1KB delta for the final output
+        assert delta == pytest.approx(2 * elem_size * num_inputs, abs=1000)
+    else:
+        # Same as offload only case
+        # 4B * 1024 = 4KB
+        assert delta == pytest.approx(elem_size * num_inputs, abs=1000)
     
-    expected_device_type = "cpu" if activation_cpu_offload else "cuda"
-
-    # Patch saved_tensor_hooks to make the unpack keep the tensor on CPU for
-    # testing, otherwise the tensor access during the DFS will cause orig
-    # unpack to run, transferring the tensor back to GPU.
-    def patched_init(saved_tensor_hook_obj, pack_hook, _):
-        saved_tensor_hook_obj.pack_hook = pack_hook
-
-        def testing_cpu_offload_unpack_hook(packed):
-            # In cases where the checkpointing wrapper is used, the packed object is an instance of _Holder
-            # which is later used in the _checkpoint_hook function to recompute the tensor. In this test, since
-            # we are only validating the offloading, we can just return a zero tensor on the correct device to
-            # act as a no-op.
-            if isinstance(packed, _Holder):
-                return torch.zeros([1], device=torch.device(expected_device_type))
-            _, tensor = packed
-            return tensor
-
-        saved_tensor_hook_obj.unpack_hook = testing_cpu_offload_unpack_hook
-
-    orig_init = torch.autograd.graph.saved_tensors_hooks.__init__
-    torch.autograd.graph.saved_tensors_hooks.__init__ = patched_init
-
-    fsdp2_config = FSDP2Config(activation_cpu_offload=activation_cpu_offload, activation_checkpointing=activation_checkpointing)
-    parallelize_model(model=model, config=fsdp2_config)
-    inp = torch.randn(3, 10, device='cuda')
-    loss = model(inp).sum()
-
-    offload_verified = True 
-
-    def dfs(grad_fn):
-        for e in dir(grad_fn):
-            if not e.startswith("_saved_"):
-                continue
-
-            # the above unpack hook will be called when we do getattr(grad_fn, e) 
-            saved = getattr(grad_fn, e)
-            if isinstance(saved, torch.Tensor):
-                expected_device_type = "cpu" if activation_cpu_offload else "cuda"
-                if expected_device_type != saved.device.type:
-                    # If we encounter any tensor that's not on the expected device, we can immediately fail
-                    nonlocal offload_verified
-                    offload_verified = False
-
-        if hasattr(grad_fn, "next_functions"):
-            for next_grad_fn, _ in grad_fn.next_functions:
-                dfs(next_grad_fn)
-
-    dfs(loss.grad_fn)
-
-    assert offload_verified, "All autograd saved tensors should be offloaded to CPU"
-
-    torch.autograd.graph.saved_tensors_hooks.__init__ = orig_init
-    
+    del y

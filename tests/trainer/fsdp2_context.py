@@ -11,6 +11,8 @@ SKIP_TEST = version.parse(torch.__version__) < version.parse('2.6.0')
 if not SKIP_TEST:
     # TODO (FSDP2) move this to top once we deprecate torch 2.5
     from composer.distributed import fsdp2, prepare_distributed
+    from composer.distributed import activation_checkpointing
+    apply_ac = activation_checkpointing.apply_ac
     parallelize_model = prepare_distributed.parallelize_model
     prepare_fully_shard = fsdp2.prepare_fully_shard
     legalize_param_sharing_between_modules = fsdp2.legalize_param_sharing_between_modules
@@ -19,6 +21,7 @@ if not SKIP_TEST:
     _generate_default_policy = fsdp2.generate_default_policy
     check_param_tying = fsdp2.check_param_tying
 else:
+    apply_ac = lambda *args, **kwargs: None
     parallelize_model = lambda *args, **kwargs: None
     prepare_fully_shard = lambda *args, **kwargs: None
     legalize_param_sharing_between_modules = lambda *args, **kwargs: None
