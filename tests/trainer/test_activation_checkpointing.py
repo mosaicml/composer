@@ -295,7 +295,7 @@ def test_apply_ac_memory(
     # forward pass (we set y to save final layer activation)
     y = model.module(x)
 
-    # get memory allocated after forward pass (since this is easy to calculate)
+    # get memory allocated after forward pass (since delta is easy to calculate)
     after = torch.cuda.memory_allocated()
     delta = after - baseline
 
@@ -309,7 +309,6 @@ def test_apply_ac_memory(
         assert delta == pytest.approx(elem_size * num_inputs, abs=1000)
     elif activation_checkpointing and not activation_cpu_offload:
         # Saved segment input + output = 2 * (4B * 1024) = 8MB
-        # Added a 1KB delta for the final output
         assert delta == pytest.approx(2 * elem_size * num_inputs, abs=1000)
     else:
         # Same as offload only case
