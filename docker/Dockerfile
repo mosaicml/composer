@@ -68,6 +68,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-c"]
 
 ARG CUDA_VERSION
+ARG UBUNTU_VERSION
 
 # Remove a bad symlink from the base composer image
 # If this file is present after the first command, kaniko
@@ -79,7 +80,6 @@ RUN if [ -n "$CUDA_VERSION" ]; then \
 
 # update repository keys
 # https://developer.nvidia.com/blog/updating-the-cuda-linux-gpg-repository-key/
-ENV UBUNTU_VERSION_NO_DOT=${UBUNTU_VERSION//./}
 RUN if [ -n "$CUDA_VERSION" ] ; then \
         rm -f /etc/apt/sources.list.d/cuda.list && \
         rm -f /etc/apt/sources.list.d/nvidia-ml.list && \
@@ -90,7 +90,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         rm -rf /var/lib/apt/lists/* \
         apt-key del 7fa2af80 && \
         mkdir -p /tmp/cuda-keyring && \
-        wget -P /tmp/cuda-keyring "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$UBUNTU_VERSION_NO_DOT/x86_64/cuda-keyring_1.0-1_all.deb" && \
+        wget -P /tmp/cuda-keyring "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VERSION//./}/x86_64/cuda-keyring_1.0-1_all.deb" && \
         dpkg -i /tmp/cuda-keyring/cuda-keyring_1.0-1_all.deb && \
         rm -rf /tmp/cuda-keyring ; \
     fi
