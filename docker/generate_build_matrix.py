@@ -231,10 +231,10 @@ def _main():
         interconnects,
         ubuntu_versions,
     )
-    # Add a couple of entries for legacy platforms (Python 3.11, Ubuntu 20.04)
+    # Add a couple of entries for legacy platforms (Python 3.11, Ubuntu 20.04, no special interconnect)
     legacy_pytorch_products = [
-        (('3.11', '2.6.0'), True, '', 'pytorch_stage', 'mellanox', '20.04'),
-        (('3.11', '2.6.0'), True, '12.6.3', 'pytorch_stage', 'mellanox', '20.04'),
+        (('3.11', '2.6.0'), True, '', 'pytorch_stage', '', '20.04'),
+        (('3.11', '2.6.0'), True, '12.6.3', 'pytorch_stage', '', '20.04'),
     ]
 
     for product in itertools.chain(pytorch_products, legacy_pytorch_products):
@@ -280,8 +280,8 @@ def _main():
         if interconnect == 'EFA' and not (use_cuda and stage == 'pytorch_stage'):
             continue
 
-        # Skip the mellanox drivers if not in the cuda images or using EFA
-        if not cuda_version or interconnect == 'EFA':
+        # Skip the mellanox drivers if not required or not in the cuda images
+        if not cuda_version or interconnect != 'mellanox':
             entry['MOFED_VERSION'] = ''
         else:
             entry['MOFED_VERSION'] = 'latest-23.10'
@@ -343,7 +343,7 @@ def _main():
         if entry['CUDA_VERSION']:
             if entry['MOFED_VERSION'] != '':
                 interconnect = 'Infiniband'
-            else:
+            elif entry['AWS_OFI_NCCL_VERSION'] != '':
                 interconnect = 'EFA'
         cuda_version = f"{entry['CUDA_VERSION']} ({interconnect})" if entry['CUDA_VERSION'] else 'cpu'
         linux_distro = f"Ubuntu {entry['UBUNTU_VERSION']}"
