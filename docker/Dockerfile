@@ -12,6 +12,7 @@ ARG CUDA_VERSION=11.3.1
 
 # Ubuntu version of base image.
 ARG UBUNTU_VERSION=22.04
+ENV UBUNTU_VERSION_NO_DOT=${UBUNTU_VERSION//./}
 
 # Calculate the base image based on CUDA_VERSION
 ARG BASE_IMAGE=${CUDA_VERSION:+"nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${UBUNTU_VERSION}"}
@@ -89,7 +90,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         rm -rf /var/lib/apt/lists/* \
         apt-key del 7fa2af80 && \
         mkdir -p /tmp/cuda-keyring && \
-        wget -P /tmp/cuda-keyring "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VERSION/./}/x86_64/cuda-keyring_1.0-1_all.deb" && \
+        wget -P /tmp/cuda-keyring "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$UBUNTU_VERSION_NO_DOT/x86_64/cuda-keyring_1.0-1_all.deb" && \
         dpkg -i /tmp/cuda-keyring/cuda-keyring_1.0-1_all.deb && \
         rm -rf /tmp/cuda-keyring ; \
     fi
