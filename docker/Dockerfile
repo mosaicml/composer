@@ -73,11 +73,6 @@ RUN if [ -n "$CUDA_VERSION" ]; then \
         rm -f /usr/local/cuda-$(echo $CUDA_VERSION | cut -c -4)/cuda-$(echo $CUDA_VERSION | cut -c -4); \
     fi
 
-# Dummy command so that following layers aren't cached
-RUN if [ -n "$CUDA_VERSION" ]; then \
-        echo "CUDA version is $CUDA_VERSION"; \
-    fi
-
 # update repository keys
 # https://developer.nvidia.com/blog/updating-the-cuda-linux-gpg-repository-key/
 RUN if [ -n "$CUDA_VERSION" ] ; then \
