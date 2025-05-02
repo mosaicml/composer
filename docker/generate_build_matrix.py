@@ -21,7 +21,7 @@ import yaml
 
 PRODUCTION_PYTHON_VERSION = '3.12'
 PRODUCTION_PYTORCH_VERSION = '2.6.0'
-AWS_OFI_NCCL_VERSION = 'v1.14.2-aws'
+AWS_OFI_NCCL_VERSION = 'v1.14.2'
 
 
 def _get_torchvision_version(pytorch_version: str):
