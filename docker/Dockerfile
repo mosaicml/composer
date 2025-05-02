@@ -73,7 +73,6 @@ RUN if [ -n "$CUDA_VERSION" ]; then \
         rm -f /usr/local/cuda-$(echo $CUDA_VERSION | cut -c -4)/cuda-$(echo $CUDA_VERSION | cut -c -4); \
     fi
 
-
 # update repository keys
 # https://developer.nvidia.com/blog/updating-the-cuda-linux-gpg-repository-key/
 RUN if [ -n "$CUDA_VERSION" ] ; then \
@@ -203,7 +202,7 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
 # Install EFA and AWS-OFI-NCCL plugin
 #####################################
 
-ARG EFA_INSTALLER_VERSION=latest
+ARG EFA_INSTALLER_VERSION=1.38.1
 ARG AWS_OFI_NCCL_VERSION
 
 ENV LD_LIBRARY_PATH=/usr/local/cuda/extras/CUPTI/lib64:/opt/amazon/openmpi/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:$LD_LIBRARY_PATH
