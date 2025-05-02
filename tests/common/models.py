@@ -11,6 +11,7 @@ import torch
 from torchmetrics import Metric, MetricCollection
 from torchmetrics.classification import MulticlassAccuracy
 from torchvision.models import resnet
+from composer.utils import dist
 
 from composer.loss import loss_registry
 from composer.metrics import CrossEntropy, MIoU
@@ -178,6 +179,30 @@ class ComposerCounterModel(ComposerClassifier):
         )
         super().__init__(num_classes=num_outputs, module=module)
         self.module = module
+
+
+class OOMComposerClassifier(ComposerClassifier):
+    """A model that will raise an OOM error on rank 1 when forward is called."""
+    # TODO: Use this module when we can test out FSDP2 full-E2E. We can test if auto-microbatching is handled correctly
+    # when CUDA failures occur on one of the ranks.
+
+    def __init__(self, num_layers: int, num_classes: int, device: Union[str, torch.device]):
+        module = torch.nn.Sequential(
+            *[torch.nn.Linear(num_classes, num_classes, device=device) for _ in range(num_layers)],
+        )
+        super().__init__(
+            num_classes=num_classes,
+            module=module,
+        )
+        self.module = module
+        self.rank = dist.get_global_rank()
+
+    def forward(self, batch: tuple[torch.Tensor, Any]) -> torch.Tensor:
+        inputs, _ = batch
+        outputs = self.module(inputs)
+        if self.rank == 1 and inputs.shape[0] >= 64:
+            raise RuntimeError('CUDA out of memory')
+        return outputs
 
 
 # Like SimpleComposerMLP but saves each layer which is necessary to TP to it.

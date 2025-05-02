@@ -19,6 +19,7 @@ def parallelize_model(
     optimizer: Optional[torch.optim.Optimizer] = None,
     fsdp_wrap_policy: Optional[CustomPolicy] = None,
     activation_checkpointing_check_fn: Optional[Callable] = None,
+    auto_microbatching: bool = False,
 ):
     """Prepare a model for distributed training.
 
@@ -28,6 +29,11 @@ def parallelize_model(
         optimizer (Optional[torch.optim.Optimizer]): The optimizer to use for distributed training.
         fsdp_wrap_policy (Optional[CustomPolicy]): The FSDP wrap policy to use for distributed training.
         activation_checkpointing_check_fn (Optional[Callable]): The function to use to check if a module's activations should be checkpointed or offloaded.
+        auto_microbatching (bool): Whether to use auto microbatching.
+
+    Returns:
+        List[torch.utils.hooks.RemovableHandle]: A list of hook handles for the OOM hooks if auto_microbatching is enabled, otherwise an empty list.
+        List[str]: A list of the named modules after fully sharding.
     """
     if isinstance(config, FSDPConfig):
         raise ValueError('FSDPConfig is not supported for now, use FSDP2Config instead')
@@ -46,4 +52,6 @@ def parallelize_model(
             activation_checkpointing_check_fn,
         )
 
-    prepare_fully_shard(model, optimizer, config, fsdp_wrap_policy)
+    hook_handles, named_modules = prepare_fully_shard(model, optimizer, config, fsdp_wrap_policy, auto_microbatching)
+
+    return hook_handles, named_modules

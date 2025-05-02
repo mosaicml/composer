@@ -18,6 +18,7 @@ from tests.common.datasets import (
 from tests.common.events import EventCounterCallback
 from tests.common.markers import device, world_size
 from tests.common.models import (
+    OOMComposerClassifier,
     ComposerCounterModel,
     ConvModel,
     CountModule,
@@ -79,4 +80,5 @@ __all__ = [
     'TPSimpleComposerMLP',
     'ComposerCounterModel',
     'CountModule',
+    'OOMComposerClassifier',
 ]

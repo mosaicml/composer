@@ -3,13 +3,13 @@
 
 """Helpers for FSDP2."""
 
-from typing import Callable, Optional
+from typing import Optional, Callable
 
 import torch
-import torch.distributed as dist
 import torch.nn as nn
-from torch.distributed.fsdp._fully_shard import FSDPModule, fully_shard
+from torch.distributed.fsdp._fully_shard import fully_shard, FSDPModule
 from torch.distributed.fsdp.wrap import CustomPolicy
+import torch.distributed as dist
 
 from composer.distributed.fsdp2_utils import (
     check_param_tying,
@@ -19,10 +19,9 @@ from composer.distributed.fsdp2_utils import (
     update_optimizer_modules,
 )
 from composer.utils.parallelism import FSDP2Config
-from composer.utils.device import Device
 
 
-def generate_oom_hook(device: Device) -> Callable:
+def generate_oom_hook(device: torch.device) -> Callable:
     """Generate a hook that checks if any other rank hit an OOM.
 
     Here's an example of why this is needed using a simple 2-GPU setup and how it handles OOM issues during auto microbatching:
@@ -62,7 +61,7 @@ def generate_oom_hook(device: Device) -> Callable:
         - Rank 2 exits the while loop and adjusts the device_train_microbatch_size to half of the previous value [[trainer.py:2790]]
 
     Args:
-        device (Device): The device to check for OOM.
+        device (torch.device): The device to check for OOM.
 
     Returns:
         Callable: The hook that checks if any other rank hit an OOM.
@@ -70,12 +69,12 @@ def generate_oom_hook(device: Device) -> Callable:
 
     def sync_hook(*args):
         # Check if any other rank hit an OOM
-        found_cuda_oom_tensor = device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
-        dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
+        found_cuda_oom_tensor = torch.tensor([0], dtype=torch.uint8).to(device, non_blocking=True)
+        dist.all_reduce(found_cuda_oom_tensor, op=dist.ReduceOp.MAX)
         found_cuda_oom = found_cuda_oom_tensor.item()
         # Signal current rank is still in batch
-        all_ranks_finished_tensor = device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
-        dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
+        all_ranks_finished_tensor = torch.tensor([0], dtype=torch.uint8).to(device, non_blocking=True)
+        dist.all_reduce(all_ranks_finished_tensor, op=dist.ReduceOp.MIN)
 
         if found_cuda_oom == 1:
             raise RuntimeError('CUDA out of memory encountered on a different rank')
@@ -178,6 +177,7 @@ def prepare_fully_shard(
     optimizer: Optional[torch.optim.Optimizer],
     fsdp2_config: FSDP2Config,
     auto_wrap_policy: Optional[CustomPolicy] = None,
+    auto_microbatching: bool = False,
 ) -> None:
     """Applies FSDP2's `fully_shard` to the model according to given fsdp2_config.
 
@@ -185,9 +185,11 @@ def prepare_fully_shard(
         model (torch.nn.Module): The model to prepare.
         fsdp2_config (FSDP2Config): The FSDP2 configuration.
         auto_wrap_policy (CustomPolicy): The policy to apply to the model.
+        auto_microbatching (bool): Whether to use auto microbatching.
 
     Returns:
-        None
+        List[torch.utils.hooks.RemovableHandle]: A list of hook handles for the OOM hooks if auto_microbatching is enabled.
+        List[str]: A list of the named modules after fully sharding.
     """
     # Build the parameter to name mapping
     orig_param_to_name = {p: n for n, p in model.named_parameters(recurse=True)}
@@ -200,7 +202,9 @@ def prepare_fully_shard(
         apply_fully_shard(model, fsdp2_config, auto_wrap_policy)
 
     # Add OOM hooks to the model
-    hook_handles = add_oom_hooks(model)
+    hook_handles = []
+    if auto_microbatching:
+        hook_handles = add_oom_hooks(model)
 
     # If the optimizer is provided, update the optimizer's parameter groups to use the sharded model's DTensor parameters
     if optimizer is not None:
