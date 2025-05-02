@@ -8,7 +8,6 @@
 # CUDA Version
 # For a slim CPU-only image, leave the CUDA_VERSION argument blank -- e.g.
 # ARG CUDA_VERSION=
-ARG MAKE_A_CHANGE='hi'
 ARG CUDA_VERSION=11.3.1
 
 # Calculate the base image based on CUDA_VERSION
@@ -74,6 +73,10 @@ RUN if [ -n "$CUDA_VERSION" ]; then \
         rm -f /usr/local/cuda-$(echo $CUDA_VERSION | cut -c -4)/cuda-$(echo $CUDA_VERSION | cut -c -4); \
     fi
 
+# Dummy command so that following layers aren't cached
+RUN if [ -n "$CUDA_VERSION" ]; then \
+        echo "CUDA version is $CUDA_VERSION"; \
+    fi
 
 # update repository keys
 # https://developer.nvidia.com/blog/updating-the-cuda-linux-gpg-repository-key/
