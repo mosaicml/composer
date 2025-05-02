@@ -76,6 +76,8 @@ class FSDP2Config:
     # Settable core FSDP2 attrs
     device_mesh: Optional[DeviceMesh] = None
     reshard_after_forward: bool | int = True
+    # TODO: If we have reasonable evidence that activation checkpointing/activation offloading is decoupled from FSDP(2)
+    #       in most of our use cases, we can decouple these two attributes from the FSDP2Config class.
     activation_checkpointing: bool = False
     activation_cpu_offload: bool = False
 
