@@ -3,13 +3,12 @@
 
 """Helpers for FSDP2."""
 
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional
 
 import torch
 import torch.nn as nn
 from torch.distributed.fsdp._fully_shard import FSDPModule, fully_shard
 from torch.distributed.fsdp.wrap import CustomPolicy
-from torch.utils.hooks import RemovableHandle
 
 from composer.devices import Device
 from composer.distributed.fsdp2_utils import (
@@ -101,7 +100,7 @@ def _recursive_apply_fully_shard(
     root_module: nn.Module,
     module: nn.Module,
     target_modules_to_kwargs: dict[nn.Module, dict],
-) -> Tuple[torch.utils.hooks.RemovableHandle, list[str]]:
+):
     """Recursive helper to apply fully_shard based on policy and legalization.
 
     Args:
@@ -178,7 +177,7 @@ def prepare_fully_shard(
     fsdp2_config: FSDP2Config,
     auto_wrap_policy: Optional[CustomPolicy] = None,
     auto_microbatching: bool = False,
-) -> Tuple[list[RemovableHandle], list[str]]:
+) -> tuple[list, dict]:
     """Applies FSDP2's `fully_shard` to the model according to given fsdp2_config.
 
     Args:
@@ -211,4 +210,4 @@ def prepare_fully_shard(
         update_optimizer_modules(optimizer, model, orig_param_to_name)
 
     # Return the same values that we expect from FSDP1 (removable handles, named modules)
-    return hook_handles, model.named_modules()
+    return hook_handles, dict(model.named_modules())
