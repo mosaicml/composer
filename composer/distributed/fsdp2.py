@@ -9,7 +9,6 @@ import torch
 import torch.nn as nn
 from torch.distributed.fsdp._fully_shard import fully_shard, FSDPModule
 from torch.distributed.fsdp.wrap import CustomPolicy
-import torch.distributed as dist
 
 from composer.distributed.fsdp2_utils import (
     check_param_tying,
@@ -18,10 +17,11 @@ from composer.distributed.fsdp2_utils import (
     legalize_param_sharing_between_modules,
     update_optimizer_modules,
 )
-from composer.utils.parallelism import FSDP2Config
+from composer.utils import FSDP2Config, dist, get_device
+from composer.devices import Device
 
 
-def generate_oom_hook(device: torch.device) -> Callable:
+def generate_oom_hook(device: Device) -> Callable:
     """Generate a hook that checks if any other rank hit an OOM.
 
     Here's an example of why this is needed using a simple 2-GPU setup and how it handles OOM issues during auto microbatching:
@@ -69,12 +69,12 @@ def generate_oom_hook(device: torch.device) -> Callable:
 
     def sync_hook(*args):
         # Check if any other rank hit an OOM
-        found_cuda_oom_tensor = torch.tensor([0], dtype=torch.uint8).to(device, non_blocking=True)
-        dist.all_reduce(found_cuda_oom_tensor, op=dist.ReduceOp.MAX)
+        found_cuda_oom_tensor = device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+        dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
         found_cuda_oom = found_cuda_oom_tensor.item()
         # Signal current rank is still in batch
-        all_ranks_finished_tensor = torch.tensor([0], dtype=torch.uint8).to(device, non_blocking=True)
-        dist.all_reduce(all_ranks_finished_tensor, op=dist.ReduceOp.MIN)
+        all_ranks_finished_tensor = device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+        dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
 
         if found_cuda_oom == 1:
             raise RuntimeError('CUDA out of memory encountered on a different rank')
@@ -85,8 +85,7 @@ def generate_oom_hook(device: torch.device) -> Callable:
 def add_oom_hooks(model) -> list[torch.utils.hooks.RemovableHandle]:
     """Add OOM hooks to the model and return the list of handles."""
     hook_handles = []
-    device = next(model.parameters()).device
-    hook = generate_oom_hook(device)
+    hook = generate_oom_hook(get_device())
     for module in model.modules():
         if isinstance(module, FSDPModule):
             hook_handles.append(module.register_forward_pre_hook(hook, prepend=True))

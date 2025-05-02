@@ -186,7 +186,7 @@ class OOMComposerClassifier(ComposerClassifier):
     # TODO: Use this module when we can test out FSDP2 full-E2E. We can test if auto-microbatching is handled correctly
     # when CUDA failures occur on one of the ranks.
 
-    def __init__(self, num_layers: int, num_classes: int, device: Union[str, torch.device]):
+    def __init__(self, num_layers: int, num_classes: int, device: Union[str, torch.device], always_fail: bool = False):
         module = torch.nn.Sequential(
             *[torch.nn.Linear(num_classes, num_classes, device=device) for _ in range(num_layers)],
         )
@@ -196,11 +196,12 @@ class OOMComposerClassifier(ComposerClassifier):
         )
         self.module = module
         self.rank = dist.get_global_rank()
+        self.always_fail = always_fail
 
     def forward(self, batch: tuple[torch.Tensor, Any]) -> torch.Tensor:
         inputs, _ = batch
         outputs = self.module(inputs)
-        if self.rank == 1 and inputs.shape[0] >= 64:
+        if self.rank == 1 and (self.always_fail or inputs.shape[0] >= 64):
             raise RuntimeError('CUDA out of memory')
         return outputs
 

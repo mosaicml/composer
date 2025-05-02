@@ -423,8 +423,17 @@ def test_fsdp2_auto_microbatching_handles_cuda_failures(world_size: int,):
     """Test FSDP2 auto-microbatching handles CUDA OOM failures."""
     del world_size
 
+    # This will always fail (rank 1 will fail on all batch sizes)
     num_classes = 10
-    model = OOMComposerClassifier(3, num_classes, device='cuda')
+    model = OOMComposerClassifier(3, num_classes, device='cuda', always_fail=True)
+    for child in model.module.children():
+        child._fsdp_wrap = True
+    trainer, _ = create_trainer_with_model(model=model, num_classes=num_classes, use_fsdp2=True, auto_microbatching=True, size=256, max_duration='1ba')
+    with pytest.raises(RuntimeError, match='.*The train loop failed with an internal microbatch of size 1.*'):
+        trainer.fit()
+
+    # This will succeed as rank 1 will not fail if the microbatch size < 64
+    model = OOMComposerClassifier(3, num_classes, device='cuda', always_fail=False)
     for child in model.module.children():
         child._fsdp_wrap = True
     trainer, _ = create_trainer_with_model(model=model, num_classes=num_classes, use_fsdp2=True, auto_microbatching=True, size=256, max_duration='1ba')
