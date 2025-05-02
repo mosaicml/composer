@@ -22,7 +22,7 @@ from tests.common import (
 )
 from tests.trainer.fsdp2_context import (
     fsdp2_context,
-    prepare_fully_shard,
+    parallelize_model,
 )
 
 
@@ -47,7 +47,6 @@ def test_fsdp2_config():
         ('auto_wrap', False),
         ('load_monolith_rank0_only', True),
         ('sync_module_states', True),
-        ('activation_cpu_offload', True),
         ('data_parallel_shard_degree', 2),
         ('data_parallel_replicate_degree', 2),
         ('state_dict_type', 'full'),
@@ -74,6 +73,8 @@ def create_trainer_with_model(
     max_duration: str = '10ep',
     use_fsdp2: bool = True,
     optimizer: Optional[torch.optim.Optimizer] = None,
+    activation_checkpointing: bool = False,
+    activation_cpu_offload: bool = False,
 ) -> Trainer:
     """Helper function to create a Trainer with a model, dataloader, and FSDP2 configuration."""
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
@@ -81,10 +82,14 @@ def create_trainer_with_model(
 
     parallelism_config = ParallelismConfig()
     if use_fsdp2:
-        # Trainer is not calling prepare_fully_shard yet, so we need to do it manually
-        fsdp2_config = FSDP2Config()
+        # Trainer is not calling parallelize_model yet, so we need to do it manually
+        fsdp2_config = FSDP2Config(
+            activation_checkpointing=activation_checkpointing,
+            activation_cpu_offload=activation_cpu_offload,
+        )
+
         # NOTE we can only apply FSDP2 to ComposerClassifier's module field until we support auto_wrap
-        prepare_fully_shard(model=model.module, fsdp2_config=fsdp2_config, optimizer=optimizer)
+        parallelize_model(model=model.module, config=fsdp2_config, optimizer=optimizer)
         # NOTE module to_empty should only happen after the model is fully sharded and parameters are coverted to Dtensor
         # otherwise to_empty breaks weight tying
         # TODO (FSDP2) we should guardrail this in prepare_fully_shard
@@ -106,6 +111,9 @@ def create_trainer_with_model(
         parallelism_config=parallelism_config,
     )
     return trainer
+
+
+# Base tests
 
 
 @pytest.mark.parametrize('model_class', [SimpleWeightTiedModel, PartialWeightTiedModel])
@@ -151,6 +159,9 @@ def test_fsdp2_initialization_with_tied_params(
     weight_2 = model.mlp.fc2.weight.full_tensor()
     assert (model.mlp.fc1.weight is model.mlp.fc2.weight)
     assert (torch.equal(weight_1, weight_2))
+
+
+# Testing checkpointing and weight tying after loading
 
 
 @pytest.mark.parametrize('model_class', [SimpleWeightTiedModel])
@@ -250,6 +261,9 @@ def test_fsdp2_load_from_fsdp1(
             fsdp1_param,
             param.full_tensor(),
         ), f'Weights: {name} should be equal after loading, however one is {fsdp1_param} and the other is {param.full_tensor()}'
+
+
+# Testing optimizer handling
 
 
 @world_size(2)
