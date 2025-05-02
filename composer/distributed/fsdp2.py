@@ -187,8 +187,8 @@ def prepare_fully_shard(
         auto_microbatching (bool): Whether to use auto microbatching.
 
     Returns:
-        List[torch.utils.hooks.RemovableHandle]: A list of hook handles for the OOM hooks if auto_microbatching is enabled.
-        List[str]: A list of the named modules after fully sharding.
+        List[torch.utils.hooks.RemovableHandle]: A list of removable hook handles for the OOM hooks if auto_microbatching is enabled.
+        Dict[str, nn.Module]: A dictionary of the named modules after fully sharding.
     """
     # Build the parameter to name mapping
     orig_param_to_name = {p: n for n, p in model.named_parameters(recurse=True)}

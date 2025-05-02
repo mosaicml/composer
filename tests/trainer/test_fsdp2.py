@@ -8,6 +8,7 @@ import pytest
 import torch
 from torch.distributed._tensor import DTensor
 from torch.utils.data import DataLoader
+from torch.utils.hooks import RemovableHandle
 
 from composer.models import ComposerClassifier
 from composer.trainer.trainer import Trainer
@@ -375,13 +376,13 @@ def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(
 @pytest.mark.parametrize(
     'use_alternate,num_layers,expected_num_hooks',
     [
-        (False, 3,
-         3 * 2 + 1),  # 3 children modules wrapped * 2 hook handles per module + 1 hook handle for the root module
-        (
-            True,
-            3,
-            2 * 2 + 2,
-        ),  # 2 children modules wrapped * 2 hook handles per module + 1 hook handles for the root module + 1 hook handle for last child module
+        # 3 children modules wrapped * 2 hook handles per module
+        # + 1 hook handle for the root module
+        (False, 3, 3 * 2 + 1),
+        # 2 children modules wrapped * 2 hook handles per module
+        # + 1 hook handle for the last child module
+        # + 1 hook handle for the root module
+        (True, 3, 2 * 2 + 1 + 1),
     ],
 )
 def test_fsdp2_handles_cuda_failures(world_size: int, use_alternate: bool, num_layers: int, expected_num_hooks: int):
@@ -408,16 +409,12 @@ def test_fsdp2_handles_cuda_failures(world_size: int, use_alternate: bool, num_l
         use_fsdp2=True,
         auto_microbatching=True,
     )
-    assert len(
-        hook_handles,
-    ) == expected_num_hooks, f'Expected {expected_num_hooks} OOM hooks, but got {len(hook_handles)}'
+    error_msg = 'Expected {} OOM hooks, but got {}'
+    assert len(hook_handles) == expected_num_hooks, error_msg.format(expected_num_hooks, len(hook_handles))
 
     # Assert that all hook handles are RemovableHandle
     for hook_handle in hook_handles:
-        assert isinstance(
-            hook_handle,
-            torch.utils.hooks.RemovableHandle,
-        ), f'Expected RemovableHandle, but got {type(hook_handle)}'
+        assert isinstance(hook_handle, RemovableHandle), f'Expected RemovableHandle, but got {type(hook_handle)}'
 
     # Assert number of hooks on each module
     # Note: reshard_after_forward doesn't change the number of backward_hooks, it just changes the existing hooks do so the numbers

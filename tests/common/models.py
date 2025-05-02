@@ -182,10 +182,7 @@ class ComposerCounterModel(ComposerClassifier):
 
 
 class OOMComposerClassifier(ComposerClassifier):
-    """A model that will raise an OOM error on rank 1 when forward is called."""
-
-    # TODO: Use this module when we can test out FSDP2 full-E2E. We can test if auto-microbatching is handled correctly
-    # when CUDA failures occur on one of the ranks.
+    """A model that will raise an OOM error on rank 1 when forward is called in expected situations."""
 
     def __init__(self, num_layers: int, num_classes: int, device: Union[str, torch.device], always_fail: bool = False):
         module = torch.nn.Sequential(

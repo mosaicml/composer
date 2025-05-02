@@ -32,8 +32,8 @@ def parallelize_model(
         auto_microbatching (bool): Whether to use auto microbatching.
 
     Returns:
-        List[torch.utils.hooks.RemovableHandle]: A list of hook handles for the OOM hooks if auto_microbatching is enabled, otherwise an empty list.
-        List[str]: A list of the named modules after fully sharding.
+        List[torch.utils.hooks.RemovableHandle]: A list of removable hook handles for the OOM hooks if auto_microbatching is enabled.
+        Dict[str, nn.Module]: A dictionary of the named modules after fully sharding.
     """
     if isinstance(config, FSDPConfig):
         raise ValueError('FSDPConfig is not supported for now, use FSDP2Config instead')
