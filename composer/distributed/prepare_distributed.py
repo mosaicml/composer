@@ -3,10 +3,11 @@
 
 """Entrypoint for distributed training (using FSDP2)."""
 
-from typing import Callable, Optional
+from typing import Callable, Optional, Tuple
 
 import torch
 from torch.distributed.fsdp.wrap import CustomPolicy
+from torch.utils.hooks import RemovableHandle
 
 from composer.distributed.activation_checkpointing import apply_ac
 from composer.distributed.fsdp2 import prepare_fully_shard
@@ -20,7 +21,7 @@ def parallelize_model(
     fsdp_wrap_policy: Optional[CustomPolicy] = None,
     activation_checkpointing_check_fn: Optional[Callable] = None,
     auto_microbatching: bool = False,
-):
+) -> Tuple[list[RemovableHandle], list[str]]:
     """Prepare a model for distributed training.
 
     Args:

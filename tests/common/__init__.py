@@ -18,13 +18,13 @@ from tests.common.datasets import (
 from tests.common.events import EventCounterCallback
 from tests.common.markers import device, world_size
 from tests.common.models import (
-    OOMComposerClassifier,
     ComposerCounterModel,
     ConvModel,
     CountModule,
     EmbeddedWeightTiedModel,
     EmptyModel,
     EvenSimplerMLP,
+    OOMComposerClassifier,
     PartialWeightTiedModel,
     SimpleComposerMLP,
     SimpleConvModel,

@@ -11,12 +11,12 @@ import torch
 from torchmetrics import Metric, MetricCollection
 from torchmetrics.classification import MulticlassAccuracy
 from torchvision.models import resnet
-from composer.utils import dist
 
 from composer.loss import loss_registry
 from composer.metrics import CrossEntropy, MIoU
 from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.models import ComposerClassifier, HuggingFaceModel, Initializer
+from composer.utils import dist
 
 if TYPE_CHECKING:
     from transformers import PretrainedConfig, PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
@@ -183,6 +183,7 @@ class ComposerCounterModel(ComposerClassifier):
 
 class OOMComposerClassifier(ComposerClassifier):
     """A model that will raise an OOM error on rank 1 when forward is called."""
+
     # TODO: Use this module when we can test out FSDP2 full-E2E. We can test if auto-microbatching is handled correctly
     # when CUDA failures occur on one of the ranks.
 

@@ -2,12 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pathlib
-from typing import Optional
+from typing import Optional, Tuple
 
 import pytest
 import torch
 from torch.distributed._tensor import DTensor
 from torch.utils.data import DataLoader
+from torch.utils.hooks import RemovableHandle
 
 from composer.models import ComposerClassifier
 from composer.trainer.trainer import Trainer
@@ -78,10 +79,10 @@ def create_trainer_with_model(
     activation_checkpointing: bool = False,
     activation_cpu_offload: bool = False,
     auto_microbatching: bool = False,
-) -> Trainer:
+) -> Tuple[Trainer, list[RemovableHandle]]:
     """Helper function to create a Trainer with a model, dataloader, and FSDP2 configuration."""
     dataset = RandomClassificationDataset(shape=(num_classes,), size=size, num_classes=num_classes)
-    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=size // 2) # use 2 batches per epoch
+    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=size // 2)  # use 2 batches per epoch
     hook_handles = []
 
     parallelism_config = ParallelismConfig()
@@ -93,7 +94,9 @@ def create_trainer_with_model(
         )
 
         # NOTE we can only apply FSDP2 to ComposerClassifier's module field until we support auto_wrap
-        hook_handles, _ = parallelize_model(model=model.module, config=fsdp2_config, optimizer=optimizer, auto_microbatching=auto_microbatching)
+        hook_handles, _ = parallelize_model(
+            model=model.module, config=fsdp2_config, optimizer=optimizer, auto_microbatching=auto_microbatching
+        )
         # NOTE module to_empty should only happen after the model is fully sharded and parameters are coverted to Dtensor
         # otherwise to_empty breaks weight tying
         # TODO (FSDP2) we should guardrail this in prepare_fully_shard
@@ -113,7 +116,7 @@ def create_trainer_with_model(
         train_dataloader=dataloader,
         max_duration=max_duration,
         parallelism_config=parallelism_config,
-        device_train_microbatch_size="auto" if auto_microbatching else None,
+        device_train_microbatch_size='auto' if auto_microbatching else None,
     )
     return trainer, hook_handles
 
@@ -367,10 +370,15 @@ def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(
 @pytest.mark.gpu
 @fsdp2_context
 @pytest.mark.filterwarnings("ignore:`device_train_microbatch_size='auto'` may potentially fail with unexpected.*")
-@pytest.mark.parametrize('use_alternate,num_layers,expected_num_hooks', [
-    (False, 3, 3 * 2 + 1), # 3 children modules wrapped * 2 hook handles per module + 1 hook handle for the root module
-    (True, 3, 2 * 2 + 2), # 2 children modules wrapped * 2 hook handles per module + 1 hook handles for the root module + 1 hook handle for last child module
-])
+@pytest.mark.parametrize(
+    'use_alternate,num_layers,expected_num_hooks',
+    [
+        (False, 3,
+         3 * 2 + 1),  # 3 children modules wrapped * 2 hook handles per module + 1 hook handle for the root module
+        (True, 3, 2 * 2 + 2
+        ),  # 2 children modules wrapped * 2 hook handles per module + 1 hook handles for the root module + 1 hook handle for last child module
+    ]
+)
 def test_fsdp2_handles_cuda_failures(world_size: int, use_alternate: bool, num_layers: int, expected_num_hooks: int):
     """Test FSDP2 handles CUDA OOM failures."""
     del world_size
@@ -381,7 +389,7 @@ def test_fsdp2_handles_cuda_failures(world_size: int, use_alternate: bool, num_l
     model = OOMComposerClassifier(num_layers, num_classes, device='cuda')
 
     # Wrap the module as we expect
-    model.module._fsdp_wrap = False
+    model.module._fsdp_wrap = False  # type: ignore
     for i, child in enumerate(model.module.children()):
         if use_alternate:
             child._fsdp_wrap = True if i % 2 == 0 else False  # type: ignore
@@ -389,12 +397,18 @@ def test_fsdp2_handles_cuda_failures(world_size: int, use_alternate: bool, num_l
             child._fsdp_wrap = True  # type: ignore
 
     # Assert that the number of hooks returned is correct
-    _, hook_handles = create_trainer_with_model(model=model, num_classes=num_classes, use_fsdp2=True, auto_microbatching=True)
-    assert len(hook_handles) == expected_num_hooks, f'Expected {expected_num_hooks} OOM hooks, but got {len(hook_handles)}'
+    _, hook_handles = create_trainer_with_model(
+        model=model, num_classes=num_classes, use_fsdp2=True, auto_microbatching=True
+    )
+    assert len(
+        hook_handles
+    ) == expected_num_hooks, f'Expected {expected_num_hooks} OOM hooks, but got {len(hook_handles)}'
 
     # Assert that all hook handles are RemovableHandle
     for hook_handle in hook_handles:
-        assert isinstance(hook_handle, torch.utils.hooks.RemovableHandle), f'Expected RemovableHandle, but got {type(hook_handle)}'
+        assert isinstance(
+            hook_handle, torch.utils.hooks.RemovableHandle
+        ), f'Expected RemovableHandle, but got {type(hook_handle)}'
 
     # Assert number of hooks on each module
     # Note: reshard_after_forward doesn't change the number of backward_hooks, it just changes the existing hooks do so the numbers
@@ -403,15 +417,27 @@ def test_fsdp2_handles_cuda_failures(world_size: int, use_alternate: bool, num_l
         if use_alternate and i % 2 == 1:
             # This is the not FSDP wrapped module
             # We register one backward hook and no forward hooks. There are no FSDP hooks on this module as well.
-            assert len(child._forward_pre_hooks) == 0, f'Expected 0 forward pre hooks on module {child}, but got {len(child._forward_pre_hooks)}'
-            assert len(child._backward_pre_hooks) == 0, f'Expected 0 backward pre hooks on module {child}, but got {len(child._backward_pre_hooks)}'
-            assert len(child._backward_hooks) == 1, f'Expected 1 backward hook on module {child}, but got {len(child._backward_hooks)}'
+            assert len(
+                child._forward_pre_hooks
+            ) == 0, f'Expected 0 forward pre hooks on module {child}, but got {len(child._forward_pre_hooks)}'
+            assert len(
+                child._backward_pre_hooks
+            ) == 0, f'Expected 0 backward pre hooks on module {child}, but got {len(child._backward_pre_hooks)}'
+            assert len(
+                child._backward_hooks
+            ) == 1, f'Expected 1 backward hook on module {child}, but got {len(child._backward_hooks)}'
         else:
             # This is the FSDP wrapped module
             # We register one forward pre hook + the FSDP forward hook. We also register a backward pre hook
-            assert len(child._forward_pre_hooks) == 2, f'Expected 2 forward pre hooks on module {child}, but got {len(child._forward_pre_hooks)}'
-            assert len(child._backward_pre_hooks) == 1, f'Expected 1 backward pre hook on module {child}, but got {len(child._backward_pre_hooks)}'
-            assert len(child._backward_hooks) == 0, f'Expected 0 backward hooks on module {child}, but got {len(child._backward_hooks)}'
+            assert len(
+                child._forward_pre_hooks
+            ) == 2, f'Expected 2 forward pre hooks on module {child}, but got {len(child._forward_pre_hooks)}'
+            assert len(
+                child._backward_pre_hooks
+            ) == 1, f'Expected 1 backward pre hook on module {child}, but got {len(child._backward_pre_hooks)}'
+            assert len(
+                child._backward_hooks
+            ) == 0, f'Expected 0 backward hooks on module {child}, but got {len(child._backward_hooks)}'
 
 
 @world_size(2)
@@ -427,14 +453,18 @@ def test_fsdp2_auto_microbatching_handles_cuda_failures(world_size: int,):
     num_classes = 10
     model = OOMComposerClassifier(3, num_classes, device='cuda', always_fail=True)
     for child in model.module.children():
-        child._fsdp_wrap = True
-    trainer, _ = create_trainer_with_model(model=model, num_classes=num_classes, use_fsdp2=True, auto_microbatching=True, size=256, max_duration='1ba')
+        child._fsdp_wrap = True  # type: ignore
+    trainer, _ = create_trainer_with_model(
+        model=model, num_classes=num_classes, use_fsdp2=True, auto_microbatching=True, size=256, max_duration='1ba'
+    )
     with pytest.raises(RuntimeError, match='.*The train loop failed with an internal microbatch of size 1.*'):
         trainer.fit()
 
     # This will succeed as rank 1 will not fail if the microbatch size < 64
     model = OOMComposerClassifier(3, num_classes, device='cuda', always_fail=False)
     for child in model.module.children():
-        child._fsdp_wrap = True
-    trainer, _ = create_trainer_with_model(model=model, num_classes=num_classes, use_fsdp2=True, auto_microbatching=True, size=256, max_duration='1ba')
+        child._fsdp_wrap = True  # type: ignore
+    trainer, _ = create_trainer_with_model(
+        model=model, num_classes=num_classes, use_fsdp2=True, auto_microbatching=True, size=256, max_duration='1ba'
+    )
     trainer.fit()

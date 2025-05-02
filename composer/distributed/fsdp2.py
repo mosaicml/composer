@@ -3,13 +3,15 @@
 
 """Helpers for FSDP2."""
 
-from typing import Optional, Callable
+from typing import Callable, Optional, Tuple
 
 import torch
 import torch.nn as nn
-from torch.distributed.fsdp._fully_shard import fully_shard, FSDPModule
+from torch.distributed.fsdp._fully_shard import FSDPModule, fully_shard
 from torch.distributed.fsdp.wrap import CustomPolicy
+from torch.utils.hooks import RemovableHandle
 
+from composer.devices import Device
 from composer.distributed.fsdp2_utils import (
     check_param_tying,
     generate_default_policy,
@@ -18,7 +20,6 @@ from composer.distributed.fsdp2_utils import (
     update_optimizer_modules,
 )
 from composer.utils import FSDP2Config, dist, get_device
-from composer.devices import Device
 
 
 def generate_oom_hook(device: Device) -> Callable:
@@ -88,10 +89,10 @@ def add_oom_hooks(model) -> list[torch.utils.hooks.RemovableHandle]:
     hook = generate_oom_hook(get_device())
     for module in model.modules():
         if isinstance(module, FSDPModule):
-            hook_handles.append(module.register_forward_pre_hook(hook, prepend=True))
-            hook_handles.append(module.register_full_backward_pre_hook(hook, prepend=True))
+            hook_handles.append(module.register_forward_pre_hook(hook, prepend=True))  # type: ignore
+            hook_handles.append(module.register_full_backward_pre_hook(hook, prepend=True))  # type: ignore
         else:
-            hook_handles.append(module.register_full_backward_hook(hook))
+            hook_handles.append(module.register_full_backward_hook(hook))  # type: ignore
 
     return hook_handles
 
@@ -100,7 +101,7 @@ def _recursive_apply_fully_shard(
     root_module: nn.Module,
     module: nn.Module,
     target_modules_to_kwargs: dict[nn.Module, dict],
-) -> None:
+) -> Tuple[torch.utils.hooks.RemovableHandle, list[str]]:
     """Recursive helper to apply fully_shard based on policy and legalization.
 
     Args:
@@ -177,7 +178,7 @@ def prepare_fully_shard(
     fsdp2_config: FSDP2Config,
     auto_wrap_policy: Optional[CustomPolicy] = None,
     auto_microbatching: bool = False,
-) -> None:
+) -> Tuple[list[RemovableHandle], list[str]]:
     """Applies FSDP2's `fully_shard` to the model according to given fsdp2_config.
 
     Args:
