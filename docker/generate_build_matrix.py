@@ -21,6 +21,7 @@ import yaml
 
 PRODUCTION_PYTHON_VERSION = '3.12'
 PRODUCTION_PYTORCH_VERSION = '2.6.0'
+AWS_OFI_NCCL_VERSION = 'v1.14.2-aws'
 
 
 def _get_torchvision_version(pytorch_version: str):
@@ -263,7 +264,7 @@ def _main():
         if interconnect != 'EFA':
             entry['AWS_OFI_NCCL_VERSION'] = ''
         else:
-            entry['AWS_OFI_NCCL_VERSION'] = 'v1.11.0-aws'
+            entry['AWS_OFI_NCCL_VERSION'] = AWS_OFI_NCCL_VERSION
 
         pytorch_entries.append(entry)
 
