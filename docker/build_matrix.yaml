@@ -14,6 +14,7 @@
   - mosaicml/pytorch:latest
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.21.0
+  UBUNTU_VERSION: '22.04'
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: nvidia/cuda:12.6.3-cudnn-devel-ubuntu22.04
   CUDA_VERSION: 12.6.3
@@ -30,6 +31,8 @@
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.21.0
 - AWS_OFI_NCCL_VERSION: v1.14.2
+  UBUNTU_VERSION: '22.04'
+- AWS_OFI_NCCL_VERSION: v1.11.0-aws
   BASE_IMAGE: nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
   CUDA_VERSION: 12.4.1
   IMAGE_NAME: torch-2-6-0-cu124-aws
@@ -45,6 +48,8 @@
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.21.0
 - AWS_OFI_NCCL_VERSION: v1.14.2
+  UBUNTU_VERSION: '22.04'
+- AWS_OFI_NCCL_VERSION: v1.11.0-aws
   BASE_IMAGE: nvidia/cuda:12.6.3-cudnn-devel-ubuntu22.04
   CUDA_VERSION: 12.6.3
   IMAGE_NAME: torch-2-6-0-cu126-aws
@@ -59,6 +64,7 @@
   - mosaicml/pytorch:latest-aws
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.21.0
+  UBUNTU_VERSION: '22.04'
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: ubuntu:22.04
   CUDA_VERSION: ''
@@ -74,6 +80,7 @@
   - mosaicml/pytorch:latest_cpu
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.21.0
+  UBUNTU_VERSION: '22.04'
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
   CUDA_VERSION: 12.4.1
@@ -89,6 +96,8 @@
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.20.1
 - AWS_OFI_NCCL_VERSION: v1.14.2
+  UBUNTU_VERSION: '22.04'
+- AWS_OFI_NCCL_VERSION: v1.11.0-aws
   BASE_IMAGE: nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
   CUDA_VERSION: 12.4.1
   IMAGE_NAME: torch-2-5-1-cu124-aws
@@ -102,6 +111,7 @@
   - mosaicml/pytorch:2.5.1_cu124-python3.12-ubuntu22.04-aws
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.20.1
+  UBUNTU_VERSION: '22.04'
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: ubuntu:22.04
   CUDA_VERSION: ''
@@ -116,6 +126,7 @@
   - mosaicml/pytorch:2.5.1_cpu-python3.12-ubuntu22.04
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.20.1
+  UBUNTU_VERSION: '22.04'
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
   CUDA_VERSION: 12.4.1
@@ -131,6 +142,8 @@
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.19.1
 - AWS_OFI_NCCL_VERSION: v1.14.2
+  UBUNTU_VERSION: '22.04'
+- AWS_OFI_NCCL_VERSION: v1.11.0-aws
   BASE_IMAGE: nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
   CUDA_VERSION: 12.4.1
   IMAGE_NAME: torch-2-4-1-cu124-aws
@@ -144,6 +157,7 @@
   - mosaicml/pytorch:2.4.1_cu124-python3.12-ubuntu22.04-aws
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.19.1
+  UBUNTU_VERSION: '22.04'
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: ubuntu:22.04
   CUDA_VERSION: ''
@@ -158,6 +172,37 @@
   - mosaicml/pytorch:2.4.1_cpu-python3.12-ubuntu22.04
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.19.1
+  UBUNTU_VERSION: '22.04'
+- AWS_OFI_NCCL_VERSION: ''
+  BASE_IMAGE: nvidia/cuda:12.4.1-cudnn-devel-ubuntu20.04
+  CUDA_VERSION: 12.4.1
+  IMAGE_NAME: torch-2-6-0-cu124-ub2004
+  MOFED_VERSION: ''
+  NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
+  PYTHON_VERSION: '3.11'
+  PYTORCH_NIGHTLY_URL: ''
+  PYTORCH_NIGHTLY_VERSION: ''
+  PYTORCH_VERSION: 2.6.0
+  TAGS:
+  - mosaicml/pytorch:2.6.0_cu124-python3.11-ubuntu20.04
+  TARGET: pytorch_stage
+  TORCHVISION_VERSION: 0.21.0
+  UBUNTU_VERSION: '20.04'
+- AWS_OFI_NCCL_VERSION: ''
+  BASE_IMAGE: nvidia/cuda:12.6.3-cudnn-devel-ubuntu20.04
+  CUDA_VERSION: 12.6.3
+  IMAGE_NAME: torch-2-6-0-cu126-ub2004
+  MOFED_VERSION: ''
+  NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
+  PYTHON_VERSION: '3.11'
+  PYTORCH_NIGHTLY_URL: ''
+  PYTORCH_NIGHTLY_VERSION: ''
+  PYTORCH_VERSION: 2.6.0
+  TAGS:
+  - mosaicml/pytorch:2.6.0_cu126-python3.11-ubuntu20.04
+  TARGET: pytorch_stage
+  TORCHVISION_VERSION: 0.21.0
+  UBUNTU_VERSION: '20.04'
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
   COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.30.0
@@ -174,6 +219,7 @@
   - mosaicml/composer:latest
   TARGET: composer_stage
   TORCHVISION_VERSION: 0.21.0
+  UBUNTU_VERSION: '22.04'
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: ubuntu:22.04
   COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.30.0
@@ -190,3 +236,4 @@
   - mosaicml/composer:latest_cpu
   TARGET: composer_stage
   TORCHVISION_VERSION: 0.21.0
+  UBUNTU_VERSION: '22.04'
