@@ -3,13 +3,13 @@
 
 """Helpers for FSDP2."""
 
-from typing import Optional, Callable
+from typing import Callable, Optional
 
 import torch
-import torch.nn as nn
-from torch.distributed.fsdp._fully_shard import fully_shard, FSDPModule
-from torch.distributed.fsdp.wrap import CustomPolicy
 import torch.distributed as dist
+import torch.nn as nn
+from torch.distributed.fsdp._fully_shard import FSDPModule, fully_shard
+from torch.distributed.fsdp.wrap import CustomPolicy
 
 from composer.distributed.fsdp2_utils import (
     check_param_tying,
@@ -19,9 +19,10 @@ from composer.distributed.fsdp2_utils import (
     update_optimizer_modules,
 )
 from composer.utils.parallelism import FSDP2Config
+from composer.utils.device import Device
 
 
-def generate_oom_hook(device: torch.device) -> Callable:
+def generate_oom_hook(device: Device) -> Callable:
     """Generate a hook that checks if any other rank hit an OOM.
 
     Here's an example of why this is needed using a simple 2-GPU setup and how it handles OOM issues during auto microbatching:
@@ -61,7 +62,7 @@ def generate_oom_hook(device: torch.device) -> Callable:
         - Rank 2 exits the while loop and adjusts the device_train_microbatch_size to half of the previous value [[trainer.py:2790]]
 
     Args:
-        device (torch.device): The device to check for OOM.
+        device (Device): The device to check for OOM.
 
     Returns:
         Callable: The hook that checks if any other rank hit an OOM.
