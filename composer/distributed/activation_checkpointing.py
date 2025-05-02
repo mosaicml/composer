@@ -31,7 +31,12 @@ def generate_default_check_fn(model: nn.Module) -> Callable:
     return _check_fn
 
 
-def apply_ac(model: nn.Module, activation_checkpointing: bool, activation_cpu_offload: bool, check_fn: Optional[Callable] = None) -> None:
+def apply_ac(
+    model: nn.Module,
+    activation_checkpointing: bool,
+    activation_cpu_offload: bool,
+    check_fn: Optional[Callable] = None,
+) -> None:
     """Apply activation checkpointing to the model. This is orthogonal to FSDP2 so it can be applied pre-sharding or post-sharding.
 
     This method follows the same logic as FSDP1 as well as TorchTitan's AC example.
@@ -42,7 +47,6 @@ def apply_ac(model: nn.Module, activation_checkpointing: bool, activation_cpu_of
         activation_cpu_offload (bool): Whether to offload activations to the CPU.
         check_fn (Optional[Callable]): An optional function to determine if a module should be checkpointed.
     """
-
     # Create the base checkpointing wrapper using no_reentrant checkpointing by default as
     # PyTorch notes that reentrant checkpointing is deprecated and will be removed in a future release
     opt_checkpoint_wrapper = lambda m: checkpoint_wrapper(

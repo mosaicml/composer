@@ -34,7 +34,9 @@ def parallelize_model(
 
     if activation_checkpointing_check_fn is not None:
         if not config.activation_checkpointing and not config.activation_cpu_offload:
-            raise ValueError('Activation checkpointing or offloading must be enabled if activation_checkpointing_check_fn is provided')
+            raise ValueError(
+                'Activation checkpointing or offloading must be enabled if activation_checkpointing_check_fn is provided',
+            )
 
     if config.activation_checkpointing or config.activation_cpu_offload:
         apply_ac(
