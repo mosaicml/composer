@@ -101,6 +101,7 @@ from composer.utils import (
     MLFLOW_RUN_ID_FORMAT_KEY,
     ExportFormat,
     FSDPConfig,
+    FSDP2Config,
     ObjectStore,
     ParallelismConfig,
     TPConfig,
@@ -1213,21 +1214,7 @@ class Trainer:
         assert not isinstance(device_train_microbatch_size, str)
 
         # Distributed
-        if parallelism_config is not None and not isinstance(parallelism_config, ParallelismConfig):
-            parallelism_config_args = {}
-            if 'fsdp' in parallelism_config and parallelism_config['fsdp'] is not None:
-                if isinstance(parallelism_config['fsdp'], FSDPConfig):
-                    parallelism_config_args['fsdp'] = parallelism_config['fsdp']
-                else:
-                    parallelism_config_args['fsdp'] = FSDPConfig(**parallelism_config['fsdp'])
-            if 'tp' in parallelism_config and parallelism_config['tp'] is not None:
-                if isinstance(parallelism_config['tp'], TPConfig):
-                    parallelism_config_args['tp'] = parallelism_config['tp']
-                else:
-                    parallelism_config_args['tp'] = TPConfig(**parallelism_config['tp'])
-            parallelism_config = ParallelismConfig(
-                **parallelism_config_args,
-            ) if len(parallelism_config_args) > 0 else None
+        parallelism_config = self._parse_parallelism_config(parallelism_config)
         if parallelism_config is not None or dist.get_world_size() > 1:
             # FSDP requires torch.distributed to be initialized, even if the world size is 1
             # And torch.distributed is always required for multi-rank training
@@ -3800,3 +3787,31 @@ class Trainer:
             input_names=input_names,
             output_names=output_names,
         )
+
+    def _parse_parallelism_config(self, parallelism_config: Optional[dict[str, Any] | ParallelismConfig]) -> Optional[ParallelismConfig]:
+        """Parse parallelism configuration into a ParallelismConfig object.
+
+        Args:
+            parallelism_config: Configuration for parallelism options (FSDP, tensor parallelism)
+
+        Returns:
+            ParallelismConfig: A properly formatted parallelism configuration, or None
+        """
+        if parallelism_config is not None and not isinstance(parallelism_config, ParallelismConfig):
+            parallelism_config_args = {}
+            if 'fsdp' in parallelism_config and parallelism_config['fsdp'] is not None:
+                if isinstance(parallelism_config['fsdp'], FSDPConfig):
+                    parallelism_config_args['fsdp'] = parallelism_config['fsdp']
+                elif isinstance(parallelism_config['fsdp'], FSDP2Config):
+                    parallelism_config_args['fsdp'] = parallelism_config['fsdp']
+                else:
+                    parallelism_config_args['fsdp'] = FSDPConfig(**parallelism_config['fsdp'])
+            if 'tp' in parallelism_config and parallelism_config['tp'] is not None:
+                if isinstance(parallelism_config['tp'], TPConfig):
+                    parallelism_config_args['tp'] = parallelism_config['tp']
+                else:
+                    parallelism_config_args['tp'] = TPConfig(**parallelism_config['tp'])
+            return ParallelismConfig(
+                **parallelism_config_args,
+            ) if len(parallelism_config_args) > 0 else None
+        return parallelism_config

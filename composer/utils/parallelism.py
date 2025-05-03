@@ -4,7 +4,7 @@
 """Parallelism configs."""
 
 import warnings
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from typing import Any, Optional
 
 from torch.distributed._tensor.device_mesh import DeviceMesh
@@ -81,6 +81,37 @@ class FSDP2Config:
     activation_checkpointing: bool = False
     activation_cpu_offload: bool = False
 
+    @staticmethod
+    def from_fsdp1(attrs: dict[str, Any]) -> 'FSDP2Config':
+        """Create an FSDP2Config from FSDP1 attributes.
+        
+        This method converts FSDP1 configuration attributes to a compatible FSDP2Config instance.
+        Only attributes that are valid for FSDP2Config will be used, and warnings will be issued
+        for any attributes that cannot be transferred.
+        
+        Args:
+            attrs (dict[str, Any]): Dictionary of FSDP1 configuration attributes.
+            
+        Returns:
+            FSDP2Config: A new FSDP2Config instance with compatible attributes from FSDP1.
+            
+        Warnings:
+            UserWarning: If an attribute in the input dictionary is not a settable attribute 
+                         of FSDP2Config and will be ignored.
+        """
+        # Get the settable attributes of FSDP2Config
+        settable_attrs = {field.name for field in fields(FSDP2Config)}
+        # Filter the input attributes to only include settable ones
+        valid_attrs = {}
+        for key, value in attrs.items():
+            if key in settable_attrs:
+                valid_attrs[key] = value
+            else:
+                warnings.warn(f"Attribute '{key}: {value}' is not a settable attribute of FSDP2Config and will be ignored", UserWarning)
+        
+        # Create and return a new FSDP2Config with the valid attributes
+        return FSDP2Config(**valid_attrs)
+
     ### Temporary read-only properties for FSDP 1 compatibility  ###
     # to be supported in FSDP2
     @property
@@ -142,3 +173,4 @@ class ParallelismConfig:
     fsdp: Optional[FSDPConfig] = None
     tp: Optional[TPConfig] = None
     fsdp2: Optional[FSDP2Config] = None
+
