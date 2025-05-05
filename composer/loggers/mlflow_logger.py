@@ -191,7 +191,9 @@ class MLFlowLogger(LoggerDestination):
         self.resume = resume
 
         if logging_buffer_seconds:
-            os.environ['MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS'] = str(logging_buffer_seconds,)
+            os.environ['MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS'] = str(
+                logging_buffer_seconds,
+            )
 
         if log_system_metrics:
             # Set system metrics sampling interval and samples before logging so that system metrics

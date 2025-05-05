@@ -153,10 +153,11 @@ def test_get_model_state_dict_sharded(world_size, tensor_type, use_composer_mode
     }
     all_local_tensor_sd = dist.all_gather_object(local_tensor_sd)
     post_shard_reconstructed_full_sd = {
-        n: torch.cat(
-            [sd[n].cuda() for sd in all_local_tensor_sd],
-            dim=0,  # dim=0 because fsdp shards each tensor on the 0th dimension
-        ) for n in pre_shard_full_state_dict.keys()
+        n:
+            torch.cat(
+                [sd[n].cuda() for sd in all_local_tensor_sd],
+                dim=0,  # dim=0 because fsdp shards each tensor on the 0th dimension
+            ) for n in pre_shard_full_state_dict.keys()
     }
     if dist.get_global_rank() == 0:
         deep_compare(pre_shard_full_state_dict, post_shard_reconstructed_full_sd)

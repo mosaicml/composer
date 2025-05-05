@@ -271,18 +271,22 @@ class RemoteUploaderDownloader(LoggerDestination):
 
         if use_procs:
             mp_ctx = multiprocessing.get_context('spawn')
-            self._file_upload_queue: Union[queue.Queue[tuple[str, str, bool]],
-                                           multiprocessing.JoinableQueue[tuple[str, str, bool]],
-                                          ] = mp_ctx.JoinableQueue()
+            self._file_upload_queue: Union[
+                queue.Queue[tuple[str, str, bool]],
+                multiprocessing.JoinableQueue[tuple[str, str, bool]],
+            ] = mp_ctx.JoinableQueue()
             self._completed_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str]] = mp_ctx.JoinableQueue()
-            self._exception_queue: Union[queue.Queue[Exception],
-                                         multiprocessing.JoinableQueue[Exception],
-                                        ] = mp_ctx.JoinableQueue()
-            self._finished_cls: Union[Callable[[],
-                                               multiprocessing._EventType,  # pyright: ignore[reportGeneralTypeIssues]
-                                              ],
-                                      type[threading.Event],
-                                     ] = mp_ctx.Event
+            self._exception_queue: Union[
+                queue.Queue[Exception],
+                multiprocessing.JoinableQueue[Exception],
+            ] = mp_ctx.JoinableQueue()
+            self._finished_cls: Union[
+                Callable[
+                    [],
+                    multiprocessing._EventType,  # pyright: ignore[reportGeneralTypeIssues]
+                ],
+                type[threading.Event],
+            ] = mp_ctx.Event
             self._proc_class = mp_ctx.Process
         else:
             self._file_upload_queue = queue.Queue()

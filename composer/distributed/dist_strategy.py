@@ -197,7 +197,9 @@ def prepare_tp_module(
 
     optim = optimizers_tuple[0]
     if len(optim.param_groups) > 1:
-        raise RuntimeError('Multiple optimizer groups are not supported with tensor parallelism.',)
+        raise RuntimeError(
+            'Multiple optimizer groups are not supported with tensor parallelism.',
+        )
 
     if len(optim.param_groups[0]['params']) != len(list(model.parameters())):
         raise ValueError(
@@ -320,7 +322,9 @@ def prepare_fsdp_module(
                 group_num_to_opt_group_info[group_num] = optimizer_specific_group_info
         else:
             if len(optim.param_groups) > 1:
-                raise RuntimeError('Multiple optimizer groups with FSDP are not supported with use_orig_params=False.',)
+                raise RuntimeError(
+                    'Multiple optimizer groups with FSDP are not supported with use_orig_params=False.',
+                )
 
             if len(optim.param_groups[0]['params']) != len(list(model.parameters())):
                 raise ValueError(
@@ -541,7 +545,9 @@ def prepare_fsdp_module(
                         try:
                             import transformer_engine.pytorch as te
                         except ModuleNotFoundError:
-                            raise ModuleNotFoundError('Please install transformer-engine to use TE checkpoint wrapper',)
+                            raise ModuleNotFoundError(
+                                'Please install transformer-engine to use TE checkpoint wrapper',
+                            )
 
                         # RNG state tracker for checkpointing
                         CUDA_RNG_STATES_TRACKER = te.distributed.CudaRNGStatesTracker()

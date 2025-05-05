@@ -121,9 +121,11 @@ def get_object_store_ctx(
             username = object_store_kwargs['username']
             with open(private_key_path, 'wb') as private_key_file:
                 private_key_file.write(pem)
-            with mockssh.Server(users={
-                username: str(private_key_path),
-            },) as server:
+            with mockssh.Server(
+                users={
+                    username: str(private_key_path),
+                },
+            ) as server:
                 client = server.client(username)
                 monkeypatch.setattr(client, 'connect', lambda *args, **kwargs: None)
                 monkeypatch.setattr(composer.utils.object_store.sftp_object_store, 'SSHClient', lambda: client)

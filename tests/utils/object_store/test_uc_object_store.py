@@ -258,7 +258,9 @@ def test_list_objects(ws_client, uc_object_store, result):
 
         assert actual_files == expected_files
         expected_call_prefix = os.path.join('/', prefix)
-        ws_client.files.list_directory_contents.assert_called_once_with(directory_path=expected_call_prefix,)
+        ws_client.files.list_directory_contents.assert_called_once_with(
+            directory_path=expected_call_prefix,
+        )
 
     elif result == 'prefix_none':
         ws_client.files.list_directory_contents.return_value = uc_list_api_response
@@ -266,7 +268,9 @@ def test_list_objects(ws_client, uc_object_store, result):
 
         assert actual_files == expected_files
         expected_call_prefix = '/Volumes/catalog/schema/volume/.'
-        ws_client.files.list_directory_contents.assert_called_once_with(directory_path=expected_call_prefix,)
+        ws_client.files.list_directory_contents.assert_called_once_with(
+            directory_path=expected_call_prefix,
+        )
 
     elif result == 'not_found':
         db_core = pytest.importorskip('databricks.sdk.core', reason='requires databricks')

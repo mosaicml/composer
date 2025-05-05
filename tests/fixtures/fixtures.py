@@ -141,7 +141,9 @@ def causal_lm_model_helper(config):  # type: ignore
 def masked_lm_model_helper(config):  # type: ignore
     transformers = pytest.importorskip('transformers')
 
-    return transformers.AutoModelForMaskedLM.from_config(config,)  # type: ignore (thirdparty)
+    return transformers.AutoModelForMaskedLM.from_config(
+        config,
+    )  # type: ignore (thirdparty)
 
 
 def tiny_t5_model_helper(config):
@@ -184,7 +186,9 @@ def tiny_gpt2_config_helper():
         'vocab_size': 50258,
     }
 
-    config_object = GPT2Config(**config_dict,)
+    config_object = GPT2Config(
+        **config_dict,
+    )
     return config_object
 
 
@@ -217,7 +221,9 @@ def tiny_codellama_config_helper(tie_word_embeddings: bool = False):
         'vocab_size': 32016,
     }
 
-    config_object = LlamaConfig(**config_dict,)
+    config_object = LlamaConfig(
+        **config_dict,
+    )
     return config_object
 
 
@@ -248,7 +254,9 @@ def tiny_bert_config_helper():
         'vocab_size': 30522,
     }
 
-    config_object = BertConfig(**config_object,)
+    config_object = BertConfig(
+        **config_object,
+    )
     return config_object
 
 
