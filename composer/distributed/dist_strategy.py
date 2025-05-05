@@ -480,13 +480,6 @@ def prepare_fsdp_module(
                 log.info(f'Calling prepare_te_modules_for_fsdp to enable TE weights sharding')
                 prepare_te_modules_for_fsdp(fsdp_obj)
 
-            # The following sync hooks are added to prevent FSDP deadlocks that are caused when some ranks OOM
-            # and other ranks do not OOM, leading to OOMing ranks calling all_reduce to wait on the non-OOMing
-            # ranks and the non-OOMing ranks calling all_gatherbase to continue with FSDP training:
-            #
-            #   forward_pre_hook: before forwards of FSDP modules
-            #   full_backward_pre_hook: before backwards of FSDP modules
-            #   full_backward_hook: before a prefetched unshard called by FSDP's `post_backward_reshard`
             if auto_microbatching:
                 hook_handles = add_fsdp_oom_hooks(fsdp_obj, fsdp_module_type=FullyShardedDataParallel, device=device)
                 fsdp_obj_named_modules.update(dict(fsdp_obj.named_modules()))

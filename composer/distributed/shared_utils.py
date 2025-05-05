@@ -6,12 +6,27 @@
 from typing import Callable, Optional
 
 import torch
-from torch.distributed.fsdp import FullyShardedDataParallel
-from torch.distributed.fsdp._fully_shard import FSDPModule
+from packaging import version
 from torch.utils.hooks import RemovableHandle
 
 from composer.devices import Device
 from composer.utils import dist, get_device
+
+
+def get_valid_fsdp_module_types():
+    """Returns a list of valid FSDP module types based on the torch version.
+
+    Returns:
+        list: List of valid FSDP module types.
+    """
+    from torch.distributed.fsdp import FullyShardedDataParallel
+    valid_types = [FullyShardedDataParallel]
+
+    if version.parse(torch.__version__) >= version.parse('2.6.0'):
+        from torch.distributed.fsdp._fully_shard import FSDPModule
+        valid_types.append(FSDPModule)  # type: ignore
+
+    return valid_types
 
 
 def generate_oom_hook(device: Device) -> Callable:
@@ -83,6 +98,14 @@ def generate_oom_hook(device: Device) -> Callable:
 def add_fsdp_oom_hooks(model, fsdp_module_type: type, device: Optional[Device] = None) -> list[RemovableHandle]:
     """Add OOM hooks to the model and return the list of handles.
 
+    The following sync hooks are added to prevent FSDP deadlocks that are caused when some ranks OOM
+    and other ranks do not OOM, leading to OOMing ranks calling all_reduce to wait on the non-OOMing
+    ranks and the non-OOMing ranks calling all_gatherbase to continue with FSDP training:
+
+    forward_pre_hook: before forwards of FSDP modules
+    full_backward_pre_hook: before backwards of FSDP modules
+    full_backward_hook: before a prefetched unshard (all_gather) called by FSDP's `post_backward_reshard`
+
     Args:
         model (torch.nn.Module): The model to add the hooks to.
         fsdp_module_type (type): The type of the FSDP module to add the hooks to. This should be either FSDPModule or FullyShardedDataParallel.
@@ -95,7 +118,7 @@ def add_fsdp_oom_hooks(model, fsdp_module_type: type, device: Optional[Device] =
     if device is None:
         device = get_device()
     hook = generate_oom_hook(device)
-    assert fsdp_module_type in [FSDPModule, FullyShardedDataParallel]
+    assert fsdp_module_type in get_valid_fsdp_module_types(), f'Invalid FSDP module type: {fsdp_module_type}'
     for module in model.modules():
         if isinstance(module, fsdp_module_type):
             hook_handles.append(module.register_forward_pre_hook(hook, prepend=True))  # type: ignore
