@@ -86,7 +86,7 @@ class FSDP2Config:
         """Create an FSDP2Config from an FSDP1 FSDPConfig object.
         
         This method converts FSDP1 configuration to a compatible FSDP2Config instance.
-        Only a subset of attributes are transferred: activation_checkpointing and activation_cpu_offload.
+        Only a subset of attributes are transferred: activation_checkpointing, activation_cpu_offload and device_mesh.
         
         Args:
             fsdp_config (FSDPConfig): The FSDP1 configuration object.

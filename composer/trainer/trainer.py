@@ -1641,23 +1641,44 @@ class Trainer:
                 )
 
         # FSDP wrap if not using monolith checkpoint on rank 0 only
-        if self.state.fsdp_config is not None and self.state.fsdp_config.auto_wrap and not self.state.load_monolith_rank0_only:
+        if self.state.fsdp_config is not None and not self.state.load_monolith_rank0_only:
             # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
-                # TODO (FSDP2): support calling FSDP2 wrapper depending on the config type
-                assert isinstance(
-                    self.state.fsdp_config,
-                    FSDPConfig,
-                ), f'prepare_fsdp_module requires FSDPConfig, got: {type(self.state.fsdp_config)}'
-                self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
-                    model,
-                    optimizers,
-                    self.state.fsdp_config,
-                    precision,
-                    device,
-                    auto_microbatching,
-                    self.state.seed,
-                )
+                if isinstance(self.state.fsdp_config, FSDPConfig):
+                    self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
+                        model,
+                        optimizers,
+                        self.state.fsdp_config,
+                        precision,
+                        device,
+                        auto_microbatching,
+                        self.state.seed,
+                    )
+                elif isinstance(self.state.fsdp_config, FSDP2Config):
+                    from composer.distributed.prepare_distributed import parallelize_model
+                    parallelize_model(
+                        model.model,
+                        self.state.fsdp_config,
+                        optimizers,
+                    )
+                    is_meta = any(param.is_meta for param in model.parameters()) or any(buffer.is_meta for buffer in model.buffers())
+                    if is_meta:
+                        model.to_empty(device='cuda')
+                        param_init_fn = getattr(model.model, 'param_init_fn', None)
+                        for module in model.model.modules():
+                        #     param_init_fn(module)
+                            if isinstance(param_init_fn, Callable):
+                                param_init_fn(module)
+                            elif hasattr(module, 'reset_parameters') and isinstance(module.reset_parameters, Callable):
+                                module.reset_parameters()
+                            else:
+                                raise ValueError(
+                                    f'Object `{model}` does not have a ``param_init_fn`` or a ``reset_parameters`` function. '
+                                    'This leaves parameters without initialization. Please add a ``param_init_fn`` or ``reset_parameters`` '
+                                    f'to module `{model.model}`.',
+                                )
+                else:
+                    raise ValueError(f'Unsupported FSDP config type: {type(self.state.fsdp_config)}')
 
         self.engine.run_event(Event.BEFORE_LOAD)
 
@@ -3802,10 +3823,10 @@ class Trainer:
             if 'fsdp' in parallelism_config and parallelism_config['fsdp'] is not None:
                 if isinstance(parallelism_config['fsdp'], FSDPConfig | FSDP2Config):
                     parallelism_config_args['fsdp'] = parallelism_config['fsdp']
-                elif os.environ.get('FSDP_VERSION', '1') == '2':
-                    parallelism_config_args['fsdp'] = FSDP2Config.from_fsdp1_attrs(parallelism_config['fsdp'])
                 else:
                     parallelism_config_args['fsdp'] = FSDPConfig(**parallelism_config['fsdp'])
+                    if os.environ.get('FSDP_VERSION', '1') == '2':
+                        parallelism_config_args['fsdp'] = FSDP2Config.from_fsdp1(parallelism_config_args['fsdp'])
             if 'tp' in parallelism_config and parallelism_config['tp'] is not None:
                 if isinstance(parallelism_config['tp'], TPConfig):
                     parallelism_config_args['tp'] = parallelism_config['tp']
