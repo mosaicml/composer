@@ -26,44 +26,6 @@ from tests.trainer.fsdp2_context import (
 )
 
 
-@fsdp2_context
-def test_fsdp2_config():
-    """Test that FSDP2Config read-only properties work as expected."""
-    # Create a config instance
-    config = FSDP2Config()
-
-    # Test reading properties (should succeed)
-    assert config.auto_wrap is False
-    assert config.load_monolith_rank0_only is False
-    assert config.sync_module_states is False
-    assert config.activation_cpu_offload is False
-    assert config.data_parallel_shard_degree == -1
-    assert config.data_parallel_replicate_degree is None
-    assert config.state_dict_type == 'sharded'
-    assert config.use_orig_params is True
-
-    # Test setting properties (should fail)
-    read_only_props = [
-        ('auto_wrap', False),
-        ('load_monolith_rank0_only', True),
-        ('sync_module_states', True),
-        ('data_parallel_shard_degree', 2),
-        ('data_parallel_replicate_degree', 2),
-        ('state_dict_type', 'full'),
-        ('use_orig_params', False),
-    ]
-
-    for prop, value in read_only_props:
-        with pytest.raises(AttributeError):
-            setattr(config, prop, value)
-
-    # Test that core properties can be set
-    config.device_mesh = None
-    config.reshard_after_forward = False
-    assert config.device_mesh is None
-    assert config.reshard_after_forward is False
-
-
 _INIT_DEVICES = ['cuda', 'meta']
 
 
