@@ -105,6 +105,7 @@ def add_fsdp_oom_hooks(model, fsdp_module_type: type, device: Optional[Device] =
     forward_pre_hook: before forwards of FSDP modules
     full_backward_pre_hook: before backwards of FSDP modules
     full_backward_hook: before a prefetched unshard (all_gather) called by FSDP's `post_backward_reshard`
+        - Note: we need to check if the `full_backward_hook` is needed for FSDP(2)
 
     Args:
         model (torch.nn.Module): The model to add the hooks to.
@@ -124,6 +125,7 @@ def add_fsdp_oom_hooks(model, fsdp_module_type: type, device: Optional[Device] =
             hook_handles.append(module.register_forward_pre_hook(hook, prepend=True))  # type: ignore
             hook_handles.append(module.register_full_backward_pre_hook(hook, prepend=True))  # type: ignore
         else:
+            # TODO: Investigate if this is needed; it seems that this might only be necessary for DDP
             hook_handles.append(module.register_full_backward_hook(hook))  # type: ignore
 
     return hook_handles
