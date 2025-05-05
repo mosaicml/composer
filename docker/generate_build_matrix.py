@@ -21,6 +21,7 @@ import yaml
 
 PRODUCTION_PYTHON_VERSION = '3.12'
 PRODUCTION_PYTORCH_VERSION = '2.6.0'
+EFA_INSTALLER_VERSION = '1.39.0'
 PRODUCTION_UBUNTU_VERSION = '22.04'
 
 
@@ -286,9 +287,9 @@ def _main():
 
         # Skip EFA drivers if not using EFA
         if interconnect != 'EFA':
-            entry['AWS_OFI_NCCL_VERSION'] = ''
+            entry['EFA_INSTALLER_VERSION'] = ''
         else:
-            entry['AWS_OFI_NCCL_VERSION'] = 'v1.11.0-aws'
+            entry['EFA_INSTALLER_VERSION'] = EFA_INSTALLER_VERSION
 
         pytorch_entries.append(entry)
 
@@ -317,7 +318,7 @@ def _main():
             'TARGET': 'composer_stage',
             'TORCHVISION_VERSION': _get_torchvision_version(pytorch_version),
             'MOFED_VERSION': 'latest-23.10',
-            'AWS_OFI_NCCL_VERSION': '',
+            'EFA_INSTALLER_VERSION': '',
             'COMPOSER_INSTALL_COMMAND': f'mosaicml[all]=={composer_version}',
             'TAGS': _get_composer_tags(
                 composer_version=composer_version,
@@ -342,7 +343,7 @@ def _main():
         if entry['CUDA_VERSION']:
             if entry['MOFED_VERSION'] != '':
                 interconnect = 'Infiniband'
-            elif entry['AWS_OFI_NCCL_VERSION'] != '':
+            elif entry['EFA_INSTALLER_VERSION'] != '':
                 interconnect = 'EFA'
         cuda_version = f"{entry['CUDA_VERSION']} ({interconnect})" if entry['CUDA_VERSION'] else 'cpu'
         linux_distro = f"Ubuntu {entry['UBUNTU_VERSION']}"
