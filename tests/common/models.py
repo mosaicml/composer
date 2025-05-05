@@ -188,7 +188,14 @@ class OOMComposerClassifier(ComposerClassifier):
     is greater than the viable microbatch size.
     """
 
-    def __init__(self, num_layers: int, num_classes: int, device: Union[str, torch.device], always_fail: bool = False, viable_microbatch_size: int = 32):
+    def __init__(
+        self,
+        num_layers: int,
+        num_classes: int,
+        device: Union[str, torch.device],
+        always_fail: bool = False,
+        viable_microbatch_size: int = 32,
+    ):
         module = torch.nn.Sequential(
             *[torch.nn.Linear(num_classes, num_classes, device=device) for _ in range(num_layers)],
         )

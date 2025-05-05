@@ -6,12 +6,12 @@
 from typing import Callable, Optional
 
 import torch
-
-from composer.devices import Device
-from composer.utils import dist, get_device
 from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.distributed.fsdp._fully_shard import FSDPModule
 from torch.utils.hooks import RemovableHandle
+
+from composer.devices import Device
+from composer.utils import dist, get_device
 
 
 def generate_oom_hook(device: Device) -> Callable:

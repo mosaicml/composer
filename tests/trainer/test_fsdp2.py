@@ -142,7 +142,9 @@ def test_fsdp2_initialization_with_tied_params(
     """
     model = model_class(num_features=10, device=device)
     model.add_fsdp_wrap_attribute_to_children()
-    trainer, _ = create_trainer_with_model(model=model,)
+    trainer, _ = create_trainer_with_model(
+        model=model,
+    )
 
     # Initialization checks
     model = trainer.state.model
@@ -187,7 +189,9 @@ def test_fsdp2_checkpointing(
     """Test FSDP2 checkpointing and weight tying after loading."""
     model = model_class(num_features=10, device=device)
     model.add_fsdp_wrap_attribute_to_children()
-    trainer, _ = create_trainer_with_model(model=model,)
+    trainer, _ = create_trainer_with_model(
+        model=model,
+    )
 
     # Checkpointing and reloading
     model = trainer.state.model
@@ -207,7 +211,9 @@ def test_fsdp2_checkpointing(
     # reinitialize the trainer
     new_model = model_class(num_features=10, device=device)
     new_model.add_fsdp_wrap_attribute_to_children()
-    trainer, _ = create_trainer_with_model(model=new_model,)
+    trainer, _ = create_trainer_with_model(
+        model=new_model,
+    )
     load_checkpoint(str(pathlib.Path(ckpt_path).parent), trainer.state, trainer.logger, load_weights_only=True)
 
     model = trainer.state.model
@@ -440,7 +446,9 @@ def test_fsdp2_handles_cuda_failures(world_size: int, use_alternate: bool, num_l
 @pytest.mark.filterwarnings("ignore:`device_train_microbatch_size='auto'` may potentially fail with unexpected.*")
 @pytest.mark.filterwarnings('ignore:CUDA out of memory*')
 @fsdp2_context
-def test_fsdp2_auto_microbatching_handles_cuda_failures(world_size: int,):
+def test_fsdp2_auto_microbatching_handles_cuda_failures(
+    world_size: int,
+):
     """Test FSDP2 auto-microbatching handles CUDA OOM failures."""
     del world_size
 
