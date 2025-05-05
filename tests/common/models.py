@@ -182,9 +182,13 @@ class ComposerCounterModel(ComposerClassifier):
 
 
 class OOMComposerClassifier(ComposerClassifier):
-    """A model that will raise an OOM error on rank 1 when forward is called in expected situations."""
+    """A model that will raise an OOM error on rank 1 when forward is called in expected situations.
 
-    def __init__(self, num_layers: int, num_classes: int, device: Union[str, torch.device], always_fail: bool = False):
+    This is used to test the auto microbatching code and will always fail on rank 1 if the microbatch size
+    is greater than the viable microbatch size.
+    """
+
+    def __init__(self, num_layers: int, num_classes: int, device: Union[str, torch.device], always_fail: bool = False, viable_microbatch_size: int = 32):
         module = torch.nn.Sequential(
             *[torch.nn.Linear(num_classes, num_classes, device=device) for _ in range(num_layers)],
         )
@@ -193,13 +197,13 @@ class OOMComposerClassifier(ComposerClassifier):
             module=module,
         )
         self.module = module
-        self.rank = dist.get_global_rank()
         self.always_fail = always_fail
+        self.viable_microbatch_size = viable_microbatch_size
 
     def forward(self, batch: tuple[torch.Tensor, Any]) -> torch.Tensor:
         inputs, _ = batch
         outputs = self.module(inputs)
-        if self.rank == 1 and (self.always_fail or inputs.shape[0] >= 64):
+        if dist.get_global_rank() == 1 and (self.always_fail or inputs.shape[0] > self.viable_microbatch_size):
             raise RuntimeError('CUDA out of memory')
         return outputs
 
