@@ -83,6 +83,7 @@ def apply_fully_shard(
         None
     """
     # Define the default kwargs for fully_shard
+    # TODO: support user specified mp_policy
     fully_shard_kwargs = {'mesh': fsdp2_config.device_mesh, 'reshard_after_forward': fsdp2_config.reshard_after_forward, 'mp_policy': MixedPrecisionPolicy(param_dtype=torch.bfloat16, reduce_dtype=torch.float32)}
 
     # Get a dictionary of all submodules to wrap and their kwargs
