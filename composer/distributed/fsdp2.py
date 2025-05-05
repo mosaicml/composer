@@ -7,7 +7,8 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
-from torch.distributed.fsdp._fully_shard import fully_shard
+from torch.distributed.fsdp import fully_shard
+from torch.distributed.fsdp import MixedPrecisionPolicy
 from torch.distributed.fsdp.wrap import CustomPolicy
 
 from composer.distributed.fsdp2_utils import (
@@ -82,7 +83,7 @@ def apply_fully_shard(
         None
     """
     # Define the default kwargs for fully_shard
-    fully_shard_kwargs = {'mesh': fsdp2_config.device_mesh, 'reshard_after_forward': fsdp2_config.reshard_after_forward}
+    fully_shard_kwargs = {'mesh': fsdp2_config.device_mesh, 'reshard_after_forward': fsdp2_config.reshard_after_forward, 'mp_policy': MixedPrecisionPolicy(param_dtype=torch.bfloat16, reduce_dtype=torch.float32)}
 
     # Get a dictionary of all submodules to wrap and their kwargs
     target_modules_to_kwargs = auto_wrap_policy._run_policy(
