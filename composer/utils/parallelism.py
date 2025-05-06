@@ -82,18 +82,18 @@ class FSDP2Config:
     activation_cpu_offload: bool = False
 
     @staticmethod
-    def from_fsdp1(attrs: dict[str, Any]) -> 'FSDP2Config':
-        """Create an FSDP2Config from FSDP1 attributes.
+    def from_compatible_attrs(attrs: dict[str, Any]) -> 'FSDP2Config':
+        """Create an FSDP2Config by filtering FSDP2 compatible attributes from given attrs.
         
-        This method converts FSDP1 configuration attributes to a compatible FSDP2Config instance.
         Only attributes that are valid for FSDP2Config will be used, and warnings will be issued
-        for any attributes that cannot be transferred.
-        
+        for any attributes that cannot be transferred. Therefore it supports both FSDP1 and FSDP2 attributes, and main
+        use case is FSDP1 backwards compatibility.
+
         Args:
-            attrs (dict[str, Any]): Dictionary of FSDP1 configuration attributes.
+            attrs (dict[str, Any]): Dictionary of FSDP1/2 configuration attributes.
             
         Returns:
-            FSDP2Config: A new FSDP2Config instance with compatible attributes from FSDP1.
+            FSDP2Config: A new FSDP2Config instance with compatible attributes.
             
         Warnings:
             UserWarning: If an attribute in the input dictionary is not a settable attribute 

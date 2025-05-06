@@ -3824,7 +3824,7 @@ class Trainer:
                 if isinstance(parallelism_config['fsdp'], FSDPConfig | FSDP2Config):
                     parallelism_config_args['fsdp'] = parallelism_config['fsdp']
                 elif os.environ.get('FSDP_VERSION', '1') == '2':
-                    parallelism_config_args['fsdp'] = FSDP2Config.from_fsdp1(parallelism_config['fsdp'])
+                    parallelism_config_args['fsdp'] = FSDP2Config.from_compatible_attrs(parallelism_config['fsdp'])
                 else:
                     parallelism_config_args['fsdp'] = FSDPConfig(**parallelism_config['fsdp'])
             if 'tp' in parallelism_config and parallelism_config['tp'] is not None:
