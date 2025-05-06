@@ -9,6 +9,7 @@ from contextlib import nullcontext
 import torch
 from torch.distributed.fsdp.wrap import CustomPolicy
 
+from composer.models import ComposerModel
 from composer.distributed.activation_checkpointing import apply_ac
 from composer.distributed.fsdp2 import prepare_fully_shard
 from composer.utils.parallelism import FSDP2Config, FSDPConfig
@@ -50,3 +51,29 @@ def parallelize_model(
                 activation_checkpointing_check_fn,
             )
         prepare_fully_shard(model, config, fsdp_wrap_policy)
+
+
+def parallelize_composer_model(
+    composer_model: ComposerModel,
+    config: FSDP2Config | FSDPConfig,
+    optimizer: Optional[torch.optim.Optimizer] = None
+):
+    """Prepare a ComposerModel for distributed training.
+
+    NOTE we apply parallelization to the composer model's submodules to provide compatibility with models defined for FSDP1.
+    This is not strictly necessary for FSDP2 as it relies on Dtensor so even if a module is not wrapped with FSDP2 and its params are sharded,
+    it is still functional (but potentially less performant due to lack of grouped prefetching etc).
+
+    For advanced users who want to have accesss to more flexible fsdp_wrap_policy or activation_checkpointing_check_fn, they should use `parallelize_model` directly.
+    
+    Args:
+        composer_model (ComposerModel): The ComposerModel to prepare for distributed training.
+        config (FSDP2Config | FSDPConfig): The configuration for distributed training.
+        optimizer (Optional[torch.optim.Optimizer]): The optimizer to use for distributed training.
+    """
+
+    assert isinstance(composer_model, ComposerModel), f'{type(composer_model)} is not a ComposerModel'
+    # since sync_optimizer_and_model_params requires param parity between the optimizer and the model, we need to manage the optimizer directly instead of passing it to parallelize_model
+    with sync_optimizer_and_model_params(optimizer, composer_model) if optimizer is not None else nullcontext():
+        for module in composer_model.named_children():
+            parallelize_model(module, config)
