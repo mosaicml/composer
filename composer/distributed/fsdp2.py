@@ -16,7 +16,7 @@ from composer.distributed.fsdp2_utils import (
     generate_default_policy,
     get_standalone_and_tied_modules,
     legalize_param_sharing_between_modules,
-    update_optimizer_modules,
+    sync_optimizer_and_model_params,
 )
 from composer.utils.parallelism import FSDP2Config
 
@@ -107,22 +107,18 @@ def prepare_fully_shard(
 
     Args:
         model (torch.nn.Module): The model to prepare.
+        optimizer (Optional[torch.optim.Optimizer]): The optimizer to update.
         fsdp2_config (FSDP2Config): The FSDP2 configuration.
-        auto_wrap_policy (CustomPolicy): The policy to apply to the model.
+        auto_wrap_policy (Optional[CustomPolicy]): The policy to apply to the model.
 
     Returns:
         None
     """
-    # Build the parameter to name mapping
-    orig_param_to_name = {p: n for n, p in model.named_parameters(recurse=True)}
-
     # If the auto_wrap_policy is not provided, generate the default policy
     if auto_wrap_policy is None:
         auto_wrap_policy = generate_default_policy(model)
 
-    with check_param_tying(model):
-        apply_fully_shard(model, fsdp2_config, auto_wrap_policy)
-
-    # If the optimizer is provided, update the optimizer's parameter groups to use the sharded model's DTensor parameters
-    if optimizer is not None:
-        update_optimizer_modules(optimizer, model, orig_param_to_name)
+    # Use the context managers for parameter tying check and optimizer synchronization
+    with sync_optimizer_and_model_params(optimizer, model):
+        with check_param_tying(model):
+            apply_fully_shard(model, fsdp2_config, auto_wrap_policy)
