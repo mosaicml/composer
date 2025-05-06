@@ -37,27 +37,27 @@ def generate_oom_hook(device: Device) -> Callable:
     need to do this before the model weights are gathered for the next FSDP(1/2) block, we wrap every
     FSDP(1/2) block with a hook that checks if any other rank OOMed.
 
-    Here's an example of why this is needed using a simple 2-GPU setup and how it handles OOM issues during auto microbatching:
+    Here's an example of why this is needed using a simple 2-GPU setup and how it handles OOM issues during auto microbatching.
+    Note that the line numbers can be (slightly) off based on future changes made to the code.
 
     - Rank 0: Layer 1 works fine
     - Rank 1: Layer 1 works fine
-    - Rank 0: Layer 2 works fine
-    - Rank 1: Layer 2 OOMs
+    - Rank 0: Layer 2 OOMs
         - Rank 0 raises an error _is_cuda_oom() [[trainer.py:2756]]
         - Rank 0 sets found_cuda_oom to 1 [[trainer.py:2758]]
         - Rank 0 creates found_cuda_oom_tensor = [1] and calls all_reduce on it with reduce_operation='MAX' [[trainer.py:2773]]
     - Rank 1: Layer 2 works fine until a hook handle is hit
-        - Rank 1 sets found_cuda_oom_tensor = [0] [[fsdp2.py:72]]
+        - Rank 1 sets found_cuda_oom_tensor = [0] [[shared_utils.py:85]]
         - Rank 1 calls all_reduce to set found_cuda_oom_tensor to max([0, 1]) = 1 [[fsdp2.py:73]]
-        - Rank 1 sees that found_cuda_oom == 1 [[fsdp2.py:74]]
+        - Rank 1 sees that found_cuda_oom == 1 [[shared_utils.py:87]]
     - Rank 0:
         - Rank 0 creates all_ranks_finished_tensor = [1] and calls all_reduce on it with reduce_operation='MIN' [[trainer.py:2780]]
         - Rank 0 sees that all_ranks_finished == 0 (since rank 1 is still in mid-batch) [[trainer.py:2781]]
         - Rank 0 continues in the (while not all_ranks_finished) loop [[trainer.py:2771]]
     - Rank 1:
-        - Rank 1 creates all_ranks_finished_tensor = [0] and calls all_reduce on it with reduce_operation='MIN' [[fsdp2.py:76]]
-        - Rank 1 sees that all_ranks_finished == 0 (since this rank is still in the batch) [[fsdp2.py:77]]
-        - Rank 1 sees that found_cuda_oom == 1, so it raises an error saying that a different rank OOMed [[fsdp2.py:80]]
+        - Rank 1 creates all_ranks_finished_tensor = [0] and calls all_reduce on it with reduce_operation='MIN' [[shared_utils.py:89]]
+        - Rank 1 sees that all_ranks_finished == 0 (since this rank is still in the batch) [[shared_utils.py:90]]
+        - Rank 1 sees that found_cuda_oom == 1, so it raises an error saying that a different rank OOMed [[shared_utils.py:93]]
     - Rank 0:
         - In the next round of the while loop, found_cuda_oom_tensor = [1] and calls all_reduce on it with reduce_operation='MAX' [[trainer.py:2773]]
     - Rank 1:
