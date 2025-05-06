@@ -4,6 +4,7 @@
 """Entrypoint for distributed training (using FSDP2)."""
 
 from typing import Callable, Optional
+from contextlib import nullcontext
 
 import torch
 from torch.distributed.fsdp.wrap import CustomPolicy
@@ -39,7 +40,8 @@ def parallelize_model(
                 'Activation checkpointing or offloading must be enabled if activation_checkpointing_check_fn is provided',
             )
 
-    with sync_optimizer_and_model_params(optimizer, model):
+    # Use the context manager for optimizer synchronization if optimizer is provided
+    with sync_optimizer_and_model_params(optimizer, model) if optimizer is not None else nullcontext():
         if config.activation_checkpointing or config.activation_cpu_offload:
             apply_ac(
                 model,

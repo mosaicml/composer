@@ -5,7 +5,7 @@
 
 import contextlib
 import warnings
-from typing import Any, Callable, Union, Optional
+from typing import Any, Callable, Union
 
 import torch
 import torch.nn as nn
@@ -172,7 +172,7 @@ def check_param_tying(model: nn.Module):
 
 @contextlib.contextmanager
 def sync_optimizer_and_model_params(
-    optimizer: Optional[torch.optim.Optimizer],
+    optimizer: torch.optim.Optimizer,
     model: nn.Module,
 ):
     """Context manager that synchronizes optimizer parameters with model parameters.
@@ -182,20 +182,19 @@ def sync_optimizer_and_model_params(
     use the (potentially sharded) model parameters after the context block.
 
     Args:
-        optimizer (Optional[torch.optim.Optimizer]): The optimizer to update. If None, no synchronization is performed.
+        optimizer (torch.optim.Optimizer): The optimizer to update.
         model (nn.Module): The model whose parameters should be synced with the optimizer.
 
     Yields:
         None
     """
     # Build the parameter to name mapping before any modifications
-    orig_param_to_name = {p: n for n, p in model.named_parameters(recurse=True)} if optimizer is not None else {}
+    orig_param_to_name = {p: n for n, p in model.named_parameters(recurse=True)}
     
     yield
     
-    # After the context, update the optimizer to use the new parameters if optimizer is provided
-    if optimizer is not None:
-        update_optimizer_modules(optimizer, model, orig_param_to_name)
+    # After the context, update the optimizer to use the new parameters
+    update_optimizer_modules(optimizer, model, orig_param_to_name)
 
 
 def update_optimizer_modules(
