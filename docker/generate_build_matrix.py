@@ -52,7 +52,7 @@ def _get_cuda_version(pytorch_version: str, use_cuda: bool, cuda_variant: Option
         return ''
     if cuda_variant:
         return cuda_variant
-    if pytorch_version == '2.7.0': # Adds support for blackwell architecture (b200)
+    if pytorch_version == '2.7.0':  # Adds support for blackwell architecture (b200)
         return '12.8.1'
     if pytorch_version == '2.6.0':
         return '12.4.1'
