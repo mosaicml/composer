@@ -20,18 +20,18 @@ import tabulate
 import yaml
 
 PRODUCTION_PYTHON_VERSION = '3.12'
-PRODUCTION_PYTORCH_VERSION = '2.6.0'
+PRODUCTION_PYTORCH_VERSION = '2.7.0'
 EFA_INSTALLER_VERSION = '1.39.0'
 PRODUCTION_UBUNTU_VERSION = '22.04'
 
 
 def _get_torchvision_version(pytorch_version: str):
+    if pytorch_version == '2.7.0':
+        return '0.22.0'
     if pytorch_version == '2.6.0':
         return '0.21.0'
     if pytorch_version == '2.5.1':
         return '0.20.1'
-    if pytorch_version == '2.4.1':
-        return '0.19.1'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
@@ -53,11 +53,11 @@ def _get_cuda_version(pytorch_version: str, use_cuda: bool, cuda_variant: Option
         return ''
     if cuda_variant:
         return cuda_variant
+    if pytorch_version == '2.7.0':  # Adds support for blackwell architecture (b200)
+        return '12.8.0'
     if pytorch_version == '2.6.0':
         return '12.4.1'
     if pytorch_version == '2.5.1':
-        return '12.4.1'
-    if pytorch_version == '2.4.1':
         return '12.4.1'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
@@ -211,7 +211,7 @@ def _cross_product_extra_cuda(
 
 
 def _main():
-    python_pytorch_versions = [('3.12', '2.6.0'), ('3.12', '2.5.1'), ('3.12', '2.4.1')]
+    python_pytorch_versions = [('3.12', '2.7.0'), ('3.12', '2.6.0'), ('3.12', '2.5.1')]
     pytorch_cuda_variants_extra = {
         '2.6.0': ['12.6.3'],
     }  # Extra cuda variants to be built in addition to the defaults

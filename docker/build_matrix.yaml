@@ -11,7 +11,6 @@
   PYTORCH_VERSION: 2.6.0
   TAGS:
   - mosaicml/pytorch:2.6.0_cu124-python3.12-ubuntu22.04
-  - mosaicml/pytorch:latest
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.21.0
   UBUNTU_VERSION: '22.04'
@@ -27,7 +26,6 @@
   PYTORCH_VERSION: 2.6.0
   TAGS:
   - mosaicml/pytorch:2.6.0_cu126-python3.12-ubuntu22.04
-  - mosaicml/pytorch:latest
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.21.0
   UBUNTU_VERSION: '22.04'
@@ -43,7 +41,6 @@
   PYTORCH_VERSION: 2.6.0
   TAGS:
   - mosaicml/pytorch:2.6.0_cu124-python3.12-ubuntu22.04-aws
-  - mosaicml/pytorch:latest-aws
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.21.0
   UBUNTU_VERSION: '22.04'
@@ -59,7 +56,6 @@
   PYTORCH_VERSION: 2.6.0
   TAGS:
   - mosaicml/pytorch:2.6.0_cu126-python3.12-ubuntu22.04-aws
-  - mosaicml/pytorch:latest-aws
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.21.0
   UBUNTU_VERSION: '22.04'
@@ -75,7 +71,6 @@
   PYTORCH_VERSION: 2.6.0
   TAGS:
   - mosaicml/pytorch:2.6.0_cpu-python3.12-ubuntu22.04
-  - mosaicml/pytorch:latest_cpu
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.21.0
   UBUNTU_VERSION: '22.04'
@@ -209,12 +204,12 @@
   PYTHON_VERSION: '3.12'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
-  PYTORCH_VERSION: 2.6.0
+  PYTORCH_VERSION: 2.7.0
   TAGS:
   - mosaicml/composer:0.30.0
   - mosaicml/composer:latest
   TARGET: composer_stage
-  TORCHVISION_VERSION: 0.21.0
+  TORCHVISION_VERSION: 0.22.0
   UBUNTU_VERSION: '22.04'
 - BASE_IMAGE: ubuntu:22.04
   COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.30.0
@@ -226,10 +221,10 @@
   PYTHON_VERSION: '3.12'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
-  PYTORCH_VERSION: 2.6.0
+  PYTORCH_VERSION: 2.7.0
   TAGS:
   - mosaicml/composer:0.30.0_cpu
   - mosaicml/composer:latest_cpu
   TARGET: composer_stage
-  TORCHVISION_VERSION: 0.21.0
+  TORCHVISION_VERSION: 0.22.0
   UBUNTU_VERSION: '22.04'
