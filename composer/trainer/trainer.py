@@ -3821,7 +3821,9 @@ class Trainer:
         if parallelism_config is not None and not isinstance(parallelism_config, ParallelismConfig):
             parallelism_config_args = {}
             if 'fsdp' in parallelism_config and parallelism_config['fsdp'] is not None:
-                if isinstance(parallelism_config['fsdp'], FSDPConfig | FSDP2Config):
+                if isinstance(parallelism_config['fsdp'], FSDPConfig):
+                    parallelism_config_args['fsdp'] = parallelism_config['fsdp']
+                elif isinstance(parallelism_config['fsdp'], FSDP2Config):
                     parallelism_config_args['fsdp'] = parallelism_config['fsdp']
                 else:
                     parallelism_config_args['fsdp'] = FSDPConfig(**parallelism_config['fsdp'])
