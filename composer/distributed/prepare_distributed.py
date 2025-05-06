@@ -11,6 +11,7 @@ from torch.distributed.fsdp.wrap import CustomPolicy
 from composer.distributed.activation_checkpointing import apply_ac
 from composer.distributed.fsdp2 import prepare_fully_shard
 from composer.utils.parallelism import FSDP2Config, FSDPConfig
+from composer.distributed.fsdp2_utils import sync_optimizer_and_model_params
 
 
 def parallelize_model(
@@ -38,12 +39,12 @@ def parallelize_model(
                 'Activation checkpointing or offloading must be enabled if activation_checkpointing_check_fn is provided',
             )
 
-    if config.activation_checkpointing or config.activation_cpu_offload:
-        apply_ac(
-            model,
-            config.activation_checkpointing,
-            config.activation_cpu_offload,
-            activation_checkpointing_check_fn,
-        )
-
-    prepare_fully_shard(model, optimizer, config, fsdp_wrap_policy)
+    with sync_optimizer_and_model_params(optimizer, model):
+        if config.activation_checkpointing or config.activation_cpu_offload:
+            apply_ac(
+                model,
+                config.activation_checkpointing,
+                config.activation_cpu_offload,
+                activation_checkpointing_check_fn,
+            )
+        prepare_fully_shard(model, config, fsdp_wrap_policy)

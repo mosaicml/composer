@@ -99,7 +99,6 @@ def apply_fully_shard(
 
 def prepare_fully_shard(
     model: nn.Module,
-    optimizer: Optional[torch.optim.Optimizer],
     fsdp2_config: FSDP2Config,
     auto_wrap_policy: Optional[CustomPolicy] = None,
 ) -> None:
@@ -107,7 +106,6 @@ def prepare_fully_shard(
 
     Args:
         model (torch.nn.Module): The model to prepare.
-        optimizer (Optional[torch.optim.Optimizer]): The optimizer to update.
         fsdp2_config (FSDP2Config): The FSDP2 configuration.
         auto_wrap_policy (Optional[CustomPolicy]): The policy to apply to the model.
 
@@ -118,7 +116,6 @@ def prepare_fully_shard(
     if auto_wrap_policy is None:
         auto_wrap_policy = generate_default_policy(model)
 
-    # Use the context managers for parameter tying check and optimizer synchronization
-    with sync_optimizer_and_model_params(optimizer, model):
-        with check_param_tying(model):
-            apply_fully_shard(model, fsdp2_config, auto_wrap_policy)
+    # Check for parameter tying
+    with check_param_tying(model):
+        apply_fully_shard(model, fsdp2_config, auto_wrap_policy)
