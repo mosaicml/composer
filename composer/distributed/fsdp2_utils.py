@@ -235,8 +235,7 @@ def update_optimizer_modules(
             param_name = orig_param_to_name.get(param, None)
             if param_name is None:
                 # This means that the parameter is not in the original model
-                # And as `prepare_fully_shard` takes in the optimizer itself, we don't have a way to
-                # identify the parameter name so we just use the id
+                # And since we don't have a way to identify the parameter name in the optimizer, we just use the id
                 unseen_params.add(f'optimizer.param_id.{id(param)}')
             elif param_name not in name_to_sharded_param:
                 # This means that the base model parameter is not in the sharded model

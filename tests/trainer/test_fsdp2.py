@@ -52,15 +52,6 @@ def create_trainer_with_model(
 
         # NOTE we can only apply FSDP2 to ComposerClassifier's module field until we support auto_wrap
         parallelize_model(model=model.module, config=fsdp2_config, optimizer=optimizer)
-        # NOTE module to_empty should only happen after the model is fully sharded and parameters are coverted to Dtensor
-        # otherwise to_empty breaks weight tying
-        # TODO (FSDP2) we should guardrail this in prepare_fully_shard
-        model.to_empty(device='cuda')
-        param_init_fn = getattr(model, 'param_init_fn', None)
-        if param_init_fn is not None:
-            for module in model.modules():
-                param_init_fn(module)
-        parallelism_config.fsdp2 = fsdp2_config
     else:
         parallelism_config.fsdp = FSDPConfig(state_dict_type='sharded')
     if optimizer is None:
