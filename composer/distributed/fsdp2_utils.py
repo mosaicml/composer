@@ -10,6 +10,7 @@ from typing import Any, Callable, Union
 import torch
 import torch.nn as nn
 from torch.distributed.fsdp.wrap import CustomPolicy
+from torchmetrics import Metric, MetricCollection
 
 from composer.utils.parallelism import FSDP2Config
 
@@ -287,6 +288,8 @@ def generate_default_policy(parent_model: nn.Module) -> CustomPolicy:
     )
 
     def lambda_fn(current_module: nn.Module) -> Union[bool, dict[str, Any]]:
+        if isinstance(current_module, Metric | MetricCollection):
+            return False
         ret = False
         if hasattr(current_module, '_fsdp_wrap'):
             warnings.warn(

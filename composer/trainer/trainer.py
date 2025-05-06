@@ -1655,28 +1655,12 @@ class Trainer:
                         self.state.seed,
                     )
                 elif isinstance(self.state.fsdp_config, FSDP2Config):
-                    from composer.distributed.prepare_distributed import parallelize_model
-                    parallelize_model(
-                        model.model,
-                        self.state.fsdp_config,
+                    from composer.distributed.prepare_distributed import parallelize_composer_model
+                    parallelize_composer_model(
+                        model,
                         optimizers,
+                        self.state.fsdp_config,
                     )
-                    is_meta = any(param.is_meta for param in model.parameters()) or any(buffer.is_meta for buffer in model.buffers())
-                    if is_meta:
-                        model.to_empty(device='cuda')
-                        param_init_fn = getattr(model.model, 'param_init_fn', None)
-                        for module in model.model.modules():
-                        #     param_init_fn(module)
-                            if isinstance(param_init_fn, Callable):
-                                param_init_fn(module)
-                            elif hasattr(module, 'reset_parameters') and isinstance(module.reset_parameters, Callable):
-                                module.reset_parameters()
-                            else:
-                                raise ValueError(
-                                    f'Object `{model}` does not have a ``param_init_fn`` or a ``reset_parameters`` function. '
-                                    'This leaves parameters without initialization. Please add a ``param_init_fn`` or ``reset_parameters`` '
-                                    f'to module `{model.model}`.',
-                                )
                 else:
                     raise ValueError(f'Unsupported FSDP config type: {type(self.state.fsdp_config)}')
 
