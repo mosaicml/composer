@@ -26,7 +26,7 @@ from tests.trainer.fsdp2_context import (
 )
 
 
-_INIT_DEVICES = ['meta']
+_INIT_DEVICES = ['cuda', 'meta']
 
 
 def create_trainer_with_model(

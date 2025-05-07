@@ -47,26 +47,14 @@ def legalize_param_sharing_between_modules(model: nn.Module, modules_to_shard: l
     for module in modules_to_shard:
         modules_to_shard_params.update(p for p in module.parameters())
 
-    visited_modules = set()
-    modules_to_shard_set = set(modules_to_shard)
+    # visited_modules = set()
+    modules_to_shard_set = set(submodule for module in modules_to_shard for submodule in module.modules())
+    print(f'modules_to_shard_set: {modules_to_shard_set}')
+    # assert False
 
-    # for module in model.modules():
-    #     if module in modules_to_shard_set:
-    #         continue
-    #     for param in module.parameters(recurse=False):
-    #         if param in modules_to_shard_params:
-    #             raise ValueError(
-    #                 f"Parameter sharing detected between modules to be sharded and module '{module}'. "
-    #                 f'This will cause errors with FSDP. Either ensure no parameter sharing exists '
-    #                 f'or include all modules with shared parameters in modules_to_shard.',
-    #             )
-    # Define a DFS function to check for parameter sharing
-    def _check_param_sharing(module: nn.Module):
-        if module in modules_to_shard_set or module in visited_modules:
-            return
-        visited_modules.add(module)
-
-        # Check if this module shares parameters with modules_to_shard
+    for module in model.modules():
+        if module in modules_to_shard_set:
+            continue
         for param in module.parameters(recurse=False):
             if param in modules_to_shard_params:
                 raise ValueError(
@@ -74,19 +62,35 @@ def legalize_param_sharing_between_modules(model: nn.Module, modules_to_shard: l
                     f'This will cause errors with FSDP. Either ensure no parameter sharing exists '
                     f'or include all modules with shared parameters in modules_to_shard.',
                 )
+    # a naive walk over model.modules wouldn't work as if a module is filtered out, we need to skip it and its children
+    # while model.modules() walk into all submodules, therefore we need to do a DFS to check for parameter sharing
+    # def _check_param_sharing(module: nn.Module):
+    #     if module in modules_to_shard_set or module in visited_modules:
+    #         return
+    #     visited_modules.add(module)
 
-        # Continue DFS with children
-        for child in module.children():
-            _check_param_sharing(child)
+    #     # Check if this module shares parameters with modules_to_shard
+    #     for param in module.parameters(recurse=False):
+    #         if param in modules_to_shard_params:
+    #             raise ValueError(
+    #                 f"Parameter sharing detected between modules to be sharded and module '{module}'. "
+    #                 f'This will cause errors with FSDP. Either ensure no parameter sharing exists '
+    #                 f'or include all modules with shared parameters in modules_to_shard.',
+    #             )
 
-    # Start the check from the root model
-    _check_param_sharing(model)
+    #     # Continue DFS with children
+    #     for child in module.children():
+    #         _check_param_sharing(child)
+
+    # # Start the check from the root model
+    # _check_param_sharing(model)
 
 
 def get_standalone_and_tied_modules(modules: list[nn.Module]) -> tuple[list[nn.Module], set[nn.Module]]:
     """Filter modules that have standalone params thus can be fully sharded independently and those with tied params.
 
-    Note if a module does not have any params, it is not included in the output.
+    Note if a module is a child of another module, they are still considered to be tied modules.
+    If a module does not have any params, it is not included in the output.
 
     Args:
         modules (list[torch.nn.Module]): List of modules to analyze.
