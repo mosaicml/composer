@@ -24,6 +24,7 @@ def parallelize_model(
     optimizer: Optional[torch.optim.Optimizer] = None,
     fsdp_wrap_policy: Optional[CustomPolicy] = None,
     activation_checkpointing_check_fn: Optional[Callable] = None,
+    param_init_fn: Callable[[torch.nn.Module], None] = lambda m: None,
 ):
     """Prepare a model for distributed training.
 
@@ -33,6 +34,7 @@ def parallelize_model(
         optimizer (Optional[torch.optim.Optimizer]): The optimizer to use for distributed training.
         fsdp_wrap_policy (Optional[CustomPolicy]): The FSDP wrap policy to use for distributed training.
         activation_checkpointing_check_fn (Optional[Callable]): The function to use to check if a module's activations should be checkpointed or offloaded.
+        param_init_fn (Callable[[torch.nn.Module], None]): The function to use to initialize the model's parameters.
     """
     if not isinstance(config, FSDP2Config):
         raise ValueError('FSDP2Config is the only supported config for now')
@@ -53,7 +55,7 @@ def parallelize_model(
                 activation_checkpointing_check_fn,
             )
         prepare_fully_shard(model, config, fsdp_wrap_policy)
-        meta_init(model)
+        param_init_fn(model)
 
 
 def parallelize_composer_model(
@@ -76,4 +78,4 @@ def parallelize_composer_model(
     """
 
     assert isinstance(composer_model, ComposerModel), f'{type(composer_model)} is not a ComposerModel'
-    parallelize_model(composer_model, config, optimizer=optimizer, fsdp_wrap_policy=generate_fsdp1_composer_model_policy(composer_model))
+    parallelize_model(composer_model, config, optimizer=optimizer, fsdp_wrap_policy=generate_fsdp1_composer_model_policy(composer_model), param_init_fn=meta_init)

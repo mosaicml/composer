@@ -352,7 +352,6 @@ def generate_fsdp1_composer_model_policy(composer_model: ComposerModel) -> Custo
             continue
         # this can be overwritten by the _fsdp_wrap attribute or fsdp_wrap_fn
         cached_submodules_to_wrap[child] = True
-        # print(f'child {child} is set to True')
         fsdp_wrap_fn = getattr(child, 'fsdp_wrap_fn', lambda x: cached_submodules_to_wrap.get(x, False))
         for module in child.modules():
             if hasattr(module, '_fsdp_wrap'):
@@ -362,7 +361,6 @@ def generate_fsdp1_composer_model_policy(composer_model: ComposerModel) -> Custo
                     ),
                 )
                 cached_submodules_to_wrap[module] = bool(module._fsdp_wrap)
-                # print(f'module {module} is set to {module._fsdp_wrap} due to _fsdp_wrap')
             elif module == child:
                 continue
             else:
@@ -370,10 +368,6 @@ def generate_fsdp1_composer_model_policy(composer_model: ComposerModel) -> Custo
                 if isinstance(res, dict) and not set(res.keys()).issubset(FSDP2Config.settable_attrs()):
                     raise KeyError(f'Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {FSDP2Config.settable_attrs()}')
                 cached_submodules_to_wrap[module] = res
-                # print(f'module {module} is set to {res} due to fsdp_wrap_fn')
-    # print('cached_submodules_to_wrap')
-    # for key, value in cached_submodules_to_wrap.items():
-    #     print(f'{key} -> {value}')
     def lambda_fn(current_module: nn.Module) -> bool | dict[str, Any]:
         return cached_submodules_to_wrap[current_module]
 
