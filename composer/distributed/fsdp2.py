@@ -23,6 +23,7 @@ from composer.utils.parallelism import FSDP2Config
 def _recursive_apply_fully_shard(
     root_module: nn.Module,
     module: nn.Module,
+    visited_modules: set[nn.Module],
     target_modules_to_kwargs: dict[nn.Module, dict],
 ) -> None:
     """Recursive helper to apply fully_shard based on policy and legalization.
@@ -35,6 +36,9 @@ def _recursive_apply_fully_shard(
     Returns:
         None (fully_shards modules in place)
     """
+    if module in visited_modules:
+        return
+    visited_modules.add(module)
     # 1. Identify direct children candidates for sharding based on whether they are in target_modules_to_kwargs
     child_candidates = [child for child in module.children() if child in target_modules_to_kwargs]
 
@@ -44,23 +48,48 @@ def _recursive_apply_fully_shard(
         # Check for tying among the valid candidates based on the policy
         standalone_child_candidates, tied_children = get_standalone_and_tied_modules(child_candidates)
         if tied_children:
+            tied_children_names = [name for name, child in module.named_children() if child in tied_children]
             raise ValueError(
-                f'Detected tied parameters between modules designated for FSDP wrapping within {type(module).__name__}. '
-                f'FSDP cannot wrap modules with tied parameters independently at the same level. '
-                f'Please adjust the auto_wrap_policy to ensure no parameter sharing exists between modules to be sharded.',
-            )
+                f'Detected tied parameters between modules designated for FSDP wrapping within {module}. '
+                f'FSDP cannot wrap modules with tied parameters independently at the same level: '
+                f'{tied_children_names}. '
+                f'Please adjust the auto_wrap_policy to ensure no parameter sharing exists between modules to be sharded.')
 
         # Check for tying between candidates and the rest of the model (using root_module);
         # As the docstring discusses, we don't allow weight sharing between fsdp and non-fsdp modules, even if the parent
         # module is not FSDP wrapped. We may consider to relax this constraint in the future.
+        print(f'legalizing param sharing between {standalone_child_candidates} and {root_module}')
         legalize_param_sharing_between_modules(root_module, standalone_child_candidates)
 
     # 3. Recurse on module's children for downstream sharding
     for child in module.children():
-        _recursive_apply_fully_shard(root_module, child, target_modules_to_kwargs)
+        _recursive_apply_fully_shard(root_module, child, visited_modules, target_modules_to_kwargs)
 
     # 4. Apply fully_shard to the module if it is in target_modules_to_kwargs
     if module in target_modules_to_kwargs:
+        fully_shard(module, **target_modules_to_kwargs[module])
+
+
+def _apply_fully_shard_to_modules(model: nn.Module, target_modules_to_kwargs: dict[nn.Module, dict]) -> None:
+    to_be_sharded = [module for module in model.modules() if module in target_modules_to_kwargs]
+    print(f'to_be_sharded: {to_be_sharded}')
+    standalone_child_candidates, tied_children = get_standalone_and_tied_modules(to_be_sharded)
+    print(f'standalone_child_candidates: {standalone_child_candidates}')
+    if tied_children:
+        tied_children_names = [name for name, child in module.named_children() if child in tied_children]
+        raise ValueError(
+            f'Detected tied parameters between modules designated for FSDP wrapping within {model}. '
+            f'FSDP cannot wrap modules with tied parameters independently at the same level: '
+            f'{tied_children_names}. '
+            f'Please adjust the auto_wrap_policy to ensure no parameter sharing exists between modules to be sharded.')
+
+    # Check for tying between candidates and the rest of the model (using root_module);
+    # As the docstring discusses, we don't allow weight sharing between fsdp and non-fsdp modules, even if the parent
+    # module is not FSDP wrapped. We may consider to relax this constraint in the future.
+    # print(f'legalizing param sharing between {standalone_child_candidates} and {root_module}')
+    legalize_param_sharing_between_modules(model, standalone_child_candidates)
+    # standalone_child_candidates contains modules top-down, so we need to reverse it to apply fully_shard bottom-up
+    for module in reversed(standalone_child_candidates):
         fully_shard(module, **target_modules_to_kwargs[module])
 
 
@@ -92,9 +121,14 @@ def apply_fully_shard(
         ignored_modules=set(),
         root_kwargs=fully_shard_kwargs,
     )
-
+    # print("----------Foo Bar--------------")
+    # for module, kwargs in target_modules_to_kwargs.items():
+    #     print(module)
+    #     print(kwargs)
+    #     print("------------------------")
     # Recursively apply fully_shard to each relevant submodule defined by the policy (and the corresponding target_modules_to_kwargs)
-    _recursive_apply_fully_shard(model, model, target_modules_to_kwargs)
+    _recursive_apply_fully_shard(model, model, set(), target_modules_to_kwargs)
+    # _apply_fully_shard_to_modules(model, target_modules_to_kwargs)
 
 
 def prepare_fully_shard(

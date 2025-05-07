@@ -12,6 +12,7 @@ import torch.nn as nn
 from torch.distributed.fsdp.wrap import CustomPolicy
 from torchmetrics import Metric, MetricCollection
 
+from composer.models import ComposerModel
 from composer.utils.parallelism import FSDP2Config
 
 # FSDP2 Weight Tying Functions
@@ -49,6 +50,16 @@ def legalize_param_sharing_between_modules(model: nn.Module, modules_to_shard: l
     visited_modules = set()
     modules_to_shard_set = set(modules_to_shard)
 
+    # for module in model.modules():
+    #     if module in modules_to_shard_set:
+    #         continue
+    #     for param in module.parameters(recurse=False):
+    #         if param in modules_to_shard_params:
+    #             raise ValueError(
+    #                 f"Parameter sharing detected between modules to be sharded and module '{module}'. "
+    #                 f'This will cause errors with FSDP. Either ensure no parameter sharing exists '
+    #                 f'or include all modules with shared parameters in modules_to_shard.',
+    #             )
     # Define a DFS function to check for parameter sharing
     def _check_param_sharing(module: nn.Module):
         if module in modules_to_shard_set or module in visited_modules:
@@ -314,5 +325,61 @@ def generate_default_policy(parent_model: nn.Module) -> CustomPolicy:
             # we default to wrapping the parent model.
             ret = True
         return ret
+
+    return CustomPolicy(lambda_fn)
+
+
+def generate_fsdp1_composer_model_policy(composer_model: ComposerModel) -> CustomPolicy:
+    """Generates a FSDP wrap policy for ComposerModel that mimics FSDP1 behavior.
+    
+    This policy wraps all direct children of the ComposerModel but not the ComposerModel itself,
+    which matches the behavior of FSDP1's prepare_fsdp_module function. It also respects
+    any _fsdp_wrap attributes or fsdp_wrap_fn functions defined on modules.
+    
+    Args:
+        composer_model (ComposerModel): The ComposerModel to generate a policy for.
+        
+    Returns:
+        CustomPolicy: A policy function that determines which modules to wrap with FSDP.
+        
+    Raises:
+        KeyError: If a module's fsdp_wrap_fn returns a dict with invalid FSDP2Config keys.
+    """
+    # Filter the specific deprecation warning to only appear once.
+    warnings.filterwarnings(
+        'once',
+        category=DeprecationWarning,
+        message='The _fsdp_wrap attribute will be removed in a future release. Please use fsdp_wrap_fn instead.',
+    )
+
+    cached_submodules_to_wrap: dict[nn.Module, bool | dict[str, Any]] = {composer_model: False}
+    for child in composer_model.children():
+        if isinstance(child, Metric | MetricCollection):
+            for module in child.modules():
+                cached_submodules_to_wrap[module] = False
+            continue
+        # this can be overwritten by the _fsdp_wrap attribute or fsdp_wrap_fn
+        cached_submodules_to_wrap[child] = True
+        # print(f'child {child} is set to True')
+        fsdp_wrap_fn = getattr(child, 'fsdp_wrap_fn', lambda x: cached_submodules_to_wrap.get(x, False))
+        for module in child.modules():
+            if hasattr(module, '_fsdp_wrap'):
+                warnings.warn(
+                    DeprecationWarning(
+                        'The _fsdp_wrap attribute will be removed in a future release. Please use fsdp_wrap_fn instead.',
+                    ),
+                )
+                cached_submodules_to_wrap[module] = bool(module._fsdp_wrap)
+                # print(f'module {module} is set to {module._fsdp_wrap}')
+            else:
+                res = fsdp_wrap_fn(module)
+                if isinstance(res, dict) and not set(res.keys()).issubset(FSDP2Config.settable_attrs()):
+                    raise KeyError(f'Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {FSDP2Config.settable_attrs()}')
+                cached_submodules_to_wrap[module] = res
+    # print('cached_submodules_to_wrap')
+    # for key, value in cached_submodules_to_wrap.items():
+    #     print(f'{key} -> {value}')
+    def lambda_fn(current_module: nn.Module) -> bool | dict[str, Any]:
+        return cached_submodules_to_wrap[current_module]
 
     return CustomPolicy(lambda_fn)

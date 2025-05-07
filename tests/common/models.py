@@ -221,6 +221,8 @@ class SimpleWeightTiedModel(ComposerClassifier):
         self.mlp.fc1.weight = self.mlp.fc2.weight
 
     def add_fsdp_wrap_attribute_to_children(self):
+        for child in self.children():
+            child._fsdp_wrap = False  # type: ignore
         for child in self.module.children():
             child._fsdp_wrap = True  # type: ignore
 

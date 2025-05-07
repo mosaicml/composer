@@ -82,6 +82,10 @@ class FSDP2Config:
     activation_cpu_offload: bool = False
 
     @staticmethod
+    def settable_attrs() -> set[str]:
+        return {field.name for field in fields(FSDP2Config)}
+
+    @staticmethod
     def from_compatible_attrs(attrs: dict[str, Any]) -> 'FSDP2Config':
         """Create an FSDP2Config by filtering FSDP2 compatible attributes from given attrs.
         
@@ -100,7 +104,7 @@ class FSDP2Config:
                          of FSDP2Config and will be ignored.
         """
         # Get the settable attributes of FSDP2Config
-        settable_attrs = {field.name for field in fields(FSDP2Config)}
+        settable_attrs = FSDP2Config.settable_attrs()
         # Filter the input attributes to only include settable ones
         valid_attrs = {}
         for key, value in attrs.items():

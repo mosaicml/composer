@@ -15,6 +15,7 @@ from composer.distributed.fsdp2 import prepare_fully_shard
 from composer.utils.parallelism import FSDP2Config
 from composer.distributed.fsdp2_utils import sync_optimizer_and_model_params
 from composer.distributed.param_init import meta_init
+from composer.distributed.fsdp2_utils import generate_fsdp1_composer_model_policy
 
 
 def parallelize_model(
@@ -52,6 +53,7 @@ def parallelize_model(
                 activation_checkpointing_check_fn,
             )
         prepare_fully_shard(model, config, fsdp_wrap_policy)
+        print(f'model after prepare_fully_shard: {model}')
         meta_init(model)
 
 
@@ -62,7 +64,7 @@ def parallelize_composer_model(
 ):
     """Prepare a ComposerModel for distributed training.
 
-    NOTE we apply parallelization to the composer model's submodules to provide compatibility with models defined for FSDP1.
+    NOTE we apply parallelization to each of the composer model's submodules to provide compatibility with models defined for FSDP1.
     This is not strictly necessary for FSDP2 as it relies on DTensor so even if a module is not wrapped with FSDP2 and its params are sharded,
     it is still functional (but potentially less performant due to lack of grouped prefetching etc).
 
@@ -75,7 +77,4 @@ def parallelize_composer_model(
     """
 
     assert isinstance(composer_model, ComposerModel), f'{type(composer_model)} is not a ComposerModel'
-    # since sync_optimizer_and_model_params requires param parity between the optimizer and the model, we need to manage the optimizer directly instead of passing it to parallelize_model
-    with sync_optimizer_and_model_params(optimizer, composer_model) if optimizer is not None else nullcontext():
-        for module in composer_model.children():
-            parallelize_model(module, config)
+    parallelize_model(composer_model, config, optimizer=optimizer, fsdp_wrap_policy=generate_fsdp1_composer_model_policy(composer_model))
