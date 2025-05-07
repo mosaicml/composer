@@ -53,7 +53,6 @@ def parallelize_model(
                 activation_checkpointing_check_fn,
             )
         prepare_fully_shard(model, config, fsdp_wrap_policy)
-        # print(f'model after prepare_fully_shard: {model}')
         meta_init(model)
 
 
