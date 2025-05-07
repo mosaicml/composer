@@ -47,14 +47,17 @@ def legalize_param_sharing_between_modules(model: nn.Module, modules_to_shard: l
     for module in modules_to_shard:
         modules_to_shard_params.update(p for p in module.parameters())
 
-    # visited_modules = set()
-    modules_to_shard_set = set(submodule for module in modules_to_shard for submodule in module.modules())
-    print(f'modules_to_shard_set: {modules_to_shard_set}')
-    # assert False
+    visited_modules = set()
+    modules_to_shard_set = set(modules_to_shard)
 
-    for module in model.modules():
-        if module in modules_to_shard_set:
-            continue
+    # a naive walk over model.modules wouldn't work as if a module is filtered out, we need to skip it and its children
+    # while model.modules() walk into all submodules, therefore we need to do a DFS to check for parameter sharing
+    def _check_param_sharing(module: nn.Module):
+        if module in modules_to_shard_set or module in visited_modules:
+            return
+        visited_modules.add(module)
+
+        # Check if this module shares parameters with modules_to_shard
         for param in module.parameters(recurse=False):
             if param in modules_to_shard_params:
                 raise ValueError(
@@ -62,28 +65,13 @@ def legalize_param_sharing_between_modules(model: nn.Module, modules_to_shard: l
                     f'This will cause errors with FSDP. Either ensure no parameter sharing exists '
                     f'or include all modules with shared parameters in modules_to_shard.',
                 )
-    # a naive walk over model.modules wouldn't work as if a module is filtered out, we need to skip it and its children
-    # while model.modules() walk into all submodules, therefore we need to do a DFS to check for parameter sharing
-    # def _check_param_sharing(module: nn.Module):
-    #     if module in modules_to_shard_set or module in visited_modules:
-    #         return
-    #     visited_modules.add(module)
 
-    #     # Check if this module shares parameters with modules_to_shard
-    #     for param in module.parameters(recurse=False):
-    #         if param in modules_to_shard_params:
-    #             raise ValueError(
-    #                 f"Parameter sharing detected between modules to be sharded and module '{module}'. "
-    #                 f'This will cause errors with FSDP. Either ensure no parameter sharing exists '
-    #                 f'or include all modules with shared parameters in modules_to_shard.',
-    #             )
+        # Continue DFS with children
+        for child in module.children():
+            _check_param_sharing(child)
 
-    #     # Continue DFS with children
-    #     for child in module.children():
-    #         _check_param_sharing(child)
-
-    # # Start the check from the root model
-    # _check_param_sharing(model)
+    # Start the check from the root model
+    _check_param_sharing(model)
 
 
 def get_standalone_and_tied_modules(modules: list[nn.Module]) -> tuple[list[nn.Module], set[nn.Module]]:
@@ -374,12 +362,15 @@ def generate_fsdp1_composer_model_policy(composer_model: ComposerModel) -> Custo
                     ),
                 )
                 cached_submodules_to_wrap[module] = bool(module._fsdp_wrap)
-                # print(f'module {module} is set to {module._fsdp_wrap}')
+                # print(f'module {module} is set to {module._fsdp_wrap} due to _fsdp_wrap')
+            elif module == child:
+                continue
             else:
                 res = fsdp_wrap_fn(module)
                 if isinstance(res, dict) and not set(res.keys()).issubset(FSDP2Config.settable_attrs()):
                     raise KeyError(f'Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {FSDP2Config.settable_attrs()}')
                 cached_submodules_to_wrap[module] = res
+                # print(f'module {module} is set to {res} due to fsdp_wrap_fn')
     # print('cached_submodules_to_wrap')
     # for key, value in cached_submodules_to_wrap.items():
     #     print(f'{key} -> {value}')
