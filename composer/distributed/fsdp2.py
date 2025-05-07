@@ -58,7 +58,7 @@ def _recursive_apply_fully_shard(
         # Check for tying between candidates and the rest of the model (using root_module);
         # As the docstring discusses, we don't allow weight sharing between fsdp and non-fsdp modules, even if the parent
         # module is not FSDP wrapped. We may consider to relax this constraint in the future.
-        print(f'legalizing param sharing between {standalone_child_candidates} and {root_module}')
+        # print(f'legalizing param sharing between {standalone_child_candidates} and {root_module}')
         legalize_param_sharing_between_modules(root_module, standalone_child_candidates)
 
     # 3. Recurse on module's children for downstream sharding
