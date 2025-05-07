@@ -369,6 +369,6 @@ def generate_fsdp1_composer_model_policy(composer_model: ComposerModel) -> Custo
                     raise KeyError(f'Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {FSDP2Config.settable_attrs()}')
                 cached_submodules_to_wrap[module] = res
     def lambda_fn(current_module: nn.Module) -> bool | dict[str, Any]:
-        return cached_submodules_to_wrap[current_module]
+        return cached_submodules_to_wrap.get(current_module, False)
 
     return CustomPolicy(lambda_fn)

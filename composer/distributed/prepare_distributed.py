@@ -45,19 +45,20 @@ def parallelize_model(
             raise ValueError(
                 'Activation checkpointing or offloading must be enabled if activation_checkpointing_check_fn is provided',
             )
-
+    if config.activation_checkpointing or config.activation_cpu_offload:
+        apply_ac(
+            model,
+            config.activation_checkpointing,
+            config.activation_cpu_offload,
+            activation_checkpointing_check_fn,
+        )
     # Use the context manager for optimizer synchronization if optimizer is provided
     with sync_optimizer_and_model_params(optimizer, model) if optimizer is not None else nullcontext():
-        if config.activation_checkpointing or config.activation_cpu_offload:
-            apply_ac(
-                model,
-                config.activation_checkpointing,
-                config.activation_cpu_offload,
-                activation_checkpointing_check_fn,
-            )
         prepare_fully_shard(model, config, fsdp_wrap_policy)
+        # print(model)
+        # for name, param in model.named_parameters():
+        #     print(name)
         param_init_fn(model)
-
 
 def parallelize_composer_model(
     composer_model: ComposerModel,
