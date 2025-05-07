@@ -31,6 +31,23 @@ def generate_default_check_fn(model: nn.Module) -> Callable:
     return _check_fn
 
 
+def generate_fsdp1_composer_check_fn(composer_model: nn.Module) -> Callable:
+    """Generates the default check fn for activation checkpointing/offloading."""
+
+    cached_submodules_ac: dict[nn.Module, bool] = {composer_model: False}
+    for child in composer_model.children():
+        # this can be overwritten by the _fsdp_wrap attribute or fsdp_wrap_fn
+        cached_submodules_ac[child] = True
+        activation_checkpointing_fn = getattr(child, 'activation_checkpointing_fn', lambda x: cached_submodules_ac.get(x, False))
+        for module in child.modules():
+            cached_submodules_ac[module] = getattr(module, '_activation_checkpointing', activation_checkpointing_fn(module))
+    
+    def _check_fn(module: torch.nn.Module) -> bool:
+        return cached_submodules_ac[module]
+
+    return _check_fn
+
+
 def apply_ac(
     model: nn.Module,
     activation_checkpointing: bool,
