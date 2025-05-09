@@ -125,6 +125,8 @@ from composer.utils import (
     reproducibility,
 )
 
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+
 if is_xla_installed():
     import torch_xla.core.xla_model as xm
     import torch_xla.distributed.parallel_loader as pl
@@ -3045,6 +3047,19 @@ class Trainer:
                 xm.mark_step()
 
             self.engine.run_event(Event.AFTER_BACKWARD)
+            if isinstance(self.state.fsdp_config, FSDPConfig):
+                print('grad of fsdp1 model')
+                with FSDP.summon_full_params(self.state.model, with_grads=True):
+                    for name, param in self.state.model.named_parameters():
+                        print(name, param.norm().item(), param.grad.norm().item())
+            elif isinstance(self.state.fsdp_config, FSDP2Config):
+                print('grad of fsdp2 model')
+                for name, param in self.state.model.named_parameters():
+                    print(name, param.full_tensor().norm().item(), param.grad.full_tensor().norm().item())
+            else:
+                print('grad of ddp model')
+                for name, param in self.state.model.named_parameters():
+                    print(name, param.norm().item(), param.grad.norm().item())
 
             # Use microbatch outputs to update training metrics
             if (
