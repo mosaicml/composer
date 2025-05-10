@@ -905,6 +905,17 @@ class State(Serializable):
             raise TypeError(f'Expected value to be of type FSDPConfig or FSDP2Config, but got {type(value)}.')
 
     @property
+    def fsdp_config_version(self) -> int:
+        if self.fsdp_config is None:
+            return 0  # DDP
+        if isinstance(self.fsdp_config, FSDPConfig):
+            return 1
+        elif isinstance(self.fsdp_config, FSDP2Config):
+            return 2
+        else:
+            raise ValueError(f'Unknown FSDP config type: {type(self.fsdp_config)}')
+
+    @property
     def fsdp_enabled(self):
         """Indicates if FSDP is enabled."""
         for module in self.model.modules():
@@ -1694,3 +1705,18 @@ class State(Serializable):
     def is_model_ddp(self):
         """Whether :attr:`model` is an instance of a :class:`.DistributedDataParallel`."""
         return isinstance(self.model, DistributedDataParallel)
+
+    def debug_print(self):
+        if isinstance(self.fsdp_config, FSDPConfig):
+            print('grad of fsdp1 model')
+            with FSDP.summon_full_params(self.model, with_grads=True):
+                for name, param in self.model.named_parameters():
+                    print(name, param.norm().item(), param.grad.norm().item())
+        elif isinstance(self.fsdp_config, FSDP2Config):
+            print('grad of fsdp2 model')
+            for name, param in self.model.named_parameters():
+                print(name, param.norm().item(), param.grad.to_local().dtype, param.grad.to_local().norm().item(), param.grad.full_tensor().norm().item())
+        else:
+            print('grad of ddp model')
+            for name, param in self.model.named_parameters():
+                print(name, param.norm().item(), param.grad.norm().item())

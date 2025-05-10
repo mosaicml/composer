@@ -137,9 +137,8 @@ class GradientClipping(Algorithm):
                 model=state.model,
                 clipping_type=self.clipping_type,
                 clipping_threshold=self.clipping_threshold,
-                fsdp_enabled=state.fsdp_enabled,
+                fsdp_enabled=state.fsdp_config_version == 1,
             )
-
 
 def _get_clipped_gradient_coeff(weights: torch.Tensor, grad: torch.Tensor, clipping_threshold: float = 0.01):
     """Clips all gradients in model based on ratio of gradient norms to parameter norms.
