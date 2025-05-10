@@ -2914,16 +2914,9 @@ class Trainer:
                 for optimizer in ensure_tuple(self.state.optimizers):
                     self.state.scaler.unscale_(optimizer)
             
-            # print('before event')
-            # self.debug_print()
             self.engine.run_event(Event.AFTER_TRAIN_BATCH)
-            # print('after event')
-            # self.debug_print()
 
             return total_loss_dict['loss/train/total']
-
-    def debug_print(self):
-        self.state.debug_print()
 
     def _train_microbatch(
         self,
@@ -3055,8 +3048,6 @@ class Trainer:
 
             self.engine.run_event(Event.AFTER_BACKWARD)
 
-            # print('done with backward pass')
-            # self.debug_print()
             # Use microbatch outputs to update training metrics
             if (
                 self.state.train_metrics is not None and  # pyright: ignore[reportUnnecessaryComparison]
@@ -3065,8 +3056,6 @@ class Trainer:
                 self.state.train_metrics = self._ensure_metrics_device_and_dtype(self.state.train_metrics)
                 self._eval_train_metrics(device_batch)
 
-        # print('done with sync context')
-        # self.debug_print()
         return microbatch_loss_dict
 
     def _increment_iteration(self):
