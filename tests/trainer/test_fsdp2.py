@@ -65,7 +65,7 @@ def create_trainer_with_model(
 # Base tests
 
 
-@pytest.mark.parametrize('model_class', [SimpleWeightTiedModel])
+@pytest.mark.parametrize('model_class', [SimpleWeightTiedModel, PartialWeightTiedModel])
 @pytest.mark.parametrize('device', _INIT_DEVICES)
 @world_size(2)
 @pytest.mark.gpu
@@ -79,11 +79,6 @@ def test_fsdp2_initialization_with_tied_params(
     from separate submodules have weight tying applied.
     """
     model = model_class(num_features=10, device=device)
-    # print(model)
-    # print("--------------------------------")
-    # for module in model.modules():
-    #     print(module)
-    # return
     model.add_fsdp_wrap_attribute_to_children()
     trainer = create_trainer_with_model(model=model,)
 
