@@ -176,7 +176,7 @@ extra_deps['coco'] = [
 extra_deps['nlp'] = [
     'transformers>=4.11,!=4.34.0,<4.52',
     'datasets>=2.4,<4',
-    'huggingface-hub>=0.21.2,<0.31',
+    'huggingface-hub>=0.21.2,<0.32',
 ]
 
 extra_deps['peft'] = [
