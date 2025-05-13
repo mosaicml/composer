@@ -27,13 +27,26 @@ def parallelize_model(
 ):
     """Prepare a model for distributed training.
 
+    This function currently applies FSDP2 to the model, initializes parameters,
+    and optionally applies activation checkpointing. It handles parameter consistency between the optimizer
+    and model when an optimizer is provided.
+
     Args:
         model (torch.nn.Module): The model to prepare for distributed training.
-        config FSDP2Config: The configuration for distributed training.
-        optimizer (Optional[torch.optim.Optimizer]): The optimizer to use for distributed training.
-        fsdp_wrap_policy (Optional[CustomPolicy]): The FSDP wrap policy to use for distributed training.
-        activation_checkpointing_check_fn (Optional[Callable]): The function to use to check if a module's activations should be checkpointed or offloaded.
-        param_init_fn (Callable[[torch.nn.Module], None]): The function to use to initialize the model's parameters.
+        config (FSDP2Config): The configuration for FSDP distributed training.
+        optimizer (Optional[torch.optim.Optimizer]): The optimizer to synchronize with the model.
+            If provided, parameter states will be properly synchronized during sharding.
+        fsdp_wrap_policy (Optional[CustomPolicy]): Custom policy to determine which modules should
+            be wrapped with FSDP. If None, default wrapping behavior is used.
+        activation_checkpointing_check_fn (Optional[Callable]): Function that determines whether a
+            module's activations should be checkpointed or offloaded. Only used when activation
+            checkpointing or CPU offloading is enabled in the config.
+        param_init_fn (Callable[[torch.nn.Module], None]): Function to initialize model parameters
+            after FSDP wrapping. Defaults to a no-op function.
+
+    Raises:
+        ValueError: If the config is not an FSDP2Config or if activation_checkpointing_check_fn is provided
+            but neither activation_checkpointing nor activation_cpu_offload is enabled in the config.
     """
     if not isinstance(config, FSDP2Config):
         raise ValueError('FSDP2Config is the only supported config for now')
@@ -76,10 +89,9 @@ def parallelize_composer_model(
         optimizer (Optional[torch.optim.Optimizer]): The optimizer to use for distributed training.
         config (FSDP2Config): The configuration for distributed training. Currently only FSDP2Config is supported.
     """
-
     assert isinstance(composer_model, ComposerModel), f'{type(composer_model)} is not a ComposerModel'
     activation_checkpointing_check_fn = generate_fsdp1_composer_model_check_fn(
-        composer_model
+        composer_model,
     ) if config.activation_checkpointing or config.activation_cpu_offload else None
     parallelize_model(
         composer_model,
@@ -87,5 +99,5 @@ def parallelize_composer_model(
         optimizer=optimizer,
         fsdp_wrap_policy=generate_fsdp1_composer_model_policy(composer_model),
         activation_checkpointing_check_fn=activation_checkpointing_check_fn,
-        param_init_fn=meta_init
+        param_init_fn=meta_init,
     )

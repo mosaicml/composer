@@ -46,16 +46,19 @@ def generate_fsdp1_composer_model_check_fn(composer_model: nn.Module) -> Callabl
     Returns:
         Callable: A function that determines whether a module's activations should be checkpointed.
     """
-
     cached_submodules_ac: dict[nn.Module, bool] = {composer_model: False}
     for child in composer_model.children():
         cached_submodules_ac[child] = True
         activation_checkpointing_fn = getattr(
-            child, 'activation_checkpointing_fn', lambda x: cached_submodules_ac.get(x, False)
+            child,
+            'activation_checkpointing_fn',
+            lambda x: cached_submodules_ac.get(x, False),
         )
         for module in child.modules():
             cached_submodules_ac[module] = getattr(
-                module, '_activation_checkpointing', activation_checkpointing_fn(module)
+                module,
+                '_activation_checkpointing',
+                activation_checkpointing_fn(module),
             )
 
     def _check_fn(module: torch.nn.Module) -> bool:

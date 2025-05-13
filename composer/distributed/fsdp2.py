@@ -53,7 +53,7 @@ def _recursive_apply_fully_shard(
                 f'Detected tied parameters between modules designated for FSDP wrapping within {module}. '
                 f'FSDP cannot wrap modules with tied parameters independently at the same level: '
                 f'{tied_children_names}. '
-                f'Please adjust the auto_wrap_policy to ensure no parameter sharing exists between modules to be sharded.'
+                f'Please adjust the auto_wrap_policy to ensure no parameter sharing exists between modules to be sharded.',
             )
 
         # Check for tying between candidates and the rest of the model (using root_module);
@@ -94,7 +94,7 @@ def apply_fully_shard(
     fully_shard_kwargs = {
         'mesh': fsdp2_config.device_mesh,
         'reshard_after_forward': fsdp2_config.reshard_after_forward,
-        'mp_policy': MixedPrecisionPolicy(param_dtype=torch.bfloat16, reduce_dtype=torch.bfloat16)
+        'mp_policy': MixedPrecisionPolicy(param_dtype=torch.bfloat16, reduce_dtype=torch.bfloat16),
     }
 
     # Get a dictionary of all submodules to wrap and their kwargs

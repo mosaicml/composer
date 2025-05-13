@@ -1729,7 +1729,7 @@ class State(Serializable):
                 print('grad of fsdp2 model')
                 for name, param in self.model.named_parameters():
                     print(
-                        f'{name} param norm: {param.norm().full_tensor().item()}, local grad norm: {param.grad.norm().to_local().item()}, full grad norm: {param.grad.norm().full_tensor().item()}'
+                        f'{name} param norm: {param.norm().full_tensor().item()}, local grad norm: {param.grad.norm().to_local().item()}, full grad norm: {param.grad.norm().full_tensor().item()}',
                     )
             case 0:
                 print('grad of ddp model')

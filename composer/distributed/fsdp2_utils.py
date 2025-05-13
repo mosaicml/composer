@@ -316,7 +316,7 @@ def generate_default_policy(parent_model: nn.Module) -> CustomPolicy:
             # Ensure all keys in the returned dict are valid FSDP2Config attributes
             if isinstance(res, dict) and not set(res.keys()).issubset(FSDP2Config.settable_attrs()):
                 raise KeyError(
-                    f'Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {FSDP2Config.settable_attrs()}'
+                    f'Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {FSDP2Config.settable_attrs()}',
                 )
             return res
         return False
@@ -370,7 +370,7 @@ def generate_fsdp1_composer_model_policy(composer_model: ComposerModel) -> Custo
                 res = fsdp_wrap_fn(module)
                 if isinstance(res, dict) and not set(res.keys()).issubset(FSDP2Config.settable_attrs()):
                     raise KeyError(
-                        f'Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {FSDP2Config.settable_attrs()}'
+                        f'Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {FSDP2Config.settable_attrs()}',
                     )
                 cached_submodules_to_wrap[module] = res
 

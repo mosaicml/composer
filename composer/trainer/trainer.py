@@ -3820,7 +3820,8 @@ class Trainer:
         )
 
     def _parse_parallelism_config(
-        self, parallelism_config: Optional[dict[str, Any] | ParallelismConfig]
+        self,
+        parallelism_config: Optional[dict[str, Any] | ParallelismConfig],
     ) -> Optional[ParallelismConfig]:
         """Parse parallelism configuration into a ParallelismConfig object.
 

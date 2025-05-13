@@ -114,7 +114,7 @@ class FSDP2Config:
             else:
                 warnings.warn(
                     f"Attribute '{key}: {value}' is not a settable attribute of FSDP2Config and will be ignored",
-                    UserWarning
+                    UserWarning,
                 )
 
         # Create and return a new FSDP2Config with the valid attributes

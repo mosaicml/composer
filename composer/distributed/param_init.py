@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Param initialization helper functions."""
+
 from typing import Callable, Optional
 
 import torch.nn as nn
@@ -29,7 +31,6 @@ def meta_init(module: nn.Module, param_init_fn: Optional[Callable[[nn.Module], N
         - It requires either a module-level `param_init_fn` or module-level
           `reset_parameters` methods to perform the actual initialization.
     """
-
     cur_param_init_fn = getattr(module, 'param_init_fn', param_init_fn)
     for child in module.children():
         meta_init(child, cur_param_init_fn)
@@ -40,7 +41,8 @@ def meta_init(module: nn.Module, param_init_fn: Optional[Callable[[nn.Module], N
     for param in module.parameters(recurse=False):
         # NOTE we assume buffers are not shared among modules
         assert isinstance(
-            param, DTensor
+            param,
+            DTensor,
         ), 'Only DTensor can be meta initialized safely w/o breaking potential weight tying'
     module.to_empty(device='cuda', recurse=False)
     if isinstance(cur_param_init_fn, Callable):
