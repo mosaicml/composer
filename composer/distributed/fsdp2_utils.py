@@ -277,10 +277,23 @@ def update_optimizer_modules(
 def generate_default_policy(parent_model: nn.Module) -> CustomPolicy:
     """Generates the default fsdp wrap policy for FSDP2.
 
-    This policy is the same as the default policy in FSDP1 with some caveats around
-    how the root_module (parent_model) is handled to best support FSDP2. We also
-    raise a deprecation warning once if _fsdp_wrap is set in the model instead of
-    using the fsdp_wrap_fn.
+    This policy determines which modules should be wrapped with FSDP2 based on module attributes
+    or custom wrapping functions. It checks for:
+    
+    1. The presence of an `_fsdp_wrap` attribute on modules (deprecated)
+    2. A `fsdp_wrap_fn` callable on the parent model that returns True/False or FSDP2 config options
+    
+    The policy respects parameter sharing constraints, ensuring that modules with tied weights
+    are properly handled during sharding.
+
+    Args:
+        parent_model (nn.Module): The root module to generate the policy for.
+        
+    Returns:
+        CustomPolicy: A policy function that determines which modules to wrap with FSDP2.
+        
+    Raises:
+        KeyError: If a module's fsdp_wrap_fn returns a dict with invalid FSDP2Config keys.
     """
     # Filter the specific deprecation warning to only appear once.
     warnings.filterwarnings(
@@ -290,33 +303,21 @@ def generate_default_policy(parent_model: nn.Module) -> CustomPolicy:
     )
 
     def lambda_fn(current_module: nn.Module) -> Union[bool, dict[str, Any]]:
-        if isinstance(current_module, Metric | MetricCollection):
-            return False
-        ret = False
         if hasattr(current_module, '_fsdp_wrap'):
             warnings.warn(
                 DeprecationWarning(
                     'The _fsdp_wrap attribute will be removed in a future release. Please use fsdp_wrap_fn instead.',
                 ),
             )
-            ret = bool(current_module._fsdp_wrap)
-        elif hasattr(parent_model, 'fsdp_wrap_fn') and isinstance(parent_model.fsdp_wrap_fn, Callable):
-            # There are certain situations where _fsdp_wrap for the parent model is not set, but we wrap submodules
-            # with _fsdp_wrap_fn (e.g. wrapping all GPTBlocks). In those situations, we generally also want to wrap
-            # the parent model, so we have an additional check here.
-            if current_module == parent_model:
-                return True
-            ret = parent_model.fsdp_wrap_fn(current_module)
-            if isinstance(ret, dict):
-                # Ensure all keys in the returned dict are valid FSDP2Config attributes
-                valid_keys = set(FSDP2Config.__annotations__.keys())
-                if not set(ret.keys()).issubset(valid_keys):
-                    raise ValueError(f'Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {valid_keys}')
-        elif current_module == parent_model:
-            # Unless the user specifically sets the _fsdp_wrap attribute to False for the parent model,
-            # we default to wrapping the parent model.
-            ret = True
-        return ret
+            return bool(current_module._fsdp_wrap)
+        # TODO: make this recursive for reusability, similar to meta_init in param_init.py
+        if hasattr(parent_model, 'fsdp_wrap_fn') and isinstance(parent_model.fsdp_wrap_fn, Callable):
+            res = parent_model.fsdp_wrap_fn(current_module)
+            # Ensure all keys in the returned dict are valid FSDP2Config attributes
+            if isinstance(res, dict) and not set(res.keys()).issubset(FSDP2Config.settable_attrs()):
+                raise KeyError(f'Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {FSDP2Config.settable_attrs()}')
+            return res
+        return False
 
     return CustomPolicy(lambda_fn)
 

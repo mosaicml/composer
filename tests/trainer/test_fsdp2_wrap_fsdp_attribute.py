@@ -106,6 +106,7 @@ def test_fsdp_wrap_ancestor_with_tied_children(world_size: int):
     """Test wrapping an ancestor (M2) whose children (M3, M4) have tied weights. Should succeed."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+    m1._fsdp_wrap = True  # type: ignore
     m1.m2._fsdp_wrap = True  # type: ignore
     m1.m2.m3.weight = m1.m2.m4.weight
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
@@ -153,7 +154,7 @@ def test_fsdp_manual_policy_submodule_only(world_size: int):
     m1.m2.m3._fsdp_wrap = True  # type: ignore # Target module for wrapping
     auto_wrap_policy = _generate_default_policy(m1)
     target_modules_to_kwargs = auto_wrap_policy._run_policy(root_module=m1, ignored_modules=set(), root_kwargs={})
-    _recursive_apply_fully_shard(m1, m1, target_modules_to_kwargs)
+    _recursive_apply_fully_shard(m1, m1, set(), target_modules_to_kwargs)
     # Check only m1.m2.m3 parameters are DTensors
     check_dtensors(list(m1.m2.m3.parameters()))
     other_params = [p for p in m1.parameters() if p not in set(m1.m2.m3.parameters())]
@@ -166,6 +167,7 @@ def test_fsdp_wrap_parent_shares_with_child_parent_wrap(world_size: int):
     """Test wrapping a parent (M2) that shares weights with its child (M3). Should succeed."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+    m1._fsdp_wrap = True  # type: ignore
     m1.m2._fsdp_wrap = True  # type: ignore
     m1.m2.weight = m1.m2.m3.weight  # type: ignore # Assign M3's weight to M2
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
@@ -267,7 +269,7 @@ def test_fsdp_wrap_fn_invalid_keys(world_size: int):
 
     m1.fsdp_wrap_fn = wrap_fn  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
-    with pytest.raises(ValueError, match='Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {'):
+    with pytest.raises(KeyError, match='Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {'):
         parallelize_model(m1, fsdp2_config, opt)
 
 
