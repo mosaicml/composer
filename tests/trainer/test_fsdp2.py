@@ -20,10 +20,7 @@ from tests.common import (
     SimpleWeightTiedModel,
     world_size,
 )
-from tests.trainer.fsdp2_context import (
-    fsdp2_context,
-    parallelize_model,
-)
+from tests.trainer.fsdp2_context import fsdp2_context
 
 
 _INIT_DEVICES = ['cuda', 'meta']
@@ -93,7 +90,6 @@ def test_fsdp2_initialization_with_tied_params(
     assert len(model.mlp._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the mlp module'
     assert len(model.mlp.fc1._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc1 module'
     assert len(model.mlp.fc2._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc2 module'
-    # assert len(model.module._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the root module'
     if isinstance(model, PartialWeightTiedModel):
         assert len(model.fc3._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the fc3 module'
     assert model.mlp.fc1.weight.size(0) == model.mlp.fc2.weight.to_local(
