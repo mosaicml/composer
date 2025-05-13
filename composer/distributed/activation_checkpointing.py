@@ -32,7 +32,19 @@ def generate_default_check_fn(model: nn.Module) -> Callable:
 
 
 def _generate_fsdp1_composer_model_check_fn(composer_model: nn.Module) -> Callable:
-    """Generates the default check fn for activation checkpointing/offloading of a ComposerModel that is the same as FSDP1 wrapper."""
+    """Generates a check function for activation checkpointing/offloading that mimics FSDP1 behavior.
+    
+    This function creates a mapping for each module in the ComposerModel, determining whether
+    its activations should be checkpointed. It follows the same pattern as FSDP1 by checkpointing
+    direct children of the ComposerModel but not the ComposerModel itself. It also respects any
+    _activation_checkpointing attributes or activation_checkpointing_fn functions defined on modules.
+    
+    Args:
+        composer_model (nn.Module): The ComposerModel to generate a check function for.
+        
+    Returns:
+        Callable: A function that determines whether a module's activations should be checkpointed.
+    """
 
     cached_submodules_ac: dict[nn.Module, bool] = {composer_model: False}
     for child in composer_model.children():
