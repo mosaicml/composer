@@ -1627,45 +1627,7 @@ class Trainer:
         # original model for functions like `eval_forward`, `get_metrics`, etc.
         self._original_model = self.state.model
 
-        # If using PyTorch DDP, the model must be loaded before it is wrapped with DDP.
-        # If using TP, the model must be wrapped before FSDP.
-        # If using FSDP, the model must be wrapped and then loaded unless loading a monolith
-        # checkpoint on rank 0 only, in which case the model be loaded before it is wrapped.
-
-        # TP wrap
-        if self.state.tp_config is not None:
-            # Init with globally fixed seed so all HSDP replicas have the same initial weights
-            with reproducibility.seed_context(self.state.rank_zero_seed):
-                prepare_tp_module(
-                    model,
-                    optimizers,
-                    self.state.tp_config,
-                )
-
-        # FSDP wrap if not using monolith checkpoint on rank 0 only
-        if self.state.fsdp_config is not None and not self.state.load_monolith_rank0_only:
-            # Init with globally fixed seed so all HSDP replicas have the same initial weights
-            with reproducibility.seed_context(self.state.rank_zero_seed):
-                match self.state.fsdp_config_version:
-                    case 1:
-                        self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
-                            model,
-                            optimizers,
-                            self.state.fsdp_config,
-                            precision,
-                            device,
-                            auto_microbatching,
-                            self.state.seed,
-                        )
-                    case 2:
-                        from composer.distributed.prepare_distributed import parallelize_composer_model
-                        parallelize_composer_model(
-                            model,
-                            optimizers,
-                            self.state.fsdp_config,
-                        )
-                    case _:
-                        raise ValueError(f'Unsupported FSDP config version: {self.state.fsdp_config_version}')
+        self._wrap_model_for_distributed(model, optimizers, precision, device, auto_microbatching)
 
         self.engine.run_event(Event.BEFORE_LOAD)
 
@@ -1845,6 +1807,63 @@ class Trainer:
             # debugging purpose and for unit test.
             if self.auto_log_hparams:
                 self.local_hparams['is_model_compiled'] = is_model_compiled
+
+    def _wrap_model_for_distributed(
+        self,
+        model: ComposerModel,
+        optimizers: Optional[torch.optim.Optimizer],
+        precision: Union[str, Precision],
+        device: Device,
+        auto_microbatching: bool,
+    ):
+        """Wrap the model for distributed training (TP, FSDP, etc.).
+
+        Args:
+            model (ComposerModel): The model to wrap.
+            optimizers (Optional[torch.optim.Optimizer]): The optimizer(s) to use.
+            precision (Union[str, Precision]): The precision to use.
+            device (Device): The device to use.
+            auto_microbatching (bool): Whether to use auto microbatching.
+        """
+        # If using PyTorch DDP, the model must be loaded before it is wrapped with DDP.
+        # If using TP, the model must be wrapped before FSDP.
+        # If using FSDP, the model must be wrapped and then loaded unless loading a monolith
+        # checkpoint on rank 0 only, in which case the model be loaded before it is wrapped.
+
+        # TP wrap
+        if self.state.tp_config is not None:
+            # Init with globally fixed seed so all HSDP replicas have the same initial weights
+            with reproducibility.seed_context(self.state.rank_zero_seed):
+                prepare_tp_module(
+                    model,
+                    optimizers,
+                    self.state.tp_config,
+                )
+
+        # FSDP wrap if not using monolith checkpoint on rank 0 only
+        if self.state.fsdp_config is not None and not self.state.load_monolith_rank0_only:
+            # Init with globally fixed seed so all HSDP replicas have the same initial weights
+            with reproducibility.seed_context(self.state.rank_zero_seed):
+                match self.state.fsdp_config_version:
+                    case 1:
+                        self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
+                            model,
+                            optimizers,
+                            self.state.fsdp_config,
+                            precision,
+                            device,
+                            auto_microbatching,
+                            self.state.seed,
+                        )
+                    case 2:
+                        from composer.distributed.prepare_distributed import parallelize_composer_model
+                        parallelize_composer_model(
+                            model,
+                            optimizers,
+                            self.state.fsdp_config,
+                        )
+                    case _:
+                        raise ValueError(f'Unsupported FSDP config version: {self.state.fsdp_config_version}')
 
     @property
     def saved_checkpoints(self) -> list[str]:
