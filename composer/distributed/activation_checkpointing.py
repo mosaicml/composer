@@ -31,12 +31,11 @@ def generate_default_check_fn(model: nn.Module) -> Callable:
     return _check_fn
 
 
-def generate_fsdp1_composer_check_fn(composer_model: nn.Module) -> Callable:
-    """Generates the default check fn for activation checkpointing/offloading."""
+def _generate_fsdp1_composer_model_check_fn(composer_model: nn.Module) -> Callable:
+    """Generates the default check fn for activation checkpointing/offloading of a ComposerModel that is the same as FSDP1 wrapper."""
 
     cached_submodules_ac: dict[nn.Module, bool] = {composer_model: False}
     for child in composer_model.children():
-        # this can be overwritten by the _fsdp_wrap attribute or fsdp_wrap_fn
         cached_submodules_ac[child] = True
         activation_checkpointing_fn = getattr(child, 'activation_checkpointing_fn', lambda x: cached_submodules_ac.get(x, False))
         for module in child.modules():
