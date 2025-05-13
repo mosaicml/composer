@@ -125,8 +125,6 @@ from composer.utils import (
     reproducibility,
 )
 
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-
 if is_xla_installed():
     import torch_xla.core.xla_model as xm
     import torch_xla.distributed.parallel_loader as pl
