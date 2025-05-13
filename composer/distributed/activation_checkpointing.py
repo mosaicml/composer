@@ -31,7 +31,7 @@ def generate_default_check_fn(model: nn.Module) -> Callable:
     return _check_fn
 
 
-def _generate_fsdp1_composer_model_check_fn(composer_model: nn.Module) -> Callable:
+def generate_fsdp1_composer_model_check_fn(composer_model: nn.Module) -> Callable:
     """Generates a check function for activation checkpointing/offloading that mimics FSDP1 behavior.
     
     This function creates a mapping for each module in the ComposerModel, determining whether

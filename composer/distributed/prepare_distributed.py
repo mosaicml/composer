@@ -16,7 +16,7 @@ from composer.utils.parallelism import FSDP2Config
 from composer.distributed.fsdp2_utils import sync_optimizer_and_model_params
 from composer.distributed.param_init import meta_init
 from composer.distributed.fsdp2_utils import generate_fsdp1_composer_model_policy
-from composer.distributed.activation_checkpointing import _generate_fsdp1_composer_model_check_fn
+from composer.distributed.activation_checkpointing import generate_fsdp1_composer_model_check_fn
 
 
 def parallelize_model(
@@ -79,5 +79,5 @@ def parallelize_composer_model(
     """
 
     assert isinstance(composer_model, ComposerModel), f'{type(composer_model)} is not a ComposerModel'
-    activation_checkpointing_check_fn = _generate_fsdp1_composer_model_check_fn(composer_model) if config.activation_checkpointing or config.activation_cpu_offload else None
+    activation_checkpointing_check_fn = generate_fsdp1_composer_model_check_fn(composer_model) if config.activation_checkpointing or config.activation_cpu_offload else None
     parallelize_model(composer_model, config, optimizer=optimizer, fsdp_wrap_policy=generate_fsdp1_composer_model_policy(composer_model), activation_checkpointing_check_fn=activation_checkpointing_check_fn, param_init_fn=meta_init)
