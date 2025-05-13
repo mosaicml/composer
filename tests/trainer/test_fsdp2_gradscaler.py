@@ -30,6 +30,9 @@ class SimpleModel(nn.Module):
         x = self.linear1(x)
         return x
 
+    def fsdp_wrap_fn(self, module: nn.Module) -> bool:
+        return isinstance(module, nn.Linear)
+
 
 @world_size(2)
 @pytest.mark.gpu
