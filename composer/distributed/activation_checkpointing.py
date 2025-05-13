@@ -21,6 +21,7 @@ def generate_default_check_fn(model: nn.Module) -> Callable:
     def _check_fn(module: torch.nn.Module) -> bool:
         if hasattr(module, '_activation_checkpointing'):
             return bool(module._activation_checkpointing)
+        # TODO: make this recursive for reusability, similar to meta_init in param_init.py
         if hasattr(
             model,
             'activation_checkpointing_fn',

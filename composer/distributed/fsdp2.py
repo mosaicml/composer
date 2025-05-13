@@ -7,8 +7,7 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
-from torch.distributed.fsdp import fully_shard
-from torch.distributed.fsdp import MixedPrecisionPolicy
+from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
 from torch.distributed.fsdp.wrap import CustomPolicy
 
 from composer.distributed.fsdp2_utils import (
@@ -31,6 +30,7 @@ def _recursive_apply_fully_shard(
     Args:
         root_module (nn.Module): The root module to check for parameter sharing.
         module (nn.Module): The current module being processed.
+        visited_modules (set[nn.Module]): Set of modules that have already been visited so we don't process them twice.
         target_modules_to_kwargs (dict[nn.Module, dict]): Dictionary mapping modules to their fully_shard kwargs.
 
     Returns:
@@ -87,7 +87,8 @@ def apply_fully_shard(
         None
     """
     # Define the default kwargs for fully_shard
-    # NOTE we follow torchtitan's default mp_policy to use bfloat16 for params all-gather and float32 for reduce-scatter
+    # NOTE Model in LLM Foundry mostly uses PURE for its MP policy so we default to both bfloat16 for now
+    # yet both Composer and TorchTitan's default mp_policy use bfloat16 for params all-gather and float32 for reduce-scatter
     # TODO: support user specified mp_policy
     fully_shard_kwargs = {'mesh': fsdp2_config.device_mesh, 'reshard_after_forward': fsdp2_config.reshard_after_forward, 'mp_policy': MixedPrecisionPolicy(param_dtype=torch.bfloat16, reduce_dtype=torch.bfloat16)}
 
