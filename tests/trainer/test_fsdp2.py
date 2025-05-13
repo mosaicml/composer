@@ -111,195 +111,198 @@ def test_fsdp2_initialization_with_tied_params(
 # Testing checkpointing and weight tying after loading
 
 
-# @pytest.mark.parametrize('model_class', [SimpleWeightTiedModel])
-# @pytest.mark.parametrize('device', _INIT_DEVICES)
-# @world_size(2)
-# @pytest.mark.gpu
-# @fsdp2_context
-# def test_fsdp2_checkpointing(
-#     model_class: type,
-#     device: str,
-#     world_size: int,
-#     tmp_path: pathlib.Path,
-# ):
-#     """Test FSDP2 checkpointing and weight tying after loading."""
-#     model = model_class(num_features=10, device=device)
-#     model.add_fsdp_wrap_attribute_to_children()
-#     trainer = create_trainer_with_model(model=model,)
+@pytest.mark.parametrize('model_class', [SimpleWeightTiedModel])
+@pytest.mark.parametrize('device', _INIT_DEVICES)
+@world_size(2)
+@pytest.mark.gpu
+@fsdp2_context
+def test_fsdp2_checkpointing(
+    model_class: type,
+    device: str,
+    world_size: int,
+    tmp_path: pathlib.Path,
+):
+    """Test FSDP2 checkpointing and weight tying after loading."""
+    model = model_class(num_features=10, device=device)
+    model.add_fsdp_wrap_attribute_to_children()
+    trainer = create_trainer_with_model(model=model,)
 
-#     # Checkpointing and reloading
-#     model = trainer.state.model
-#     assert isinstance(model, SimpleWeightTiedModel), f'Expected model to be SimpleWeightTiedModel, got {type(model)}'
-#     assert isinstance(model.mlp.fc1.weight, DTensor), 'mlp.fc1.weight should be a DTensor'
-#     assert isinstance(model.mlp.fc2.weight, DTensor), 'mlp.fc2.weight should be a DTensor'
-#     checkpoint_path = [tmp_path / 'dummy.pt']
-#     # Broadcast the path from rank 0 to all other ranks
-#     dist.broadcast_object_list(checkpoint_path, src=0)
-#     ckpt_path = trainer.save_checkpoint(str(checkpoint_path[0]), weights_only=True)
-#     assert isinstance(ckpt_path, str)
+    # Checkpointing and reloading
+    model = trainer.state.model
+    assert isinstance(model, SimpleWeightTiedModel), f'Expected model to be SimpleWeightTiedModel, got {type(model)}'
+    assert isinstance(model.mlp.fc1.weight, DTensor), 'mlp.fc1.weight should be a DTensor'
+    assert isinstance(model.mlp.fc2.weight, DTensor), 'mlp.fc2.weight should be a DTensor'
+    checkpoint_path = [tmp_path / 'dummy.pt']
+    # Broadcast the path from rank 0 to all other ranks
+    dist.broadcast_object_list(checkpoint_path, src=0)
+    ckpt_path = trainer.save_checkpoint(str(checkpoint_path[0]), weights_only=True)
+    assert isinstance(ckpt_path, str)
 
-#     # cache previous weights for comparison
-#     weight_1_local = model.mlp.fc1.weight.to_local()
-#     weight_2_local = model.mlp.fc2.weight.to_local()
+    # cache previous weights for comparison
+    weight_1_local = model.mlp.fc1.weight.to_local()
+    weight_2_local = model.mlp.fc2.weight.to_local()
 
-#     # reinitialize the trainer
-#     new_model = model_class(num_features=10, device=device)
-#     new_model.add_fsdp_wrap_attribute_to_children()
-#     trainer = create_trainer_with_model(model=new_model,)
-#     load_checkpoint(str(pathlib.Path(ckpt_path).parent), trainer.state, trainer.logger, load_weights_only=True)
+    # reinitialize the trainer
+    new_model = model_class(num_features=10, device=device)
+    new_model.add_fsdp_wrap_attribute_to_children()
+    trainer = create_trainer_with_model(model=new_model,)
+    load_checkpoint(str(pathlib.Path(ckpt_path).parent), trainer.state, trainer.logger, load_weights_only=True)
 
-#     model = trainer.state.model
-#     assert isinstance(model, SimpleWeightTiedModel), f'Expected model to be SimpleWeightTiedModel, got {type(model)}'
-#     assert isinstance(model.mlp.fc1.weight, DTensor), 'mlp.fc1.weight should be a DTensor'
-#     assert isinstance(model.mlp.fc2.weight, DTensor), 'mlp.fc2.weight should be a DTensor'
-#     # Check that the weights are still tied after loading and that the local weights are the same
-#     assert torch.equal(weight_1_local, model.mlp.fc1.weight.to_local())
-#     assert torch.equal(weight_2_local, model.mlp.fc2.weight.to_local())
-#     assert model.mlp.fc1.weight is model.mlp.fc2.weight
-
-
-# @world_size(2)
-# @pytest.mark.gpu
-# @fsdp2_context
-# def test_fsdp2_load_from_fsdp1(
-#     world_size: int,
-#     tmp_path: pathlib.Path,
-# ):
-#     """Test FSDP2 can load from FSDP1 checkpoint"""
-#     NUM_FEATURES = 10
-#     NUM_CLASSES = 2
-#     model = SimpleComposerMLP(num_features=NUM_FEATURES, device='cuda', num_classes=NUM_CLASSES)
-#     model.add_fsdp_wrap_attribute_to_children()
-#     trainer = create_trainer_with_model(
-#         model=model,
-#         num_classes=NUM_CLASSES,
-#         use_fsdp2=False,
-#     )
-
-#     # Checkpointing
-#     model = trainer.state.model
-#     checkpoint_path = [tmp_path / 'dummy.pt']
-#     # Broadcast the path from rank 0 to all other ranks
-#     dist.broadcast_object_list(checkpoint_path, src=0)
-#     ckpt_path = trainer.save_checkpoint(str(checkpoint_path[0]), weights_only=True)
-#     assert isinstance(ckpt_path, str)
-
-#     # cache previous weights for comparison
-#     with model.module.summon_full_params(model.module):  # type: ignore
-#         # need clone since after context exit param be flat again
-#         fsdp1_param = [param.clone() for param in model.parameters()]
-
-#     # reinitialize the trainer
-#     model = SimpleComposerMLP(num_features=NUM_FEATURES, device='cuda', num_classes=NUM_CLASSES)
-#     model.add_fsdp_wrap_attribute_to_children()
-#     trainer = create_trainer_with_model(
-#         model=model,
-#         num_classes=NUM_CLASSES,
-#         use_fsdp2=True,
-#     )
-#     load_checkpoint(str(pathlib.Path(ckpt_path).parent), trainer.state, trainer.logger, load_weights_only=True)
-#     for (name, param), fsdp1_param in zip(trainer.state.model.named_parameters(recurse=True), fsdp1_param):
-#         assert isinstance(param, DTensor), f'{name} should be a DTensor'
-#         assert torch.equal(
-#             fsdp1_param,
-#             param.full_tensor(),
-#         ), f'Weights: {name} should be equal after loading, however one is {fsdp1_param} and the other is {param.full_tensor()}'
+    model = trainer.state.model
+    assert isinstance(model, SimpleWeightTiedModel), f'Expected model to be SimpleWeightTiedModel, got {type(model)}'
+    assert isinstance(model.mlp.fc1.weight, DTensor), 'mlp.fc1.weight should be a DTensor'
+    assert isinstance(model.mlp.fc2.weight, DTensor), 'mlp.fc2.weight should be a DTensor'
+    # Check that the weights are still tied after loading and that the local weights are the same
+    assert torch.equal(weight_1_local, model.mlp.fc1.weight.to_local())
+    assert torch.equal(weight_2_local, model.mlp.fc2.weight.to_local())
+    assert model.mlp.fc1.weight is model.mlp.fc2.weight
 
 
-# # Testing optimizer handling
+@world_size(2)
+@pytest.mark.gpu
+@fsdp2_context
+def test_fsdp2_load_from_fsdp1(
+    world_size: int,
+    tmp_path: pathlib.Path,
+):
+    """Test FSDP2 can load from FSDP1 checkpoint"""
+    NUM_FEATURES = 10
+    NUM_CLASSES = 2
+    model = SimpleComposerMLP(num_features=NUM_FEATURES, device='cuda', num_classes=NUM_CLASSES)
+    model.add_fsdp_wrap_attribute_to_children()
+    trainer = create_trainer_with_model(
+        model=model,
+        num_classes=NUM_CLASSES,
+        use_fsdp2=False,
+    )
+
+    # Checkpointing
+    model = trainer.state.model
+    checkpoint_path = [tmp_path / 'dummy.pt']
+    # Broadcast the path from rank 0 to all other ranks
+    dist.broadcast_object_list(checkpoint_path, src=0)
+    ckpt_path = trainer.save_checkpoint(str(checkpoint_path[0]), weights_only=True)
+    assert isinstance(ckpt_path, str)
+
+    # cache previous weights for comparison
+    with model.module.summon_full_params(model.module):  # type: ignore
+        # need clone since after context exit param be flat again
+        fsdp1_param = [param.clone() for param in model.parameters()]
+
+    # reinitialize the trainer
+    model = SimpleComposerMLP(num_features=NUM_FEATURES, device='cuda', num_classes=NUM_CLASSES)
+    model.add_fsdp_wrap_attribute_to_children()
+    trainer = create_trainer_with_model(
+        model=model,
+        num_classes=NUM_CLASSES,
+        use_fsdp2=True,
+    )
+    load_checkpoint(str(pathlib.Path(ckpt_path).parent), trainer.state, trainer.logger, load_weights_only=True)
+    for (name, param), fsdp1_param in zip(trainer.state.model.named_parameters(recurse=True), fsdp1_param):
+        assert isinstance(param, DTensor), f'{name} should be a DTensor'
+        assert torch.equal(
+            fsdp1_param,
+            param.full_tensor(),
+        ), f'Weights: {name} should be equal after loading, however one is {fsdp1_param} and the other is {param.full_tensor()}'
 
 
-# @world_size(2)
-# @pytest.mark.gpu
-# @fsdp2_context
-# @pytest.mark.parametrize('case', ['all_params_one_group', 'subset_one_group', 'multiple_groups'])
-# @pytest.mark.parametrize('device', _INIT_DEVICES)
-# def test_fsdp2_optimizer_handling(
-#     world_size: int,
-#     case: str,
-#     device: str,
-# ):
-#     """Test FSDP2 correctly updates optimizer state for various configurations."""
-#     del world_size
-
-#     NUM_FEATURES = 10
-#     NUM_CLASSES = 10
-#     model = PartialWeightTiedModel(num_features=NUM_FEATURES, device=device)
-
-#     all_params_list = list(model.parameters())
-#     fc1_params_list = list(model.mlp.fc1.parameters())
-#     fc3_params_list = list(model.fc3.parameters())
-
-#     if case == 'all_params_one_group':
-#         optimizer_input = [{'params': all_params_list, 'lr': 0.01}]
-#     elif case == 'subset_one_group':
-#         optimizer_input = [{'params': fc1_params_list, 'lr': 0.02}]  # Same as fc2_params_list (since tied weights)
-#     elif case == 'multiple_groups':
-#         optimizer_input = [
-#             {
-#                 'params': fc1_params_list,
-#                 'lr': 0.01,
-#             },  # Same as fc2_params_list (since tied weights)
-#             {
-#                 'params': fc3_params_list,
-#                 'lr': 0.02,
-#             },
-#         ]
-#     else:
-#         raise ValueError(f'Invalid case: {case}')
-
-#     optimizer = torch.optim.Adam(optimizer_input)
-#     trainer = create_trainer_with_model(model=model, num_classes=NUM_CLASSES, use_fsdp2=True, optimizer=optimizer)
-
-#     def validate_optimizer_state(current_optimizer: torch.optim.Optimizer, stage: str):
-#         assert len(current_optimizer.param_groups) == len(optimizer_input), \
-#             f'[{case}/{stage}] Group count mismatch. Expected {len(optimizer_input)}, Got {len(current_optimizer.param_groups)}'
-#         for i, group in enumerate(current_optimizer.param_groups):
-#             opt_params = group['params']
-#             # Check that the number of parameters in the optimizer group matches the number of parameters in the input
-#             assert len(opt_params) == len(optimizer_input[i]['params']), \
-#                 f"[{case}/{stage}] Group {i}: Param count mismatch. Expected {len(optimizer_input[i]['params'])}, Got {len(opt_params)}"
-
-#             # Check that all parameters are DTensor
-#             assert all(isinstance(p, DTensor) for p in opt_params), \
-#                 f'[{case}/{stage}] Group {i}: Not all parameters are DTensors'
-
-#             # Check that all keys match between input and current groups
-#             input_keys = set(optimizer_input[i].keys())
-#             group_keys = set(group.keys())
-#             assert input_keys == group_keys, \
-#                 f'[{case}/{stage}] Group {i}: Key mismatch. Expected {input_keys}, Got {group_keys}'
-
-#             # Check values for all keys
-#             for key in input_keys:
-#                 if key != 'params':
-#                     assert group[key] == optimizer_input[i][key], \
-#                         f'[{case}/{stage}] Group {i}: {key} mismatch. Expected {optimizer_input[i][key]}, Got {group[key]}'
-
-#     # Validate optimizer state after sharding and before training
-#     validate_optimizer_state(optimizer, stage='after_fully_shard')
-
-#     trainer.fit()
-
-#     # Validate optimizer state after training
-#     validate_optimizer_state(optimizer, stage='after_fit')
+# Testing optimizer handling
 
 
-# @world_size(2)
-# @pytest.mark.gpu
-# @fsdp2_context
-# def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(world_size: int,):
-#     """Test FSDP2 raises an error when the optimizer modules don't match the model modules."""
-#     del world_size
+@world_size(2)
+@pytest.mark.gpu
+@fsdp2_context
+@pytest.mark.parametrize('case', ['all_params_one_group', 'subset_one_group', 'multiple_groups'])
+@pytest.mark.parametrize('device', _INIT_DEVICES)
+def test_fsdp2_optimizer_handling(
+    world_size: int,
+    case: str,
+    device: str,
+):
+    """Test FSDP2 correctly updates optimizer state for various configurations."""
+    del world_size
 
-#     NUM_FEATURES = 10
-#     NUM_CLASSES = 10
-#     model = SimpleComposerMLP(num_features=NUM_FEATURES, device='cuda', num_classes=NUM_CLASSES)
-#     other_model = SimpleWeightTiedModel(num_features=NUM_FEATURES, device='cuda')
-#     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-#     with pytest.raises(ValueError) as e:
-#         create_trainer_with_model(model=other_model, num_classes=NUM_CLASSES, use_fsdp2=True, optimizer=optimizer)
-#     # Check that error message uses the correct prefix implying optimizer difference
-#     # We check with `optimizer.param_id.` (with the period) since `optimizer.param_id` exists
-#     # by default in the error message's legend
-#     assert 'optimizer.param_id.' in str(e.value)
+    NUM_FEATURES = 10
+    NUM_CLASSES = 10
+    model = PartialWeightTiedModel(num_features=NUM_FEATURES, device=device)
+    model.add_fsdp_wrap_attribute_to_children()
+
+    all_params_list = list(model.parameters())
+    fc1_params_list = list(model.mlp.fc1.parameters())
+    fc3_params_list = list(model.fc3.parameters())
+
+    if case == 'all_params_one_group':
+        optimizer_input = [{'params': all_params_list, 'lr': 0.01}]
+    elif case == 'subset_one_group':
+        optimizer_input = [{'params': fc1_params_list, 'lr': 0.02}]  # Same as fc2_params_list (since tied weights)
+    elif case == 'multiple_groups':
+        optimizer_input = [
+            {
+                'params': fc1_params_list,
+                'lr': 0.01,
+            },  # Same as fc2_params_list (since tied weights)
+            {
+                'params': fc3_params_list,
+                'lr': 0.02,
+            },
+        ]
+    else:
+        raise ValueError(f'Invalid case: {case}')
+
+    optimizer = torch.optim.Adam(optimizer_input)
+    trainer = create_trainer_with_model(model=model, num_classes=NUM_CLASSES, use_fsdp2=True, optimizer=optimizer)
+
+    def validate_optimizer_state(current_optimizer: torch.optim.Optimizer, stage: str):
+        assert len(current_optimizer.param_groups) == len(optimizer_input), \
+            f'[{case}/{stage}] Group count mismatch. Expected {len(optimizer_input)}, Got {len(current_optimizer.param_groups)}'
+        for i, group in enumerate(current_optimizer.param_groups):
+            opt_params = group['params']
+            # Check that the number of parameters in the optimizer group matches the number of parameters in the input
+            assert len(opt_params) == len(optimizer_input[i]['params']), \
+                f"[{case}/{stage}] Group {i}: Param count mismatch. Expected {len(optimizer_input[i]['params'])}, Got {len(opt_params)}"
+
+            # Check that all parameters are DTensor
+            assert all(isinstance(p, DTensor) for p in opt_params), \
+                f'[{case}/{stage}] Group {i}: Not all parameters are DTensors'
+
+            # Check that all keys match between input and current groups
+            input_keys = set(optimizer_input[i].keys())
+            group_keys = set(group.keys())
+            assert input_keys == group_keys, \
+                f'[{case}/{stage}] Group {i}: Key mismatch. Expected {input_keys}, Got {group_keys}'
+
+            # Check values for all keys
+            for key in input_keys:
+                if key != 'params':
+                    assert group[key] == optimizer_input[i][key], \
+                        f'[{case}/{stage}] Group {i}: {key} mismatch. Expected {optimizer_input[i][key]}, Got {group[key]}'
+
+    # Validate optimizer state after sharding and before training
+    validate_optimizer_state(optimizer, stage='after_fully_shard')
+
+    trainer.fit()
+
+    # Validate optimizer state after training
+    validate_optimizer_state(optimizer, stage='after_fit')
+
+
+@world_size(2)
+@pytest.mark.gpu
+@fsdp2_context
+def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(world_size: int,):
+    """Test FSDP2 raises an error when the optimizer modules don't match the model modules."""
+    del world_size
+
+    NUM_FEATURES = 10
+    NUM_CLASSES = 10
+    model = SimpleComposerMLP(num_features=NUM_FEATURES, device='cuda', num_classes=NUM_CLASSES)
+    model.add_fsdp_wrap_attribute_to_children()
+    other_model = SimpleWeightTiedModel(num_features=NUM_FEATURES, device='cuda')
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    other_model.add_fsdp_wrap_attribute_to_children()
+    with pytest.raises(ValueError) as e:
+        create_trainer_with_model(model=other_model, num_classes=NUM_CLASSES, use_fsdp2=True, optimizer=optimizer)
+    # Check that error message uses the correct prefix implying optimizer difference
+    # We check with `optimizer.param_id.` (with the period) since `optimizer.param_id` exists
+    # by default in the error message's legend
+    assert 'optimizer.param_id.' in str(e.value)
