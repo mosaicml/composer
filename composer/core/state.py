@@ -915,14 +915,15 @@ class State(Serializable):
         Returns:
             int: The version of the FSDP config.
         """
-        if self.fsdp_config is None:
-            return 0  # DDP
-        if isinstance(self.fsdp_config, FSDPConfig):
-            return 1
-        elif isinstance(self.fsdp_config, FSDP2Config):
-            return 2
-        else:
-            raise ValueError(f'Unknown FSDP config type: {type(self.fsdp_config)}')
+        match self.fsdp_config:
+            case None:
+                return 0  # DDP
+            case config if isinstance(config, FSDPConfig):
+                return 1
+            case config if isinstance(config, FSDP2Config):
+                return 2
+            case _:
+                raise ValueError(f'Unknown FSDP config type: {type(self.fsdp_config)}')
 
     @property
     def fsdp_enabled(self):
