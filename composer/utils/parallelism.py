@@ -83,6 +83,7 @@ class FSDP2Config:
 
     @staticmethod
     def settable_attrs() -> set[str]:
+        """Return a set of all settable attributes of FSDP2Config."""
         return {field.name for field in fields(FSDP2Config)}
 
     @staticmethod
@@ -177,4 +178,3 @@ class ParallelismConfig:
     fsdp: Optional[FSDPConfig] = None
     tp: Optional[TPConfig] = None
     fsdp2: Optional[FSDP2Config] = None
-

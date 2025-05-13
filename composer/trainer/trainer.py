@@ -1646,25 +1646,26 @@ class Trainer:
         if self.state.fsdp_config is not None and not self.state.load_monolith_rank0_only:
             # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
-                if isinstance(self.state.fsdp_config, FSDPConfig):
-                    self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
-                        model,
-                        optimizers,
-                        self.state.fsdp_config,
-                        precision,
-                        device,
-                        auto_microbatching,
-                        self.state.seed,
-                    )
-                elif isinstance(self.state.fsdp_config, FSDP2Config):
-                    from composer.distributed.prepare_distributed import parallelize_composer_model
-                    parallelize_composer_model(
-                        model,
-                        optimizers,
-                        self.state.fsdp_config,
-                    )
-                else:
-                    raise ValueError(f'Unsupported FSDP config type: {type(self.state.fsdp_config)}')
+                match self.state.fsdp_config_version:
+                    case 1:
+                        self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
+                            model,
+                            optimizers,
+                            self.state.fsdp_config,
+                            precision,
+                            device,
+                            auto_microbatching,
+                            self.state.seed,
+                        )
+                    case 2:
+                        from composer.distributed.prepare_distributed import parallelize_composer_model
+                        parallelize_composer_model(
+                            model,
+                            optimizers,
+                            self.state.fsdp_config,
+                        )
+                    case _:
+                        raise ValueError(f'Unsupported FSDP config version: {self.state.fsdp_config_version}')
 
         self.engine.run_event(Event.BEFORE_LOAD)
 
@@ -2913,7 +2914,7 @@ class Trainer:
             if use_grad_scaling:
                 for optimizer in ensure_tuple(self.state.optimizers):
                     self.state.scaler.unscale_(optimizer)
-            
+            self.state.log_post_backward_param_and_gradient()
             self.engine.run_event(Event.AFTER_TRAIN_BATCH)
 
             return total_loss_dict['loss/train/total']

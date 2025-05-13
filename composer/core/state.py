@@ -906,6 +906,15 @@ class State(Serializable):
 
     @property
     def fsdp_config_version(self) -> int:
+        """Return the version of the FSDP config.
+
+        Version 0 means DDP.
+        Version 1 means using torch's FullyShardedDataParallel.
+        Version 2 means using torch's fully_shard and Dtensor.
+
+        Returns:
+            int: The version of the FSDP config.
+        """
         if self.fsdp_config is None:
             return 0  # DDP
         if isinstance(self.fsdp_config, FSDPConfig):
@@ -1706,17 +1715,22 @@ class State(Serializable):
         """Whether :attr:`model` is an instance of a :class:`.DistributedDataParallel`."""
         return isinstance(self.model, DistributedDataParallel)
 
-    def debug_print(self):
-        if isinstance(self.fsdp_config, FSDPConfig):
-            print('grad of fsdp1 model')
-            with FSDP.summon_full_params(self.model, with_grads=True):
+    def log_post_backward_param_and_gradient(self):
+        """Log the parameters and gradients of the model after backward pass."""
+        # TODO: refactor this to a proper callback to log gradients right after backward pass
+        match self.fsdp_config_version:
+            case 1:
+                print('grad of fsdp1 model')
+                with FSDP.summon_full_params(self.model, with_grads=True):
+                    for name, param in self.model.named_parameters():
+                        print(f'{name} param norm: {param.norm().item()}, full grad norm: {param.grad.norm().item()}')
+            case 2:
+                print('grad of fsdp2 model')
                 for name, param in self.model.named_parameters():
-                    print(name, param.norm().item(), param.grad.norm().item())
-        elif isinstance(self.fsdp_config, FSDP2Config):
-            print('grad of fsdp2 model')
-            for name, param in self.model.named_parameters():
-                print(name, param.norm().item(), param.grad.to_local().dtype, param.grad.to_local().norm().item(), param.grad.full_tensor().norm().item())
-        else:
-            print('grad of ddp model')
-            for name, param in self.model.named_parameters():
-                print(name, param.norm().item(), param.grad.norm().item())
+                    print(f'{name} param norm: {param.norm().full_tensor().item()}, local grad norm: {param.grad.norm().to_local().item()}, full grad norm: {param.grad.norm().full_tensor().item()}')
+            case 0:
+                print('grad of ddp model')
+                for name, param in self.model.named_parameters():
+                    print(f'{name} param norm: {param.norm().item()}, full grad norm: {param.grad.norm().item()}')
+            case _:
+                raise ValueError(f'Unsupported FSDP config version: {self.fsdp_config_version}')
