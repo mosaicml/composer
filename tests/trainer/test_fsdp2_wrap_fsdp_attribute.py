@@ -66,6 +66,7 @@ def test_fsdp_wrap_separate_modules(world_size: int):
     """Test FSDP wrapping applied to separate, non-overlapping modules (M2, M5)."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+    m1._fsdp_wrap = True  # type: ignore
     m1.m2._fsdp_wrap = True  # type: ignore
     m1.m5._fsdp_wrap = True  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
@@ -79,6 +80,7 @@ def test_fsdp_wrap_error_tied_siblings(world_size: int):
     """Test error when siblings (M3, M4) with tied weights are both marked for FSDP wrapping."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+    m1._fsdp_wrap = True  # type: ignore
     m1.m2.m4.weight = m1.m2.m3.weight
     m1.m2.m3._fsdp_wrap = True  # type: ignore
     m1.m2.m4._fsdp_wrap = True  # type: ignore
@@ -93,6 +95,7 @@ def test_fsdp_wrap_error_tied_sibling_one_wrapped(world_size: int):
     """Test error when one module (M3) marked for FSDP wrap shares weights with a sibling (M4)."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+    m1._fsdp_wrap = True  # type: ignore
     m1.m2.m4.weight = m1.m2.m3.weight
     m1.m2.m3._fsdp_wrap = True  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
@@ -122,6 +125,7 @@ def test_fsdp_wrap_error_tied_across_branches_ancestor_wrap(world_size: int):
     """Test error when a wrapped module (M2) has a child (M3) tied to a module (M6) in another branch."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+    m1._fsdp_wrap = True  # type: ignore
     m1.m2._fsdp_wrap = True  # type: ignore
     m1.m2.m3.weight = m1.m5.m6.weight  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
@@ -187,6 +191,7 @@ def test_fsdp_wrap_error_parent_child_share_both_wrap(world_size: int):
     """Test error when parent (M2) and child (M3) share weights and both are marked for wrapping."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+    m1._fsdp_wrap = True  # type: ignore
     m1.m2._fsdp_wrap = True  # type: ignore
     m1.m2.m3._fsdp_wrap = True  # type: ignore
     m1.m2.weight = m1.m2.m3.weight  # type: ignore
@@ -202,6 +207,7 @@ def test_fsdp_wrap_error_parent_child_share_child_wrap(world_size: int):
     """Test error when parent (M2) and child (M3) share weights and only the child is marked for wrapping."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+    m1._fsdp_wrap = True  # type: ignore
     m1.m2._fsdp_wrap = False  # type: ignore
     m1.m2.m3._fsdp_wrap = True  # type: ignore
     m1.m2.weight = m1.m2.m3.weight  # type: ignore
@@ -216,6 +222,7 @@ def test_fsdp_wrap_error_complex_sharing_parent_wrap(world_size: int):
     """Test error with complex sharing: parent (M2) shares with child (M3), child shares with other branch (M6), parent is wrapped."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+    m1._fsdp_wrap = True  # type: ignore
     m1.m2._fsdp_wrap = True  # type: ignore
     m1.m2.weight = m1.m2.m3.weight  # type: ignore
     m1.m2.m3.weight = m1.m5.m6.weight  # type: ignore # M3 and M6 also share weights
@@ -231,6 +238,7 @@ def test_fsdp_wrap_error_tied_across_branches_one_wrap(world_size: int):
     """Test error (as noted in original comments) when weights are tied (M3, M6) but only one (M6) is marked for wrap."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+    m1._fsdp_wrap = True  # type: ignore
     m1.m2.m3._fsdp_wrap = False  # type: ignore
     m1.m5.m6._fsdp_wrap = True  # type: ignore
     m1.m2.m3.weight = m1.m5.m6.weight  # type: ignore
@@ -373,6 +381,7 @@ def test_fsdp_wrap_attribute_warning(world_size: int):
     """Test that only one warning is raised if _fsdp_wrap is set in the model instead of fsdp_wrap_fn."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+    m1._fsdp_wrap = True  # type: ignore
     m1.m2._fsdp_wrap = True  # type: ignore
     m1.m5._fsdp_wrap = True  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
