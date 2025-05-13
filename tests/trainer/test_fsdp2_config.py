@@ -1,3 +1,6 @@
+# Copyright 2024 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 import pytest
 
 from composer.utils.parallelism import FSDP2Config
@@ -48,12 +51,12 @@ def test_fsdp2_config():
 def test_fsdp2config_from_fsdp1_valid_attributes():
     """Test FSDP2Config.from_compatible_attrs with valid attributes."""
     valid_attrs = {
-        "activation_checkpointing": True,
-        "activation_cpu_offload": True,
-        "reshard_after_forward": False,
-        "device_mesh": None
+        'activation_checkpointing': True,
+        'activation_cpu_offload': True,
+        'reshard_after_forward': False,
+        'device_mesh': None,
     }
-    
+
     fsdp2_config = FSDP2Config.from_compatible_attrs(valid_attrs)
     assert fsdp2_config.activation_checkpointing is True
     assert fsdp2_config.activation_cpu_offload is True
@@ -65,31 +68,30 @@ def test_fsdp2config_from_fsdp1_valid_attributes():
 def test_fsdp2config_from_empty_attributes():
     """Test FSDP2Config.from_compatible_attrs with empty attributes."""
     empty_attrs = {}
-    
+
     fsdp2_config = FSDP2Config.from_compatible_attrs(empty_attrs)
     assert fsdp2_config.activation_checkpointing is False  # default value
-    assert fsdp2_config.activation_cpu_offload is False    # default value
-    assert fsdp2_config.reshard_after_forward is True      # default value
-    assert fsdp2_config.device_mesh is None                # default value
+    assert fsdp2_config.activation_cpu_offload is False  # default value
+    assert fsdp2_config.reshard_after_forward is True  # default value
+    assert fsdp2_config.device_mesh is None  # default value
 
 
 @fsdp2_context
 def test_fsdp2config_from_fsdp1_multiple_invalid_attributes():
     """Test FSDP2Config.from_compatible_attrs with multiple invalid attributes issues warnings for each."""
     mixed_attrs = {
-        "activation_checkpointing": True,
-        "invalid_attribute1": "value1",
-        "invalid_attribute2": "value2",
-        "auto_wrap": True
+        'activation_checkpointing': True,
+        'invalid_attribute1': 'value1',
+        'invalid_attribute2': 'value2',
+        'auto_wrap': True,
     }
-    
+
     with pytest.warns() as record:
         fsdp2_config = FSDP2Config.from_compatible_attrs(mixed_attrs)
         assert fsdp2_config.activation_checkpointing is True
-    
+
     # Check that we got warnings for each invalid attribute
     warning_messages = [str(w.message) for w in record]
-    assert any("invalid_attribute1: value1" in msg for msg in warning_messages)
-    assert any("invalid_attribute2: value2" in msg for msg in warning_messages)
-    assert any("auto_wrap: True" in msg for msg in warning_messages)
-
+    assert any('invalid_attribute1: value1' in msg for msg in warning_messages)
+    assert any('invalid_attribute2: value2' in msg for msg in warning_messages)
+    assert any('auto_wrap: True' in msg for msg in warning_messages)

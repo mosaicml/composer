@@ -3,20 +3,18 @@
 
 """Entrypoint for distributed training (using FSDP2)."""
 
-from typing import Callable, Optional
 from contextlib import nullcontext
+from typing import Callable, Optional
 
 import torch
 from torch.distributed.fsdp.wrap import CustomPolicy
 
-from composer.models import ComposerModel
-from composer.distributed.activation_checkpointing import apply_ac
+from composer.distributed.activation_checkpointing import apply_ac, generate_fsdp1_composer_model_check_fn
 from composer.distributed.fsdp2 import prepare_fully_shard
-from composer.utils.parallelism import FSDP2Config
-from composer.distributed.fsdp2_utils import sync_optimizer_and_model_params
+from composer.distributed.fsdp2_utils import generate_fsdp1_composer_model_policy, sync_optimizer_and_model_params
 from composer.distributed.param_init import meta_init
-from composer.distributed.fsdp2_utils import generate_fsdp1_composer_model_policy
-from composer.distributed.activation_checkpointing import generate_fsdp1_composer_model_check_fn
+from composer.models import ComposerModel
+from composer.utils.parallelism import FSDP2Config
 
 
 def parallelize_model(
@@ -59,6 +57,7 @@ def parallelize_model(
             activation_checkpointing_check_fn,
         )
 
+
 def parallelize_composer_model(
     composer_model: ComposerModel,
     optimizer: Optional[torch.optim.Optimizer],
@@ -71,7 +70,7 @@ def parallelize_composer_model(
     it is still functional (but potentially less performant due to lack of grouped prefetching etc).
 
     For advanced users who want to have access to more flexible fsdp_wrap_policy or activation_checkpointing_check_fn, they should use `parallelize_model` directly.
-    
+
     Args:
         composer_model (ComposerModel): The ComposerModel to prepare for distributed training.
         optimizer (Optional[torch.optim.Optimizer]): The optimizer to use for distributed training.
@@ -79,5 +78,14 @@ def parallelize_composer_model(
     """
 
     assert isinstance(composer_model, ComposerModel), f'{type(composer_model)} is not a ComposerModel'
-    activation_checkpointing_check_fn = generate_fsdp1_composer_model_check_fn(composer_model) if config.activation_checkpointing or config.activation_cpu_offload else None
-    parallelize_model(composer_model, config, optimizer=optimizer, fsdp_wrap_policy=generate_fsdp1_composer_model_policy(composer_model), activation_checkpointing_check_fn=activation_checkpointing_check_fn, param_init_fn=meta_init)
+    activation_checkpointing_check_fn = generate_fsdp1_composer_model_check_fn(
+        composer_model
+    ) if config.activation_checkpointing or config.activation_cpu_offload else None
+    parallelize_model(
+        composer_model,
+        config,
+        optimizer=optimizer,
+        fsdp_wrap_policy=generate_fsdp1_composer_model_policy(composer_model),
+        activation_checkpointing_check_fn=activation_checkpointing_check_fn,
+        param_init_fn=meta_init
+    )

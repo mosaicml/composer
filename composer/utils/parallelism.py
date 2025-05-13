@@ -89,19 +89,19 @@ class FSDP2Config:
     @staticmethod
     def from_compatible_attrs(attrs: dict[str, Any]) -> 'FSDP2Config':
         """Create an FSDP2Config by filtering FSDP2 compatible attributes from given attrs.
-        
+
         Only attributes that are valid for FSDP2Config will be used, and warnings will be issued
         for any attributes that cannot be transferred. Therefore it supports both FSDP1 and FSDP2 attributes, and main
         use case is FSDP1 backwards compatibility.
 
         Args:
             attrs (dict[str, Any]): Dictionary of FSDP1/2 configuration attributes.
-            
+
         Returns:
             FSDP2Config: A new FSDP2Config instance with compatible attributes.
-            
+
         Warnings:
-            UserWarning: If an attribute in the input dictionary is not a settable attribute 
+            UserWarning: If an attribute in the input dictionary is not a settable attribute
                          of FSDP2Config and will be ignored.
         """
         # Get the settable attributes of FSDP2Config
@@ -112,8 +112,11 @@ class FSDP2Config:
             if key in settable_attrs:
                 valid_attrs[key] = value
             else:
-                warnings.warn(f"Attribute '{key}: {value}' is not a settable attribute of FSDP2Config and will be ignored", UserWarning)
-        
+                warnings.warn(
+                    f"Attribute '{key}: {value}' is not a settable attribute of FSDP2Config and will be ignored",
+                    UserWarning
+                )
+
         # Create and return a new FSDP2Config with the valid attributes
         return FSDP2Config(**valid_attrs)
 

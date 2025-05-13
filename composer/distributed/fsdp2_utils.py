@@ -182,7 +182,7 @@ def sync_optimizer_and_model_params(
     """Context manager that synchronizes optimizer parameters with model parameters.
 
     This context manager builds a mapping between the original model parameters and their names,
-    yields control back to the caller, and then updates the optimizer's parameter groups to 
+    yields control back to the caller, and then updates the optimizer's parameter groups to
     use the (potentially sharded) model parameters after the context block.
 
     Args:
@@ -194,9 +194,9 @@ def sync_optimizer_and_model_params(
     """
     # Build the parameter to name mapping before any modifications
     orig_param_to_name = {p: n for n, p in model.named_parameters(recurse=True)}
-    
+
     yield
-    
+
     # After the context, update the optimizer to use the new parameters
     update_optimizer_modules(optimizer, model, orig_param_to_name)
 
@@ -279,19 +279,19 @@ def generate_default_policy(parent_model: nn.Module) -> CustomPolicy:
 
     This policy determines which modules should be wrapped with FSDP2 based on module attributes
     or custom wrapping functions. It checks for:
-    
+
     1. The presence of an `_fsdp_wrap` attribute on modules (deprecated)
     2. A `fsdp_wrap_fn` callable on the parent model that returns True/False or FSDP2 config options
-    
+
     The policy respects parameter sharing constraints, ensuring that modules with tied weights
     are properly handled during sharding.
 
     Args:
         parent_model (nn.Module): The root module to generate the policy for.
-        
+
     Returns:
         CustomPolicy: A policy function that determines which modules to wrap with FSDP2.
-        
+
     Raises:
         KeyError: If a module's fsdp_wrap_fn returns a dict with invalid FSDP2Config keys.
     """
@@ -315,7 +315,9 @@ def generate_default_policy(parent_model: nn.Module) -> CustomPolicy:
             res = parent_model.fsdp_wrap_fn(current_module)
             # Ensure all keys in the returned dict are valid FSDP2Config attributes
             if isinstance(res, dict) and not set(res.keys()).issubset(FSDP2Config.settable_attrs()):
-                raise KeyError(f'Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {FSDP2Config.settable_attrs()}')
+                raise KeyError(
+                    f'Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {FSDP2Config.settable_attrs()}'
+                )
             return res
         return False
 
@@ -324,17 +326,17 @@ def generate_default_policy(parent_model: nn.Module) -> CustomPolicy:
 
 def generate_fsdp1_composer_model_policy(composer_model: ComposerModel) -> CustomPolicy:
     """Generates a FSDP wrap policy for ComposerModel that mimics FSDP1 behavior.
-    
+
     This policy wraps all direct children of the ComposerModel but not the ComposerModel itself,
     which matches the behavior of FSDP1's prepare_fsdp_module function. It also respects
     any _fsdp_wrap attributes or fsdp_wrap_fn functions defined on modules.
-    
+
     Args:
         composer_model (ComposerModel): The ComposerModel to generate a policy for.
-        
+
     Returns:
         CustomPolicy: A policy function that determines which modules to wrap with FSDP.
-        
+
     Raises:
         KeyError: If a module's fsdp_wrap_fn returns a dict with invalid FSDP2Config keys.
     """
@@ -367,8 +369,11 @@ def generate_fsdp1_composer_model_policy(composer_model: ComposerModel) -> Custo
             else:
                 res = fsdp_wrap_fn(module)
                 if isinstance(res, dict) and not set(res.keys()).issubset(FSDP2Config.settable_attrs()):
-                    raise KeyError(f'Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {FSDP2Config.settable_attrs()}')
+                    raise KeyError(
+                        f'Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {FSDP2Config.settable_attrs()}'
+                    )
                 cached_submodules_to_wrap[module] = res
+
     def lambda_fn(current_module: nn.Module) -> bool | dict[str, Any]:
         return cached_submodules_to_wrap.get(current_module, False)
 

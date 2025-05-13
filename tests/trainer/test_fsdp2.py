@@ -22,7 +22,6 @@ from tests.common import (
 )
 from tests.trainer.fsdp2_context import fsdp2_context
 
-
 _INIT_DEVICES = ['cuda', 'meta']
 
 

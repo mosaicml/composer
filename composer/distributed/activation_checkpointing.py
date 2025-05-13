@@ -34,15 +34,15 @@ def generate_default_check_fn(model: nn.Module) -> Callable:
 
 def generate_fsdp1_composer_model_check_fn(composer_model: nn.Module) -> Callable:
     """Generates a check function for activation checkpointing/offloading that mimics FSDP1 behavior.
-    
+
     This function creates a mapping for each module in the ComposerModel, determining whether
     its activations should be checkpointed. It follows the same pattern as FSDP1 by checkpointing
     direct children of the ComposerModel but not the ComposerModel itself. It also respects any
     _activation_checkpointing attributes or activation_checkpointing_fn functions defined on modules.
-    
+
     Args:
         composer_model (nn.Module): The ComposerModel to generate a check function for.
-        
+
     Returns:
         Callable: A function that determines whether a module's activations should be checkpointed.
     """
@@ -50,10 +50,14 @@ def generate_fsdp1_composer_model_check_fn(composer_model: nn.Module) -> Callabl
     cached_submodules_ac: dict[nn.Module, bool] = {composer_model: False}
     for child in composer_model.children():
         cached_submodules_ac[child] = True
-        activation_checkpointing_fn = getattr(child, 'activation_checkpointing_fn', lambda x: cached_submodules_ac.get(x, False))
+        activation_checkpointing_fn = getattr(
+            child, 'activation_checkpointing_fn', lambda x: cached_submodules_ac.get(x, False)
+        )
         for module in child.modules():
-            cached_submodules_ac[module] = getattr(module, '_activation_checkpointing', activation_checkpointing_fn(module))
-    
+            cached_submodules_ac[module] = getattr(
+                module, '_activation_checkpointing', activation_checkpointing_fn(module)
+            )
+
     def _check_fn(module: torch.nn.Module) -> bool:
         return cached_submodules_ac[module]
 

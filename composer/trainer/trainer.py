@@ -100,8 +100,8 @@ from composer.utils import (
     MLFLOW_EXPERIMENT_ID_FORMAT_KEY,
     MLFLOW_RUN_ID_FORMAT_KEY,
     ExportFormat,
-    FSDPConfig,
     FSDP2Config,
+    FSDPConfig,
     ObjectStore,
     ParallelismConfig,
     TPConfig,
@@ -3819,7 +3819,9 @@ class Trainer:
             output_names=output_names,
         )
 
-    def _parse_parallelism_config(self, parallelism_config: Optional[dict[str, Any] | ParallelismConfig]) -> Optional[ParallelismConfig]:
+    def _parse_parallelism_config(
+        self, parallelism_config: Optional[dict[str, Any] | ParallelismConfig]
+    ) -> Optional[ParallelismConfig]:
         """Parse parallelism configuration into a ParallelismConfig object.
 
         Args:
