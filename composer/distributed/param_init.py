@@ -31,6 +31,7 @@ def meta_init(module: nn.Module, param_init_fn: Optional[Callable[[nn.Module], N
         - It requires either a module-level `param_init_fn` or module-level
           `reset_parameters` methods to perform the actual initialization.
     """
+    # TODO need a unit test for this
     cur_param_init_fn = getattr(module, 'param_init_fn', param_init_fn)
     for child in module.children():
         meta_init(child, cur_param_init_fn)
@@ -47,7 +48,7 @@ def meta_init(module: nn.Module, param_init_fn: Optional[Callable[[nn.Module], N
     module.to_empty(device='cuda', recurse=False)
     if isinstance(cur_param_init_fn, Callable):
         cur_param_init_fn(module)
-    elif isinstance(getattr(module, 'reset_parameters', None), Callable):
+    elif hasattr(module, 'reset_parameters') and isinstance(module.reset_parameters, Callable):
         module.reset_parameters()
     else:
         raise ValueError(

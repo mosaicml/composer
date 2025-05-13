@@ -1724,16 +1724,22 @@ class State(Serializable):
                 print('grad of fsdp1 model')
                 with FSDP.summon_full_params(self.model, with_grads=True):
                     for name, param in self.model.named_parameters():
+                        if param.grad is None:
+                            continue
                         print(f'{name} param norm: {param.norm().item()}, full grad norm: {param.grad.norm().item()}')
             case 2:
                 print('grad of fsdp2 model')
                 for name, param in self.model.named_parameters():
+                    if param.grad is None:
+                        continue
                     print(
-                        f'{name} param norm: {param.norm().full_tensor().item()}, local grad norm: {param.grad.norm().to_local().item()}, full grad norm: {param.grad.norm().full_tensor().item()}',
+                        f'{name} param norm: {param.norm().full_tensor().item()}, local grad norm: {param.grad.norm().to_local().item()}, full grad norm: {param.grad.norm().full_tensor().item()}',  # type: ignore
                     )
             case 0:
                 print('grad of ddp model')
                 for name, param in self.model.named_parameters():
+                    if param.grad is None:
+                        continue
                     print(f'{name} param norm: {param.norm().item()}, full grad norm: {param.grad.norm().item()}')
             case _:
                 raise ValueError(f'Unsupported FSDP config version: {self.fsdp_config_version}')

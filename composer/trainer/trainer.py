@@ -1852,7 +1852,7 @@ class Trainer:
                         self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
                             model,
                             optimizers,
-                            self.state.fsdp_config,
+                            self.state.fsdp_config,  # type: ignore
                             precision,
                             device,
                             auto_microbatching,
@@ -1863,7 +1863,7 @@ class Trainer:
                         parallelize_composer_model(
                             model,
                             optimizers,
-                            self.state.fsdp_config,
+                            self.state.fsdp_config,  # type: ignore
                         )
                     case _:
                         raise ValueError(f'Unsupported FSDP config version: {self.state.fsdp_config_version}')
