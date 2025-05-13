@@ -465,7 +465,9 @@ def _load_model_state_dict_with_fsdp_context_manager(
         StateDictType,
     )
     state_dict_type = StateDictType.SHARDED_STATE_DICT if sharded_state_dict else StateDictType.FULL_STATE_DICT
-    state_dict_config = ShardedStateDictConfig(offload_to_cpu=True,) if sharded_state_dict else FullStateDictConfig(
+    state_dict_config = ShardedStateDictConfig(
+        offload_to_cpu=True,
+    ) if sharded_state_dict else FullStateDictConfig(
         offload_to_cpu=True,
         rank0_only=True,
     )

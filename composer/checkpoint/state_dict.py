@@ -159,11 +159,12 @@ def _get_model_state_dict_with_fsdp_context_manager(model: nn.Module, sharded_st
         StateDictType,
     )
     state_dict_type = StateDictType.SHARDED_STATE_DICT if sharded_state_dict else StateDictType.FULL_STATE_DICT
-    state_dict_config = ShardedStateDictConfig(offload_to_cpu=cpu_offload,
-                                              ) if sharded_state_dict else FullStateDictConfig(
-                                                  rank0_only=True,
-                                                  offload_to_cpu=cpu_offload,
-                                              )
+    state_dict_config = ShardedStateDictConfig(
+        offload_to_cpu=cpu_offload,
+    ) if sharded_state_dict else FullStateDictConfig(
+        rank0_only=True,
+        offload_to_cpu=cpu_offload,
+    )
     with FSDP.state_dict_type(model, state_dict_type=state_dict_type, state_dict_config=state_dict_config):
         model_state_dict = model.state_dict()
     return model_state_dict
@@ -284,11 +285,12 @@ def _get_optim_state_dict_with_fsdp_context_manager(
     )
     state_dict_type = StateDictType.SHARDED_STATE_DICT if sharded_state_dict else StateDictType.FULL_STATE_DICT
 
-    state_dict_config = ShardedStateDictConfig(offload_to_cpu=cpu_offload,
-                                              ) if sharded_state_dict else FullStateDictConfig(
-                                                  rank0_only=True,
-                                                  offload_to_cpu=cpu_offload,
-                                              )
+    state_dict_config = ShardedStateDictConfig(
+        offload_to_cpu=cpu_offload,
+    ) if sharded_state_dict else FullStateDictConfig(
+        rank0_only=True,
+        offload_to_cpu=cpu_offload,
+    )
     optim_state_dict_config = ShardedOptimStateDictConfig(
         offload_to_cpu=cpu_offload,
     ) if sharded_state_dict else FullOptimStateDictConfig(rank0_only=True, offload_to_cpu=cpu_offload)

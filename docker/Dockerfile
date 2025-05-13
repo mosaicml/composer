@@ -10,9 +10,12 @@
 # ARG CUDA_VERSION=
 ARG CUDA_VERSION=11.3.1
 
+# Ubuntu version of base image.
+ARG UBUNTU_VERSION=22.04
+
 # Calculate the base image based on CUDA_VERSION
-ARG BASE_IMAGE=${CUDA_VERSION:+"nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu22.04"}
-ARG BASE_IMAGE=${BASE_IMAGE:-"ubuntu:22.04"}
+ARG BASE_IMAGE=${CUDA_VERSION:+"nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${UBUNTU_VERSION}"}
+ARG BASE_IMAGE=${BASE_IMAGE:-"ubuntu:${UBUNTU_VERSION}"}
 
 # The Python version to install
 ARG PYTHON_VERSION=3.10
@@ -65,6 +68,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-c"]
 
 ARG CUDA_VERSION
+ARG UBUNTU_VERSION
 
 # Remove a bad symlink from the base composer image
 # If this file is present after the first command, kaniko
@@ -72,7 +76,6 @@ ARG CUDA_VERSION
 RUN if [ -n "$CUDA_VERSION" ]; then \
         rm -f /usr/local/cuda-$(echo $CUDA_VERSION | cut -c -4)/cuda-$(echo $CUDA_VERSION | cut -c -4); \
     fi
-
 
 # update repository keys
 # https://developer.nvidia.com/blog/updating-the-cuda-linux-gpg-repository-key/
@@ -86,7 +89,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         rm -rf /var/lib/apt/lists/* \
         apt-key del 7fa2af80 && \
         mkdir -p /tmp/cuda-keyring && \
-        wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb && \
+        wget -P /tmp/cuda-keyring "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VERSION//./}/x86_64/cuda-keyring_1.0-1_all.deb" && \
         dpkg -i /tmp/cuda-keyring/cuda-keyring_1.0-1_all.deb && \
         rm -rf /tmp/cuda-keyring ; \
     fi
@@ -203,7 +206,7 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
 # Install EFA and AWS-OFI-NCCL plugin
 #####################################
 
-ARG EFA_INSTALLER_VERSION=latest
+ARG EFA_INSTALLER_VERSION=1.38.1
 ARG AWS_OFI_NCCL_VERSION
 
 ENV LD_LIBRARY_PATH=/usr/local/cuda/extras/CUPTI/lib64:/opt/amazon/openmpi/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:$LD_LIBRARY_PATH
@@ -251,7 +254,7 @@ ARG MOFED_VERSION
 
 RUN if [ -n "$MOFED_VERSION" ] ; then \
         wget -qO - http://www.mellanox.com/downloads/ofed/RPM-GPG-KEY-Mellanox | sudo apt-key add - && \
-        wget -P /etc/apt/sources.list.d/ http://linux.mellanox.com/public/repo/mlnx_ofed/$MOFED_VERSION/ubuntu22.04/mellanox_mlnx_ofed.list && \
+        wget -P /etc/apt/sources.list.d/ http://linux.mellanox.com/public/repo/mlnx_ofed/$MOFED_VERSION/ubuntu$UBUNTU_VERSION/mellanox_mlnx_ofed.list && \
         apt-get update && \
         apt-get install -y mlnx-ofed-dpdk-upstream-libs-user-only && \
 	pip uninstall -y netifaces && pip install netifaces==0.11.0 ; \
@@ -337,8 +340,10 @@ RUN pip install --no-cache-dir --upgrade \
         urllib3${URLLIB3_VERSION} \
         python-snappy
 
-RUN apt-get remove -y python3-blinker
-RUN pip install blinker
+RUN if [ "$UBUNTU_VERSION" != "20.04" ]; then \
+        apt-get remove -y python3-blinker && \
+        pip install blinker ; \
+    fi
 
 ##################################################
 # Override NVIDIA mistaken env var for 11.8 images
