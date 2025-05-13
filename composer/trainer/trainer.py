@@ -2937,7 +2937,7 @@ class Trainer:
             if use_grad_scaling:
                 for optimizer in ensure_tuple(self.state.optimizers):
                     self.state.scaler.unscale_(optimizer)
-            self.state.log_post_backward_param_and_gradient()
+
             self.engine.run_event(Event.AFTER_TRAIN_BATCH)
 
             return total_loss_dict['loss/train/total']
