@@ -324,7 +324,7 @@ def generate_default_policy(parent_model: nn.Module) -> CustomPolicy:
     return CustomPolicy(lambda_fn)
 
 
-def generate_fsdp1_composer_model_policy(composer_model: ComposerModel) -> CustomPolicy:
+def generate_composer_model_policy(composer_model: ComposerModel) -> CustomPolicy:
     """Generates a FSDP wrap policy for ComposerModel that mimics FSDP1 behavior.
 
     This policy wraps all direct children of the ComposerModel but not the ComposerModel itself,

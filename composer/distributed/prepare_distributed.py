@@ -9,9 +9,9 @@ from typing import Callable, Optional
 import torch
 from torch.distributed.fsdp.wrap import CustomPolicy
 
-from composer.distributed.activation_checkpointing import apply_ac, generate_fsdp1_composer_model_check_fn
+from composer.distributed.activation_checkpointing import apply_ac, generate_composer_model_check_fn
 from composer.distributed.fsdp2 import prepare_fully_shard
-from composer.distributed.fsdp2_utils import generate_fsdp1_composer_model_policy, sync_optimizer_and_model_params
+from composer.distributed.fsdp2_utils import generate_composer_model_policy, sync_optimizer_and_model_params
 from composer.distributed.param_init import meta_init
 from composer.models import ComposerModel
 from composer.utils.parallelism import FSDP2Config
@@ -87,14 +87,14 @@ def parallelize_composer_model(
         config (FSDP2Config): The configuration for distributed training. Currently only FSDP2Config is supported.
     """
     assert isinstance(composer_model, ComposerModel), f'{type(composer_model)} is not a ComposerModel'
-    activation_checkpointing_check_fn = generate_fsdp1_composer_model_check_fn(
+    activation_checkpointing_check_fn = generate_composer_model_check_fn(
         composer_model,
     ) if config.activation_checkpointing or config.activation_cpu_offload else None
     parallelize_model(
         composer_model,
         config,
         optimizer=optimizer,
-        fsdp_wrap_policy=generate_fsdp1_composer_model_policy(composer_model),
+        fsdp_wrap_policy=generate_composer_model_policy(composer_model),
         activation_checkpointing_check_fn=activation_checkpointing_check_fn,
         param_init_fn=meta_init,
     )
