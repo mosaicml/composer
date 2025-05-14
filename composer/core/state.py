@@ -905,6 +905,27 @@ class State(Serializable):
             raise TypeError(f'Expected value to be of type FSDPConfig or FSDP2Config, but got {type(value)}.')
 
     @property
+    def fsdp_config_version(self) -> int:
+        """Return the version of the FSDP config.
+
+        Version 0 means DDP.
+        Version 1 means using torch's FullyShardedDataParallel.
+        Version 2 means using torch's fully_shard and Dtensor.
+
+        Returns:
+            int: The version of the FSDP config.
+        """
+        match self.fsdp_config:
+            case None:
+                return 0  # DDP
+            case config if isinstance(config, FSDPConfig):
+                return 1
+            case config if isinstance(config, FSDP2Config):
+                return 2
+            case _:
+                raise ValueError(f'Unknown FSDP config type: {type(self.fsdp_config)}')
+
+    @property
     def fsdp_enabled(self):
         """Indicates if FSDP is enabled."""
         for module in self.model.modules():

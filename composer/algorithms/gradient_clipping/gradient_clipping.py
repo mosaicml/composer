@@ -137,7 +137,7 @@ class GradientClipping(Algorithm):
                 model=state.model,
                 clipping_type=self.clipping_type,
                 clipping_threshold=self.clipping_threshold,
-                fsdp_enabled=state.fsdp_enabled,
+                fsdp_enabled=state.fsdp_config_version == 1,
             )
 
 

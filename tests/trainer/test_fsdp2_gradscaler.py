@@ -13,7 +13,7 @@ from composer.utils.parallelism import FSDP2Config
 from tests.common import (
     world_size,
 )
-from tests.trainer.fsdp2_context import fsdp2_context, prepare_fully_shard
+from tests.trainer.fsdp2_context import fsdp2_context, parallelize_model
 
 
 class SimpleModel(nn.Module):
@@ -30,6 +30,9 @@ class SimpleModel(nn.Module):
         x = self.linear1(x)
         return x
 
+    def fsdp_wrap_fn(self, module: nn.Module) -> bool:
+        return isinstance(module, nn.Linear)
+
 
 @world_size(2)
 @pytest.mark.gpu
@@ -45,7 +48,7 @@ def test_fsdp2_with_gradscaler_inf(world_size: int):
     model = SimpleModel().to('cuda')
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
     # Apply fully_shard to the model
-    prepare_fully_shard(model, optimizer, FSDP2Config())
+    parallelize_model(model, FSDP2Config(), optimizer)
 
     # dummy inputs and targets
     inputs = torch.randn(1, 2, device='cuda', dtype=dtype)

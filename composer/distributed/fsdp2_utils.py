@@ -10,7 +10,9 @@ from typing import Any, Callable, Union
 import torch
 import torch.nn as nn
 from torch.distributed.fsdp.wrap import CustomPolicy
+from torchmetrics import Metric, MetricCollection
 
+from composer.models import ComposerModel
 from composer.utils.parallelism import FSDP2Config
 
 # FSDP2 Weight Tying Functions
@@ -48,7 +50,8 @@ def legalize_param_sharing_between_modules(model: nn.Module, modules_to_shard: l
     visited_modules = set()
     modules_to_shard_set = set(modules_to_shard)
 
-    # Define a DFS function to check for parameter sharing
+    # a naive walk over model.modules wouldn't work as if a module is filtered out, we need to skip it and its children
+    # while model.modules() walk into all submodules, therefore we need to do a DFS to check for parameter sharing
     def _check_param_sharing(module: nn.Module):
         if module in modules_to_shard_set or module in visited_modules:
             return
@@ -74,7 +77,8 @@ def legalize_param_sharing_between_modules(model: nn.Module, modules_to_shard: l
 def get_standalone_and_tied_modules(modules: list[nn.Module]) -> tuple[list[nn.Module], set[nn.Module]]:
     """Filter modules that have standalone params thus can be fully sharded independently and those with tied params.
 
-    Note if a module does not have any params, it is not included in the output.
+    Note if a module is a child of another module, they are still considered to be tied modules.
+    If a module does not have any params, it is not included in the output.
 
     Args:
         modules (list[torch.nn.Module]): List of modules to analyze.
@@ -170,6 +174,33 @@ def check_param_tying(model: nn.Module):
 # Optimizer + FSDP2 Functions
 
 
+@contextlib.contextmanager
+def sync_optimizer_and_model_params(
+    optimizer: torch.optim.Optimizer,
+    model: nn.Module,
+):
+    """Context manager that synchronizes optimizer parameters with model parameters.
+
+    This context manager builds a mapping between the original model parameters and their names,
+    yields control back to the caller, and then updates the optimizer's parameter groups to
+    use the (potentially sharded) model parameters after the context block.
+
+    Args:
+        optimizer (torch.optim.Optimizer): The optimizer to update.
+        model (nn.Module): The model whose parameters should be synced with the optimizer.
+
+    Yields:
+        None
+    """
+    # Build the parameter to name mapping before any modifications
+    orig_param_to_name = {p: n for n, p in model.named_parameters(recurse=True)}
+
+    yield
+
+    # After the context, update the optimizer to use the new parameters
+    update_optimizer_modules(optimizer, model, orig_param_to_name)
+
+
 def update_optimizer_modules(
     optimizer: torch.optim.Optimizer,
     model: nn.Module,
@@ -207,8 +238,7 @@ def update_optimizer_modules(
             param_name = orig_param_to_name.get(param, None)
             if param_name is None:
                 # This means that the parameter is not in the original model
-                # And as `prepare_fully_shard` takes in the optimizer itself, we don't have a way to
-                # identify the parameter name so we just use the id
+                # And since we don't have a way to identify the parameter name in the optimizer, we just use the id
                 unseen_params.add(f'optimizer.param_id.{id(param)}')
             elif param_name not in name_to_sharded_param:
                 # This means that the base model parameter is not in the sharded model
@@ -247,10 +277,23 @@ def update_optimizer_modules(
 def generate_default_policy(parent_model: nn.Module) -> CustomPolicy:
     """Generates the default fsdp wrap policy for FSDP2.
 
-    This policy is the same as the default policy in FSDP1 with some caveats around
-    how the root_module (parent_model) is handled to best support FSDP2. We also
-    raise a deprecation warning once if _fsdp_wrap is set in the model instead of
-    using the fsdp_wrap_fn.
+    This policy determines which modules should be wrapped with FSDP2 based on module attributes
+    or custom wrapping functions. It checks for:
+
+    1. The presence of an `_fsdp_wrap` attribute on modules (deprecated)
+    2. A `fsdp_wrap_fn` callable on the parent model that returns True/False or FSDP2 config options
+
+    The policy respects parameter sharing constraints, ensuring that modules with tied weights
+    are properly handled during sharding.
+
+    Args:
+        parent_model (nn.Module): The root module to generate the policy for.
+
+    Returns:
+        CustomPolicy: A policy function that determines which modules to wrap with FSDP2.
+
+    Raises:
+        KeyError: If a module's fsdp_wrap_fn returns a dict with invalid FSDP2Config keys.
     """
     # Filter the specific deprecation warning to only appear once.
     warnings.filterwarnings(
@@ -260,30 +303,78 @@ def generate_default_policy(parent_model: nn.Module) -> CustomPolicy:
     )
 
     def lambda_fn(current_module: nn.Module) -> Union[bool, dict[str, Any]]:
-        ret = False
         if hasattr(current_module, '_fsdp_wrap'):
             warnings.warn(
                 DeprecationWarning(
                     'The _fsdp_wrap attribute will be removed in a future release. Please use fsdp_wrap_fn instead.',
                 ),
             )
-            ret = bool(current_module._fsdp_wrap)
-        elif hasattr(parent_model, 'fsdp_wrap_fn') and isinstance(parent_model.fsdp_wrap_fn, Callable):
-            # There are certain situations where _fsdp_wrap for the parent model is not set, but we wrap submodules
-            # with _fsdp_wrap_fn (e.g. wrapping all GPTBlocks). In those situations, we generally also want to wrap
-            # the parent model, so we have an additional check here.
-            if current_module == parent_model:
-                return True
-            ret = parent_model.fsdp_wrap_fn(current_module)
-            if isinstance(ret, dict):
-                # Ensure all keys in the returned dict are valid FSDP2Config attributes
-                valid_keys = set(FSDP2Config.__annotations__.keys())
-                if not set(ret.keys()).issubset(valid_keys):
-                    raise ValueError(f'Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {valid_keys}')
-        elif current_module == parent_model:
-            # Unless the user specifically sets the _fsdp_wrap attribute to False for the parent model,
-            # we default to wrapping the parent model.
-            ret = True
-        return ret
+            return bool(current_module._fsdp_wrap)
+        # TODO: make this recursive for reusability, similar to meta_init in param_init.py
+        if hasattr(parent_model, 'fsdp_wrap_fn') and isinstance(parent_model.fsdp_wrap_fn, Callable):
+            res = parent_model.fsdp_wrap_fn(current_module)
+            # Ensure all keys in the returned dict are valid FSDP2Config attributes
+            if isinstance(res, dict) and not set(res.keys()).issubset(FSDP2Config.settable_attrs()):
+                raise KeyError(
+                    f'Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {FSDP2Config.settable_attrs()}',
+                )
+            return res
+        return False
+
+    return CustomPolicy(lambda_fn)
+
+
+def generate_composer_model_policy(composer_model: ComposerModel) -> CustomPolicy:
+    """Generates a FSDP wrap policy for ComposerModel that mimics FSDP1 behavior.
+
+    This policy wraps all direct children of the ComposerModel but not the ComposerModel itself,
+    which matches the behavior of FSDP1's prepare_fsdp_module function. It also respects
+    any _fsdp_wrap attributes or fsdp_wrap_fn functions defined on modules.
+
+    Args:
+        composer_model (ComposerModel): The ComposerModel to generate a policy for.
+
+    Returns:
+        CustomPolicy: A policy function that determines which modules to wrap with FSDP.
+
+    Raises:
+        KeyError: If a module's fsdp_wrap_fn returns a dict with invalid FSDP2Config keys.
+    """
+    # Filter the specific deprecation warning to only appear once.
+    warnings.filterwarnings(
+        'once',
+        category=DeprecationWarning,
+        message='The _fsdp_wrap attribute will be removed in a future release. Please use fsdp_wrap_fn instead.',
+    )
+
+    cached_submodules_to_wrap: dict[nn.Module, bool | dict[str, Any]] = {composer_model: False}
+    for child in composer_model.children():
+        if isinstance(child, Metric | MetricCollection):
+            for module in child.modules():
+                cached_submodules_to_wrap[module] = False
+            continue
+        # this can be overwritten by the _fsdp_wrap attribute or fsdp_wrap_fn
+        cached_submodules_to_wrap[child] = True
+        fsdp_wrap_fn = getattr(child, 'fsdp_wrap_fn', lambda x: cached_submodules_to_wrap.get(x, False))
+        for child_module in child.modules():
+            if hasattr(child_module, '_fsdp_wrap'):
+                warnings.warn(
+                    DeprecationWarning(
+                        'The _fsdp_wrap attribute will be removed in a future release. Please use fsdp_wrap_fn instead.',
+                    ),
+                )
+                cached_submodules_to_wrap[child_module] = bool(child_module._fsdp_wrap)
+            elif child_module is child:
+                continue
+            else:
+                res = fsdp_wrap_fn(child_module)
+                if isinstance(res, dict) and not set(res.keys()).issubset(FSDP2Config.settable_attrs()):
+                    raise KeyError(
+                        f'Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {FSDP2Config.settable_attrs()}',
+                    )
+                cached_submodules_to_wrap[child_module] = res
+
+    def lambda_fn(current_module: nn.Module) -> bool | dict[str, Any]:
+        return cached_submodules_to_wrap.get(current_module, False)
 
     return CustomPolicy(lambda_fn)

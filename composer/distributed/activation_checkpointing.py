@@ -21,12 +21,53 @@ def generate_default_check_fn(model: nn.Module) -> Callable:
     def _check_fn(module: torch.nn.Module) -> bool:
         if hasattr(module, '_activation_checkpointing'):
             return bool(module._activation_checkpointing)
+        # TODO: make this recursive for reusability, similar to meta_init in param_init.py
         if hasattr(
             model,
             'activation_checkpointing_fn',
         ) and isinstance(model.activation_checkpointing_fn, Callable):
             return model.activation_checkpointing_fn(module)
         return False
+
+    return _check_fn
+
+
+def generate_composer_model_check_fn(composer_model: nn.Module) -> Callable:
+    """Generates a check function for activation checkpointing/offloading that is compatible with ComposerModel.
+
+    This function creates a mapping for each module in the ComposerModel, determining whether
+    its activations should be checkpointed or offloaded. It follows a hierarchical approach:
+
+    1. The ComposerModel itself is not checkpointed
+    2. Direct children of ComposerModel are examined for checkpointing
+    3. For each module, it checks for:
+       - An explicit '_activation_checkpointing' attribute
+       - The result of the direct child module's 'activation_checkpointing_fn' if available
+
+    The function caches these decisions to avoid redundant computation during the checkpointing process.
+
+    Args:
+        composer_model (nn.Module): The ComposerModel to generate a check function for.
+
+    Returns:
+        Callable: A function that determines whether a module's activations should be checkpointed.
+    """
+    cached_submodules_ac: dict[nn.Module, bool] = {composer_model: False}
+    for child in composer_model.children():
+        activation_checkpointing_fn = getattr(
+            child,
+            'activation_checkpointing_fn',
+            lambda x: cached_submodules_ac.get(x, False),
+        )
+        for module in child.modules():
+            cached_submodules_ac[module] = getattr(
+                module,
+                '_activation_checkpointing',
+                activation_checkpointing_fn(module),
+            )
+
+    def _check_fn(module: torch.nn.Module) -> bool:
+        return cached_submodules_ac.get(module, False)
 
     return _check_fn
 

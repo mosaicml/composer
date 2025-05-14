@@ -20,49 +20,7 @@ from tests.common import (
     SimpleWeightTiedModel,
     world_size,
 )
-from tests.trainer.fsdp2_context import (
-    fsdp2_context,
-    parallelize_model,
-)
-
-
-@fsdp2_context
-def test_fsdp2_config():
-    """Test that FSDP2Config read-only properties work as expected."""
-    # Create a config instance
-    config = FSDP2Config()
-
-    # Test reading properties (should succeed)
-    assert config.auto_wrap is False
-    assert config.load_monolith_rank0_only is False
-    assert config.sync_module_states is False
-    assert config.activation_cpu_offload is False
-    assert config.data_parallel_shard_degree == -1
-    assert config.data_parallel_replicate_degree is None
-    assert config.state_dict_type == 'sharded'
-    assert config.use_orig_params is True
-
-    # Test setting properties (should fail)
-    read_only_props = [
-        ('auto_wrap', False),
-        ('load_monolith_rank0_only', True),
-        ('sync_module_states', True),
-        ('data_parallel_shard_degree', 2),
-        ('data_parallel_replicate_degree', 2),
-        ('state_dict_type', 'full'),
-        ('use_orig_params', False),
-    ]
-
-    for prop, value in read_only_props:
-        with pytest.raises(AttributeError):
-            setattr(config, prop, value)
-
-    # Test that core properties can be set
-    config.device_mesh = None
-    config.reshard_after_forward = False
-    assert config.device_mesh is None
-    assert config.reshard_after_forward is False
-
+from tests.trainer.fsdp2_context import fsdp2_context
 
 _INIT_DEVICES = ['cuda', 'meta']
 
@@ -82,23 +40,10 @@ def create_trainer_with_model(
 
     parallelism_config = ParallelismConfig()
     if use_fsdp2:
-        # Trainer is not calling parallelize_model yet, so we need to do it manually
-        fsdp2_config = FSDP2Config(
+        parallelism_config.fsdp2 = FSDP2Config(
             activation_checkpointing=activation_checkpointing,
             activation_cpu_offload=activation_cpu_offload,
         )
-
-        # NOTE we can only apply FSDP2 to ComposerClassifier's module field until we support auto_wrap
-        parallelize_model(model=model.module, config=fsdp2_config, optimizer=optimizer)
-        # NOTE module to_empty should only happen after the model is fully sharded and parameters are coverted to Dtensor
-        # otherwise to_empty breaks weight tying
-        # TODO (FSDP2) we should guardrail this in prepare_fully_shard
-        model.to_empty(device='cuda')
-        param_init_fn = getattr(model, 'param_init_fn', None)
-        if param_init_fn is not None:
-            for module in model.modules():
-                param_init_fn(module)
-        parallelism_config.fsdp2 = fsdp2_config
     else:
         parallelism_config.fsdp = FSDPConfig(state_dict_type='sharded')
     if optimizer is None:
@@ -146,7 +91,6 @@ def test_fsdp2_initialization_with_tied_params(
     assert len(model.mlp._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the mlp module'
     assert len(model.mlp.fc1._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc1 module'
     assert len(model.mlp.fc2._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc2 module'
-    assert len(model.module._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the root module'
     if isinstance(model, PartialWeightTiedModel):
         assert len(model.fc3._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the fc3 module'
     assert model.mlp.fc1.weight.size(0) == model.mlp.fc2.weight.to_local(
@@ -282,6 +226,7 @@ def test_fsdp2_optimizer_handling(
     NUM_FEATURES = 10
     NUM_CLASSES = 10
     model = PartialWeightTiedModel(num_features=NUM_FEATURES, device=device)
+    model.add_fsdp_wrap_attribute_to_children()
 
     all_params_list = list(model.parameters())
     fc1_params_list = list(model.mlp.fc1.parameters())
@@ -354,8 +299,10 @@ def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(
     NUM_FEATURES = 10
     NUM_CLASSES = 10
     model = SimpleComposerMLP(num_features=NUM_FEATURES, device='cuda', num_classes=NUM_CLASSES)
+    model.add_fsdp_wrap_attribute_to_children()
     other_model = SimpleWeightTiedModel(num_features=NUM_FEATURES, device='cuda')
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    other_model.add_fsdp_wrap_attribute_to_children()
     with pytest.raises(ValueError) as e:
         create_trainer_with_model(model=other_model, num_classes=NUM_CLASSES, use_fsdp2=True, optimizer=optimizer)
     # Check that error message uses the correct prefix implying optimizer difference

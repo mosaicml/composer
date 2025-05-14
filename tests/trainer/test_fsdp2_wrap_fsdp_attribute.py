@@ -13,7 +13,7 @@ from tests.trainer.fsdp2_context import (
     _recursive_apply_fully_shard,
     check_param_tying,
     fsdp2_context,
-    prepare_fully_shard,
+    parallelize_model,
 )
 
 
@@ -66,10 +66,11 @@ def test_fsdp_wrap_separate_modules(world_size: int):
     """Test FSDP wrapping applied to separate, non-overlapping modules (M2, M5)."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+    m1._fsdp_wrap = True  # type: ignore
     m1.m2._fsdp_wrap = True  # type: ignore
     m1.m5._fsdp_wrap = True  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
-    prepare_fully_shard(m1, opt, fsdp2_config)
+    parallelize_model(m1, fsdp2_config, opt)
     check_dtensors(list(m1.parameters()))
 
 
@@ -79,12 +80,13 @@ def test_fsdp_wrap_error_tied_siblings(world_size: int):
     """Test error when siblings (M3, M4) with tied weights are both marked for FSDP wrapping."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+    m1._fsdp_wrap = True  # type: ignore
     m1.m2.m4.weight = m1.m2.m3.weight
     m1.m2.m3._fsdp_wrap = True  # type: ignore
     m1.m2.m4._fsdp_wrap = True  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
     with pytest.raises(ValueError, match='Detected tied parameters between modules designated for FSDP wrapping'):
-        prepare_fully_shard(m1, opt, fsdp2_config)
+        parallelize_model(m1, fsdp2_config, opt)
 
 
 @fsdp2_context
@@ -93,11 +95,12 @@ def test_fsdp_wrap_error_tied_sibling_one_wrapped(world_size: int):
     """Test error when one module (M3) marked for FSDP wrap shares weights with a sibling (M4)."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+    m1._fsdp_wrap = True  # type: ignore
     m1.m2.m4.weight = m1.m2.m3.weight
     m1.m2.m3._fsdp_wrap = True  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
     with pytest.raises(ValueError, match='Parameter sharing detected between modules to be sharded and module'):
-        prepare_fully_shard(m1, opt, fsdp2_config)
+        parallelize_model(m1, fsdp2_config, opt)
 
 
 @fsdp2_context
@@ -106,10 +109,11 @@ def test_fsdp_wrap_ancestor_with_tied_children(world_size: int):
     """Test wrapping an ancestor (M2) whose children (M3, M4) have tied weights. Should succeed."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+    m1._fsdp_wrap = True  # type: ignore
     m1.m2._fsdp_wrap = True  # type: ignore
     m1.m2.m3.weight = m1.m2.m4.weight
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
-    prepare_fully_shard(m1, opt, fsdp2_config)
+    parallelize_model(m1, fsdp2_config, opt)
     check_dtensors(list(m1.parameters()))
     error_msg = 'm1.m2.m3.weight and m1.m2.m4.weight should be the same object'
     assert id(m1.m2.m3.weight) == id(m1.m2.m4.weight), error_msg
@@ -121,11 +125,12 @@ def test_fsdp_wrap_error_tied_across_branches_ancestor_wrap(world_size: int):
     """Test error when a wrapped module (M2) has a child (M3) tied to a module (M6) in another branch."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+    m1._fsdp_wrap = True  # type: ignore
     m1.m2._fsdp_wrap = True  # type: ignore
     m1.m2.m3.weight = m1.m5.m6.weight  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
     with pytest.raises(ValueError, match='Parameter sharing detected between modules to be sharded and module'):
-        prepare_fully_shard(m1, opt, fsdp2_config)
+        parallelize_model(m1, fsdp2_config, opt)
 
 
 @fsdp2_context
@@ -137,7 +142,7 @@ def test_fsdp_wrap_root_with_tied_descendants(world_size: int):
     m1._fsdp_wrap = True  # type: ignore
     m1.m2.m3.weight = m1.m5.m6.weight  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
-    prepare_fully_shard(m1, opt, fsdp2_config)
+    parallelize_model(m1, fsdp2_config, opt)
     check_dtensors(list(m1.parameters()))
     error_msg = 'm1.m2.m3.weight and m1.m5.m6.weight should be the same object'
     assert id(m1.m2.m3.weight) == id(m1.m5.m6.weight), error_msg  # type: ignore
@@ -153,7 +158,7 @@ def test_fsdp_manual_policy_submodule_only(world_size: int):
     m1.m2.m3._fsdp_wrap = True  # type: ignore # Target module for wrapping
     auto_wrap_policy = _generate_default_policy(m1)
     target_modules_to_kwargs = auto_wrap_policy._run_policy(root_module=m1, ignored_modules=set(), root_kwargs={})
-    _recursive_apply_fully_shard(m1, m1, target_modules_to_kwargs)
+    _recursive_apply_fully_shard(m1, m1, set(), target_modules_to_kwargs)
     # Check only m1.m2.m3 parameters are DTensors
     check_dtensors(list(m1.m2.m3.parameters()))
     other_params = [p for p in m1.parameters() if p not in set(m1.m2.m3.parameters())]
@@ -166,10 +171,11 @@ def test_fsdp_wrap_parent_shares_with_child_parent_wrap(world_size: int):
     """Test wrapping a parent (M2) that shares weights with its child (M3). Should succeed."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+    m1._fsdp_wrap = True  # type: ignore
     m1.m2._fsdp_wrap = True  # type: ignore
     m1.m2.weight = m1.m2.m3.weight  # type: ignore # Assign M3's weight to M2
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
-    prepare_fully_shard(m1, opt, fsdp2_config)
+    parallelize_model(m1, fsdp2_config, opt)
     check_dtensors(list(m1.parameters()))
     error_msg = 'm1.m2.weight and m1.m2.m3.weight should be the same object'
     # Need to re-fetch the module if FSDP replaces it
@@ -185,13 +191,14 @@ def test_fsdp_wrap_error_parent_child_share_both_wrap(world_size: int):
     """Test error when parent (M2) and child (M3) share weights and both are marked for wrapping."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+    m1._fsdp_wrap = True  # type: ignore
     m1.m2._fsdp_wrap = True  # type: ignore
     m1.m2.m3._fsdp_wrap = True  # type: ignore
     m1.m2.weight = m1.m2.m3.weight  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
     # The error message might vary depending on traversal order, matching broader pattern
     with pytest.raises(ValueError, match='Parameter sharing detected'):
-        prepare_fully_shard(m1, opt, fsdp2_config)
+        parallelize_model(m1, fsdp2_config, opt)
 
 
 @fsdp2_context
@@ -200,12 +207,13 @@ def test_fsdp_wrap_error_parent_child_share_child_wrap(world_size: int):
     """Test error when parent (M2) and child (M3) share weights and only the child is marked for wrapping."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+    m1._fsdp_wrap = True  # type: ignore
     m1.m2._fsdp_wrap = False  # type: ignore
     m1.m2.m3._fsdp_wrap = True  # type: ignore
     m1.m2.weight = m1.m2.m3.weight  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
     with pytest.raises(ValueError, match='Parameter sharing detected between modules to be sharded and module'):
-        prepare_fully_shard(m1, opt, fsdp2_config)
+        parallelize_model(m1, fsdp2_config, opt)
 
 
 @fsdp2_context
@@ -214,13 +222,14 @@ def test_fsdp_wrap_error_complex_sharing_parent_wrap(world_size: int):
     """Test error with complex sharing: parent (M2) shares with child (M3), child shares with other branch (M6), parent is wrapped."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+    m1._fsdp_wrap = True  # type: ignore
     m1.m2._fsdp_wrap = True  # type: ignore
     m1.m2.weight = m1.m2.m3.weight  # type: ignore
     m1.m2.m3.weight = m1.m5.m6.weight  # type: ignore # M3 and M6 also share weights
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
     # M2 is wrapped, its param m2.weight is tied to m2.m3.weight, which is tied to m5.m6.weight (outside M2 FSDP unit)
     with pytest.raises(ValueError, match='Parameter sharing detected between modules to be sharded and module'):
-        prepare_fully_shard(m1, opt, fsdp2_config)
+        parallelize_model(m1, fsdp2_config, opt)
 
 
 @fsdp2_context
@@ -229,13 +238,14 @@ def test_fsdp_wrap_error_tied_across_branches_one_wrap(world_size: int):
     """Test error (as noted in original comments) when weights are tied (M3, M6) but only one (M6) is marked for wrap."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+    m1._fsdp_wrap = True  # type: ignore
     m1.m2.m3._fsdp_wrap = False  # type: ignore
     m1.m5.m6._fsdp_wrap = True  # type: ignore
     m1.m2.m3.weight = m1.m5.m6.weight  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
     # M6 is marked for wrap, but shares weight with M3 which is not.
     with pytest.raises(ValueError, match='Parameter sharing detected between modules to be sharded and module'):
-        prepare_fully_shard(m1, opt, fsdp2_config)
+        parallelize_model(m1, fsdp2_config, opt)
 
 
 @fsdp2_context
@@ -250,7 +260,7 @@ def test_fsdp_wrap_fn_base(world_size: int):
 
     m1.fsdp_wrap_fn = wrap_fn  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
-    prepare_fully_shard(m1, opt, fsdp2_config)
+    parallelize_model(m1, fsdp2_config, opt)
     # all parameters should be DTensors
     check_dtensors(list(m1.parameters()))
 
@@ -267,8 +277,8 @@ def test_fsdp_wrap_fn_invalid_keys(world_size: int):
 
     m1.fsdp_wrap_fn = wrap_fn  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
-    with pytest.raises(ValueError, match='Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {'):
-        prepare_fully_shard(m1, opt, fsdp2_config)
+    with pytest.raises(KeyError, match='Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {'):
+        parallelize_model(m1, fsdp2_config, opt)
 
 
 @fsdp2_context
@@ -284,7 +294,7 @@ def test_fsdp_wrap_fn_target_module(world_size: int):
 
     m1.fsdp_wrap_fn = wrap_fn  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
-    prepare_fully_shard(m1, opt, fsdp2_config)
+    parallelize_model(m1, fsdp2_config, opt)
     # only m1.m2 should be wrapped
     check_dtensors(list(m1.m2.parameters()))
     other_params = [p for p in m1.parameters() if p not in set(m1.m2.parameters())]
@@ -305,7 +315,7 @@ def test_fsdp_wrap_fn_error_tied_siblings(world_size: int):
     m1.m2.m3.weight = m1.m5.m6.weight
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
     with pytest.raises(ValueError, match='Parameter sharing detected'):
-        prepare_fully_shard(m1, opt, fsdp2_config)
+        parallelize_model(m1, fsdp2_config, opt)
 
 
 @fsdp2_context
@@ -320,7 +330,7 @@ def test_fsdp_wrap_fn_reshard_after_forward(world_size: int):
 
     m1.fsdp_wrap_fn = wrap_fn  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
-    prepare_fully_shard(m1, opt, fsdp2_config)
+    parallelize_model(m1, fsdp2_config, opt)
 
     def check_reshard_after_forward(module: nn.Module):
         fsdp_state = module._get_fsdp_state()  # type: ignore
@@ -357,7 +367,7 @@ def test_check_param_tying_fsdp_wrap(world_size: int):
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
 
     def update_model(m1):
-        prepare_fully_shard(m1, opt, fsdp2_config)
+        parallelize_model(m1, fsdp2_config, opt)
         m1.m2.m3.weight = m1.m5.m6.weight
 
     with pytest.raises(RuntimeError, match='Parameter tying relationship changed during the context'):
@@ -371,6 +381,7 @@ def test_fsdp_wrap_attribute_warning(world_size: int):
     """Test that only one warning is raised if _fsdp_wrap is set in the model instead of fsdp_wrap_fn."""
     fsdp2_config = FSDP2Config()
     m1 = DeepNestedModel()
+    m1._fsdp_wrap = True  # type: ignore
     m1.m2._fsdp_wrap = True  # type: ignore
     m1.m5._fsdp_wrap = True  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
@@ -378,7 +389,7 @@ def test_fsdp_wrap_attribute_warning(world_size: int):
         DeprecationWarning,
         match='The _fsdp_wrap attribute will be removed in a future release. Please use fsdp_wrap_fn instead.',
     ) as record:
-        prepare_fully_shard(m1, opt, fsdp2_config)
+        parallelize_model(m1, fsdp2_config, opt)
     assert len(record) == 1, f'Expected exactly one warning but got {len(record)} warnings'
 
 
@@ -391,5 +402,5 @@ def test_fsdp_wrap_attribute_not_raised_when_using_fsdp_wrap_fn(world_size: int)
     m1.fsdp_wrap_fn = lambda x: True  # type: ignore
     opt = torch.optim.Adam(m1.parameters(), lr=0.01)
     with pytest.warns(None) as record:  # type: ignore
-        prepare_fully_shard(m1, opt, fsdp2_config)
+        parallelize_model(m1, fsdp2_config, opt)
     assert len(record) == 0, f'Expected no warnings but got warnings: {record}'

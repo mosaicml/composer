@@ -46,6 +46,7 @@ def test_fsdp2_activation_checkpointing_attribute(
 
     model = ComposerCounterModel(num_inputs=10, num_outputs=10, device='cuda')
     if activation_checkpointing or activation_cpu_offload:
+        model.module._activation_checkpointing = False  # type: ignore
         model.module[0]._activation_checkpointing = True  # type: ignore
 
     # Train the model on one batch to make sure forward is called the expected number of times
