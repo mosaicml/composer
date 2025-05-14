@@ -61,7 +61,11 @@ def parallelize_model(
             config.activation_cpu_offload,
             activation_checkpointing_check_fn,
         )
+    for child in model.model.transformer.blocks.children():
+        child._fsdp_wrap = True
+        child._checkpoint_wrapped_module._fsdp_wrap = False
 
+    fsdp_wrap_policy=generate_composer_model_policy(model)
     # Use the context manager for optimizer synchronization if optimizer is provided
     with sync_optimizer_and_model_params(optimizer, model) if optimizer is not None else nullcontext():
         prepare_fully_shard(model, config, fsdp_wrap_policy)
