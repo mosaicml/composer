@@ -1715,31 +1715,3 @@ class State(Serializable):
     def is_model_ddp(self):
         """Whether :attr:`model` is an instance of a :class:`.DistributedDataParallel`."""
         return isinstance(self.model, DistributedDataParallel)
-
-    def log_post_backward_param_and_gradient(self):
-        """Log the parameters and gradients of the model after backward pass."""
-        # TODO: refactor this to a proper callback to log gradients right after backward pass
-        match self.fsdp_config_version:
-            case 1:
-                print('grad of fsdp1 model')
-                with FSDP.summon_full_params(self.model, with_grads=True):
-                    for name, param in self.model.named_parameters():
-                        if param.grad is None:
-                            continue
-                        print(f'{name} param norm: {param.norm().item()}, full grad norm: {param.grad.norm().item()}')
-            case 2:
-                print('grad of fsdp2 model')
-                for name, param in self.model.named_parameters():
-                    if param.grad is None:
-                        continue
-                    print(
-                        f'{name} param norm: {param.norm().full_tensor().item()}, local grad norm: {param.grad.norm().to_local().item()}, full grad norm: {param.grad.norm().full_tensor().item()}',  # type: ignore
-                    )
-            case 0:
-                print('grad of ddp model')
-                for name, param in self.model.named_parameters():
-                    if param.grad is None:
-                        continue
-                    print(f'{name} param norm: {param.norm().item()}, full grad norm: {param.grad.norm().item()}')
-            case _:
-                raise ValueError(f'Unsupported FSDP config version: {self.fsdp_config_version}')

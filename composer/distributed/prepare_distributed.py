@@ -48,9 +48,6 @@ def parallelize_model(
         ValueError: If the config is not an FSDP2Config or if activation_checkpointing_check_fn is provided
             but neither activation_checkpointing nor activation_cpu_offload is enabled in the config.
     """
-    if not isinstance(config, FSDP2Config):
-        raise ValueError('FSDP2Config is the only supported config for now')
-
     if activation_checkpointing_check_fn is not None:
         if not config.activation_checkpointing and not config.activation_cpu_offload:
             raise ValueError(
