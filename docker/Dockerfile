@@ -34,7 +34,7 @@ ARG MOFED_VERSION=5.5-1.0.3.2
 
 # Version of EFA Drivers to install (for AWS Elastic Fabric Adapter support)
 # Leave blank for no EFA Drivers
-ARG AWS_OFI_NCCL_VERSION=v1.7.4-aws
+ARG EFA_INSTALLER_VERSION=1.39.0
 
 # Upgrade certifi to resolve CVE-2022-23491
 ARG CERTIFI_VERSION='>=2022.12.7'
@@ -202,18 +202,17 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
 	        torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} ; \
     fi
 
-#####################################
-# Install EFA and AWS-OFI-NCCL plugin
-#####################################
+#############
+# Install EFA
+#############
 
-ARG EFA_INSTALLER_VERSION=1.38.1
-ARG AWS_OFI_NCCL_VERSION
+ARG EFA_INSTALLER_VERSION
 
-ENV LD_LIBRARY_PATH=/usr/local/cuda/extras/CUPTI/lib64:/opt/amazon/openmpi/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:$LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH=/usr/local/cuda/extras/CUPTI/lib64:/opt/amazon/openmpi/lib:/opt/amazon/efa/lib:$LD_LIBRARY_PATH
 ENV PATH=/opt/amazon/openmpi/bin/:/opt/amazon/efa/bin:$PATH
 ENV FI_EFA_USE_DEVICE_RDMA=1
 
-RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
+RUN if [ -n "$EFA_INSTALLER_VERSION" ] ; then \
     apt-get update && \
     apt-get install -y --no-install-recommends \
         hwloc \
@@ -223,7 +222,7 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
     rm -rf /var/lib/apt/lists/* ; \
     fi
 
-RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
+RUN if [ -n "$EFA_INSTALLER_VERSION" ] ; then \
         cd /tmp && \
         curl -OsS https://efa-installer.amazonaws.com/aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz && \
         tar -xf /tmp/aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz && \
@@ -231,19 +230,6 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
         apt-get update && \
         ./efa_installer.sh -y -g -d --skip-kmod --skip-limit-conf --no-verify && \
         rm -rf /tmp/aws-efa-installer* ; \
-    fi
-
-RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
-        git clone https://github.com/aws/aws-ofi-nccl.git /opt/aws-ofi-nccl && \
-        cd /opt/aws-ofi-nccl && \
-        git checkout ${AWS_OFI_NCCL_VERSION} && \
-        ./autogen.sh && \
-        ./configure --prefix=/opt/aws-ofi-nccl/install \
-            --with-libfabric=/opt/amazon/efa/ \
-            --with-cuda=/usr/local/cuda \
-            --disable-tests \
-            --enable-platform-aws && \
-        make && make install ; \
     fi
 
 ###################################
