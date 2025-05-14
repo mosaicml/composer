@@ -143,7 +143,7 @@ def test_get_model_state_dict_sharded(world_size, tensor_type, use_composer_mode
     post_shard_sharded_sd = get_model_state_dict(sharded_model, sharded_state_dict=True)
 
     # In order to test if the sharded state dict is correct we go through this process:
-    # 1. Transform the each rank's state dict's values by extracting the the local tensor from the ShardedTensor object
+    # 1. Transform the each rank's state dict's values by extracting the local tensor from the ShardedTensor object
     # 2. Gather each rank's state dicts
     # 3. Make a "reconstructed" full state dict by, for each key, concatenating all the tensor shards into one big tensor
     # 4. Compare this "reconstructed" full state dict to the original model's state dict to ensure they are the same.

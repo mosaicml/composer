@@ -247,7 +247,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
             # Synchronize the clocks
             # Each rank will record a timestamp at approxmately the same real world time
             clock_sync_a = time.time_ns()
-            dist.barrier()  # syncronize all ranks
+            dist.barrier()  # synchronize all ranks
             clock_sync_time_ns = time.time_ns()
             dist.barrier()  # another barrier to bound the error
             clock_sync_b = time.time_ns()
@@ -432,7 +432,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
 
         Args:
             name (str): Event name
-            categories (str): Comma-seperated string of event categories
+            categories (str): Comma-separated string of event categories
             ph (str): Event type. Should be one of the following
                 Duration Events: ``B`` (begin), ``E`` (end)
                 Complete Events: ``X``

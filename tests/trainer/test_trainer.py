@@ -924,7 +924,7 @@ class TestTrainerInitOrFit:
         max_duration: Time[int],
     ):
         """Test that the trainer supports multiple calls to fit."""
-        # Note that callbacks are tested seperately in tests/callbacks/test_callbacks.py
+        # Note that callbacks are tested separately in tests/callbacks/test_callbacks.py
         # To ensure that they support multiple calls of Event.INIT and Event.FIT
         trainer = Trainer(
             model=model,

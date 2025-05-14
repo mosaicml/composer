@@ -335,7 +335,7 @@ force_multiline_dict = false
 i18n_comment = '#\..*'
 
 # The i18n function call names. The presence of this function stops
-# reformattting on that line, because the string it has cannot be moved
+# reformatting on that line, because the string it has cannot be moved
 # away from the i18n comment.
 i18n_function_call = 'N_, _'
 

@@ -152,7 +152,7 @@ class UCObjectStore(ObjectStore):
 
         Args:
             object_name (str): Name of the stored object in UC volumes w.r.t. volume root.
-            filename (str | pathlib.Path): Path the the object on disk
+            filename (str | pathlib.Path): Path to the object on disk
             callback ((int, int) -> None, optional): Unused
         """
         # remove unused variable
