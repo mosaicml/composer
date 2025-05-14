@@ -67,7 +67,7 @@ def generate_composer_model_check_fn(composer_model: nn.Module) -> Callable:
             )
 
     def _check_fn(module: torch.nn.Module) -> bool:
-        return cached_submodules_ac[module]
+        return cached_submodules_ac.get(module, False)
 
     return _check_fn
 
