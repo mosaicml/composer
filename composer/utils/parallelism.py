@@ -83,13 +83,13 @@ class FSDP2Config:
 
     # TODO: add support of versose
 
-    @staticmethod
-    def settable_attrs() -> set[str]:
+    @classmethod
+    def settable_attrs(cls) -> set[str]:
         """Return a set of all settable attributes of FSDP2Config."""
-        return {field.name for field in fields(FSDP2Config)}
+        return {field.name for field in fields(cls)}
 
-    @staticmethod
-    def from_compatible_attrs(attrs: dict[str, Any]) -> 'FSDP2Config':
+    @classmethod
+    def from_compatible_attrs(cls, attrs: dict[str, Any]) -> 'FSDP2Config':
         """Create an FSDP2Config by filtering FSDP2 compatible attributes from given attrs.
 
         Only attributes that are valid for FSDP2Config will be used, and warnings will be issued
@@ -107,7 +107,7 @@ class FSDP2Config:
                          of FSDP2Config and will be ignored.
         """
         # Get the settable attributes of FSDP2Config
-        settable_attrs = FSDP2Config.settable_attrs()
+        settable_attrs = cls.settable_attrs()
         # Filter the input attributes to only include settable ones
         valid_attrs = {}
         for key, value in attrs.items():

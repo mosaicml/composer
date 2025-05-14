@@ -356,23 +356,23 @@ def generate_composer_model_policy(composer_model: ComposerModel) -> CustomPolic
         # this can be overwritten by the _fsdp_wrap attribute or fsdp_wrap_fn
         cached_submodules_to_wrap[child] = True
         fsdp_wrap_fn = getattr(child, 'fsdp_wrap_fn', lambda x: cached_submodules_to_wrap.get(x, False))
-        for module in child.modules():
-            if hasattr(module, '_fsdp_wrap'):
+        for child_module in child.modules():
+            if hasattr(child_module, '_fsdp_wrap'):
                 warnings.warn(
                     DeprecationWarning(
                         'The _fsdp_wrap attribute will be removed in a future release. Please use fsdp_wrap_fn instead.',
                     ),
                 )
-                cached_submodules_to_wrap[module] = bool(module._fsdp_wrap)
-            elif module == child:
+                cached_submodules_to_wrap[child_module] = bool(child_module._fsdp_wrap)
+            elif child_module is child:
                 continue
             else:
-                res = fsdp_wrap_fn(module)
+                res = fsdp_wrap_fn(child_module)
                 if isinstance(res, dict) and not set(res.keys()).issubset(FSDP2Config.settable_attrs()):
                     raise KeyError(
                         f'Invalid FSDP2 config keys in wrap_fn return value. Valid keys are: {FSDP2Config.settable_attrs()}',
                     )
-                cached_submodules_to_wrap[module] = res
+                cached_submodules_to_wrap[child_module] = res
 
     def lambda_fn(current_module: nn.Module) -> bool | dict[str, Any]:
         return cached_submodules_to_wrap.get(current_module, False)
