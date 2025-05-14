@@ -22,7 +22,7 @@ class StringEnum(Enum):
 
             import warnings
 
-            warnings.filterwarnings(action="ignore", message="Detected comparision between a string")
+            warnings.filterwarnings(action="ignore", message="Detected comparison between a string")
 
         .. doctest::
 
@@ -40,13 +40,13 @@ class StringEnum(Enum):
 
             warnings.resetwarnings()
 
-    *   Equality checks support case-insensitive comparisions against strings:
+    *   Equality checks support case-insensitive comparisons against strings:
 
         .. testsetup::
 
             import warnings
 
-            warnings.filterwarnings(action="ignore", message="Detected comparision between a string")
+            warnings.filterwarnings(action="ignore", message="Detected comparison between a string")
 
         .. doctest::
 
@@ -70,7 +70,7 @@ class StringEnum(Enum):
         if isinstance(other, str):
             cls_name = self.__class__.__name__
             warnings.warn(
-                f"Detected comparision between a string and {cls_name}. Please use {cls_name}('{other}') "
+                f"Detected comparison between a string and {cls_name}. Please use {cls_name}('{other}') "
                 f'to convert both types to {cls_name} before comparing.',
                 category=UserWarning,
             )

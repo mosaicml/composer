@@ -189,7 +189,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
     def solution_for_rank(self, input: torch.Tensor, rank: int) -> LowRankSolution:
         """Returns a solution that :meth:`.apply_solution` can use to update the module's level of factorization.
 
-        This is seperate from :meth:`set_rank` so that one can generate and assess
+        This is separate from :meth:`set_rank` so that one can generate and assess
         many possible solutions for a given module before choosing one.
 
         Args:

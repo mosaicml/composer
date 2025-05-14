@@ -99,7 +99,7 @@ To run the tests in the provided docker containers:
 
 ### Checking documentation
 
-If your changes affects the documentation, please get a chance to build the docs locally and view it to verify if the changes
+If your changes affect the documentation, please get a chance to build the docs locally and view it to verify if the changes
 are what you wanted.
 
 <!--pytest.mark.skip-->

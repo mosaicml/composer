@@ -63,7 +63,7 @@ class DummyObjectStore(ObjectStore):
         shutil.copy2(object_path, filename)
 
 
-def test_upload_mutliple_files():
+def test_upload_multiple_files():
     fork_context = multiprocessing.get_context('fork')
     tmp_dir = tempfile.TemporaryDirectory()
 

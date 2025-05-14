@@ -577,7 +577,7 @@ def get_file(
         path (str): The path to the file to retrieve.
 
             *   If ``object_store`` is specified, then the ``path`` should be the object name for the file to get.
-                Do not include the the cloud provider or bucket name.
+                Do not include the cloud provider or bucket name.
 
             *   If ``object_store`` is not specified but the ``path`` begins with ``http://`` or ``https://``,
                 the object at this URL will be downloaded.

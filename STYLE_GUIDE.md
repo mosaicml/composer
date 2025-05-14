@@ -84,7 +84,7 @@ Composer aims to annotate all functions with type annotations (introduced in
 `AttributeError` bugs, in addition to other benefits, as outlined in the PEP.
 
 For documentation on typing annotations, see:
-* [PEP 483](https://peps.python.org/pep-0483/) for a simplified introducation
+* [PEP 483](https://peps.python.org/pep-0483/) for a simplified introduction
 * [PEP 484](https://peps.python.org/pep-0484/) for the full specification
 * [Python docs for `typing`](https://docs.python.org/3/library/typing.html) for the API reference
 
@@ -153,7 +153,7 @@ The following are examples of public APIs:
 The following rules apply to public APIs:
 1. All public APIs must have a docstring (see the Documentation section below)
 1. All parameters must have type annotations.
-1. To minimize user imports, parameters should should use native PyTorch or Python types whenever possible.
+1. To minimize user imports, parameters should use native PyTorch or Python types whenever possible.
 
     It is acceptable to use a union of types, so long as one of the options is a primitive. For example, in the
     constructor for `composer.trainer.trainer.Trainer`, the `device` parameter is annotated like the following:
@@ -395,7 +395,7 @@ In one terminal, run:
 <!--pytest.mark.skip-->
 ```bash
 source path/to/composer_venv/bin/activate  # activate your composer virtual env
-cd composer/docs  # cd to the docs folder insde your composer clone
+cd composer/docs  # cd to the docs folder inside your composer clone
 make clean
 make html
 ```
@@ -462,7 +462,7 @@ Assuming you already have a development install of Composer (see these [instruct
 <!--pytest.mark.skip-->
 ```bash
 source path/to/composer_venv/bin/activate  # activate your composer virtual env
-cd composer/docs  # cd to the docs folder insde your composer clone
+cd composer/docs  # cd to the docs folder inside your composer clone
 make clean
 make html  # the html build must be completed first to ensure all doctests are identified
 make doctest 2>/dev/null # For more verbosity, do not direct stderr to /dev/null
