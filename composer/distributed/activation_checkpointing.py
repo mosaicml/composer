@@ -48,7 +48,6 @@ def generate_fsdp1_composer_model_check_fn(composer_model: nn.Module) -> Callabl
     """
     cached_submodules_ac: dict[nn.Module, bool] = {composer_model: False}
     for child in composer_model.children():
-        cached_submodules_ac[child] = True
         activation_checkpointing_fn = getattr(
             child,
             'activation_checkpointing_fn',
