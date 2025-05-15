@@ -6,6 +6,7 @@ from composer.utils import LocalEvalClient, dist
 from tests.common.markers import world_size
 
 
+@pytest.mark.filterwarnings('ignore::DeprecationWarning')
 @pytest.mark.parametrize(
     'code, result, language',
     [
