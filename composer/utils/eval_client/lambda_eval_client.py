@@ -5,6 +5,7 @@
 import json
 import logging
 import os
+import warnings
 
 import requests
 
@@ -23,6 +24,11 @@ class LambdaEvalClient(EvalClient):
         There must be CODE_EVAL_URL for the URL of the lambda API and CODE_EVAL_APIKEY
         for the API key of the lambda API.
         """
+        warnings.warn(
+            'LambdaEvalClient usage is deprecated and will be removed in v0.32',
+            category=DeprecationWarning,
+        )
+
         if 'CODE_EVAL_URL' not in os.environ or 'CODE_EVAL_APIKEY' not in os.environ:
             raise Exception(
                 'Please set environment variable CODE_EVAL_URL to the URL of the lambda API '

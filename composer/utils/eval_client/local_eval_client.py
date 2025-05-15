@@ -8,6 +8,7 @@ import os
 import subprocess
 import textwrap
 import types
+import warnings
 
 from composer.utils import dist
 from composer.utils.eval_client.eval_client import EvalClient
@@ -20,6 +21,12 @@ TIMEOUT = 5  # in seconds
 
 class LocalEvalClient(EvalClient):
     """Utility for creating a client for and invoking local evaluations."""
+
+    def __init__(self):
+        warnings.warn(
+            'LocalEvalClient usage is deprecated and will be removed in v0.32',
+            category=DeprecationWarning,
+        )
 
     def invoke(self, payload: list[list[list[dict[str, str]]]]) -> list[list[list[bool]]]:
         """Invoke a batch of provided payloads for code evaluations."""
