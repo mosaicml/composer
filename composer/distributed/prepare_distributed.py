@@ -3,7 +3,9 @@
 
 """Entrypoint for distributed training (using FSDP2)."""
 
-from contextlib import nullcontext
+import logging
+import time
+from contextlib import contextmanager, nullcontext
 from typing import Callable, Optional
 
 import torch
@@ -15,6 +17,19 @@ from composer.distributed.fsdp2_utils import generate_composer_model_policy, syn
 from composer.distributed.param_init import meta_init
 from composer.models import ComposerModel
 from composer.utils.parallelism import FSDP2Config
+
+log = logging.getLogger(__name__)
+
+
+@contextmanager
+def log_execution_time(logger: logging.Logger, message: str):
+    """Log the execution time of a block of code."""
+    start_time = time.time()
+    try:
+        yield
+    finally:
+        end_time = time.time()
+        logger.info(f'{message} took {end_time - start_time:.2f} seconds')
 
 
 def parallelize_model(
@@ -64,8 +79,10 @@ def parallelize_model(
 
     # Use the context manager for optimizer synchronization if optimizer is provided
     with sync_optimizer_and_model_params(optimizer, model) if optimizer is not None else nullcontext():
-        prepare_fully_shard(model, config, fsdp_wrap_policy)
-        param_init_fn(model)
+        with log_execution_time(log, 'Prepare FSDP2'):
+            prepare_fully_shard(model, config, fsdp_wrap_policy)
+        with log_execution_time(log, 'Meta Init Device'):
+            param_init_fn(model)
         # NOTE appy_ac can not be included in this context as it would wrap and replace the sub-modules thus disqualify FQN of params
 
 
