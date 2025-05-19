@@ -40,7 +40,8 @@ def parallelize_model(
     fsdp_wrap_policy: Optional[CustomPolicy] = None,
     activation_checkpointing_check_fn: Optional[Callable] = None,
     param_init_fn: Callable[[torch.nn.Module], None] = lambda m: None,
-):
+    auto_microbatching: bool = False,
+) -> tuple[list, dict]:
     """Prepare a model for distributed training.
 
     This function currently applies FSDP2 to the model, initializes parameters,
@@ -59,6 +60,12 @@ def parallelize_model(
             checkpointing or CPU offloading is enabled in the config.
         param_init_fn (Callable[[torch.nn.Module], None]): Function to initialize model parameters
             after FSDP wrapping. Defaults to a no-op function.
+        auto_microbatching (bool): Whether to use auto microbatching.
+
+    Returns:
+        tuple[list, dict]: A tuple containing:
+            - A list of removable hook handles for the OOM hooks if auto_microbatching is enabled
+            - A dictionary mapping module names to modules after fully sharding
 
     Raises:
         ValueError: If the config is not an FSDP2Config or if activation_checkpointing_check_fn is provided
@@ -81,17 +88,19 @@ def parallelize_model(
     # Use the context manager for optimizer synchronization if optimizer is provided
     with sync_optimizer_and_model_params(optimizer, model) if optimizer is not None else nullcontext():
         with log_execution_time(log, 'Prepare FSDP2'):
-            prepare_fully_shard(model, config, fsdp_wrap_policy)
+            hook_handles, named_modules = prepare_fully_shard(model, config, fsdp_wrap_policy, auto_microbatching)
         with log_execution_time(log, 'Meta Init Device'):
             param_init_fn(model)
         # NOTE appy_ac can not be included in this context as it would wrap and replace the sub-modules thus disqualify FQN of params
+
+    return hook_handles, named_modules
 
 
 def parallelize_composer_model(
     composer_model: ComposerModel,
     optimizer: Optional[torch.optim.Optimizer],
     config: FSDP2Config,
-):
+) -> tuple[list, dict]:
     """Prepare a ComposerModel for distributed training.
 
     NOTE we apply parallelization to each of the composer model's submodules to provide compatibility with models defined for FSDP1.
@@ -104,12 +113,17 @@ def parallelize_composer_model(
         composer_model (ComposerModel): The ComposerModel to prepare for distributed training.
         optimizer (Optional[torch.optim.Optimizer]): The optimizer to use for distributed training.
         config (FSDP2Config): The configuration for distributed training. Currently only FSDP2Config is supported.
+
+    Returns:
+        tuple[list, dict]: A tuple containing:
+            - A list of removable hook handles for the OOM hooks if auto_microbatching is enabled
+            - A dictionary mapping module names to modules after fully sharding
     """
     assert isinstance(composer_model, ComposerModel), f'{type(composer_model)} is not a ComposerModel'
     activation_checkpointing_check_fn = generate_composer_model_check_fn(
         composer_model,
     ) if config.activation_checkpointing or config.activation_cpu_offload else None
-    parallelize_model(
+    hook_handles, named_modules = parallelize_model(
         composer_model,
         config,
         optimizer=optimizer,
@@ -117,3 +131,4 @@ def parallelize_composer_model(
         activation_checkpointing_check_fn=activation_checkpointing_check_fn,
         param_init_fn=meta_init,
     )
+    return hook_handles, named_modules

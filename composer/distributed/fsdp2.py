@@ -8,7 +8,7 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
-from torch.distributed.fsdp import MixedPrecisionPolicy, fully_shard
+from torch.distributed.fsdp import MixedPrecisionPolicy, FSDPModule, fully_shard
 from torch.distributed.fsdp.wrap import CustomPolicy
 
 from composer.distributed.fsdp2_utils import (
@@ -17,7 +17,8 @@ from composer.distributed.fsdp2_utils import (
     get_standalone_and_tied_modules,
     legalize_param_sharing_between_modules,
 )
-from composer.utils.parallelism import FSDP2Config
+from composer.distributed.shared_utils import add_fsdp_oom_hooks
+from composer.utils import FSDP2Config
 
 log = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ def _recursive_apply_fully_shard(
     module: nn.Module,
     visited_modules: set[nn.Module],
     target_modules_to_kwargs: dict[nn.Module, dict],
-) -> None:
+):
     """Recursive helper to apply fully_shard based on policy and legalization.
 
     Args:
@@ -115,16 +116,19 @@ def prepare_fully_shard(
     model: nn.Module,
     fsdp2_config: FSDP2Config,
     auto_wrap_policy: Optional[CustomPolicy] = None,
-) -> None:
+    auto_microbatching: bool = False,
+) -> tuple[list, dict]:
     """Applies FSDP2's `fully_shard` to the model according to given fsdp2_config.
 
     Args:
         model (torch.nn.Module): The model to prepare.
         fsdp2_config (FSDP2Config): The FSDP2 configuration.
         auto_wrap_policy (Optional[CustomPolicy]): The policy to apply to the model.
+        auto_microbatching (bool): Whether to use auto microbatching.
 
     Returns:
-        None
+        List[torch.utils.hooks.RemovableHandle]: A list of removable hook handles for the OOM hooks if auto_microbatching is enabled.
+        Dict[str, nn.Module]: A dictionary of the named modules after fully sharding.
     """
     # If the auto_wrap_policy is not provided, generate the default policy
     if auto_wrap_policy is None:
@@ -140,3 +144,11 @@ def prepare_fully_shard(
             if attr == 'verbose':
                 continue
             log.info(f'FSDP2: {attr}: {getattr(fsdp2_config, attr)}')
+
+    # Add OOM hooks to the model
+    hook_handles = []
+    if auto_microbatching:
+        hook_handles = add_fsdp_oom_hooks(model, fsdp_module_type=FSDPModule)
+
+    # Return the same values that we expect from FSDP1 (removable handles, named modules)
+    return hook_handles, dict(model.named_modules())
