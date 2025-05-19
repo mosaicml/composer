@@ -135,7 +135,7 @@ def prepare_fully_shard(
         apply_fully_shard(model, fsdp2_config, auto_wrap_policy)
 
     if fsdp2_config.verbose:
-        log.info(f'FSDP2: Fully sharded model: {model}')
+        log.info(f'FSDP2: Fully sharded model:\n{model}')
         for attr in fsdp2_config.settable_attrs():
             if attr == 'verbose':
                 continue
