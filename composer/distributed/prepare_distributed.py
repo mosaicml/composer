@@ -21,15 +21,16 @@ from composer.utils.parallelism import FSDP2Config
 log = logging.getLogger(__name__)
 
 
+# TODO put this func into a general util function file
 @contextmanager
-def log_execution_time(logger: logging.Logger, message: str):
+def log_execution_time(logger: logging.Logger, operation_name: str):
     """Log the execution time of a block of code."""
     start_time = time.time()
     try:
         yield
     finally:
         end_time = time.time()
-        logger.info(f'{message} took {end_time - start_time:.2f} seconds')
+        logger.info(f'{operation_name} took {end_time - start_time:.2f} seconds')
 
 
 def parallelize_model(

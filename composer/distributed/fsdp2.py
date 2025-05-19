@@ -3,6 +3,7 @@
 
 """Helpers for FSDP2."""
 
+import logging
 from typing import Optional
 
 import torch
@@ -17,6 +18,8 @@ from composer.distributed.fsdp2_utils import (
     legalize_param_sharing_between_modules,
 )
 from composer.utils.parallelism import FSDP2Config
+
+log = logging.getLogger(__name__)
 
 
 def _recursive_apply_fully_shard(
@@ -123,6 +126,7 @@ def prepare_fully_shard(
     Returns:
         None
     """
+
     # If the auto_wrap_policy is not provided, generate the default policy
     if auto_wrap_policy is None:
         auto_wrap_policy = generate_default_policy(model)
@@ -130,3 +134,10 @@ def prepare_fully_shard(
     # Check for parameter tying
     with check_param_tying(model):
         apply_fully_shard(model, fsdp2_config, auto_wrap_policy)
+
+    if fsdp2_config.verbose:
+        log.info(f'FSDP2: Fully sharded model: {model}')
+        for attr in fsdp2_config.settable_attrs():
+            if attr == 'verbose':
+                continue
+            log.info(f'FSDP2: {attr}: {getattr(fsdp2_config, attr)}')
