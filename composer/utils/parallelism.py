@@ -82,6 +82,7 @@ class FSDP2Config:
     activation_cpu_offload: bool = False
 
     verbose: bool = False
+
     @classmethod
     def settable_attrs(cls) -> set[str]:
         """Return a set of all settable attributes of FSDP2Config."""

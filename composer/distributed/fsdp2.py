@@ -126,7 +126,6 @@ def prepare_fully_shard(
     Returns:
         None
     """
-
     # If the auto_wrap_policy is not provided, generate the default policy
     if auto_wrap_policy is None:
         auto_wrap_policy = generate_default_policy(model)
