@@ -47,7 +47,7 @@ jobs:
     name: ${{ matrix.IMAGE_NAME }}
     with:
       build-args: |
-        AWS_OFI_NCCL_VERSION=${{ matrix.AWS_OFI_NCCL_VERSION }}
+        EFA_INSTALLER_VERSION=${{ matrix.EFA_INSTALLER_VERSION }}
         BASE_IMAGE=${{ matrix.BASE_IMAGE }}
         CUDA_VERSION=${{ matrix.CUDA_VERSION }}
         MOFED_VERSION=${{ matrix.MOFED_VERSION }}
