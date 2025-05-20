@@ -41,7 +41,6 @@ def create_trainer_with_model(
     """Helper function to create a Trainer with a model, dataloader, and FSDP2 configuration."""
     dataset = RandomClassificationDataset(shape=(num_classes,), size=size, num_classes=num_classes)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=size // 2)  # use 2 batches per epoch
-    hook_handles = []
 
     parallelism_config = ParallelismConfig()
     if use_fsdp2:
@@ -61,7 +60,8 @@ def create_trainer_with_model(
         parallelism_config=parallelism_config,
         device_train_microbatch_size='auto' if auto_microbatching else None,
     )
-    return trainer, hook_handles
+
+    return trainer, trainer.state.automicrobatch_fsdp_hook_handles
 
 
 # Base tests
@@ -339,7 +339,6 @@ def test_fsdp2_handles_cuda_failures(world_size: int, use_alternate: bool, num_l
 
     num_classes = 10
 
-    # Create a model with 3 layers, each wrapped in FSDP (so we should have 3 * 2 = 6 OOM hooks)
     model = OOMComposerClassifier(num_layers, num_classes, device='cuda')
 
     # Wrap the module as we expect

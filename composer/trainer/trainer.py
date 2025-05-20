@@ -1860,10 +1860,11 @@ class Trainer:
                         )
                     case 2:
                         from composer.distributed.prepare_distributed import parallelize_composer_model
-                        parallelize_composer_model(
+                        self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = parallelize_composer_model(
                             model,
                             optimizers,
                             self.state.fsdp_config,  # type: ignore
+                            auto_microbatching,
                         )
                     case _:
                         raise ValueError(f'Unsupported FSDP config version: {self.state.fsdp_config_version}')

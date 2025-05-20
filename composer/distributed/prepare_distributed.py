@@ -100,6 +100,7 @@ def parallelize_composer_model(
     composer_model: ComposerModel,
     optimizer: Optional[torch.optim.Optimizer],
     config: FSDP2Config,
+    auto_microbatching: bool = False,
 ) -> tuple[list, dict]:
     """Prepare a ComposerModel for distributed training.
 
@@ -113,6 +114,7 @@ def parallelize_composer_model(
         composer_model (ComposerModel): The ComposerModel to prepare for distributed training.
         optimizer (Optional[torch.optim.Optimizer]): The optimizer to use for distributed training.
         config (FSDP2Config): The configuration for distributed training. Currently only FSDP2Config is supported.
+        auto_microbatching (bool): Whether to use auto microbatching.
 
     Returns:
         tuple[list, dict]: A tuple containing:
@@ -130,5 +132,6 @@ def parallelize_composer_model(
         fsdp_wrap_policy=generate_composer_model_policy(composer_model),
         activation_checkpointing_check_fn=activation_checkpointing_check_fn,
         param_init_fn=meta_init,
+        auto_microbatching=auto_microbatching,
     )
     return hook_handles, named_modules

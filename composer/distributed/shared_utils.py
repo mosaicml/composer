@@ -11,7 +11,8 @@ from torch.utils.hooks import RemovableHandle
 
 from composer.devices import Device
 from composer.utils import dist, get_device
-
+from composer.models import ComposerModel
+from torchmetrics import Metric, MetricCollection
 
 def get_valid_fsdp_module_types():
     """Returns a list of valid FSDP module types based on the torch version.
@@ -109,7 +110,7 @@ def add_fsdp_oom_hooks(model, fsdp_module_type: type, device: Optional[Device] =
     View https://github.com/mosaicml/composer/pull/3510 for more details.
 
     Args:
-        model (torch.nn.Module): The model to add the hooks to.
+        model (torch.nn.Module): The model to add the hooks to. This can be a ComposerModel and in that scenario, we need to add hooks to valid children.
         fsdp_module_type (type): The type of the FSDP module to add the hooks to. This should be either FSDPModule or FullyShardedDataParallel.
         device (torch.device): The device that the module is on. If None, the current rank's device will be used.
 
@@ -121,11 +122,26 @@ def add_fsdp_oom_hooks(model, fsdp_module_type: type, device: Optional[Device] =
         device = get_device()
     hook = generate_oom_hook(device)
     assert fsdp_module_type in get_valid_fsdp_module_types(), f'Invalid FSDP module type: {fsdp_module_type}'
-    for module in model.modules():
-        if isinstance(module, fsdp_module_type):
-            hook_handles.append(module.register_forward_pre_hook(hook, prepend=True))  # type: ignore
-            hook_handles.append(module.register_full_backward_pre_hook(hook, prepend=True))  # type: ignore
-        else:
-            hook_handles.append(module.register_full_backward_hook(hook))  # type: ignore
+
+    # Gets the valid children of the ComposerModel to add hooks to
+    root_modules_for_hooks = []
+    if isinstance(model, ComposerModel):
+        for child in model.children():
+            if isinstance(child, Metric | MetricCollection):
+                continue
+            root_modules_for_hooks.append(child)
+    else:
+        root_modules_for_hooks.append(model)
+
+    # Adds the hooks to the relevant modules of the valid children
+    for root_module in root_modules_for_hooks:
+        for module in root_module.modules():
+            if isinstance(module, fsdp_module_type):
+                print(f"Adding two hooks to FSDP module {module.__class__.__name__}")
+                hook_handles.append(module.register_forward_pre_hook(hook, prepend=True))  # type: ignore
+                hook_handles.append(module.register_full_backward_pre_hook(hook, prepend=True))  # type: ignore
+            else:
+                print(f"Adding one hook to non-FSDP module {module.__class__.__name__}")
+                hook_handles.append(module.register_full_backward_hook(hook))  # type: ignore
 
     return hook_handles
