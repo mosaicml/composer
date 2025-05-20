@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """FX-based model transformation and optimization.
 
 Provides utilities to do FX-based model transformations.

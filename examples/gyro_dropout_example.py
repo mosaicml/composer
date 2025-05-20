@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Written by Gihyun Park, Junyeol Lee, and Jiwon Seo
-
 """Example for training with an algorithm on a custom model."""
 
 import torch

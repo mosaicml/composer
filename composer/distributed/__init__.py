@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Distributed training."""
 
 # TODO include fsdp2 after we deprecate torch 2.5

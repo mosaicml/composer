@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Decomposes linear operators into pairs of smaller linear operators.
 
 See :class:`.Factorize` or the :doc:`Method Card </method_cards/factorize>` for details.

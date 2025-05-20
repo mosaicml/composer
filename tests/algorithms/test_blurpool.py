@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Test the blurpool algorithm.
 
 Primitives are tested in test_blurpool.py

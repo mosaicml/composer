@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Test activation checkpointing and offloading. Note that currently, this is only testing support for FSDP2 + activation checkpointing/offloading."""
 
 import pytest

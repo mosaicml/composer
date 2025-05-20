@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Helper utilities."""
 
 from composer.utils.auto_log_hparams import (

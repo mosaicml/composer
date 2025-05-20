@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Enum class for the numerical precision to be used by the model."""
 
 import contextlib

@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """A wrapper for a dataloader to include metrics that apply to a specific dataset."""
 
 from __future__ import annotations

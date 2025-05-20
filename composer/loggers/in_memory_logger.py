@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Logs metrics to dictionary objects that persist in memory throughout training.
 
 Useful for collecting and plotting data inside notebooks.

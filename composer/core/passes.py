@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Algorithm Passes reorder or modify the execution of algorithms by the Engine.
 
 The order in which algorithms are run matters significantly during composition. For example, the

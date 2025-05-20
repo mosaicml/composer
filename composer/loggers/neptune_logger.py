@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Log training metadata to [neptune.ai](https://neptune.ai/)."""
 
 __all__ = ['NeptuneLogger']

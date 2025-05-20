@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Script to generate graphs for repo README.md.
 
 After generating images, upload to public hosting and update the README URLs.

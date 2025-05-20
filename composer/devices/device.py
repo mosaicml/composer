@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """The base :class:`~composer.devices.device.Device` class."""
 
 from abc import ABC, abstractmethod

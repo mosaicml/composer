@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Helper functions to perform augmentations on a :class:`PIL.Image.Image`.
 
 Augmentations that take an intensity value are normalized on a scale of 1-10,

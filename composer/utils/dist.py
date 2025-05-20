@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Helper methods for :mod:`torch.distributed`.
 
 To use :mod:`torch.distributed`, launch your training script with the

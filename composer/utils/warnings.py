@@ -1,6 +1,5 @@
 # Copyright 2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Utilities for warnings."""
 
 __all__ = ['VersionedDeprecationWarning']

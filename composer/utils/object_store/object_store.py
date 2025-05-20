@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Abstract class for utilities that upload to and download from object stores."""
 
 import abc

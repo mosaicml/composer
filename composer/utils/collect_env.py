@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Helpers to gather system information for debugging and bug reporting.
 
 Leverages PyTorch's :mod:`torch.utils.collect_env` package to gather pertinent system information.

@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Generate a memory snapshot during an OutOfMemory exception."""
 from __future__ import annotations
 

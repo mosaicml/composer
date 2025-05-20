@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Log metrics to slack, using Slack postMessage api."""
 
 from __future__ import annotations

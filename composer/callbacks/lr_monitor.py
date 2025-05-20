@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Monitor learning rate during training."""
 from composer.core import Callback, State
 from composer.loggers import Logger

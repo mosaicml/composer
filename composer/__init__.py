@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Some key classes are available directly in the ``composer`` namespace."""
 
 from composer._version import __version__

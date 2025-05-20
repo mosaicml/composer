@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Central components used by other modules.
 
 Central parts of composer such as :class:`~.engine.Engine`, base class for critical components such as

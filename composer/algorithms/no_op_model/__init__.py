@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Replaces model with a dummy model of type :class:`NoOpModelClass`.
 
 The algorithm runs on :attr:`Event.INIT`. It replaces the model in the state with

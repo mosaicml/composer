@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """SAM algorithm and optimizer class."""
 
 from __future__ import annotations

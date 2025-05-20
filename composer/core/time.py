@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Utilities to track training progress in terms of epochs, batches, samples, and tokens.
 
 Callbacks, algorithms, and schedulers can use the current training time to fire at certain points in the training

@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """A convenience class that creates a :class:`.ComposerModel` for classification tasks from a vanilla PyTorch model.
 
 :class:`.ComposerClassifier` requires batches in the form: (``input``, ``target``) and includes a basic

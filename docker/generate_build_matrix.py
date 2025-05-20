@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Helper script to generate the ``build_matrix.yaml`` and update ``README.md``.
 
 Note: this script requires tabulate. Run ``pip install tabulate`` if not installed

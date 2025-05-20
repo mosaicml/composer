@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Helper utilities for configuring deterministic training to ensure reproducibility.
 
 .. note::

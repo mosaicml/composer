@@ -6,7 +6,6 @@
 # Relevant issues:
 # https://github.com/Lightning-AI/metrics/issues/1024
 # https://github.com/Lightning-AI/metrics/issues/1164
-
 """MAP torchmetric for object detection."""
 #type: ignore
 import logging

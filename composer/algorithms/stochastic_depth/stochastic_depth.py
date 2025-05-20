@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Modules and layers for applying the Stochastic Depth algorithm."""
 
 from __future__ import annotations

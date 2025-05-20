@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Performance profiling tools.
 
 The profiler gathers performance metrics during a training run that can be used to diagnose bottlenecks and

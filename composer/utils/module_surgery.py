@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Modify model architectures.
 
 Algorithms, such as :class:`~composer.algorithms.blurpool.BlurPool`, replace model parameters in-place.

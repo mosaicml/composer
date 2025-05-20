@@ -1,6 +1,5 @@
 # Copyright 2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Useful functions for uploading checkpoints to remote object store."""
 
 import logging

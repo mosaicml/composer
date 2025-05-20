@@ -1,6 +1,5 @@
 # Copyright 2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Module for checkpointing API."""
 
 from composer.checkpoint.download import download_monolithic_checkpoint

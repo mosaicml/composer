@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Changes the memory format of the model to ``torch.channels_last``.
 
 This usually improves GPU utilization. See the :doc:`Method Card </method_cards/channels_last>` for more details.

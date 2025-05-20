@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Monitor train and eval images."""
 from typing import Any, Callable, Sequence, Union
 

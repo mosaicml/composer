@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Profiler to collect :mod:`torch` performance metrics during training."""
 
 from __future__ import annotations

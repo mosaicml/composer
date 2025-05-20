@@ -4,7 +4,6 @@
 # To keep the typing organized for this file, see iter_helpers.pyi
 # All typing annotations are in there
 # All methods signatures must be defined in there.
-
 """Utilities for iterating over collections."""
 from __future__ import annotations
 

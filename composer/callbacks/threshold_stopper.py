@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Threshold stopping callback."""
 
 from typing import Any, Callable, Optional, Union

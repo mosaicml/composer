@@ -3,7 +3,6 @@
 
 # Copyright 2023 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Abstract class for utilities that access and run code on serverless eval clients."""
 
 import abc

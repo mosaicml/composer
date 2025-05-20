@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Stateless learning rate schedulers.
 
 Stateless schedulers solve some of the problems associated with PyTorch's built-in schedulers provided in

@@ -6,7 +6,6 @@
 # Link to PyTorch License File: https://github.com/pytorch/pytorch/blob/master/LICENSE
 # TODO: This code will need to be removed when PyTorch correctly supports delayed initialization
 # with meta tensors.
-
 """Helper function to safely call .apply for initializing meta tensors in PyTorch."""
 
 import torch

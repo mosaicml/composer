@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Device-related helper methods and utilities."""
 
 from typing import TYPE_CHECKING, Optional, Union

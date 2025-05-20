@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Log to `Weights and Biases <https://wandb.ai/>`_."""
 
 from __future__ import annotations

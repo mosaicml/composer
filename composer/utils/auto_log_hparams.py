@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Contains helper functions for auto-logging hparams."""
 
 from enum import Enum

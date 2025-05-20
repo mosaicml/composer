@@ -3,7 +3,6 @@
 
 # disabling general type issues because of monkeypatching
 # pyright: reportGeneralTypeIssues=none
-
 """Fixtures available in doctests.
 
 The script is run before any doctests are executed,

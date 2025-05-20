@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Inference-related utility functions for model export and optimizations.
 
 Used for exporting models into various formats such ONNX, torchscript etc. and apply optimizations such as fusion.

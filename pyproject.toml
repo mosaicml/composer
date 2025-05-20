@@ -250,7 +250,7 @@ blank_lines_around_top_level_definition = 2
 blank_line_before_class_docstring = false
 
 # Insert a blank line before a module docstring.
-blank_line_before_module_docstring = true
+blank_line_before_module_docstring = false
 
 # Insert a blank line before a 'def' or 'class' immediately nested
 # within another 'def' or 'class'. For example:

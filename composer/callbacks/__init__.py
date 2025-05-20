@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Callbacks that run at each training loop :class:`.Event`.
 
 Each callback inherits from the :class:`.Callback` base class. See detailed description and

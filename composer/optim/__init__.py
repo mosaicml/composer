@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 """Optimizers and learning rate schedulers.
 
 Composer is compatible with optimizers based off of PyTorch's native :class:`~torch.optim.Optimizer` API, and common
