@@ -34,7 +34,7 @@ jobs:
           pytest_command: coverage run -m pytest tests/test_docs.py
     steps:
     - name: Run PR CPU Tests
-      uses: mosaicml/ci-testing/.github/actions/pytest-cpu@v0.3.4
+      uses: mosaicml/ci-testing/.github/actions/pytest-cpu@v0.3.5
       with:
         name: ${{ matrix.name }}
         pip_deps: "[all]"

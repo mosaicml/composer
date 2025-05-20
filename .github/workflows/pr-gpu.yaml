@@ -24,7 +24,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
     - name: Run PR GPU Tests
-      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.3.4
+      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.3.5
       with:
         name: ${{ matrix.name }}
         composer_package_name: ${{ matrix.composer_package_name }}
@@ -37,7 +37,7 @@ jobs:
         python_version: 3.12
         gpu_num: 1
         mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
-        ci_repo_gpu_test_ref: v0.3.4
+        ci_repo_gpu_test_ref: v0.3.5
   pytest-gpu-2:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
@@ -54,7 +54,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
     - name: Run PR GPU Tests
-      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.3.4
+      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.3.5
       with:
         name: ${{ matrix.name }}
         composer_package_name: ${{ matrix.composer_package_name }}
@@ -67,7 +67,7 @@ jobs:
         python_version: 3.12
         gpu_num: 2
         mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
-        ci_repo_gpu_test_ref: v0.3.4
+        ci_repo_gpu_test_ref: v0.3.5
   pytest-gpu-4:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
@@ -84,7 +84,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
     - name: Run PR GPU Tests
-      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.3.4
+      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.3.5
       with:
         name: ${{ matrix.name }}
         composer_package_name: ${{ matrix.composer_package_name }}
@@ -97,4 +97,4 @@ jobs:
         python_version: 3.12
         gpu_num: 4
         mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
-        ci_repo_gpu_test_ref: v0.3.4
+        ci_repo_gpu_test_ref: v0.3.5
