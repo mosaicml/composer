@@ -8,7 +8,7 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
-from torch.distributed.fsdp import MixedPrecisionPolicy, FSDPModule, fully_shard
+from torch.distributed.fsdp import FSDPModule, MixedPrecisionPolicy, fully_shard
 from torch.distributed.fsdp.wrap import CustomPolicy
 
 from composer.distributed.fsdp2_utils import (

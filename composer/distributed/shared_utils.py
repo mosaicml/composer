@@ -8,11 +8,12 @@ from typing import Callable, Optional
 import torch
 from packaging import version
 from torch.utils.hooks import RemovableHandle
+from torchmetrics import Metric, MetricCollection
 
 from composer.devices import Device
-from composer.utils import dist, get_device
 from composer.models import ComposerModel
-from torchmetrics import Metric, MetricCollection
+from composer.utils import dist, get_device
+
 
 def get_valid_fsdp_module_types():
     """Returns a list of valid FSDP module types based on the torch version.
@@ -137,11 +138,9 @@ def add_fsdp_oom_hooks(model, fsdp_module_type: type, device: Optional[Device] =
     for root_module in root_modules_for_hooks:
         for module in root_module.modules():
             if isinstance(module, fsdp_module_type):
-                print(f"Adding two hooks to FSDP module {module.__class__.__name__}")
                 hook_handles.append(module.register_forward_pre_hook(hook, prepend=True))  # type: ignore
                 hook_handles.append(module.register_full_backward_pre_hook(hook, prepend=True))  # type: ignore
             else:
-                print(f"Adding one hook to non-FSDP module {module.__class__.__name__}")
                 hook_handles.append(module.register_full_backward_hook(hook))  # type: ignore
 
     return hook_handles
