@@ -1,12 +1,12 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
+import gc
 from typing import Any, Optional
 
 import pytest
 import torch
 import torch.distributed
 from torch.utils.data import DataLoader
-import gc
 
 from composer import Trainer
 from composer.core import Precision, get_precision_context
