@@ -6,6 +6,7 @@ import pytest
 import torch
 import torch.distributed
 from torch.utils.data import DataLoader
+import gc
 
 from composer import Trainer
 from composer.core import Precision, get_precision_context
@@ -77,15 +78,19 @@ def predict_and_measure_memory(precision) -> int:
 @pytest.mark.filterwarnings(r'ignore:.*Plan failed with a cudnnException.*:UserWarning')  # Torch 2.3 regression
 def test_train_precision_memory(precision: Precision):
     memory_fp32 = fit_and_measure_memory(Precision.FP32)
+    gc.collect()
     memory_half = fit_and_measure_memory(precision)
-    assert memory_half < 0.92 * memory_fp32
+    gc.collect()
+    assert memory_half < 0.87 * memory_fp32
 
 
 @pytest.mark.gpu
 @pytest.mark.parametrize('precision', [Precision.AMP_FP16, Precision.AMP_BF16])
 def test_eval_precision_memory(precision: Precision):
     memory_fp32 = eval_and_measure_memory(Precision.FP32)
+    gc.collect()
     memory_half = eval_and_measure_memory(precision)
+    gc.collect()
     assert memory_half < 0.95 * memory_fp32
 
 
@@ -93,7 +98,9 @@ def test_eval_precision_memory(precision: Precision):
 @pytest.mark.parametrize('precision', [Precision.AMP_FP16, Precision.AMP_BF16])
 def test_predict_precision_memory(precision: Precision):
     memory_fp32 = predict_and_measure_memory(Precision.FP32)
+    gc.collect()
     memory_half = predict_and_measure_memory(precision)
+    gc.collect()
     assert memory_half < 0.95 * memory_fp32
 
 
