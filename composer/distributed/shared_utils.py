@@ -22,7 +22,7 @@ def get_valid_fsdp_module_types():
         dict: Dictionary of valid FSDP module types.
     """
     from torch.distributed.fsdp import FullyShardedDataParallel
-    valid_types = {1: FullyShardedDataParallel}
+    valid_types: dict[int, type] = {1: FullyShardedDataParallel}
 
     if version.parse(torch.__version__) >= version.parse('2.6.0'):
         from torch.distributed.fsdp._fully_shard import FSDPModule
