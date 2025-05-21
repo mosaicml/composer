@@ -481,7 +481,7 @@ def prepare_fsdp_module(
                 prepare_te_modules_for_fsdp(fsdp_obj)
 
             if auto_microbatching:
-                hook_handles = add_fsdp_oom_hooks(fsdp_obj, fsdp_module_type=FullyShardedDataParallel, device=device)
+                hook_handles = add_fsdp_oom_hooks(fsdp_obj, fsdp_config_version=1, device=device)
                 fsdp_obj_named_modules.update(dict(fsdp_obj.named_modules()))
 
             if hasattr(fsdp_obj, '_exec_order_data'):

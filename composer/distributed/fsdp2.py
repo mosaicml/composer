@@ -8,7 +8,7 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
-from torch.distributed.fsdp import FSDPModule, MixedPrecisionPolicy, fully_shard
+from torch.distributed.fsdp import MixedPrecisionPolicy, fully_shard
 from torch.distributed.fsdp.wrap import CustomPolicy
 
 from composer.distributed.fsdp2_utils import (
@@ -17,7 +17,8 @@ from composer.distributed.fsdp2_utils import (
     get_standalone_and_tied_modules,
     legalize_param_sharing_between_modules,
 )
-from composer.distributed.shared_utils import add_fsdp_oom_hooks
+from composer.distributed.shared_utils import add_fsdp_oom_hooks, get_root_modules_from_composer_model
+from composer.models import ComposerModel
 from composer.utils import FSDP2Config
 
 log = logging.getLogger(__name__)
@@ -148,7 +149,16 @@ def prepare_fully_shard(
     # Add OOM hooks to the model
     hook_handles = []
     if auto_microbatching:
-        hook_handles = add_fsdp_oom_hooks(model, fsdp_module_type=FSDPModule)
+        hook_handles = add_fsdp_oom_hooks(model, fsdp_config_version=2)
+
+    # Get the right named modules given that the input can be a ComposerModel
+    named_modules = {}
+    if isinstance(model, ComposerModel):
+        root_modules = get_root_modules_from_composer_model(model)
+        for root_module in root_modules:
+            named_modules.update(dict(root_module.named_modules()))
+    else:
+        named_modules = dict(model.named_modules())
 
     # Return the same values that we expect from FSDP1 (removable handles, named modules)
-    return hook_handles, dict(model.named_modules())
+    return hook_handles, named_modules

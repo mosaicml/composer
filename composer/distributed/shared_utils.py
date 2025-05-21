@@ -7,7 +7,6 @@ from typing import Callable, Optional
 
 import torch
 from packaging import version
-from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.utils.hooks import RemovableHandle
 from torchmetrics import Metric, MetricCollection
 
@@ -17,19 +16,37 @@ from composer.utils import dist, get_device
 
 
 def get_valid_fsdp_module_types():
-    """Returns a list of valid FSDP module types based on the torch version.
+    """Returns a dictionary of valid FSDP module types based on the torch version.
 
     Returns:
-        list: List of valid FSDP module types.
+        dict: Dictionary of valid FSDP module types.
     """
     from torch.distributed.fsdp import FullyShardedDataParallel
-    valid_types = [FullyShardedDataParallel]
+    valid_types = {1: FullyShardedDataParallel}
 
     if version.parse(torch.__version__) >= version.parse('2.6.0'):
         from torch.distributed.fsdp._fully_shard import FSDPModule
-        valid_types.append(FSDPModule)  # type: ignore
+        valid_types[2] = FSDPModule
 
     return valid_types
+
+
+def get_root_modules_from_composer_model(model: ComposerModel):
+    """Returns a list of valid root modules from a ComposerModel.
+
+    A root module is a module that's not a Metric or MetricCollection.
+
+    Returns:
+        list: List of root modules from a ComposerModel.
+    """
+    assert isinstance(model, ComposerModel)
+    root_modules = []
+    for child in model.children():
+        if isinstance(child, (Metric, MetricCollection)):
+            continue
+        root_modules.append(child)
+
+    return root_modules
 
 
 def generate_oom_hook(device: Device) -> Callable:
@@ -98,7 +115,7 @@ def generate_oom_hook(device: Device) -> Callable:
     return sync_hook
 
 
-def add_fsdp_oom_hooks(model, fsdp_module_type: type, device: Optional[Device] = None) -> list[RemovableHandle]:
+def add_fsdp_oom_hooks(model, fsdp_config_version: int, device: Optional[Device] = None) -> list[RemovableHandle]:
     """Add OOM hooks to the model and return the list of handles.
 
     The following sync hooks are added to prevent FSDP deadlocks that are caused when some ranks OOM
@@ -113,7 +130,7 @@ def add_fsdp_oom_hooks(model, fsdp_module_type: type, device: Optional[Device] =
 
     Args:
         model (torch.nn.Module): The model to add the hooks to. This can be a ComposerModel and in that scenario, we need to add hooks to valid children.
-        fsdp_module_type (type): The type of the FSDP module to add the hooks to. This should be either FSDPModule or FullyShardedDataParallel.
+        fsdp_config_version (int): The version of the FSDP config to use. This should be either 1 or 2.
         device (torch.device): The device that the module is on. If None, the current rank's device will be used.
 
     Returns:
@@ -123,21 +140,17 @@ def add_fsdp_oom_hooks(model, fsdp_module_type: type, device: Optional[Device] =
     if device is None:
         device = get_device()
     hook = generate_oom_hook(device)
-    assert fsdp_module_type in get_valid_fsdp_module_types(), f'Invalid FSDP module type: {fsdp_module_type}'
 
-    # Gets the valid children of the ComposerModel to add hooks to
+    # Gets the valid children if the input is a ComposerModel
     root_modules_for_hooks = []
     if isinstance(model, ComposerModel):
-        for child in model.children():
-            if isinstance(child, Metric | MetricCollection):
-                continue
-            root_modules_for_hooks.append(child)
+        root_modules_for_hooks = get_root_modules_from_composer_model(model)
     else:
         root_modules_for_hooks.append(model)
 
     # In FSDP2, we don't support backward_prefetch=BACKWARD_POST, so we only need to add the OOM hooks to the
     # forward pre and backward pre hooks.
-    # TODO: In FSDP1, we might not need the non-FSDP wrapped backward hook either, but we'll keep it for now.
+    # TODO: In FSDP1, we might not need the non-FSDP wrapped backward hook either, but we'll keep it for now until further investigation.
     # TODO: If we want to reduce as many potential deadlocks as possible, we may need to add hooks before all blocking collectives:
     #   - register_forward_pre_hook (before blocking all_gather)
     #   - register_forward_hook (before blocking reduce_scatter)
@@ -145,12 +158,13 @@ def add_fsdp_oom_hooks(model, fsdp_module_type: type, device: Optional[Device] =
     #   - register_full_backward_hook (before blocking reduce_scatter)
     # In all of these cases, some combination of no activation checkpointing/offloading, reshard_after_forward=False, or high gradient memory cost
     # could result in edge-case OOMs and deadlocks.
+    fsdp_module_type = get_valid_fsdp_module_types()[fsdp_config_version]
     for root_module in root_modules_for_hooks:
         for module in root_module.modules():
             if isinstance(module, fsdp_module_type):
                 hook_handles.append(module.register_forward_pre_hook(hook, prepend=True))  # type: ignore
                 hook_handles.append(module.register_full_backward_pre_hook(hook, prepend=True))  # type: ignore
-            elif fsdp_module_type == FullyShardedDataParallel:
+            elif fsdp_config_version == 1:
                 hook_handles.append(module.register_full_backward_hook(hook))  # type: ignore
 
     return hook_handles
