@@ -30,8 +30,6 @@ def _get_torchvision_version(pytorch_version: str):
         return '0.22.0'
     if pytorch_version == '2.6.0':
         return '0.21.0'
-    if pytorch_version == '2.5.1':
-        return '0.20.1'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
@@ -54,10 +52,8 @@ def _get_cuda_version(pytorch_version: str, use_cuda: bool, cuda_variant: Option
     if cuda_variant:
         return cuda_variant
     if pytorch_version == '2.7.0':
-        return '12.6.3'
+        return '12.8.0'
     if pytorch_version == '2.6.0':
-        return '12.4.1'
-    if pytorch_version == '2.5.1':
         return '12.4.1'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
@@ -211,7 +207,7 @@ def _cross_product_extra_cuda(
 
 
 def _main():
-    python_pytorch_versions = [('3.12', '2.7.0'), ('3.12', '2.6.0'), ('3.12', '2.5.1')]
+    python_pytorch_versions = [('3.12', '2.7.0'), ('3.12', '2.6.0')]
     pytorch_cuda_variants_extra = {
         '2.6.0': ['12.6.3'],
     }  # Extra cuda variants to be built in addition to the defaults
