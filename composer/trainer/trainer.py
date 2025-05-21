@@ -79,7 +79,7 @@ from composer.distributed import (
     prepare_fsdp_module,
     prepare_tp_module,
 )
-from composer.distributed.shared_utils import get_valid_fsdp_module_types, generate_oom_hook
+from composer.distributed.shared_utils import generate_oom_hook, get_valid_fsdp_module_types
 from composer.loggers import (
     ConsoleLogger,
     Logger,
@@ -426,6 +426,7 @@ def _update_num_consecutive_thrashes(state: State, num_consecutive_thrashes: int
     else:
         num_consecutive_thrashes = 0
     return num_consecutive_thrashes
+
 
 def _readd_fsdp_sync_hooks(fsdp_modules: dict[str, torch.nn.Module], fsdp_config_version: int, sync_hook):
     """Readds previously removed sync hooks back to FSDP modules.

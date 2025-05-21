@@ -22,7 +22,7 @@ from tests.common import (
     SimpleWeightTiedModel,
     world_size,
 )
-from tests.trainer.fsdp2_context import fsdp2_context, FSDPModule
+from tests.trainer.fsdp2_context import FSDPModule, fsdp2_context
 
 _INIT_DEVICES = ['cuda', 'meta']
 
@@ -331,7 +331,10 @@ def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(
     ],
 )
 def test_fsdp2_has_right_number_of_hooks(
-    world_size: int, use_alternate: bool, num_layers: int, expected_num_hooks: int
+    world_size: int,
+    use_alternate: bool,
+    num_layers: int,
+    expected_num_hooks: int,
 ):
     """Test FSDP2 has the right number of hooks."""
     del world_size
@@ -366,7 +369,7 @@ def test_fsdp2_has_right_number_of_hooks(
     # below are the same for both reshard_after_forward = True and False.
     error_msg = 'Expected {} forward pre hooks on module {}, but got {}'
     for child in model.module.children():
-        if isinstance(child, FSDPModule):
+        if isinstance(child, FSDPModule):  # type: ignore
             # Hooks exist for FSDP wrapped modules
             assert len(child._forward_pre_hooks) == 2, error_msg.format(2, child, len(child._forward_pre_hooks))
             assert len(child._backward_pre_hooks) == 1, error_msg.format(1, child, len(child._backward_pre_hooks))
