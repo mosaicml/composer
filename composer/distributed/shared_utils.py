@@ -8,6 +8,7 @@ from typing import Callable, Optional
 import torch
 from packaging import version
 from torch.utils.hooks import RemovableHandle
+from torch.distributed.fsdp import FullyShardedDataParallel
 from torchmetrics import Metric, MetricCollection
 
 from composer.devices import Device
@@ -134,13 +135,22 @@ def add_fsdp_oom_hooks(model, fsdp_module_type: type, device: Optional[Device] =
     else:
         root_modules_for_hooks.append(model)
 
-    # Adds the hooks to the relevant modules of the valid children
+    # In FSDP2, we don't support backward_prefetch=BACKWARD_POST, so we only need to add the OOM hooks to the
+    # forward pre and backward pre hooks.
+    # TODO: In FSDP1, we might not need the non-FSDP wrapped backward hook either, but we'll keep it for now.
+    # TODO: If we want to reduce as many potential deadlocks as possible, we may need to add hooks before all blocking collectives:
+    #   - register_forward_pre_hook (before blocking all_gather)
+    #   - register_forward_hook (before blocking reduce_scatter)
+    #   - register_full_backward_pre_hook (before blocking all_gather)
+    #   - register_full_backward_hook (before blocking reduce_scatter)
+    # In all of these cases, some combination of no activation checkpointing/offloading, reshard_after_forward=False, or high gradient memory cost
+    # could result in edge-case OOMs and deadlocks.
     for root_module in root_modules_for_hooks:
         for module in root_module.modules():
             if isinstance(module, fsdp_module_type):
                 hook_handles.append(module.register_forward_pre_hook(hook, prepend=True))  # type: ignore
                 hook_handles.append(module.register_full_backward_pre_hook(hook, prepend=True))  # type: ignore
-            else:
+            elif fsdp_module_type == FullyShardedDataParallel:
                 hook_handles.append(module.register_full_backward_hook(hook))  # type: ignore
 
     return hook_handles

@@ -7,6 +7,7 @@ from typing import Optional
 import pytest
 import torch
 from torch.distributed._tensor import DTensor
+from torch.distributed.fsdp import FSDPModule
 from torch.utils.data import DataLoader
 from torch.utils.hooks import RemovableHandle
 
@@ -324,21 +325,17 @@ def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(
 @pytest.mark.parametrize(
     'use_alternate,num_layers,expected_num_hooks',
     [
-        # 3 children modules wrapped * 2 hook handles per module
-        # + 1 hook handle for the root module
-        (False, 3, 3 * 2 + 1),
-        # 2 children modules wrapped * 2 hook handles per module
-        # + 1 hook handle for the last child module
-        # + 1 hook handle for the root module
-        (True, 3, 2 * 2 + 1 + 1),
+        # 3 children modules wrapped * 2 new hook handles per module
+        (False, 3, 3 * 2),
+        # 2 children modules wrapped * 2 new hook handles per module
+        (True, 3, 2 * 2),
     ],
 )
-def test_fsdp2_handles_cuda_failures(world_size: int, use_alternate: bool, num_layers: int, expected_num_hooks: int):
-    """Test FSDP2 handles CUDA OOM failures."""
+def test_fsdp2_has_right_number_of_hooks(world_size: int, use_alternate: bool, num_layers: int, expected_num_hooks: int):
+    """Test FSDP2 has the right number of hooks."""
     del world_size
 
     num_classes = 10
-
     model = OOMComposerClassifier(num_layers, num_classes, device='cuda')
 
     # Wrap the module as we expect
@@ -367,18 +364,16 @@ def test_fsdp2_handles_cuda_failures(world_size: int, use_alternate: bool, num_l
     # Note: reshard_after_forward doesn't change the number of backward_hooks, it just changes the existing hooks do so the numbers
     # below are the same for both reshard_after_forward = True and False.
     error_msg = 'Expected {} forward pre hooks on module {}, but got {}'
-    for i, child in enumerate(model.module.children()):
-        if use_alternate and i % 2 == 1:
-            # This is the not FSDP wrapped module
-            # We register one backward hook and no forward hooks. There are no FSDP hooks on this module as well.
-            assert len(child._forward_pre_hooks) == 0, error_msg.format(0, child, len(child._forward_pre_hooks))
-            assert len(child._backward_pre_hooks) == 0, error_msg.format(0, child, len(child._backward_pre_hooks))
-            assert len(child._backward_hooks) == 1, error_msg.format(1, child, len(child._backward_hooks))
-        else:
-            # This is the FSDP wrapped module
-            # We register one forward pre hook + the FSDP forward hook. We also register a backward pre hook
+    for child in model.module.children():
+        if isinstance(child, FSDPModule):
+            # Hooks exist for FSDP wrapped modules
             assert len(child._forward_pre_hooks) == 2, error_msg.format(2, child, len(child._forward_pre_hooks))
             assert len(child._backward_pre_hooks) == 1, error_msg.format(1, child, len(child._backward_pre_hooks))
+            assert len(child._backward_hooks) == 0, error_msg.format(0, child, len(child._backward_hooks))
+        else:
+            # No hooks on non-FSDP wrapped modules
+            assert len(child._forward_pre_hooks) == 0, error_msg.format(0, child, len(child._forward_pre_hooks))
+            assert len(child._backward_pre_hooks) == 0, error_msg.format(0, child, len(child._backward_pre_hooks))
             assert len(child._backward_hooks) == 0, error_msg.format(0, child, len(child._backward_hooks))
 
 
