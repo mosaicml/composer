@@ -23,6 +23,7 @@ PRODUCTION_PYTHON_VERSION = '3.12'
 PRODUCTION_PYTORCH_VERSION = '2.7.0'
 EFA_INSTALLER_VERSION = '1.39.0'
 PRODUCTION_UBUNTU_VERSION = '22.04'
+PRODUCTION_CUDA_VERSION = '12.6.3'
 
 
 def _get_torchvision_version(pytorch_version: str):
@@ -52,7 +53,7 @@ def _get_cuda_version(pytorch_version: str, use_cuda: bool, cuda_variant: Option
     if cuda_variant:
         return cuda_variant
     if pytorch_version == '2.7.0':
-        return '12.8.0'
+        return '12.6.3'
     if pytorch_version == '2.6.0':
         return '12.4.1'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
@@ -128,7 +129,7 @@ def _get_pytorch_tags(
     if python_version == PRODUCTION_PYTHON_VERSION and pytorch_version == PRODUCTION_PYTORCH_VERSION and ubuntu_version == PRODUCTION_UBUNTU_VERSION:
         if not cuda_version:
             tags += [f'{base_image_name}:latest_cpu']
-        else:
+        elif cuda_version == PRODUCTION_CUDA_VERSION:
             tags += [f'{base_image_name}:latest']
 
     if interconnect == 'EFA':
@@ -210,6 +211,7 @@ def _main():
     python_pytorch_versions = [('3.12', '2.7.0'), ('3.12', '2.6.0')]
     pytorch_cuda_variants_extra = {
         '2.6.0': ['12.6.3'],
+        '2.7.0': ['12.8.0'],
     }  # Extra cuda variants to be built in addition to the defaults
     cuda_options = [True, False]
     stages = ['pytorch_stage']
