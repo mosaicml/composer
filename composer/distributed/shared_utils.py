@@ -7,8 +7,8 @@ from typing import Callable, Optional
 
 import torch
 from packaging import version
-from torch.utils.hooks import RemovableHandle
 from torch.distributed.fsdp import FullyShardedDataParallel
+from torch.utils.hooks import RemovableHandle
 from torchmetrics import Metric, MetricCollection
 
 from composer.devices import Device

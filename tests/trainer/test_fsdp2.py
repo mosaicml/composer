@@ -331,7 +331,9 @@ def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(
         (True, 3, 2 * 2),
     ],
 )
-def test_fsdp2_has_right_number_of_hooks(world_size: int, use_alternate: bool, num_layers: int, expected_num_hooks: int):
+def test_fsdp2_has_right_number_of_hooks(
+    world_size: int, use_alternate: bool, num_layers: int, expected_num_hooks: int
+):
     """Test FSDP2 has the right number of hooks."""
     del world_size
 
