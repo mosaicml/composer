@@ -29,7 +29,7 @@ def _recursive_apply_fully_shard(
     module: nn.Module,
     visited_modules: set[nn.Module],
     target_modules_to_kwargs: dict[nn.Module, dict],
-):
+) -> None:
     """Recursive helper to apply fully_shard based on policy and legalization.
 
     Args:

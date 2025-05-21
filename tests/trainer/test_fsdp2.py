@@ -7,7 +7,6 @@ from typing import Optional
 import pytest
 import torch
 from torch.distributed._tensor import DTensor
-from torch.distributed.fsdp import FSDPModule
 from torch.utils.data import DataLoader
 from torch.utils.hooks import RemovableHandle
 
@@ -23,7 +22,7 @@ from tests.common import (
     SimpleWeightTiedModel,
     world_size,
 )
-from tests.trainer.fsdp2_context import fsdp2_context
+from tests.trainer.fsdp2_context import fsdp2_context, FSDPModule
 
 _INIT_DEVICES = ['cuda', 'meta']
 
