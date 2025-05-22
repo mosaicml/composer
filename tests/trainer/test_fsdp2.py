@@ -30,17 +30,17 @@ _INIT_DEVICES = ['cuda', 'meta']
 def create_trainer_with_model(
     model: ComposerClassifier,
     num_classes: int = 10,
-    size: int = 2,
+    dataset_size: int = 2,
     max_duration: str = '10ep',
     use_fsdp2: bool = True,
     optimizer: Optional[torch.optim.Optimizer] = None,
     activation_checkpointing: bool = False,
     activation_cpu_offload: bool = False,
     auto_microbatching: bool = False,
-) -> tuple[Trainer, list]:
+) -> Trainer:
     """Helper function to create a Trainer with a model, dataloader, and FSDP2 configuration."""
-    dataset = RandomClassificationDataset(shape=(num_classes,), size=size, num_classes=num_classes)
-    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=size // 2)  # use 2 batches per epoch
+    dataset = RandomClassificationDataset(shape=(num_classes,), size=dataset_size, num_classes=num_classes)
+    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=dataset_size // 2)  # use 2 batches per epoch
 
     parallelism_config = ParallelismConfig()
     if use_fsdp2:
@@ -61,7 +61,7 @@ def create_trainer_with_model(
         device_train_microbatch_size='auto' if auto_microbatching else None,
     )
 
-    return trainer, trainer.state.automicrobatch_fsdp_hook_handles
+    return trainer
 
 
 # Base tests
@@ -82,7 +82,7 @@ def test_fsdp2_initialization_with_tied_params(
     """
     model = model_class(num_features=10, device=device)
     model.add_fsdp_wrap_attribute_to_children()
-    trainer, _ = create_trainer_with_model(
+    trainer = create_trainer_with_model(
         model=model,
     )
 
@@ -128,7 +128,7 @@ def test_fsdp2_checkpointing(
     """Test FSDP2 checkpointing and weight tying after loading."""
     model = model_class(num_features=10, device=device)
     model.add_fsdp_wrap_attribute_to_children()
-    trainer, _ = create_trainer_with_model(
+    trainer = create_trainer_with_model(
         model=model,
     )
 
@@ -150,7 +150,7 @@ def test_fsdp2_checkpointing(
     # reinitialize the trainer
     new_model = model_class(num_features=10, device=device)
     new_model.add_fsdp_wrap_attribute_to_children()
-    trainer, _ = create_trainer_with_model(
+    trainer = create_trainer_with_model(
         model=new_model,
     )
     load_checkpoint(str(pathlib.Path(ckpt_path).parent), trainer.state, trainer.logger, load_weights_only=True)
@@ -177,7 +177,7 @@ def test_fsdp2_load_from_fsdp1(
     NUM_CLASSES = 2
     model = SimpleComposerMLP(num_features=NUM_FEATURES, device='cuda', num_classes=NUM_CLASSES)
     model.add_fsdp_wrap_attribute_to_children()
-    trainer, _ = create_trainer_with_model(
+    trainer = create_trainer_with_model(
         model=model,
         num_classes=NUM_CLASSES,
         use_fsdp2=False,
@@ -199,7 +199,7 @@ def test_fsdp2_load_from_fsdp1(
     # reinitialize the trainer
     model = SimpleComposerMLP(num_features=NUM_FEATURES, device='cuda', num_classes=NUM_CLASSES)
     model.add_fsdp_wrap_attribute_to_children()
-    trainer, _ = create_trainer_with_model(
+    trainer = create_trainer_with_model(
         model=model,
         num_classes=NUM_CLASSES,
         use_fsdp2=True,
@@ -257,7 +257,7 @@ def test_fsdp2_optimizer_handling(
         raise ValueError(f'Invalid case: {case}')
 
     optimizer = torch.optim.Adam(optimizer_input)
-    trainer, _ = create_trainer_with_model(model=model, num_classes=NUM_CLASSES, use_fsdp2=True, optimizer=optimizer)
+    trainer = create_trainer_with_model(model=model, num_classes=NUM_CLASSES, use_fsdp2=True, optimizer=optimizer)
 
     def validate_optimizer_state(current_optimizer: torch.optim.Optimizer, stage: str):
         assert len(current_optimizer.param_groups) == len(optimizer_input), \
@@ -351,12 +351,13 @@ def test_fsdp2_has_right_number_of_hooks(
             child._fsdp_wrap = True  # type: ignore
 
     # Assert that the number of hooks returned is correct
-    _, hook_handles = create_trainer_with_model(
+    trainer = create_trainer_with_model(
         model=model,
         num_classes=num_classes,
         use_fsdp2=True,
         auto_microbatching=True,
     )
+    hook_handles = trainer.state.automicrobatch_fsdp_hook_handles
     error_msg = 'Expected {} OOM hooks, but got {}'
     assert len(hook_handles) == expected_num_hooks, error_msg.format(expected_num_hooks, len(hook_handles))
 
@@ -397,12 +398,12 @@ def test_fsdp2_auto_microbatching_handles_cuda_failures(
     model = OOMComposerClassifier(3, num_classes, device='cuda', always_fail=True)
     for child in model.module.children():
         child._fsdp_wrap = True  # type: ignore
-    trainer, _ = create_trainer_with_model(
+    trainer = create_trainer_with_model(
         model=model,
         num_classes=num_classes,
         use_fsdp2=True,
         auto_microbatching=True,
-        size=256,
+        dataset_size=256,
         max_duration='1ba',
     )
     with pytest.raises(RuntimeError, match='.*The train loop failed with an internal microbatch of size 1.*'):
@@ -412,12 +413,12 @@ def test_fsdp2_auto_microbatching_handles_cuda_failures(
     model = OOMComposerClassifier(3, num_classes, device='cuda', always_fail=False, viable_microbatch_size=32)
     for child in model.module.children():
         child._fsdp_wrap = True  # type: ignore
-    trainer, _ = create_trainer_with_model(
+    trainer = create_trainer_with_model(
         model=model,
         num_classes=num_classes,
         use_fsdp2=True,
         auto_microbatching=True,
-        size=256,
+        dataset_size=256,
         max_duration='1ba',
     )
     trainer.fit()

@@ -4,6 +4,7 @@
 """Shared utilities for distributed training."""
 
 from typing import Callable, Optional
+import functools
 
 import torch
 from packaging import version
@@ -15,7 +16,7 @@ from composer.models import ComposerModel
 from composer.utils import dist, get_device
 
 
-def get_valid_fsdp_module_types():
+def get_valid_fsdp_module_types() -> dict[int, type]:
     """Returns a dictionary of valid FSDP module types based on the torch version.
 
     Returns:
@@ -31,22 +32,22 @@ def get_valid_fsdp_module_types():
     return valid_types
 
 
-def get_root_modules_from_composer_model(model: ComposerModel):
-    """Returns a list of valid root modules from a ComposerModel.
+def get_direct_children_from_composer_model(model: ComposerModel) -> list[torch.nn.Module]:
+    """Returns a list of valid direct children from a ComposerModel.
 
-    A root module is a module that's not a Metric or MetricCollection.
+    A valid direct child for a ComposerModel is a module that's not a Metric or MetricCollection.
 
     Returns:
-        list: List of root modules from a ComposerModel.
+        list: List of valid direct children from a ComposerModel.
     """
     assert isinstance(model, ComposerModel)
-    root_modules = []
+    direct_children = []
     for child in model.children():
         if isinstance(child, (Metric, MetricCollection)):
             continue
-        root_modules.append(child)
+        direct_children.append(child)
 
-    return root_modules
+    return direct_children
 
 
 def generate_oom_hook(device: Device) -> Callable:
@@ -100,7 +101,7 @@ def generate_oom_hook(device: Device) -> Callable:
         Callable: The hook that checks if any other rank hit an OOM.
     """
 
-    def sync_hook(*args):
+    def sync_hook(*args, device: Device):
         # Check if any other rank hit an OOM
         found_cuda_oom_tensor = device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
         dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
@@ -112,7 +113,7 @@ def generate_oom_hook(device: Device) -> Callable:
         if found_cuda_oom == 1:
             raise RuntimeError('CUDA out of memory encountered on a different rank')
 
-    return sync_hook
+    return functools.partial(sync_hook, device=device)
 
 
 def add_fsdp_oom_hooks(model, fsdp_config_version: int, device: Optional[Device] = None) -> list[RemovableHandle]:
@@ -144,7 +145,7 @@ def add_fsdp_oom_hooks(model, fsdp_config_version: int, device: Optional[Device]
     # Gets the valid children if the input is a ComposerModel
     root_modules_for_hooks = []
     if isinstance(model, ComposerModel):
-        root_modules_for_hooks = get_root_modules_from_composer_model(model)
+        root_modules_for_hooks = get_direct_children_from_composer_model(model)
     else:
         root_modules_for_hooks.append(model)
 

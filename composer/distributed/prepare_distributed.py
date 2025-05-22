@@ -12,7 +12,7 @@ import torch
 from torch.distributed.fsdp.wrap import CustomPolicy
 
 from composer.distributed.activation_checkpointing import apply_ac, generate_composer_model_check_fn
-from composer.distributed.fsdp2 import prepare_fully_shard
+from composer.distributed.fsdp2 import add_fsdp2_oom_hooks, prepare_fully_shard
 from composer.distributed.fsdp2_utils import generate_composer_model_policy, sync_optimizer_and_model_params
 from composer.distributed.param_init import meta_init
 from composer.models import ComposerModel
@@ -40,7 +40,6 @@ def parallelize_model(
     fsdp_wrap_policy: Optional[CustomPolicy] = None,
     activation_checkpointing_check_fn: Optional[Callable] = None,
     param_init_fn: Callable[[torch.nn.Module], None] = lambda m: None,
-    auto_microbatching: bool = False,
 ) -> tuple[list, dict]:
     """Prepare a model for distributed training.
 
@@ -60,12 +59,6 @@ def parallelize_model(
             checkpointing or CPU offloading is enabled in the config.
         param_init_fn (Callable[[torch.nn.Module], None]): Function to initialize model parameters
             after FSDP wrapping. Defaults to a no-op function.
-        auto_microbatching (bool): Whether to use auto microbatching.
-
-    Returns:
-        tuple[list, dict]: A tuple containing:
-            - A list of removable hook handles for the OOM hooks if auto_microbatching is enabled
-            - A dictionary mapping module names to modules after fully sharding
 
     Raises:
         ValueError: If the config is not an FSDP2Config or if activation_checkpointing_check_fn is provided
@@ -88,12 +81,10 @@ def parallelize_model(
     # Use the context manager for optimizer synchronization if optimizer is provided
     with sync_optimizer_and_model_params(optimizer, model) if optimizer is not None else nullcontext():
         with log_execution_time(log, 'Prepare FSDP2'):
-            hook_handles, named_modules = prepare_fully_shard(model, config, fsdp_wrap_policy, auto_microbatching)
+            prepare_fully_shard(model, config, fsdp_wrap_policy)
         with log_execution_time(log, 'Meta Init Device'):
             param_init_fn(model)
         # NOTE appy_ac can not be included in this context as it would wrap and replace the sub-modules thus disqualify FQN of params
-
-    return hook_handles, named_modules
 
 
 def parallelize_composer_model(
@@ -125,7 +116,7 @@ def parallelize_composer_model(
     activation_checkpointing_check_fn = generate_composer_model_check_fn(
         composer_model,
     ) if config.activation_checkpointing or config.activation_cpu_offload else None
-    hook_handles, named_modules = parallelize_model(
+    parallelize_model(
         composer_model,
         config,
         optimizer=optimizer,
@@ -134,4 +125,9 @@ def parallelize_composer_model(
         param_init_fn=meta_init,
         auto_microbatching=auto_microbatching,
     )
+
+    hook_handles = []
+    named_modules = {}
+    if auto_microbatching:
+        hook_handles, named_modules = add_fsdp2_oom_hooks(composer_model)
     return hook_handles, named_modules

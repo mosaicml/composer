@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 from torch.distributed.fsdp import MixedPrecisionPolicy, fully_shard
 from torch.distributed.fsdp.wrap import CustomPolicy
+from composer.models import ComposerModel
 
 from composer.distributed.fsdp2_utils import (
     check_param_tying,
@@ -17,8 +18,7 @@ from composer.distributed.fsdp2_utils import (
     get_standalone_and_tied_modules,
     legalize_param_sharing_between_modules,
 )
-from composer.distributed.shared_utils import add_fsdp_oom_hooks, get_root_modules_from_composer_model
-from composer.models import ComposerModel
+from composer.distributed.shared_utils import add_fsdp_oom_hooks, get_direct_children_from_composer_model
 from composer.utils import FSDP2Config
 
 log = logging.getLogger(__name__)
@@ -117,19 +117,13 @@ def prepare_fully_shard(
     model: nn.Module,
     fsdp2_config: FSDP2Config,
     auto_wrap_policy: Optional[CustomPolicy] = None,
-    auto_microbatching: bool = False,
-) -> tuple[list, dict]:
+):
     """Applies FSDP2's `fully_shard` to the model according to given fsdp2_config.
 
     Args:
         model (torch.nn.Module): The model to prepare.
         fsdp2_config (FSDP2Config): The FSDP2 configuration.
         auto_wrap_policy (Optional[CustomPolicy]): The policy to apply to the model.
-        auto_microbatching (bool): Whether to use auto microbatching.
-
-    Returns:
-        List[torch.utils.hooks.RemovableHandle]: A list of removable hook handles for the OOM hooks if auto_microbatching is enabled.
-        Dict[str, nn.Module]: A dictionary of the named modules after fully sharding.
     """
     # If the auto_wrap_policy is not provided, generate the default policy
     if auto_wrap_policy is None:
@@ -146,19 +140,22 @@ def prepare_fully_shard(
                 continue
             log.info(f'FSDP2: {attr}: {getattr(fsdp2_config, attr)}')
 
-    # Add OOM hooks to the model
-    hook_handles = []
-    if auto_microbatching:
-        hook_handles = add_fsdp_oom_hooks(model, fsdp_config_version=2)
 
-    # Get the right named modules given that the input can be a ComposerModel
+def add_fsdp2_oom_hooks(model: nn.Module) -> tuple[list[torch.utils.hooks.RemovableHandle], dict[str, nn.Module]]:
+    """Add OOM hooks to the valid FSDP2-wrapped modules in a ComposerModel and return the named modules.
+
+    Args:
+        model (nn.Module): The model to add OOM hooks to.
+
+    Returns:
+        list[torch.utils.hooks.RemovableHandle]: A list of removable hook handles for the OOM hooks.
+        dict[str, nn.Module]: A dictionary of valid named modules in the ComposerModel.
+    """
+    assert isinstance(model, ComposerModel), f'{type(model)} is not a ComposerModel'
+    hook_handles = add_fsdp_oom_hooks(model, fsdp_config_version=2)
+
     named_modules = {}
-    if isinstance(model, ComposerModel):
-        root_modules = get_root_modules_from_composer_model(model)
-        for root_module in root_modules:
-            named_modules.update(dict(root_module.named_modules()))
-    else:
-        named_modules = dict(model.named_modules())
-
-    # Return the same values that we expect from FSDP1 (removable handles, named modules)
+    direct_children = get_direct_children_from_composer_model(model)
+    for child in direct_children:
+        named_modules.update(dict(child.named_modules()))
     return hook_handles, named_modules

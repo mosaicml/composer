@@ -50,7 +50,7 @@ def test_fsdp2_activation_checkpointing_attribute(
         model.module[0]._activation_checkpointing = True  # type: ignore
 
     # Train the model on one batch to make sure forward is called the expected number of times
-    trainer, _ = create_trainer_with_model(
+    trainer = create_trainer_with_model(
         model=model,
         num_classes=10,
         use_fsdp2=True,
@@ -137,7 +137,7 @@ def test_fsdp2_activation_checkpointing_fn(
         model.module.activation_checkpointing_fn = activation_checkpointing_fn  # type: ignore
 
     # Train the model on one batch to make sure forward is called the expected number of times
-    trainer, _ = create_trainer_with_model(
+    trainer = create_trainer_with_model(
         model=model,
         num_classes=10,
         use_fsdp2=True,
@@ -210,7 +210,7 @@ def test_activation_checkpointing_cuda_memory_usage(world_size: int, type_of_che
                 raise ValueError(f'Invalid type of checkpointing: {type_of_checkpointing}')
 
             # Create trainer, run training, and check memory usage
-            trainer, _ = create_trainer_with_model(
+            trainer = create_trainer_with_model(
                 model=model,
                 num_classes=1024,
                 use_fsdp2=True,
