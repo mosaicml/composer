@@ -118,6 +118,14 @@ def _assert_checkpoints_equivalent(file1, file2, atol=0.0, rtol=0.0):
     del checkpoint_1['state']['callbacks']['CheckpointSaver']['all_saved_checkpoints_to_timestamp']
     del checkpoint_2['state']['callbacks']['CheckpointSaver']['all_saved_checkpoints_to_timestamp']
 
+    # Remove verbose label in state/schedulers if exists
+    for scheduler in checkpoint_1['state']['schedulers']:
+        if 'verbose' in scheduler:
+            del scheduler['verbose']
+    for scheduler in checkpoint_2['state']['schedulers']:
+        if 'verbose' in scheduler:
+            del scheduler['verbose']
+
     deep_compare(checkpoint_1, checkpoint_2, atol=atol, rtol=rtol)
 
     # Model and optimizer should be in all checkpoints

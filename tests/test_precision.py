@@ -1,5 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
+import gc
 from typing import Any, Optional
 
 import pytest
@@ -43,6 +44,7 @@ def get_trainer(precision: Precision, precision_config: Optional[dict[str, Any]]
 
 
 def fit_and_measure_memory(precision) -> int:
+    gc.collect()
     trainer = get_trainer(precision)
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats()
@@ -53,6 +55,7 @@ def fit_and_measure_memory(precision) -> int:
 
 
 def eval_and_measure_memory(precision) -> int:
+    gc.collect()
     trainer = get_trainer(precision)
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats()
@@ -63,15 +66,14 @@ def eval_and_measure_memory(precision) -> int:
 
 
 def predict_and_measure_memory(precision) -> int:
+    gc.collect()
     trainer = get_trainer(precision)
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats()
 
     trainer.predict(dataloader=trainer.state.evaluators[0].dataloader)
-    max_memory_allocated = torch.cuda.max_memory_allocated()
-    trainer.close()
 
-    return max_memory_allocated
+    return torch.cuda.max_memory_allocated()
 
 
 @pytest.mark.gpu
