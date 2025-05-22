@@ -10,7 +10,6 @@ import torch
 import torch.nn as nn
 from torch.distributed.fsdp import MixedPrecisionPolicy, fully_shard
 from torch.distributed.fsdp.wrap import CustomPolicy
-from composer.models import ComposerModel
 
 from composer.distributed.fsdp2_utils import (
     check_param_tying,
@@ -19,6 +18,7 @@ from composer.distributed.fsdp2_utils import (
     legalize_param_sharing_between_modules,
 )
 from composer.distributed.shared_utils import add_fsdp_oom_hooks, get_direct_children_from_composer_model
+from composer.models import ComposerModel
 from composer.utils import FSDP2Config
 
 log = logging.getLogger(__name__)

@@ -3,8 +3,8 @@
 
 """Shared utilities for distributed training."""
 
-from typing import Callable, Optional
 import functools
+from typing import Callable, Optional
 
 import torch
 from packaging import version

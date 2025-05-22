@@ -40,7 +40,9 @@ def create_trainer_with_model(
 ) -> Trainer:
     """Helper function to create a Trainer with a model, dataloader, and FSDP2 configuration."""
     dataset = RandomClassificationDataset(shape=(num_classes,), size=dataset_size, num_classes=num_classes)
-    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=dataset_size // 2)  # use 2 batches per epoch
+    dataloader = DataLoader(
+        dataset, sampler=dist.get_sampler(dataset), batch_size=dataset_size // 2
+    )  # use 2 batches per epoch
 
     parallelism_config = ParallelismConfig()
     if use_fsdp2:
