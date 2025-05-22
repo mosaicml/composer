@@ -40,7 +40,7 @@ def parallelize_model(
     fsdp_wrap_policy: Optional[CustomPolicy] = None,
     activation_checkpointing_check_fn: Optional[Callable] = None,
     param_init_fn: Callable[[torch.nn.Module], None] = lambda m: None,
-) -> tuple[list, dict]:
+):
     """Prepare a model for distributed training.
 
     This function currently applies FSDP2 to the model, initializes parameters,
@@ -123,7 +123,6 @@ def parallelize_composer_model(
         fsdp_wrap_policy=generate_composer_model_policy(composer_model),
         activation_checkpointing_check_fn=activation_checkpointing_check_fn,
         param_init_fn=meta_init,
-        auto_microbatching=auto_microbatching,
     )
 
     hook_handles = []
