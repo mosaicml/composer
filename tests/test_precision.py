@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-import gc
 from typing import Any, Optional
 
 import pytest
@@ -69,8 +68,10 @@ def predict_and_measure_memory(precision) -> int:
     torch.cuda.reset_peak_memory_stats()
 
     trainer.predict(dataloader=trainer.state.evaluators[0].dataloader)
+    max_memory_allocated = torch.cuda.max_memory_allocated()
+    trainer.close()
 
-    return torch.cuda.max_memory_allocated()
+    return max_memory_allocated
 
 
 @pytest.mark.gpu
@@ -78,9 +79,7 @@ def predict_and_measure_memory(precision) -> int:
 @pytest.mark.filterwarnings(r'ignore:.*Plan failed with a cudnnException.*:UserWarning')  # Torch 2.3 regression
 def test_train_precision_memory(precision: Precision):
     memory_fp32 = fit_and_measure_memory(Precision.FP32)
-    gc.collect()
     memory_half = fit_and_measure_memory(precision)
-    gc.collect()
     assert memory_half < 0.87 * memory_fp32
 
 
@@ -88,9 +87,7 @@ def test_train_precision_memory(precision: Precision):
 @pytest.mark.parametrize('precision', [Precision.AMP_FP16, Precision.AMP_BF16])
 def test_eval_precision_memory(precision: Precision):
     memory_fp32 = eval_and_measure_memory(Precision.FP32)
-    gc.collect()
     memory_half = eval_and_measure_memory(precision)
-    gc.collect()
     assert memory_half < 0.95 * memory_fp32
 
 
@@ -98,9 +95,7 @@ def test_eval_precision_memory(precision: Precision):
 @pytest.mark.parametrize('precision', [Precision.AMP_FP16, Precision.AMP_BF16])
 def test_predict_precision_memory(precision: Precision):
     memory_fp32 = predict_and_measure_memory(Precision.FP32)
-    gc.collect()
     memory_half = predict_and_measure_memory(precision)
-    gc.collect()
     assert memory_half < 0.95 * memory_fp32
 
 
