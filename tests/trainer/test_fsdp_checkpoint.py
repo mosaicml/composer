@@ -535,8 +535,6 @@ def test_fsdp_load_old_checkpoint(
     s3_read_only_prefix: str,
     composer_version: str,
 ):
-    # TODO: There is issue here in the daily tests if we set state_dict_type to 'sharded' on composer 0.23 and higher
-    # Missing key in checkpoint state_dict: state.optimizers.Adam.param_groups.0.decoupled_weight_decay.
     if composer_version == '0.18.1' and state_dict_type == 'full' and precision == 'amp_bf16' and sharding_strategy == 'FULL_SHARD':
         pytest.skip('TODO: This checkpoint is missing')
 

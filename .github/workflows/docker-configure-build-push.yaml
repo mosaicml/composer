@@ -37,7 +37,6 @@ on:
 jobs:
   configure-build-push:
     runs-on: mosaic-4wide
-    timeout-minutes: 600
     steps:
     - name: Checkout
       uses: actions/checkout@v3
