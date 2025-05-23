@@ -594,10 +594,6 @@ def test_fsdp_load_old_checkpoint(
         sharded_ckpt_prefix_dir='ba{batch}',
     )
 
-    load_ignore_keys = [
-        'state/optimizers/Adam/param_groups/*/decoupled_weight_decay',
-    ] if version.parse(torch.__version__) >= version.parse('2.7.0') else None
-
     trainer = get_trainer(
         num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
         num_classes=8,  # This parameter setting is very important. Don't change or the test will fail.
@@ -607,7 +603,6 @@ def test_fsdp_load_old_checkpoint(
         train_metrics=train_metrics,
         val_metrics=val_metrics,
         fsdp_config=fsdp_config,
-        load_ignore_keys=load_ignore_keys,
     )
     state_dict2 = trainer.state.state_dict()
 
@@ -624,7 +619,6 @@ def test_fsdp_load_old_checkpoint(
                 train_metrics=train_metrics,
                 val_metrics=val_metrics,
                 fsdp_config=fsdp_config,
-                load_ignore_keys=load_ignore_keys,
             )
 
             from composer.utils.checkpoint import DistCPObjectStoreReader
