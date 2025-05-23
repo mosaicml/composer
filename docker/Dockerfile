@@ -264,7 +264,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         echo "Installing Flash Attention from: $WHEEL_URL" && \
         pip${PYTHON_VERSION} install --no-cache-dir $WHEEL_URL || \
         (echo "Pre-built wheel not found, falling back to source installation" && \
-        MAX_JOBS=4 pip${PYTHON_VERSION} install --no-cache-dir --no-build-isolation --use-pep517 flash-attn==2.7.4.post1); \
+        MAX_JOBS=2 pip${PYTHON_VERSION} install --no-cache-dir --no-build-isolation --use-pep517 flash-attn==2.7.4.post1); \
         cd .. ; \
     fi
 
