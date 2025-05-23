@@ -22,11 +22,10 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 import torch
 from torch.distributed import checkpoint as dist_cp
 from torch.distributed._tensor import DeviceMesh
-from torch.distributed.checkpoint.default_planner import DefaultSavePlanner
+from torch.distributed.checkpoint.default_planner import DefaultLoadPlanner, DefaultSavePlanner
 from torch.distributed.checkpoint.metadata import Metadata
 from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
 from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
-from torch.distributed.checkpoint.default_planner import DefaultLoadPlanner
 from torch.distributed.checkpoint.storage import StorageReader
 from torch.distributed.checkpoint.utils import CheckpointException
 from torch.distributed.distributed_c10d import ProcessGroup
@@ -578,7 +577,7 @@ def dist_cp_load(
                 dist_cp.load(
                     state_dict=state_dict,
                     storage_reader=storage_reader,
-                    planner=DefaultLoadPlanner(allow_partial_load=True)
+                    planner=DefaultLoadPlanner(allow_partial_load=True),
                 )
                 return
             except Exception as inner_e:
