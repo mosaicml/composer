@@ -42,7 +42,7 @@
 </p>
 <br />
 
-# **👋 Welcome**
+# **👋 elcome**
 
 Composer is an open-source deep learning training library by [MosaicML](https://www.mosaicml.com/). Built on top of PyTorch, the Composer library makes it easier to implement distributed training workflows on large-scale clusters.
 
