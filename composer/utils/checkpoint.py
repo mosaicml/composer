@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 import torch
 from torch.distributed import checkpoint as dist_cp
 from torch.distributed._tensor import DeviceMesh
-from torch.distributed.checkpoint.default_planner import DefaultSavePlanner
+from torch.distributed.checkpoint.default_planner import DefaultLoadPlanner, DefaultSavePlanner
 from torch.distributed.checkpoint.metadata import Metadata
 from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
 from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
@@ -566,6 +566,22 @@ def dist_cp_load(
             planner=load_planner,
         )
     except CheckpointException as e:
+        if re.search(r'Missing key.+Adam.+decoupled_weight_decay', str(e)) is not None:
+            # Check for missing decoupled_weight_decay key for Adam optimizer, which was added in PyTorch 2.7.
+            #
+            # we use a DefaultLoadPlanner with allow_partial_load=True to allow for missing keys,
+            # added here: https://github.com/pytorch/pytorch/commit/c7338f457cb5fcf1707d44ee9891ed80adfac916
+            # This should be fine since the load planner will ignore the missing key and set
+            # decoupled_weight_decay to False.
+            try:
+                dist_cp.load(
+                    state_dict=state_dict,
+                    storage_reader=storage_reader,
+                    planner=DefaultLoadPlanner(allow_partial_load=True),
+                )
+                return
+            except Exception as inner_e:
+                raise inner_e
         if re.search(r'Size mismatch.+torch\.Size\(\[816\]\).+rng\.\d+\.cuda', str(e)) is not None:
             # Pytorch 2.6 is strictly enforcing the sizes of the state dict values vs the size
             # in the checkpoint. However Pytorch starting in 2.1.0

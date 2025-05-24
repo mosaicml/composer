@@ -270,7 +270,7 @@ def test_simple_nlp_mlm_loss_gen_token_batch(tiny_bert_tokenizer, device):
         seed=42,
         train_dataloader=data_spec,
         max_duration='2ep',
-        device_train_microbatch_size=batch_size // 2,
+        device_train_microbatch_size=batch_size // 4,
         accumulate_train_batch_on_tokens=False,
         device=device,
     )
@@ -288,7 +288,7 @@ def test_simple_nlp_mlm_loss_gen_token_batch(tiny_bert_tokenizer, device):
         seed=42,
         train_dataloader=loss_gen_data_spec,
         max_duration='2ep',
-        device_train_microbatch_size=batch_size // 2,
+        device_train_microbatch_size=batch_size // 4,
         accumulate_train_batch_on_tokens=True,
         device=device,
     )

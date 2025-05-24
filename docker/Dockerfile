@@ -250,6 +250,7 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
 # Install Flash Attention
 ##########################
 RUN if [ -n "$CUDA_VERSION" ] ; then \
+        set -e; \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir ninja==1.11.1 && \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir wheel && \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir --force-reinstall packaging==22.0 && \
@@ -259,11 +260,15 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         PYTORCH_MINOR=$(echo $PYTORCH_VERSION | cut -d. -f2) && \
         PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d. -f1) && \
         PYTHON_MINOR=$(echo $PYTHON_VERSION | cut -d. -f2) && \
-        WHEEL_URL="https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+${CUDA_STRING}torch${PYTORCH_MAJOR}.${PYTORCH_MINOR}cxx11abiFALSE-cp${PYTHON_MAJOR}${PYTHON_MINOR}-cp${PYTHON_MAJOR}${PYTHON_MINOR}-linux_x86_64.whl" && \
+        if [ "$PYTORCH_MAJOR" = "2" ] && [ "$PYTORCH_MINOR" = "7" ]; then \
+            WHEEL_URL="https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu12torch2.6cxx11abiTRUE-cp312-cp312-linux_x86_64.whl" ; \
+        else \
+            WHEEL_URL="https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+${CUDA_STRING}torch${PYTORCH_MAJOR}.${PYTORCH_MINOR}cxx11abiFALSE-cp${PYTHON_MAJOR}${PYTHON_MINOR}-cp${PYTHON_MAJOR}${PYTHON_MINOR}-linux_x86_64.whl" ; \
+        fi && \
         echo "Installing Flash Attention from: $WHEEL_URL" && \
         pip${PYTHON_VERSION} install --no-cache-dir $WHEEL_URL || \
         (echo "Pre-built wheel not found, falling back to source installation" && \
-         MAX_JOBS=1 pip${PYTHON_VERSION} install --no-cache-dir --no-build-isolation flash-attn==2.7.4.post1); \
+         MAX_JOBS=1 pip${PYTHON_VERSION} install --no-cache-dir --no-build-isolation --use-pep517 flash-attn==2.7.4.post1); \
         cd .. ; \
     fi
 

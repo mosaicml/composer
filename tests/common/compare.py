@@ -138,6 +138,11 @@ def _check_dict_recursively(
     rtol: float,
     ignore_keys: Optional[list[str]] = None,
 ):
+    # Starting in PyTorch 2.7, verbose is no longer a valid key in any LRScheduler
+    # https://github.com/pytorch/pytorch/pull/147301
+    if 'schedulers' in path.lower() and 'lr' in path.lower():
+        dict1.pop('verbose', None)
+        dict2.pop('verbose', None)
     assert len(dict1) == len(dict2), f'{path} differs: {dict1} != {dict2}'
     for k, val1 in dict1.items():
         if ignore_keys is not None and k in ignore_keys:
