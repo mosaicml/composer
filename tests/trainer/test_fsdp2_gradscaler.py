@@ -9,11 +9,11 @@ import torch.nn.functional as F
 from torch.amp.grad_scaler import GradScaler
 from torch.distributed._tensor import DTensor
 
+from composer.distributed.prepare_distributed import parallelize_model
 from composer.utils.parallelism import FSDP2Config
 from tests.common import (
     world_size,
 )
-from tests.trainer.fsdp2_context import parallelize_model
 
 
 class SimpleModel(nn.Module):
