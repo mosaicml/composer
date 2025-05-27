@@ -6,6 +6,7 @@ from typing import Callable, Optional
 import pytest
 
 from composer.distributed import activation_checkpointing, fsdp2, fsdp2_utils, prepare_distributed
+
 apply_ac = activation_checkpointing.apply_ac
 parallelize_model = prepare_distributed.parallelize_model
 legalize_param_sharing_between_modules = fsdp2_utils.legalize_param_sharing_between_modules

@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
-import torch
-from packaging import version
 from torch.utils.data import DataLoader
 
 from composer.callbacks import OptimizerMonitor

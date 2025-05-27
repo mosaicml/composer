@@ -11,7 +11,6 @@ from pathlib import Path
 import pytest
 import torch
 import torch.distributed.checkpoint as DCP
-from packaging import version
 
 from composer.checkpoint.save import (
     save_checkpoint_to_disk,

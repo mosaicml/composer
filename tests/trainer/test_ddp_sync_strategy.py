@@ -6,7 +6,6 @@ from typing import Optional
 import pytest
 import torch
 import torch.nn as nn
-from packaging import version
 from torch import Tensor
 from torch.utils.data import DataLoader
 

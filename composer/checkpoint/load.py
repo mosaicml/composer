@@ -15,8 +15,8 @@ from typing import Any, Optional, Sequence, Union
 
 import torch
 import torch.distributed.checkpoint as DCP
-from torch.distributed.checkpoint.state_dict import StateDictOptions, set_optimizer_state_dict
 from torch import nn
+from torch.distributed.checkpoint.state_dict import StateDictOptions, set_optimizer_state_dict
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.optim import Optimizer
 

@@ -12,7 +12,6 @@ from unittest.mock import ANY, patch
 import pytest
 import torch
 import torch.nn as nn
-from packaging import version
 from torch.utils.data import DataLoader
 
 from composer.core import State

@@ -10,7 +10,6 @@ from typing import TypeVar
 import torch
 import torch.cuda.amp
 import torch.utils.data
-from packaging import version
 
 from composer.devices.device import Device
 

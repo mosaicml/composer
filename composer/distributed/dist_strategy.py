@@ -9,7 +9,6 @@ from contextlib import contextmanager, nullcontext
 from typing import Any, Callable, ContextManager, Iterator, Optional, Sequence, Union, cast
 
 import torch
-from packaging import version
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     CheckpointImpl,
     apply_activation_checkpointing,

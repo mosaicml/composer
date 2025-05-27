@@ -38,7 +38,6 @@ import torch
 import torch.distributed
 import torch.nn as nn
 import torch.utils.data
-from packaging import version
 from torch._dynamo import OptimizedModule
 from torch.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
 from torch.distributed.fsdp import FullyShardedDataParallel
@@ -75,10 +74,10 @@ from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.distributed import (
     DDPSyncStrategy,
     ddp_sync_context,
+    parallelize_composer_model,
     prepare_ddp_module,
     prepare_fsdp_module,
     prepare_tp_module,
-    parallelize_composer_model,
 )
 from composer.loggers import (
     ConsoleLogger,

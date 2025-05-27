@@ -5,7 +5,6 @@ from typing import Any, Union
 from unittest.mock import MagicMock
 
 import torch
-from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.api import CPUOffload
 from torch.optim import Adam

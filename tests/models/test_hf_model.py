@@ -12,7 +12,6 @@ from urllib.parse import urlparse
 
 import pytest
 import torch
-from packaging import version
 from torch.utils.data import DataLoader
 from torchmetrics import Metric
 from torchmetrics.classification import MulticlassAccuracy

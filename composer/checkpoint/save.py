@@ -15,7 +15,6 @@ from typing import Any, Optional, Sequence, Union
 
 import torch
 import torch.distributed.checkpoint as DCP
-from packaging import version
 from torch.distributed._shard.sharded_tensor import ShardedTensor
 from torch.distributed._tensor import DTensor
 

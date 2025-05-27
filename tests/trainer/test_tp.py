@@ -7,7 +7,6 @@ from typing import Any, Optional, Union
 import numpy as np
 import pytest
 import torch
-from packaging import version
 from torch.distributed._tensor import Replicate
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.utils.data import DataLoader, Dataset

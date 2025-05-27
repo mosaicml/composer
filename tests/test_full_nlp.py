@@ -6,7 +6,6 @@ import os
 
 import pytest
 import torch
-from packaging import version
 from torch.utils.data import DataLoader
 from torchmetrics.classification import MulticlassAccuracy
 from transformers import BertConfig, BertForMaskedLM, BertForSequenceClassification

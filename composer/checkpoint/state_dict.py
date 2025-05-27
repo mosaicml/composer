@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     from composer.core.evaluator import Evaluator
 
 import torch
-from packaging import version
 from torch import nn
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn.parallel import DistributedDataParallel

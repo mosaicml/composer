@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional, Sequence, U
 import numpy as np
 import torch
 import torch.nn.modules.utils
-from packaging import version
 from torch.amp.grad_scaler import GradScaler
 from torch.distributed._tensor.device_mesh import DeviceMesh, init_device_mesh
 from torch.distributed.checkpoint.state_dict import (
@@ -25,7 +24,8 @@ from torch.distributed.checkpoint.state_dict import (
     set_model_state_dict,
     set_optimizer_state_dict,
 )
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP, FSDPModule
+from torch.distributed.fsdp import FSDPModule
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.fully_sharded_data_parallel import (
     FullOptimStateDictConfig,
     FullStateDictConfig,
