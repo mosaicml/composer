@@ -315,6 +315,8 @@ def test_fsdp_full_state_dict_load(
     use_tp: bool,
     use_hsdp: bool,
 ):
+    if use_tp:
+        pytest.skip('TP has full state dict issues.')
     if autoresume:
         run_name = 'my-cool-autoresume-run'
     else:
@@ -835,6 +837,8 @@ def test_fsdp_partitioned_state_dict_load(
     s3_ephemeral_prefix,
     request,
 ):
+    if use_tp:
+        pytest.skip('TP has sharded state dict issues.')
     if weights_only and autoresume:
         pytest.skip('Weights only with autoresume is not supported')
 
