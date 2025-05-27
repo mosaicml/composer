@@ -112,9 +112,6 @@ def test_huggingface_export_for_inference_onnx(onnx_opset_version, tiny_bert_con
     pytest.importorskip('onnxruntime')
     pytest.importorskip('transformers')
 
-    if onnx_opset_version == None and version.parse(torch.__version__) < version.parse('1.13'):
-        pytest.skip("Don't test prior PyTorch version's default Opset version.")
-
     import onnx
     import onnx.checker
     import onnxruntime as ort
@@ -221,9 +218,6 @@ def test_huggingface_export_for_inference_onnx(onnx_opset_version, tiny_bert_con
 def test_export_for_inference_onnx(model_cls, sample_input, onnx_opset_version, device):
     pytest.importorskip('onnx')
     pytest.importorskip('onnxruntime')
-
-    if onnx_opset_version == None and version.parse(torch.__version__) < version.parse('1.13'):
-        pytest.skip("Don't test prior PyTorch version's default Opset version.")
 
     pytest.xfail(
         'torch.onnx.errors.UnsupportedOperatorError: Exporting the operator "aten::unflatten" to ONNX opset version 14 is not supported.',
@@ -346,9 +340,6 @@ def test_export_for_inference_onnx_ddp(model_cls, sample_input, onnx_opset_versi
     pytest.xfail(
         'torch.onnx.errors.UnsupportedOperatorError: Exporting the operator "aten::unflatten" to ONNX opset version 14 is not supported.',
     )
-
-    if onnx_opset_version == None and version.parse(torch.__version__) < version.parse('1.13'):
-        pytest.skip("Don't test prior PyTorch version's default Opset version.")
 
     import onnx
     import onnx.checker

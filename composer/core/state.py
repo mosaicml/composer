@@ -25,7 +25,7 @@ from torch.distributed.checkpoint.state_dict import (
     set_model_state_dict,
     set_optimizer_state_dict,
 )
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP, FSDPModule
 from torch.distributed.fsdp.fully_sharded_data_parallel import (
     FullOptimStateDictConfig,
     FullStateDictConfig,
@@ -601,8 +601,6 @@ class State(Serializable):
         # Validate TP config
         if self.tp_config is not None:
             warnings.warn('Tensor parallelism (TP) is experimental and may change in future versions.', FutureWarning)
-            if version.parse(torch.__version__.split('.dev')[0]) < version.parse('2.3.0'):
-                raise ValueError('Tensor parallelism (TP) requires torch>=2.3.0.')
             if self.fsdp_config is None:
                 raise ValueError(
                     'Tensor parallelism (TP) currently requires FSDP to be enabled. '
@@ -930,13 +928,8 @@ class State(Serializable):
         """Indicates if FSDP is enabled."""
         for module in self.model.modules():
             # FSDP is FSDP1, FSDPModule is FSDP2
-            if isinstance(module, FSDP):
+            if isinstance(module, (FSDP, FSDPModule)):
                 return True
-            # TODO remove this once we deprecate torch 2.5
-            if version.parse(torch.__version__) >= version.parse('2.6.0'):
-                from torch.distributed.fsdp._fully_shard import FSDPModule
-                if isinstance(module, FSDPModule):
-                    return True
         return False
 
     @property

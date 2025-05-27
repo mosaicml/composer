@@ -502,16 +502,6 @@ def get_lm_trainer(
         should_save_peft_only=should_save_peft_only,
     )
 
-    # On torch 2.0, fsdp wrapped modules can not have both frozen and unfrozen params.
-    # On 2.1+, if you have use_orig_params=True, they can. So we need a special case for the tests here.
-    if version.parse(torch.__version__) < version.parse('2.1.0') and peft_config is not None:
-        for name, module in model.named_modules():
-            if 'lora' in name.lower() and 'default' in name.lower():
-                has_parameters = any(True for _ in module.parameters())
-                has_buffers = any(True for _ in module.buffers())
-                if has_parameters or has_buffers:
-                    module._fsdp_wrap = True  # type: ignore
-
     vocab_size = hf_model.config.vocab_size
     sequence_length = 4
     size = 4
@@ -1324,7 +1314,6 @@ def test_peft_init(peft_type: str, task_type: str, tiny_gpt2_model, gpt2_peft_co
     assert hf_model.model.config == original_model.config
 
 
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2+')
 def test_peft_init_errors(tiny_gpt2_model, gpt2_peft_config):
     pytest.importorskip('peft')
     peft_config = copy.deepcopy(gpt2_peft_config)
@@ -1334,7 +1323,6 @@ def test_peft_init_errors(tiny_gpt2_model, gpt2_peft_config):
         _ = HuggingFaceModel(tiny_gpt2_model, peft_config=peft_config)
 
 
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2+')
 def test_peft_init_not_installed(tiny_gpt2_model, gpt2_peft_config):
     pytest.importorskip('peft')
 
@@ -1344,7 +1332,6 @@ def test_peft_init_not_installed(tiny_gpt2_model, gpt2_peft_config):
             _ = HuggingFaceModel(tiny_gpt2_model, peft_config=gpt2_peft_config)
 
 
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2+')
 @pytest.mark.parametrize('should_save_peft_only', [True, False])
 def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, should_save_peft_only):
     pytest.importorskip('peft')
@@ -1375,7 +1362,6 @@ def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_c
         torch.testing.assert_close(p1, p2)
 
 
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2+')
 @pytest.mark.parametrize(
     'model,tokenizer,peft_config',
     [
@@ -1398,7 +1384,6 @@ def test_peft_generate(model, tokenizer, peft_config):
     hf_model.generate(**input_dict, max_new_tokens=5, pad_token_id=tokenizer.pad_token_id)
 
 
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2+')
 def test_peft_metadata(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config):
     pytest.importorskip('peft')
 
@@ -1411,7 +1396,6 @@ def test_peft_metadata(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config):
     assert loaded_peft_config == gpt2_peft_config
 
 
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2+')
 @pytest.mark.parametrize('should_save_peft_only', [True, False])
 def test_peft_write_hf_from_composer(
     tiny_gpt2_model,
@@ -1536,7 +1520,6 @@ def test_peft_fsdp_trains(
             assert not all('lora' in k for k in loaded_ckpt_1['state']['model'].keys())
 
 
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2+')
 def test_filtered_state_dict(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path):
     pytest.importorskip('peft')
 

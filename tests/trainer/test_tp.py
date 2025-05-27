@@ -215,7 +215,6 @@ def get_stats(trainer: Trainer) -> dict[str, np.ndarray]:
 @pytest.mark.gpu
 @world_size(4)
 @pytest.mark.parametrize('replication', [2])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='Requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 def test_tp_forwards_backwards_correctness(world_size: int, replication: int):
     """Test that training with DDP, FSDP, TP-FSDP results in the same:
@@ -265,7 +264,6 @@ def test_tp_forwards_backwards_correctness(world_size: int, replication: int):
 @world_size(4)
 @pytest.mark.parametrize('replication', [2])
 @pytest.mark.parametrize('batch_size', [1, 4])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='Requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 def test_tp_fit_correctness(world_size: int, batch_size: int, replication: int):
     """Test that training with DDP, FSDP, TP-FSDP results in the same:
@@ -313,7 +311,6 @@ def test_tp_fit_correctness(world_size: int, batch_size: int, replication: int):
 @pytest.mark.gpu
 @world_size(4)
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
 @pytest.mark.parametrize('tensor_parallel_degree', [1, 2])
 def test_tp_train(world_size: int, tensor_parallel_degree: int):
     from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
@@ -357,7 +354,6 @@ def test_tp_train(world_size: int, tensor_parallel_degree: int):
 
 @pytest.mark.gpu
 @world_size(4)
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 def test_tp_with_param_groups(world_size: int):
     from torch.distributed.tensor.parallel import ColwiseParallel, RowwiseParallel
@@ -398,7 +394,6 @@ def test_tp_with_param_groups(world_size: int):
 
 @world_size(4)
 @pytest.mark.gpu
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.3'), reason='requires PyTorch 2.3+')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
 def test_tp_with_subset_of_params(world_size: int):
     from torch.distributed.tensor.parallel import ColwiseParallel

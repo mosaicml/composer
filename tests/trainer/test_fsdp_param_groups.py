@@ -55,10 +55,6 @@ def test_fsdp_param_groups_without_orig_params(mixed_precision: str, device: str
 @pytest.mark.filterwarnings('ignore::UserWarning')
 @device('gpu')
 @world_size(2)
-@pytest.mark.skipif(
-    version.parse(torch.__version__) < version.parse('2'),
-    reason='FSDP use_orig_params requires torch 2.0 or higher',
-)
 def test_fsdp_with_param_groups(mixed_precision: str, device: str, reentrant: bool, world_size: int):
     """
     Test whether an optimizer with multiple param groups maintains the same param groups when
@@ -128,10 +124,6 @@ def test_fsdp_with_param_groups(mixed_precision: str, device: str, reentrant: bo
 @pytest.mark.filterwarnings('ignore::UserWarning')
 @device('gpu')
 @world_size(2)
-@pytest.mark.skipif(
-    version.parse(torch.__version__) < version.parse('2'),
-    reason='FSDP use_orig_params requires torch 2.0 or higher',
-)
 def test_fsdp_with_param_groups_with_subset_of_params_in_opt(
     mixed_precision: str,
     device: str,

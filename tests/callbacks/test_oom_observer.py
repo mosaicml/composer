@@ -15,10 +15,6 @@ from composer.trainer import Trainer
 from tests.common import RandomClassificationDataset, SimpleModel
 
 
-@pytest.mark.skipif(
-    version.parse(torch.__version__) < version.parse('2.1.0'),
-    reason='OOM Observer requires PyTorch 2.1 or higher',
-)
 def test_oom_observer_warnings_on_cpu_models():
     ob = OOMObserver()
     with pytest.warns(UserWarning):
@@ -43,10 +39,6 @@ class FileUploaderTracker(LoggerDestination):
 
 
 @pytest.mark.gpu
-@pytest.mark.skipif(
-    version.parse(torch.__version__) < version.parse('2.1.0'),
-    reason='OOM Observer requires PyTorch 2.1 or higher',
-)
 def test_oom_observer():
     # Construct the callbacks
     oom_observer = OOMObserver()
@@ -71,10 +63,6 @@ def test_oom_observer():
 
 
 @pytest.mark.gpu
-@pytest.mark.skipif(
-    version.parse(torch.__version__) < version.parse('2.1.0'),
-    reason='OOM Observer requires PyTorch 2.1 or higher',
-)
 def test_oom_observer_with_memory_snapshot():
     # Construct the callbacks
     oom_observer = OOMObserver()

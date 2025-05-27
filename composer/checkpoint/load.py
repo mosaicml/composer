@@ -15,7 +15,7 @@ from typing import Any, Optional, Sequence, Union
 
 import torch
 import torch.distributed.checkpoint as DCP
-from packaging import version
+from torch.distributed.checkpoint.state_dict import StateDictOptions, set_optimizer_state_dict
 from torch import nn
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.optim import Optimizer
@@ -273,7 +273,7 @@ def _load_sharded_model_checkpoint(
     model_state_dict = _cast_state_dict_to_precision(model_state_dict, load_options.precision)
     # TODO: raise warning for unknown or missing keys.
     log.debug(f'Loading sharded state dict into model.')
-    if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
+    if dist.is_initialized():
         torch_set_model_state_dict(
             model,
             model_state_dict,
@@ -395,7 +395,7 @@ def _load_sharded_optim_checkpoint(
     )
     for param_key, param_state_dict in optim_state_dict['state'].items():
         optim_state_dict['state'][param_key] = _cast_state_dict_to_precision(param_state_dict, load_options.precision)
-    if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
+    if dist.is_initialized():
         torch_set_optimizer_state_dict(
             model,
             optim,
@@ -522,7 +522,7 @@ def torch_set_model_state_dict(
         cpu_offload (bool): Whether to offload the state dict to CPU before setting.
         sharded_state_dict (bool): Whether the state dict is sharded or not.
     """
-    if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
+    if dist.is_initialized():
         from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
         try:
             set_model_state_dict(
@@ -569,8 +569,7 @@ def torch_set_optimizer_state_dict(
         cpu_offload (bool): Whether to offload the state dict to CPU before setting.
         sharded_state_dict (bool): Whether the state dict is sharded or not.
     """
-    if version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
-        from torch.distributed.checkpoint.state_dict import StateDictOptions, set_optimizer_state_dict
+    if dist.is_initialized():
         set_optimizer_state_dict(
             model=model,
             optimizers=optim,
@@ -626,10 +625,7 @@ def download_and_load_sharded_state_dict(
                     raise
 
         log.debug(f'Loading sharded state dict from {load_path} into memory.')
-        if version.parse(torch.__version__) < version.parse('2.2.0'):
-            DCP.load_state_dict(state_dict=state_dict, storage_reader=storage_reader, planner=load_planner)
-        else:
-            DCP.load(state_dict=state_dict, storage_reader=storage_reader, planner=load_planner)
+        DCP.load(state_dict=state_dict, storage_reader=storage_reader, planner=load_planner)
     return state_dict
 
 
