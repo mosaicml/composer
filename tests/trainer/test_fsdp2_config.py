@@ -4,12 +4,8 @@
 import pytest
 
 from composer.utils.parallelism import FSDP2Config
-from tests.trainer.fsdp2_context import (
-    fsdp2_context,
-)
 
 
-@fsdp2_context
 def test_fsdp2_config():
     """Test that FSDP2Config read-only properties work as expected."""
     # Create a config instance
@@ -47,7 +43,6 @@ def test_fsdp2_config():
     assert config.reshard_after_forward is False
 
 
-@fsdp2_context
 def test_fsdp2config_from_fsdp1_valid_attributes():
     """Test FSDP2Config.from_compatible_attrs with valid attributes."""
     valid_attrs = {
@@ -64,7 +59,6 @@ def test_fsdp2config_from_fsdp1_valid_attributes():
     assert fsdp2_config.device_mesh is None
 
 
-@fsdp2_context
 def test_fsdp2config_from_empty_attributes():
     """Test FSDP2Config.from_compatible_attrs with empty attributes."""
     empty_attrs = {}
@@ -76,7 +70,6 @@ def test_fsdp2config_from_empty_attributes():
     assert fsdp2_config.device_mesh is None  # default value
 
 
-@fsdp2_context
 def test_fsdp2config_from_fsdp1_multiple_invalid_attributes():
     """Test FSDP2Config.from_compatible_attrs with multiple invalid attributes issues warnings for each."""
     mixed_attrs = {
