@@ -26,7 +26,7 @@ from torchmetrics.classification import MulticlassAccuracy
 
 from composer.algorithms import EMA
 from composer.core import Algorithm, Event, Precision, State, Time
-from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_context
+from composer.core.state import fsdp_state_dict_type_context
 from composer.models import ComposerClassifier
 from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
@@ -1026,9 +1026,11 @@ def test_elastic_resumption(
             state_dict['model'] = trainer.state.model.state_dict()
 
         optimizer = trainer.state.optimizers[0]
+        with fsdp_state_dict_type_context(module=trainer.state.model, state_dict_type='full'):
+            optim_state_dict = FSDP.optim_state_dict(trainer.state.model, optimizer)  # type: ignore
+
         state_dict['optimizers'] = {
-            type(optimizer).__qualname__:
-                fsdp_get_optim_state_dict(trainer.state.model, optimizer, state_dict_type='full'),
+            type(optimizer).__qualname__: optim_state_dict,
         }
         return state_dict
 

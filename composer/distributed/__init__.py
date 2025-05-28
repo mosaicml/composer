@@ -3,7 +3,6 @@
 
 """Distributed training."""
 
-# TODO include fsdp2 after we deprecate torch 2.5
 from composer.distributed.dist_strategy import (
     DDPSyncStrategy,
     ddp_sync_context,
