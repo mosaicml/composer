@@ -12,7 +12,7 @@ __all__ = ['EvalClient']
 
 
 class EvalClient(abc.ABC):
-    """Abstract class for implementing eval clients, such as LambdaEvalClient."""
+    """Abstract class for implementing eval clients."""
 
     def invoke(self, payload: list[list[list[dict[str, str]]]]) -> list[list[list[bool]]]:
         """Invoke a provided batch of dictionary payload to the client.

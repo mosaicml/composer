@@ -121,41 +121,6 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
         yield
 
 
-def fsdp_get_optim_state_dict(
-    model: torch.nn.Module,
-    optim: torch.optim.Optimizer,
-    state_dict_type: str = 'full',
-) -> dict[str, Any]:
-    """Materializes a given model's optimizer's state_dict.
-
-    .. warning::
-        This function is deprecated and will be removed in Composer version 0.32.
-        It is maintained for backwards compatibility with tests.
-
-    Args:
-        model (torch.nn.Module): The model that the optimizer corresponds to.
-        optim (torch.optim.Optimizer): The optimizer that you want a state dict for.
-        state_dict_type (str, optional): which of the three state dict types you want to use.
-            choices are ['full', 'sharded']. Defaults to 'full'.
-            * 'full': the full, unsharded state dict materialized only on rank 0
-            * 'sharded': the sharded, unflattened state_dict, where each rank only gets a single shard.
-
-    Raises:
-        NotImplementedError: if you specify a state_dict_type not in ['full', 'sharded'].
-
-    Returns:
-        dict[str, Any]: The state_dict for the given optimizer.
-    """
-    warnings.warn(
-        'fsdp_get_optim_state_dict is deprecated and will be removed in Composer version 0.32',
-        DeprecationWarning,
-        stacklevel=2,
-    )
-
-    with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
-        return FSDP.optim_state_dict(model, optim)  # type: ignore
-
-
 def _legacy_optim_state_dict_to_load(
     optim_state_dict: Optional[dict[str, Any]],
     model: torch.nn.Module,

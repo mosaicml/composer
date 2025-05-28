@@ -30,7 +30,7 @@ from composer.utils.compression import (
     is_compressed_pt,
 )
 from composer.utils.device import get_device, is_hpu_installed, is_xla_installed
-from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient
+from composer.utils.eval_client import EvalClient
 from composer.utils.file_helpers import (
     FORMAT_NAME_WITH_DIST_AND_TIME_TABLE,
     FORMAT_NAME_WITH_DIST_TABLE,
@@ -140,8 +140,6 @@ __all__ = [
     'convert_flat_dict_to_nested_dict',
     'create_interval_scheduler',
     'EvalClient',
-    'LambdaEvalClient',
-    'LocalEvalClient',
     'partial_format',
     'add_vision_dataset_transform',
     'VersionedDeprecationWarning',
