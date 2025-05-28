@@ -315,10 +315,8 @@ def test_fsdp_full_state_dict_load(
     use_tp: bool,
     use_hsdp: bool,
 ):
-    if use_hsdp and version.parse(torch.__version__) < version.parse('2.4.0'):
-        pytest.xfail('HSDP requires torch 2.4.0 or later')
     if use_tp:
-        pytest.skip('TP on PyTorch 2.3 has full state dict issues.')
+        pytest.skip('TP has full state dict issues.')
     if autoresume:
         run_name = 'my-cool-autoresume-run'
     else:
@@ -537,14 +535,6 @@ def test_fsdp_load_old_checkpoint(
 ):
     if composer_version == '0.18.1' and state_dict_type == 'full' and precision == 'amp_bf16' and sharding_strategy == 'FULL_SHARD':
         pytest.skip('TODO: This checkpoint is missing')
-
-    if (composer_version in ['0.22.0', '0.23.0'] and version.parse(torch.__version__) < version.parse('2.3.0')
-       ) or (composer_version in ['0.24.0', '0.25.0'] and
-             version.parse(torch.__version__) < version.parse('2.4.0')) or (
-                 composer_version in ['0.26.0', '0.27.0', '0.28.0'] and
-                 version.parse(torch.__version__) < version.parse('2.5.0')
-             ) or (composer_version in ['0.29.0'] and version.parse(torch.__version__) < version.parse('2.6.0')):
-        pytest.skip('Current torch version is older than torch version that checkpoint was written with.')
 
     if composer_version in ['0.13.5', '0.14.0', '0.14.1', '0.15.1']:
         if state_dict_type == 'sharded':
@@ -848,12 +838,9 @@ def test_fsdp_partitioned_state_dict_load(
     request,
 ):
     if use_tp:
-        pytest.skip('TP on PyTorch 2.3 has sharded state dict issues.')
+        pytest.skip('TP has sharded state dict issues.')
     if weights_only and autoresume:
         pytest.skip('Weights only with autoresume is not supported')
-    if (use_tp or use_hsdp) and version.parse(torch.__version__) < version.parse('2.3.0'):
-        dist.barrier()  # Sync to avoid race conditions on cleaning up tmp_path
-        pytest.skip('HSDP and TP require torch 2.3.0 or later')
 
     load_ignore_keys = [] if load_ignore_keys is None else load_ignore_keys
 
@@ -1120,7 +1107,6 @@ def test_cleanup_sharded_checkpoints(
 @world_size(2)
 @pytest.mark.parametrize('weights_only', [False, True])
 @pytest.mark.parametrize('planner', [None, 'rename'])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2.0 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 def test_fsdp_planner(
@@ -1135,40 +1121,22 @@ def test_fsdp_planner(
     from torch.distributed.checkpoint.default_planner import DefaultLoadPlanner, DefaultSavePlanner
     from torch.distributed.checkpoint.metadata import STATE_DICT_TYPE, Metadata
 
-    if version.parse(torch.__version__) < version.parse('2.4.0'):
+    class RenameSavePlanner(DefaultSavePlanner):  # type: ignore
 
-        class RenameSavePlanner(DefaultSavePlanner):  # type: ignore
+        def set_up_planner(
+            self,
+            state_dict: STATE_DICT_TYPE,
+            storage_meta=None,
+            is_coordinator: bool = False,
+        ) -> None:
+            # suffix all keys with `foo_``
+            state_dict['state']['model'] = {k + '_foo': v for k, v in state_dict['state']['model'].items()}
 
-            def set_up_planner(
-                self,
-                state_dict: STATE_DICT_TYPE,
-                is_coordinator: bool = False,
-            ) -> None:
-                # suffix all keys with `foo_``
-                state_dict['state']['model'] = {k + '_foo': v for k, v in state_dict['state']['model'].items()}
-
-                super().set_up_planner(
-                    state_dict=state_dict,
-                    is_coordinator=is_coordinator,
-                )
-    else:
-
-        class RenameSavePlanner(DefaultSavePlanner):  # type: ignore
-
-            def set_up_planner(
-                self,
-                state_dict: STATE_DICT_TYPE,
-                storage_meta=None,
-                is_coordinator: bool = False,
-            ) -> None:
-                # suffix all keys with `foo_``
-                state_dict['state']['model'] = {k + '_foo': v for k, v in state_dict['state']['model'].items()}
-
-                super().set_up_planner(
-                    state_dict=state_dict,
-                    storage_meta=storage_meta,
-                    is_coordinator=is_coordinator,
-                )
+            super().set_up_planner(
+                state_dict=state_dict,
+                storage_meta=storage_meta,
+                is_coordinator=is_coordinator,
+            )
 
     class RenameLoadPlanner(DefaultLoadPlanner):
 

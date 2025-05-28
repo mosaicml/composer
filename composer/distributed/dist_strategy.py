@@ -9,7 +9,6 @@ from contextlib import contextmanager, nullcontext
 from typing import Any, Callable, ContextManager, Iterator, Optional, Sequence, Union, cast
 
 import torch
-from packaging import version
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     CheckpointImpl,
     apply_activation_checkpointing,
@@ -338,9 +337,7 @@ def prepare_fsdp_module(
     sharding_strategy = SHARDING_MAP[sharding_map_key]
 
     kwargs = {}
-    if version.parse(
-        torch.__version__.split('.dev')[0],
-    ) >= version.parse('2.2.0') and fsdp_config.device_mesh is not None:
+    if fsdp_config.device_mesh is not None:
         if fsdp_config.process_group is not None:
             warnings.warn(
                 'process_group and device_mesh are set for FSDP, so ignoring device_mesh. Please set process_group to None.',

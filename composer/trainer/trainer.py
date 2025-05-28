@@ -38,7 +38,6 @@ import torch
 import torch.distributed
 import torch.nn as nn
 import torch.utils.data
-from packaging import version
 from torch._dynamo import OptimizedModule
 from torch.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
 from torch.distributed.fsdp import FullyShardedDataParallel
@@ -75,6 +74,7 @@ from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.distributed import (
     DDPSyncStrategy,
     ddp_sync_context,
+    parallelize_composer_model,
     prepare_ddp_module,
     prepare_fsdp_module,
     prepare_tp_module,
@@ -1859,7 +1859,6 @@ class Trainer:
                             self.state.seed,
                         )
                     case 2:
-                        from composer.distributed.prepare_distributed import parallelize_composer_model
                         parallelize_composer_model(
                             model,
                             optimizers,
@@ -2173,18 +2172,6 @@ class Trainer:
             # It is important to set the duration, rather than incrementing it, as ``duration`` could be in
             # different units than ``max_duration``
             self.state.max_duration = duration + self.state.timestamp.get(duration.unit)
-
-        # Raise error if callig fit with SGD
-        if (
-            type(self.state.optimizers[0]) == torch.optim.SGD and
-            version.parse(torch.__version__) >= version.parse('2.4.0') and
-            version.parse(torch.__version__) < version.parse('2.5.0')
-        ):
-            raise ValueError(
-                'PyTorch 2.4 breaks (distributed) checkpointing with SGD. '
-                'Please use a different optimizer, e.g. composer.optim.DecoupledSGDW, '
-                'instead. See https://github.com/pytorch/pytorch/issues/133415 for further information.',
-            )
 
         if self.state.max_duration is None:
             _raise_missing_argument_exception('max_duration')

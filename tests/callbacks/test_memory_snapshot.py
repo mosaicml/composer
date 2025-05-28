@@ -4,8 +4,6 @@
 import pathlib
 
 import pytest
-import torch
-from packaging import version
 from torch.utils.data import DataLoader
 
 from composer import State, Trainer
@@ -15,10 +13,6 @@ from composer.trainer import Trainer
 from tests.common import RandomClassificationDataset, SimpleModel
 
 
-@pytest.mark.skipif(
-    version.parse(torch.__version__) < version.parse('2.1.0'),
-    reason='OOM Observer requires PyTorch 2.1 or higher',
-)
 def test_memory_snapshot_warnings_on_cpu_models():
     with pytest.warns(UserWarning):
         Trainer(
@@ -42,10 +36,6 @@ class FileUploaderTracker(LoggerDestination):
 
 @pytest.mark.gpu
 @pytest.mark.parametrize('interval', ['1ba'])
-@pytest.mark.skipif(
-    version.parse(torch.__version__) < version.parse('2.1.0'),
-    reason='OOM Observer requires PyTorch 2.1 or higher',
-)
 def test_memory_snapshot(interval: str):
     # Construct the callbacks
     skip_batches = 0

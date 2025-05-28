@@ -20,7 +20,6 @@ from tests.common import (
     SimpleWeightTiedModel,
     world_size,
 )
-from tests.trainer.fsdp2_context import fsdp2_context
 
 _INIT_DEVICES = ['cuda', 'meta']
 
@@ -65,7 +64,6 @@ def create_trainer_with_model(
 @pytest.mark.parametrize('device', _INIT_DEVICES)
 @world_size(2)
 @pytest.mark.gpu
-@fsdp2_context
 def test_fsdp2_initialization_with_tied_params(
     model_class: type,
     device: str,
@@ -112,7 +110,6 @@ def test_fsdp2_initialization_with_tied_params(
 @pytest.mark.parametrize('device', _INIT_DEVICES)
 @world_size(2)
 @pytest.mark.gpu
-@fsdp2_context
 def test_fsdp2_checkpointing(
     model_class: type,
     device: str,
@@ -161,7 +158,6 @@ def test_fsdp2_checkpointing(
 
 @world_size(2)
 @pytest.mark.gpu
-@fsdp2_context
 def test_fsdp2_load_from_fsdp1(
     world_size: int,
     tmp_path: pathlib.Path,
@@ -212,7 +208,6 @@ def test_fsdp2_load_from_fsdp1(
 
 @world_size(2)
 @pytest.mark.gpu
-@fsdp2_context
 @pytest.mark.parametrize('case', ['all_params_one_group', 'subset_one_group', 'multiple_groups'])
 @pytest.mark.parametrize('device', _INIT_DEVICES)
 def test_fsdp2_optimizer_handling(
@@ -289,7 +284,6 @@ def test_fsdp2_optimizer_handling(
 
 @world_size(2)
 @pytest.mark.gpu
-@fsdp2_context
 def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(
     world_size: int,
 ):

@@ -15,7 +15,6 @@ from typing import Any, Optional, Sequence, Union
 
 import torch
 import torch.distributed.checkpoint as DCP
-from packaging import version
 from torch.distributed._shard.sharded_tensor import ShardedTensor
 from torch.distributed._tensor import DTensor
 
@@ -358,13 +357,7 @@ def _save_sharded_state_dict_to_disk(
         f'Starting saving of sharded state dict to {destination_file_path}/{_TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME}',
     )
 
-    # For 2.3.0 and above you can use checkpoint_id, but this version works the best for all versions
-    # of torch (and makes pyright happier) that we support, so we use it for now.
-    if version.parse(torch.__version__) < version.parse('2.2.0'):
-        DCP.save_state_dict(state_dict=state_dict, storage_writer=DCP.FileSystemWriter(destination_file_path))
-    else:
-        DCP.save(state_dict=state_dict, storage_writer=DCP.FileSystemWriter(destination_file_path))
-
+    DCP.save(state_dict=state_dict, storage_writer=DCP.FileSystemWriter(destination_file_path))
     log.debug(
         f'Finished saving of sharded state dict to {destination_file_path}/{_TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME}',
     )

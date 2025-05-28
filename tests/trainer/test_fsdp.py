@@ -6,8 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
-from packaging import version
-from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import CheckpointWrapper
+from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import CheckpointWrapper, OffloadWrapper
 from torch.utils.data import DataLoader, Dataset
 
 from composer.models import ComposerClassifier, ComposerModel
@@ -331,10 +330,6 @@ def test_fsdp_automicrobatching_sync_hooks(world_size: int):
 
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.skipif(
-    version.parse(torch.__version__) < version.parse('2'),
-    reason='FSDP use_orig_params requires torch 2.0 or higher',
-)
 def test_fsdp_subset_of_params_in_opt(world_size: int):
     model = SimpleModel()
     dataset = RandomClassificationDataset(size=10)
@@ -436,23 +431,21 @@ def test_fsdp_act_ckpt_offload(
     )
 
     assert trainer.state.fsdp_enabled
-    if version.parse(torch.__version__) > version.parse('2.1.0.dev'):
-        from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import OffloadWrapper
 
-        assert isinstance(trainer.state.model.fc1, torch.nn.Module)
+    assert isinstance(trainer.state.model.fc1, torch.nn.Module)
 
-        if activation_checkpointing and activation_cpu_offload:
-            assert isinstance(trainer.state.model.fc1._fsdp_wrapped_module, OffloadWrapper)
-            assert isinstance(
-                trainer.state.model.fc1._fsdp_wrapped_module._checkpoint_wrapped_module,
-                CheckpointWrapper,
-            )
-        elif activation_checkpointing:
-            assert isinstance(trainer.state.model.fc1._fsdp_wrapped_module, CheckpointWrapper)
-        elif activation_cpu_offload:
-            assert isinstance(trainer.state.model.fc1._fsdp_wrapped_module, OffloadWrapper)
-        else:
-            assert not isinstance(trainer.state.model.fc1._fsdp_wrapped_module, CheckpointWrapper)
+    if activation_checkpointing and activation_cpu_offload:
+        assert isinstance(trainer.state.model.fc1._fsdp_wrapped_module, OffloadWrapper)
+        assert isinstance(
+            trainer.state.model.fc1._fsdp_wrapped_module._checkpoint_wrapped_module,
+            CheckpointWrapper,
+        )
+    elif activation_checkpointing:
+        assert isinstance(trainer.state.model.fc1._fsdp_wrapped_module, CheckpointWrapper)
+    elif activation_cpu_offload:
+        assert isinstance(trainer.state.model.fc1._fsdp_wrapped_module, OffloadWrapper)
+    else:
+        assert not isinstance(trainer.state.model.fc1._fsdp_wrapped_module, CheckpointWrapper)
 
 
 @pytest.mark.gpu

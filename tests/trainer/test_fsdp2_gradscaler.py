@@ -9,11 +9,11 @@ import torch.nn.functional as F
 from torch.amp.grad_scaler import GradScaler
 from torch.distributed._tensor import DTensor
 
+from composer.distributed.prepare_distributed import parallelize_model
 from composer.utils.parallelism import FSDP2Config
 from tests.common import (
     world_size,
 )
-from tests.trainer.fsdp2_context import fsdp2_context, parallelize_model
 
 
 class SimpleModel(nn.Module):
@@ -36,7 +36,6 @@ class SimpleModel(nn.Module):
 
 @world_size(2)
 @pytest.mark.gpu
-@fsdp2_context
 def test_fsdp2_with_gradscaler_inf(world_size: int):
     """Test FSDP2 with GradScaler can handle inf in grad."""
     # Setup GradScaler for mixed precision training
