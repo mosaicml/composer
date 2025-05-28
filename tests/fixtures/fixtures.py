@@ -120,6 +120,14 @@ def s3_bucket(request: pytest.FixtureRequest):
 
 
 @pytest.fixture
+def dbfs_path(request: pytest.FixtureRequest):
+    if request.node.get_closest_marker('remote') is None:
+        return 'my-volume'
+    else:
+        return os.environ.get('DBFS_PATH', 'dbfs:/Volumes/main/regression_testing/composer_artifacts/backwards_compatibility/')
+
+
+@pytest.fixture
 def s3_ephemeral_prefix():
     '''Objects under this prefix purged according to the bucket's lifecycle policy.'''
     return 'ephemeral'

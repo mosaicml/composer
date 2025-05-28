@@ -33,7 +33,7 @@ from composer.trainer import Trainer
 from composer.utils import FSDPConfig, TPConfig, dist, parse_uri
 from composer.utils.checkpoint import dist_cp_load
 from composer.utils.file_helpers import get_file
-from composer.utils.object_store import S3ObjectStore
+from composer.utils.object_store import UCObjectStore
 from composer.utils.reproducibility import get_rng_state
 from tests.common import RandomClassificationDataset, deep_compare
 from tests.common.markers import world_size
@@ -517,6 +517,7 @@ def test_fsdp_mixed_with_sync(
         '0.28.0',
         '0.29.0',
         '0.30.0',
+        '0.31.0',
     ],
 )
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
@@ -529,8 +530,7 @@ def test_fsdp_load_old_checkpoint(
     precision: str,
     sharding_strategy: str,
     state_dict_type: str,
-    s3_bucket: str,
-    s3_read_only_prefix: str,
+    dbfs_path: str,
     composer_version: str,
 ):
     if composer_version == '0.18.1' and state_dict_type == 'full' and precision == 'amp_bf16' and sharding_strategy == 'FULL_SHARD':
@@ -541,9 +541,9 @@ def test_fsdp_load_old_checkpoint(
             pytest.skip('Loading legacy sharded checkpoints are not supported after v0.25.0.')
 
         load_path_dir = (
-            f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/'
-            f'{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_'
-            f'{precision}/'
+            f'{dbfs_path}/'
+            f'{composer_version}/'
+            f'{sharding_strategy.lower()}_{state_dict_type}_{precision}/'
         )
         if ((version.parse(composer_version) > version.parse('0.15.0')) and state_dict_type != 'full'):
             load_path_dir = (load_path_dir + 'ep0-ba2/')
@@ -551,9 +551,9 @@ def test_fsdp_load_old_checkpoint(
         load_path = load_path_dir + f'ba2_rank0.pt'
     else:
         load_path = (
-            f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/'
-            f'{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_'
-            f'{precision}/'
+            f'{dbfs_path}/'
+            f'{composer_version}/'
+            f'{sharding_strategy.lower()}_{state_dict_type}_{precision}/'
         )
         if state_dict_type == 'full':
             load_path += 'ba2_rank0.pt'
@@ -619,7 +619,7 @@ def test_fsdp_load_old_checkpoint(
                 'rng': get_rng_state(),
             }
 
-            object_store = S3ObjectStore(bucket=f'{s3_bucket}')
+            object_store = UCObjectStore(path=f'{dbfs_path}')
             storage_reader = DistCPObjectStoreReader(
                 source_path=parsed_load_path,
                 destination_path=destination,
