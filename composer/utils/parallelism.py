@@ -126,7 +126,6 @@ class FSDP2Config:
     # to be supported in FSDP2
     @property
     def auto_wrap(self) -> bool:
-        # TODO: FSDP2 supports auto_wrap so fix this in a different PR
         return False
 
     @property

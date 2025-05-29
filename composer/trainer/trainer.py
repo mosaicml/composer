@@ -2771,6 +2771,8 @@ class Trainer:
                             sync_hook=sync_hook,
                         )
                     _adjust_device_train_microbatch_size(self.state)
+                    from composer.distributed.fsdp2 import unset_fsdp2_state
+                    unset_fsdp2_state(self.state.model)
                     self.num_consecutive_thrashes = 0
                     self.num_consecutive_non_OOM_batches = 0
                     oom_found_this_batch = True

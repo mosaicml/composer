@@ -11,6 +11,8 @@ from packaging import version
 from torch.utils.hooks import RemovableHandle
 from torchmetrics import Metric, MetricCollection
 
+from torch.distributed.fsdp import FullyShardedDataParallel, FSDPModule
+
 from composer.devices import Device
 from composer.models import ComposerModel
 from composer.utils import dist, get_device
@@ -22,14 +24,10 @@ def get_valid_fsdp_module_types() -> dict[int, type]:
     Returns:
         dict: Dictionary of valid FSDP module types.
     """
-    from torch.distributed.fsdp import FullyShardedDataParallel
-    valid_types: dict[int, type] = {1: FullyShardedDataParallel}
-
-    if version.parse(torch.__version__) >= version.parse('2.6.0'):
-        from torch.distributed.fsdp._fully_shard import FSDPModule
-        valid_types[2] = FSDPModule
-
-    return valid_types
+    return {
+        1: FullyShardedDataParallel,
+        2: FSDPModule,
+    }
 
 
 def get_direct_children_from_composer_model(model: ComposerModel) -> list[torch.nn.Module]:
@@ -154,7 +152,6 @@ def add_fsdp_oom_hooks(model, fsdp_config_version: int, device: Optional[Device]
     # TODO: In FSDP1, we might not need the non-FSDP wrapped backward hook either, but we'll keep it for now until further investigation.
     # TODO: If we want to reduce as many potential deadlocks as possible, we may need to add hooks before all blocking collectives:
     #   - register_forward_pre_hook (before blocking all_gather)
-    #   - register_forward_hook (before blocking reduce_scatter)
     #   - register_full_backward_pre_hook (before blocking all_gather)
     #   - register_full_backward_hook (before blocking reduce_scatter)
     # In all of these cases, some combination of no activation checkpointing/offloading, reshard_after_forward=False, or high gradient memory cost

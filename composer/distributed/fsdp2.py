@@ -8,7 +8,8 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
-from torch.distributed.fsdp import MixedPrecisionPolicy, fully_shard
+from torch.distributed.fsdp import MixedPrecisionPolicy, fully_shard, FSDPModule
+from torch.distributed.fsdp._fully_shard._fsdp_common import TrainingState
 from torch.distributed.fsdp.wrap import CustomPolicy
 
 from composer.distributed.fsdp2_utils import (
@@ -159,3 +160,21 @@ def add_fsdp2_oom_hooks(model: nn.Module) -> tuple[list[torch.utils.hooks.Remova
     for child in direct_children:
         named_modules.update(dict(child.named_modules()))
     return hook_handles, named_modules
+
+
+def unset_fsdp2_state(model: nn.Module) -> None:
+    """Recover the FSDP2 state of the model to its original state.
+
+    This is needed because FSDP2 is stateful since they expect training to fail when we hit OOM.
+    Since with auto-microbatching, training does not fail, we need to set the FSDP2 state to `IDLE`
+    so it can continue transitioning between states correctly. Otherwise, there's a chance that it won't
+    transition correctly and either hang/raise unexpected errors.
+
+    Args:
+        model (nn.Module): The model to recover the FSDP2 state of.
+    """
+    for module in model.modules():
+        if isinstance(module, FSDPModule):
+            state = fully_shard.state(module)
+            state._state_ctx.post_backward_final_callback_queued = False
+            state._training_state = TrainingState.IDLE
