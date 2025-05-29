@@ -555,7 +555,7 @@ def test_fsdp_load_old_checkpoint(
             f'dbfs:/{uc_volume_path}',
             'backwards_compatibility',
             composer_version,
-            f'{sharding_strategy.lower()}_{state_dict_type}_{precision}'
+            f'{sharding_strategy.lower()}_{state_dict_type}_{precision}',
         )
         if state_dict_type == 'full':
             load_path = os.path.join(load_path, 'ba2_rank0.pt')
