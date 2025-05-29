@@ -37,13 +37,17 @@ def get_direct_children_from_composer_model(model: ComposerModel) -> list[torch.
 def generate_oom_hook(device: Device) -> Callable:
     """Generate a hook that checks if any other rank hit an OOM.
 
+    Note: This isn't supported for FSDP2 yet. For more details view the draft PR:
+    https://github.com/mosaicml/composer/pull/3866
+
     We check if other ranks OOMed after forward/backward pass when using auto microbatching. This
     may happen when close to memory limit or with uneven memory usage across ranks. Since we
-    need to do this before the model weights are gathered for the next FSDP(1/2) block, we wrap every
-    FSDP(1/2) block with a hook that checks if any other rank OOMed.
+    need to do this before the model weights are gathered for the next FSDP1 block, we wrap every
+    FSDP1 block with a hook that checks if any other rank OOMed.
 
     Here's an example of why this is needed using a simple 2-GPU setup and how it handles OOM issues during auto microbatching.
-    Note that the line numbers can be (slightly) off based on future changes made to the code.
+
+    Note: The line numbers below can be (slightly) off based on future changes made to the code.
 
     - Rank 0: Layer 1 works fine
     - Rank 1: Layer 1 works fine
@@ -53,7 +57,7 @@ def generate_oom_hook(device: Device) -> Callable:
         - Rank 0 creates found_cuda_oom_tensor = [1] and calls all_reduce on it with reduce_operation='MAX' [[trainer.py:2773]]
     - Rank 1: Layer 2 works fine until a hook handle is hit
         - Rank 1 sets found_cuda_oom_tensor = [0] [[shared_utils.py:85]]
-        - Rank 1 calls all_reduce to set found_cuda_oom_tensor to max([0, 1]) = 1 [[fsdp2.py:73]]
+        - Rank 1 calls all_reduce to set found_cuda_oom_tensor to max([0, 1]) = 1 [[shared_utils.py:86]]
         - Rank 1 sees that found_cuda_oom == 1 [[shared_utils.py:87]]
     - Rank 0:
         - Rank 0 creates all_ranks_finished_tensor = [1] and calls all_reduce on it with reduce_operation='MIN' [[trainer.py:2780]]
@@ -101,15 +105,18 @@ def generate_oom_hook(device: Device) -> Callable:
 
 
 def add_fsdp_oom_hooks(model: torch.nn.Module, device: Optional[Device] = None) -> list[RemovableHandle]:
-    """Add OOM hooks to the model and return the list of handles.
+    """Add OOM hooks to the FSDP1-wrapped model and return the list of handles.
 
-    The following sync hooks are added to prevent FSDP deadlocks that are caused when some ranks OOM
+    Note: This isn't supported for FSDP2 yet. For more details view the draft PR:
+    https://github.com/mosaicml/composer/pull/3866
+
+    The following sync hooks are added to prevent FSDP1 deadlocks that are caused when some ranks OOM
     and other ranks do not OOM, leading to OOMing ranks calling all_reduce to wait on the non-OOMing
     ranks and the non-OOMing ranks calling all_gatherbase to continue with FSDP training:
 
-    forward_pre_hook: before forwards of FSDP modules
-    full_backward_pre_hook: before backwards of FSDP modules
-    full_backward_hook: before a prefetched unshard called by FSDP's `post_backward_reshard`
+    forward_pre_hook: before forwards of FSDP1 modules
+    full_backward_pre_hook: before backwards of FSDP1 modules
+    full_backward_hook: before a prefetched unshard called by FSDP1's `post_backward_reshard`
 
     View https://github.com/mosaicml/composer/pull/3510 for more details.
 
