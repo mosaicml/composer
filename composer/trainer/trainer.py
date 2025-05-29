@@ -1195,6 +1195,8 @@ class Trainer:
 
         # Distributed
         parallelism_config = self._parse_parallelism_config(parallelism_config)
+        if parallelism_config is not None and parallelism_config.fsdp2 is not None and auto_microbatching:
+            raise ValueError('Auto microbatching is not supported with FSDP2. Please set a reasonable microbatch size manually for FSDP2.')
         if parallelism_config is not None or dist.get_world_size() > 1:
             # FSDP requires torch.distributed to be initialized, even if the world size is 1
             # And torch.distributed is always required for multi-rank training
@@ -1834,8 +1836,7 @@ class Trainer:
                             self.state.seed,
                         )
                     case 2:
-                        if auto_microbatching:
-                            raise ValueError('Auto microbatching is not supported with FSDP2. Please set a reasonable microbatch size instead.')
+                        assert not auto_microbatching
                         parallelize_composer_model(
                             model,
                             optimizers,
@@ -3804,7 +3805,7 @@ class Trainer:
                 if isinstance(parallelism_config['fsdp'], FSDPConfig | FSDP2Config):
                     parallelism_config_args['fsdp'] = parallelism_config['fsdp']
                 elif os.environ.get('FSDP_VERSION', '1') == '2':
-                    parallelism_config_args['fsdp'] = FSDP2Config.from_compatible_attrs(parallelism_config['fsdp'])
+                    parallelism_config_args['fsdp2'] = FSDP2Config.from_compatible_attrs(parallelism_config['fsdp'])
                 else:
                     parallelism_config_args['fsdp'] = FSDPConfig(**parallelism_config['fsdp'])
             if 'tp' in parallelism_config and parallelism_config['tp'] is not None:
