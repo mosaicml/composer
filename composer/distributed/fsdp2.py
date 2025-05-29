@@ -17,8 +17,6 @@ from composer.distributed.fsdp2_utils import (
     get_standalone_and_tied_modules,
     legalize_param_sharing_between_modules,
 )
-from composer.distributed.shared_utils import add_fsdp_oom_hooks, get_direct_children_from_composer_model
-from composer.models import ComposerModel
 from composer.utils import FSDP2Config
 
 log = logging.getLogger(__name__)
@@ -139,23 +137,3 @@ def prepare_fully_shard(
             if attr == 'verbose':
                 continue
             log.info(f'FSDP2: {attr}: {getattr(fsdp2_config, attr)}')
-
-
-def add_fsdp2_oom_hooks(model: nn.Module) -> tuple[list[torch.utils.hooks.RemovableHandle], dict[str, nn.Module]]:
-    """Add OOM hooks to the valid FSDP2-wrapped modules in a ComposerModel and return the named modules.
-
-    Args:
-        model (nn.Module): The model to add OOM hooks to.
-
-    Returns:
-        list[torch.utils.hooks.RemovableHandle]: A list of removable hook handles for the OOM hooks.
-        dict[str, nn.Module]: A dictionary of valid named modules in the ComposerModel.
-    """
-    assert isinstance(model, ComposerModel), f'{type(model)} is not a ComposerModel'
-    hook_handles = add_fsdp_oom_hooks(model, fsdp_config_version=2)
-
-    named_modules = {}
-    direct_children = get_direct_children_from_composer_model(model)
-    for child in direct_children:
-        named_modules.update(dict(child.named_modules()))
-    return hook_handles, named_modules
