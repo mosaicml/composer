@@ -124,7 +124,7 @@ def dbfs_path(request: pytest.FixtureRequest):
     if request.node.get_closest_marker('remote') is None:
         return 'my-volume'
     else:
-        return os.environ.get('DBFS_PATH', 'dbfs:/Volumes/main/regression_testing/composer_artifacts/backwards_compatibility/')
+        return os.environ.get('DBFS_PATH', 'dbfs:/Volumes/main/regression_testing/composer_artifacts/backwards_compatibility')
 
 
 @pytest.fixture
