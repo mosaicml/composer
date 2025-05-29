@@ -7,13 +7,13 @@ import functools
 from typing import Callable, Optional
 
 import torch
+from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.utils.hooks import RemovableHandle
 from torchmetrics import Metric, MetricCollection
 
 from composer.devices import Device
 from composer.models import ComposerModel
 from composer.utils import dist, get_device
-from torch.distributed.fsdp import FullyShardedDataParallel
 
 
 def get_direct_children_from_composer_model(model: ComposerModel) -> list[torch.nn.Module]:
