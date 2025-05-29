@@ -307,8 +307,14 @@ def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(
     assert 'optimizer.param_id.' in str(e.value)
 
 
-def test_fsdp2_auto_microbatching_raises_error():
+@pytest.mark.gpu
+@world_size(2)  # Using world_size(2) for consistency with other FSDP2 tests in this file although not needed
+def test_fsdp2_auto_microbatching_raises_error(
+    world_size: int,
+):
     """Test FSDP2 raises an error when auto microbatching is used."""
+    del world_size
+
     model = SimpleComposerMLP(num_features=10, device='cuda', num_classes=10)
     model.add_fsdp_wrap_attribute_to_children()
     with pytest.raises(ValueError) as e:
