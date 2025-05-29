@@ -20,6 +20,7 @@ import torch
 from packaging import version
 from torch.distributed._shard.sharded_tensor import ShardedTensor
 from torch.distributed._tensor import DTensor
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.utils.data import DataLoader
 from torchmetrics import Metric, MetricCollection
 from torchmetrics.classification import MulticlassAccuracy
@@ -1019,7 +1020,6 @@ def test_elastic_resumption(
     )
 
     def get_mono_state_dict_from_sharded_one(trainer):
-        from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
         state_dict = trainer.state.state_dict()
         state_dict.pop('optimizers')
         state_dict.pop('model')
