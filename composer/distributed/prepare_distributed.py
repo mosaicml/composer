@@ -91,7 +91,6 @@ def parallelize_composer_model(
     composer_model: ComposerModel,
     optimizer: Optional[torch.optim.Optimizer],
     config: FSDP2Config,
-    auto_microbatching: bool = False,
 ) -> tuple[list, dict]:
     """Prepare a ComposerModel for distributed training.
 
@@ -105,12 +104,6 @@ def parallelize_composer_model(
         composer_model (ComposerModel): The ComposerModel to prepare for distributed training.
         optimizer (Optional[torch.optim.Optimizer]): The optimizer to use for distributed training.
         config (FSDP2Config): The configuration for distributed training. Currently only FSDP2Config is supported.
-        auto_microbatching (bool): Whether to use auto microbatching.
-
-    Returns:
-        tuple[list, dict]: A tuple containing:
-            - A list of removable hook handles for the OOM hooks if auto_microbatching is enabled
-            - A dictionary mapping module names to modules after fully sharding
     """
     assert isinstance(composer_model, ComposerModel), f'{type(composer_model)} is not a ComposerModel'
     activation_checkpointing_check_fn = generate_composer_model_check_fn(
@@ -124,9 +117,3 @@ def parallelize_composer_model(
         activation_checkpointing_check_fn=activation_checkpointing_check_fn,
         param_init_fn=meta_init,
     )
-
-    hook_handles = []
-    named_modules = {}
-    if auto_microbatching:
-        hook_handles, named_modules = add_fsdp2_oom_hooks(composer_model)
-    return hook_handles, named_modules

@@ -1835,11 +1835,12 @@ class Trainer:
                             self.state.seed,
                         )
                     case 2:
-                        self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = parallelize_composer_model(
+                        if auto_microbatching:
+                            raise ValueError('Auto microbatching is not supported with FSDP2')
+                        parallelize_composer_model(
                             model,
                             optimizers,
                             self.state.fsdp_config,  # type: ignore
-                            auto_microbatching,
                         )
                     case _:
                         raise ValueError(f'Unsupported FSDP config version: {self.state.fsdp_config_version}')
