@@ -18,6 +18,7 @@ from composer.distributed.fsdp2_utils import (
     legalize_param_sharing_between_modules,
 )
 from composer.utils.parallelism import FSDP2Config
+from composer.utils import dist, get_device
 
 log = logging.getLogger(__name__)
 
@@ -140,3 +141,49 @@ def prepare_fully_shard(
             if attr == 'verbose':
                 continue
             log.info(f'FSDP2: {attr}: {getattr(fsdp2_config, attr)}')
+
+# TODO: Move this to shared_utils.py eventually (after that PR has been merged)
+def validate_sync_module_states_attribute(model: nn.Module, fsdp2_config: FSDP2Config) -> None:
+    """Validates that sync_module_states configuration is compatible with model initialization.
+    
+    When sync_module_states is False, this function checks that all ranks have their model
+    parameters on the same device type (either all on meta, or all on cpu/gpu). If there's
+    a mix where some ranks have parameters on meta device and others have parameters on
+    cpu/gpu, it raises a ValueError since this can lead to random weight initialization
+    when loading checkpoints.
+    
+    Args:
+        model (nn.Module): The model to validate.
+        fsdp2_config (FSDP2Config): The FSDP2 configuration containing sync_module_states setting.
+        
+    Raises:
+        ValueError: If sync_module_states is False and there's mixed initialization across ranks.
+    """
+    device = get_device()
+    if fsdp2_config.sync_module_states == False:
+        rank_on_meta = 1 if next(model.parameters()).device.type == 'meta' else 0
+        all_ranks_meta = device.tensor_to_device(torch.tensor([rank_on_meta], dtype=torch.uint8))
+        dist.all_reduce(all_ranks_meta, reduce_operation='MIN')
+        any_ranks_meta = device.tensor_to_device(torch.tensor([rank_on_meta], dtype=torch.uint8))
+        dist.all_reduce(any_ranks_meta, reduce_operation='MAX')
+        if all_ranks_meta.item() == 0 and any_ranks_meta.item() == 1:
+            raise ValueError(
+                'Detected mixed initialization where some ranks have model on cpu or '
+                'gpu and some ranks are on meta. Either keep all ranks on the same '
+                "device or set parallelism_config['fsdp']['sync_module_states'] = True. Otherwise, "
+                'some weights may be randomly initialized when loading a checkpoint.',
+            )
+
+def sync_module_states(model: nn.Module) -> None:
+    """Syncs the module states of the model.
+    
+    This function synchronizes the module states of the model across all ranks.
+    This happens after the model has been initialized on all ranks but before the FSDP2
+    wrapper (sharding) is applied. We broadcast the module states from rank 0 to all other ranks.
+    
+    Args:
+        model (nn.Module): The model to synchronize.
+
+    Returns:
+        None
+    """

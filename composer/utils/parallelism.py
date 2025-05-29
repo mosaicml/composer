@@ -80,6 +80,7 @@ class FSDP2Config:
     #       in most of our use cases, we can decouple these two attributes from the FSDP2Config class.
     activation_checkpointing: bool = False
     activation_cpu_offload: bool = False
+    sync_module_states: bool = False
 
     verbose: bool = False
 
@@ -130,10 +131,6 @@ class FSDP2Config:
 
     @property
     def load_monolith_rank0_only(self) -> bool:
-        return False
-
-    @property
-    def sync_module_states(self) -> bool:
         return False
 
     @property
