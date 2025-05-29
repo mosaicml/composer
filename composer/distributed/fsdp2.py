@@ -8,7 +8,7 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
-from torch.distributed.fsdp import MixedPrecisionPolicy, fully_shard, FSDPModule
+from torch.distributed.fsdp import FSDPModule, MixedPrecisionPolicy, fully_shard
 from torch.distributed.fsdp._fully_shard._fsdp_common import TrainingState
 from torch.distributed.fsdp.wrap import CustomPolicy
 
@@ -175,6 +175,6 @@ def unset_fsdp2_state(model: nn.Module) -> None:
     """
     for module in model.modules():
         if isinstance(module, FSDPModule):
-            state = fully_shard.state(module)
-            state._state_ctx.post_backward_final_callback_queued = False
-            state._training_state = TrainingState.IDLE
+            state = fully_shard.state(module)  # type: ignore
+            state._state_ctx.post_backward_final_callback_queued = False  # type: ignore
+            state._training_state = TrainingState.IDLE  # type: ignore

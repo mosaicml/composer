@@ -317,7 +317,6 @@ def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(
 
 @world_size(2)
 @pytest.mark.gpu
-@fsdp2_context
 @pytest.mark.filterwarnings("ignore:`device_train_microbatch_size='auto'` may potentially fail with unexpected.*")
 @pytest.mark.parametrize(
     'use_alternate,num_layers,expected_num_hooks',
@@ -384,7 +383,6 @@ def test_fsdp2_has_right_number_of_hooks(
 @pytest.mark.gpu
 @pytest.mark.filterwarnings("ignore:`device_train_microbatch_size='auto'` may potentially fail with unexpected.*")
 @pytest.mark.filterwarnings('ignore:CUDA out of memory*')
-@fsdp2_context
 def test_fsdp2_auto_microbatching_handles_cuda_failures(
     world_size: int,
 ):

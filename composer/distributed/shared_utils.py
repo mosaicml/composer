@@ -7,11 +7,9 @@ import functools
 from typing import Callable, Optional
 
 import torch
-from packaging import version
+from torch.distributed.fsdp import FSDPModule, FullyShardedDataParallel
 from torch.utils.hooks import RemovableHandle
 from torchmetrics import Metric, MetricCollection
-
-from torch.distributed.fsdp import FullyShardedDataParallel, FSDPModule
 
 from composer.devices import Device
 from composer.models import ComposerModel
