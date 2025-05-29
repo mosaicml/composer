@@ -131,6 +131,14 @@ def s3_read_only_prefix():
     return 'read_only'
 
 
+@pytest.fixture
+def uc_volume_path(request: pytest.FixtureRequest):
+    if request.node.get_closest_marker('remote') is None:
+        return 'my-volume'
+    else:
+        return os.environ.get('UC_VOLUME_PATH', 'Volumes/main/regression_testing/composer_artifacts/')
+
+
 ## MODEL HELPERS ##
 def causal_lm_model_helper(config):  # type: ignore
     transformers = pytest.importorskip('transformers')
