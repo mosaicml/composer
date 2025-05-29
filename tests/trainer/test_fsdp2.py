@@ -309,6 +309,7 @@ def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(
 
 @pytest.mark.gpu
 @world_size(2)  # Using world_size(2) for consistency with other FSDP2 tests in this file although not needed
+@pytest.mark.filterwarnings("ignore:`device_train_microbatch_size='auto'` may potentially fail with unexpected.*")
 def test_fsdp2_auto_microbatching_raises_error(
     world_size: int,
 ):
