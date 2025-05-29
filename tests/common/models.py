@@ -16,7 +16,6 @@ from composer.loss import loss_registry
 from composer.metrics import CrossEntropy, MIoU
 from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.models import ComposerClassifier, HuggingFaceModel, Initializer
-from composer.utils import dist
 
 if TYPE_CHECKING:
     from transformers import PretrainedConfig, PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
@@ -179,40 +178,6 @@ class ComposerCounterModel(ComposerClassifier):
         )
         super().__init__(num_classes=num_outputs, module=module)
         self.module = module
-
-
-class OOMComposerClassifier(ComposerClassifier):
-    """A model that will raise an OOM error on rank 1 when forward is called in expected situations.
-
-    This is used to test the auto microbatching code and will always fail on rank 1 if the microbatch size
-    is greater than the viable microbatch size.
-    """
-
-    def __init__(
-        self,
-        num_layers: int,
-        num_classes: int,
-        device: Union[str, torch.device],
-        always_fail: bool = False,
-        viable_microbatch_size: int = 32,
-    ):
-        module = torch.nn.Sequential(
-            *[torch.nn.Linear(num_classes, num_classes, device=device) for _ in range(num_layers)],
-        )
-        super().__init__(
-            num_classes=num_classes,
-            module=module,
-        )
-        self.module = module
-        self.always_fail = always_fail
-        self.viable_microbatch_size = viable_microbatch_size
-
-    def forward(self, batch: tuple[torch.Tensor, Any]) -> torch.Tensor:
-        inputs, _ = batch
-        outputs = self.module(inputs)
-        if dist.get_global_rank() == 1 and (self.always_fail or inputs.shape[0] > self.viable_microbatch_size):
-            raise RuntimeError('CUDA out of memory')
-        return outputs
 
 
 # Like SimpleComposerMLP but saves each layer which is necessary to TP to it.

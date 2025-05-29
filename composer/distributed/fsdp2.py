@@ -17,7 +17,7 @@ from composer.distributed.fsdp2_utils import (
     get_standalone_and_tied_modules,
     legalize_param_sharing_between_modules,
 )
-from composer.utils import FSDP2Config
+from composer.utils.parallelism import FSDP2Config
 
 log = logging.getLogger(__name__)
 
@@ -115,13 +115,16 @@ def prepare_fully_shard(
     model: nn.Module,
     fsdp2_config: FSDP2Config,
     auto_wrap_policy: Optional[CustomPolicy] = None,
-):
+) -> None:
     """Applies FSDP2's `fully_shard` to the model according to given fsdp2_config.
 
     Args:
         model (torch.nn.Module): The model to prepare.
         fsdp2_config (FSDP2Config): The FSDP2 configuration.
         auto_wrap_policy (Optional[CustomPolicy]): The policy to apply to the model.
+
+    Returns:
+        None
     """
     # If the auto_wrap_policy is not provided, generate the default policy
     if auto_wrap_policy is None:

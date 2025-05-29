@@ -79,7 +79,7 @@ from composer.distributed import (
     prepare_fsdp_module,
     prepare_tp_module,
 )
-from composer.distributed.shared_utils import generate_oom_hook, get_valid_fsdp_module_types
+from composer.distributed.shared_utils import generate_oom_hook
 from composer.loggers import (
     ConsoleLogger,
     Logger,
@@ -428,19 +428,18 @@ def _update_num_consecutive_thrashes(state: State, num_consecutive_thrashes: int
     return num_consecutive_thrashes
 
 
-def _readd_fsdp_sync_hooks(fsdp_modules: dict[str, torch.nn.Module], fsdp_config_version: int, sync_hook):
+def _readd_fsdp_sync_hooks(fsdp_modules: dict[str, torch.nn.Module], sync_hook):
     """Readds previously removed sync hooks back to FSDP modules.
 
     Called when preparing to search for or searching for new microbatch size during automicrobatching.
     """
     automicrobatch_fsdp_hook_handles = []
     patch_unshard_for_automicrobatching(auto_microbatch_size_found=False)
-    fsdp_module_type = get_valid_fsdp_module_types()[fsdp_config_version]
     for module in fsdp_modules.values():
-        if isinstance(module, fsdp_module_type):
+        if isinstance(module, FullyShardedDataParallel):
             automicrobatch_fsdp_hook_handles.append(module.register_forward_pre_hook(sync_hook, prepend=True))
             automicrobatch_fsdp_hook_handles.append(module.register_full_backward_pre_hook(sync_hook, prepend=True))
-        elif fsdp_config_version == 1:
+        else:
             automicrobatch_fsdp_hook_handles.append(module.register_full_backward_hook(sync_hook))
     return automicrobatch_fsdp_hook_handles
 
@@ -1836,7 +1835,7 @@ class Trainer:
                         )
                     case 2:
                         if auto_microbatching:
-                            raise ValueError('Auto microbatching is not supported with FSDP2')
+                            raise ValueError('Auto microbatching is not supported with FSDP2. Please set a reasonable microbatch size instead.')
                         parallelize_composer_model(
                             model,
                             optimizers,
@@ -2768,8 +2767,7 @@ class Trainer:
                     if self.state.fsdp_enabled and len(self.state.automicrobatch_fsdp_hook_handles) == 0:
                         self.state.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(
                             self.state.fsdp_modules,
-                            fsdp_config_version=self.state.fsdp_config_version,
-                            sync_hook=sync_hook,
+                            sync_hook,
                         )
                     _adjust_device_train_microbatch_size(self.state)
                     self.num_consecutive_thrashes = 0
@@ -2789,8 +2787,7 @@ class Trainer:
                     if self.state.fsdp_enabled and len(self.state.automicrobatch_fsdp_hook_handles) == 0:
                         self.state.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(
                             self.state.fsdp_modules,
-                            fsdp_config_version=self.state.fsdp_config_version,
-                            sync_hook=sync_hook,
+                            sync_hook,
                         )
                     _adjust_device_train_microbatch_size(self.state)
                     self.num_consecutive_thrashes = 0
@@ -3603,8 +3600,7 @@ class Trainer:
             if self.state.fsdp_enabled and len(self.state.automicrobatch_fsdp_hook_handles) == 0:
                 self.state.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(
                     self.state.fsdp_modules,
-                    fsdp_config_version=self.state.fsdp_config_version,
-                    sync_hook=sync_hook,
+                    sync_hook,
                 )
             self.num_consecutive_non_OOM_batches = 0
 

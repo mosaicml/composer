@@ -12,7 +12,7 @@ import torch
 from torch.distributed.fsdp.wrap import CustomPolicy
 
 from composer.distributed.activation_checkpointing import apply_ac, generate_composer_model_check_fn
-from composer.distributed.fsdp2 import add_fsdp2_oom_hooks, prepare_fully_shard
+from composer.distributed.fsdp2 import prepare_fully_shard
 from composer.distributed.fsdp2_utils import generate_composer_model_policy, sync_optimizer_and_model_params
 from composer.distributed.param_init import meta_init
 from composer.models import ComposerModel
@@ -91,7 +91,7 @@ def parallelize_composer_model(
     composer_model: ComposerModel,
     optimizer: Optional[torch.optim.Optimizer],
     config: FSDP2Config,
-) -> tuple[list, dict]:
+):
     """Prepare a ComposerModel for distributed training.
 
     NOTE we apply parallelization to each of the composer model's submodules to provide compatibility with models defined for FSDP1.
