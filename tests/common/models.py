@@ -135,15 +135,29 @@ class EvenSimplerMLP(torch.nn.Module):
 # test ComposerModels instead of nn.Module.
 class SimpleComposerMLP(ComposerClassifier):
 
-    def __init__(self, num_features: int, device: Union[str, torch.device], num_classes: int = 3):
-        fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
-        fc2 = torch.nn.Linear(num_features, num_classes, device=device, bias=False)
+    def __init__(
+        self,
+        num_features: int,
+        device: Union[str, torch.device],
+        num_classes: int = 3,
+        add_bias: bool = False,
+    ):
+        fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=add_bias)
+        fc2 = torch.nn.Linear(num_features, num_classes, device=device, bias=add_bias)
         net = torch.nn.Sequential(fc1, torch.nn.ReLU(), fc2)
         super().__init__(num_classes=num_classes, module=net)
 
     def add_fsdp_wrap_attribute_to_children(self):
         for child in self.module.children():
             child._fsdp_wrap = True  # type: ignore
+
+    def param_init_fn(self, module):
+        init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
+
+        if isinstance(module, torch.nn.Linear):
+            init_fn(module.weight)
+            if module.bias is not None:  # pyright: ignore[reportUnnecessaryComparison]
+                torch.nn.init.zeros_(module.bias)
 
 
 class CountModule(torch.nn.Module):
