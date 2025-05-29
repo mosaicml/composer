@@ -112,19 +112,31 @@ def sftp_uri():
 
 
 @pytest.fixture
+def s3_bucket(request: pytest.FixtureRequest):
+    if request.node.get_closest_marker('remote') is None:
+        return 'my-bucket'
+    else:
+        return os.environ.get('S3_BUCKET', 'mosaicml-internal-integration-testing')
+
+
+@pytest.fixture
+def s3_ephemeral_prefix():
+    '''Objects under this prefix purged according to the bucket's lifecycle policy.'''
+    return 'ephemeral'
+
+
+@pytest.fixture
+def s3_read_only_prefix():
+    '''Tests can only read from this prefix, but it won't ever be purged.'''
+    return 'read_only'
+
+
+@pytest.fixture
 def uc_volume_path(request: pytest.FixtureRequest):
     if request.node.get_closest_marker('remote') is None:
         return 'my-volume'
     else:
-        return os.environ.get('UC_VOLUME_PATH', 'dbfs:/Volumes/main/regression_testing/')
-
-
-@pytest.fixture
-def backwards_compatibility_path(request: pytest.FixtureRequest):
-    if request.node.get_closest_marker('remote') is None:
-        return 'my-checkpoint'
-    else:
-        return os.environ.get('BACKWARDS_COMPATIBILITY_PATH', 'composer_artifacts/backwards_compatibility/')
+        return os.environ.get('UC_VOLUME_PATH', 'Volumes/main/regression_testing/composer_artifacts/')
 
 
 ## MODEL HELPERS ##

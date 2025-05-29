@@ -20,7 +20,6 @@ import torch
 from packaging import version
 from torch.distributed._shard.sharded_tensor import ShardedTensor
 from torch.distributed._tensor import DTensor
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.utils.data import DataLoader
 from torchmetrics import Metric, MetricCollection
 from torchmetrics.classification import MulticlassAccuracy
@@ -532,7 +531,6 @@ def test_fsdp_load_old_checkpoint(
     sharding_strategy: str,
     state_dict_type: str,
     uc_volume_path: str,
-    backwards_compatibility_path: str,
     composer_version: str,
 ):
     if composer_version == '0.18.1' and state_dict_type == 'full' and precision == 'amp_bf16' and sharding_strategy == 'FULL_SHARD':
@@ -543,26 +541,26 @@ def test_fsdp_load_old_checkpoint(
             pytest.skip('Loading legacy sharded checkpoints are not supported after v0.25.0.')
 
         load_path_dir = os.path.join(
-            uc_volume_path,
-            backwards_compatibility_path,
+            f'dbfs:/{uc_volume_path}',
+            'backwards_compatibility',
             composer_version,
             f'{sharding_strategy.lower()}_{state_dict_type}_{precision}',
         )
         if ((version.parse(composer_version) > version.parse('0.15.0')) and state_dict_type != 'full'):
-            load_path_dir = (load_path_dir + 'ep0-ba2/')
+            load_path_dir = os.path.join(load_path_dir, 'ep0-ba2')
 
-        load_path = load_path_dir + f'ba2_rank0.pt'
+        load_path = os.path.join(load_path_dir, f'ba2_rank0.pt')
     else:
         load_path = os.path.join(
-            uc_volume_path,
-            backwards_compatibility_path,
+            f'dbfs:/{uc_volume_path}',
+            'backwards_compatibility',
             composer_version,
-            f'{sharding_strategy.lower()}_{state_dict_type}_{precision}',
+            f'{sharding_strategy.lower()}_{state_dict_type}_{precision}'
         )
         if state_dict_type == 'full':
-            load_path += 'ba2_rank0.pt'
+            load_path = os.path.join(load_path, 'ba2_rank0.pt')
         else:
-            load_path += 'ep0-ba2/'
+            load_path = os.path.join(load_path, 'ep0-ba2')
 
     if composer_version == '0.15.1':
         num_classes = 8  # This parameter setting is very important. Don't change or the test will fail.
@@ -1021,6 +1019,7 @@ def test_elastic_resumption(
     )
 
     def get_mono_state_dict_from_sharded_one(trainer):
+        from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
         state_dict = trainer.state.state_dict()
         state_dict.pop('optimizers')
         state_dict.pop('model')
