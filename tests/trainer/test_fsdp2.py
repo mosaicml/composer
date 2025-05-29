@@ -7,6 +7,7 @@ from typing import Optional
 import pytest
 import torch
 from torch.distributed._tensor import DTensor
+from torch.distributed.fsdp import FSDPModule
 from torch.utils.data import DataLoader
 from torch.utils.hooks import RemovableHandle
 
