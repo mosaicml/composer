@@ -1154,7 +1154,7 @@ class TestCheckpointLoading:
             deep_compare(trainer_1_rng_state, trainer_2._rng_state)
 
     @pytest.mark.remote
-    @device('cpu')
+    @pytest.mark.gpu
     @pytest.mark.parametrize('load_weights_only', [True, False])
     @pytest.mark.parametrize(
         'remote_checkpoint_uri, remote_checkpoint_name, continue_training_dur, final_checkpoint_name',
@@ -1172,8 +1172,7 @@ class TestCheckpointLoading:
         remote_checkpoint_name,
         continue_training_dur,
         final_checkpoint_name,
-        s3_bucket,
-        s3_read_only_prefix,
+        uc_volume_read_only,
     ):
         """
         This test checks if our checkpointing is backwards compatible.
@@ -1189,7 +1188,7 @@ class TestCheckpointLoading:
         trainer_2 = self.get_trainer(
             max_duration=continue_training_dur,
             save_folder='second',
-            load_path=f's3://{s3_bucket}/{s3_read_only_prefix}/{remote_checkpoint_uri}',
+            load_path=os.path.join(f'dbfs:/{uc_volume_read_only}', remote_checkpoint_uri),
             load_weights_only=load_weights_only,
             load_strict_model_weights=load_weights_only,
             device=device,
