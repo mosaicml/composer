@@ -137,11 +137,11 @@ def test_notebook(notebook: str, device: str, uc_volume_read_only: str):
 
     # Download CIFAR-10 data from UC Volumes
     uc_store = UCObjectStore(uc_volume_read_only)
-    files = uc_store.list_objects(prefix="CIFAR-10")
+    files = uc_store.list_objects(prefix='CIFAR-10')
 
     for file_path in files:
-        file_relative_path = file_path[len(f"/{uc_volume_read_only}/"):]
-        target = os.path.join(os.getcwd(), 'data', file_relative_path[len("CIFAR-10/"):])
+        file_relative_path = file_path[len(f'/{uc_volume_read_only}/'):]
+        target = os.path.join(os.getcwd(), 'data', file_relative_path[len('CIFAR-10/'):])
         if os.path.exists(target):
             continue
         os.makedirs(os.path.dirname(target), exist_ok=True)

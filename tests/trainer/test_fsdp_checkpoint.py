@@ -953,6 +953,7 @@ def test_fsdp_partitioned_state_dict_load(
     trainer2.fit()
     trainer2.close()
 
+
 @pytest.mark.gpu
 @pytest.mark.remote
 @world_size(2)
@@ -1070,7 +1071,7 @@ def test_cleanup_sharded_checkpoints(
     tmp_path: pathlib.Path,
     num_ckpts_to_keep: int,
 ):
-    del world_size # not needed
+    del world_size  # not needed
     run_name = None
     batches_to_train = 3
 
