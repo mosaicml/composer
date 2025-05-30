@@ -4,6 +4,7 @@
 """Helpers for FSDP2."""
 
 import logging
+from contextlib import contextmanager
 from typing import Optional
 
 import torch
@@ -19,9 +20,11 @@ from composer.distributed.fsdp2_utils import (
 )
 from composer.utils.parallelism import FSDP2Config
 from composer.utils import dist, get_device
+from torch.distributed.utils import _sync_module_states
 
 log = logging.getLogger(__name__)
 
+PARAM_BROADCAST_BUCKET_SIZE = int(250 * 1024 * 1024)
 
 def _recursive_apply_fully_shard(
     root_module: nn.Module,
@@ -142,6 +145,7 @@ def prepare_fully_shard(
                 continue
             log.info(f'FSDP2: {attr}: {getattr(fsdp2_config, attr)}')
 
+
 # TODO: Move this to shared_utils.py eventually (after that PR has been merged)
 def validate_sync_module_states_attribute(model: nn.Module, fsdp2_config: FSDP2Config) -> None:
     """Validates that sync_module_states configuration is compatible with model initialization.
@@ -174,7 +178,8 @@ def validate_sync_module_states_attribute(model: nn.Module, fsdp2_config: FSDP2C
                 'some weights may be randomly initialized when loading a checkpoint.',
             )
 
-def sync_module_states(model: nn.Module) -> None:
+@contextmanager
+def sync_module_states(model: nn.Module):
     """Syncs the module states of the model.
     
     This function synchronizes the module states of the model across all ranks.
@@ -187,3 +192,16 @@ def sync_module_states(model: nn.Module) -> None:
     Returns:
         None
     """
+    from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
+
+    full_state = model.state_dict()
+    try:
+        yield
+    finally:
+        if dist.get_rank() == 0:
+            model = model.to(device=torch.cuda.current_device(), non_blocking=True)
+        else:
+            model = model.to_empty(device=torch.cuda.current_device())
+
+        options = StateDictOptions(full_state_dict=True, broadcast_from_rank0=True)
+        set_model_state_dict(model, full_state, options=options)
