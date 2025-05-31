@@ -531,7 +531,7 @@ def test_fsdp_load_old_checkpoint(
     precision: str,
     sharding_strategy: str,
     state_dict_type: str,
-    uc_volume_path: str,
+    uc_volume_read_only: str,
     composer_version: str,
 ):
     if composer_version == '0.18.1' and state_dict_type == 'full' and precision == 'amp_bf16' and sharding_strategy == 'FULL_SHARD':
@@ -542,7 +542,7 @@ def test_fsdp_load_old_checkpoint(
             pytest.skip('Loading legacy sharded checkpoints are not supported after v0.25.0.')
 
         load_path_dir = os.path.join(
-            f'dbfs:/{uc_volume_path}',
+            f'dbfs:/{uc_volume_read_only}',
             'backwards_compatibility',
             composer_version,
             f'{sharding_strategy.lower()}_{state_dict_type}_{precision}',
@@ -553,7 +553,7 @@ def test_fsdp_load_old_checkpoint(
         load_path = os.path.join(load_path_dir, f'ba2_rank0.pt')
     else:
         load_path = os.path.join(
-            f'dbfs:/{uc_volume_path}',
+            f'dbfs:/{uc_volume_read_only}',
             'backwards_compatibility',
             composer_version,
             f'{sharding_strategy.lower()}_{state_dict_type}_{precision}',
@@ -622,7 +622,7 @@ def test_fsdp_load_old_checkpoint(
                 'rng': get_rng_state(),
             }
 
-            object_store = UCObjectStore(path=uc_volume_path)
+            object_store = UCObjectStore(path=uc_volume_read_only)
             storage_reader = DistCPObjectStoreReader(
                 source_path=parsed_load_path,
                 destination_path=destination,
@@ -836,8 +836,7 @@ def test_fsdp_partitioned_state_dict_load(
     use_tp: bool,
     use_hsdp: bool,
     use_remote,
-    s3_bucket,
-    s3_ephemeral_prefix,
+    uc_volume_ephemeral: str,
     request,
 ):
     if use_tp:
@@ -854,7 +853,7 @@ def test_fsdp_partitioned_state_dict_load(
         run_name = None
 
     if use_remote:
-        save_folder = f's3://{s3_bucket}/{s3_ephemeral_prefix}/checkpoints/{{run_name}}'
+        save_folder = os.path.join(f'dbfs:/{uc_volume_ephemeral}', 'checkpoints', '{run_name}')
     else:
         tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
         save_folder = os.path.join(tmp_paths[0], 'checkpoints', '{run_name}')
@@ -903,7 +902,7 @@ def test_fsdp_partitioned_state_dict_load(
     trainer1.close()
 
     if use_remote:
-        load_path = 's3://' + save_folder.strip('s3://').format(
+        load_path = save_folder.format(
             run_name=run_name,
         ) + ('/ba2' if not use_symlink else '/latest-rank0.pt.symlink')
     else:
@@ -971,8 +970,7 @@ def test_elastic_resumption(
     autoresume: bool,
     precision: str,
     sharding_strategy,
-    s3_bucket,
-    s3_read_only_prefix,
+    uc_volume_read_only,
     num_shards: int,
 ):
     if autoresume:
@@ -980,10 +978,10 @@ def test_elastic_resumption(
     else:
         run_name = None
 
-    base_path = (
-        f's3://{s3_bucket}/{s3_read_only_prefix}/elastic_test/'
-        f'{sharding_strategy.lower()}_sharded_{precision}_'
-        f'{num_shards}/'
+    base_path = os.path.join(
+        f'dbfs:/{uc_volume_read_only}',
+        'elastic_test',
+        f'{sharding_strategy.lower()}_sharded_{precision}_{num_shards}',
     )
 
     mono_load_path = os.path.join(base_path, 'mono.pt')
@@ -1072,10 +1070,8 @@ def test_cleanup_sharded_checkpoints(
     world_size,
     tmp_path: pathlib.Path,
     num_ckpts_to_keep: int,
-    s3_bucket,
-    s3_ephemeral_prefix,
-    request,
 ):
+    del world_size  # not needed
     run_name = None
     batches_to_train = 3
 
