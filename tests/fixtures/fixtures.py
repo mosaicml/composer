@@ -136,7 +136,9 @@ def uc_volume_read_only(request: pytest.FixtureRequest):
     if request.node.get_closest_marker('remote') is None:
         return 'my-volume'
     else:
-        return os.environ.get('UC_VOLUME_READ_ONLY_PATH', 'Volumes/main/regression_testing/composer_artifacts')
+        return os.environ.get(
+            'UC_VOLUME_READ_ONLY_PATH', 'Volumes/main/regression_testing/composer_artifacts/read_only'
+        )
 
 
 @pytest.fixture
