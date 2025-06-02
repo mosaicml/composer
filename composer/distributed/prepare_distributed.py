@@ -12,7 +12,7 @@ import torch
 from torch.distributed.fsdp.wrap import CustomPolicy
 
 from composer.distributed.activation_checkpointing import apply_ac, generate_composer_model_check_fn
-from composer.distributed.fsdp2 import prepare_fully_shard
+from composer.distributed.fsdp2 import add_fsdp2_oom_hooks, prepare_fully_shard
 from composer.distributed.fsdp2_utils import generate_composer_model_policy, sync_optimizer_and_model_params
 from composer.distributed.param_init import meta_init
 from composer.models import ComposerModel
@@ -91,7 +91,8 @@ def parallelize_composer_model(
     composer_model: ComposerModel,
     optimizer: Optional[torch.optim.Optimizer],
     config: FSDP2Config,
-):
+    auto_microbatching: bool = False,
+) -> tuple[list, dict]:
     """Prepare a ComposerModel for distributed training.
 
     NOTE we apply parallelization to each of the composer model's submodules to provide compatibility with models defined for FSDP1.
@@ -104,6 +105,12 @@ def parallelize_composer_model(
         composer_model (ComposerModel): The ComposerModel to prepare for distributed training.
         optimizer (Optional[torch.optim.Optimizer]): The optimizer to use for distributed training.
         config (FSDP2Config): The configuration for distributed training. Currently only FSDP2Config is supported.
+        auto_microbatching (bool): Whether to use auto microbatching.
+
+    Returns:
+        tuple[list, dict]: A tuple containing:
+            - A list of removable hook handles for the OOM hooks if auto_microbatching is enabled
+            - A dictionary mapping module names to modules after fully sharding
     """
     assert isinstance(composer_model, ComposerModel), f'{type(composer_model)} is not a ComposerModel'
     activation_checkpointing_check_fn = generate_composer_model_check_fn(
@@ -117,3 +124,9 @@ def parallelize_composer_model(
         activation_checkpointing_check_fn=activation_checkpointing_check_fn,
         param_init_fn=meta_init,
     )
+
+    hook_handles = []
+    named_modules = {}
+    if auto_microbatching:
+        hook_handles, named_modules = add_fsdp2_oom_hooks(composer_model)
+    return hook_handles, named_modules

@@ -24,6 +24,7 @@ from tests.common.models import (
     EmbeddedWeightTiedModel,
     EmptyModel,
     EvenSimplerMLP,
+    OOMComposerClassifier,
     PartialWeightTiedModel,
     SimpleComposerMLP,
     SimpleConvModel,
@@ -79,4 +80,5 @@ __all__ = [
     'TPSimpleComposerMLP',
     'ComposerCounterModel',
     'CountModule',
+    'OOMComposerClassifier',
 ]
