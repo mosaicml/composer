@@ -1163,9 +1163,9 @@ class TestCheckpointLoading:
         ],
     )
     @pytest.mark.filterwarnings('ignore:.*The checkpoint included CUDA RNG state.*')
+    @pytest.mark.filterwarnings('ignore:.*The CUDA RNG state was saved with a different version of PyTorch.*')
     def test_load_remote_checkpoint(
         self,
-        device,
         tmp_path: pathlib.Path,
         load_weights_only,
         remote_checkpoint_uri,
@@ -1173,6 +1173,7 @@ class TestCheckpointLoading:
         continue_training_dur,
         final_checkpoint_name,
         uc_volume_read_only,
+        device='cpu',
     ):
         """
         This test checks if our checkpointing is backwards compatible.

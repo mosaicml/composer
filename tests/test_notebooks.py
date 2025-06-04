@@ -106,6 +106,7 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
 @pytest.mark.parametrize('notebook', NOTEBOOKS)
 @pytest.mark.gpu
 @pytest.mark.remote
+@device('cpu','gpu')
 def test_notebook(notebook: str, device: str, uc_volume_read_only: str):
     trainer_monkeypatch_code = inspect.getsource(patch_notebooks)
     notebook_name = os.path.split(notebook)[-1][:-len('.ipynb')]

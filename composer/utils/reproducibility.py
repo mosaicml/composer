@@ -232,6 +232,16 @@ def load_rng_state(rng_state_dicts: list[dict[str, Any]]):
         log.debug('Restoring the RNG state')
 
         if is_cuda_available and has_cuda_rng_state:
+            # PyTorch 2.6 strictly enforces the size of the state dict values vs the size in the checkpoint.
+            # PyTorch 2.1 has moved to a RNG of size 16 instead of 816
+            # Therefore, errors occur if we load a ckpt at or after 2.6 if the ckpt was saved before 2.1.
+            # To avoid this, we zero out the CUDA RNG state if the size is incorrect.
+            if rng_state_dict['cuda'].shape[0] != 16:
+                warnings.warn(
+                    'The CUDA RNG state was saved with a different version of PyTorch than the current version.'
+                    'CUDA RNG state will be zeroed out instead.',
+                )
+                rng_state_dict['cuda'] = torch.zeros(16, dtype=torch.uint8)
             try:
                 torch.cuda.set_rng_state(rng_state_dict['cuda'])
             except RuntimeError as e:
