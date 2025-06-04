@@ -32,6 +32,7 @@ def create_trainer_with_model(
     optimizer: Optional[torch.optim.Optimizer] = None,
     activation_checkpointing: bool = False,
     activation_cpu_offload: bool = False,
+    auto_microbatching: bool = False,
 ) -> Trainer:
     """Helper function to create a Trainer with a model, dataloader, and FSDP2 configuration."""
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
@@ -53,6 +54,7 @@ def create_trainer_with_model(
         train_dataloader=dataloader,
         max_duration=max_duration,
         parallelism_config=parallelism_config,
+        device_train_microbatch_size='auto' if auto_microbatching else None,
     )
     return trainer
 
@@ -303,3 +305,19 @@ def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(
     # We check with `optimizer.param_id.` (with the period) since `optimizer.param_id` exists
     # by default in the error message's legend
     assert 'optimizer.param_id.' in str(e.value)
+
+
+@pytest.mark.gpu
+@world_size(2)  # Using world_size(2) for consistency with other FSDP2 tests in this file although not needed
+@pytest.mark.filterwarnings("ignore:`device_train_microbatch_size='auto'` may potentially fail with unexpected.*")
+def test_fsdp2_auto_microbatching_raises_error(
+    world_size: int,
+):
+    """Test FSDP2 raises an error when auto microbatching is used."""
+    del world_size
+
+    model = SimpleComposerMLP(num_features=10, device='cuda', num_classes=10)
+    model.add_fsdp_wrap_attribute_to_children()
+    with pytest.raises(ValueError) as e:
+        create_trainer_with_model(model=model, num_classes=10, use_fsdp2=True, auto_microbatching=True)
+    assert 'Auto microbatching is not supported outside of FSDP1' in str(e.value)
