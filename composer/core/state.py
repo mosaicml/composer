@@ -862,8 +862,8 @@ class State(Serializable):
             self._fsdp_config = value
             self._fsdp2_config = None
         elif isinstance(value, FSDP2Config):
-            self._fsdp2_config = value
             self._fsdp_config = None
+            self._fsdp2_config = value
         else:
             raise TypeError(f'Expected value to be of type FSDPConfig or FSDP2Config, but got {type(value)}.')
 

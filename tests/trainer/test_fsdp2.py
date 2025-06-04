@@ -320,4 +320,4 @@ def test_fsdp2_auto_microbatching_raises_error(
     model.add_fsdp_wrap_attribute_to_children()
     with pytest.raises(ValueError) as e:
         create_trainer_with_model(model=model, num_classes=10, use_fsdp2=True, auto_microbatching=True)
-    assert 'Auto microbatching is not supported with FSDP2' in str(e.value)
+    assert 'Auto microbatching is not supported outside of FSDP1' in str(e.value)
