@@ -711,9 +711,17 @@ class TestCheckpointLoading:
         for p1, p2 in zip(m1.parameters(), m2.parameters()):
             torch.testing.assert_close(p1, p2)
 
-    def _metrics_equal(self, train_metrics_1, train_metrics_2, eval_metrics_1, eval_metrics_2, eval_tolerance=1e-7):
+    def _metrics_equal(
+        self,
+        train_metrics_1,
+        train_metrics_2,
+        eval_metrics_1,
+        eval_metrics_2,
+        train_tolerance=1e-8,
+        eval_tolerance=1e-7
+    ):
         try:
-            deep_compare(train_metrics_1, train_metrics_2, atol=1e-8, rtol=1e-8)
+            deep_compare(train_metrics_1, train_metrics_2, atol=train_tolerance, rtol=train_tolerance)
             deep_compare(eval_metrics_1, eval_metrics_2, atol=eval_tolerance, rtol=eval_tolerance)
             return True
         except AssertionError:
@@ -1163,7 +1171,7 @@ class TestCheckpointLoading:
         ],
     )
     @pytest.mark.filterwarnings('ignore:.*The checkpoint included CUDA RNG state.*')
-    @pytest.mark.filterwarnings('ignore:.*The CUDA RNG state was saved with a different version of PyTorch.*')
+    @pytest.mark.filterwarnings('ignore:.*The CUDA RNG state could not be loaded from the checkpoint.*')
     def test_load_remote_checkpoint(
         self,
         tmp_path: pathlib.Path,
@@ -1210,7 +1218,7 @@ class TestCheckpointLoading:
             trainer_2.state.train_metrics,
             trainer_1.state.eval_metrics,
             trainer_2.state.eval_metrics,
-            eval_tolerance=1e-4,  # TODO: Figure out why only CrossEntropyLoss is off
+            eval_tolerance=1e-4,
         )
 
         if load_weights_only:
@@ -1237,8 +1245,8 @@ class TestCheckpointLoading:
         _assert_checkpoints_equivalent(
             os.path.join('third', final_checkpoint_name),
             os.path.join('second', final_checkpoint_name),
-            rtol=1e-4,
-            atol=1e-4,
+            rtol=1e-7,
+            atol=1e-7,
         )
 
     def _stateful_callbacks_equal(self, callbacks1, callbacks2):
