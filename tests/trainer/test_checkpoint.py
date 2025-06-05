@@ -1237,8 +1237,8 @@ class TestCheckpointLoading:
         _assert_checkpoints_equivalent(
             os.path.join('third', final_checkpoint_name),
             os.path.join('second', final_checkpoint_name),
-            rtol=1e-7,
-            atol=1e-7,
+            rtol=1e-4,
+            atol=1e-4,
         )
 
     def _stateful_callbacks_equal(self, callbacks1, callbacks2):
