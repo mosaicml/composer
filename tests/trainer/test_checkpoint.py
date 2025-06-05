@@ -1210,7 +1210,7 @@ class TestCheckpointLoading:
             trainer_2.state.train_metrics,
             trainer_1.state.eval_metrics,
             trainer_2.state.eval_metrics,
-            eval_tolerance=1e-4, # TODO: Figure out why only CrossEntropyLoss is off
+            eval_tolerance=1e-4,  # TODO: Figure out why only CrossEntropyLoss is off
         )
 
         if load_weights_only:
