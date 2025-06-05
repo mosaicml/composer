@@ -718,7 +718,7 @@ class TestCheckpointLoading:
         eval_metrics_1,
         eval_metrics_2,
         train_tolerance=1e-8,
-        eval_tolerance=1e-7
+        eval_tolerance=1e-7,
     ):
         try:
             deep_compare(train_metrics_1, train_metrics_2, atol=train_tolerance, rtol=train_tolerance)
