@@ -418,7 +418,6 @@ class TestFSDP2MixedInit:
     ):
         """Test that FSDP2 raises an error when rank 0 has meta parameters and other ranks have CUDA parameters."""
         del world_size
-        # initializes all ranks on meta device
         resolved_device = 'meta' if dist.get_local_rank() == 0 else device
         model = SimpleComposerMLP(num_features=10, device=resolved_device)
         model.add_fsdp_wrap_attribute_to_children()
