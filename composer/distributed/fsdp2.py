@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 from torch.distributed.fsdp import MixedPrecisionPolicy, fully_shard
 from torch.distributed.fsdp.wrap import CustomPolicy
+from torch.distributed.tensor import DTensor
 
 from composer.distributed.fsdp2_utils import (
     check_param_tying,
@@ -17,6 +18,7 @@ from composer.distributed.fsdp2_utils import (
     get_standalone_and_tied_modules,
     legalize_param_sharing_between_modules,
 )
+from composer.utils import dist
 from composer.utils.parallelism import FSDP2Config
 
 log = logging.getLogger(__name__)
@@ -140,3 +142,41 @@ def prepare_fully_shard(
             if attr == 'verbose':
                 continue
             log.info(f'FSDP2: {attr}: {getattr(fsdp2_config, attr)}')
+
+
+def sync_module_states(model: nn.Module, full_state_dict: dict) -> None:
+    """Syncs the module states of the model across all ranks using the full state dict.
+
+    This function synchronizes the module states of the model across all ranks using the full state dict.
+    This handles mixed initialization scenarios where different ranks have parameters on different devices.
+
+    Args:
+        model (nn.Module): The FSDP2-wrapped model to synchronize.
+        full_state_dict (dict): The full state dict to synchronize. This is only fully populated on rank 0. The other ranks will receive a partial state dict.
+
+    Returns:
+        None
+    """
+    from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
+
+    # In cases where you want to FSDP2 on CPU (although not recommended),
+    device = torch.cuda.current_device() if torch.cuda.is_available() else 'cpu'
+
+    if dist.get_global_rank() == 0:
+        model = model.to(device=device, non_blocking=True)
+    else:
+        model = model.to_empty(device=device)
+
+    # strict=False is required for when we have multiple references to the same module
+    # since otherwise, we would have to load the parameters of the same module multiple
+    # times using different names for the weights and that's not viable with the internal
+    # logic of set_model_state_dict.
+    options = StateDictOptions(full_state_dict=True, broadcast_from_rank0=True, strict=False)
+
+    # Sync parameters and buffers
+    set_model_state_dict(model, full_state_dict, options=options)
+
+    # Sync additional buffers that may not be in the state_dict
+    for _, buffer in model.named_buffers():
+        assert not isinstance(buffer, DTensor), 'Buffers should not be DTensor'
+        dist.broadcast(buffer, src=0)

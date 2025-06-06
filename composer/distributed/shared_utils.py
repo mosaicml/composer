@@ -1,4 +1,4 @@
-# Copyright 2022 MosaicML Composer authors
+# Copyright 2025 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
 """Shared utilities for distributed training."""
@@ -7,6 +7,7 @@ import functools
 from typing import Callable, Optional
 
 import torch
+import torch.nn as nn
 from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.utils.hooks import RemovableHandle
 from torchmetrics import Metric, MetricCollection
@@ -14,6 +15,7 @@ from torchmetrics import Metric, MetricCollection
 from composer.devices import Device
 from composer.models import ComposerModel
 from composer.utils import dist, get_device
+from composer.utils.parallelism import FSDP2Config, FSDPConfig
 
 
 def get_direct_children_from_composer_model(model: ComposerModel) -> list[torch.nn.Module]:
@@ -155,3 +157,45 @@ def add_fsdp_oom_hooks(model: torch.nn.Module, device: Optional[Device] = None) 
                 hook_handles.append(module.register_full_backward_hook(hook))  # type: ignore
 
     return hook_handles
+
+
+def update_sync_module_states_if_needed(model: nn.Module, fsdp_config: FSDP2Config | FSDPConfig) -> None:
+    """Updates sync_module_states configuration based on model initialization.
+
+    In cases where the model on rank 0 is on CPU/GPU and other ranks are on meta, this function
+    will automatically set sync_module_states to True. It also adds a check to make sure that
+    the unexpected edge case where the model on rank 0 is on meta and other ranks are on CPU/GPU
+    does not happen.
+
+    Args:
+        model (nn.Module): The model to validate.
+        fsdp_config (FSDP2Config | FSDPConfig): The FSDP2 configuration containing sync_module_states setting.
+    """
+    device = get_device()
+    requires_sync = False
+
+    rank_on_meta = 1 if any(param.device.type == 'meta' for param in model.parameters()) else 0
+    all_ranks_meta = device.tensor_to_device(torch.tensor([rank_on_meta], dtype=torch.uint8))
+    dist.all_reduce(all_ranks_meta, reduce_operation='MIN')
+    any_ranks_meta = device.tensor_to_device(torch.tensor([rank_on_meta], dtype=torch.uint8))
+    dist.all_reduce(any_ranks_meta, reduce_operation='MAX')
+    requires_sync = all_ranks_meta.item() == 0 and any_ranks_meta.item() == 1
+
+    if not fsdp_config.sync_module_states and requires_sync:
+        fsdp_config.sync_module_states = True
+
+    # Validate that the rank setup is correct
+    if fsdp_config.sync_module_states:
+        expected_rank_on_meta = 0 if dist.get_global_rank() == 0 else 1
+        rank_setup_valid = 1 if rank_on_meta == expected_rank_on_meta else 0
+
+        all_ranks_valid_tensor = device.tensor_to_device(torch.tensor([rank_setup_valid], dtype=torch.uint8))
+        dist.all_reduce(all_ranks_valid_tensor, reduce_operation='MIN')
+        all_ranks_valid = all_ranks_valid_tensor.item()
+
+        if all_ranks_valid == 0:
+            raise ValueError(
+                f'Invalid FSDP2 model initialization detected. '
+                f'When doing mixed initialization, Rank 0 should have parameters on non-meta device, '
+                f'and all other ranks should have parameters on meta device.',
+            )

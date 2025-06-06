@@ -25,7 +25,6 @@ def test_fsdp2_config():
     read_only_props = [
         ('auto_wrap', False),
         ('load_monolith_rank0_only', True),
-        ('sync_module_states', True),
         ('data_parallel_shard_degree', 2),
         ('data_parallel_replicate_degree', 2),
         ('state_dict_type', 'full'),
@@ -68,6 +67,7 @@ def test_fsdp2config_from_empty_attributes():
     assert fsdp2_config.activation_cpu_offload is False  # default value
     assert fsdp2_config.reshard_after_forward is True  # default value
     assert fsdp2_config.device_mesh is None  # default value
+    assert fsdp2_config.sync_module_states is False  # default value
 
 
 def test_fsdp2config_from_fsdp1_multiple_invalid_attributes():
@@ -77,6 +77,7 @@ def test_fsdp2config_from_fsdp1_multiple_invalid_attributes():
         'invalid_attribute1': 'value1',
         'invalid_attribute2': 'value2',
         'auto_wrap': True,
+        'sync_module_states': True,
     }
 
     with pytest.warns() as record:
@@ -88,3 +89,4 @@ def test_fsdp2config_from_fsdp1_multiple_invalid_attributes():
     assert any('invalid_attribute1: value1' in msg for msg in warning_messages)
     assert any('invalid_attribute2: value2' in msg for msg in warning_messages)
     assert any('auto_wrap: True' in msg for msg in warning_messages)
+    assert any('sync_module_states: True' in msg for msg in warning_messages)

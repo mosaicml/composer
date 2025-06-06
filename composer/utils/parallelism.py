@@ -80,13 +80,23 @@ class FSDP2Config:
     #       in most of our use cases, we can decouple these two attributes from the FSDP2Config class.
     activation_checkpointing: bool = False
     activation_cpu_offload: bool = False
-
     verbose: bool = False
+
+    # Settable attrs that are automatically set during training
+    _sync_module_states: bool = field(default=False, init=False, repr=False)
+
+    @property
+    def sync_module_states(self) -> bool:
+        return self._sync_module_states
+
+    @sync_module_states.setter
+    def sync_module_states(self, value: bool):
+        self._sync_module_states = value
 
     @classmethod
     def settable_attrs(cls) -> set[str]:
         """Return a set of all settable attributes of FSDP2Config."""
-        return {field.name for field in fields(cls)}
+        return {field.name for field in fields(cls) if not field.name.startswith('_')}
 
     @classmethod
     def from_compatible_attrs(cls, attrs: dict[str, Any]) -> 'FSDP2Config':
@@ -130,10 +140,6 @@ class FSDP2Config:
 
     @property
     def load_monolith_rank0_only(self) -> bool:
-        return False
-
-    @property
-    def sync_module_states(self) -> bool:
         return False
 
     @property
