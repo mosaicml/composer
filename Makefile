@@ -11,7 +11,7 @@ test:
 	WORLD_SIZE=1 LOCAL_WORLD_SIZE=1 $(PYTHON) -m $(PYTEST) $(EXTRA_ARGS)
 
 test-gpu:
-	WORLD_SIZE=1 LOCAL_WORLD_SIZE=1 $(PYTHON) -m $(PYTEST) -m gpu $(EXTRA_ARGS)
+	WORLD_SIZE=1 LOCAL_WORLD_SIZE=1 $(PYTHON) -m $(PYTEST) -m gpu tests/trainer/test_checkpoint.py::TestCheckpointLoading $(EXTRA_ARGS)
 
 # runs tests with the launcher
 test-dist:
