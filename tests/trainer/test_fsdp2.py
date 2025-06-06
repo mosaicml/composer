@@ -473,7 +473,7 @@ class TestFSDP2MixedInit:
         device: str,
         model_class: type,
     ):
-        """Test that FSDP2 syncs module states when multiple devices are used."""
+        """Test that FSDP2 syncs module states and doesn't break weight tying."""
         del world_size
         resolved_device = device if dist.get_local_rank() == 0 else 'meta'
         model = self._create_model_with_mixed_init(model_class, num_features=10, device=resolved_device)
@@ -504,7 +504,7 @@ class TestFSDP2MixedInit:
         device: str,
         model_class: type,
     ):
-        """Test that FSDP2 syncs module states when multiple devices are used."""
+        """Test that FSDP2 syncs module states and doesn't break optimizer state."""
         del world_size
         resolved_device = device if dist.get_local_rank() == 0 else 'meta'
         model = self._create_model_with_mixed_init(model_class, num_features=10, device=resolved_device)
