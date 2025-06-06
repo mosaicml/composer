@@ -711,18 +711,10 @@ class TestCheckpointLoading:
         for p1, p2 in zip(m1.parameters(), m2.parameters()):
             torch.testing.assert_close(p1, p2)
 
-    def _metrics_equal(
-        self,
-        train_metrics_1,
-        train_metrics_2,
-        eval_metrics_1,
-        eval_metrics_2,
-        train_tolerance=1e-8,
-        eval_tolerance=1e-7,
-    ):
+    def _metrics_equal(self, train_metrics_1, train_metrics_2, eval_metrics_1, eval_metrics_2):
         try:
-            deep_compare(train_metrics_1, train_metrics_2, atol=train_tolerance, rtol=train_tolerance)
-            deep_compare(eval_metrics_1, eval_metrics_2, atol=eval_tolerance, rtol=eval_tolerance)
+            deep_compare(train_metrics_1, train_metrics_2, atol=1e-8, rtol=1e-8)
+            deep_compare(eval_metrics_1, eval_metrics_2, atol=1e-7, rtol=1e-7)
             return True
         except AssertionError:
             return False
@@ -1167,7 +1159,7 @@ class TestCheckpointLoading:
     @pytest.mark.parametrize(
         'remote_checkpoint_uri, remote_checkpoint_name, continue_training_dur, final_checkpoint_name',
         [
-            ['backwards_compatibility/trained_ckpt_cpu_ep2.pt', 'ep2.pt', '3ep', 'ep3.pt'],
+            ['backwards_compatibility/trained_ckpt_gpu_ep2.pt', 'ep2.pt', '3ep', 'ep3.pt'],
         ],
     )
     @pytest.mark.filterwarnings('ignore:.*The checkpoint included CUDA RNG state.*')
@@ -1218,7 +1210,6 @@ class TestCheckpointLoading:
             trainer_2.state.train_metrics,
             trainer_1.state.eval_metrics,
             trainer_2.state.eval_metrics,
-            eval_tolerance=1e-4,
         )
 
         if load_weights_only:
