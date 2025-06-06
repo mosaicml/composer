@@ -174,7 +174,7 @@ def update_sync_module_states_if_needed(model: nn.Module, fsdp_config: FSDP2Conf
     device = get_device()
     requires_sync = False
 
-    rank_on_meta = 1 if next(model.parameters()).device.type == 'meta' else 0
+    rank_on_meta = 1 if any(param.device.type == 'meta' for param in model.parameters()) else 0
     all_ranks_meta = device.tensor_to_device(torch.tensor([rank_on_meta], dtype=torch.uint8))
     dist.all_reduce(all_ranks_meta, reduce_operation='MIN')
     any_ranks_meta = device.tensor_to_device(torch.tensor([rank_on_meta], dtype=torch.uint8))
@@ -184,9 +184,18 @@ def update_sync_module_states_if_needed(model: nn.Module, fsdp_config: FSDP2Conf
     if not fsdp_config.sync_module_states and requires_sync:
         fsdp_config.sync_module_states = True
 
-    # Asserts that the rank setup is valid
+    # Validate that the rank setup is correct
     if fsdp_config.sync_module_states:
-        if dist.get_global_rank() == 0:
-            assert rank_on_meta == 0, 'Model on rank 0 needs to be on GPU/CPU'
-        else:
-            assert rank_on_meta == 1, 'Model on non-rank 0 needs to be on meta'
+        expected_rank_on_meta = 0 if dist.get_global_rank() == 0 else 1
+        rank_setup_valid = 1 if rank_on_meta == expected_rank_on_meta else 0
+
+        all_ranks_valid_tensor = device.tensor_to_device(torch.tensor([rank_setup_valid], dtype=torch.uint8))
+        dist.all_reduce(all_ranks_valid_tensor, reduce_operation='MIN')
+        all_ranks_valid = all_ranks_valid_tensor.item()
+
+        if all_ranks_valid == 0:
+            raise ValueError(
+                f'Invalid FSDP2 model initialization detected. '
+                f'When doing mixed initialization, Rank 0 should have parameters on non-meta device, '
+                f'and all other ranks should have parameters on meta device.',
+            )

@@ -405,9 +405,27 @@ class TestFSDP2MixedInit:
             assert fsdp1_weight.shape == fsdp2_weight.shape, \
                 f'Shape mismatch for {name}: FSDP1 {fsdp1_weight.shape} vs FSDP2 {fsdp2_weight.shape}'
 
-            diff = torch.abs(fsdp1_weight - fsdp2_weight).max().item()
-            assert diff < tolerance, \
-                f'Weight difference for {name} exceeds tolerance: {diff} > {tolerance}.'
+            assert torch.allclose(fsdp1_weight, fsdp2_weight, atol=tolerance, rtol=tolerance), \
+                f'Weight difference for {name} exceeds tolerance.'
+
+    @world_size(2)
+    @pytest.mark.gpu
+    @pytest.mark.parametrize('device', ['cuda', 'cpu'])
+    def test_fsdp2_sync_module_state_error_when_rank_0_has_meta_params(
+        self,
+        world_size: int,
+        device: str,
+    ):
+        """Test that FSDP2 raises an error when rank 0 has meta parameters and other ranks have CUDA parameters."""
+        del world_size
+        # initializes all ranks on meta device
+        resolved_device = 'meta' if dist.get_local_rank() == 0 else device
+        model = SimpleComposerMLP(num_features=10, device=resolved_device)
+        model.add_fsdp_wrap_attribute_to_children()
+
+        with pytest.raises(ValueError) as e:
+            create_trainer_with_model(model=model, num_classes=10, use_fsdp2=True)
+        assert 'Invalid FSDP2 model initialization detected' in str(e.value)
 
     @world_size(2)
     @pytest.mark.gpu
