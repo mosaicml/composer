@@ -15,7 +15,7 @@ from composer.distributed.activation_checkpointing import apply_ac, generate_com
 from composer.distributed.fsdp2 import prepare_fully_shard, sync_module_states
 from composer.distributed.fsdp2_utils import generate_composer_model_policy, sync_optimizer_and_model_params
 from composer.distributed.param_init import meta_init
-from composer.distributed.shared_utils import validate_model_requires_state_sync
+from composer.distributed.shared_utils import update_sync_module_states_if_needed
 from composer.models import ComposerModel
 from composer.utils import dist
 from composer.utils.parallelism import FSDP2Config
@@ -69,7 +69,7 @@ def _parallelize_model_helper(
     2. With sync_module_states: param_init on rank 0 first, then fully_shard, then broadcast the
        initialized state to all other ranks. This makes sure that all ranks have rank 0's model state.
     """
-    validate_model_requires_state_sync(model, config)
+    update_sync_module_states_if_needed(model, config)
 
     if config.sync_module_states:
         # If we are syncing module states, we assume that rank 0 has the model on CPU/GPU

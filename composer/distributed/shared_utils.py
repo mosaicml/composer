@@ -159,21 +159,17 @@ def add_fsdp_oom_hooks(model: torch.nn.Module, device: Optional[Device] = None) 
     return hook_handles
 
 
-def validate_model_requires_state_sync(model: nn.Module, fsdp_config: FSDP2Config | FSDPConfig) -> None:
-    """Checks if sync_module_states configuration is compatible with model initialization.
+def update_sync_module_states_if_needed(model: nn.Module, fsdp_config: FSDP2Config | FSDPConfig) -> None:
+    """Updates sync_module_states configuration based on model initialization.
 
-    When sync_module_states is False, this function checks that all ranks have their model
-    parameters on the same device type (either all on meta, or all on cpu/gpu). If there's
-    a mix where some ranks have parameters on meta device and others have parameters on
-    cpu/gpu, it raises a ValueError since this can lead to random weight initialization
-    when loading checkpoints.
+    In cases where the model on rank 0 is on CPU/GPU and other ranks are on meta, this function
+    will automatically set sync_module_states to True. It also adds a check to make sure that
+    the unexpected edge case where the model on rank 0 is on meta and other ranks are on CPU/GPU
+    does not happen.
 
     Args:
         model (nn.Module): The model to validate.
         fsdp_config (FSDP2Config | FSDPConfig): The FSDP2 configuration containing sync_module_states setting.
-
-    Raises:
-        ValueError: If invalid sync_module_states configuration is detected.
     """
     device = get_device()
     requires_sync = False
@@ -191,6 +187,6 @@ def validate_model_requires_state_sync(model: nn.Module, fsdp_config: FSDP2Confi
     # Asserts that the rank setup is valid
     if fsdp_config.sync_module_states:
         if dist.get_global_rank() == 0:
-            assert rank_on_meta == 0
+            assert rank_on_meta == 0, 'Model on rank 0 needs to be on GPU/CPU'
         else:
-            assert rank_on_meta == 1
+            assert rank_on_meta == 1, 'Model on non-rank 0 needs to be on meta'
