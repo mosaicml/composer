@@ -364,8 +364,8 @@ class TestFSDP2MixedInit:
         optimizer = torch.optim.SGD(model.parameters(), lr=1e-4)
         kwargs = {}
 
-        # If we're not using FSDP2, we need manually set the
-        # attribute to sync the module states
+        # If we're using FSDP1, we need to manually set the
+        # attribute to sync the module states during mixed init
         if not use_fsdp2:
             kwargs['fsdp1_sync_module_states'] = True
         trainer = create_trainer_with_model(
@@ -440,6 +440,7 @@ class TestFSDP2MixedInit:
             num_classes=10,
             use_fsdp2=True,
         )
+        assert isinstance(trainer.state.fsdp_config, FSDP2Config)
         assert trainer.state.fsdp_config.sync_module_states, 'sync_module_states should be True'  # type: ignore
 
         module = trainer.state.model.module  # type: ignore
@@ -482,6 +483,7 @@ class TestFSDP2MixedInit:
             num_classes=10,
             use_fsdp2=True,
         )
+        assert isinstance(trainer.state.fsdp_config, FSDP2Config)
         assert trainer.state.fsdp_config.sync_module_states, 'sync_module_states should be True'  # type: ignore
         # Check that the weights are correctly tied after training
         trainer.fit()
@@ -514,6 +516,7 @@ class TestFSDP2MixedInit:
             optimizer=optimizer,
         )
 
+        assert isinstance(trainer.state.fsdp_config, FSDP2Config)
         assert trainer.state.fsdp_config.sync_module_states, 'sync_module_states should be True'  # type: ignore
         trainer.fit()
 
