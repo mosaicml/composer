@@ -525,7 +525,6 @@ def test_fsdp_mixed_with_sync(
 @pytest.mark.filterwarnings(r'ignore:.*The CUDA RNG state could not be loaded.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*ShardedTensor.to only move tensor to its current device.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*\(TP\) is experimental.*:FutureWarning')
-@pytest.mark.filterwarnings(r'ignore:.*The CUDA RNG state was saved with a different version of PyTorch.*')
 def test_fsdp_load_old_checkpoint(
     world_size,
     tmp_path: pathlib.Path,

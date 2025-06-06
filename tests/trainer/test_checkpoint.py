@@ -1164,7 +1164,6 @@ class TestCheckpointLoading:
         ],
     )
     @pytest.mark.filterwarnings('ignore:.*The checkpoint included CUDA RNG state.*')
-    @pytest.mark.filterwarnings('ignore:.*The CUDA RNG state could not be loaded from the checkpoint.*')
     def test_load_remote_checkpoint(
         self,
         tmp_path: pathlib.Path,
