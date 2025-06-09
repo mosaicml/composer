@@ -130,7 +130,7 @@ extra_deps['dev'] = [
     'testbook==0.4.2',
     'myst-parser==0.16.1',
     'sphinx_panels==0.6.0',
-    'sphinxcontrib-images==0.9.4',
+    'sphinxcontrib-images==1.0.1',
     'pytest_codeblocks==0.17.0',
     'traitlets==5.14.3',
     'nbsphinx==0.9.1',
