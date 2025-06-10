@@ -81,7 +81,7 @@ We observed that, on average, GeLU activation functions marginally performed bet
 
 > ✅ Gated Linear Units Improve the Tradeoff Between Quality and Training Speed
 
-While there are many hypotheses for the performace of Gated Linear Units, the community lacks a through investigation of these. The algorithm has been shown to perform well empirically, and there remains an open curiosity as to why step-wise convergence is significantly better without bias terms than with bias terms. Furthermore, in order to maximize throughput, the user should make sure that the scaled down feature dimension when using GLUs is still a multiple of eight.
+While there are many hypotheses for the performance of Gated Linear Units, the community lacks a through investigation of these. The algorithm has been shown to perform well empirically, and there remains an open curiosity as to why step-wise convergence is significantly better without bias terms than with bias terms. Furthermore, in order to maximize throughput, the user should make sure that the scaled down feature dimension when using GLUs is still a multiple of eight.
 
 ## Attribution
 
