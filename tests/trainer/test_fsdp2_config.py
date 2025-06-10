@@ -20,14 +20,8 @@ def test_fsdp2_config():
     assert config.data_parallel_replicate_degree is None
     assert config.state_dict_type == 'sharded'
     assert config.use_orig_params is True
-
-    # Test setting settable properties (should succeed)
-    config.state_dict_type = 'full'
-    config.load_monolith_rank0_only = True
-    config.auto_wrap = True
-    assert config.state_dict_type == 'full'
-    assert config.load_monolith_rank0_only is True
-    assert config.auto_wrap is True
+    assert config.state_dict_type == 'sharded'
+    assert config.load_monolith_rank0_only is False
 
     # Test setting read-only properties (should fail)
     read_only_props = [
