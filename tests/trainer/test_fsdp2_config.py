@@ -7,11 +7,11 @@ from composer.utils.parallelism import FSDP2Config
 
 
 def test_fsdp2_config():
-    """Test that FSDP2Config read-only properties work as expected."""
+    """Test that FSDP2Config properties work as expected."""
     # Create a config instance
     config = FSDP2Config()
 
-    # Test reading properties (should succeed)
+    # Test reading default values
     assert config.auto_wrap is False
     assert config.load_monolith_rank0_only is False
     assert config.sync_module_states is False
@@ -21,13 +21,18 @@ def test_fsdp2_config():
     assert config.state_dict_type == 'sharded'
     assert config.use_orig_params is True
 
-    # Test setting properties (should fail)
+    # Test setting settable properties (should succeed)
+    config.state_dict_type = 'full'
+    config.load_monolith_rank0_only = True
+    config.auto_wrap = True
+    assert config.state_dict_type == 'full'
+    assert config.load_monolith_rank0_only is True
+    assert config.auto_wrap is True
+
+    # Test setting read-only properties (should fail)
     read_only_props = [
-        ('auto_wrap', False),
-        ('load_monolith_rank0_only', True),
         ('data_parallel_shard_degree', 2),
         ('data_parallel_replicate_degree', 2),
-        ('state_dict_type', 'full'),
         ('use_orig_params', False),
     ]
 
@@ -40,6 +45,24 @@ def test_fsdp2_config():
     config.reshard_after_forward = False
     assert config.device_mesh is None
     assert config.reshard_after_forward is False
+    
+    
+def test_fsdp2_config_monolithic_validation():
+    """Test FSDP2Config validation for monolithic checkpointing."""
+    # Test valid monolithic config
+    config = FSDP2Config(
+        state_dict_type='full',
+        load_monolith_rank0_only=True,
+    )
+    assert config.state_dict_type == 'full'
+    assert config.load_monolith_rank0_only is True
+    
+    # Test invalid monolithic config
+    with pytest.raises(ValueError, match='load_monolith_rank0_only=True requires state_dict_type="full"'):
+        FSDP2Config(
+            state_dict_type='sharded',
+            load_monolith_rank0_only=True,
+        )
 
 
 def test_fsdp2config_from_fsdp1_valid_attributes():
