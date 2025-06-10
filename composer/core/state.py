@@ -1326,6 +1326,10 @@ class State(Serializable):
             assert self.fsdp_config is not None
             log.info('Wrapping model with FSDP after loading model_state.')
             with reproducibility.seed_context(self.rank_zero_seed):
+                
+                # Handle both FSDP1 and FSDP2 based on config type
+                if isinstance(self.fsdp_config, FSDPConfig):
+                from composer.distributed import prepare_fsdp_module
                 from composer.distributed import prepare_fsdp_module
 
                 # TODO (FSDP2): support calling FSDP2 wrapper depending on the config type
@@ -1333,14 +1337,40 @@ class State(Serializable):
                     self.fsdp_config,
                     FSDPConfig,
                 ), f'prepare_fsdp_module requires FSDPConfig, got: {type(self.fsdp_config)}'
-                self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(
-                    self.model,
-                    self.optimizers,
+                    from composer.distributed import prepare_fsdp_module
+
+                # TODO (FSDP2): support calling FSDP2 wrapper depending on the config type
+                assert isinstance(
                     self.fsdp_config,
-                    self.precision,
-                    self.device,
-                    self.auto_microbatching,
-                )
+                    FSDPConfig,
+                ), f'prepare_fsdp_module requires FSDPConfig, got: {type(self.fsdp_config)}'
+                    self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(
+                        self.model,
+                        self.optimizers,
+                        self.fsdp_config,
+                        self.precision,
+                        self.device,
+                        self.auto_microbatching,
+                    )
+                elif isinstance(self.fsdp_config, FSDP2Config):
+                    from composer.distributed.prepare_distributed import parallelize_composer_model
+                    from composer.models import ComposerModel
+                    
+                    # FSDP2 doesn't support auto_microbatching
+                    if self.auto_microbatching:
+                        log.warning('auto_microbatching is not supported with FSDP2, disabling it.')
+                    
+                    assert isinstance(self.model, ComposerModel), \
+                        f'FSDP2 monolithic loading requires ComposerModel, got: {type(self.model)}'
+                    
+                    parallelize_composer_model(
+                        self.model,
+                        self.optimizers[0] if self.optimizers else None,
+                        self.fsdp_config,
+                    )
+                else:
+                    raise ValueError(f'Unsupported FSDP config type for monolithic loading: {type(self.fsdp_config)}')
+                    
             log.debug('Finished wrapping model with FSDP.')
 
     def load_optim_state(self, state_dict: dict[str, Any], strict: bool = True):

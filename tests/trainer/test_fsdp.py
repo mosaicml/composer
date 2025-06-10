@@ -642,3 +642,62 @@ def test_fsdp_shard_and_replicate(world_size: int):
         },
         max_duration='3ba',
     )
+
+
+@pytest.mark.gpu
+@world_size(2)
+def test_fsdp2_monolithic_checkpoint_config(world_size: int):
+    """Test that FSDP2 monolithic checkpoint configuration is properly validated."""
+    model = SimpleModel()
+    
+    # Test valid FSDP2 monolithic config
+    trainer = Trainer(
+        model=model,
+        parallelism_config={
+            'fsdp2': {
+                'state_dict_type': 'full',
+                'load_monolith_rank0_only': True,
+                'sync_module_states': True,
+            },
+        },
+        max_duration='1ba',
+    )
+    
+    assert trainer.state.load_monolith_rank0_only == True
+    assert trainer.state.fsdp_config.state_dict_type == 'full'
+    assert trainer.state.fsdp_config_version == 2
+    
+    # Test invalid FSDP2 monolithic config (requires full state dict)
+    with pytest.raises(ValueError, match='load_monolith_rank0_only=True requires state_dict_type="full"'):
+        Trainer(
+            model=SimpleModel(),
+            parallelism_config={
+                'fsdp2': {
+                    'state_dict_type': 'sharded',
+                    'load_monolith_rank0_only': True,
+                },
+            },
+            max_duration='1ba',
+        )
+
+
+@pytest.mark.gpu
+@world_size(2)
+def test_fsdp2_monolithic_checkpoint_validation(world_size: int):
+    """Test that FSDP2 monolithic checkpoint validation works correctly."""
+    model = SimpleModel()
+    
+    # Test that sync_module_states validation works for FSDP2
+    expected_error = "load_monolith_rank0_only requires parallelism_config\\['fsdp2'\\]\\['sync_module_states'\\] to be True"
+    with pytest.raises(ValueError, match=expected_error):
+        Trainer(
+            model=model,
+            parallelism_config={
+                'fsdp2': {
+                    'state_dict_type': 'full',
+                    'load_monolith_rank0_only': True,
+                    'sync_module_states': False,
+                },
+            },
+            max_duration='1ba',
+        )
