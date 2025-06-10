@@ -46,6 +46,7 @@ from composer.utils.file_helpers import (
 from composer.utils.misc import ParallelismType, partial_format
 from composer.utils.object_store import ObjectStore
 from composer.utils.retrying import retry
+# from composer.distributed.fsdp2 import get_averaged_state_dict
 
 if TYPE_CHECKING:
     from composer.core import AlgorithmPass, State

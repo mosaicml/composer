@@ -74,9 +74,7 @@ from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.distributed import (
     DDPSyncStrategy,
     ddp_sync_context,
-    parallelize_composer_model,
     prepare_ddp_module,
-    prepare_fsdp_module,
     prepare_tp_module,
 )
 from composer.distributed.shared_utils import generate_oom_hook
@@ -1610,7 +1608,7 @@ class Trainer:
         # original model for functions like `eval_forward`, `get_metrics`, etc.
         self._original_model = self.state.model
 
-        self._wrap_model_for_distributed(model, optimizers, precision, device, auto_microbatching)
+        self._wrap_model_for_distributed(model, optimizers)
 
         self.engine.run_event(Event.BEFORE_LOAD)
 
@@ -1731,25 +1729,8 @@ class Trainer:
 
         # FSDP wrap if model is not yet wrapped and FSDP is enabled. This can happen if
         # load_monolith_rank0_only=True but no checkpoint was loaded.
-        if (
-            not self.state.fsdp_enabled and self.state.fsdp_config is not None and self.state.fsdp_config.auto_wrap and
-            self.state.load_monolith_rank0_only
-        ):
-            # TODO (FSDP2): support calling FSDP2 wrapper depending on the config type
-            assert isinstance(
-                self.state.fsdp_config,
-                FSDPConfig,
-            ), f'prepare_fsdp_module requires FSDPConfig, got: {type(self.state.fsdp_config)}'
-            # Init with globally fixed seed so all HSDP replicas have the same initial weights
-            with reproducibility.seed_context(self.state.rank_zero_seed):
-                self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
-                    model,
-                    optimizers,
-                    self.state.fsdp_config,
-                    precision,
-                    device,
-                    auto_microbatching,
-                )
+        if not self.state.fsdp_enabled and self.state.load_monolith_rank0_only:
+            self.state._apply_fsdp()
 
         # Set the iteration timestamp to the overall timestamp if loading from a checkpoint that was created before
         # iteration was introduced in Composer v0.19.1. This is necessary to ensure that the iteration timestamp is
@@ -1795,9 +1776,6 @@ class Trainer:
         self,
         model: ComposerModel,
         optimizers: Optional[torch.optim.Optimizer],
-        precision: Union[str, Precision],
-        device: Device,
-        auto_microbatching: bool,
     ):
         """Wrap the model for distributed training (TP, FSDP, etc.).
 
@@ -1825,28 +1803,7 @@ class Trainer:
 
         # FSDP wrap if not using monolith checkpoint on rank 0 only
         if self.state.fsdp_config is not None and not self.state.load_monolith_rank0_only:
-            # Init with globally fixed seed so all HSDP replicas have the same initial weights
-            with reproducibility.seed_context(self.state.rank_zero_seed):
-                match self.state.fsdp_config_version:
-                    case 1:
-                        self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
-                            model,
-                            optimizers,
-                            self.state.fsdp_config,  # type: ignore
-                            precision,
-                            device,
-                            auto_microbatching,
-                            self.state.seed,
-                        )
-                    case 2:
-                        assert not auto_microbatching
-                        parallelize_composer_model(
-                            model,
-                            optimizers,
-                            self.state.fsdp_config,  # type: ignore
-                        )
-                    case _:
-                        raise ValueError(f'Unsupported FSDP config version: {self.state.fsdp_config_version}')
+            self.state._apply_fsdp()
 
     @property
     def saved_checkpoints(self) -> list[str]:
@@ -2289,6 +2246,7 @@ class Trainer:
             self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
 
         self.first_train_batch_complete = False
+        # self.state.log_state("Before training")
         self._train_loop()
 
         # Zero gradients at the end of fit so same model/optimizer can be used for further training
