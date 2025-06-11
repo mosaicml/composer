@@ -98,7 +98,7 @@ def test_fsdp2_config_monolithic_validation():
     )
     assert config.state_dict_type == 'full'
     assert config.load_monolith_rank0_only is True
-    
+
     # Test invalid monolithic config
     with pytest.raises(ValueError, match='load_monolith_rank0_only=True requires state_dict_type="full"'):
         FSDP2Config(
