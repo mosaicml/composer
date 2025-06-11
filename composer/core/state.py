@@ -1386,8 +1386,8 @@ class State(Serializable):
 
             optim_state_dict = serialized_value[type(optimizer).__qualname__] if serialized_value is not None else None
 
-            # TODO: Check if there's any issues pointing optimizer to the right weights
-            # in FSDP2
+            # TODO: There are issues with setting the optimizer state dict even though the state_dict actually looks right
+            # and there's no weight tying. This just hangs currently.
             set_optimizer_state_dict(
                 model=self.model,
                 optimizers=optimizer,

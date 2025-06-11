@@ -45,8 +45,8 @@ def create_trainer_with_model(
     load_path: Optional[str] = None,
 ) -> Trainer:
     """Helper function to create a Trainer with a model, dataloader, and FSDP2 configuration."""
-    dataset = RandomClassificationDataset(shape=(num_classes,), size=128, num_classes=num_classes)
-    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=8)
+    dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
+    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
 
     parallelism_config = ParallelismConfig()
     if use_fsdp2:
@@ -58,7 +58,7 @@ def create_trainer_with_model(
         )
     else:
         parallelism_config.fsdp = FSDPConfig(
-            state_dict_type=state_dict_type,
+            state_dict_type='sharded',  # We might need to check if monolithic checkpoints made by FSDP1 are compatible with FSDP2
             sync_module_states=fsdp1_sync_module_states,
         )
     if optimizer is None:
@@ -75,8 +75,6 @@ def create_trainer_with_model(
         save_filename=save_filename,
         save_interval=save_interval,
         load_path=load_path,
-        progress_bar=False,
-        log_to_console=False,
     )
     return trainer
 
@@ -598,33 +596,33 @@ def test_fsdp2_monolithic_checkpoint_save_and_load(
     """Test FSDP2 monolithic checkpoint saving and loading with proper model initialization."""
     NUM_FEATURES = 10
     NUM_CLASSES = 10
-    
+
     # Use tmp_path from all ranks to ensure consistency
     tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
     save_folder = tmp_paths[0]
     save_filename = 'ba{batch}-rank{rank}.pt'
-    
+
     # Create initial model and trainer
     model1 = SimpleComposerMLP(num_features=NUM_FEATURES, device='cuda', num_classes=NUM_CLASSES)
     model1.add_fsdp_wrap_attribute_to_children()
     if dist.get_local_rank() == 0:
         model1.apply(model1.param_init_fn)
-    
+
     # train for 8 batches but save every 1 batch
     trainer1 = create_trainer_with_model(
         model=model1,
         num_classes=NUM_CLASSES,
-        max_duration='8ba', 
+        max_duration='8ba',
         use_fsdp2=True,
         save_folder=os.path.join(save_folder, 'first'),
         save_filename=save_filename,
         state_dict_type='full',
         save_interval='1ba',
     )
-    
+
     trainer1.fit()
     trainer1.close()
-    
+
     # Create second trainer to load checkpoint with monolithic checkpoint
     resolved_device = 'cuda' if dist.get_local_rank() == 0 else 'meta'
     model2 = SimpleComposerMLP(num_features=NUM_FEATURES, device=resolved_device, num_classes=NUM_CLASSES)
@@ -649,54 +647,3 @@ def test_fsdp2_monolithic_checkpoint_save_and_load(
         os.path.join(save_folder, 'first', 'latest-rank{rank}.pt'),
         os.path.join(save_folder, 'second', 'latest-rank{rank}.pt'),
     )
-
-# def _compare_model_params_between_state_dicts(state_dict1, state_dict2):
-#     """Compare model parameters between two state dicts."""
-#     state_dict1_model_params = state_dict1['model']
-#     state_dict2_model_params = state_dict2['model']
-
-#     state_dict1_keys = set(state_dict1_model_params.keys())
-#     state_dict2_keys = set(state_dict2_model_params.keys())
-#     assert len(state_dict1_keys.symmetric_difference(state_dict2_keys)) == 0, \
-#         f"Model parameter keys must match: {state_dict1_keys.symmetric_difference(state_dict2_keys)}"
-
-#     for param_name in state_dict2_model_params.keys():
-#         state_dict1_model_tensor = state_dict1_model_params[param_name].cpu()
-#         state_dict2_model_tensor = state_dict2_model_params[param_name].cpu()
-        
-#         if isinstance(state_dict1_model_tensor, DTensor):
-#             state_dict1_model_tensor = state_dict1_model_tensor.to_local()
-#         if isinstance(state_dict2_model_tensor, DTensor):
-#             state_dict2_model_tensor = state_dict2_model_tensor.to_local()
-
-#         torch.testing.assert_close(state_dict1_model_tensor, state_dict2_model_tensor)
-
-
-# def _compare_optims_between_state_dicts(state_dict1, state_dict2):
-#     """Compare optimizer state between two state dicts."""
-#     assert len(list(state_dict1['optimizers'].keys())) == 1
-#     assert len(list(state_dict2['optimizers'].keys())) == 1
-#     optim_key1 = list(state_dict1['optimizers'].keys()).pop()
-#     optim_key2 = list(state_dict2['optimizers'].keys()).pop()
-#     assert optim_key1 == optim_key2
-    
-#     state_dict1_optim_params = state_dict1['optimizers'][optim_key1]['state']
-#     state_dict2_optim_params = state_dict2['optimizers'][optim_key2]['state']
-#     state_dict1_keys = set(state_dict1_optim_params.keys())
-#     state_dict2_keys = set(state_dict2_optim_params.keys())
-#     assert len(state_dict1_keys.symmetric_difference(state_dict2_keys)) == 0, \
-#         f"Optimizer state keys must match: {state_dict1_keys.symmetric_difference(state_dict2_keys)}"
-
-#     for param_name in state_dict2_optim_params.keys():
-#         state_dict1_param_moment_dict = state_dict1_optim_params[param_name]
-#         state_dict2_param_moment_dict = state_dict2_optim_params[param_name]
-#         for moment_name in state_dict2_param_moment_dict.keys():
-#             state_dict1_moment = state_dict1_param_moment_dict[moment_name].cpu()
-#             state_dict2_moment = state_dict2_param_moment_dict[moment_name].cpu()
-            
-#             if isinstance(state_dict1_moment, DTensor):
-#                 state_dict1_moment = state_dict1_moment.to_local()
-#             if isinstance(state_dict2_moment, DTensor):
-#                 state_dict2_moment = state_dict2_moment.to_local()
-                
-#             torch.testing.assert_close(state_dict1_moment, state_dict2_moment)
