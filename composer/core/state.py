@@ -913,8 +913,7 @@ class State(Serializable):
     @property
     def load_monolith_rank0_only(self):
         should_load_monolith_rank0_only = (
-            self.fsdp_config is not None and
-            self.fsdp_config.state_dict_type == 'full' and
+            self.fsdp_config is not None and self.fsdp_config.state_dict_type == 'full' and
             self.fsdp_config.load_monolith_rank0_only == True
         )
         # TODO: Only FSDP1 has auto_wrap; if this is a legacy config, we should remove this check
@@ -1335,16 +1334,17 @@ class State(Serializable):
                 if isinstance(self.fsdp_config, FSDPConfig):
                     from composer.distributed import prepare_fsdp_module
                     self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(
-                            self.model,
-                            self.optimizers,
-                            self.fsdp_config,
-                            self.precision,
-                            self.device,
-                            self.auto_microbatching,
-                        )
+                        self.model,
+                        self.optimizers,
+                        self.fsdp_config,
+                        self.precision,
+                        self.device,
+                        self.auto_microbatching,
+                    )
                 elif isinstance(self.fsdp_config, FSDP2Config):
                     from composer.distributed.prepare_distributed import parallelize_composer_model
                     from composer.models import ComposerModel
+
                     # FSDP2 doesn't support auto_microbatching
                     if self.auto_microbatching:
                         log.warning('auto_microbatching is not supported with FSDP2, disabling it.')

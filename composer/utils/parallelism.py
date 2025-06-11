@@ -171,8 +171,9 @@ class FSDP2Config:
         if self.load_monolith_rank0_only and self.state_dict_type != 'full':
             raise ValueError(
                 'load_monolith_rank0_only=True requires state_dict_type="full". '
-                f'Got state_dict_type="{self.state_dict_type}"'
+                f'Got state_dict_type="{self.state_dict_type}"',
             )
+
 
 @dataclass
 class TPConfig:

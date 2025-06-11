@@ -1,9 +1,9 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 import pathlib
 from typing import Callable, Optional
-import os
 
 import pytest
 import torch
@@ -586,6 +586,7 @@ class TestFSDP2MixedInit:
         )
 
         self._compare_weights(fsdp1_weights, fsdp2_weights, tolerance=1e-5)
+
 
 @pytest.mark.gpu
 @world_size(2)
