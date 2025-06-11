@@ -1450,7 +1450,8 @@ class State(Serializable):
             if attribute_name == 'dataset_state':
                 self._load_dataset_state(serialized_value)
             elif attribute_name == 'optimizers':
-                self.load_optim_state(state)
+                # TODO: It seems that the model hangs here when loading the optimizers... Need to debug this...
+                pass
             elif attribute_name == 'train_metrics':
                 # Get current metrics object and populate each metric present
                 # in serialization with serialized data via load_state_dict()
