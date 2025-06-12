@@ -3,14 +3,13 @@
 
 import os
 import pathlib
-from typing import Callable, Optional
+from typing import Optional
 
 import pytest
 import torch
 from torch.distributed._tensor import DTensor
 from torch.utils.data import DataLoader
 
-from composer.core import Event, State, Time
 from composer.models import ComposerClassifier
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, load_checkpoint
@@ -30,6 +29,8 @@ _INIT_DEVICES = ['cuda', 'meta']
 def create_trainer_with_model(
     model: ComposerClassifier,
     num_classes: int = 10,
+    dataset_size: int = 2,
+    batch_size: int = 1,
     max_duration: str = '10ep',
     use_fsdp2: bool = True,
     optimizer: Optional[torch.optim.Optimizer] = None,
@@ -41,12 +42,12 @@ def create_trainer_with_model(
     load_monolith_rank0_only: bool = False,
     save_folder: Optional[str] = None,
     save_filename: str = 'ba{batch}-rank{rank}.pt',
-    save_interval: str | int | Time | Callable[[State, Event], bool] = '10ba',
+    save_interval: str = '10ba',
     load_path: Optional[str] = None,
 ) -> Trainer:
     """Helper function to create a Trainer with a model, dataloader, and FSDP2 configuration."""
-    dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
-    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
+    dataset = RandomClassificationDataset(shape=(num_classes,), size=dataset_size, num_classes=num_classes)
+    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=batch_size)
 
     parallelism_config = ParallelismConfig()
     if use_fsdp2:
@@ -58,7 +59,7 @@ def create_trainer_with_model(
         )
     else:
         parallelism_config.fsdp = FSDPConfig(
-            state_dict_type='sharded',  # We might need to check if monolithic checkpoints made by FSDP1 are compatible with FSDP2
+            state_dict_type=state_dict_type,
             sync_module_states=fsdp1_sync_module_states,
         )
     if optimizer is None:
@@ -590,21 +591,33 @@ class TestFSDP2MixedInit:
 
 @pytest.mark.gpu
 @world_size(2)
+@pytest.mark.parametrize('model_class', [SimpleComposerMLP, SimpleWeightTiedModel, PartialWeightTiedModel])
+@pytest.mark.parametrize('device', ['cuda', 'cpu'])
 def test_fsdp2_monolithic_checkpoint_save_and_load(
     world_size: int,
+    model_class: type,
     tmp_path: pathlib.Path,
+    device: str,
 ):
     """Test FSDP2 monolithic checkpoint saving and loading with proper model initialization."""
     NUM_FEATURES = 10
     NUM_CLASSES = 10
+    BATCH_SIZE = 2
+    DATASET_SIZE = 16  # 8 batches, 2 batches per rank, 2 ranks = 32 samples
 
     # Use tmp_path from all ranks to ensure consistency
     tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
     save_folder = tmp_paths[0]
-    save_filename = 'ba{batch}-rank{rank}.pt'
 
-    # Create initial model and trainer
-    model1 = SimpleComposerMLP(num_features=NUM_FEATURES, device='cuda', num_classes=NUM_CLASSES)
+    save_interval = '1ba'
+    save_filename = 'ba{batch}-rank{rank}.pt'
+    resume_file = 'ba1-rank{rank}.pt'
+    final_checkpoint = 'latest-rank{rank}.pt'
+    total_batches_str = '8ba'
+
+    # Create initial model and trainer on CUDA initially for training
+    kwargs = {'num_classes': NUM_CLASSES} if model_class == SimpleComposerMLP else {}
+    model1 = model_class(num_features=NUM_FEATURES, device='cuda', **kwargs)
     model1.add_fsdp_wrap_attribute_to_children()
     if dist.get_local_rank() == 0:
         model1.apply(model1.param_init_fn)
@@ -613,27 +626,33 @@ def test_fsdp2_monolithic_checkpoint_save_and_load(
     trainer1 = create_trainer_with_model(
         model=model1,
         num_classes=NUM_CLASSES,
-        max_duration='8ba',
+        dataset_size=DATASET_SIZE,
+        batch_size=BATCH_SIZE,
+        max_duration=total_batches_str,
         use_fsdp2=True,
         save_folder=os.path.join(save_folder, 'first'),
         save_filename=save_filename,
         state_dict_type='full',
-        save_interval='1ba',
+        save_interval=save_interval,
     )
 
     trainer1.fit()
     trainer1.close()
 
     # Create second trainer to load checkpoint with monolithic checkpoint
-    resolved_device = 'cuda' if dist.get_local_rank() == 0 else 'meta'
-    model2 = SimpleComposerMLP(num_features=NUM_FEATURES, device=resolved_device, num_classes=NUM_CLASSES)
+    # On either CPU/GPU based on the device parameter
+    resolved_device = device if dist.get_local_rank() == 0 else 'meta'
+    model2 = model_class(num_features=NUM_FEATURES, device=resolved_device, **kwargs)
     model2.add_fsdp_wrap_attribute_to_children()
-    resume_path = os.path.join(save_folder, 'first', 'ba1-rank{rank}.pt')
+    resume_path = os.path.join(save_folder, 'first', resume_file)
 
+    # train for 8 batches to measure equality of checkpoints
     trainer2 = create_trainer_with_model(
         model=model2,
         num_classes=NUM_CLASSES,
-        max_duration='4ba',
+        dataset_size=DATASET_SIZE,
+        batch_size=BATCH_SIZE,
+        max_duration=total_batches_str,
         use_fsdp2=True,
         state_dict_type='full',
         load_monolith_rank0_only=True,
@@ -645,6 +664,6 @@ def test_fsdp2_monolithic_checkpoint_save_and_load(
     trainer2.close()
 
     _assert_checkpoints_equivalent(
-        os.path.join(save_folder, 'first', 'latest-rank{rank}.pt'),
-        os.path.join(save_folder, 'second', 'latest-rank{rank}.pt'),
+        os.path.join(save_folder, 'first', final_checkpoint),
+        os.path.join(save_folder, 'second', final_checkpoint),
     )

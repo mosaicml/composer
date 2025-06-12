@@ -1343,13 +1343,10 @@ class State(Serializable):
                     )
                 elif isinstance(self.fsdp_config, FSDP2Config):
                     from composer.distributed.prepare_distributed import parallelize_composer_model
-                    from composer.models import ComposerModel
 
                     # FSDP2 doesn't support auto_microbatching
                     if self.auto_microbatching:
                         log.warning('auto_microbatching is not supported with FSDP2, disabling it.')
-                    assert isinstance(self.model, ComposerModel), \
-                        f'FSDP2 monolithic loading requires ComposerModel, got: {type(self.model)}'
                     parallelize_composer_model(
                         self.model,
                         self.optimizers[0] if self.optimizers else None,
@@ -1386,17 +1383,22 @@ class State(Serializable):
 
             optim_state_dict = serialized_value[type(optimizer).__qualname__] if serialized_value is not None else None
 
-            # TODO: There are issues with setting the optimizer state dict even though the state_dict actually looks right
-            # and there's no weight tying. This just hangs currently.
+            broadcast_from_rank0 = self.load_monolith_rank0_only and isinstance(self.fsdp_config, FSDP2Config)
+            cpu_offload = self.fsdp_enabled and not isinstance(self.fsdp_config, FSDP2Config)
+
+            # Create the state dict options for the optimizer while considering the required config for FSDP2
+            state_dict_options = StateDictOptions(
+                full_state_dict=self.fsdp_state_dict_type == 'full',
+                broadcast_from_rank0=broadcast_from_rank0,
+                cpu_offload=cpu_offload,
+                strict=strict,
+            )
+
             set_optimizer_state_dict(
                 model=self.model,
                 optimizers=optimizer,
                 optim_state_dict=optim_state_dict,  # type: ignore
-                options=StateDictOptions(
-                    full_state_dict=self.fsdp_state_dict_type == 'full',
-                    strict=strict,
-                    cpu_offload=self.fsdp_enabled,
-                ),
+                options=state_dict_options,
             )
 
     def load_state_dict(
@@ -1450,8 +1452,7 @@ class State(Serializable):
             if attribute_name == 'dataset_state':
                 self._load_dataset_state(serialized_value)
             elif attribute_name == 'optimizers':
-                # TODO: It seems that the model hangs here when loading the optimizers... Need to debug this...
-                pass
+                self.load_optim_state(state)
             elif attribute_name == 'train_metrics':
                 # Get current metrics object and populate each metric present
                 # in serialization with serialized data via load_state_dict()
