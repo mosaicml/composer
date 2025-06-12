@@ -1343,10 +1343,14 @@ class State(Serializable):
                     )
                 elif isinstance(self.fsdp_config, FSDP2Config):
                     from composer.distributed.prepare_distributed import parallelize_composer_model
+                    from composer.models import ComposerModel
 
-                    # FSDP2 doesn't support auto_microbatching
-                    if self.auto_microbatching:
-                        log.warning('auto_microbatching is not supported with FSDP2, disabling it.')
+                    # FSDP2 doesn't support auto_microbatching (checked earlier, just validating here to be safe)
+                    assert not self.auto_microbatching, 'auto_microbatching is not supported with FSDP2'
+
+                    # FSDP2 requires a ComposerModel
+                    assert isinstance(self.model, ComposerModel), 'FSDP2 requires a ComposerModel'
+
                     parallelize_composer_model(
                         self.model,
                         self.optimizers[0] if self.optimizers else None,
@@ -1383,7 +1387,9 @@ class State(Serializable):
 
             optim_state_dict = serialized_value[type(optimizer).__qualname__] if serialized_value is not None else None
 
+            # TODO: Figure out why this was not set by default...
             broadcast_from_rank0 = self.load_monolith_rank0_only and isinstance(self.fsdp_config, FSDP2Config)
+            # TODO: Figure out why we are default offloading to CPU in FSDP1...
             cpu_offload = self.fsdp_enabled and not isinstance(self.fsdp_config, FSDP2Config)
 
             # Create the state dict options for the optimizer while considering the required config for FSDP2
