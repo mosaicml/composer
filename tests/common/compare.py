@@ -57,9 +57,9 @@ def _check_item(
         _check_dict_recursively(item1, item2, path, atol=atol, rtol=rtol, ignore_keys=ignore_keys)
         return
     if isinstance(item1, (tuple, list)):
-        # For some reason, FSDP2 saved checkpoints save as a tuple sometimes and list others.
-        # TODO: Figure out why this is happening and fix it.
-        # assert isinstance(item2, type(item1)), f'{path} differs: {item1} != {item2}'
+        # When we are broadcasting lists/tuples from rank0 (e.g. State.load_optim_state)
+        # tuples get converted to lists and so we don't want to validate the type, just
+        # the values
         _check_list_recursively(item1, item2, path, atol=atol, rtol=rtol)
         return
     if isinstance(item1, ShardedTensor):
