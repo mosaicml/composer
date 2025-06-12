@@ -199,7 +199,7 @@ class ActivationMonitor(Callback):
             logger.log_metrics(metrics)
 
     def recursively_add_metrics(self, metrics: dict, name: str, suffix: str, values: Any):
-        # Becuase of the recursive diving, we need this call to prevent infinite recursion.
+        # Because of the recursive diving, we need this call to prevent infinite recursion.
         if isinstance(values, str):
             return
         # Keep recursively diving if the value is a sequence
