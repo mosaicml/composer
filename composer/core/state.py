@@ -591,7 +591,8 @@ class State(Serializable):
                 raise ValueError('load_monolith_rank0_only is not compatible with tensor parallelism (TP).')
             assert self.fsdp_config is not None
             error_message = ''
-            if self.fsdp_config.sync_module_states == False:
+            # FSDP2 automatically syncs module states, so we don't need to check for it
+            if isinstance(self.fsdp_config, FSDPConfig) and self.fsdp_config.sync_module_states == False:
                 error_message += textwrap.dedent(
                     "load_monolith_rank0_only requires parallelism_config['fsdp']['sync_module_states'] to be True. "
                     "Either set parallelism_config['fsdp']['sync_module_states'] = True or set load_monolith_rank0_only = False.",
@@ -911,10 +912,14 @@ class State(Serializable):
 
     @property
     def load_monolith_rank0_only(self):
-        return (
-            self.fsdp_config is not None and self.fsdp_config.auto_wrap and
-            self.fsdp_config.state_dict_type == 'full' and self.fsdp_config.load_monolith_rank0_only == True
+        should_load_monolith_rank0_only = (
+            self.fsdp_config is not None and self.fsdp_config.state_dict_type == 'full' and
+            self.fsdp_config.load_monolith_rank0_only == True
         )
+        # TODO: Only FSDP1 has auto_wrap; if this is a legacy config, we should remove this check
+        if isinstance(self.fsdp_config, FSDPConfig):
+            should_load_monolith_rank0_only = should_load_monolith_rank0_only and self.fsdp_config.auto_wrap
+        return should_load_monolith_rank0_only
 
     def _get_integrations_state_dict(self) -> dict[str, Any]:
         """Gets a dictionary of information about integrations to store in the state dict.
@@ -1326,21 +1331,33 @@ class State(Serializable):
             assert self.fsdp_config is not None
             log.info('Wrapping model with FSDP after loading model_state.')
             with reproducibility.seed_context(self.rank_zero_seed):
-                from composer.distributed import prepare_fsdp_module
+                if isinstance(self.fsdp_config, FSDPConfig):
+                    from composer.distributed import prepare_fsdp_module
+                    self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(
+                        self.model,
+                        self.optimizers,
+                        self.fsdp_config,
+                        self.precision,
+                        self.device,
+                        self.auto_microbatching,
+                    )
+                elif isinstance(self.fsdp_config, FSDP2Config):
+                    from composer.distributed.prepare_distributed import parallelize_composer_model
+                    from composer.models import ComposerModel
 
-                # TODO (FSDP2): support calling FSDP2 wrapper depending on the config type
-                assert isinstance(
-                    self.fsdp_config,
-                    FSDPConfig,
-                ), f'prepare_fsdp_module requires FSDPConfig, got: {type(self.fsdp_config)}'
-                self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(
-                    self.model,
-                    self.optimizers,
-                    self.fsdp_config,
-                    self.precision,
-                    self.device,
-                    self.auto_microbatching,
-                )
+                    # FSDP2 doesn't support auto_microbatching (checked earlier, just validating here to be safe)
+                    assert not self.auto_microbatching, 'auto_microbatching is not supported with FSDP2'
+
+                    # FSDP2 requires a ComposerModel
+                    assert isinstance(self.model, ComposerModel), 'FSDP2 requires a ComposerModel'
+
+                    parallelize_composer_model(
+                        self.model,
+                        self.optimizers[0] if self.optimizers else None,
+                        self.fsdp_config,
+                    )
+                else:
+                    raise ValueError(f'Unsupported FSDP config type for monolithic loading: {type(self.fsdp_config)}')
             log.debug('Finished wrapping model with FSDP.')
 
     def load_optim_state(self, state_dict: dict[str, Any], strict: bool = True):
@@ -1370,15 +1387,24 @@ class State(Serializable):
 
             optim_state_dict = serialized_value[type(optimizer).__qualname__] if serialized_value is not None else None
 
+            # TODO: Figure out why this was not set by default...
+            broadcast_from_rank0 = self.load_monolith_rank0_only and isinstance(self.fsdp_config, FSDP2Config)
+            # TODO: Figure out why we are default offloading to CPU in FSDP1...
+            cpu_offload = self.fsdp_enabled and not isinstance(self.fsdp_config, FSDP2Config)
+
+            # Create the state dict options for the optimizer while considering the required config for FSDP2
+            state_dict_options = StateDictOptions(
+                full_state_dict=self.fsdp_state_dict_type == 'full',
+                broadcast_from_rank0=broadcast_from_rank0,
+                cpu_offload=cpu_offload,
+                strict=strict,
+            )
+
             set_optimizer_state_dict(
                 model=self.model,
                 optimizers=optimizer,
                 optim_state_dict=optim_state_dict,  # type: ignore
-                options=StateDictOptions(
-                    full_state_dict=self.fsdp_state_dict_type == 'full',
-                    strict=strict,
-                    cpu_offload=self.fsdp_enabled,
-                ),
+                options=state_dict_options,
             )
 
     def load_state_dict(

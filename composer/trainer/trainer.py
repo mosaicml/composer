@@ -1731,25 +1731,32 @@ class Trainer:
 
         # FSDP wrap if model is not yet wrapped and FSDP is enabled. This can happen if
         # load_monolith_rank0_only=True but no checkpoint was loaded.
-        if (
-            not self.state.fsdp_enabled and self.state.fsdp_config is not None and self.state.fsdp_config.auto_wrap and
-            self.state.load_monolith_rank0_only
-        ):
-            # TODO (FSDP2): support calling FSDP2 wrapper depending on the config type
-            assert isinstance(
-                self.state.fsdp_config,
-                FSDPConfig,
-            ), f'prepare_fsdp_module requires FSDPConfig, got: {type(self.state.fsdp_config)}'
+        should_load_monolith = (
+            not self.state.fsdp_enabled and self.state.fsdp_config is not None and self.state.load_monolith_rank0_only
+        )
+        if isinstance(self.state.fsdp_config, FSDPConfig):
+            should_load_monolith = should_load_monolith and self.state.fsdp_config.auto_wrap
+        if should_load_monolith:
             # Init with globally fixed seed so all HSDP replicas have the same initial weights
             with reproducibility.seed_context(self.state.rank_zero_seed):
-                self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
-                    model,
-                    optimizers,
-                    self.state.fsdp_config,
-                    precision,
-                    device,
-                    auto_microbatching,
-                )
+                if isinstance(self.state.fsdp_config, FSDPConfig):
+                    self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
+                        model,
+                        optimizers,
+                        self.state.fsdp_config,
+                        precision,
+                        device,
+                        auto_microbatching,
+                    )
+                elif isinstance(self.state.fsdp_config, FSDP2Config):
+                    assert not auto_microbatching, 'auto_microbatching is not supported with FSDP2'
+                    parallelize_composer_model(
+                        model,
+                        optimizers,
+                        self.state.fsdp_config,
+                    )
+                else:
+                    raise ValueError(f'Unsupported FSDP config version: {self.state.fsdp_config_version}')
 
         # Set the iteration timestamp to the overall timestamp if loading from a checkpoint that was created before
         # iteration was introduced in Composer v0.19.1. This is necessary to ensure that the iteration timestamp is
