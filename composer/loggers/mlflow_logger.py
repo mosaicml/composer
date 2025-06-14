@@ -408,6 +408,13 @@ class MLFlowLogger(LoggerDestination):
     def rename(self, key: str):
         return self.rename_metrics.get(key, key)
 
+    def move_metrics_cache_to_cpu(self):
+        """Move the metrics cache to CPU."""
+        if self._enabled:
+            for k, v in self._metrics_cache.items():
+                if isinstance(v[0], torch.Tensor):
+                    self._metrics_cache[k] = (v[0].cpu(), v[1])
+
     def log_metrics(self, metrics: dict[str, Any], step: Optional[int] = None) -> None:
         from mlflow import log_metrics
 
