@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
+import torch
 import yaml
 from torch.utils.data import DataLoader
 
@@ -44,6 +45,24 @@ def _get_latest_mlflow_run(experiment_name, tracking_uri=None):
         return first_run_or_empty[0]
     else:
         raise ValueError(f'Experiment with name {experiment_name} is unexpectedly empty')
+
+
+@pytest.mark.gpu
+def test_metrics_cache_cpu(
+    tmp_path: Path,
+):
+    logger = MLFlowLogger(
+        tracking_uri=tmp_path / Path('my-test-mlflow-uri'),
+    )
+
+    metric_tensor = torch.tensor(1.0, device='cuda')
+    metrics_dict = {'test_metric': metric_tensor}
+
+    logger.log_metrics(metrics_dict)
+
+    for v in logger._metrics_cache.values():
+        for item in v:
+            assert not isinstance(item, torch.Tensor)
 
 
 def test_mlflow_init_unspecified(monkeypatch):
