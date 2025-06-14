@@ -426,22 +426,24 @@ class MLFlowLogger(LoggerDestination):
         for k, v in metrics.items():
             if any(fnmatch.fnmatch(k, pattern) for pattern in self.ignore_metrics):
                 continue
+
+            v_float = float(v)
             if k in self._metrics_cache:
                 value, last_step = self._metrics_cache[k]
-                if value == v and step < last_step + self.log_duplicated_metric_every_n_steps:
+                if value == v_float and step < last_step + self.log_duplicated_metric_every_n_steps:
                     # Skip logging the metric if it has the same value as the last step and it's
                     # within the step window.
                     continue
                 else:
                     # Log the metric if it has a different value or it's outside the step window,
                     # and update the metrics cache.
-                    self._metrics_cache[k] = (v, step)
-                    metrics_to_log[self.rename(k)] = float(v)
+                    self._metrics_cache[k] = (v_float, step)
+                    metrics_to_log[self.rename(k)] = v_float
             else:
                 # Log the metric if it's the first time it's being logged, and update the metrics
                 # cache.
-                self._metrics_cache[k] = (v, step)
-                metrics_to_log[self.rename(k)] = float(v)
+                self._metrics_cache[k] = (v_float, step)
+                metrics_to_log[self.rename(k)] = v_float
 
         log_metrics(
             metrics=metrics_to_log,
