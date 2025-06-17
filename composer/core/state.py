@@ -453,6 +453,8 @@ class State(Serializable):
         precision_config: Optional[dict[str, Any]] = None,
 
         # optimizers
+        # TODO: Deprecate optimizers and support `optimizer` instead since we
+        # don't support multiple optimizers
         optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
 
         # scaler
@@ -1334,6 +1336,7 @@ class State(Serializable):
             log.debug('Finished wrapping model with FSDP.')
 
     def _apply_fsdp(self):
+        # Init with globally fixed seed so all FSDP/HSDP replicas have the same initial weights
         with reproducibility.seed_context(self.rank_zero_seed):
             if isinstance(self.fsdp_config, FSDPConfig):
                 from composer.distributed import prepare_fsdp_module
@@ -1346,10 +1349,13 @@ class State(Serializable):
                     self.auto_microbatching,
                 )
             elif isinstance(self.fsdp_config, FSDP2Config):
+                from composer import ComposerModel
                 from composer.distributed.prepare_distributed import parallelize_composer_model
 
                 # FSDP2 doesn't support auto_microbatching (checked earlier, just validating here to be safe)
                 assert not self.auto_microbatching, 'auto_microbatching is not supported with FSDP2'
+                # To make pyright happy (instead of just adding a type: ignore)
+                assert isinstance(self.model, ComposerModel)
 
                 parallelize_composer_model(
                     self.model,

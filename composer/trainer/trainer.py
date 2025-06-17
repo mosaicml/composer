@@ -1608,7 +1608,7 @@ class Trainer:
         # original model for functions like `eval_forward`, `get_metrics`, etc.
         self._original_model = self.state.model
 
-        self._wrap_model_for_distributed(model, optimizers, precision, device, auto_microbatching)
+        self._wrap_model_for_distributed(model, optimizers)
 
         self.engine.run_event(Event.BEFORE_LOAD)
 
@@ -1729,13 +1729,7 @@ class Trainer:
 
         # FSDP wrap if model is not yet wrapped and FSDP is enabled. This can happen if
         # load_monolith_rank0_only=True but no checkpoint was loaded.
-        should_load_monolith = (
-            not self.state.fsdp_enabled and self.state.fsdp_config is not None and self.state.load_monolith_rank0_only
-        )
-        if isinstance(self.state.fsdp_config, FSDPConfig):
-            should_load_monolith = should_load_monolith and self.state.fsdp_config.auto_wrap
-        if should_load_monolith:
-            # Init with globally fixed seed so all HSDP replicas have the same initial weights
+        if not self.state.fsdp_enabled and self.state.load_monolith_rank0_only:
             self.state._apply_fsdp()
 
         # Set the iteration timestamp to the overall timestamp if loading from a checkpoint that was created before
@@ -1782,9 +1776,6 @@ class Trainer:
         self,
         model: ComposerModel,
         optimizers: Optional[torch.optim.Optimizer],
-        precision: Union[str, Precision],
-        device: Device,
-        auto_microbatching: bool,
     ):
         """Wrap the model for distributed training (TP, FSDP, etc.).
 
@@ -1812,7 +1803,6 @@ class Trainer:
 
         # FSDP wrap if not using monolith checkpoint on rank 0 only
         if self.state.fsdp_config is not None and not self.state.load_monolith_rank0_only:
-            # Init with globally fixed seed so all HSDP replicas have the same initial weights
             self.state._apply_fsdp()
 
     @property
