@@ -186,7 +186,7 @@ class MLPerfCallback(Callback):
         self.success = False
 
     def init(self, state: State, logger: Logger) -> None:
-        # setup here requies access to rank, which is only available after
+        # setup here requires access to rank, which is only available after
         # the trainer is initialized
         if _local_rank_zero():
             self._create_submission_folders(self.root_folder, self.system_name, self.benchmark)
