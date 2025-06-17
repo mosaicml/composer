@@ -74,9 +74,7 @@ from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.distributed import (
     DDPSyncStrategy,
     ddp_sync_context,
-    parallelize_composer_model,
     prepare_ddp_module,
-    prepare_fsdp_module,
     prepare_tp_module,
 )
 from composer.distributed.shared_utils import generate_oom_hook
@@ -1738,25 +1736,7 @@ class Trainer:
             should_load_monolith = should_load_monolith and self.state.fsdp_config.auto_wrap
         if should_load_monolith:
             # Init with globally fixed seed so all HSDP replicas have the same initial weights
-            with reproducibility.seed_context(self.state.rank_zero_seed):
-                if isinstance(self.state.fsdp_config, FSDPConfig):
-                    self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
-                        model,
-                        optimizers,
-                        self.state.fsdp_config,
-                        precision,
-                        device,
-                        auto_microbatching,
-                    )
-                elif isinstance(self.state.fsdp_config, FSDP2Config):
-                    assert not auto_microbatching, 'auto_microbatching is not supported with FSDP2'
-                    parallelize_composer_model(
-                        model,
-                        optimizers,
-                        self.state.fsdp_config,
-                    )
-                else:
-                    raise ValueError(f'Unsupported FSDP config version: {self.state.fsdp_config_version}')
+            self.state._apply_fsdp()
 
         # Set the iteration timestamp to the overall timestamp if loading from a checkpoint that was created before
         # iteration was introduced in Composer v0.19.1. This is necessary to ensure that the iteration timestamp is
@@ -1833,27 +1813,7 @@ class Trainer:
         # FSDP wrap if not using monolith checkpoint on rank 0 only
         if self.state.fsdp_config is not None and not self.state.load_monolith_rank0_only:
             # Init with globally fixed seed so all HSDP replicas have the same initial weights
-            with reproducibility.seed_context(self.state.rank_zero_seed):
-                match self.state.fsdp_config_version:
-                    case 1:
-                        self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
-                            model,
-                            optimizers,
-                            self.state.fsdp_config,  # type: ignore
-                            precision,
-                            device,
-                            auto_microbatching,
-                            self.state.seed,
-                        )
-                    case 2:
-                        assert not auto_microbatching
-                        parallelize_composer_model(
-                            model,
-                            optimizers,
-                            self.state.fsdp_config,  # type: ignore
-                        )
-                    case _:
-                        raise ValueError(f'Unsupported FSDP config version: {self.state.fsdp_config_version}')
+            self.state._apply_fsdp()
 
     @property
     def saved_checkpoints(self) -> list[str]:

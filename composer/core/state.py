@@ -1330,35 +1330,34 @@ class State(Serializable):
         if self.load_monolith_rank0_only:
             assert self.fsdp_config is not None
             log.info('Wrapping model with FSDP after loading model_state.')
-            with reproducibility.seed_context(self.rank_zero_seed):
-                if isinstance(self.fsdp_config, FSDPConfig):
-                    from composer.distributed import prepare_fsdp_module
-                    self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(
-                        self.model,
-                        self.optimizers,
-                        self.fsdp_config,
-                        self.precision,
-                        self.device,
-                        self.auto_microbatching,
-                    )
-                elif isinstance(self.fsdp_config, FSDP2Config):
-                    from composer.distributed.prepare_distributed import parallelize_composer_model
-                    from composer.models import ComposerModel
-
-                    # FSDP2 doesn't support auto_microbatching (checked earlier, just validating here to be safe)
-                    assert not self.auto_microbatching, 'auto_microbatching is not supported with FSDP2'
-
-                    # FSDP2 requires a ComposerModel
-                    assert isinstance(self.model, ComposerModel), 'FSDP2 requires a ComposerModel'
-
-                    parallelize_composer_model(
-                        self.model,
-                        self.optimizers[0] if self.optimizers else None,
-                        self.fsdp_config,
-                    )
-                else:
-                    raise ValueError(f'Unsupported FSDP config type for monolithic loading: {type(self.fsdp_config)}')
+            self._apply_fsdp()
             log.debug('Finished wrapping model with FSDP.')
+
+    def _apply_fsdp(self):
+        with reproducibility.seed_context(self.rank_zero_seed):
+            if isinstance(self.fsdp_config, FSDPConfig):
+                from composer.distributed import prepare_fsdp_module
+                self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(
+                    self.model,
+                    self.optimizers,
+                    self.fsdp_config,
+                    self.precision,
+                    self.device,
+                    self.auto_microbatching,
+                )
+            elif isinstance(self.fsdp_config, FSDP2Config):
+                from composer.distributed.prepare_distributed import parallelize_composer_model
+
+                # FSDP2 doesn't support auto_microbatching (checked earlier, just validating here to be safe)
+                assert not self.auto_microbatching, 'auto_microbatching is not supported with FSDP2'
+
+                parallelize_composer_model(
+                    self.model,
+                    self.optimizers[0] if self.optimizers else None,
+                    self.fsdp_config,
+                )
+            else:
+                raise ValueError(f'Unsupported FSDP config type for monolithic loading: {type(self.fsdp_config)}')
 
     def load_optim_state(self, state_dict: dict[str, Any], strict: bool = True):
         """Load the optimizer state.
@@ -1387,12 +1386,15 @@ class State(Serializable):
 
             optim_state_dict = serialized_value[type(optimizer).__qualname__] if serialized_value is not None else None
 
-            # TODO: Figure out why this was not set by default...
+            # Note: 'broadcast_from_rank0' is only supported for FSDP2.
+            # - In `set_optimizer_state_dict`, FSDP1 follows a different code path where it detects FSDP modules and handles FlatParameters differently.
+            #   Furthermore, it requires `cpu_offload` to be set to True when loading the optimizer state in a monolithic checkpoint.
+            # - In FSDP2, setting `broadcast_from_rank0` will cause `set_optimizer_state_dict` to set the optim_state_dict (which is on CPU)
+            #   to be broadcasted from rank0's `full_state_dict` to all ranks' `local_state_dict` (moving them to DTensors on GPU)
+            # - Therefore, we don't need to set `cpu_offload` for FSDP2 as it determines how to broadcast optimizer state given the model itself.
+            cpu_offload = self.fsdp_enabled and isinstance(self.fsdp_config, FSDPConfig)
             broadcast_from_rank0 = self.load_monolith_rank0_only and isinstance(self.fsdp_config, FSDP2Config)
-            # TODO: Figure out why we are default offloading to CPU in FSDP1...
-            cpu_offload = self.fsdp_enabled and not isinstance(self.fsdp_config, FSDP2Config)
 
-            # Create the state dict options for the optimizer while considering the required config for FSDP2
             state_dict_options = StateDictOptions(
                 full_state_dict=self.fsdp_state_dict_type == 'full',
                 broadcast_from_rank0=broadcast_from_rank0,
