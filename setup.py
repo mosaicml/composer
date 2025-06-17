@@ -142,7 +142,7 @@ extra_deps['dev'] = [
     'cryptography==44.0.3',
     'pytest-httpserver>=1.0.4,<1.2',
     'setuptools<79.0.0',
-    'scikit-learn>=1.2.0,<1.7',
+    'scikit-learn>=1.2.0,<1.8',
 ]
 
 extra_deps['system_metrics_monitor'] = {
