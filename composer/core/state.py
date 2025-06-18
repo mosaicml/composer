@@ -453,6 +453,8 @@ class State(Serializable):
         precision_config: Optional[dict[str, Any]] = None,
 
         # optimizers
+        # TODO: Deprecate optimizers and support `optimizer` instead since we
+        # don't support multiple optimizers
         optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
 
         # scaler
@@ -591,7 +593,8 @@ class State(Serializable):
                 raise ValueError('load_monolith_rank0_only is not compatible with tensor parallelism (TP).')
             assert self.fsdp_config is not None
             error_message = ''
-            if self.fsdp_config.sync_module_states == False:
+            # FSDP2 automatically syncs module states, so we don't need to check for it
+            if isinstance(self.fsdp_config, FSDPConfig) and self.fsdp_config.sync_module_states == False:
                 error_message += textwrap.dedent(
                     "load_monolith_rank0_only requires parallelism_config['fsdp']['sync_module_states'] to be True. "
                     "Either set parallelism_config['fsdp']['sync_module_states'] = True or set load_monolith_rank0_only = False.",
@@ -911,10 +914,14 @@ class State(Serializable):
 
     @property
     def load_monolith_rank0_only(self):
-        return (
-            self.fsdp_config is not None and self.fsdp_config.auto_wrap and
-            self.fsdp_config.state_dict_type == 'full' and self.fsdp_config.load_monolith_rank0_only == True
+        should_load_monolith_rank0_only = (
+            self.fsdp_config is not None and self.fsdp_config.state_dict_type == 'full' and
+            self.fsdp_config.load_monolith_rank0_only == True
         )
+        # TODO: Only FSDP1 has auto_wrap; if this is a legacy config, we should remove this check
+        if isinstance(self.fsdp_config, FSDPConfig):
+            should_load_monolith_rank0_only = should_load_monolith_rank0_only and self.fsdp_config.auto_wrap
+        return should_load_monolith_rank0_only
 
     def _get_integrations_state_dict(self) -> dict[str, Any]:
         """Gets a dictionary of information about integrations to store in the state dict.
@@ -1325,14 +1332,14 @@ class State(Serializable):
         if self.load_monolith_rank0_only:
             assert self.fsdp_config is not None
             log.info('Wrapping model with FSDP after loading model_state.')
-            with reproducibility.seed_context(self.rank_zero_seed):
-                from composer.distributed import prepare_fsdp_module
+            self._apply_fsdp()
+            log.debug('Finished wrapping model with FSDP.')
 
-                # TODO (FSDP2): support calling FSDP2 wrapper depending on the config type
-                assert isinstance(
-                    self.fsdp_config,
-                    FSDPConfig,
-                ), f'prepare_fsdp_module requires FSDPConfig, got: {type(self.fsdp_config)}'
+    def _apply_fsdp(self):
+        # Init with globally fixed seed so all FSDP/HSDP replicas have the same initial weights
+        with reproducibility.seed_context(self.rank_zero_seed):
+            if isinstance(self.fsdp_config, FSDPConfig):
+                from composer.distributed import prepare_fsdp_module
                 self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(
                     self.model,
                     self.optimizers,
@@ -1341,7 +1348,22 @@ class State(Serializable):
                     self.device,
                     self.auto_microbatching,
                 )
-            log.debug('Finished wrapping model with FSDP.')
+            elif isinstance(self.fsdp_config, FSDP2Config):
+                from composer import ComposerModel
+                from composer.distributed.prepare_distributed import parallelize_composer_model
+
+                # FSDP2 doesn't support auto_microbatching (checked earlier, just validating here to be safe)
+                assert not self.auto_microbatching, 'auto_microbatching is not supported with FSDP2'
+                # To make pyright happy (instead of just adding a type: ignore)
+                assert isinstance(self.model, ComposerModel)
+
+                parallelize_composer_model(
+                    self.model,
+                    self.optimizers[0] if self.optimizers else None,
+                    self.fsdp_config,
+                )
+            else:
+                raise ValueError(f'Unsupported FSDP config type for monolithic loading: {type(self.fsdp_config)}')
 
     def load_optim_state(self, state_dict: dict[str, Any], strict: bool = True):
         """Load the optimizer state.
@@ -1370,15 +1392,27 @@ class State(Serializable):
 
             optim_state_dict = serialized_value[type(optimizer).__qualname__] if serialized_value is not None else None
 
+            # Note: 'broadcast_from_rank0' is only supported for FSDP2.
+            # - In `set_optimizer_state_dict`, FSDP1 follows a different code path where it detects FSDP modules and handles FlatParameters differently.
+            #   Furthermore, it requires `cpu_offload` to be set to True when loading the optimizer state in a monolithic checkpoint.
+            # - In FSDP2, setting `broadcast_from_rank0` will cause `set_optimizer_state_dict` to set the optim_state_dict (which is on CPU)
+            #   to be broadcasted from rank0's `full_state_dict` to all ranks' `local_state_dict` (moving them to DTensors on GPU)
+            # - Therefore, we don't need to set `cpu_offload` for FSDP2 as it determines how to broadcast optimizer state given the model itself.
+            cpu_offload = self.fsdp_enabled and isinstance(self.fsdp_config, FSDPConfig)
+            broadcast_from_rank0 = self.load_monolith_rank0_only and isinstance(self.fsdp_config, FSDP2Config)
+
+            state_dict_options = StateDictOptions(
+                full_state_dict=self.fsdp_state_dict_type == 'full',
+                broadcast_from_rank0=broadcast_from_rank0,
+                cpu_offload=cpu_offload,
+                strict=strict,
+            )
+
             set_optimizer_state_dict(
                 model=self.model,
                 optimizers=optimizer,
                 optim_state_dict=optim_state_dict,  # type: ignore
-                options=StateDictOptions(
-                    full_state_dict=self.fsdp_state_dict_type == 'full',
-                    strict=strict,
-                    cpu_offload=self.fsdp_enabled,
-                ),
+                options=state_dict_options,
             )
 
     def load_state_dict(
