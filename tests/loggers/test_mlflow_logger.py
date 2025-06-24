@@ -399,19 +399,18 @@ def test_mlflow_log_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
             'model': tiny_gpt2_model,
             'tokenizer': tiny_gpt2_tokenizer,
         },
-        artifact_path='my_model',
+        name='my_model',
         task='llm/v1/completions',
     )
     test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(mlflow_exp_name, tracking_uri=mlflow_uri)
-    run_info = run.info
-    run_id = run_info.run_id
-    experiment_id = run_info.experiment_id
-    run_file_path = mlflow_uri / Path(experiment_id) / Path(run_id)
+    experiment_id = run.info.experiment_id
+    models_dir = mlflow_uri / Path(experiment_id) / 'models'
+    model_dir = next(models_dir.iterdir())
+    artifact_dir = model_dir / 'artifacts'
 
-    model_directory = run_file_path / Path('artifacts') / Path('my_model')
-    loaded_model = mlflow.transformers.load_model(model_directory, return_type='components')
+    loaded_model = mlflow.transformers.load_model(artifact_dir, return_type='components')
 
     # For some reason this is different, but its harmless. The actual attn implementation is the same
     loaded_model['model'].config._attn_implementation_autoset = False
