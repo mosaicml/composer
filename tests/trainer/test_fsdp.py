@@ -72,15 +72,21 @@ def test_fsdp_device_initialization(
     trainer.fit()
     if isinstance(model, SimpleWeightTiedModel):
         with trainer.state.model.module.summon_full_params(trainer.state.model.module):  # type: ignore
-            weight_1 = model.mlp.fc1.weight
-            weight_2 = model.mlp.fc2.weight
+            # weight_1 = model.mlp.fc1.weight
+            # weight_2 = model.mlp.fc2.weight
+            fc1 = model.module[0].net[0]
+            fc2 = model.module[0].net[-1]
+            weight_1 = fc1.weight
+            weight_2 = fc2.weight
             assert (id(weight_1) == id(weight_2))
             assert (torch.equal(weight_1, weight_2))
 
     if isinstance(model, EmbeddedWeightTiedModel):
         with trainer.state.model.module.summon_full_params(trainer.state.model.module):  # type: ignore
-            weight_1 = model.net1.fc1.weight
-            weight_2 = model.net2.fc1.weight
+            # weight_1 = model.net1.fc1.weight
+            # weight_2 = model.net2.fc1.weight
+            weight_1 = model.module[0].net[0].weight
+            weight_2 = model.module[1].net[0].weight
             assert (id(weight_1) == id(weight_2))
             assert (torch.equal(weight_1, weight_2))
 

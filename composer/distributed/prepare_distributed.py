@@ -34,26 +34,27 @@ def log_execution_time(logger: logging.Logger, operation_name: str):
         end_time = time.time()
         logger.info(f'{operation_name} took {end_time - start_time:.2f} seconds')
 
+def _check_duplicate_modules(model: torch.nn.Module) -> None:
+    """Checks whether the model has duplicate module references.
 
-def _filter_state_dict_duplicates(model: torch.nn.Module) -> dict:
-    """Filter out duplicate params in the state dict.
+    This detects cases where the same module object is referenced multiple times
+    in the model hierarchy (e.g., self.net = Linear(...); self.net2 = self.net).
+    This is different from weight tying, where different modules share parameters.
 
-    model.state_dict() can include multiple references to the same tensor/param
-    (for instance, if we have multiple references to the same module). On the
-    other hand, model.named_parameters() will not have duplicate references. As
-    sync_module_states requires a state_dict with no duplicate references, we
-    filter the model state_dict to remove duplicates using this feature of
-    model.named_parameters().
+    This is a workaround for the fact that FSDP2 does not support duplicate module
+    references in the model hierarchy for mixed init and/or monolithic checkpointing.
     """
-    filtered_dict = {}
-    valid_params = set(dict(model.named_parameters()).keys())
+    all_modules = set(dict(model.named_modules(remove_duplicate=False)).keys())
+    deduplicated_modules = set(dict(model.named_modules(remove_duplicate=True)).keys())
 
-    for key, param in model.state_dict().items():
-        if key in valid_params:
-            filtered_dict[key] = param
-
-    return filtered_dict
-
+    duplicate_modules = all_modules - deduplicated_modules
+    if duplicate_modules:
+        raise ValueError(
+            f'Model has duplicate module references. Modules {duplicate_modules} '
+            f'are the same object as previously encountered modules. '
+            f'This is not supported by FSDP2. Please ensure each module reference '
+            f'is unique (weight tying through parameter sharing is still allowed).'
+        )
 
 def _parallelize_model_helper(
     model: torch.nn.Module,
@@ -72,11 +73,14 @@ def _parallelize_model_helper(
     update_sync_module_states_if_needed(model, config)
 
     if config.sync_module_states:
+        # Check for duplicate module references which will cause issues with sync_module_states
+        _check_duplicate_modules(model)
+
         # If we are syncing module states, we assume that rank 0 has the model on CPU/GPU
         # and the params are already initialized on rank 0.
         full_state_dict = {}
         if dist.get_global_rank() == 0:
-            full_state_dict = _filter_state_dict_duplicates(model)
+            full_state_dict = model.state_dict()
 
         with log_execution_time(log, 'Prepare FSDP2'):
             prepare_fully_shard(model, config, fsdp_wrap_policy)
