@@ -113,7 +113,7 @@ def test_cross_entropy(
 @pytest.mark.parametrize('batch_size', [1e2, 1e3, 1e4])
 @pytest.mark.parametrize('minibatch_size', [256, 768])
 def test_binary_f1(batch_size, minibatch_size):
-    """Sanity check to make sure that BinaryF1 TorchMetrics implementation matches the sklearn implementation.
+    """Sanity check to make sure that BinaryF1 TorchMetrics implementation matches expectations.
 
     Generates a predicted set of labels, and a random set, and compares the resultant Binary F1 score.
 
@@ -121,13 +121,13 @@ def test_binary_f1(batch_size, minibatch_size):
         batch_size (int): how many samples are in each batch
         minibatch_size (int): the minibatch size to simulate for model predictions
     """
-    pytest.importorskip('sklearn', reason='sklearn is an optional dependency')
-    from sklearn.metrics import f1_score
+    torch_rng = torch.Generator()
+    torch_rng.manual_seed(42)
 
     batch_size = int(batch_size)
 
-    generated_preds = torch.randn(size=(batch_size, 2))
-    generated_true = torch.randint(low=0, high=2, size=(batch_size,))
+    generated_preds = torch.randn(size=(batch_size, 2), generator=torch_rng)
+    generated_true = torch.randint(low=0, high=2, size=(batch_size,), generator=torch_rng)
 
     binary_f1 = BinaryF1Score()
 
@@ -141,8 +141,17 @@ def test_binary_f1(batch_size, minibatch_size):
 
     torchmetrics_f1 = binary_f1.compute()
     generated_preds = torch.argmax(generated_preds, dim=1)
-    correct_f1 = f1_score(y_true=generated_true, y_pred=generated_preds)
-    assert correct_f1 == torchmetrics_f1
+    # Manually compute the f1 score
+    tp = torch.sum((generated_preds == 1) & (generated_true == 1))
+    fp = torch.sum((generated_preds == 1) & (generated_true == 0))
+    fn = torch.sum((generated_preds == 0) & (generated_true == 1))
+    precision = tp.float() / (tp + fp).float() if (tp + fp) > 0 else 0.0
+    recall = tp.float() / (tp + fn).float() if (tp + fn) > 0 else 0.0
+    f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
+
+    assert isinstance(torchmetrics_f1, torch.Tensor)
+    assert isinstance(f1, torch.Tensor)
+    assert torch.isclose(torchmetrics_f1, f1)
 
 
 def test_language_perplexity():
