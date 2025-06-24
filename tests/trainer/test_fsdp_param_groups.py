@@ -149,7 +149,7 @@ def test_fsdp_with_param_groups_with_subset_of_params_in_opt(
         {
             'params': model.module[1].net[-1].parameters(),  # type: ignore
             'lr': 0.5,
-        }
+        },
     ]
 
     optimizer = DecoupledSGDW(params=param_groups, lr=1e-3)
