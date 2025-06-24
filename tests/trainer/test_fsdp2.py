@@ -91,9 +91,9 @@ def test_fsdp2_initialization_with_tied_params(
         SimpleWeightTiedModel | PartialWeightTiedModel,
     ), f'Expected model to be SimpleWeightTiedModel or PartialWeightTiedModel, got {type(model)}'
 
-    mlp = model.module[0]
-    fc1 = mlp.net[0]
-    fc2 = mlp.net[-1]
+    mlp = model.module[0]  # type: ignore
+    fc1 = mlp.net[0]  # type: ignore
+    fc2 = mlp.net[-1]  # type: ignore
 
     assert isinstance(fc1.weight, DTensor), 'fc1.weight should be a DTensor'
     assert isinstance(fc2.weight, DTensor), 'fc2.weight should be a DTensor'
@@ -101,7 +101,7 @@ def test_fsdp2_initialization_with_tied_params(
     assert len(fc1._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc1 module'
     assert len(fc2._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc2 module'
     if isinstance(model, PartialWeightTiedModel):
-        fc3 = model.module[-1]
+        fc3 = model.module[-1]  # type: ignore
         assert len(fc3._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the fc3 module'
     assert fc1.weight.size(0) == fc2.weight.to_local().size(0) * world_size, \
         'Expect global weight size to be equal to local weight size * world_size on dim 0'
@@ -138,9 +138,9 @@ def test_fsdp2_checkpointing(
     # Checkpointing and reloading
     model = trainer.state.model
 
-    mlp = model.module[0]
-    fc1 = mlp.net[0]
-    fc2 = mlp.net[-1]
+    mlp = model.module[0]  # type: ignore
+    fc1 = mlp.net[0]  # type: ignore
+    fc2 = mlp.net[-1]  # type: ignore
 
     assert isinstance(model, SimpleWeightTiedModel), f'Expected model to be SimpleWeightTiedModel, got {type(model)}'
     assert isinstance(fc1.weight, DTensor), 'fc1.weight should be a DTensor'
@@ -241,8 +241,8 @@ def test_fsdp2_optimizer_handling(
     model.add_fsdp_wrap_attribute_to_children()
 
     all_params_list = list(model.parameters())
-    fc1_params_list = list(model.module[0].net[0].parameters())
-    fc3_params_list = list(model.module[-1].parameters())
+    fc1_params_list = list(model.module[0].net[0].parameters())  # type: ignore
+    fc3_params_list = list(model.module[-1].parameters())  # type: ignore
 
     if case == 'all_params_one_group':
         optimizer_input = [{'params': all_params_list, 'lr': 0.01}]

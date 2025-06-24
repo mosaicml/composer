@@ -74,8 +74,8 @@ def test_fsdp_device_initialization(
         with trainer.state.model.module.summon_full_params(trainer.state.model.module):  # type: ignore
             # weight_1 = model.mlp.fc1.weight
             # weight_2 = model.mlp.fc2.weight
-            fc1 = model.module[0].net[0]
-            fc2 = model.module[0].net[-1]
+            fc1 = model.module[0].net[0]  # type: ignore
+            fc2 = model.module[0].net[-1]  # type: ignore
             weight_1 = fc1.weight
             weight_2 = fc2.weight
             assert (id(weight_1) == id(weight_2))
@@ -85,8 +85,8 @@ def test_fsdp_device_initialization(
         with trainer.state.model.module.summon_full_params(trainer.state.model.module):  # type: ignore
             # weight_1 = model.net1.fc1.weight
             # weight_2 = model.net2.fc1.weight
-            weight_1 = model.module[0].net[0].weight
-            weight_2 = model.module[1].net[0].weight
+            weight_1 = model.module[0].net[0].weight  # type: ignore
+            weight_2 = model.module[1].net[0].weight  # type: ignore
             assert (id(weight_1) == id(weight_2))
             assert (torch.equal(weight_1, weight_2))
 

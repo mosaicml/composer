@@ -9,6 +9,10 @@ from contextlib import contextmanager, nullcontext
 from typing import Callable, Optional
 
 import torch
+from torch.distributed.checkpoint.state_dict import (
+    StateDictOptions,
+    get_model_state_dict,
+)
 from torch.distributed.fsdp.wrap import CustomPolicy
 
 from composer.distributed.activation_checkpointing import apply_ac, generate_composer_model_check_fn
@@ -19,10 +23,6 @@ from composer.distributed.shared_utils import update_sync_module_states_if_neede
 from composer.models import ComposerModel
 from composer.utils import dist
 from composer.utils.parallelism import FSDP2Config
-from torch.distributed.checkpoint.state_dict import (
-    StateDictOptions,
-    get_model_state_dict,
-)
 
 log = logging.getLogger(__name__)
 
@@ -37,6 +37,7 @@ def log_execution_time(logger: logging.Logger, operation_name: str):
     finally:
         end_time = time.time()
         logger.info(f'{operation_name} took {end_time - start_time:.2f} seconds')
+
 
 def _check_duplicate_modules(model: torch.nn.Module) -> None:
     """Checks whether the model has duplicate module references.
@@ -57,8 +58,9 @@ def _check_duplicate_modules(model: torch.nn.Module) -> None:
             f'Model has duplicate module references. Modules {duplicate_modules} '
             f'are the same object as previously encountered modules. '
             f'This is not supported by FSDP2. Please ensure each module reference '
-            f'is unique (weight tying through parameter sharing is still allowed).'
+            f'is unique (weight tying through parameter sharing is still allowed).',
         )
+
 
 def _parallelize_model_helper(
     model: torch.nn.Module,
@@ -87,7 +89,7 @@ def _parallelize_model_helper(
             # Get the full state dict of the model offloaded to CPU
             options = StateDictOptions(
                 full_state_dict=True,
-                cpu_offload=True
+                cpu_offload=True,
             )
             full_state_dict = get_model_state_dict(model, options=options)
 
