@@ -71,6 +71,11 @@ class FSDP2Config:
             For 1D mesh, parameters are fully sharded across the mesh (FSDP).
             For 2D mesh, parameters are sharded across the 1st dimension and replicated across the 0th dimension (HSDP).
         reshard_after_forward (Union[bool, int]): Controls parameter behavior after forward.
+        activation_checkpointing (bool): Whether to use activation checkpointing. Defaults to False.
+        activation_cpu_offload (bool): Whether to use activation CPU offloading. Defaults to False.
+        load_monolith_rank0_only (bool): Whether to load monolithic checkpoints on rank 0 only. Defaults to False.
+        state_dict_type (str): Type of state dict to use. Can be 'full' or 'sharded'. Defaults to 'sharded'.
+        verbose (bool): Whether to print verbose output. Defaults to False.
     """
 
     # Settable core FSDP2 attrs
@@ -80,6 +85,9 @@ class FSDP2Config:
     #       in most of our use cases, we can decouple these two attributes from the FSDP2Config class.
     activation_checkpointing: bool = False
     activation_cpu_offload: bool = False
+    state_dict_type: str = 'sharded'
+    load_monolith_rank0_only: bool = False
+
     verbose: bool = False
 
     # Settable attrs that are automatically set during training
@@ -132,16 +140,7 @@ class FSDP2Config:
         # Create and return a new FSDP2Config with the valid attributes
         return FSDP2Config(**valid_attrs)
 
-    ### Temporary read-only properties for FSDP 1 compatibility  ###
-    # to be supported in FSDP2
-    @property
-    def auto_wrap(self) -> bool:
-        return False
-
-    @property
-    def load_monolith_rank0_only(self) -> bool:
-        return False
-
+    ### Read-only properties for FSDP 1 compatibility ###
     @property
     def load_planner(self) -> Optional[Any]:
         return None
@@ -162,17 +161,18 @@ class FSDP2Config:
     def data_parallel_replicate_degree(self) -> Optional[int]:
         return None
 
-    # to be deprecated in FSDP2
-    @property
-    def state_dict_type(self) -> str:
-        return 'sharded'
-
     @property
     def use_orig_params(self) -> bool:
         return True
 
     def __post_init__(self):
         warnings.warn('FSDP2 Config/APIs are experimental and subject to heavy changes', UserWarning)
+
+        if self.load_monolith_rank0_only and self.state_dict_type != 'full':
+            raise ValueError(
+                'load_monolith_rank0_only=True requires state_dict_type="full". '
+                f'Got state_dict_type="{self.state_dict_type}"',
+            )
 
 
 @dataclass
