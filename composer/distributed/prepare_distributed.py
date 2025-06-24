@@ -19,6 +19,10 @@ from composer.distributed.shared_utils import update_sync_module_states_if_neede
 from composer.models import ComposerModel
 from composer.utils import dist
 from composer.utils.parallelism import FSDP2Config
+from torch.distributed.checkpoint.state_dict import (
+    StateDictOptions,
+    get_model_state_dict,
+)
 
 log = logging.getLogger(__name__)
 
@@ -80,7 +84,12 @@ def _parallelize_model_helper(
         # and the params are already initialized on rank 0.
         full_state_dict = {}
         if dist.get_global_rank() == 0:
-            full_state_dict = model.state_dict()
+            # Get the full state dict of the model offloaded to CPU
+            options = StateDictOptions(
+                full_state_dict=True,
+                cpu_offload=True
+            )
+            full_state_dict = get_model_state_dict(model, options=options)
 
         with log_execution_time(log, 'Prepare FSDP2'):
             prepare_fully_shard(model, config, fsdp_wrap_policy)
