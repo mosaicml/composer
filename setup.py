@@ -105,7 +105,7 @@ extra_deps['dev'] = [
     'coverage[toml]>=7.8.0,<8',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
-    'ipython==8.36.0',
+    'ipython==8.37.0',
     'ipykernel==6.29.5',
     'jupyter==1.1.1',
     'yamllint==1.37.1',
@@ -176,7 +176,7 @@ extra_deps['coco'] = [
 extra_deps['nlp'] = [
     'transformers>=4.11,!=4.34.0,<4.52',
     'datasets>=2.4,<4',
-    'huggingface-hub>=0.21.2,<0.33',
+    'huggingface-hub>=0.21.2,<0.34',
 ]
 
 extra_deps['peft'] = [
@@ -218,7 +218,7 @@ extra_deps['onnx'] = [
 ]
 
 extra_deps['mlflow'] = [
-    'mlflow>=2.14.1,<3.0',
+    'mlflow>=2.14.1,<4.0',
     'databricks-sdk>=0.50.0,<1',
     'pynvml>=11.5.0,<12',
 ]

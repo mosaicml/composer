@@ -32,6 +32,8 @@ def create_trainer_with_model(
     optimizer: Optional[torch.optim.Optimizer] = None,
     activation_checkpointing: bool = False,
     activation_cpu_offload: bool = False,
+    auto_microbatching: bool = False,
+    fsdp1_sync_module_states: bool = False,
 ) -> Trainer:
     """Helper function to create a Trainer with a model, dataloader, and FSDP2 configuration."""
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
@@ -44,7 +46,10 @@ def create_trainer_with_model(
             activation_cpu_offload=activation_cpu_offload,
         )
     else:
-        parallelism_config.fsdp = FSDPConfig(state_dict_type='sharded')
+        parallelism_config.fsdp = FSDPConfig(
+            state_dict_type='sharded',
+            sync_module_states=fsdp1_sync_module_states,
+        )
     if optimizer is None:
         optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
     trainer = Trainer(
@@ -53,6 +58,7 @@ def create_trainer_with_model(
         train_dataloader=dataloader,
         max_duration=max_duration,
         parallelism_config=parallelism_config,
+        device_train_microbatch_size='auto' if auto_microbatching else None,
     )
     return trainer
 
@@ -303,3 +309,264 @@ def test_fsdp2_optimizer_raises_error_when_optimizer_modules_dont_match(
     # We check with `optimizer.param_id.` (with the period) since `optimizer.param_id` exists
     # by default in the error message's legend
     assert 'optimizer.param_id.' in str(e.value)
+
+
+@pytest.mark.gpu
+@world_size(2)  # Using world_size(2) for consistency with other FSDP2 tests in this file although not needed
+@pytest.mark.filterwarnings("ignore:`device_train_microbatch_size='auto'` may potentially fail with unexpected.*")
+def test_fsdp2_auto_microbatching_raises_error(
+    world_size: int,
+):
+    """Test FSDP2 raises an error when auto microbatching is used."""
+    del world_size
+
+    model = SimpleComposerMLP(num_features=10, device='cuda', num_classes=10)
+    model.add_fsdp_wrap_attribute_to_children()
+    with pytest.raises(ValueError) as e:
+        create_trainer_with_model(model=model, num_classes=10, use_fsdp2=True, auto_microbatching=True)
+    assert 'Auto microbatching is not supported outside of FSDP1' in str(e.value)
+
+
+class TestFSDP2MixedInit:
+    """Test class for FSDP2 mixed initialization scenarios."""
+
+    @staticmethod
+    def _set_deterministic_seed(seed: int):
+        """Helper function to set seed consistently across all random number generators."""
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+
+    @staticmethod
+    def _create_model_with_mixed_init(model_class: type, num_features: int, device: str, seed: int = 42):
+        """Helper function to create a model with mixed initialization (CPU for rank 0, meta for others)."""
+        TestFSDP2MixedInit._set_deterministic_seed(seed)
+
+        resolved_device = device if dist.get_local_rank() == 0 else 'meta'
+
+        # set the bias to be True for SimpleComposerMLP
+        # which is used for a later test
+        kwargs = {}
+        if model_class == SimpleComposerMLP:
+            kwargs['add_bias'] = True
+
+        model = model_class(num_features=num_features, device=resolved_device, **kwargs)
+        model.add_fsdp_wrap_attribute_to_children()
+
+        if dist.get_local_rank() == 0:
+            model.apply(model.param_init_fn)
+
+        return model
+
+    @staticmethod
+    def _train_model_and_extract_weights(model, use_fsdp2: bool):
+        """Helper function to train a mixed init model and extract its weights."""
+        optimizer = torch.optim.SGD(model.parameters(), lr=1e-4)
+        kwargs = {}
+
+        # If we're using FSDP1, we need to manually set the
+        # attribute to sync the module states during mixed init
+        if not use_fsdp2:
+            kwargs['fsdp1_sync_module_states'] = True
+        trainer = create_trainer_with_model(
+            model=model,
+            max_duration=f'10ba',
+            use_fsdp2=use_fsdp2,
+            optimizer=optimizer,
+            **kwargs,
+        )
+
+        trainer.fit()
+
+        weights = {}
+        if use_fsdp2:
+            for name, param in trainer.state.model.named_parameters():
+                weights[name] = param.full_tensor().data.clone()  # type: ignore
+        else:
+            with trainer.state.model.module.summon_full_params(trainer.state.model.module):  # type: ignore
+                for name, param in trainer.state.model.named_parameters():
+                    weights[name] = param.data.clone()
+
+        return weights
+
+    @staticmethod
+    def _compare_weights(fsdp1_weights: dict, fsdp2_weights: dict, tolerance: float = 1e-4):
+        """Helper function to compare weights between two models."""
+        assert len(fsdp1_weights) == len(fsdp2_weights), 'Number of parameters should match between FSDP1 and FSDP2'
+
+        # Note that the names are not guaranteed to be the same, but the order should be the same since
+        # we are using the same model.
+        for name, fsdp1_weight, fsdp2_weight in zip(
+            fsdp2_weights.keys(),
+            fsdp1_weights.values(),
+            fsdp2_weights.values(),
+        ):
+
+            assert fsdp1_weight.shape == fsdp2_weight.shape, \
+                f'Shape mismatch for {name}: FSDP1 {fsdp1_weight.shape} vs FSDP2 {fsdp2_weight.shape}'
+
+            assert torch.allclose(fsdp1_weight, fsdp2_weight, atol=tolerance, rtol=tolerance), \
+                f'Weight difference for {name} exceeds tolerance.'
+
+    @world_size(2)
+    @pytest.mark.gpu
+    @pytest.mark.parametrize('device', ['cuda', 'cpu'])
+    def test_fsdp2_sync_module_state_error_when_rank_0_has_meta_params(
+        self,
+        world_size: int,
+        device: str,
+    ):
+        """Test that FSDP2 raises an error when rank 0 has meta parameters and other ranks have CUDA parameters."""
+        del world_size
+        resolved_device = 'meta' if dist.get_local_rank() == 0 else device
+        model = SimpleComposerMLP(num_features=10, device=resolved_device)
+        model.add_fsdp_wrap_attribute_to_children()
+
+        with pytest.raises(ValueError) as e:
+            create_trainer_with_model(model=model, num_classes=10, use_fsdp2=True)
+        assert 'Invalid FSDP2 model initialization detected' in str(e.value)
+
+    @world_size(2)
+    @pytest.mark.gpu
+    # Note that we are testing on a GPU instance just to make sure we can initialize
+    # on CPU and then move to GPU.
+    @pytest.mark.parametrize('device', ['cuda', 'cpu'])
+    def test_fsdp2_syncs_module_states_when_multiple_devices_are_used(
+        self,
+        world_size: int,
+        device: str,
+    ):
+        """Test that FSDP2 syncs module states when multiple devices are used."""
+        del world_size
+        resolved_device = device if dist.get_local_rank() == 0 else 'meta'
+        model = self._create_model_with_mixed_init(SimpleComposerMLP, 10, resolved_device)
+
+        # create a dummy param_init_fn that initializes the weights and biases to 1 and 2 respectively
+        # and re-initialize the model on rank 0
+        def param_init_fn(module: torch.nn.Module):
+            if isinstance(module, torch.nn.Linear):
+                torch.nn.init.ones_(module.weight)
+                torch.nn.init.constant_(module.bias, 2)
+
+        model.param_init_fn = param_init_fn  # type: ignore
+        if dist.get_local_rank() == 0:
+            model.apply(model.param_init_fn)
+
+        trainer = create_trainer_with_model(
+            model=model,
+            num_classes=10,
+            use_fsdp2=True,
+        )
+        assert isinstance(trainer.state.fsdp_config, FSDP2Config)
+        assert trainer.state.fsdp_config.sync_module_states, 'sync_module_states should be True'  # type: ignore
+
+        module = trainer.state.model.module  # type: ignore
+        assert torch.equal(
+            module[0].weight.full_tensor(),  # type: ignore
+            torch.ones_like(module[0].weight.full_tensor()),  # type: ignore
+        )
+        assert torch.equal(
+            module[-1].weight.full_tensor(),  # type: ignore
+            torch.ones_like(module[-1].weight.full_tensor()),  # type: ignore
+        )
+        assert torch.equal(
+            module[0].bias.full_tensor(),  # type: ignore
+            torch.full_like(module[0].bias.full_tensor(), 2),  # type: ignore
+        )
+        assert torch.equal(
+            module[-1].bias.full_tensor(),  # type: ignore
+            torch.full_like(module[-1].bias.full_tensor(), 2),  # type: ignore
+        )
+
+    @world_size(2)
+    @pytest.mark.gpu
+    # Note that we are testing on a GPU instance just to make sure we can initialize
+    # on CPU and then move to GPU.
+    @pytest.mark.parametrize('device', ['cuda', 'cpu'])
+    @pytest.mark.parametrize('model_class', [SimpleWeightTiedModel, PartialWeightTiedModel])
+    def test_fsdp2_mixed_init_does_not_break_weight_tying(
+        self,
+        world_size: int,
+        device: str,
+        model_class: type,
+    ):
+        """Test that FSDP2 syncs module states and doesn't break weight tying."""
+        del world_size
+        resolved_device = device if dist.get_local_rank() == 0 else 'meta'
+        model = self._create_model_with_mixed_init(model_class, num_features=10, device=resolved_device)
+
+        trainer = create_trainer_with_model(
+            model=model,
+            num_classes=10,
+            use_fsdp2=True,
+        )
+        assert isinstance(trainer.state.fsdp_config, FSDP2Config)
+        assert trainer.state.fsdp_config.sync_module_states, 'sync_module_states should be True'  # type: ignore
+        # Check that the weights are correctly tied after training
+        trainer.fit()
+        weight_1 = model.mlp.fc1.weight.full_tensor()  # type: ignore
+        weight_2 = model.mlp.fc2.weight.full_tensor()  # type: ignore
+        assert (model.mlp.fc1.weight is model.mlp.fc2.weight)  # type: ignore
+        assert (torch.equal(weight_1, weight_2))
+
+    @world_size(2)
+    @pytest.mark.gpu
+    # Note that we are testing on a GPU instance just to make sure we can initialize
+    # on CPU and then move to GPU.
+    @pytest.mark.parametrize('device', ['cuda', 'cpu'])
+    @pytest.mark.parametrize('model_class', [SimpleWeightTiedModel, PartialWeightTiedModel])
+    def test_fsdp2_sync_module_state_aligns_with_optimizer_state(
+        self,
+        world_size: int,
+        device: str,
+        model_class: type,
+    ):
+        """Test that FSDP2 syncs module states and doesn't break optimizer state."""
+        del world_size
+        resolved_device = device if dist.get_local_rank() == 0 else 'meta'
+        model = self._create_model_with_mixed_init(model_class, num_features=10, device=resolved_device)
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+        trainer = create_trainer_with_model(
+            model=model,
+            num_classes=10,
+            use_fsdp2=True,
+            optimizer=optimizer,
+        )
+
+        assert isinstance(trainer.state.fsdp_config, FSDP2Config)
+        assert trainer.state.fsdp_config.sync_module_states, 'sync_module_states should be True'  # type: ignore
+        trainer.fit()
+
+        assert torch.equal(
+            model.mlp.fc1.weight.to_local(),  # type: ignore
+            optimizer.param_groups[0]['params'][0].to_local(),  # type: ignore
+        )
+        assert torch.equal(
+            model.mlp.fc2.weight.to_local(),  # type: ignore
+            optimizer.param_groups[0]['params'][0].to_local(),  # type: ignore
+        )
+
+    @world_size(2)
+    @pytest.mark.gpu
+    @pytest.mark.parametrize('device', ['cuda', 'cpu'])
+    def test_fsdp2_sync_module_states_mixed_init_weight_equivalence(
+        self,
+        world_size: int,
+        device: str,
+    ):
+        """Test that FSDP2 sync_module_states produces equivalent weights to FSDP1 with mixed initialization."""
+        del world_size
+
+        fsdp1_model = self._create_model_with_mixed_init(SimpleComposerMLP, num_features=10, seed=42, device=device)
+        fsdp1_weights = self._train_model_and_extract_weights(
+            fsdp1_model,
+            use_fsdp2=False,
+        )
+
+        fsdp2_model = self._create_model_with_mixed_init(SimpleComposerMLP, num_features=10, seed=42, device=device)
+        fsdp2_weights = self._train_model_and_extract_weights(
+            fsdp2_model,
+            use_fsdp2=True,
+        )
+
+        self._compare_weights(fsdp1_weights, fsdp2_weights, tolerance=1e-5)

@@ -19,6 +19,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import torch
 import torch.distributed
+from packaging import version
 from pytest import MonkeyPatch
 from torch.utils.data import DataLoader, Dataset, DistributedSampler
 
@@ -1154,34 +1155,40 @@ class TestCheckpointLoading:
             deep_compare(trainer_1_rng_state, trainer_2._rng_state)
 
     @pytest.mark.remote
-    @device('cpu')
+    @pytest.mark.gpu
     @pytest.mark.parametrize('load_weights_only', [True, False])
     @pytest.mark.parametrize(
-        'remote_checkpoint_uri, remote_checkpoint_name, continue_training_dur, final_checkpoint_name',
+        'remote_checkpoint_name, continue_training_dur, final_checkpoint_name',
         [
-            ['backwards_compatibility/trained_ckpt_cpu_ep2.pt', 'ep2.pt', '3ep', 'ep3.pt'],
+            ['ep2.pt', '3ep', 'ep3.pt'],
         ],
     )
     @pytest.mark.filterwarnings('ignore:.*The checkpoint included CUDA RNG state.*')
     def test_load_remote_checkpoint(
         self,
-        device,
         tmp_path: pathlib.Path,
         load_weights_only,
-        remote_checkpoint_uri,
         remote_checkpoint_name,
         continue_training_dur,
         final_checkpoint_name,
-        s3_bucket,
-        s3_read_only_prefix,
+        uc_volume_read_only,
+        device='gpu',
     ):
         """
         This test checks if our checkpointing is backwards compatible.
         We should be able to load in a saved checkpoint and continue training.
         The checkpoint weight and metrics should match at load time
         and should be equivalent after training continues.
-        Checkpoint saved using: Composer 0.13.5 with default dependencies.
         """
+        # TODO: We have separate checkpoints saved for 2.6 vs 2.7. If the version of torch
+        # is 2.7 or higher, we should use the 2.7 checkpoint. If we upgrade to torch 2.8+,
+        # and this checkpoint fails, we need to think of a better solution or root cause this
+        # further (one possible resolution is just reducing the tolerances to 1e-4)
+        if version.parse(torch.__version__) < version.parse('2.7.0'):
+            remote_checkpoint_uri = 'backwards_compatibility/trained_ckpt_gpu_ep2_2_6.pt'
+        else:
+            remote_checkpoint_uri = 'backwards_compatibility/trained_ckpt_gpu_ep2.pt'
+
         trainer_1 = self.get_trainer(save_folder='first', device=device)
         trainer_1.fit()
         trainer_1.close()
@@ -1189,7 +1196,7 @@ class TestCheckpointLoading:
         trainer_2 = self.get_trainer(
             max_duration=continue_training_dur,
             save_folder='second',
-            load_path=f's3://{s3_bucket}/{s3_read_only_prefix}/{remote_checkpoint_uri}',
+            load_path=os.path.join(f'dbfs:/{uc_volume_read_only}', remote_checkpoint_uri),
             load_weights_only=load_weights_only,
             load_strict_model_weights=load_weights_only,
             device=device,
