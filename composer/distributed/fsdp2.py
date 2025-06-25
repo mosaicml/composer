@@ -159,7 +159,7 @@ def sync_module_states(model: nn.Module, full_state_dict: dict) -> None:
     """
     from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
 
-    # In cases where you want to FSDP2 on CPU (although not recommended),
+    # In cases where you want to FSDP2 on CPU (although not recommended)
     device = torch.cuda.current_device() if torch.cuda.is_available() else 'cpu'
 
     if dist.get_global_rank() == 0:
@@ -167,11 +167,7 @@ def sync_module_states(model: nn.Module, full_state_dict: dict) -> None:
     else:
         model = model.to_empty(device=device)
 
-    # strict=False is required for when we have multiple references to the same module
-    # since otherwise, we would have to load the parameters of the same module multiple
-    # times using different names for the weights and that's not viable with the internal
-    # logic of set_model_state_dict.
-    options = StateDictOptions(full_state_dict=True, broadcast_from_rank0=True, strict=False)
+    options = StateDictOptions(full_state_dict=True, broadcast_from_rank0=True)
 
     # Sync parameters and buffers
     set_model_state_dict(model, full_state_dict, options=options)
