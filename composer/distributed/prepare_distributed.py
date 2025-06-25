@@ -46,8 +46,11 @@ def _check_duplicate_modules(model: torch.nn.Module) -> None:
     in the model hierarchy (e.g., self.net = Linear(...); self.net2 = self.net).
     This is different from weight tying, where different modules share parameters.
 
-    This is a workaround for the fact that FSDP2 does not support duplicate module
+    This is a legalization for the fact that FSDP2 does not support duplicate module
     references in the model hierarchy for mixed init and/or monolithic checkpointing.
+
+    If you do not have this legalization, you will encounter errors like:
+    "...got mixed torch.Tensor and DTensor..." in the sync_module_states step.
     """
     all_modules = set(dict(model.named_modules(remove_duplicate=False)).keys())
     deduplicated_modules = set(dict(model.named_modules(remove_duplicate=True)).keys())
