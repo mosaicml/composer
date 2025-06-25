@@ -1334,6 +1334,7 @@ def test_peft_init_not_installed(tiny_gpt2_model, gpt2_peft_config):
 @pytest.mark.parametrize('should_save_peft_only', [True, False])
 def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, should_save_peft_only):
     pytest.importorskip('peft')
+    model_copy = copy.deepcopy(tiny_gpt2_model)
 
     trainer = get_lm_trainer(
         tiny_gpt2_model,
@@ -1347,7 +1348,7 @@ def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_c
     trainer.fit()
 
     load_trainer = get_lm_trainer(
-        tiny_gpt2_model,
+        model_copy,
         tiny_gpt2_tokenizer,
         str(tmp_path),
         peft_config=gpt2_peft_config,
@@ -1409,6 +1410,7 @@ def test_peft_write_hf_from_composer(
     # Simulate a local model instead of a hub model
     tiny_gpt2_model.save_pretrained(tmp_path / 'hf-save-to-load')
     tiny_gpt2_model = transformers.AutoModelForCausalLM.from_pretrained(tmp_path / 'hf-save-to-load')
+    model_copy = copy.deepcopy(tiny_gpt2_model)
 
     trainer = get_lm_trainer(
         tiny_gpt2_model,
@@ -1437,7 +1439,7 @@ def test_peft_write_hf_from_composer(
         torch.testing.assert_close(p1, p2)
 
     # Test we can load back in using peft interface
-    loaded_peft_model = peft.PeftModelForCausalLM.from_pretrained(tiny_gpt2_model, str(tmp_path / 'hf-save-pretrained'))
+    loaded_peft_model = peft.PeftModelForCausalLM.from_pretrained(model_copy, str(tmp_path / 'hf-save-pretrained'))
     for p1, p2 in zip(trainer.state.model.model.parameters(), loaded_peft_model.parameters()):
         torch.testing.assert_close(p1, p2)
 
