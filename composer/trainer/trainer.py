@@ -2246,7 +2246,6 @@ class Trainer:
             self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
 
         self.first_train_batch_complete = False
-        # self.state.log_state("Before training")
         self._train_loop()
 
         # Zero gradients at the end of fit so same model/optimizer can be used for further training

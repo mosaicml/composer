@@ -4,7 +4,6 @@
 """Shared utilities for distributed training."""
 
 import functools
-import logging
 from typing import Callable, Optional
 
 import torch
@@ -18,7 +17,6 @@ from composer.models import ComposerModel
 from composer.utils import dist, get_device
 from composer.utils.parallelism import FSDP2Config, FSDPConfig
 
-logger = logging.getLogger(__name__)
 
 def get_direct_children_from_composer_model(model: ComposerModel) -> list[torch.nn.Module]:
     """Returns a list of valid direct children from a ComposerModel.
@@ -184,11 +182,9 @@ def update_sync_module_states_if_needed(model: nn.Module, fsdp_config: FSDP2Conf
     requires_sync = all_ranks_meta.item() == 0 and any_ranks_meta.item() == 1
 
     if fsdp_config.load_monolith_rank0_only:
-        logger.info(f'Setting sync_module_states to True because load_monolith_rank0_only is True')
         fsdp_config.sync_module_states = True
 
     if not fsdp_config.sync_module_states and requires_sync:
-        logger.info(f'Setting sync_module_states to True because rank {dist.get_global_rank()} is on meta and rank 0 is on {device}')
         fsdp_config.sync_module_states = True
 
     # Validate that the rank setup is correct

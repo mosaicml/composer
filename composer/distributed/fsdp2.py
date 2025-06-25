@@ -157,7 +157,6 @@ def sync_module_states(model: nn.Module, full_state_dict: dict) -> None:
     Returns:
         None
     """
-    from pprint import pprint
     from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
 
     # In cases where you want to FSDP2 on CPU (although not recommended)
@@ -170,9 +169,6 @@ def sync_module_states(model: nn.Module, full_state_dict: dict) -> None:
 
     options = StateDictOptions(full_state_dict=True, broadcast_from_rank0=True)
 
-    print("\nFull state dict before sync:\n")
-    pprint(get_averaged_state_dict(full_state_dict))
-
     # Sync parameters and buffers
     set_model_state_dict(model, full_state_dict, options=options)
 
@@ -180,34 +176,3 @@ def sync_module_states(model: nn.Module, full_state_dict: dict) -> None:
     for _, buffer in model.named_buffers():
         assert not isinstance(buffer, DTensor), 'Buffers should not be DTensor'
         dist.broadcast(buffer, src=0)
-
-    print("\nModel state dict after sync:\n")
-    pprint(get_averaged_state_dict(model.state_dict()))
-
-# Printing out model and optimizer state dicts to see what the
-# differences are...
-
-def get_averaged_state_dict(state_dict):
-    def process_tensor(tensor):
-        """Helper function to get average of a tensor (DTensor or regular)"""
-        if tensor.numel() > 0:
-            if isinstance(tensor, DTensor):
-                return tensor.full_tensor().mean()
-            else:
-                return tensor.mean()
-        return None
-
-    def process_nested_dict(d):
-        """Recursively process nested dictionary structure"""
-        result = {}
-        for key, value in d.items():
-            if isinstance(value, dict):
-                result[key] = process_nested_dict(value)
-            elif isinstance(value, (torch.Tensor, DTensor)):
-                result[key] = process_tensor(value)
-            else:
-                continue
-        return result
-
-    averaged_state_dict = process_nested_dict(state_dict)
-    return averaged_state_dict
