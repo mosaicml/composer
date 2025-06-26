@@ -11,21 +11,17 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     OffloadWrapper,
 )
 
+from composer.distributed.activation_checkpointing import apply_ac
 from tests.common import (
     ComposerCounterModel,
     CountModule,
     world_size,
-)
-from tests.trainer.fsdp2_context import (
-    apply_ac,
-    fsdp2_context,
 )
 from tests.trainer.test_fsdp2 import create_trainer_with_model
 
 
 @world_size(2)
 @pytest.mark.gpu
-@fsdp2_context
 @pytest.mark.parametrize(
     'activation_checkpointing,expected_forward_count,activation_cpu_offload',
     [
@@ -106,7 +102,6 @@ def test_fsdp2_activation_checkpointing_attribute(
 
 @world_size(2)
 @pytest.mark.gpu
-@fsdp2_context
 @pytest.mark.parametrize(
     'activation_checkpointing,expected_forward_count,activation_cpu_offload',
     [
@@ -177,7 +172,6 @@ def test_fsdp2_activation_checkpointing_fn(
 
 @world_size(2)
 @pytest.mark.gpu
-@fsdp2_context
 @pytest.mark.parametrize('type_of_checkpointing', ['attribute', 'function'])
 def test_activation_checkpointing_cuda_memory_usage(world_size: int, type_of_checkpointing: str):
     """Test FSDP2 activation checkpointing CUDA memory usage."""
@@ -247,7 +241,6 @@ def test_activation_checkpointing_cuda_memory_usage(world_size: int, type_of_che
 
 @world_size(2)
 @pytest.mark.gpu
-@fsdp2_context
 @pytest.mark.parametrize(
     'activation_checkpointing,activation_cpu_offload',
     [

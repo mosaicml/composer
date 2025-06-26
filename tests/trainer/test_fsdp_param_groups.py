@@ -5,7 +5,6 @@ import copy
 
 import pytest
 import torch
-from packaging import version
 from torch.utils.data import DataLoader
 
 from composer.optim import DecoupledSGDW
@@ -55,10 +54,6 @@ def test_fsdp_param_groups_without_orig_params(mixed_precision: str, device: str
 @pytest.mark.filterwarnings('ignore::UserWarning')
 @device('gpu')
 @world_size(2)
-@pytest.mark.skipif(
-    version.parse(torch.__version__) < version.parse('2'),
-    reason='FSDP use_orig_params requires torch 2.0 or higher',
-)
 def test_fsdp_with_param_groups(mixed_precision: str, device: str, reentrant: bool, world_size: int):
     """
     Test whether an optimizer with multiple param groups maintains the same param groups when
@@ -128,10 +123,6 @@ def test_fsdp_with_param_groups(mixed_precision: str, device: str, reentrant: bo
 @pytest.mark.filterwarnings('ignore::UserWarning')
 @device('gpu')
 @world_size(2)
-@pytest.mark.skipif(
-    version.parse(torch.__version__) < version.parse('2'),
-    reason='FSDP use_orig_params requires torch 2.0 or higher',
-)
 def test_fsdp_with_param_groups_with_subset_of_params_in_opt(
     mixed_precision: str,
     device: str,
@@ -150,13 +141,16 @@ def test_fsdp_with_param_groups_with_subset_of_params_in_opt(
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
 
     # create a different group per parameter
-    param_groups = [{
-        'params': model.net1.fc1.parameters(),
-        'lr': 0.1,
-    }, {
-        'params': model.net2.fc2.parameters(),
-        'lr': 0.5,
-    }]
+    param_groups = [
+        {
+            'params': model.module[0].net[0].parameters(),  # type: ignore
+            'lr': 0.1,
+        },
+        {
+            'params': model.module[1].net[-1].parameters(),  # type: ignore
+            'lr': 0.5,
+        },
+    ]
 
     optimizer = DecoupledSGDW(params=param_groups, lr=1e-3)
     unwrapped_optimizer = copy.deepcopy(optimizer)

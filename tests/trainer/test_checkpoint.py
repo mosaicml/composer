@@ -413,47 +413,6 @@ class TestCheckpointSaving:
             else:
                 assert attr == value
 
-    # See https://github.com/pytorch/pytorch/issues/133415
-    @pytest.mark.xfail
-    @pytest.mark.skipif(
-        (
-            version.parse(torch.__version__) < version.parse('2.4.0') or
-            version.parse(torch.__version__) >= version.parse('2.5.0')
-        ),
-        reason='Test only applies to PyTorch 2.4.x',
-    )
-    def test_sgd_checkpoint(
-        self,
-        tiny_bert_tokenizer,
-        tmp_path: pathlib.Path,
-    ):
-        transformers = pytest.importorskip('transformers')
-        model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
-        pretraining_train_dataset = RandomTextLMDataset(
-            size=100,
-            vocab_size=tiny_bert_tokenizer.vocab_size,
-            sequence_length=1,
-            use_keys=True,
-        )
-
-        collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer, mlm_probability=0.15)
-        dataloader = DataLoader(
-            pretraining_train_dataset,
-            batch_size=1,
-            sampler=dist.get_sampler(pretraining_train_dataset),
-            collate_fn=collator,
-        )
-
-        trainer = Trainer(
-            model=model,
-            optimizers=torch.optim.SGD(model.parameters(), lr=0.1),
-            train_dataloader=dataloader,
-            max_duration='5ba',
-            save_interval='1ba',
-            save_folder=str(tmp_path / 'checkpoints'),
-        )
-        trainer.fit()
-
     @pytest.mark.parametrize('save_interval', ['1tok', '64tok', '65tok'])
     @pytest.mark.parametrize('batch_size', [1, 4])
     @pytest.mark.parametrize('sequence_length', [1, 16])
@@ -1055,11 +1014,6 @@ class TestCheckpointLoading:
         last_checkpoint = os.path.join('first', 'ep2.pt')
         if missing_key or unexpected_key:
             message = r'Error\(s\) in loading state_dict'
-            if version.parse(torch.__version__) < version.parse('2.2.3') or (
-                version.parse(torch.__version__) < version.parse('2.4.0') and not dist.is_initialized()
-            ):
-                # Composer implements strict for older torch versions
-                message = 'Failed to load checkpoint due to'
             error_context = pytest.raises(RuntimeError, match=message)
         else:
             error_context = contextlib.nullcontext()
@@ -1201,34 +1155,40 @@ class TestCheckpointLoading:
             deep_compare(trainer_1_rng_state, trainer_2._rng_state)
 
     @pytest.mark.remote
-    @device('cpu')
+    @pytest.mark.gpu
     @pytest.mark.parametrize('load_weights_only', [True, False])
     @pytest.mark.parametrize(
-        'remote_checkpoint_uri, remote_checkpoint_name, continue_training_dur, final_checkpoint_name',
+        'remote_checkpoint_name, continue_training_dur, final_checkpoint_name',
         [
-            ['backwards_compatibility/trained_ckpt_cpu_ep2.pt', 'ep2.pt', '3ep', 'ep3.pt'],
+            ['ep2.pt', '3ep', 'ep3.pt'],
         ],
     )
     @pytest.mark.filterwarnings('ignore:.*The checkpoint included CUDA RNG state.*')
     def test_load_remote_checkpoint(
         self,
-        device,
         tmp_path: pathlib.Path,
         load_weights_only,
-        remote_checkpoint_uri,
         remote_checkpoint_name,
         continue_training_dur,
         final_checkpoint_name,
-        s3_bucket,
-        s3_read_only_prefix,
+        uc_volume_read_only,
+        device='gpu',
     ):
         """
         This test checks if our checkpointing is backwards compatible.
         We should be able to load in a saved checkpoint and continue training.
         The checkpoint weight and metrics should match at load time
         and should be equivalent after training continues.
-        Checkpoint saved using: Composer 0.13.5 with default dependencies.
         """
+        # TODO: We have separate checkpoints saved for 2.6 vs 2.7. If the version of torch
+        # is 2.7 or higher, we should use the 2.7 checkpoint. If we upgrade to torch 2.8+,
+        # and this checkpoint fails, we need to think of a better solution or root cause this
+        # further (one possible resolution is just reducing the tolerances to 1e-4)
+        if version.parse(torch.__version__) < version.parse('2.7.0'):
+            remote_checkpoint_uri = 'backwards_compatibility/trained_ckpt_gpu_ep2_2_6.pt'
+        else:
+            remote_checkpoint_uri = 'backwards_compatibility/trained_ckpt_gpu_ep2.pt'
+
         trainer_1 = self.get_trainer(save_folder='first', device=device)
         trainer_1.fit()
         trainer_1.close()
@@ -1236,7 +1196,7 @@ class TestCheckpointLoading:
         trainer_2 = self.get_trainer(
             max_duration=continue_training_dur,
             save_folder='second',
-            load_path=f's3://{s3_bucket}/{s3_read_only_prefix}/{remote_checkpoint_uri}',
+            load_path=os.path.join(f'dbfs:/{uc_volume_read_only}', remote_checkpoint_uri),
             load_weights_only=load_weights_only,
             load_strict_model_weights=load_weights_only,
             device=device,
@@ -1415,10 +1375,6 @@ class TestCheckpointLoading:
         NoOpModel.__init__ = lambda self, x: None  # type: ignore
         NoOpModel.__repr__ = lambda self: 'NoOpModel(3)'
         error_context = pytest.raises(KeyError, match='module.0.weight')
-        if version.parse(torch.__version__) < version.parse('2.2.3') or (
-            version.parse(torch.__version__) < version.parse('2.4.0') and not dist.is_initialized()
-        ):
-            error_context = pytest.raises(ValueError, match='loaded state dict contains a parameter group.*')
         with pytest.warns(UserWarning, match='required_on_load algorithm.*'), error_context:
             trainer_3 = self.get_trainer(load_path=os.path.join('first', 'ep1.pt'))
             trainer_3.fit(duration='1ba')

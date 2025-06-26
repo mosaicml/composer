@@ -6,7 +6,6 @@ import os
 
 import pytest
 import torch
-from packaging import version
 from torch.utils.data import DataLoader
 from torchmetrics.classification import MulticlassAccuracy
 from transformers import BertConfig, BertForMaskedLM, BertForSequenceClassification
@@ -254,9 +253,6 @@ def test_full_nlp_pipeline(
     """
     pytest.importorskip('libcloud')
     pytest.importorskip('transformers')
-
-    if onnx_opset_version == None and version.parse(torch.__version__) < version.parse('1.13'):
-        pytest.skip("Don't test prior PyTorch version's default Opset version.")
 
     algorithms = [algorithm() for algorithm in algorithms]
     device = get_device(device)

@@ -6,7 +6,6 @@ from typing import Optional
 import pytest
 import torch
 import torch.nn as nn
-from packaging import version
 from torch import Tensor
 from torch.utils.data import DataLoader
 
@@ -66,8 +65,6 @@ def test_ddp_sync_strategy(
     rank_zero_seed: int,
     request: pytest.FixtureRequest,
 ):
-    if version.parse(torch.__version__) < version.parse('2.4.0'):
-        pytest.skip('Before PyTorch 2.4, single_auto_sync did not properly run on last microbatch')
     original_model = MinimalConditionalModel()
     optimizer = torch.optim.SGD(original_model.parameters(), 0.1)
     device = None

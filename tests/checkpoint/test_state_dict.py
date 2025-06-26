@@ -6,7 +6,6 @@ from typing import Any
 
 import pytest
 import torch
-from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 from composer.checkpoint import (
@@ -71,8 +70,6 @@ def test_get_model_state_dict_ignore(use_composer_model: bool):
 @pytest.mark.parametrize('tensor_type', ['sharded_tensor', 'dtensor'])
 @pytest.mark.parametrize('use_composer_model', [True, False])
 def test_get_model_state_dict_full_for_sharded_model(world_size, tensor_type, use_composer_model: bool):
-    if tensor_type == 'dtensor' and version.parse(torch.__version__) < version.parse('2.2.0'):
-        pytest.skip('DTensor is only supported in PyTorch >= 2.2.0')
     if use_composer_model:
         model = SimpleComposerMLP(num_features=16, device='cuda')
     else:
@@ -110,9 +107,6 @@ def test_get_model_state_dict_full_for_sharded_model(world_size, tensor_type, us
 @pytest.mark.parametrize('tensor_type', ['sharded_tensor', 'dtensor'])
 @pytest.mark.parametrize('use_composer_model', [True, False])
 def test_get_model_state_dict_sharded(world_size, tensor_type, use_composer_model: bool):
-    if tensor_type == 'dtensor' and version.parse(torch.__version__) < version.parse('2.2.0'):
-        pytest.skip('DTensor is only supported in PyTorch >= 2.2.0')
-
     if use_composer_model:
         model = SimpleComposerMLP(num_features=16, device='cuda')
     else:
@@ -181,8 +175,6 @@ def test_get_model_state_dict_precision_sharded_model(
     precision: str,
     use_composer_model: bool,
 ):
-    if tensor_type == 'dtensor' and version.parse(torch.__version__) < version.parse('2.2.0'):
-        pytest.skip('DTensor is only supported in PyTorch >= 2.2.0')
     if use_composer_model:
         model = SimpleComposerMLP(num_features=8, device='cuda')
     else:
@@ -308,9 +300,6 @@ def test_get_optim_state_dict_precision_unsharded_model(precision: str, use_comp
 @pytest.mark.parametrize('tensor_type', ['sharded_tensor', 'dtensor'])
 @pytest.mark.parametrize('use_composer_model', [True, False])
 def test_get_optim_dict_full_for_sharded_model(world_size, tensor_type, use_composer_model: bool):
-    if tensor_type == 'dtensor' and version.parse(torch.__version__) < version.parse('2.2.0'):
-        pytest.skip('DTensor is only supported in PyTorch >= 2.2.0')
-
     model, optimizer = init_model_and_optimizer(
         use_composer_model=use_composer_model,
         take_step=True,
@@ -339,9 +328,6 @@ def test_get_optim_dict_full_for_sharded_model(world_size, tensor_type, use_comp
 @pytest.mark.parametrize('tensor_type', ['sharded_tensor', 'dtensor'])
 @pytest.mark.parametrize('use_composer_model', [True, False])
 def test_get_optim_dict_sharded_for_sharded_model(world_size, tensor_type, use_composer_model: bool):
-    if tensor_type == 'dtensor' and version.parse(torch.__version__) < version.parse('2.2.0'):
-        pytest.skip('DTensor is only supported in PyTorch >= 2.2.0')
-
     model, optimizer = init_model_and_optimizer(
         use_composer_model=use_composer_model,
         take_step=True,
@@ -409,8 +395,6 @@ def test_get_metadata_unsharded_model(model_type: str):
 @pytest.mark.parametrize('tensor_type', ['sharded_tensor', 'dtensor'])
 @pytest.mark.parametrize('model_type', ['composer', 'hf', 'nn.module'])
 def test_get_metadata_sharded_model(model_type: str, tensor_type: str, world_size: int):
-    if tensor_type == 'dtensor' and version.parse(torch.__version__) < version.parse('2.2.0'):
-        pytest.skip('DTensor is only supported in PyTorch >= 2.2.0')
     if model_type == 'composer':
         model = SimpleComposerMLP(num_features=8, device='cuda')
         expected_model_name = 'SimpleComposerMLP'

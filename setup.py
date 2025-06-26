@@ -77,7 +77,7 @@ while True:
 install_requires = [
     'pyyaml>=6.0,<7',
     'tqdm>=4.62.3,<5',
-    'torchmetrics>=1.0,<1.7.2',
+    'torchmetrics>=1.0,<1.7.3',
     'torch_optimizer>=0.3.0,<0.4',
     'torchvision>=0.21.0,<0.22.1',
     'torch>=2.6.0,<2.7.1',
@@ -105,7 +105,7 @@ extra_deps['dev'] = [
     'coverage[toml]>=7.8.0,<8',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
-    'ipython==8.36.0',
+    'ipython==8.37.0',
     'ipykernel==6.29.5',
     'jupyter==1.1.1',
     'yamllint==1.37.1',
@@ -142,7 +142,6 @@ extra_deps['dev'] = [
     'cryptography==44.0.3',
     'pytest-httpserver>=1.0.4,<1.2',
     'setuptools<79.0.0',
-    'scikit-learn>=1.2.0,<1.7',
 ]
 
 extra_deps['system_metrics_monitor'] = {
@@ -176,11 +175,11 @@ extra_deps['coco'] = [
 extra_deps['nlp'] = [
     'transformers>=4.11,!=4.34.0,<4.53',
     'datasets>=2.4,<4',
-    'huggingface-hub>=0.21.2,<0.32',
+    'huggingface-hub>=0.21.2,<0.34',
 ]
 
 extra_deps['peft'] = [
-    'peft>=0.10.0,<0.14',
+    'peft>=0.10.0,<0.16',
 ]
 
 extra_deps['sentencepiece'] = [
@@ -218,7 +217,7 @@ extra_deps['onnx'] = [
 ]
 
 extra_deps['mlflow'] = [
-    'mlflow>=2.14.1,<3.0',
+    'mlflow>=2.14.1,<4.0',
     'databricks-sdk>=0.50.0,<1',
     'pynvml>=11.5.0,<12',
 ]

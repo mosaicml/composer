@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional, Sequence, U
 import numpy as np
 import torch
 import torch.nn.modules.utils
-from packaging import version
 from torch.amp.grad_scaler import GradScaler
 from torch.distributed._tensor.device_mesh import DeviceMesh, init_device_mesh
 from torch.distributed.checkpoint.state_dict import (
@@ -25,6 +24,7 @@ from torch.distributed.checkpoint.state_dict import (
     set_model_state_dict,
     set_optimizer_state_dict,
 )
+from torch.distributed.fsdp import FSDPModule
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.fully_sharded_data_parallel import (
     FullOptimStateDictConfig,
@@ -119,41 +119,6 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
         optim_state_dict_config=optim_state_dict_config,
     ):
         yield
-
-
-def fsdp_get_optim_state_dict(
-    model: torch.nn.Module,
-    optim: torch.optim.Optimizer,
-    state_dict_type: str = 'full',
-) -> dict[str, Any]:
-    """Materializes a given model's optimizer's state_dict.
-
-    .. warning::
-        This function is deprecated and will be removed in Composer version 0.32.
-        It is maintained for backwards compatibility with tests.
-
-    Args:
-        model (torch.nn.Module): The model that the optimizer corresponds to.
-        optim (torch.optim.Optimizer): The optimizer that you want a state dict for.
-        state_dict_type (str, optional): which of the three state dict types you want to use.
-            choices are ['full', 'sharded']. Defaults to 'full'.
-            * 'full': the full, unsharded state dict materialized only on rank 0
-            * 'sharded': the sharded, unflattened state_dict, where each rank only gets a single shard.
-
-    Raises:
-        NotImplementedError: if you specify a state_dict_type not in ['full', 'sharded'].
-
-    Returns:
-        dict[str, Any]: The state_dict for the given optimizer.
-    """
-    warnings.warn(
-        'fsdp_get_optim_state_dict is deprecated and will be removed in Composer version 0.32',
-        DeprecationWarning,
-        stacklevel=2,
-    )
-
-    with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
-        return FSDP.optim_state_dict(model, optim)  # type: ignore
 
 
 def _legacy_optim_state_dict_to_load(
@@ -601,8 +566,6 @@ class State(Serializable):
         # Validate TP config
         if self.tp_config is not None:
             warnings.warn('Tensor parallelism (TP) is experimental and may change in future versions.', FutureWarning)
-            if version.parse(torch.__version__.split('.dev')[0]) < version.parse('2.3.0'):
-                raise ValueError('Tensor parallelism (TP) requires torch>=2.3.0.')
             if self.fsdp_config is None:
                 raise ValueError(
                     'Tensor parallelism (TP) currently requires FSDP to be enabled. '
@@ -899,8 +862,8 @@ class State(Serializable):
             self._fsdp_config = value
             self._fsdp2_config = None
         elif isinstance(value, FSDP2Config):
-            self._fsdp2_config = value
             self._fsdp_config = None
+            self._fsdp2_config = value
         else:
             raise TypeError(f'Expected value to be of type FSDPConfig or FSDP2Config, but got {type(value)}.')
 
@@ -930,13 +893,8 @@ class State(Serializable):
         """Indicates if FSDP is enabled."""
         for module in self.model.modules():
             # FSDP is FSDP1, FSDPModule is FSDP2
-            if isinstance(module, FSDP):
+            if isinstance(module, (FSDP, FSDPModule)):
                 return True
-            # TODO remove this once we deprecate torch 2.5
-            if version.parse(torch.__version__) >= version.parse('2.6.0'):
-                from torch.distributed.fsdp._fully_shard import FSDPModule
-                if isinstance(module, FSDPModule):
-                    return True
         return False
 
     @property

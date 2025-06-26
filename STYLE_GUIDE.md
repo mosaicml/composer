@@ -233,7 +233,6 @@ All imports in composer should be absolute -- that is, they do not begin with a 
     1.  The import must be conditionally imported in the code. For example:
 
         <!--pytest-codeblocks:importorskip(monai)-->
-        <!--pytest-codeblocks:importorskip(scikit-learn)-->
         ```python
         from composer import Callback
         from composer.utils import MissingConditionalImportError

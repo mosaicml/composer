@@ -4,12 +4,8 @@
 import pytest
 
 from composer.utils.parallelism import FSDP2Config
-from tests.trainer.fsdp2_context import (
-    fsdp2_context,
-)
 
 
-@fsdp2_context
 def test_fsdp2_config():
     """Test that FSDP2Config read-only properties work as expected."""
     # Create a config instance
@@ -29,7 +25,6 @@ def test_fsdp2_config():
     read_only_props = [
         ('auto_wrap', False),
         ('load_monolith_rank0_only', True),
-        ('sync_module_states', True),
         ('data_parallel_shard_degree', 2),
         ('data_parallel_replicate_degree', 2),
         ('state_dict_type', 'full'),
@@ -47,7 +42,6 @@ def test_fsdp2_config():
     assert config.reshard_after_forward is False
 
 
-@fsdp2_context
 def test_fsdp2config_from_fsdp1_valid_attributes():
     """Test FSDP2Config.from_compatible_attrs with valid attributes."""
     valid_attrs = {
@@ -64,7 +58,6 @@ def test_fsdp2config_from_fsdp1_valid_attributes():
     assert fsdp2_config.device_mesh is None
 
 
-@fsdp2_context
 def test_fsdp2config_from_empty_attributes():
     """Test FSDP2Config.from_compatible_attrs with empty attributes."""
     empty_attrs = {}
@@ -74,9 +67,9 @@ def test_fsdp2config_from_empty_attributes():
     assert fsdp2_config.activation_cpu_offload is False  # default value
     assert fsdp2_config.reshard_after_forward is True  # default value
     assert fsdp2_config.device_mesh is None  # default value
+    assert fsdp2_config.sync_module_states is False  # default value
 
 
-@fsdp2_context
 def test_fsdp2config_from_fsdp1_multiple_invalid_attributes():
     """Test FSDP2Config.from_compatible_attrs with multiple invalid attributes issues warnings for each."""
     mixed_attrs = {
@@ -84,6 +77,7 @@ def test_fsdp2config_from_fsdp1_multiple_invalid_attributes():
         'invalid_attribute1': 'value1',
         'invalid_attribute2': 'value2',
         'auto_wrap': True,
+        'sync_module_states': True,
     }
 
     with pytest.warns() as record:
@@ -95,3 +89,4 @@ def test_fsdp2config_from_fsdp1_multiple_invalid_attributes():
     assert any('invalid_attribute1: value1' in msg for msg in warning_messages)
     assert any('invalid_attribute2: value2' in msg for msg in warning_messages)
     assert any('auto_wrap: True' in msg for msg in warning_messages)
+    assert any('sync_module_states: True' in msg for msg in warning_messages)

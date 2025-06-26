@@ -38,7 +38,6 @@ import torch
 import torch.distributed
 import torch.nn as nn
 import torch.utils.data
-from packaging import version
 from torch._dynamo import OptimizedModule
 from torch.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
 from torch.distributed.fsdp import FullyShardedDataParallel
@@ -75,10 +74,12 @@ from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.distributed import (
     DDPSyncStrategy,
     ddp_sync_context,
+    parallelize_composer_model,
     prepare_ddp_module,
     prepare_fsdp_module,
     prepare_tp_module,
 )
+from composer.distributed.shared_utils import generate_oom_hook
 from composer.loggers import (
     ConsoleLogger,
     Logger,
@@ -425,32 +426,6 @@ def _update_num_consecutive_thrashes(state: State, num_consecutive_thrashes: int
     else:
         num_consecutive_thrashes = 0
     return num_consecutive_thrashes
-
-
-def _create_sync_hook(state: State):
-    """Check if other ranks OOMed after forward/backward pass when using auto microbatching.
-
-    This may happen when close to memory limit or with uneven memory usage across ranks. Since we
-    need to do this before the model weights are gathered for the next FSDP block, we wrap every
-    FSPD block with a hook that checks if any other rank OOMed.
-
-    This wrapper method is needed because PyTorch FSDP doesn't take `state` as an argument in hooks
-    that are registered using methods such as `register_forward_pre_hook`.
-    """
-
-    def sync_hook(*args):
-        # Check if any other rank hit an OOM
-        found_cuda_oom_tensor = state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
-        dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
-        found_cuda_oom = found_cuda_oom_tensor.item()
-        # Signal current rank is still in batch
-        all_ranks_finished_tensor = state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
-        dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
-
-        if found_cuda_oom == 1:
-            raise RuntimeError()
-
-    return sync_hook
 
 
 def _readd_fsdp_sync_hooks(fsdp_modules: dict[str, torch.nn.Module], sync_hook):
@@ -1220,6 +1195,11 @@ class Trainer:
 
         # Distributed
         parallelism_config = self._parse_parallelism_config(parallelism_config)
+        if parallelism_config is not None and parallelism_config.fsdp is None and auto_microbatching:
+            raise ValueError(
+                'Auto microbatching is not supported outside of FSDP1. '
+                'Please set a reasonable microbatch size manually or enable FSDP1.',
+            )
         if parallelism_config is not None or dist.get_world_size() > 1:
             # FSDP requires torch.distributed to be initialized, even if the world size is 1
             # And torch.distributed is always required for multi-rank training
@@ -1859,7 +1839,7 @@ class Trainer:
                             self.state.seed,
                         )
                     case 2:
-                        from composer.distributed.prepare_distributed import parallelize_composer_model
+                        assert not auto_microbatching
                         parallelize_composer_model(
                             model,
                             optimizers,
@@ -2173,18 +2153,6 @@ class Trainer:
             # It is important to set the duration, rather than incrementing it, as ``duration`` could be in
             # different units than ``max_duration``
             self.state.max_duration = duration + self.state.timestamp.get(duration.unit)
-
-        # Raise error if callig fit with SGD
-        if (
-            type(self.state.optimizers[0]) == torch.optim.SGD and
-            version.parse(torch.__version__) >= version.parse('2.4.0') and
-            version.parse(torch.__version__) < version.parse('2.5.0')
-        ):
-            raise ValueError(
-                'PyTorch 2.4 breaks (distributed) checkpointing with SGD. '
-                'Please use a different optimizer, e.g. composer.optim.DecoupledSGDW, '
-                'instead. See https://github.com/pytorch/pytorch/issues/133415 for further information.',
-            )
 
         if self.state.max_duration is None:
             _raise_missing_argument_exception('max_duration')
@@ -2726,7 +2694,7 @@ class Trainer:
         device_batch = self.state.batch
 
         # Define sync hook for FSDP modules if automicrobatching is on
-        sync_hook = _create_sync_hook(self.state)
+        sync_hook = generate_oom_hook(self.state.device)
 
         original_microbatch_size = self.state.device_train_microbatch_size
         oom_found_this_batch = False
@@ -3632,9 +3600,12 @@ class Trainer:
 
         # If training occurs after evaluation, readd hooks in case of memory spike
         if self.state.auto_microbatching:
-            sync_hook = _create_sync_hook(self.state)
+            sync_hook = generate_oom_hook(self.state.device)
             if self.state.fsdp_enabled and len(self.state.automicrobatch_fsdp_hook_handles) == 0:
-                self.state.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(self.state.fsdp_modules, sync_hook)
+                self.state.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(
+                    self.state.fsdp_modules,
+                    sync_hook,
+                )
             self.num_consecutive_non_OOM_batches = 0
 
     def _use_grad_scaling(self, precision: Union[str, Precision], scaler: Optional[GradScaler]) -> bool:
@@ -3834,10 +3805,12 @@ class Trainer:
         if parallelism_config is not None and not isinstance(parallelism_config, ParallelismConfig):
             parallelism_config_args = {}
             if 'fsdp' in parallelism_config and parallelism_config['fsdp'] is not None:
-                if isinstance(parallelism_config['fsdp'], FSDPConfig | FSDP2Config):
+                if isinstance(parallelism_config['fsdp'], FSDPConfig):
                     parallelism_config_args['fsdp'] = parallelism_config['fsdp']
+                elif isinstance(parallelism_config['fsdp'], FSDP2Config):
+                    parallelism_config_args['fsdp2'] = parallelism_config['fsdp']
                 elif os.environ.get('FSDP_VERSION', '1') == '2':
-                    parallelism_config_args['fsdp'] = FSDP2Config.from_compatible_attrs(parallelism_config['fsdp'])
+                    parallelism_config_args['fsdp2'] = FSDP2Config.from_compatible_attrs(parallelism_config['fsdp'])
                 else:
                     parallelism_config_args['fsdp'] = FSDPConfig(**parallelism_config['fsdp'])
             if 'tp' in parallelism_config and parallelism_config['tp'] is not None:

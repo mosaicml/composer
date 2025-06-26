@@ -10,7 +10,6 @@ from typing import TypeVar
 import torch
 import torch.cuda.amp
 import torch.utils.data
-from packaging import version
 
 from composer.devices.device import Device
 
@@ -28,8 +27,6 @@ class DeviceMPS(Device):
     name = 'mps'
 
     def __init__(self) -> None:
-        if version.parse(torch.__version__) < version.parse('1.12.0'):
-            raise RuntimeError('Support for MPS device requires torch >= 1.12.')
         if not torch.backends.mps.is_available():  # type: ignore (version guarded)
             raise RuntimeError('MPS requires MAC OSX >= 12.3')
         if not torch.backends.mps.is_built():  # type: ignore (version guarded)

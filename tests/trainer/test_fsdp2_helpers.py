@@ -7,8 +7,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from tests.trainer.fsdp2_context import (
-    fsdp2_context,
+from composer.distributed.fsdp2_utils import (
     get_standalone_and_tied_modules,
     legalize_param_sharing_between_modules,
 )
@@ -17,7 +16,6 @@ from tests.trainer.fsdp2_context import (
 def _context(func: Callable) -> Optional[Callable]:
     """Decorator to run tests with models initialized on the meta device for torch version 2.6+."""
 
-    @fsdp2_context
     def wrapper(*args, **kwargs):
         with torch.device('meta'):
             return func(*args, **kwargs)

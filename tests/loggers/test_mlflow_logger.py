@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
+import torch
 import yaml
 from torch.utils.data import DataLoader
 
@@ -44,6 +45,24 @@ def _get_latest_mlflow_run(experiment_name, tracking_uri=None):
         return first_run_or_empty[0]
     else:
         raise ValueError(f'Experiment with name {experiment_name} is unexpectedly empty')
+
+
+@pytest.mark.gpu
+def test_metrics_cache_cpu(
+    tmp_path: Path,
+):
+    logger = MLFlowLogger(
+        tracking_uri=tmp_path / Path('my-test-mlflow-uri'),
+    )
+
+    metric_tensor = torch.tensor(1.0, device='cuda')
+    metrics_dict = {'test_metric': metric_tensor}
+
+    logger.log_metrics(metrics_dict)
+
+    for v in logger._metrics_cache.values():
+        for item in v:
+            assert not isinstance(item, torch.Tensor)
 
 
 def test_mlflow_init_unspecified(monkeypatch):
@@ -380,19 +399,18 @@ def test_mlflow_log_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
             'model': tiny_gpt2_model,
             'tokenizer': tiny_gpt2_tokenizer,
         },
-        artifact_path='my_model',
+        name='my_model',
         task='llm/v1/completions',
     )
     test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(mlflow_exp_name, tracking_uri=mlflow_uri)
-    run_info = run.info
-    run_id = run_info.run_id
-    experiment_id = run_info.experiment_id
-    run_file_path = mlflow_uri / Path(experiment_id) / Path(run_id)
+    experiment_id = run.info.experiment_id
+    models_dir = mlflow_uri / Path(experiment_id) / 'models'
+    model_dir = next(models_dir.iterdir())
+    artifact_dir = model_dir / 'artifacts'
 
-    model_directory = run_file_path / Path('artifacts') / Path('my_model')
-    loaded_model = mlflow.transformers.load_model(model_directory, return_type='components')
+    loaded_model = mlflow.transformers.load_model(artifact_dir, return_type='components')
 
     # For some reason this is different, but its harmless. The actual attn implementation is the same
     loaded_model['model'].config._attn_implementation_autoset = False

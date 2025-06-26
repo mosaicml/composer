@@ -187,6 +187,8 @@ filterwarnings = [
     '''ignore:.*`_get_pg_default_device` will be deprecated.*:UserWarning''',
     # Ignore ROCMMonitor warnings
     '''ignore:.*ROCMMonitor.__del__:pytest.PytestUnraisableExceptionWarning''',
+    # Ignore FSDP2Config deprecation warning
+    '''ignore:.*FSDP2 Config/APIs are experimental*:UserWarning''',
 ]
 
 # Coverage

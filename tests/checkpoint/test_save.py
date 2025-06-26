@@ -11,7 +11,6 @@ from pathlib import Path
 import pytest
 import torch
 import torch.distributed.checkpoint as DCP
-from packaging import version
 
 from composer.checkpoint.save import (
     save_checkpoint_to_disk,
@@ -116,10 +115,7 @@ def test_save_optim_to_disk(world_size: int, tmp_path: str, sharded_optimizer: b
 
     if sharded_checkpoint:
         expected_file_path = os.path.join(destination_dir)
-        if version.parse(torch.__version__) < version.parse('2.2.0'):
-            DCP.load_state_dict(state_dict=cur_state_dict, storage_reader=DCP.FileSystemReader(expected_file_path))
-        else:
-            DCP.load(state_dict=cur_state_dict, storage_reader=DCP.FileSystemReader(expected_file_path))
+        DCP.load(state_dict=cur_state_dict, storage_reader=DCP.FileSystemReader(expected_file_path))
     else:
         if dist.get_global_rank() == 0:
             expected_file_path = destination_dir
@@ -154,10 +150,7 @@ def test_save_model_to_disk(world_size: int, tmp_path: str, sharded_model: bool,
 
     if sharded_checkpoint:
         expected_file_path = destination_dir
-        if version.parse(torch.__version__) < version.parse('2.2.0'):
-            DCP.load_state_dict(state_dict=cur_state_dict, storage_reader=DCP.FileSystemReader(expected_file_path))
-        else:
-            DCP.load(state_dict=cur_state_dict, storage_reader=DCP.FileSystemReader(expected_file_path))
+        DCP.load(state_dict=cur_state_dict, storage_reader=DCP.FileSystemReader(expected_file_path))
     else:
         if dist.get_global_rank() == 0:
             expected_file_path = destination_dir
@@ -195,13 +188,7 @@ def test_save_full_state_dict_to_disk(world_size: int, tmp_path: str, sharded_mo
     'tensor_type',
     [
         'sharded_tensor',
-        pytest.param(
-            'dtensor',
-            marks=pytest.mark.skipif(
-                version.parse(torch.__version__) < version.parse('2.2.0'),
-                reason='Requires torch>=2.2.0 for dtensor',
-            ),
-        ),
+        'dtensor',
     ],
 )
 def test_save_sharded_state_dict_to_disk(world_size: int, tmp_path: str, tensor_type: str):
@@ -217,8 +204,5 @@ def test_save_sharded_state_dict_to_disk(world_size: int, tmp_path: str, tensor_
     assert path_saved == f'{destination_file_path}/{_TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME}'
     assert path_saved is not None
     load_path = str(Path(path_saved).parent)
-    if version.parse(torch.__version__) < version.parse('2.2.0'):
-        DCP.load_state_dict(state_dict=loaded_in_state_dict, storage_reader=DCP.FileSystemReader(load_path))
-    else:
-        DCP.load(state_dict=loaded_in_state_dict, storage_reader=DCP.FileSystemReader(load_path))
+    DCP.load(state_dict=loaded_in_state_dict, storage_reader=DCP.FileSystemReader(load_path))
     deep_compare(state_dict, loaded_in_state_dict)

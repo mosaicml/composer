@@ -5,7 +5,6 @@ from typing import Any, Union
 from unittest.mock import MagicMock
 
 import torch
-from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.api import CPUOffload
 from torch.optim import Adam
@@ -62,10 +61,7 @@ def init_state(
     if include_algorithms:
         kwargs['algorithms'] = [SWA()]
     if use_grad_scaler:
-        if version.parse(torch.__version__) >= version.parse('2.3.0'):
-            from torch.amp.grad_scaler import GradScaler
-        else:
-            from torch.cuda.amp.grad_scaler import GradScaler
+        from torch.amp.grad_scaler import GradScaler
         kwargs['scaler'] = GradScaler()
 
     state = State(

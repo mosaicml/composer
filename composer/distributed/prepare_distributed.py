@@ -9,13 +9,19 @@ from contextlib import contextmanager, nullcontext
 from typing import Callable, Optional
 
 import torch
+from torch.distributed.checkpoint.state_dict import (
+    StateDictOptions,
+    get_model_state_dict,
+)
 from torch.distributed.fsdp.wrap import CustomPolicy
 
 from composer.distributed.activation_checkpointing import apply_ac, generate_composer_model_check_fn
-from composer.distributed.fsdp2 import prepare_fully_shard
+from composer.distributed.fsdp2 import prepare_fully_shard, sync_module_states
 from composer.distributed.fsdp2_utils import generate_composer_model_policy, sync_optimizer_and_model_params
 from composer.distributed.param_init import meta_init
+from composer.distributed.shared_utils import update_sync_module_states_if_needed
 from composer.models import ComposerModel
+from composer.utils import dist
 from composer.utils.parallelism import FSDP2Config
 
 log = logging.getLogger(__name__)
@@ -31,6 +37,76 @@ def log_execution_time(logger: logging.Logger, operation_name: str):
     finally:
         end_time = time.time()
         logger.info(f'{operation_name} took {end_time - start_time:.2f} seconds')
+
+
+def _check_duplicate_modules(model: torch.nn.Module) -> None:
+    """Checks whether the model has duplicate module references.
+
+    This detects cases where the same module object is referenced multiple times
+    in the model hierarchy (e.g., self.net = Linear(...); self.net2 = self.net).
+    This is different from weight tying, where different modules share parameters.
+
+    This is a legalization for the fact that FSDP2 does not support duplicate module
+    references in the model hierarchy for mixed init and/or monolithic checkpointing.
+
+    If you do not have this legalization, you will encounter errors like:
+    "...got mixed torch.Tensor and DTensor..." in the sync_module_states step.
+    """
+    all_modules = set(dict(model.named_modules(remove_duplicate=False)).keys())
+    deduplicated_modules = set(dict(model.named_modules(remove_duplicate=True)).keys())
+
+    duplicate_modules = all_modules - deduplicated_modules
+    if duplicate_modules:
+        raise ValueError(
+            f'Model has duplicate module references. Modules {duplicate_modules} '
+            f'are the same object as previously encountered modules. '
+            f'This is not supported by FSDP2. Please ensure each module reference '
+            f'is unique (weight tying through parameter sharing is still allowed).',
+        )
+
+
+def _parallelize_model_helper(
+    model: torch.nn.Module,
+    config: FSDP2Config,
+    fsdp_wrap_policy: Optional[CustomPolicy] = None,
+    param_init_fn: Callable[[torch.nn.Module], None] = lambda m: None,
+) -> None:
+    """Helper function for parallelizing a model.
+
+    There are two paths with how we parallelize a model:
+    1. Without sync_module_states: fully_shard first, then param_init. This prevents OOM by avoiding
+       redundant parameter copies across all ranks during param_init.
+    2. With sync_module_states: param_init on rank 0 first, then fully_shard, then broadcast the
+       initialized state to all other ranks. This makes sure that all ranks have rank 0's model state.
+    """
+    update_sync_module_states_if_needed(model, config)
+
+    if config.sync_module_states:
+        # Check for duplicate module references which will cause issues with sync_module_states
+        _check_duplicate_modules(model)
+
+        # If we are syncing module states, we assume that rank 0 has the model on CPU/GPU
+        # and the params are already initialized on rank 0.
+        full_state_dict = {}
+        if dist.get_global_rank() == 0:
+            # Get the full state dict of the model offloaded to CPU
+            options = StateDictOptions(
+                full_state_dict=True,
+                cpu_offload=True,
+            )
+            full_state_dict = get_model_state_dict(model, options=options)
+
+        with log_execution_time(log, 'Prepare FSDP2'):
+            prepare_fully_shard(model, config, fsdp_wrap_policy)
+
+        with log_execution_time(log, 'Sync Module States across all ranks'):
+            sync_module_states(model, full_state_dict)
+    else:
+        with log_execution_time(log, 'Prepare FSDP2'):
+            prepare_fully_shard(model, config, fsdp_wrap_policy)
+
+        with log_execution_time(log, 'Parameter Initialization'):
+            param_init_fn(model)
 
 
 def parallelize_model(
@@ -80,10 +156,7 @@ def parallelize_model(
 
     # Use the context manager for optimizer synchronization if optimizer is provided
     with sync_optimizer_and_model_params(optimizer, model) if optimizer is not None else nullcontext():
-        with log_execution_time(log, 'Prepare FSDP2'):
-            prepare_fully_shard(model, config, fsdp_wrap_policy)
-        with log_execution_time(log, 'Meta Init Device'):
-            param_init_fn(model)
+        _parallelize_model_helper(model, config, fsdp_wrap_policy, param_init_fn)
         # NOTE appy_ac can not be included in this context as it would wrap and replace the sub-modules thus disqualify FQN of params
 
 
