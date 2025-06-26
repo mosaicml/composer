@@ -1392,12 +1392,14 @@ class State(Serializable):
 
             optim_state_dict = serialized_value[type(optimizer).__qualname__] if serialized_value is not None else None
 
-            # Note: 'broadcast_from_rank0' is only supported for FSDP2.
-            # - In `set_optimizer_state_dict`, FSDP1 follows a different code path where it detects FSDP modules and handles FlatParameters differently.
-            #   Furthermore, it requires `cpu_offload` to be set to True when loading the optimizer state in a monolithic checkpoint.
-            # - In FSDP2, setting `broadcast_from_rank0` will cause `set_optimizer_state_dict` to set the optim_state_dict (which is on CPU)
-            #   to be broadcasted from rank0's `full_state_dict` to all ranks' `local_state_dict` (moving them to DTensors on GPU)
-            # - Therefore, we don't need to set `cpu_offload` for FSDP2 as it determines how to broadcast optimizer state given the model itself.
+            # Note: 'broadcast_from_rank0' is only required for FSDP2.
+            # - In `set_optimizer_state_dict`, FSDP1 follows a different code path where it detects FSDP1 modules and handles FlatParameters differently.
+            #   Essentially, either `cpu_offload` or `broadcast_from_rank0` in FSDP1 cause broadcasting from rank 0 and that's why we only need to set
+            #   `cpu_offload` to True for FSDP1. Setting `broadcast_from_rank0` to True for FSDP1 is essentially a no-op and this follows our previous
+            #   implementation for FSDP1.
+            # - In FSDP2, we don't need to set `cpu_offload` to True as the model weights has already been sharded to DTensors on GPUs on all ranks.
+            #   `set_optimizer_state_dict` will utilize those sharded weights to broadcast the relevant shards of the optimizer state dict (on CPU on rank 0)
+            #   to the relevant GPUs on all ranks when `broadcast_from_rank0` is set to True.
             cpu_offload = self.fsdp_enabled and isinstance(self.fsdp_config, FSDPConfig)
             broadcast_from_rank0 = self.load_monolith_rank0_only and isinstance(self.fsdp_config, FSDP2Config)
 
