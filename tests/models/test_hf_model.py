@@ -1555,7 +1555,6 @@ def test_hf_tokenizer_with_chat_template(tmp_path: Path, tiny_bert_model, tiny_b
     assert (tmp_path / 'chat-template-checkpoint.pt').exists()
 
     # Verify that the checkpoint actually contains a .jinja file
-    import torch
     loaded_checkpoint = torch.load(tmp_path / 'chat-template-checkpoint.pt', weights_only=False)
     hf_state = loaded_checkpoint['state']['integrations']['huggingface']
     hf_tokenizer_state = hf_state['tokenizer']
