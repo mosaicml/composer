@@ -168,6 +168,9 @@ class FSDP2Config:
     def __post_init__(self):
         warnings.warn('FSDP2 Config/APIs are experimental and subject to heavy changes', UserWarning)
 
+        # TODO: We might not need `load_monolith_rank0_only` as we can theoretically use
+        # self.monolith_rank0_only = self.state_dict_type == 'full' assuming that saving
+        # the model doesn't get affected by `load_monolith_rank0_only`
         if self.load_monolith_rank0_only and self.state_dict_type != 'full':
             raise ValueError(
                 'load_monolith_rank0_only=True requires state_dict_type="full". '
