@@ -433,7 +433,6 @@ def test_hf_state_dict_info(
     if 'id2label' in loaded_config_dict:
         loaded_config_dict['id2label'] = {int(k): v for k, v in loaded_config_dict['id2label'].items()}
 
-
     loaded_config = transformers.AutoConfig.for_model(**loaded_config_dict)
     new_model_from_loaded_config = transformers.AutoModelForSequenceClassification.from_config(loaded_config)
 
@@ -1533,3 +1532,32 @@ def test_filtered_state_dict(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_con
     state_dict = hf_model.state_dict()
 
     assert len(state_dict.keys()) == 4
+
+
+def test_hf_tokenizer_with_chat_template(tmp_path: Path, tiny_bert_model, tiny_bert_tokenizer):
+    """Test that tokenizers with chat templates (which create .jinja files) can be checkpointed."""
+    pytest.importorskip('transformers')
+
+    # Use the existing tiny_bert_tokenizer and add a chat template to it
+    tokenizer = tiny_bert_tokenizer
+
+    # Add a chat template to force creation of chat_template.jinja file
+    chat_template = "{% for message in messages %}{{ message['role'] + ': ' + message['content'] + '\n' }}{% endfor %}"
+    tokenizer.chat_template = chat_template  # type: ignore
+
+    # This should not fail even with the chat template
+    trainer = get_lm_trainer(tiny_bert_model, tokenizer, str(tmp_path))
+
+    # The checkpoint save should work without raising "Unexpected file ending" error
+    trainer.save_checkpoint(str(tmp_path / 'chat-template-checkpoint.pt'))
+
+    # Verify the checkpoint was created successfully
+    assert (tmp_path / 'chat-template-checkpoint.pt').exists()
+
+    # Test loading the checkpoint back
+    _, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
+        checkpoint_path=str(tmp_path / 'chat-template-checkpoint.pt'),
+    )
+
+    # Verify the chat template was preserved
+    assert hf_loaded_tokenizer.chat_template == chat_template  # type: ignore
