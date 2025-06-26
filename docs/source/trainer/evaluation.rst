@@ -4,7 +4,7 @@
 To track training progress, validation datasets can be provided to the
 Composer Trainer through the ``eval_dataloader`` parameter. The trainer
 will compute evaluation metrics on the evaluation dataset at a frequency
-specified by the the :class:`.Trainer` parameter ``eval_interval``.
+specified by the :class:`.Trainer` parameter ``eval_interval``.
 
 .. code:: python
 

@@ -30,7 +30,6 @@ from composer.utils.compression import (
     is_compressed_pt,
 )
 from composer.utils.device import get_device, is_hpu_installed, is_xla_installed
-from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient
 from composer.utils.file_helpers import (
     FORMAT_NAME_WITH_DIST_AND_TIME_TABLE,
     FORMAT_NAME_WITH_DIST_TABLE,
@@ -75,7 +74,7 @@ from composer.utils.object_store import (
     UCObjectStore,
     build_remote_backend,
 )
-from composer.utils.parallelism import FSDPConfig, ParallelismConfig, TPConfig
+from composer.utils.parallelism import FSDP2Config, FSDPConfig, ParallelismConfig, TPConfig
 from composer.utils.remote_uploader import RemoteFilesExistingCheckStatus, RemoteUploader
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
@@ -139,9 +138,6 @@ __all__ = [
     'convert_nested_dict_to_flat_dict',
     'convert_flat_dict_to_nested_dict',
     'create_interval_scheduler',
-    'EvalClient',
-    'LambdaEvalClient',
-    'LocalEvalClient',
     'partial_format',
     'add_vision_dataset_transform',
     'VersionedDeprecationWarning',
@@ -152,6 +148,7 @@ __all__ = [
     'STR_TO_DTYPE',
     'ParallelismType',
     'FSDPConfig',
+    'FSDP2Config',
     'TPConfig',
     'ParallelismConfig',
     'MLFLOW_EXPERIMENT_ID_FORMAT_KEY',

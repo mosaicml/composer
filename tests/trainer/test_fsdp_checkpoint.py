@@ -20,20 +20,21 @@ import torch
 from packaging import version
 from torch.distributed._shard.sharded_tensor import ShardedTensor
 from torch.distributed._tensor import DTensor
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.utils.data import DataLoader
 from torchmetrics import Metric, MetricCollection
 from torchmetrics.classification import MulticlassAccuracy
 
 from composer.algorithms import EMA
 from composer.core import Algorithm, Event, Precision, State, Time
-from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_context
+from composer.core.state import fsdp_state_dict_type_context
 from composer.models import ComposerClassifier
 from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
 from composer.utils import FSDPConfig, TPConfig, dist, parse_uri
 from composer.utils.checkpoint import dist_cp_load
 from composer.utils.file_helpers import get_file
-from composer.utils.object_store import S3ObjectStore
+from composer.utils.object_store import UCObjectStore
 from composer.utils.reproducibility import get_rng_state
 from tests.common import RandomClassificationDataset, deep_compare
 from tests.common.markers import world_size
@@ -315,10 +316,8 @@ def test_fsdp_full_state_dict_load(
     use_tp: bool,
     use_hsdp: bool,
 ):
-    if use_hsdp and version.parse(torch.__version__) < version.parse('2.4.0'):
-        pytest.xfail('HSDP requires torch 2.4.0 or later')
     if use_tp:
-        pytest.skip('TP on PyTorch 2.3 has full state dict issues.')
+        pytest.skip('TP has full state dict issues.')
     if autoresume:
         run_name = 'my-cool-autoresume-run'
     else:
@@ -517,6 +516,9 @@ def test_fsdp_mixed_with_sync(
         '0.26.0',
         '0.27.0',
         '0.28.0',
+        '0.29.0',
+        '0.30.0',
+        '0.31.0',
     ],
 )
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
@@ -529,44 +531,37 @@ def test_fsdp_load_old_checkpoint(
     precision: str,
     sharding_strategy: str,
     state_dict_type: str,
-    s3_bucket: str,
-    s3_read_only_prefix: str,
+    uc_volume_read_only: str,
     composer_version: str,
 ):
     if composer_version == '0.18.1' and state_dict_type == 'full' and precision == 'amp_bf16' and sharding_strategy == 'FULL_SHARD':
         pytest.skip('TODO: This checkpoint is missing')
 
-    if (composer_version in ['0.22.0', '0.23.0'] and version.parse(torch.__version__) < version.parse('2.3.0')
-       ) or (composer_version in ['0.24.0', '0.25.0'] and
-             version.parse(torch.__version__) < version.parse('2.4.0')) or (
-                 composer_version in ['0.26.0', '0.27.0', '0.28.0'] and
-                 version.parse(torch.__version__) < version.parse('2.5.0')
-             ):
-        pytest.skip('Current torch version is older than torch version that checkpoint was written with.')
-
     if composer_version in ['0.13.5', '0.14.0', '0.14.1', '0.15.1']:
         if state_dict_type == 'sharded':
             pytest.skip('Loading legacy sharded checkpoints are not supported after v0.25.0.')
 
-        load_path_dir = (
-            f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/'
-            f'{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_'
-            f'{precision}/'
+        load_path_dir = os.path.join(
+            f'dbfs:/{uc_volume_read_only}',
+            'backwards_compatibility',
+            composer_version,
+            f'{sharding_strategy.lower()}_{state_dict_type}_{precision}',
         )
         if ((version.parse(composer_version) > version.parse('0.15.0')) and state_dict_type != 'full'):
-            load_path_dir = (load_path_dir + 'ep0-ba2/')
+            load_path_dir = os.path.join(load_path_dir, 'ep0-ba2')
 
-        load_path = load_path_dir + f'ba2_rank0.pt'
+        load_path = os.path.join(load_path_dir, f'ba2_rank0.pt')
     else:
-        load_path = (
-            f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/'
-            f'{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_'
-            f'{precision}/'
+        load_path = os.path.join(
+            f'dbfs:/{uc_volume_read_only}',
+            'backwards_compatibility',
+            composer_version,
+            f'{sharding_strategy.lower()}_{state_dict_type}_{precision}',
         )
         if state_dict_type == 'full':
-            load_path += 'ba2_rank0.pt'
+            load_path = os.path.join(load_path, 'ba2_rank0.pt')
         else:
-            load_path += 'ep0-ba2/'
+            load_path = os.path.join(load_path, 'ep0-ba2')
 
     if composer_version == '0.15.1':
         num_classes = 8  # This parameter setting is very important. Don't change or the test will fail.
@@ -627,7 +622,7 @@ def test_fsdp_load_old_checkpoint(
                 'rng': get_rng_state(),
             }
 
-            object_store = S3ObjectStore(bucket=f'{s3_bucket}')
+            object_store = UCObjectStore(path=uc_volume_read_only)
             storage_reader = DistCPObjectStoreReader(
                 source_path=parsed_load_path,
                 destination_path=destination,
@@ -683,7 +678,7 @@ def test_fsdp_load_old_checkpoint(
 
             get_file(filled_load_path, destination=destination)
             with open(destination, 'rb') as f:
-                state_dict1 = torch.load(f)['state']
+                state_dict1 = torch.load(f, weights_only=False)['state']
 
         _compare_model_params_between_state_dicts(state_dict1, state_dict2)
         _compare_optims_between_state_dicts(state_dict1, state_dict2)
@@ -841,17 +836,13 @@ def test_fsdp_partitioned_state_dict_load(
     use_tp: bool,
     use_hsdp: bool,
     use_remote,
-    s3_bucket,
-    s3_ephemeral_prefix,
+    uc_volume_ephemeral: str,
     request,
 ):
     if use_tp:
-        pytest.skip('TP on PyTorch 2.3 has sharded state dict issues.')
+        pytest.skip('TP has sharded state dict issues.')
     if weights_only and autoresume:
         pytest.skip('Weights only with autoresume is not supported')
-    if (use_tp or use_hsdp) and version.parse(torch.__version__) < version.parse('2.3.0'):
-        dist.barrier()  # Sync to avoid race conditions on cleaning up tmp_path
-        pytest.skip('HSDP and TP require torch 2.3.0 or later')
 
     load_ignore_keys = [] if load_ignore_keys is None else load_ignore_keys
 
@@ -862,7 +853,7 @@ def test_fsdp_partitioned_state_dict_load(
         run_name = None
 
     if use_remote:
-        save_folder = f's3://{s3_bucket}/{s3_ephemeral_prefix}/checkpoints/{{run_name}}'
+        save_folder = os.path.join(f'dbfs:/{uc_volume_ephemeral}', 'checkpoints', '{run_name}')
     else:
         tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
         save_folder = os.path.join(tmp_paths[0], 'checkpoints', '{run_name}')
@@ -911,7 +902,7 @@ def test_fsdp_partitioned_state_dict_load(
     trainer1.close()
 
     if use_remote:
-        load_path = 's3://' + save_folder.strip('s3://').format(
+        load_path = save_folder.format(
             run_name=run_name,
         ) + ('/ba2' if not use_symlink else '/latest-rank0.pt.symlink')
     else:
@@ -979,8 +970,7 @@ def test_elastic_resumption(
     autoresume: bool,
     precision: str,
     sharding_strategy,
-    s3_bucket,
-    s3_read_only_prefix,
+    uc_volume_read_only,
     num_shards: int,
 ):
     if autoresume:
@@ -988,10 +978,10 @@ def test_elastic_resumption(
     else:
         run_name = None
 
-    base_path = (
-        f's3://{s3_bucket}/{s3_read_only_prefix}/elastic_test/'
-        f'{sharding_strategy.lower()}_sharded_{precision}_'
-        f'{num_shards}/'
+    base_path = os.path.join(
+        f'dbfs:/{uc_volume_read_only}',
+        'elastic_test',
+        f'{sharding_strategy.lower()}_sharded_{precision}_{num_shards}',
     )
 
     mono_load_path = os.path.join(base_path, 'mono.pt')
@@ -1037,9 +1027,11 @@ def test_elastic_resumption(
             state_dict['model'] = trainer.state.model.state_dict()
 
         optimizer = trainer.state.optimizers[0]
+        with fsdp_state_dict_type_context(module=trainer.state.model, state_dict_type='full'):
+            optim_state_dict = FSDP.optim_state_dict(trainer.state.model, optimizer)  # type: ignore
+
         state_dict['optimizers'] = {
-            type(optimizer).__qualname__:
-                fsdp_get_optim_state_dict(trainer.state.model, optimizer, state_dict_type='full'),
+            type(optimizer).__qualname__: optim_state_dict,
         }
         return state_dict
 
@@ -1078,10 +1070,8 @@ def test_cleanup_sharded_checkpoints(
     world_size,
     tmp_path: pathlib.Path,
     num_ckpts_to_keep: int,
-    s3_bucket,
-    s3_ephemeral_prefix,
-    request,
 ):
+    del world_size  # not needed
     run_name = None
     batches_to_train = 3
 
@@ -1118,7 +1108,6 @@ def test_cleanup_sharded_checkpoints(
 @world_size(2)
 @pytest.mark.parametrize('weights_only', [False, True])
 @pytest.mark.parametrize('planner', [None, 'rename'])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2.0 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 def test_fsdp_planner(
@@ -1133,40 +1122,22 @@ def test_fsdp_planner(
     from torch.distributed.checkpoint.default_planner import DefaultLoadPlanner, DefaultSavePlanner
     from torch.distributed.checkpoint.metadata import STATE_DICT_TYPE, Metadata
 
-    if version.parse(torch.__version__) < version.parse('2.4.0'):
+    class RenameSavePlanner(DefaultSavePlanner):  # type: ignore
 
-        class RenameSavePlanner(DefaultSavePlanner):  # type: ignore
+        def set_up_planner(
+            self,
+            state_dict: STATE_DICT_TYPE,
+            storage_meta=None,
+            is_coordinator: bool = False,
+        ) -> None:
+            # suffix all keys with `foo_``
+            state_dict['state']['model'] = {k + '_foo': v for k, v in state_dict['state']['model'].items()}
 
-            def set_up_planner(
-                self,
-                state_dict: STATE_DICT_TYPE,
-                is_coordinator: bool = False,
-            ) -> None:
-                # suffix all keys with `foo_``
-                state_dict['state']['model'] = {k + '_foo': v for k, v in state_dict['state']['model'].items()}
-
-                super().set_up_planner(
-                    state_dict=state_dict,
-                    is_coordinator=is_coordinator,
-                )
-    else:
-
-        class RenameSavePlanner(DefaultSavePlanner):  # type: ignore
-
-            def set_up_planner(
-                self,
-                state_dict: STATE_DICT_TYPE,
-                storage_meta=None,
-                is_coordinator: bool = False,
-            ) -> None:
-                # suffix all keys with `foo_``
-                state_dict['state']['model'] = {k + '_foo': v for k, v in state_dict['state']['model'].items()}
-
-                super().set_up_planner(
-                    state_dict=state_dict,
-                    storage_meta=storage_meta,
-                    is_coordinator=is_coordinator,
-                )
+            super().set_up_planner(
+                state_dict=state_dict,
+                storage_meta=storage_meta,
+                is_coordinator=is_coordinator,
+            )
 
     class RenameLoadPlanner(DefaultLoadPlanner):
 

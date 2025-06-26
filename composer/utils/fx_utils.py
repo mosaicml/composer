@@ -261,9 +261,12 @@ def _can_linears_be_fused(linear_nodes: list[Node], all_modules: Mapping[str, nn
     """Check if all the linears have bias."""
     # Forcing node.target to str is fine here as we are dealing with nn.Modules
     # and their target is a str.
-    bias = all_modules[str(linear_nodes[0].target)].bias is None
+    bias = all_modules[str(linear_nodes[0].target)].bias is None  # pyright: ignore[reportUnnecessaryComparison]
 
-    return all(bias == (all_modules[str(node.target)].bias is None) for node in linear_nodes)
+    return all(
+        bias == (all_modules[str(node.target)].bias is None)  # pyright: ignore[reportUnnecessaryComparison]
+        for node in linear_nodes
+    )
 
 
 def _create_fused_linear(
@@ -281,7 +284,7 @@ def _create_fused_linear(
     assert len(linear_nodes) > 1, 'There should be at least 2 linears for fusion'
     out_features = []
     in_features = all_modules[str(linear_nodes[0].target)].in_features
-    bias = all_modules[str(linear_nodes[0].target)].bias is not None
+    bias = all_modules[str(linear_nodes[0].target)].bias is not None  # pyright: ignore[reportUnnecessaryComparison]
 
     for node in linear_nodes:
         out_features.append(all_modules[str(node.target)].out_features)

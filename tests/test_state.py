@@ -90,7 +90,7 @@ def test_state_serialize(tmp_path: pathlib.Path, empty_logger: Logger, request: 
     filepath = str(tmp_path / 'state.pt')
     torch.save(state_dict, filepath)
 
-    state_dict_2 = torch.load(filepath, map_location='cpu')
+    state_dict_2 = torch.load(filepath, map_location='cpu', weights_only=False)
     state2.load_state_dict(state_dict_2, empty_logger)
 
     # serialization/deserialization should be exact
@@ -164,7 +164,7 @@ def test_composer_metadata_in_state_dict(tmp_path, request: pytest.FixtureReques
     with open(save_path, 'wb') as _tmp_file:
         torch.save(state.state_dict(), _tmp_file)
 
-    loaded_state_dict = torch.load(save_path)
+    loaded_state_dict = torch.load(save_path, weights_only=False)
     expected_env_info_keys = {
         'composer_version',
         'composer_commit_hash',

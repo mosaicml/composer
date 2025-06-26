@@ -107,10 +107,10 @@ class SimpleMLP(torch.nn.Module):
 
     def __init__(self, num_features: int, device: str = 'cpu'):
         super().__init__()
-        self.fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
-        self.fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
 
-        self.net = torch.nn.Sequential(self.fc1, torch.nn.ReLU(), self.fc2)
+        self.net = torch.nn.Sequential(fc1, torch.nn.ReLU(), fc2)
 
     def forward(self, x):
         return self.net(x)
@@ -135,11 +135,66 @@ class EvenSimplerMLP(torch.nn.Module):
 # test ComposerModels instead of nn.Module.
 class SimpleComposerMLP(ComposerClassifier):
 
-    def __init__(self, num_features: int, device: Union[str, torch.device], num_classes: int = 3):
-        fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
-        fc2 = torch.nn.Linear(num_features, num_classes, device=device, bias=False)
+    def __init__(
+        self,
+        num_features: int,
+        device: Union[str, torch.device],
+        num_classes: int = 3,
+        add_bias: bool = False,
+        add_multiple_model_references: bool = False,
+    ):
+        fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=add_bias)
+        fc2 = torch.nn.Linear(num_features, num_classes, device=device, bias=add_bias)
         net = torch.nn.Sequential(fc1, torch.nn.ReLU(), fc2)
         super().__init__(num_classes=num_classes, module=net)
+        if add_multiple_model_references:
+            self.net2 = net
+
+    def add_fsdp_wrap_attribute_to_children(self):
+        for child in self.module.children():
+            child._fsdp_wrap = True  # type: ignore
+
+    def param_init_fn(self, module):
+        init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
+
+        if isinstance(module, torch.nn.Linear):
+            init_fn(module.weight)
+            if module.bias is not None:  # pyright: ignore[reportUnnecessaryComparison]
+                torch.nn.init.zeros_(module.bias)
+
+
+class CountModule(torch.nn.Module):
+
+    def __init__(self, num_inputs: int, num_outputs: int, device: Union[str, torch.device]):
+        super().__init__()
+        self.call_count = 0
+        self.inner_1 = torch.nn.Linear(num_inputs, num_outputs, device=device, bias=False)
+        self.inner_2 = torch.nn.Linear(num_outputs, num_outputs, device=device, bias=False)
+
+    def forward(self, x):
+        self.call_count += 1
+        x = self.inner_1(x)
+        x = self.inner_2(x)
+        return x
+
+
+# A simple MLP with two hidden layers where the module counts the number of times it calls forward
+# This is used to test activation checkpointing
+class ComposerCounterModel(ComposerClassifier):
+
+    def __init__(
+        self,
+        num_inputs: int,
+        num_outputs: int,
+        device: Union[str, torch.device],
+        num_hidden_layer_features: int = 8,
+    ):
+        module = torch.nn.Sequential(
+            CountModule(num_inputs, num_hidden_layer_features, device),
+            CountModule(num_hidden_layer_features, num_outputs, device),
+        )
+        super().__init__(num_classes=num_outputs, module=module)
+        self.module = module
 
 
 # Like SimpleComposerMLP but saves each layer which is necessary to TP to it.
@@ -161,7 +216,6 @@ class SimpleWeightTiedModel(ComposerClassifier):
 
     Args:
         num_features (int): number of input features (default: 1)
-        tie_weights (bool): whether or not to tie weights (default: True)
         device (str): the device to initialize the model (default: 'cpu')
     """
 
@@ -177,11 +231,66 @@ class SimpleWeightTiedModel(ComposerClassifier):
 
         super().__init__(module=net, num_classes=num_features)
 
-        self.mlp = mlp
-        self.net = net
-        self.net.param_init_fn = self.param_init_fn  # pyright: ignore[reportGeneralTypeIssues]
+        self.module.param_init_fn = self.param_init_fn  # pyright: ignore[reportGeneralTypeIssues]
 
-        self.mlp.fc1.weight = self.mlp.fc2.weight
+        # Adding mlp.fc1.weight = mlp.fc2.weight without assignment to self.fc1 and self.fc2
+        # since we don't want to create duplicate references to the same module
+        # since that will break mixed init.
+        mlp.net[0].weight = mlp.net[-1].weight
+
+    def add_fsdp_wrap_attribute_to_children(self):
+        for child in self.children():
+            child._fsdp_wrap = False  # type: ignore
+        for child in self.module.children():
+            child._fsdp_wrap = True  # type: ignore
+
+    def param_init_fn(self, module):
+        init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
+
+        if isinstance(module, torch.nn.Linear):
+            init_fn(module.weight)
+            if module.bias is not None:  # pyright: ignore[reportUnnecessaryComparison]
+                torch.nn.init.zeros_(module.bias)
+
+
+class PartialWeightTiedModel(ComposerClassifier):
+    """Small classification model with partially tied weights.
+    Typically this model will be used to test weight tying w/ FSDP
+
+    Args:
+        num_features (int): number of input features (default: 1)
+        device (str): the device to initialize the model (default: 'cpu')
+    """
+
+    def __init__(self, num_features: int = 1, device: str = 'cpu') -> None:
+        mlp = SimpleMLP(num_features, device)
+
+        # a third fc layer that is not tied to the above mlp
+        fc3 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+
+        net = torch.nn.Sequential(
+            mlp,
+            fc3,
+            torch.nn.Softmax(dim=-1),
+        )
+
+        # fc1 would be a child module of the Sequential module now but only the mlp should be FSDP wrapped
+        # TODO support this or add negative test for this
+        # net.fc1 = mlp.fc1
+
+        super().__init__(module=net, num_classes=num_features)
+        self.module.param_init_fn = self.param_init_fn  # pyright: ignore[reportGeneralTypeIssues]
+
+        # Adding mlp.fc1.weight = mlp.fc2.weight without assignment to self.fc1 and self.fc2
+        # since we don't want to create duplicate references to the same module since that
+        # will break mixed init.
+        mlp.net[0].weight = mlp.net[-1].weight
+
+    def add_fsdp_wrap_attribute_to_children(self):
+        for child in self.children():
+            child._fsdp_wrap = False  # type: ignore
+        for child in self.module.children():
+            child._fsdp_wrap = True  # type: ignore
 
     def param_init_fn(self, module):
         init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
@@ -215,11 +324,7 @@ class EmbeddedWeightTiedModel(ComposerClassifier):
         super().__init__(module=net, num_classes=num_features)
 
         self.module.param_init_fn = self.param_init_fn  # pyright: ignore[reportGeneralTypeIssues]
-
-        self.net1 = net1
-        self.net2 = net2
-
-        self.net1.fc1.weight = self.net2.fc1.weight
+        net1.net[0].weight = net2.net[0].weight
 
     def param_init_fn(self, module):
         init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
@@ -596,41 +701,6 @@ def configure_tiny_bert_hf_model(use_logits: bool = True) -> HuggingFaceModel:
     return HuggingFaceModel(configure_tiny_bert_model(), configure_tiny_bert_tokenizer(), use_logits)
 
 
-def configure_tiny_deberta_model() -> 'PreTrainedModel':
-    try:
-        from transformers import PreTrainedModel
-        assert isinstance(pytest.tiny_deberta_model, PreTrainedModel)
-        return copy.deepcopy(pytest.tiny_deberta_model)
-    except AttributeError:
-        pytest.skip('Composer installed without NLP support')
-
-
-def configure_tiny_deberta_tokenizer() -> Union['PreTrainedTokenizer', 'PreTrainedTokenizerFast']:
-    try:
-        from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
-        assert isinstance(pytest.tiny_deberta_tokenizer, (PreTrainedTokenizer, PreTrainedTokenizerFast))
-        return copy.deepcopy(pytest.tiny_deberta_tokenizer)
-    except AttributeError:
-        pytest.skip('Composer installed without NLP support')
-
-
-def configure_tiny_deberta_config() -> 'PretrainedConfig':
-    try:
-        from transformers import PretrainedConfig
-        assert isinstance(pytest.tiny_deberta_config, PretrainedConfig)
-        return copy.deepcopy(pytest.tiny_deberta_config)
-    except AttributeError:
-        pytest.skip('Composer installed without NLP support')
-
-
-def configure_tiny_deberta_hf_model(use_logits: bool = True) -> HuggingFaceModel:
-    return HuggingFaceModel(
-        configure_tiny_deberta_model(),
-        configure_tiny_deberta_tokenizer(),
-        use_logits,
-    )
-
-
 def configure_tiny_gpt2_model() -> 'PreTrainedModel':
     try:
         from transformers import PreTrainedModel
@@ -645,15 +715,6 @@ def configure_tiny_gpt2_tokenizer() -> Union['PreTrainedTokenizer', 'PreTrainedT
         from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
         assert isinstance(pytest.tiny_gpt2_tokenizer, (PreTrainedTokenizer, PreTrainedTokenizerFast))
         return copy.deepcopy(pytest.tiny_gpt2_tokenizer)
-    except AttributeError:
-        pytest.skip('Composer installed without NLP support')
-
-
-def configure_tiny_gpt2_config() -> 'PretrainedConfig':
-    try:
-        from transformers import PretrainedConfig
-        assert isinstance(pytest.tiny_gpt2_config, PretrainedConfig)
-        return copy.deepcopy(pytest.tiny_gpt2_config)
     except AttributeError:
         pytest.skip('Composer installed without NLP support')
 
@@ -680,19 +741,6 @@ def configure_tiny_t5_tokenizer() -> Union['PreTrainedTokenizer', 'PreTrainedTok
         pytest.skip('Composer installed without NLP support')
 
 
-def configure_tiny_t5_config() -> 'PretrainedConfig':
-    try:
-        from transformers import PretrainedConfig
-        assert isinstance(pytest.tiny_t5_config, PretrainedConfig)
-        return copy.deepcopy(pytest.tiny_t5_config)
-    except AttributeError:
-        pytest.skip('Composer installed without NLP support')
-
-
-def configure_tiny_t5_hf_model(use_logits: bool = True) -> HuggingFaceModel:
-    return HuggingFaceModel(configure_tiny_t5_model(), configure_tiny_t5_tokenizer(), use_logits)
-
-
 def configure_tiny_mpt_model() -> 'PreTrainedModel':
     try:
         from transformers import PreTrainedModel
@@ -709,16 +757,3 @@ def configure_tiny_mpt_tokenizer() -> Union['PreTrainedTokenizer', 'PreTrainedTo
         return copy.deepcopy(pytest.tiny_mpt_tokenizer)
     except AttributeError:
         pytest.skip('Composer installed without NLP support')
-
-
-def configure_tiny_mpt_config() -> 'PretrainedConfig':
-    try:
-        from transformers import PretrainedConfig
-        assert isinstance(pytest.tiny_mpt_config, PretrainedConfig)
-        return copy.deepcopy(pytest.tiny_mpt_config)
-    except AttributeError:
-        pytest.skip('Composer installed without NLP support')
-
-
-def configure_tiny_mpt_hf_model(use_logits: bool = True) -> HuggingFaceModel:
-    return HuggingFaceModel(configure_tiny_mpt_model(), configure_tiny_mpt_tokenizer(), use_logits)

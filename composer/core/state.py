@@ -11,13 +11,20 @@ import warnings
 from collections import OrderedDict
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional, Sequence, Union, cast
-from unittest.mock import MagicMock
 
 import numpy as np
 import torch
 import torch.nn.modules.utils
-from packaging import version
+from torch.amp.grad_scaler import GradScaler
 from torch.distributed._tensor.device_mesh import DeviceMesh, init_device_mesh
+from torch.distributed.checkpoint.state_dict import (
+    StateDictOptions,
+    get_model_state_dict,
+    get_optimizer_state_dict,
+    set_model_state_dict,
+    set_optimizer_state_dict,
+)
+from torch.distributed.fsdp import FSDPModule
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.fully_sharded_data_parallel import (
     FullOptimStateDictConfig,
@@ -31,11 +38,6 @@ from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader, Dataset
 from torchmetrics import Metric
 
-if version.parse(torch.__version__) >= version.parse('2.3.0'):
-    from torch.amp.grad_scaler import GradScaler  # type: ignore
-else:
-    from torch.cuda.amp.grad_scaler import GradScaler  # type: ignore
-
 from composer.core.data_spec import DataSpec
 from composer.core.event import Event
 from composer.core.precision import Precision
@@ -43,6 +45,7 @@ from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit, ensure_time
 from composer.devices import Device
 from composer.utils import (
+    FSDP2Config,
     FSDPConfig,
     ParallelismConfig,
     ParallelismType,
@@ -118,31 +121,6 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
         yield
 
 
-def fsdp_get_optim_state_dict(
-    model: torch.nn.Module,
-    optim: torch.optim.Optimizer,
-    state_dict_type: str = 'full',
-) -> dict[str, Any]:
-    """Materializes a given model's optimizer's state_dict.
-
-    Args:
-        model (torch.nn.Module): The model that the optimizer corresponds to.
-        optim (torch.optim.Optimizer): The optimizer that you want a state dict for.
-        state_dict_type (str, optional): which of the three state dict types you want to use.
-            choices are ['full', 'sharded']. Defaults to 'full'.
-            * 'full': the full, unsharded state dict materialized only on rank 0
-            * 'sharded': the sharded, unflattened state_dict, where each rank only gets a single shard.
-
-    Raises:
-        NotImplementedError: if you specify a state_dict_type not in ['full', 'sharded'].
-
-    Returns:
-        dict[str, Any]: The state_dict for the given optimizer.
-    """
-    with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
-        return FSDP.optim_state_dict(model, optim)  # type: ignore
-
-
 def _legacy_optim_state_dict_to_load(
     optim_state_dict: Optional[dict[str, Any]],
     model: torch.nn.Module,
@@ -196,13 +174,9 @@ def _ensure_backwards_compatible_checkpointing(state_dict: dict[str, Any]):
 
 def _create_device_mesh(
     device: Device,
-    fsdp_config: Optional[FSDPConfig],
+    fsdp_config: Optional[FSDPConfig | FSDP2Config],
     tp_config: Optional[TPConfig],
 ) -> Optional[DeviceMesh]:
-    if version.parse(torch.__version__.split('.dev')[0]) < version.parse('2.3.0'):
-        # Device mesh has correctness issues before torch 2.3.0
-        return None
-
     if fsdp_config is None:
         return None
 
@@ -479,6 +453,8 @@ class State(Serializable):
         precision_config: Optional[dict[str, Any]] = None,
 
         # optimizers
+        # TODO: Deprecate optimizers and support `optimizer` instead since we
+        # don't support multiple optimizers
         optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
 
         # scaler
@@ -536,7 +512,8 @@ class State(Serializable):
 
         self.profiler: Optional[Profiler] = None
 
-        self.fsdp_config = parallelism_config.fsdp if parallelism_config is not None else None
+        self._fsdp_config = parallelism_config.fsdp if parallelism_config is not None else None
+        self._fsdp2_config = parallelism_config.fsdp2 if parallelism_config is not None else None
         self.tp_config = parallelism_config.tp if parallelism_config is not None else None
 
         self.automicrobatch_fsdp_hook_handles = []
@@ -591,8 +568,6 @@ class State(Serializable):
         # Validate TP config
         if self.tp_config is not None:
             warnings.warn('Tensor parallelism (TP) is experimental and may change in future versions.', FutureWarning)
-            if version.parse(torch.__version__.split('.dev')[0]) < version.parse('2.3.0'):
-                raise ValueError('Tensor parallelism (TP) requires torch>=2.3.0.')
             if self.fsdp_config is None:
                 raise ValueError(
                     'Tensor parallelism (TP) currently requires FSDP to be enabled. '
@@ -618,7 +593,8 @@ class State(Serializable):
                 raise ValueError('load_monolith_rank0_only is not compatible with tensor parallelism (TP).')
             assert self.fsdp_config is not None
             error_message = ''
-            if self.fsdp_config.sync_module_states == False:
+            # FSDP2 automatically syncs module states, so we don't need to check for it
+            if isinstance(self.fsdp_config, FSDPConfig) and self.fsdp_config.sync_module_states == False:
                 error_message += textwrap.dedent(
                     "load_monolith_rank0_only requires parallelism_config['fsdp']['sync_module_states'] to be True. "
                     "Either set parallelism_config['fsdp']['sync_module_states'] = True or set load_monolith_rank0_only = False.",
@@ -874,10 +850,53 @@ class State(Serializable):
         self._evaluators[:] = list(ensure_tuple(evaluators))
 
     @property
+    def fsdp_config(self):
+        """Returns the appropriate FSDP configuration to use.
+
+        Prioritizes FSDP2 config if available, otherwise falls back to FSDP1 config.
+        """
+        return self._fsdp2_config if self._fsdp2_config is not None else self._fsdp_config
+
+    # For backward compatibility
+    @fsdp_config.setter
+    def fsdp_config(self, value: FSDPConfig | FSDP2Config):
+        """Sets the FSDP configuration, handling both FSDP1 and FSDP2 configurations."""
+        if isinstance(value, FSDPConfig):
+            self._fsdp_config = value
+            self._fsdp2_config = None
+        elif isinstance(value, FSDP2Config):
+            self._fsdp_config = None
+            self._fsdp2_config = value
+        else:
+            raise TypeError(f'Expected value to be of type FSDPConfig or FSDP2Config, but got {type(value)}.')
+
+    @property
+    def fsdp_config_version(self) -> int:
+        """Return the version of the FSDP config.
+
+        Version 0 means DDP.
+        Version 1 means using torch's FullyShardedDataParallel.
+        Version 2 means using torch's fully_shard and Dtensor.
+
+        Returns:
+            int: The version of the FSDP config.
+        """
+        match self.fsdp_config:
+            case None:
+                return 0  # DDP
+            case config if isinstance(config, FSDPConfig):
+                return 1
+            case config if isinstance(config, FSDP2Config):
+                return 2
+            case _:
+                raise ValueError(f'Unknown FSDP config type: {type(self.fsdp_config)}')
+
+    @property
     def fsdp_enabled(self):
         """Indicates if FSDP is enabled."""
         for module in self.model.modules():
-            if isinstance(module, FSDP):
+            # FSDP is FSDP1, FSDPModule is FSDP2
+            if isinstance(module, (FSDP, FSDPModule)):
                 return True
         return False
 
@@ -895,10 +914,14 @@ class State(Serializable):
 
     @property
     def load_monolith_rank0_only(self):
-        return (
-            self.fsdp_config is not None and self.fsdp_config.auto_wrap and
-            self.fsdp_config.state_dict_type == 'full' and self.fsdp_config.load_monolith_rank0_only == True
+        should_load_monolith_rank0_only = (
+            self.fsdp_config is not None and self.fsdp_config.state_dict_type == 'full' and
+            self.fsdp_config.load_monolith_rank0_only == True
         )
+        # TODO: Only FSDP1 has auto_wrap; if this is a legacy config, we should remove this check
+        if isinstance(self.fsdp_config, FSDPConfig):
+            should_load_monolith_rank0_only = should_load_monolith_rank0_only and self.fsdp_config.auto_wrap
+        return should_load_monolith_rank0_only
 
     def _get_integrations_state_dict(self) -> dict[str, Any]:
         """Gets a dictionary of information about integrations to store in the state dict.
@@ -957,37 +980,22 @@ class State(Serializable):
         Returns:
             dict[str, Any]: The state dict for the model.
         """
-        if version.parse(torch.__version__) >= version.parse('2.4.0') or (
-            version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized()
-        ):
-            from torch.distributed.checkpoint.state_dict import StateDictOptions, get_model_state_dict
-            if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
-                raise NotImplementedError(
-                    textwrap.dedent(
-                        f'fsdp_state_dict_type={self.fsdp_state_dict_type} is not supported for '
-                        f'torch version {{version.parse(torch.__version__)}} > 2.1.3. Please set '
-                        'fsdp_state_dict_type to None, "full", or "sharded".',
-                    ),
-                )
-
-            model_state_dict = get_model_state_dict(
-                model=self.model,
-                submodules=None,
-                options=StateDictOptions(
-                    full_state_dict=self.fsdp_state_dict_type == 'full',
-                    cpu_offload=self.fsdp_enabled,
+        if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
+            raise NotImplementedError(
+                textwrap.dedent(
+                    f'fsdp_state_dict_type={self.fsdp_state_dict_type} is not supported for '
+                    'torch version >= 2.4.0. Please set fsdp_state_dict_type to None, "full", or "sharded".',
                 ),
             )
-        else:
-            if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
-                with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
-                    model_state_dict = self.model.state_dict()
-            else:
-                model_state_dict = self.model.state_dict()
 
-            # If model is DDP wrapped, do not save the `module.` prefix, as that is an implementation detail
-            if self.is_model_ddp:
-                torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, 'module.')
+        model_state_dict = get_model_state_dict(
+            model=self.model,
+            submodules=None,
+            options=StateDictOptions(
+                full_state_dict=self.fsdp_state_dict_type == 'full',
+                cpu_offload=self.fsdp_enabled,
+            ),
+        )
 
         return model_state_dict
 
@@ -997,40 +1005,25 @@ class State(Serializable):
         Returns:
             dict[str, Any]: The state dict for the optimizer.
         """
-        if version.parse(torch.__version__) >= version.parse('2.4.0') or (
-            version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized()
-        ):
-            from torch.distributed.checkpoint.state_dict import StateDictOptions, get_optimizer_state_dict
-            if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
-                raise NotImplementedError(
-                    textwrap.dedent(
-                        f'fsdp_state_dict_type={self.fsdp_state_dict_type} is not supported for '
-                        f'torch version {{version.parse(torch.__version__)}} > 2.1.3. Please set '
-                        'fsdp_state_dict_type to None, "full", or "sharded".',
-                    ),
-                )
-
-            optimizer = ensure_tuple(self.optimizers)[0]
-            optim_state_dict = get_optimizer_state_dict(
-                model=self.model,
-                optimizers=optimizer,
-                submodules=None,
-                options=StateDictOptions(
-                    full_state_dict=self.fsdp_state_dict_type == 'full',
-                    cpu_offload=self.fsdp_enabled,
+        if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
+            raise NotImplementedError(
+                textwrap.dedent(
+                    f'fsdp_state_dict_type={self.fsdp_state_dict_type} is not supported for '
+                    'torch version >= 2.4.0. Please set fsdp_state_dict_type to None, "full", or "sharded".',
                 ),
             )
-            return {type(optimizer).__qualname__: optim_state_dict}
-        else:
-            optimizer = ensure_tuple(self.optimizers)[0]
-            if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
-                optim_state_dict = {
-                    type(optimizer).__qualname__:
-                        fsdp_get_optim_state_dict(self.model, optimizer, state_dict_type=self.fsdp_state_dict_type),
-                }
-            else:
-                optim_state_dict = {type(optimizer).__qualname__: optimizer.state_dict()}
-            return optim_state_dict
+
+        optimizer = ensure_tuple(self.optimizers)[0]
+        optim_state_dict = get_optimizer_state_dict(
+            model=self.model,
+            optimizers=optimizer,
+            submodules=None,
+            options=StateDictOptions(
+                full_state_dict=self.fsdp_state_dict_type == 'full',
+                cpu_offload=self.fsdp_enabled,
+            ),
+        )
+        return {type(optimizer).__qualname__: optim_state_dict}
 
     def state_dict(self) -> dict[str, Any]:
         """Collect the state dicts of our serializable attributes.
@@ -1309,75 +1302,44 @@ class State(Serializable):
         model_on_rank = state_dict['model'] is not None
 
         if model_on_rank:
-            if version.parse(torch.__version__) >= version.parse('2.4.0') or (
-                version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized()
-            ):
-                from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
-                try:
-                    set_model_state_dict(
-                        model=self.model,
-                        model_state_dict=state_dict['model'],
-                        options=StateDictOptions(
-                            full_state_dict=self.fsdp_state_dict_type == 'full',
-                            strict=strict,
-                            cpu_offload=self.fsdp_enabled,
+            try:
+                set_model_state_dict(
+                    model=self.model,
+                    model_state_dict=state_dict['model'],
+                    options=StateDictOptions(
+                        full_state_dict=self.fsdp_state_dict_type == 'full',
+                        strict=strict,
+                        cpu_offload=self.fsdp_enabled,
+                    ),
+                )
+            except AttributeError as e:
+                # Issue: https://github.com/pytorch/pytorch/issues/127351
+                if "ShardedTensor' object has no attribute 'placements'" in str(e):
+                    raise RuntimeError(
+                        textwrap.dedent(
+                            'PyTorch DTensor broke backwards compatibility in older checkpoints '
+                            'with ShardedTensor, which is now deprecated. To load old checkpoints, '
+                            'either downgrade to PyTorch <2.3.0 or explicitly pass process groups '
+                            'in the Trainer constructor via '
+                            "`parallelism_config = {'fsdp': {'process_group': 'mod1'}}`. We can "
+                            'provide assistance at https://github.com/mosaicml/composer/issues.',
                         ),
-                    )
-                except AttributeError as e:
-                    # Issue: https://github.com/pytorch/pytorch/issues/127351
-                    if "ShardedTensor' object has no attribute 'placements'" in str(e):
-                        raise RuntimeError(
-                            textwrap.dedent(
-                                'PyTorch DTensor broke backwards compatibility in older checkpoints '
-                                'with ShardedTensor, which is now deprecated. To load old checkpoints, '
-                                'either downgrade to PyTorch <2.3.0 or explicitly pass process groups '
-                                'in the Trainer constructor via '
-                                "`parallelism_config = {'fsdp': {'process_group': 'mod1'}}`. We can "
-                                'provide assistance at https://github.com/mosaicml/composer/issues.',
-                            ),
-                        ) from e
-                    else:
-                        raise e
-            else:
-                missing_keys, unexpected_keys = [], []
-                try:
-                    # Load model if it exists
-                    if self.fsdp_enabled and self.fsdp_state_dict_type is not None and not self.load_monolith_rank0_only:
-                        log.debug(
-                            f'Loading model state dict with strict={strict} and FSDP state_dict_type={self.fsdp_state_dict_type}',
-                        )
-                        with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
-                            missing_keys, unexpected_keys = self.model.load_state_dict(
-                                state_dict['model'],
-                                strict=strict,
-                            )
-                    else:
-                        log.debug(f'Loading model state dict with strict={strict}')
-                        missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
-                except RuntimeError as e:
-                    if 'Missing key(s) in state_dict' in str(e) or 'Unexpected key(s) in state_dict' in str(e):
-                        raise RuntimeError(
-                            textwrap.dedent(
-                                'Failed to load checkpoint due to missing or unexpected keys in state_dict. '
-                                'This is likely due to a change in the model architecture. If this is intentional, '
-                                'you can set load_strict_model_weights=False in the Trainer.',
-                            ),
-                        ) from e
-                    else:
-                        raise e
-
-                if len(missing_keys) > 0:
-                    log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
-                if len(unexpected_keys) > 0:
-                    log.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
+                    ) from e
+                else:
+                    raise e
 
         # If loading FSDP monolith checkpoint on rank 0 only, the model must be wrapped after loading
         if self.load_monolith_rank0_only:
             assert self.fsdp_config is not None
             log.info('Wrapping model with FSDP after loading model_state.')
-            with reproducibility.seed_context(self.rank_zero_seed):
-                from composer.distributed import prepare_fsdp_module
+            self._apply_fsdp()
+            log.debug('Finished wrapping model with FSDP.')
 
+    def _apply_fsdp(self):
+        # Init with globally fixed seed so all FSDP/HSDP replicas have the same initial weights
+        with reproducibility.seed_context(self.rank_zero_seed):
+            if isinstance(self.fsdp_config, FSDPConfig):
+                from composer.distributed import prepare_fsdp_module
                 self.automicrobatch_fsdp_hook_handles, self.fsdp_modules = prepare_fsdp_module(
                     self.model,
                     self.optimizers,
@@ -1386,7 +1348,22 @@ class State(Serializable):
                     self.device,
                     self.auto_microbatching,
                 )
-            log.debug('Finished wrapping model with FSDP.')
+            elif isinstance(self.fsdp_config, FSDP2Config):
+                from composer import ComposerModel
+                from composer.distributed.prepare_distributed import parallelize_composer_model
+
+                # FSDP2 doesn't support auto_microbatching (checked earlier, just validating here to be safe)
+                assert not self.auto_microbatching, 'auto_microbatching is not supported with FSDP2'
+                # To make pyright happy (instead of just adding a type: ignore)
+                assert isinstance(self.model, ComposerModel)
+
+                parallelize_composer_model(
+                    self.model,
+                    self.optimizers[0] if self.optimizers else None,
+                    self.fsdp_config,
+                )
+            else:
+                raise ValueError(f'Unsupported FSDP config type for monolithic loading: {type(self.fsdp_config)}')
 
     def load_optim_state(self, state_dict: dict[str, Any], strict: bool = True):
         """Load the optimizer state.
@@ -1414,52 +1391,31 @@ class State(Serializable):
                 continue
 
             optim_state_dict = serialized_value[type(optimizer).__qualname__] if serialized_value is not None else None
-            if version.parse(torch.__version__) >= version.parse('2.4.0') or (
-                version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized()
-            ):
-                from torch.distributed.checkpoint.state_dict import StateDictOptions, set_optimizer_state_dict
 
-                # optim_state_dict is `None` on non-zero ranks when loading FSDP monolith
-                # checkpoint on rank 0 only. However, PyTorch modifies the state_dict (producing
-                # errors) before discarding the output. Accordingly, we mock the state dict.
-                # See: https://github.com/pytorch/pytorch/issues/125177
-                if version.parse(torch.__version__) < version.parse('2.4.0'):
-                    optim_state_dict = MagicMock() if optim_state_dict is None else optim_state_dict
-                set_optimizer_state_dict(
-                    model=self.model,
-                    optimizers=optimizer,
-                    optim_state_dict=optim_state_dict,
-                    options=StateDictOptions(
-                        full_state_dict=self.fsdp_state_dict_type == 'full',
-                        strict=strict,
-                        cpu_offload=self.fsdp_enabled,
-                    ),
-                )
-            else:
-                if self.fsdp_enabled:
-                    assert self.fsdp_state_dict_type is not None  # pyright
-                    log.debug(f'Loading FSDP optimizer with fsdp_state_dict_type={self.fsdp_state_dict_type}')
-                    # Loading FSDP monolith on rank 0 only requires FSDP.scatter_full_optim_state_dict
-                    # as the context manager does not seem to pass rank0_only=True for the optimizer config
-                    if self.load_monolith_rank0_only:
-                        optim_state_dict = _legacy_optim_state_dict_to_load(
-                            optim_state_dict=optim_state_dict,
-                            model=self.model,
-                            optim=optimizer,
-                            state_dict_type=self.fsdp_state_dict_type,
-                        )
-                    else:
-                        assert optim_state_dict is not None
-                        with fsdp_state_dict_type_context(module=self.model, state_dict_type=self.fsdp_state_dict_type):
-                            optim_state_dict = FSDP.optim_state_dict_to_load(  #  type: ignore
-                                optim_state_dict=optim_state_dict, model=self.model, optim=optimizer,
-                            )
-                    assert optim_state_dict is not None
-                    optimizer.load_state_dict(optim_state_dict)
-                else:
-                    assert optim_state_dict is not None
-                    log.debug(f'Loading optimizer state dict')
-                    optimizer.load_state_dict(optim_state_dict)
+            # Note: 'broadcast_from_rank0' is only required for FSDP2.
+            # - In `set_optimizer_state_dict`, FSDP1 follows a different code path where it detects FSDP1 modules and handles FlatParameters differently.
+            #   Essentially, either `cpu_offload` or `broadcast_from_rank0` in FSDP1 cause broadcasting from rank 0 and that's why we only need to set
+            #   `cpu_offload` to True for FSDP1. Setting `broadcast_from_rank0` to True for FSDP1 is essentially a no-op and this follows our previous
+            #   implementation for FSDP1.
+            # - In FSDP2, we don't need to set `cpu_offload` to True as the model weights has already been sharded to DTensors on GPUs on all ranks.
+            #   `set_optimizer_state_dict` will utilize those sharded weights to broadcast the relevant shards of the optimizer state dict (on CPU on rank 0)
+            #   to the relevant GPUs on all ranks when `broadcast_from_rank0` is set to True.
+            cpu_offload = self.fsdp_enabled and isinstance(self.fsdp_config, FSDPConfig)
+            broadcast_from_rank0 = self.load_monolith_rank0_only and isinstance(self.fsdp_config, FSDP2Config)
+
+            state_dict_options = StateDictOptions(
+                full_state_dict=self.fsdp_state_dict_type == 'full',
+                broadcast_from_rank0=broadcast_from_rank0,
+                cpu_offload=cpu_offload,
+                strict=strict,
+            )
+
+            set_optimizer_state_dict(
+                model=self.model,
+                optimizers=optimizer,
+                optim_state_dict=optim_state_dict,  # type: ignore
+                options=state_dict_options,
+            )
 
     def load_state_dict(
         self,

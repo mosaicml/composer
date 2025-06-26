@@ -8,7 +8,7 @@ repos:
   - id: ruff
     args: [--fix, --exit-non-zero-on-fix]
 - repo: https://github.com/google/yapf
-  rev: v0.32.0
+  rev: v0.43.0
   hooks:
   - id: yapf
     name: yapf

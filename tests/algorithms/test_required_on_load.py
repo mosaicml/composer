@@ -8,7 +8,6 @@ import pathlib
 
 import pytest
 import torch
-from packaging import version
 
 from composer import Trainer, algorithms
 from composer.callbacks import CheckpointSaver
@@ -17,7 +16,6 @@ from composer.core import Time  # noqa: F401 # type: ignore imports used in `eva
 from composer.core import TimeUnit  # noqa: F401 # type: ignore imports used in `eval(representation)`
 from composer.core import Algorithm
 from composer.models import ComposerClassifier, ComposerModel
-from composer.utils import dist
 from tests.common import ConvModel, SimpleConvModel, composer_resnet
 
 
@@ -176,36 +174,16 @@ def test_autoload(
             context = pytest.warns(UserWarning, match='Automatically adding required_on_load algorithm*')
         # Excluding some algorithms leads to errors when loading
         elif exclude:
-            if version.parse(torch.__version__) >= version.parse('2.4.0'):
-                if algo_name in [
-                    'BlurPool',
-                    'Factorize',
-                    'GatedLinearUnits',
-                    'GhostBatchNorm',
-                    'SqueezeExcite',
-                ]:
-                    context = pytest.raises(KeyError)  # Optimizer loading is strict
-                elif algo_name == 'Alibi':
-                    context = pytest.raises(RuntimeError)  # Alibi has shape issues
-            elif version.parse(torch.__version__) >= version.parse('2.3.0') and dist.is_initialized():
-                if algo_name in [
-                    'Alibi',
-                    'BlurPool',
-                    'Factorize',
-                    'GatedLinearUnits',
-                    'GhostBatchNorm',
-                    'SqueezeExcite',
-                ]:
-                    context = pytest.raises(KeyError)  # Optimizer loading is strict
-            else:
-                if algo_name in ['Factorize', 'SqueezeExcite']:
-                    context = pytest.raises(
-                        ValueError,
-                        match=
-                        "loaded state dict contains a parameter group that doesn't match the size of optimizer's group",
-                    )
-                elif algo_name == 'Alibi':
-                    context = pytest.raises(RuntimeError)
+            if algo_name in [
+                'BlurPool',
+                'Factorize',
+                'GatedLinearUnits',
+                'GhostBatchNorm',
+                'SqueezeExcite',
+            ]:
+                context = pytest.raises(KeyError)  # Optimizer loading is strict
+            elif algo_name == 'Alibi':
+                context = pytest.raises(RuntimeError)  # Alibi has shape issues
 
         with context:
             trainer2 = Trainer(

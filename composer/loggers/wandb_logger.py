@@ -103,7 +103,7 @@ class WandBLogger(LoggerDestination):
         self._is_in_atexit = False
 
         # Set these variable directly to allow fetching an Artifact **without** initializing a WandB run
-        # When used as a LoggerDestination, these values are overriden from global rank 0 to all ranks on Event.INIT
+        # When used as a LoggerDestination, these values are overridden from global rank 0 to all ranks on Event.INIT
         self.entity = entity
         self.project = project
 
@@ -381,14 +381,14 @@ def _preprocess_mask_data(
     masks: dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]],
     channels_last: bool,
 ) -> dict[str, np.ndarray]:
-    preprocesssed_masks = {}
+    preprocessed_masks = {}
     for mask_name, mask_data in masks.items():
         if not isinstance(mask_data, Sequence):
             mask_data = mask_data.squeeze()
             if mask_data.ndim == 2:
                 mask_data = [mask_data]
-        preprocesssed_masks[mask_name] = np.stack([_convert_to_wandb_mask(mask, channels_last) for mask in mask_data])
-    return preprocesssed_masks
+        preprocessed_masks[mask_name] = np.stack([_convert_to_wandb_mask(mask, channels_last) for mask in mask_data])
+    return preprocessed_masks
 
 
 def _create_wandb_masks_generator(

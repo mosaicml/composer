@@ -10,9 +10,12 @@
 # ARG CUDA_VERSION=
 ARG CUDA_VERSION=11.3.1
 
+# Ubuntu version of base image.
+ARG UBUNTU_VERSION=22.04
+
 # Calculate the base image based on CUDA_VERSION
-ARG BASE_IMAGE=${CUDA_VERSION:+"nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu22.04"}
-ARG BASE_IMAGE=${BASE_IMAGE:-"ubuntu:22.04"}
+ARG BASE_IMAGE=${CUDA_VERSION:+"nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${UBUNTU_VERSION}"}
+ARG BASE_IMAGE=${BASE_IMAGE:-"ubuntu:${UBUNTU_VERSION}"}
 
 # The Python version to install
 ARG PYTHON_VERSION=3.10
@@ -31,7 +34,7 @@ ARG MOFED_VERSION=5.5-1.0.3.2
 
 # Version of EFA Drivers to install (for AWS Elastic Fabric Adapter support)
 # Leave blank for no EFA Drivers
-ARG AWS_OFI_NCCL_VERSION=v1.7.4-aws
+ARG EFA_INSTALLER_VERSION=1.39.0
 
 # Upgrade certifi to resolve CVE-2022-23491
 ARG CERTIFI_VERSION='>=2022.12.7'
@@ -65,6 +68,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-c"]
 
 ARG CUDA_VERSION
+ARG UBUNTU_VERSION
 
 # Remove a bad symlink from the base composer image
 # If this file is present after the first command, kaniko
@@ -72,7 +76,6 @@ ARG CUDA_VERSION
 RUN if [ -n "$CUDA_VERSION" ]; then \
         rm -f /usr/local/cuda-$(echo $CUDA_VERSION | cut -c -4)/cuda-$(echo $CUDA_VERSION | cut -c -4); \
     fi
-
 
 # update repository keys
 # https://developer.nvidia.com/blog/updating-the-cuda-linux-gpg-repository-key/
@@ -86,7 +89,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         rm -rf /var/lib/apt/lists/* \
         apt-key del 7fa2af80 && \
         mkdir -p /tmp/cuda-keyring && \
-        wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb && \
+        wget -P /tmp/cuda-keyring "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VERSION//./}/x86_64/cuda-keyring_1.0-1_all.deb" && \
         dpkg -i /tmp/cuda-keyring/cuda-keyring_1.0-1_all.deb && \
         rm -rf /tmp/cuda-keyring ; \
     fi
@@ -159,20 +162,20 @@ ARG PYTHON_VERSION
 # Python 3.10 changes where packages are installed. Workaround until all packages support new format
 ENV DEB_PYTHON_INSTALL_LAYOUT=deb
 
+# Python 3.12 no longer supports distutils
 RUN add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
     python3-apt \
     python${PYTHON_VERSION} \
     python${PYTHON_VERSION}-dev \
-    python${PYTHON_VERSION}-distutils \
     python${PYTHON_VERSION}-venv && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} - && \
-    pip${PYTHON_VERSION} install --no-cache-dir --upgrade pip 'setuptools<70.0.0'
+    pip${PYTHON_VERSION} install --no-cache-dir --upgrade pip 'setuptools<79.0.0'
 
 #################
 # Install Pytorch
@@ -199,18 +202,17 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
 	        torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} ; \
     fi
 
-#####################################
-# Install EFA and AWS-OFI-NCCL plugin
-#####################################
+#############
+# Install EFA
+#############
 
-ARG EFA_INSTALLER_VERSION=latest
-ARG AWS_OFI_NCCL_VERSION
+ARG EFA_INSTALLER_VERSION
 
-ENV LD_LIBRARY_PATH=/usr/local/cuda/extras/CUPTI/lib64:/opt/amazon/openmpi/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:$LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH=/usr/local/cuda/extras/CUPTI/lib64:/opt/amazon/openmpi/lib:/opt/amazon/efa/lib:$LD_LIBRARY_PATH
 ENV PATH=/opt/amazon/openmpi/bin/:/opt/amazon/efa/bin:$PATH
 ENV FI_EFA_USE_DEVICE_RDMA=1
 
-RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
+RUN if [ -n "$EFA_INSTALLER_VERSION" ] ; then \
     apt-get update && \
     apt-get install -y --no-install-recommends \
         hwloc \
@@ -220,7 +222,7 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
     rm -rf /var/lib/apt/lists/* ; \
     fi
 
-RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
+RUN if [ -n "$EFA_INSTALLER_VERSION" ] ; then \
         cd /tmp && \
         curl -OsS https://efa-installer.amazonaws.com/aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz && \
         tar -xf /tmp/aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz && \
@@ -228,19 +230,6 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
         apt-get update && \
         ./efa_installer.sh -y -g -d --skip-kmod --skip-limit-conf --no-verify && \
         rm -rf /tmp/aws-efa-installer* ; \
-    fi
-
-RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
-        git clone https://github.com/aws/aws-ofi-nccl.git /opt/aws-ofi-nccl && \
-        cd /opt/aws-ofi-nccl && \
-        git checkout ${AWS_OFI_NCCL_VERSION} && \
-        ./autogen.sh && \
-        ./configure --prefix=/opt/aws-ofi-nccl/install \
-            --with-libfabric=/opt/amazon/efa/ \
-            --with-cuda=/usr/local/cuda \
-            --disable-tests \
-            --enable-platform-aws && \
-        make && make install ; \
     fi
 
 ###################################
@@ -251,7 +240,7 @@ ARG MOFED_VERSION
 
 RUN if [ -n "$MOFED_VERSION" ] ; then \
         wget -qO - http://www.mellanox.com/downloads/ofed/RPM-GPG-KEY-Mellanox | sudo apt-key add - && \
-        wget -P /etc/apt/sources.list.d/ http://linux.mellanox.com/public/repo/mlnx_ofed/$MOFED_VERSION/ubuntu22.04/mellanox_mlnx_ofed.list && \
+        wget -P /etc/apt/sources.list.d/ http://linux.mellanox.com/public/repo/mlnx_ofed/$MOFED_VERSION/ubuntu$UBUNTU_VERSION/mellanox_mlnx_ofed.list && \
         apt-get update && \
         apt-get install -y mlnx-ofed-dpdk-upstream-libs-user-only && \
 	pip uninstall -y netifaces && pip install netifaces==0.11.0 ; \
@@ -261,9 +250,25 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
 # Install Flash Attention
 ##########################
 RUN if [ -n "$CUDA_VERSION" ] ; then \
+        set -e; \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir ninja==1.11.1 && \
+        pip${PYTHON_VERSION} install --upgrade --no-cache-dir wheel && \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir --force-reinstall packaging==22.0 && \
-        MAX_JOBS=1 pip${PYTHON_VERSION} install --no-cache-dir --no-build-isolation flash-attn==2.6.3; \
+        MAJOR_CUDA_VERSION=$(echo $CUDA_VERSION | cut -d. -f1) && \
+        CUDA_STRING="cu${MAJOR_CUDA_VERSION}" && \
+        PYTORCH_MAJOR=$(echo $PYTORCH_VERSION | cut -d. -f1) && \
+        PYTORCH_MINOR=$(echo $PYTORCH_VERSION | cut -d. -f2) && \
+        PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d. -f1) && \
+        PYTHON_MINOR=$(echo $PYTHON_VERSION | cut -d. -f2) && \
+        if [ "$PYTORCH_MAJOR" = "2" ] && [ "$PYTORCH_MINOR" = "7" ]; then \
+            WHEEL_URL="https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu12torch2.6cxx11abiTRUE-cp312-cp312-linux_x86_64.whl" ; \
+        else \
+            WHEEL_URL="https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+${CUDA_STRING}torch${PYTORCH_MAJOR}.${PYTORCH_MINOR}cxx11abiFALSE-cp${PYTHON_MAJOR}${PYTHON_MINOR}-cp${PYTHON_MAJOR}${PYTHON_MINOR}-linux_x86_64.whl" ; \
+        fi && \
+        echo "Installing Flash Attention from: $WHEEL_URL" && \
+        pip${PYTHON_VERSION} install --no-cache-dir $WHEEL_URL || \
+        (echo "Pre-built wheel not found, falling back to source installation" && \
+         MAX_JOBS=1 pip${PYTHON_VERSION} install --no-cache-dir --no-build-isolation --use-pep517 flash-attn==2.7.4.post1); \
         cd .. ; \
     fi
 
@@ -326,8 +331,10 @@ RUN pip install --no-cache-dir --upgrade \
         urllib3${URLLIB3_VERSION} \
         python-snappy
 
-RUN apt-get remove -y python3-blinker
-RUN pip install blinker
+RUN if [ "$UBUNTU_VERSION" != "20.04" ]; then \
+        apt-get remove -y python3-blinker && \
+        pip install blinker ; \
+    fi
 
 ##################################################
 # Override NVIDIA mistaken env var for 11.8 images

@@ -107,7 +107,7 @@ Our experiments found that Sequence Length Warmup could speed up training by a f
 
 One of the key design decisions when performing Sequence Length Warmup is the manner in which the sentences are shortened to the appropriate length. There are two options for doing this:
 * Truncating the sentence, discarding everything beyond the desired sequence length.
-* Segmenting the sentence, breaking it up into segments of the desired sequence lenght and making all segments into separate trianing examples.
+* Segmenting the sentence, breaking it up into segments of the desired sequence length and making all segments into separate training examples.
 
 ## Attribution
 

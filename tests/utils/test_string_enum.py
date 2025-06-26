@@ -23,7 +23,7 @@ def test_string_enum_invalid_value():
             VALUES_MUST_BE_LOWERCASE = 'VALUES_MUST_BE_LOWERCASE'
 
 
-def test_string_enum_comparision():
+def test_string_enum_comparison():
 
     class TestStringEnum(StringEnum):
         HELLO_WORLD = 'hello_world'

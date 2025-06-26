@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     from composer.core.evaluator import Evaluator
 
 import torch
-from packaging import version
 from torch import nn
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn.parallel import DistributedDataParallel
@@ -65,7 +64,7 @@ def get_model_state_dict(
     cpu_offload = cpu_offload if cpu_offload is not None else (is_fsdp and not sharded_state_dict)
 
     log.debug('Extracting model state dict')
-    if version.parse(torch.__version__) >= version.parse('2.2.0') and dist.is_initialized():
+    if dist.is_initialized():
         from torch.distributed.checkpoint import state_dict as DCPSD  # Distributed Checkpoint State Dict
         from torch.distributed.checkpoint.state_dict import StateDictOptions
 
@@ -159,11 +158,12 @@ def _get_model_state_dict_with_fsdp_context_manager(model: nn.Module, sharded_st
         StateDictType,
     )
     state_dict_type = StateDictType.SHARDED_STATE_DICT if sharded_state_dict else StateDictType.FULL_STATE_DICT
-    state_dict_config = ShardedStateDictConfig(offload_to_cpu=cpu_offload,
-                                              ) if sharded_state_dict else FullStateDictConfig(
-                                                  rank0_only=True,
-                                                  offload_to_cpu=cpu_offload,
-                                              )
+    state_dict_config = ShardedStateDictConfig(
+        offload_to_cpu=cpu_offload,
+    ) if sharded_state_dict else FullStateDictConfig(
+        rank0_only=True,
+        offload_to_cpu=cpu_offload,
+    )
     with FSDP.state_dict_type(model, state_dict_type=state_dict_type, state_dict_config=state_dict_config):
         model_state_dict = model.state_dict()
     return model_state_dict
@@ -284,11 +284,12 @@ def _get_optim_state_dict_with_fsdp_context_manager(
     )
     state_dict_type = StateDictType.SHARDED_STATE_DICT if sharded_state_dict else StateDictType.FULL_STATE_DICT
 
-    state_dict_config = ShardedStateDictConfig(offload_to_cpu=cpu_offload,
-                                              ) if sharded_state_dict else FullStateDictConfig(
-                                                  rank0_only=True,
-                                                  offload_to_cpu=cpu_offload,
-                                              )
+    state_dict_config = ShardedStateDictConfig(
+        offload_to_cpu=cpu_offload,
+    ) if sharded_state_dict else FullStateDictConfig(
+        rank0_only=True,
+        offload_to_cpu=cpu_offload,
+    )
     optim_state_dict_config = ShardedOptimStateDictConfig(
         offload_to_cpu=cpu_offload,
     ) if sharded_state_dict else FullOptimStateDictConfig(rank0_only=True, offload_to_cpu=cpu_offload)
@@ -335,7 +336,7 @@ def get_optim_state_dict(
 
     cpu_offload = cpu_offload if cpu_offload is not None else (is_fsdp and not sharded_state_dict)
     log.debug('Extracting optim state dict')
-    if version.parse(torch.__version__) >= version.parse('2.2.0') and dist.is_initialized():
+    if dist.is_initialized():
         from torch.distributed.checkpoint.state_dict import StateDictOptions, get_optimizer_state_dict
         log.debug('Calling torch get_optimizer_state_dict...')
         optim_state_dict: dict[str, Any] = get_optimizer_state_dict(

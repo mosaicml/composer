@@ -54,6 +54,8 @@ class MaskedAccuracy(Metric):
         masked_target = target[mask]
         masked_preds = preds[mask]
 
+        assert isinstance(self.correct, Tensor)
+        assert isinstance(self.total, Tensor)
         self.correct += torch.sum(masked_preds == masked_target)
         self.total += mask.sum()
 
@@ -123,7 +125,7 @@ class LanguageCrossEntropy(Metric):
 
 
 class BinaryF1Score(Metric):
-    """Implements F1 Scores for binary classification tasks via sklearn.
+    """Implements F1 Scores for binary classification tasks.
 
     Adds metric state variables:
         true_positive (float): A counter of how many items were correctly classified as positives.
@@ -154,6 +156,10 @@ class BinaryF1Score(Metric):
             target (~torch.Tensor): A Tensor of ground-truth values to compare against.
         """
         predictions = torch.argmax(output, dim=1)
+
+        assert isinstance(self.true_positive, Tensor)
+        assert isinstance(self.false_positive, Tensor)
+        assert isinstance(self.false_negative, Tensor)
         self.true_positive += predictions[(target == 1)].sum()
         self.false_positive += (predictions[(target == 1)] == 0).sum()
         self.false_negative += (predictions[(target == 0)] == 1).sum()

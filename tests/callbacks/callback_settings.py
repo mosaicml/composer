@@ -207,13 +207,35 @@ _callback_marks: dict[
     NeptuneLogger: [pytest.mark.skipif(not _NEPTUNE_INSTALLED, reason='neptune is optional')],
 }
 
+
+def _mlflow_patch():
+    try:
+        import mlflow.utils.file_utils
+        original_is_directory = mlflow.utils.file_utils.is_directory
+
+        def patched_is_directory(path):
+            if path.endswith('.trash'):
+                return True
+            return original_is_directory(path)
+
+        return mock.patch('mlflow.utils.file_utils.is_directory', patched_is_directory)
+    except ImportError:
+        return contextlib.nullcontext()
+
+
 _callback_patches: dict[type[Callback], Any] = {
-    LoadCheckpoint: mock.patch('composer.callbacks.load_checkpoint.load_checkpoint'),
+    LoadCheckpoint: lambda: mock.patch('composer.callbacks.load_checkpoint.load_checkpoint'),
+    MLFlowLogger: lambda: _mlflow_patch(),
 }
 
 
 def get_cb_patches(impl: type[Callback]):
-    return _callback_patches.get(impl, contextlib.nullcontext())
+    patch_context = _callback_patches.get(impl, None)
+    if patch_context is None:
+        return contextlib.nullcontext()
+    if callable(patch_context):
+        return patch_context()
+    return patch_context
 
 
 def get_cb_kwargs(impl: type[Callback]):

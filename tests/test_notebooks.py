@@ -4,7 +4,6 @@
 import glob
 import inspect
 import os
-from urllib.parse import urlparse
 
 import importlib_metadata
 import pytest
@@ -12,7 +11,7 @@ import testbook
 from testbook.client import TestbookNotebookClient
 
 import composer
-from composer.utils.import_helpers import MissingConditionalImportError
+from composer.utils.object_store.uc_object_store import UCObjectStore
 from tests.common import device
 
 nb_root = os.path.join(os.path.dirname(composer.__file__), '..', 'examples')
@@ -64,7 +63,7 @@ def patch_notebooks():
     DataLoader.__iter__ = new_iter  # type: ignore  # error: DataLoader has a stricter return type than islice
 
 
-def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_source: str, s3_bucket: str) -> str:
+def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_source: str) -> str:
     # This function is called before each cell is executed
     if notebook_name == 'functional_api':
         # avoid div by 0 errors with batch size of 1
@@ -105,9 +104,10 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
 
 
 @pytest.mark.parametrize('notebook', NOTEBOOKS)
+@pytest.mark.gpu
+@pytest.mark.remote
 @device('cpu', 'gpu')
-@pytest.mark.daily
-def test_notebook(notebook: str, device: str, s3_bucket: str):
+def test_notebook(notebook: str, device: str, uc_volume_read_only: str):
     trainer_monkeypatch_code = inspect.getsource(patch_notebooks)
     notebook_name = os.path.split(notebook)[-1][:-len('.ipynb')]
 
@@ -136,22 +136,18 @@ def test_notebook(notebook: str, device: str, s3_bucket: str):
     if notebook_name == 'exporting_for_inference':
         pytest.skip('MNIST dataset download is flaky')
 
-    try:
-        import boto3
-    except ImportError as e:
-        raise MissingConditionalImportError('streaming', 'boto3') from e
+    # Download CIFAR-10 data from UC Volumes
+    path_to_volume_root = f'{uc_volume_read_only}'.replace('read_only', '')
+    uc_store = UCObjectStore(path_to_volume_root)
+    files = uc_store.list_objects(prefix='read_only/CIFAR-10')
 
-    obj = urlparse('s3://mosaicml-internal-integration-testing/read_only/CIFAR-10/')
-    s3 = boto3.resource('s3')
-    bucket = s3.Bucket(obj.netloc)  # pyright: ignore[reportGeneralTypeIssues]
-    files = bucket.objects.filter(Prefix=obj.path.lstrip('/'))
-    for file in files:
-        target = os.path.join(os.getcwd(), 'data', os.path.relpath(file.key, obj.path.lstrip('/')))
-        if not os.path.exists(target):
-            os.makedirs(os.path.dirname(target), exist_ok=True)
-        if file.key[-1] == '/':
+    for file_path in files:
+        file_relative_path = file_path[len(f'/{path_to_volume_root}'):]
+        target = os.path.join(os.getcwd(), 'data', file_relative_path[len('read_only/CIFAR-10/'):])
+        if os.path.exists(target):
             continue
-        bucket.download_file(file.key, target)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        uc_store.download_object(file_relative_path, target)
 
     with testbook.testbook(notebook) as tb:
         tb.inject(trainer_monkeypatch_code)
@@ -163,6 +159,5 @@ def test_notebook(notebook: str, device: str, s3_bucket: str):
                 tb,
                 notebook_name=notebook_name,
                 cell_source=cell['source'],
-                s3_bucket=s3_bucket,
             )
             tb.execute_cell(i)

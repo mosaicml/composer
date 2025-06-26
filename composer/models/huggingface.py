@@ -67,6 +67,7 @@ class HuggingFaceModel(ComposerModel):
     Example:
 
     .. testcode::
+       :skipif: True
 
         import transformers
         from composer.models import HuggingFaceModel
@@ -286,6 +287,9 @@ class HuggingFaceModel(ComposerModel):
                     s.load_from_serialized_proto(saved_content['content'])  # pyright: ignore[reportGeneralTypeIssues]
                     with open(tokenizer_file_path, 'wb') as _f:
                         _f.write(s.serialized_model_proto())
+                elif saved_content['file_extension'] == '.jinja':
+                    with open(tokenizer_file_path, 'w', encoding='utf-8') as _f:
+                        _f.write(saved_content['content'])
 
             hf_tokenizer = transformers.AutoTokenizer.from_pretrained(
                 tokenizer_save_dir,
@@ -366,11 +370,12 @@ class HuggingFaceModel(ComposerModel):
             try:
                 saved_class = import_object(':'.join(hf_model_state['config']['class'].rsplit('.', maxsplit=1)))
             except (ModuleNotFoundError, AttributeError):
+                model_cfg_class = hf_model_state['config']['class']
                 raise ValueError(
                     textwrap.dedent(
-                        f'The saved class {hf_model_state["config"]["class"]} could not be imported. '
+                        f'The saved class {model_cfg_class} could not be imported. '
                         'Please either pass in the class to use explicitly via the model_instantiation_class '
-                        f'parameter, or make sure that {hf_model_state["config"]["class"]} is discoverable '
+                        f'parameter, or make sure that {model_cfg_class} is discoverable '
                         'on the python path.',
                     ),
                 )
@@ -380,18 +385,21 @@ class HuggingFaceModel(ComposerModel):
     @staticmethod
     def hf_from_composer_checkpoint(
         checkpoint_path: str,
-        model_instantiation_class: Optional[Union[type[transformers.PreTrainedModel],
-                                                  type['_BaseAutoModelClass'],
-                                                  str,
-                                                 ]] = None,
+        model_instantiation_class: Optional[Union[
+            type[transformers.PreTrainedModel],
+            type['_BaseAutoModelClass'],
+            str,
+        ]] = None,
         model_config_kwargs: Optional[dict] = None,
         local_checkpoint_save_location: Optional[Union[Path, str]] = None,
         trust_remote_code: bool = False,
-    ) -> tuple[transformers.PreTrainedModel,
-               Optional[Union[transformers.PreTrainedTokenizer,
-                              transformers.PreTrainedTokenizerFast,
-                             ]],
-              ]:
+    ) -> tuple[
+        transformers.PreTrainedModel,
+        Optional[Union[
+            transformers.PreTrainedTokenizer,
+            transformers.PreTrainedTokenizerFast,
+        ]],
+    ]:
         """Loads a HuggingFace model (and tokenizer if present) from a composer checkpoint.
 
         .. note:: This function does not load the weights from the checkpoint. It just loads the correctly configured
@@ -652,6 +660,9 @@ class HuggingFaceModel(ComposerModel):
                             model_file=str(tokenizer_file_path),  # pyright: ignore[reportGeneralTypeIssues]
                         )
                         tokenizer_file_content = s.serialized_model_proto()
+                    elif tokenizer_file_extension == '.jinja':
+                        with open(tokenizer_file_path, encoding='utf-8') as _tokenizer_file:
+                            tokenizer_file_content = _tokenizer_file.read()
                     else:
                         raise ValueError(
                             f'Unexpected file ending {tokenizer_file_name} in output of tokenizer.save_pretrained.',
@@ -795,12 +806,13 @@ def get_hf_config_from_composer_state_dict(
     try:
         return transformers.AutoConfig.for_model(**hf_config_dict)
     except ValueError:
+        model_type = hf_config_dict.get('model_type')
         try:
             return transformers.AutoConfig.from_pretrained(hf_config_dict['_name_or_path'], **hf_config_dict)
         except KeyError:
             raise Exception(
                 f'Could not load config from state dict using either `for_model` or `from_pretrained`.'
-                f'Please make sure that the model_type={hf_config_dict.get("model_type")} is valid, or that the'
+                f'Please make sure that the model_type={model_type} is valid, or that the'
                 f'config has a valid `_name_or_path`.',
             )
 

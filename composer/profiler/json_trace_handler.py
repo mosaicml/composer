@@ -10,6 +10,7 @@ import json
 import os
 import pathlib
 import queue
+import shutil
 import tempfile
 import textwrap
 import time
@@ -246,7 +247,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
             # Synchronize the clocks
             # Each rank will record a timestamp at approxmately the same real world time
             clock_sync_a = time.time_ns()
-            dist.barrier()  # syncronize all ranks
+            dist.barrier()  # synchronize all ranks
             clock_sync_time_ns = time.time_ns()
             dist.barrier()  # another barrier to bound the error
             clock_sync_b = time.time_ns()
@@ -336,7 +337,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
                     # Include the existing merged trace in the new trace
                     with tempfile.NamedTemporaryFile('x+', delete=False) as f:
                         merge_traces(f.name, merged_trace_filename, *trace_files_to_merge)
-                        os.rename(f.name, merged_trace_filename)
+                        shutil.move(f.name, merged_trace_filename)
                 else:
                     # Write the trace directly
                     merge_traces(merged_trace_filename, *trace_files_to_merge)
@@ -431,7 +432,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
 
         Args:
             name (str): Event name
-            categories (str): Comma-seperated string of event categories
+            categories (str): Comma-separated string of event categories
             ph (str): Event type. Should be one of the following
                 Duration Events: ``B`` (begin), ``E`` (end)
                 Complete Events: ``X``

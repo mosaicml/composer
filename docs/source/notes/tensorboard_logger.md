@@ -22,7 +22,7 @@ tb_logger = TensorboardLogger(log_dir="./my_tensorboard_logs")
 
 `log_dir` is where you want the Tensorboard logs to be saved locally (on the system in which you run composer).
 
- If you are viewing or accessing you logs locally, choose this path wisely and remember it! Also make sure to use this same value for `log_dir` for any future runs (so all your runs can be visualized together!)
+ If you are viewing or accessing your logs locally, choose this path wisely and remember it! Also make sure to use this same value for `log_dir` for any future runs (so all your runs can be visualized together!)
 
  If you will be using S3 to save your logs then the exact path you choose is not as important, as your logs will automatically
  be saved to a directory called `tensorboard_logs` inside of your bucket.

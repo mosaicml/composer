@@ -14,6 +14,7 @@ import posixpath
 import signal
 import sys
 import textwrap
+import threading
 import time
 import warnings
 from typing import TYPE_CHECKING, Any, Literal, Optional, Sequence, Union
@@ -36,16 +37,16 @@ __all__ = ['MLFlowLogger']
 DEFAULT_MLFLOW_EXPERIMENT_NAME = 'my-mlflow-experiment'
 LOG_DUPLICATED_METRIC_VALUE_PER_N_STEPS = 100
 
+spawn_context = multiprocessing.get_context('spawn')
 
-class MlflowMonitorProcess(multiprocessing.Process):
+
+class MlflowMonitorProcess(spawn_context.Process):
 
     def __init__(self, main_pid, mlflow_run_id, mlflow_tracking_uri):
         super().__init__()
         self.main_pid = main_pid
         self.mlflow_run_id = mlflow_run_id
         self.mlflow_tracking_uri = mlflow_tracking_uri
-        self.exit_event = multiprocessing.Event()
-        self.crash_event = multiprocessing.Event()
 
     def handle_sigterm(self, signum, frame):
         from mlflow import MlflowClient
@@ -56,11 +57,25 @@ class MlflowMonitorProcess(multiprocessing.Process):
             client.set_terminated(self.mlflow_run_id, status='KILLED')
 
     def run(self):
+        self.exit_event = threading.Event()  # type: ignore
+        self.crash_event = threading.Event()  # type: ignore
+
         from mlflow import MlflowClient
 
         os.setsid()
-        # Register the signal handler in the child process
-        signal.signal(signal.SIGTERM, self.handle_sigterm)
+
+        # Define signal handlers for communication
+        def handle_exit_signal(signum, frame):
+            self.exit_event.set()
+
+        def handle_crash_signal(signum, frame):
+            self.crash_event.set()
+            self.exit_event.set()
+
+        # Register the signal handlers
+        signal.signal(signal.SIGUSR1, handle_exit_signal)  # For normal exit
+        signal.signal(signal.SIGUSR2, handle_crash_signal)  # For crash exit
+        signal.signal(signal.SIGTERM, self.handle_sigterm)  # For termination
 
         while not self.exit_event.wait(10):
             try:
@@ -76,11 +91,12 @@ class MlflowMonitorProcess(multiprocessing.Process):
             client.set_terminated(self.mlflow_run_id, status='FAILED')
 
     def stop(self):
-        self.exit_event.set()
+        assert self.pid is not None
+        os.kill(self.pid, signal.SIGUSR1)
 
     def crash(self):
-        self.crash_event.set()
-        self.exit_event.set()
+        assert self.pid is not None
+        os.kill(self.pid, signal.SIGUSR2)
 
 
 class MLFlowLogger(LoggerDestination):
@@ -175,7 +191,9 @@ class MLFlowLogger(LoggerDestination):
         self.resume = resume
 
         if logging_buffer_seconds:
-            os.environ['MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS'] = str(logging_buffer_seconds,)
+            os.environ['MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS'] = str(
+                logging_buffer_seconds,
+            )
 
         if log_system_metrics:
             # Set system metrics sampling interval and samples before logging so that system metrics
@@ -401,22 +419,24 @@ class MLFlowLogger(LoggerDestination):
         for k, v in metrics.items():
             if any(fnmatch.fnmatch(k, pattern) for pattern in self.ignore_metrics):
                 continue
+
+            v_float = float(v)
             if k in self._metrics_cache:
                 value, last_step = self._metrics_cache[k]
-                if value == v and step < last_step + self.log_duplicated_metric_every_n_steps:
+                if value == v_float and step < last_step + self.log_duplicated_metric_every_n_steps:
                     # Skip logging the metric if it has the same value as the last step and it's
                     # within the step window.
                     continue
                 else:
                     # Log the metric if it has a different value or it's outside the step window,
                     # and update the metrics cache.
-                    self._metrics_cache[k] = (v, step)
-                    metrics_to_log[self.rename(k)] = float(v)
+                    self._metrics_cache[k] = (v_float, step)
+                    metrics_to_log[self.rename(k)] = v_float
             else:
                 # Log the metric if it's the first time it's being logged, and update the metrics
                 # cache.
-                self._metrics_cache[k] = (v, step)
-                metrics_to_log[self.rename(k)] = float(v)
+                self._metrics_cache[k] = (v_float, step)
+                metrics_to_log[self.rename(k)] = v_float
 
         log_metrics(
             metrics=metrics_to_log,
@@ -471,71 +491,21 @@ class MLFlowLogger(LoggerDestination):
                 tags=tags,
             )
 
-    def save_model(self, flavor: Literal['transformers', 'peft'], **kwargs):
+    def save_model(self, flavor: Literal['transformers'], **kwargs):
         """Save a model to MLflow.
 
-        Note: The ``'peft'`` flavor is experimental and the API is subject to change without warning.
-
         Args:
-            flavor (Literal['transformers', 'peft']): The MLflow model flavor to use. Currently only ``'transformers'`` and ``'peft'`` are supported.
+            flavor (Literal['transformers']): The MLflow model flavor to use. Currently only ``'transformers'`` is supported.
             **kwargs: Keyword arguments to pass to the MLflow model saving function.
 
         Raises:
-            NotImplementedError: If ``flavor`` is not ``'transformers'`` or ``'peft'``.
+            NotImplementedError: If ``flavor`` is not ``'transformers'``.
         """
         if self._enabled:
             import mlflow
 
             if flavor == 'transformers':
                 mlflow.transformers.save_model(**kwargs)
-            elif flavor == 'peft':
-                import transformers
-
-                # TODO: Remove after mlflow fixes the bug that makes this necessary
-                mlflow.store._unity_catalog.registry.rest_store.get_feature_dependencies = lambda *args, **kwargs: ''  # type: ignore
-
-                # This is a temporary workaround until MLflow adds full support for saving PEFT models.
-                # https://github.com/mlflow/mlflow/issues/9256
-                log.warning(
-                    'Saving PEFT models using MLflow is experimental and the API is subject to change without warning.',
-                )
-                expected_keys = {'path', 'save_pretrained_dir'}
-                if not expected_keys.issubset(kwargs.keys()):
-                    raise ValueError(f'Expected keys {expected_keys} but got {kwargs.keys()}')
-
-                # This does not implement predict for now, as we will wait for the full MLflow support
-                # for PEFT models.
-                class PeftModel(mlflow.pyfunc.PythonModel):
-
-                    def load_context(self, context):
-                        self.model = transformers.AutoModelForCausalLM.from_pretrained(
-                            context.artifacts['lora_checkpoint'],
-                        )
-                        self.tokenizer = transformers.AutoTokenizer.from_pretrained(
-                            context.artifacts['lora_checkpoint'],
-                        )
-
-                from mlflow.models.signature import ModelSignature
-                from mlflow.types import ColSpec, DataType, Schema
-
-                # This is faked for now, until MLflow adds full support for saving PEFT models.
-                input_schema = Schema([
-                    ColSpec(DataType.string, 'fake_input'),
-                ])
-                output_schema = Schema([ColSpec(DataType.string)])
-                signature = ModelSignature(inputs=input_schema, outputs=output_schema)
-
-                # Symlink the directory so that we control the path that MLflow saves the model under
-                os.symlink(kwargs['save_pretrained_dir'], 'lora_checkpoint')
-
-                mlflow.pyfunc.save_model(
-                    path=kwargs['path'],
-                    artifacts={'lora_checkpoint': 'lora_checkpoint'},
-                    python_model=PeftModel(),
-                    signature=signature,
-                )
-
-                os.unlink('lora_checkpoint')
             else:
                 raise NotImplementedError(f'flavor {flavor} not supported.')
 

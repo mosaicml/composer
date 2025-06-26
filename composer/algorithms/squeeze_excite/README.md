@@ -96,7 +96,7 @@ Squeeze-Excite has two hyperparameters:
 - `latent_channels` - The number of channels to use in the hidden layer of the MLP that computes channel attention coefficients
 - `min_channels` - The minimum number of output channels in a Conv2d required for an SE module to be added afterward
 
-We recommend setting `latent_channels` to a value such that the minimimum channel count in any layer will be at least 64. One can accomplish this either by 1) directly setting `latent_channels=64` or more, or 2) by setting `latent_channels=r` and `min_channels=int(64/r)` or more, for some `r > 0`.
+We recommend setting `latent_channels` to a value such that the minimum channel count in any layer will be at least 64. One can accomplish this either by 1) directly setting `latent_channels=64` or more, or 2) by setting `latent_channels=r` and `min_channels=int(64/r)` or more, for some `r > 0`.
 
 We recommend setting `min_channels` to `512` for ImageNet-scale or larger models. For smaller models, we recommend using the largest output channel count of any Conv2d in the network. Restricting the application to modules with higher channel counts is beneficial because, in most architectures, higher channel counts are used with smaller spatial sizes. Applying squeeze-excite has the least overhead when the Conv2d's output has a small spatial size (e.g., 14x14 instead of 64x64).
 

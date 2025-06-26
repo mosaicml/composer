@@ -57,7 +57,9 @@ def _check_item(
         _check_dict_recursively(item1, item2, path, atol=atol, rtol=rtol, ignore_keys=ignore_keys)
         return
     if isinstance(item1, (tuple, list)):
-        assert isinstance(item2, type(item1)), f'{path} differs: {item1} != {item2}'
+        # When we are broadcasting lists/tuples from rank0 (e.g. State.load_optim_state)
+        # tuples get converted to lists and so we don't want to validate the type, just
+        # the values
         _check_list_recursively(item1, item2, path, atol=atol, rtol=rtol)
         return
     if isinstance(item1, ShardedTensor):
@@ -138,6 +140,11 @@ def _check_dict_recursively(
     rtol: float,
     ignore_keys: Optional[list[str]] = None,
 ):
+    # Starting in PyTorch 2.7, verbose is no longer a valid key in any LRScheduler
+    # https://github.com/pytorch/pytorch/pull/147301
+    if 'schedulers' in path.lower() and 'lr' in path.lower():
+        dict1.pop('verbose', None)
+        dict2.pop('verbose', None)
     assert len(dict1) == len(dict2), f'{path} differs: {dict1} != {dict2}'
     for k, val1 in dict1.items():
         if ignore_keys is not None and k in ignore_keys:

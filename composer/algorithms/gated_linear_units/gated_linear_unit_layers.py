@@ -17,7 +17,7 @@ class BERTGatedFFOutput(torch.nn.Module):
         act_fn (Callable[torch.Tensor, torch.Tensor]): The activation function to use in the feed-forward network.
         layernorm_eps (float): The epsilon term to use in the LayerNorm operator. Useful for when the variance is small.
         gated_layer_bias (bool): Whether to use a bias term in the gated projection matrix.
-        non_gated_layer_bias (bool): Whether to use a bias term in teh non-gated projection matrix.
+        non_gated_layer_bias (bool): Whether to use a bias term in the non-gated projection matrix.
     """
 
     def __init__(

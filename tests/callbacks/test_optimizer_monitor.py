@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
-import torch
-from packaging import version
 from torch.utils.data import DataLoader
 
 from composer.callbacks import OptimizerMonitor
@@ -53,10 +51,6 @@ def test_optimizer_monitor(log_optimizer_metrics: bool, batch_log_interval: int)
 
 @device('gpu')
 @world_size(1, 2)
-@pytest.mark.skipif(
-    version.parse(torch.__version__) < version.parse('1.13.0'),
-    reason='requires PyTorch 1.13 or higher',
-)
 @pytest.mark.parametrize('use_orig_params', [True, False])
 def test_fsdp_optimizer_monitor(device, world_size, use_orig_params):
     # Construct the callback

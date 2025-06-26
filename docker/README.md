@@ -13,10 +13,10 @@ all dependencies for both NLP and Vision models. They are built on top of the
 `mosaicml/composer:latest` or `mosaicml/composer:latest_cpu`, which will always be up to date.
 
 <!-- BEGIN_COMPOSER_BUILD_MATRIX -->
-| Composer Version   | CUDA Support   | Docker Tag                                                                                                                                                       |
-|--------------------|----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 0.28.0             | Yes            | `mosaicml/composer:latest`, `mosaicml/composer:0.28.0`                 |
-| 0.28.0             | No             | `mosaicml/composer:latest_cpu`, `mosaicml/composer:0.28.0_cpu` |
+| Composer Version   | CUDA Support   | Docker Tag                                                     |
+|--------------------|----------------|----------------------------------------------------------------|
+| 0.31.0             | Yes            | `mosaicml/composer:latest`, `mosaicml/composer:0.31.0`         |
+| 0.31.0             | No             | `mosaicml/composer:latest_cpu`, `mosaicml/composer:0.31.0_cpu` |
 <!-- END_COMPOSER_BUILD_MATRIX -->
 
 **Note**: For a lightweight installation, we recommended using a [MosaicML PyTorch Image](#pytorch-images) and manually
@@ -28,17 +28,20 @@ The [`mosaicml/pytorch`](https://hub.docker.com/r/mosaicml/pytorch) images conta
 To install composer, once inside the image, run `pip install mosaicml`.
 
 <!-- BEGIN_PYTORCH_BUILD_MATRIX -->
-| Linux Distro   | Flavor   | PyTorch Version   | CUDA Version        | Python Version   | Docker Tags                                                                                                                                                                                                          |
-|----------------|----------|-------------------|---------------------|------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Ubuntu 22.04   | Base     | 2.5.1             | 12.4.1 (Infiniband) | 3.11             | `mosaicml/pytorch:latest`, `mosaicml/pytorch:2.5.1_cu124-python3.11-ubuntu22.04`                 |
-| Ubuntu 22.04   | Base     | 2.5.1             | 12.4.1 (EFA)        | 3.11             | `mosaicml/pytorch:latest-aws`, `mosaicml/pytorch:2.5.1_cu124-python3.11-ubuntu22.04-aws` |
-| Ubuntu 22.04   | Base     | 2.5.1             | cpu                 | 3.11             | `mosaicml/pytorch:latest_cpu`, `mosaicml/pytorch:2.5.1_cpu-python3.11-ubuntu22.04`             |
-| Ubuntu 22.04   | Base     | 2.4.1             | 12.4.1 (Infiniband) | 3.11             | `mosaicml/pytorch:2.4.1_cu124-python3.11-ubuntu22.04`                                                                                        |
-| Ubuntu 22.04   | Base     | 2.4.1             | 12.4.1 (EFA)        | 3.11             | `mosaicml/pytorch:2.4.1_cu124-python3.11-ubuntu22.04-aws`                                                                                |
-| Ubuntu 22.04   | Base     | 2.4.1             | cpu                 | 3.11             | `mosaicml/pytorch:2.4.1_cpu-python3.11-ubuntu22.04`                                                                                            |
-| Ubuntu 22.04   | Base     | 2.3.1             | 12.1.1 (Infiniband) | 3.11             | `mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu22.04`                                                                                        |
-| Ubuntu 22.04   | Base     | 2.3.1             | 12.1.1 (EFA)        | 3.11             | `mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu22.04-aws`                                                                                |
-| Ubuntu 22.04   | Base     | 2.3.1             | cpu                 | 3.11             | `mosaicml/pytorch:2.3.1_cpu-python3.11-ubuntu22.04`                                                                                            |
+| Linux Distro   | Flavor   | PyTorch Version   | CUDA Version        | Python Version   | Docker Tags                                                                              |
+|----------------|----------|-------------------|---------------------|------------------|------------------------------------------------------------------------------------------|
+| Ubuntu 22.04   | Base     | 2.7.0             | 12.6.3 (Infiniband) | 3.12             | `mosaicml/pytorch:latest`, `mosaicml/pytorch:2.7.0_cu126-python3.12-ubuntu22.04`         |
+| Ubuntu 22.04   | Base     | 2.7.0             | 12.6.3 (EFA)        | 3.12             | `mosaicml/pytorch:latest-aws`, `mosaicml/pytorch:2.7.0_cu126-python3.12-ubuntu22.04-aws` |
+| Ubuntu 22.04   | Base     | 2.7.0             | 12.8.0 (Infiniband) | 3.12             | `mosaicml/pytorch:2.7.0_cu128-python3.12-ubuntu22.04`                                    |
+| Ubuntu 22.04   | Base     | 2.7.0             | 12.8.0 (EFA)        | 3.12             | `mosaicml/pytorch:2.7.0_cu128-python3.12-ubuntu22.04-aws`                                |
+| Ubuntu 22.04   | Base     | 2.7.0             | cpu                 | 3.12             | `mosaicml/pytorch:latest_cpu`, `mosaicml/pytorch:2.7.0_cpu-python3.12-ubuntu22.04`       |
+| Ubuntu 22.04   | Base     | 2.6.0             | 12.4.1 (Infiniband) | 3.12             | `mosaicml/pytorch:2.6.0_cu124-python3.12-ubuntu22.04`                                    |
+| Ubuntu 22.04   | Base     | 2.6.0             | 12.4.1 (EFA)        | 3.12             | `mosaicml/pytorch:2.6.0_cu124-python3.12-ubuntu22.04-aws`                                |
+| Ubuntu 22.04   | Base     | 2.6.0             | 12.6.3 (Infiniband) | 3.12             | `mosaicml/pytorch:2.6.0_cu126-python3.12-ubuntu22.04`                                    |
+| Ubuntu 22.04   | Base     | 2.6.0             | 12.6.3 (EFA)        | 3.12             | `mosaicml/pytorch:2.6.0_cu126-python3.12-ubuntu22.04-aws`                                |
+| Ubuntu 22.04   | Base     | 2.6.0             | cpu                 | 3.12             | `mosaicml/pytorch:2.6.0_cpu-python3.12-ubuntu22.04`                                      |
+| Ubuntu 20.04   | Base     | 2.6.0             | 12.4.1 (N/A)        | 3.11             | `mosaicml/pytorch:2.6.0_cu124-python3.11-ubuntu20.04`                                    |
+| Ubuntu 20.04   | Base     | 2.6.0             | 12.6.3 (N/A)        | 3.11             | `mosaicml/pytorch:2.6.0_cu126-python3.11-ubuntu20.04`                                    |
 <!-- END_PYTORCH_BUILD_MATRIX -->
 
 **Note**: The `mosaicml/pytorch:latest`, `mosaicml/pytorch:latest_cpu`, and `mosaicml/pytorch:latest-aws`

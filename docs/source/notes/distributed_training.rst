@@ -70,7 +70,7 @@ Distributed Properties
 Developers may need to access the current rank or world size in a
 distributed setting. For example, a callback may only want to log
 something for rank zero. Use our :mod:`composer.utils.dist` module to
-retrieve this information. The methods are similiar to
+retrieve this information. The methods are similar to
 :mod:`torch.distributed`, but also return defaults in a non-distributed
 setting.
 
@@ -93,7 +93,7 @@ Space-time Equivalence
 We consider an equivalency principle between distributed training
 and gradient accumulation. That is, batches can either be parallelized
 across space (e.g. devices) or across time (e.g. gradient accumulation).
-Furthermore, the two dimensions are interchangable -- more devices, less gradient
+Furthermore, the two dimensions are interchangeable -- more devices, less gradient
 accumulation, and vice versa. Our trainer strives to respect this equivalency
 and ensure identical behavior regardless of the combinations of space and time
 parallelization used.
@@ -284,7 +284,7 @@ An example code snippet for using FSDP with composer is provided below:
 
 
 .. warning::
-    As of now now we don't support :code:`CPU Offloading` for FSDP.
+    As of now we don't support :code:`CPU Offloading` for FSDP.
 
 .. warning::
     As of now, default parameters might not provide optimal convergence. Please proceed with caution.
@@ -351,15 +351,15 @@ A very similar auto wrap policy is provided for activation checkpointing, with a
 While the user can instantiate and pass in process groups, Composer enables process groups to be
 specified using the following options:
 
-1. :code:`'self'`: the degenerate case where all process groups only operate within their current rank (:code:`'self'` == :code:`'set1'`). This is useful when you do not want a layer to be synchonized across accelerators.
+1. :code:`'self'`: the degenerate case where all process groups only operate within their current rank (:code:`'self'` == :code:`'set1'`). This is useful when you do not want a layer to be synchronized across accelerators.
 
-2. :code:`'node'`: instantiates process groups which opereate within a node (:code:`'node'` == :code:`f'set{local_world_size}'`). This is useful for Expert Layers in MoE models.
+2. :code:`'node'`: instantiates process groups which operate within a node (:code:`'node'` == :code:`f'set{local_world_size}'`). This is useful for Expert Layers in MoE models.
 
 3. :code:`'local_rank_across_nodes'`: instantiates process groups with the same local rank across all nodes  (:code:`'local_rank_across_nodes'` == :code:`f'mod{local_world_size}'`). This is useful for Tensor Parallel Layers.
 
-4. :code:`'setK'`: (:code:`K` is an integer where world_size must be divisible by :code:`K`) instantiates process groups which opereate within a set of K GPUs. This is useful for Expert Layers in MoE models.
+4. :code:`'setK'`: (:code:`K` is an integer where world_size must be divisible by :code:`K`) instantiates process groups which operate within a set of K GPUs. This is useful for Expert Layers in MoE models.
 
-5. :code:`'modK'`: (:code:`K` is an integer where world_size must be divisible by :code:`K`) instantiates process groups which opereate on every Kth GPUs. This is useful for Tensor Parallel Layers.
+5. :code:`'modK'`: (:code:`K` is an integer where world_size must be divisible by :code:`K`) instantiates process groups which operate on every Kth GPUs. This is useful for Tensor Parallel Layers.
 
 
 Saving and Loading Sharded Checkpoints with FSDP
@@ -371,7 +371,7 @@ Depending on the value you set for :code:`state_dict_type`, you can get differen
 The default. Saves one big checkpoint file for the whole model.
 It does this by gathering the model state to the global rank 0 device, unflattening it, and then saving it out.
 If `load_monolith_rank0_only=True`, then when loading checkpoints the global rank 0 device will load
-in the checkpoint file and scatter the model and optimizer state to the other ranks, which will will
+in the checkpoint file and scatter the model and optimizer state to the other ranks, which will
 dramatically reduce the memory usage on system. Otherwise, all ranks will separately load in the checkpoint file.
 
 2. :code:`state_dict_type='sharded'`
@@ -384,7 +384,7 @@ See `The FSDP docs <https://pytorch.org/docs/stable/fsdp.html#torch.distributed.
 If you use sharded checkpoints (`state_dict_type='sharded'`), your run will save as many files as you have
 ranks at each checkpointing event (plus one metadata file for torch versions 2.0.0 or higher). This can quicky
 pollute your `save_folder` with a lot of files after a couple checkpointing events. To help keep your
-checkpoint shard files organized, Composer will save each set of shards in it's own prefix directory, which you can configure
+checkpoint shard files organized, Composer will save each set of shards in its own prefix directory, which you can configure
 by using `'sharded_ckpt_prefix_dir'` (default value `sharded_ckpt_prefix_dir='ep{epoch}-ba{batch}'`). Checkpoint shards will be saved to
 `{save_folder} / {sharded_ckpt_prefix_dir}`
 
@@ -483,7 +483,7 @@ Four things to note in this load example:
 
 3. Composer with PyTorch version 2.0.0 and higher **does** support elastic checkpointing (more ranks than checkpoint files or more files than ranks), so you can resume on a different number of ranks than you saved on.
 
-4. To do multinode resumption (resuming on more than one node regardless of how many nodes you saved on), you must be using torch 2.0.1 or higher due a bug in torch 2.0.0.
+4. To do multinode resumption (resuming on more than one node regardless of how many nodes you saved on), you must be using torch 2.0.1 or higher due to a bug in torch 2.0.0.
 
 
 Tensor Parallel (TP)

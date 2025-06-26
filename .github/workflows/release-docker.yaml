@@ -1,4 +1,4 @@
-name: Release Docker/GHCR Images
+name: Release Docker
 
 on:
   workflow_dispatch:
@@ -8,11 +8,6 @@ on:
         required: true
       DOCKER_HUB_PASSWORD:
         required: true
-      GHCR_USERNAME:
-        required: true
-      GHCR_TOKEN:
-        required: true
-
 defaults:
   run:
     working-directory: .
@@ -27,7 +22,7 @@ jobs:
     steps:
     - uses: actions/setup-python@v4
       with:
-        python-version: 3.9
+        python-version: "3.10"
     - uses: actions/checkout@v3
     - id: set-matrix
       run: |
@@ -47,7 +42,7 @@ jobs:
     name: ${{ matrix.IMAGE_NAME }}
     with:
       build-args: |
-        AWS_OFI_NCCL_VERSION=${{ matrix.AWS_OFI_NCCL_VERSION }}
+        EFA_INSTALLER_VERSION=${{ matrix.EFA_INSTALLER_VERSION }}
         BASE_IMAGE=${{ matrix.BASE_IMAGE }}
         CUDA_VERSION=${{ matrix.CUDA_VERSION }}
         MOFED_VERSION=${{ matrix.MOFED_VERSION }}
@@ -58,6 +53,7 @@ jobs:
         PYTORCH_NIGHTLY_URL=${{ matrix.PYTORCH_NIGHTLY_URL }}
         PYTORCH_NIGHTLY_VERSION=${{ matrix.PYTORCH_NIGHTLY_VERSION }}
         NVIDIA_REQUIRE_CUDA_OVERRIDE=${{ matrix.NVIDIA_REQUIRE_CUDA_OVERRIDE }}
+        UBUNTU_VERSION=${{ matrix.UBUNTU_VERSION }}
       context: ./docker
       image-name: ${{ matrix.IMAGE_NAME }}
       image-uuid: ${{ matrix.UUID }}
@@ -68,5 +64,3 @@ jobs:
     secrets:
       username: ${{ secrets.DOCKER_HUB_USERNAME }}
       password: ${{ secrets.DOCKER_HUB_PASSWORD }}
-      ghcr_username: ${{ secrets.GHCR_USERNAME }}
-      ghcr_password: ${{ secrets.GHCR_TOKEN }}

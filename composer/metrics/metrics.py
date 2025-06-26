@@ -53,6 +53,8 @@ class MIoU(Metric):
             area_prediction = torch.histc(pred.float(), bins=self.num_classes, min=0, max=self.num_classes - 1)
             area_target = torch.histc(target.float(), bins=self.num_classes, min=0, max=self.num_classes - 1)
 
+            assert isinstance(self.total_intersect, Tensor)
+            assert isinstance(self.total_union, Tensor)
             self.total_intersect += area_intersect
             self.total_union += area_prediction + area_target - area_intersect
 
@@ -85,6 +87,7 @@ class Dice(Metric):
     def update(self, preds: Tensor, targets: Tensor):
         """Update the state based on new predictions and targets."""
         self.n_updates += 1  # type: ignore
+        assert isinstance(self.dice, Tensor)
         self.dice += self.compute_stats(preds, targets)
 
     def compute(self):
@@ -156,6 +159,7 @@ class CrossEntropy(Metric):
     def update(self, preds: Tensor, targets: Tensor) -> None:
         """Update the state with new predictions and targets."""
         # Loss calculated over samples/batch, accumulate loss over all batches
+        assert isinstance(self.sum_loss, Tensor)
         self.sum_loss += soft_cross_entropy(preds, targets, ignore_index=self.ignore_index)
         assert isinstance(self.total_batches, Tensor)
         self.total_batches += 1

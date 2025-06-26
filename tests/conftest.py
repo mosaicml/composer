@@ -111,39 +111,18 @@ def pytest_configure():
 
     if TRANSFORMERS_INSTALLED:
         from tests.fixtures.fixtures import (
+            assets_tokenizer_helper,
+            masked_lm_model_helper,
             tiny_bert_config_helper,
-            tiny_bert_model_helper,
-            tiny_bert_tokenizer_helper,
             tiny_gpt2_config_helper,
-            tiny_gpt2_model_helper,
-            tiny_gpt2_tokenizer_helper,
-            tiny_llama_tokenizer_helper,
-            tiny_mpt_config_helper,
-            tiny_mpt_model_helper,
-            tiny_mpt_tokenizer_helper,
-            tiny_opt_config_helper,
-            tiny_opt_model_helper,
-            tiny_opt_tokenizer_helper,
-            tiny_t5_config_helper,
-            tiny_t5_model_helper,
-            tiny_t5_tokenizer_helper,
         )
+        pytest.tiny_bert_model = masked_lm_model_helper(tiny_bert_config_helper())  # type: ignore
         pytest.tiny_bert_config = tiny_bert_config_helper()  # type: ignore
-        pytest.tiny_bert_model = tiny_bert_model_helper(pytest.tiny_bert_config)  # type: ignore
-        pytest.tiny_bert_tokenizer = tiny_bert_tokenizer_helper()  # type: ignore
+        pytest.tiny_bert_tokenizer = assets_tokenizer_helper('bertt')  # type: ignore
         pytest.tiny_gpt2_config = tiny_gpt2_config_helper()  # type: ignore
-        pytest.tiny_gpt2_model = tiny_gpt2_model_helper(pytest.tiny_gpt2_config)  # type: ignore
-        pytest.tiny_gpt2_tokenizer = tiny_gpt2_tokenizer_helper()  # type: ignore
-        pytest.tiny_llama_tokenizer = tiny_llama_tokenizer_helper()  # type: ignore
-        pytest.tiny_opt_config = tiny_opt_config_helper()  # type: ignore
-        pytest.tiny_opt_model = tiny_opt_model_helper(pytest.tiny_opt_config)  # type: ignore
-        pytest.tiny_opt_tokenizer = tiny_opt_tokenizer_helper()  # type: ignore
-        pytest.tiny_t5_config = tiny_t5_config_helper()  # type: ignore
-        pytest.tiny_t5_model = tiny_t5_model_helper(pytest.tiny_t5_config)  # type: ignore
-        pytest.tiny_t5_tokenizer = tiny_t5_tokenizer_helper()  # type: ignore
-        pytest.tiny_mpt_config = tiny_mpt_config_helper()  # type: ignore
-        pytest.tiny_mpt_model = tiny_mpt_model_helper(pytest.tiny_mpt_config)  # type: ignore
-        pytest.tiny_mpt_tokenizer = tiny_mpt_tokenizer_helper()  # type: ignore
+        pytest.tiny_gpt2_tokenizer = assets_tokenizer_helper('gpt2')  # type: ignore
+        pytest.tiny_t5_tokenizer = assets_tokenizer_helper('t5')  # type: ignore
+        pytest.tiny_mpt_tokenizer = assets_tokenizer_helper('mptt')  # type: ignore
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int):

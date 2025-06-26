@@ -1,6 +1,6 @@
 # build requirements
 [build-system]
-requires = ["setuptools < 68.0.0"]
+requires = ["setuptools < 78.0.2"]
 build-backend = "setuptools.build_meta"
 
 # iSort
@@ -183,6 +183,12 @@ filterwarnings = [
     '''ignore:.*NVML Shared Library Not Found. GPU usage metrics may not be reported.*''',
     # Ignore HuggingFace future warnings
     '''ignore:.*`clean_up_tokenization_spaces` was not set.*:FutureWarning''',
+    # Ignore _get_pg_default_device deprecation warning, it's used by torch internal, not composer
+    '''ignore:.*`_get_pg_default_device` will be deprecated.*:UserWarning''',
+    # Ignore ROCMMonitor warnings
+    '''ignore:.*ROCMMonitor.__del__:pytest.PytestUnraisableExceptionWarning''',
+    # Ignore FSDP2Config deprecation warning
+    '''ignore:.*FSDP2 Config/APIs are experimental*:UserWarning''',
 ]
 
 # Coverage
@@ -331,7 +337,7 @@ force_multiline_dict = false
 i18n_comment = '#\..*'
 
 # The i18n function call names. The presence of this function stops
-# reformattting on that line, because the string it has cannot be moved
+# reformatting on that line, because the string it has cannot be moved
 # away from the i18n comment.
 i18n_function_call = 'N_, _'
 
@@ -652,7 +658,7 @@ limit-inference-results=100
 
 # Minimum Python version to use for version dependent checks. Will default to
 # the version used to run pylint.
-py-version=3.9
+py-version=3.10
 
 # When enabled, pylint would attempt to guess common misconfiguration and emit
 # user-friendly hints instead of false-positive error messages.

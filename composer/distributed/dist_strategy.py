@@ -9,7 +9,6 @@ from contextlib import contextmanager, nullcontext
 from typing import Any, Callable, ContextManager, Iterator, Optional, Sequence, Union, cast
 
 import torch
-from packaging import version
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     CheckpointImpl,
     apply_activation_checkpointing,
@@ -32,6 +31,7 @@ from composer.distributed.mosaic_parallelism import (
     get_mixed_precision,
     set_custom_fsdp_module_kwargs,
 )
+from composer.distributed.shared_utils import add_fsdp_oom_hooks
 from composer.utils import FSDPConfig, StringEnum, TPConfig, dist, ensure_tuple, get_device
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare_fsdp_module', 'prepare_tp_module']
@@ -197,7 +197,9 @@ def prepare_tp_module(
 
     optim = optimizers_tuple[0]
     if len(optim.param_groups) > 1:
-        raise RuntimeError('Multiple optimizer groups are not supported with tensor parallelism.',)
+        raise RuntimeError(
+            'Multiple optimizer groups are not supported with tensor parallelism.',
+        )
 
     if len(optim.param_groups[0]['params']) != len(list(model.parameters())):
         raise ValueError(
@@ -261,22 +263,6 @@ def prepare_fsdp_module(
     # Handles of FSDP sync hooks if automicrobatching is on
     hook_handles = []
 
-    # Check if other ranks OOMed after forward/backward pass when using auto microbatching. This
-    # may happen when close to memory limit or with uneven memory usage across ranks. Since we
-    # need to do this before the model weights are gathered for the next FSDP block, we wrap every
-    # FSPD block with a hook that checks if any other rank OOMed.
-    def sync_hook(*args):
-        # Check if any other rank hit an OOM
-        found_cuda_oom_tensor = device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
-        dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
-        found_cuda_oom = found_cuda_oom_tensor.item()
-        # Signal current rank is still in batch
-        all_ranks_finished_tensor = device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
-        dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
-
-        if found_cuda_oom == 1:
-            raise RuntimeError('CUDA out of memory encountered on a different rank')
-
     # Necessary variables for optimizers with multiple param groups in FSDP
     param_name_to_group_num = None
     group_num_to_opt_group_info = None
@@ -320,7 +306,9 @@ def prepare_fsdp_module(
                 group_num_to_opt_group_info[group_num] = optimizer_specific_group_info
         else:
             if len(optim.param_groups) > 1:
-                raise RuntimeError('Multiple optimizer groups with FSDP are not supported with use_orig_params=False.',)
+                raise RuntimeError(
+                    'Multiple optimizer groups with FSDP are not supported with use_orig_params=False.',
+                )
 
             if len(optim.param_groups[0]['params']) != len(list(model.parameters())):
                 raise ValueError(
@@ -334,9 +322,7 @@ def prepare_fsdp_module(
     sharding_strategy = SHARDING_MAP[sharding_map_key]
 
     kwargs = {}
-    if version.parse(
-        torch.__version__.split('.dev')[0],
-    ) >= version.parse('2.2.0') and fsdp_config.device_mesh is not None:
+    if fsdp_config.device_mesh is not None:
         if fsdp_config.process_group is not None:
             warnings.warn(
                 'process_group and device_mesh are set for FSDP, so ignoring device_mesh. Please set process_group to None.',
@@ -491,20 +477,8 @@ def prepare_fsdp_module(
                 log.info(f'Calling prepare_te_modules_for_fsdp to enable TE weights sharding')
                 prepare_te_modules_for_fsdp(fsdp_obj)
 
-            # The following sync hooks are added to prevent FSDP deadlocks that are caused when some ranks OOM
-            # and other ranks do not OOM, leading to OOMing ranks calling all_reduce to wait on the non-OOMing
-            # ranks and the non-OOMing ranks calling all_gatherbase to continue with FSDP training:
-            #
-            #   forward_pre_hook: before forwards of FSDP modules
-            #   full_backward_pre_hook: before backwards of FSDP modules
-            #   full_backward_hook: before a prefetched unshard called by FSDP's `post_backward_reshard`
             if auto_microbatching:
-                for _, module in fsdp_obj.named_modules():
-                    if isinstance(module, FullyShardedDataParallel):
-                        hook_handles.append(module.register_forward_pre_hook(sync_hook, prepend=True))
-                        hook_handles.append(module.register_full_backward_pre_hook(sync_hook, prepend=True))
-                    else:
-                        hook_handles.append(module.register_full_backward_hook(sync_hook))
+                hook_handles = add_fsdp_oom_hooks(fsdp_obj, device=device)
                 fsdp_obj_named_modules.update(dict(fsdp_obj.named_modules()))
 
             if hasattr(fsdp_obj, '_exec_order_data'):
@@ -541,7 +515,9 @@ def prepare_fsdp_module(
                         try:
                             import transformer_engine.pytorch as te
                         except ModuleNotFoundError:
-                            raise ModuleNotFoundError('Please install transformer-engine to use TE checkpoint wrapper',)
+                            raise ModuleNotFoundError(
+                                'Please install transformer-engine to use TE checkpoint wrapper',
+                            )
 
                         # RNG state tracker for checkpointing
                         CUDA_RNG_STATES_TRACKER = te.distributed.CudaRNGStatesTracker()

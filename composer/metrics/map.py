@@ -265,7 +265,7 @@ class MAP(Metric):
         coco_preds.dataset = self._get_coco_format(  # type: ignore
             self.detection_boxes,  # type: ignore
             self.detection_labels,  # type: ignore
-            self.detection_scores,
+            self.detection_scores,  # type: ignore
         )  # type: ignore
 
         with _hide_prints():
@@ -284,7 +284,7 @@ class MAP(Metric):
             map_per_class_list = []
             mar_100_per_class_list = []
             for class_id in torch.cat(
-                self.detection_labels + self.groundtruth_labels,
+                self.detection_labels + self.groundtruth_labels,  # type: ignore
             ).unique().cpu().tolist():  # type: ignore
                 coco_eval.params.catIds = [class_id]
                 with _hide_prints():
