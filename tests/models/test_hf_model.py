@@ -1091,7 +1091,6 @@ def test_write_hf_from_composer_direct(tiny_bert_tokenizer, tmp_path):
         'num_attention_heads': 2,
         'num_hidden_layers': 2,
         'intermediate_size': 512,
-        'attn_implementation': 'eager',
     }
     tiny_bert_config = transformers.BertConfig(**tiny_overrides)
     tiny_bert_model = transformers.BertForMaskedLM(tiny_bert_config)
@@ -1334,6 +1333,7 @@ def test_peft_init_not_installed(tiny_gpt2_model, gpt2_peft_config):
 @pytest.mark.parametrize('should_save_peft_only', [True, False])
 def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, should_save_peft_only):
     pytest.importorskip('peft')
+    model_copy = copy.deepcopy(tiny_gpt2_model)
 
     trainer = get_lm_trainer(
         tiny_gpt2_model,
@@ -1347,7 +1347,7 @@ def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_c
     trainer.fit()
 
     load_trainer = get_lm_trainer(
-        tiny_gpt2_model,
+        model_copy,
         tiny_gpt2_tokenizer,
         str(tmp_path),
         peft_config=gpt2_peft_config,
@@ -1409,6 +1409,7 @@ def test_peft_write_hf_from_composer(
     # Simulate a local model instead of a hub model
     tiny_gpt2_model.save_pretrained(tmp_path / 'hf-save-to-load')
     tiny_gpt2_model = transformers.AutoModelForCausalLM.from_pretrained(tmp_path / 'hf-save-to-load')
+    model_copy = copy.deepcopy(tiny_gpt2_model)
 
     trainer = get_lm_trainer(
         tiny_gpt2_model,
@@ -1437,7 +1438,7 @@ def test_peft_write_hf_from_composer(
         torch.testing.assert_close(p1, p2)
 
     # Test we can load back in using peft interface
-    loaded_peft_model = peft.PeftModelForCausalLM.from_pretrained(tiny_gpt2_model, str(tmp_path / 'hf-save-pretrained'))
+    loaded_peft_model = peft.PeftModelForCausalLM.from_pretrained(model_copy, str(tmp_path / 'hf-save-pretrained'))
     for p1, p2 in zip(trainer.state.model.model.parameters(), loaded_peft_model.parameters()):
         torch.testing.assert_close(p1, p2)
 
@@ -1531,3 +1532,48 @@ def test_filtered_state_dict(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_con
     state_dict = hf_model.state_dict()
 
     assert len(state_dict.keys()) == 4
+
+
+def test_hf_tokenizer_with_chat_template(tmp_path: Path, tiny_bert_model, tiny_bert_tokenizer):
+    """Test that tokenizers with chat templates (which create .jinja files) can be checkpointed."""
+    pytest.importorskip('transformers')
+
+    # Use the existing tiny_bert_tokenizer and add a chat template to it
+    tokenizer = tiny_bert_tokenizer
+
+    # Add a chat template to force creation of chat_template.jinja file
+    chat_template = "{% for message in messages %}{{ message['role'] + ': ' + message['content'] + '\n' }}{% endfor %}"
+    tokenizer.chat_template = chat_template  # type: ignore
+
+    # This should not fail even with the chat template
+    trainer = get_lm_trainer(tiny_bert_model, tokenizer, str(tmp_path))
+
+    # The checkpoint save should work without raising "Unexpected file ending" error
+    trainer.save_checkpoint(str(tmp_path / 'chat-template-checkpoint.pt'))
+
+    # Verify the checkpoint was created successfully
+    assert (tmp_path / 'chat-template-checkpoint.pt').exists()
+
+    # Verify that the checkpoint actually contains a .jinja file
+    loaded_checkpoint = torch.load(tmp_path / 'chat-template-checkpoint.pt', weights_only=False)
+    hf_state = loaded_checkpoint['state']['integrations']['huggingface']
+    hf_tokenizer_state = hf_state['tokenizer']
+
+    # Check that chat_template.jinja file is present in the checkpoint
+    jinja_files = [filename for filename in hf_tokenizer_state.keys() if filename.endswith('.jinja')]
+    assert len(jinja_files) > 0, 'No .jinja files found in checkpoint'
+    assert 'chat_template.jinja' in hf_tokenizer_state, 'chat_template.jinja not found in checkpoint'
+
+    # Verify the .jinja file has the correct extension and content type
+    jinja_entry = hf_tokenizer_state['chat_template.jinja']
+    assert jinja_entry['file_extension'] == '.jinja', f"Expected .jinja extension, got {jinja_entry['file_extension']}"
+    assert isinstance(jinja_entry['content'], str), f"Expected string content, got {type(jinja_entry['content'])}"
+    assert chat_template in jinja_entry['content'], 'Chat template content not found in .jinja file'
+
+    # Test loading the checkpoint back
+    _, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
+        checkpoint_path=str(tmp_path / 'chat-template-checkpoint.pt'),
+    )
+
+    # Verify the chat template was preserved
+    assert hf_loaded_tokenizer.chat_template == chat_template  # type: ignore

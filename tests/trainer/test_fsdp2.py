@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 import pathlib
 from typing import Optional
 
@@ -20,6 +21,7 @@ from tests.common import (
     SimpleWeightTiedModel,
     world_size,
 )
+from tests.trainer.test_fsdp_checkpoint import _assert_checkpoints_equivalent
 
 _INIT_DEVICES = ['cuda', 'meta']
 
@@ -27,6 +29,8 @@ _INIT_DEVICES = ['cuda', 'meta']
 def create_trainer_with_model(
     model: ComposerClassifier,
     num_classes: int = 10,
+    dataset_size: int = 2,
+    batch_size: int = 1,
     max_duration: str = '10ep',
     use_fsdp2: bool = True,
     optimizer: Optional[torch.optim.Optimizer] = None,
@@ -34,31 +38,44 @@ def create_trainer_with_model(
     activation_cpu_offload: bool = False,
     auto_microbatching: bool = False,
     fsdp1_sync_module_states: bool = False,
+    state_dict_type: str = 'sharded',
+    load_monolith_rank0_only: bool = False,
+    save_folder: Optional[str] = None,
+    save_filename: str = 'ba{batch}-rank{rank}.pt',
+    save_interval: str = '10ba',
+    load_path: Optional[str] = None,
 ) -> Trainer:
     """Helper function to create a Trainer with a model, dataloader, and FSDP2 configuration."""
-    dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
-    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
+    dataset = RandomClassificationDataset(shape=(num_classes,), size=dataset_size, num_classes=num_classes)
+    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=batch_size)
 
     parallelism_config = ParallelismConfig()
     if use_fsdp2:
         parallelism_config.fsdp2 = FSDP2Config(
             activation_checkpointing=activation_checkpointing,
             activation_cpu_offload=activation_cpu_offload,
+            state_dict_type=state_dict_type,
+            load_monolith_rank0_only=load_monolith_rank0_only,
         )
     else:
         parallelism_config.fsdp = FSDPConfig(
-            state_dict_type='sharded',
+            state_dict_type=state_dict_type,
             sync_module_states=fsdp1_sync_module_states,
         )
     if optimizer is None:
         optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
+
     trainer = Trainer(
         model=model,
-        optimizers=optimizer,
         train_dataloader=dataloader,
+        optimizers=optimizer,
         max_duration=max_duration,
         parallelism_config=parallelism_config,
         device_train_microbatch_size='auto' if auto_microbatching else None,
+        save_folder=save_folder,
+        save_filename=save_filename,
+        save_interval=save_interval,
+        load_path=load_path,
     )
     return trainer
 
@@ -90,22 +107,28 @@ def test_fsdp2_initialization_with_tied_params(
         model,
         SimpleWeightTiedModel | PartialWeightTiedModel,
     ), f'Expected model to be SimpleWeightTiedModel or PartialWeightTiedModel, got {type(model)}'
-    assert isinstance(model.mlp.fc1.weight, DTensor), 'mlp.fc1.weight should be a DTensor'
-    assert isinstance(model.mlp.fc2.weight, DTensor), 'mlp.fc2.weight should be a DTensor'
-    assert len(model.mlp._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the mlp module'
-    assert len(model.mlp.fc1._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc1 module'
-    assert len(model.mlp.fc2._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc2 module'
+
+    mlp = model.module[0]  # type: ignore
+    fc1 = mlp.net[0]  # type: ignore
+    fc2 = mlp.net[-1]  # type: ignore
+
+    assert isinstance(fc1.weight, DTensor), 'fc1.weight should be a DTensor'
+    assert isinstance(fc2.weight, DTensor), 'fc2.weight should be a DTensor'
+    assert len(mlp._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the mlp module'
+    assert len(fc1._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc1 module'
+    assert len(fc2._forward_pre_hooks) == 0, 'Expected 0 forward pre-hook on the fc2 module'
     if isinstance(model, PartialWeightTiedModel):
-        assert len(model.fc3._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the fc3 module'
-    assert model.mlp.fc1.weight.size(0) == model.mlp.fc2.weight.to_local(
-    ).size(0) * world_size, 'Expect global weight size to be equal to local weight size * world_size on dim 0'
+        fc3 = model.module[-1]  # type: ignore
+        assert len(fc3._forward_pre_hooks) == 1, 'Expected 1 forward pre-hook on the fc3 module'
+    assert fc1.weight.size(0) == fc2.weight.to_local().size(0) * world_size, \
+        'Expect global weight size to be equal to local weight size * world_size on dim 0'
 
     trainer.fit()
 
     # Check that the weights are correctly tied
-    weight_1 = model.mlp.fc1.weight.full_tensor()
-    weight_2 = model.mlp.fc2.weight.full_tensor()
-    assert (model.mlp.fc1.weight is model.mlp.fc2.weight)
+    weight_1 = fc1.weight.full_tensor()
+    weight_2 = fc2.weight.full_tensor()
+    assert (fc1.weight is fc2.weight)
     assert (torch.equal(weight_1, weight_2))
 
 
@@ -131,9 +154,14 @@ def test_fsdp2_checkpointing(
 
     # Checkpointing and reloading
     model = trainer.state.model
+
+    mlp = model.module[0]  # type: ignore
+    fc1 = mlp.net[0]  # type: ignore
+    fc2 = mlp.net[-1]  # type: ignore
+
     assert isinstance(model, SimpleWeightTiedModel), f'Expected model to be SimpleWeightTiedModel, got {type(model)}'
-    assert isinstance(model.mlp.fc1.weight, DTensor), 'mlp.fc1.weight should be a DTensor'
-    assert isinstance(model.mlp.fc2.weight, DTensor), 'mlp.fc2.weight should be a DTensor'
+    assert isinstance(fc1.weight, DTensor), 'fc1.weight should be a DTensor'
+    assert isinstance(fc2.weight, DTensor), 'fc2.weight should be a DTensor'
     checkpoint_path = [tmp_path / 'dummy.pt']
     # Broadcast the path from rank 0 to all other ranks
     dist.broadcast_object_list(checkpoint_path, src=0)
@@ -141,8 +169,8 @@ def test_fsdp2_checkpointing(
     assert isinstance(ckpt_path, str)
 
     # cache previous weights for comparison
-    weight_1_local = model.mlp.fc1.weight.to_local()
-    weight_2_local = model.mlp.fc2.weight.to_local()
+    weight_1_local = fc1.weight.to_local()
+    weight_2_local = fc2.weight.to_local()
 
     # reinitialize the trainer
     new_model = model_class(num_features=10, device=device)
@@ -154,12 +182,12 @@ def test_fsdp2_checkpointing(
 
     model = trainer.state.model
     assert isinstance(model, SimpleWeightTiedModel), f'Expected model to be SimpleWeightTiedModel, got {type(model)}'
-    assert isinstance(model.mlp.fc1.weight, DTensor), 'mlp.fc1.weight should be a DTensor'
-    assert isinstance(model.mlp.fc2.weight, DTensor), 'mlp.fc2.weight should be a DTensor'
+    assert isinstance(fc1.weight, DTensor), 'fc1.weight should be a DTensor'
+    assert isinstance(fc2.weight, DTensor), 'fc2.weight should be a DTensor'
     # Check that the weights are still tied after loading and that the local weights are the same
-    assert torch.equal(weight_1_local, model.mlp.fc1.weight.to_local())
-    assert torch.equal(weight_2_local, model.mlp.fc2.weight.to_local())
-    assert model.mlp.fc1.weight is model.mlp.fc2.weight
+    assert torch.equal(weight_1_local, fc1.weight.to_local())
+    assert torch.equal(weight_2_local, fc2.weight.to_local())
+    assert fc1.weight is fc2.weight
 
 
 @world_size(2)
@@ -230,8 +258,8 @@ def test_fsdp2_optimizer_handling(
     model.add_fsdp_wrap_attribute_to_children()
 
     all_params_list = list(model.parameters())
-    fc1_params_list = list(model.mlp.fc1.parameters())
-    fc3_params_list = list(model.fc3.parameters())
+    fc1_params_list = list(model.module[0].net[0].parameters())  # type: ignore
+    fc3_params_list = list(model.module[-1].parameters())  # type: ignore
 
     if case == 'all_params_one_group':
         optimizer_input = [{'params': all_params_list, 'lr': 0.01}]
@@ -428,6 +456,23 @@ class TestFSDP2MixedInit:
 
     @world_size(2)
     @pytest.mark.gpu
+    @pytest.mark.parametrize('device', ['cuda', 'cpu'])
+    def test_fsdp2_sync_module_state_error_when_multiple_model_references(
+        self,
+        world_size: int,
+        device: str,
+    ):
+        """Test that FSDP2 raises an error when the model has multiple model references."""
+        del world_size
+        resolved_device = device if dist.get_local_rank() == 0 else 'meta'
+        model = SimpleComposerMLP(num_features=10, device=resolved_device, add_multiple_model_references=True)
+        model.add_fsdp_wrap_attribute_to_children()
+        with pytest.raises(ValueError) as e:
+            create_trainer_with_model(model=model, num_classes=10, use_fsdp2=True)
+        assert 'duplicate module references' in str(e.value)
+
+    @world_size(2)
+    @pytest.mark.gpu
     # Note that we are testing on a GPU instance just to make sure we can initialize
     # on CPU and then move to GPU.
     @pytest.mark.parametrize('device', ['cuda', 'cpu'])
@@ -504,9 +549,13 @@ class TestFSDP2MixedInit:
         assert trainer.state.fsdp_config.sync_module_states, 'sync_module_states should be True'  # type: ignore
         # Check that the weights are correctly tied after training
         trainer.fit()
-        weight_1 = model.mlp.fc1.weight.full_tensor()  # type: ignore
-        weight_2 = model.mlp.fc2.weight.full_tensor()  # type: ignore
-        assert (model.mlp.fc1.weight is model.mlp.fc2.weight)  # type: ignore
+
+        fc1 = model.module[0].net[0]  # type: ignore
+        fc2 = model.module[0].net[-1]  # type: ignore
+
+        weight_1 = fc1.weight.full_tensor()  # type: ignore
+        weight_2 = fc2.weight.full_tensor()  # type: ignore
+        assert (fc1.weight is fc2.weight)  # type: ignore
         assert (torch.equal(weight_1, weight_2))
 
     @world_size(2)
@@ -537,12 +586,15 @@ class TestFSDP2MixedInit:
         assert trainer.state.fsdp_config.sync_module_states, 'sync_module_states should be True'  # type: ignore
         trainer.fit()
 
+        fc1 = model.module[0].net[0]  # type: ignore
+        fc2 = model.module[0].net[-1]  # type: ignore
+
         assert torch.equal(
-            model.mlp.fc1.weight.to_local(),  # type: ignore
+            fc1.weight.to_local(),  # type: ignore
             optimizer.param_groups[0]['params'][0].to_local(),  # type: ignore
         )
         assert torch.equal(
-            model.mlp.fc2.weight.to_local(),  # type: ignore
+            fc2.weight.to_local(),  # type: ignore
             optimizer.param_groups[0]['params'][0].to_local(),  # type: ignore
         )
 
@@ -570,3 +622,83 @@ class TestFSDP2MixedInit:
         )
 
         self._compare_weights(fsdp1_weights, fsdp2_weights, tolerance=1e-5)
+
+
+@pytest.mark.gpu
+@world_size(2)
+@pytest.mark.parametrize('model_class', [SimpleComposerMLP, SimpleWeightTiedModel, PartialWeightTiedModel])
+@pytest.mark.parametrize('device', ['cuda', 'cpu'])
+def test_fsdp2_monolithic_checkpoint_save_and_load(
+    world_size: int,
+    model_class: type,
+    tmp_path: pathlib.Path,
+    device: str,
+):
+    """Test FSDP2 monolithic checkpoint saving and loading with proper model initialization."""
+    NUM_FEATURES = 10
+    NUM_CLASSES = 10
+    BATCH_SIZE = 2
+    DATASET_SIZE = 16  # 8 batches, 2 batches per rank, 2 ranks = 32 samples
+
+    # Use tmp_path from all ranks to ensure consistency
+    tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
+    save_folder = tmp_paths[0]
+
+    save_interval = '1ba'
+    save_filename = 'ba{batch}-rank{rank}.pt'
+    resume_file = 'ba1-rank{rank}.pt'
+    final_checkpoint = 'latest-rank{rank}.pt'
+    total_batches_str = '8ba'
+
+    # Create initial model and trainer on CUDA initially for training
+    kwargs = {'num_classes': NUM_CLASSES} if model_class == SimpleComposerMLP else {}
+    model1 = model_class(num_features=NUM_FEATURES, device='cuda', **kwargs)
+    model1.add_fsdp_wrap_attribute_to_children()
+    if dist.get_local_rank() == 0:
+        model1.apply(model1.param_init_fn)
+
+    # train for 8 batches but save every 1 batch
+    trainer1 = create_trainer_with_model(
+        model=model1,
+        num_classes=NUM_CLASSES,
+        dataset_size=DATASET_SIZE,
+        batch_size=BATCH_SIZE,
+        max_duration=total_batches_str,
+        use_fsdp2=True,
+        save_folder=os.path.join(save_folder, 'first'),
+        save_filename=save_filename,
+        state_dict_type='full',
+        save_interval=save_interval,
+    )
+
+    trainer1.fit()
+    trainer1.close()
+
+    # Create second trainer to load checkpoint with monolithic checkpoint
+    # On either CPU/GPU based on the device parameter
+    resolved_device = device if dist.get_local_rank() == 0 else 'meta'
+    model2 = model_class(num_features=NUM_FEATURES, device=resolved_device, **kwargs)
+    model2.add_fsdp_wrap_attribute_to_children()
+    resume_path = os.path.join(save_folder, 'first', resume_file)
+
+    # train for 8 batches to measure equality of checkpoints
+    trainer2 = create_trainer_with_model(
+        model=model2,
+        num_classes=NUM_CLASSES,
+        dataset_size=DATASET_SIZE,
+        batch_size=BATCH_SIZE,
+        max_duration=total_batches_str,
+        use_fsdp2=True,
+        state_dict_type='full',
+        load_monolith_rank0_only=True,
+        load_path=resume_path,
+        save_folder=os.path.join(save_folder, 'second'),
+        save_filename=save_filename,
+    )
+    trainer2.fit()
+    trainer2.close()
+
+    _assert_checkpoints_equivalent(
+        os.path.join(save_folder, 'first', final_checkpoint),
+        os.path.join(save_folder, 'second', final_checkpoint),
+    )

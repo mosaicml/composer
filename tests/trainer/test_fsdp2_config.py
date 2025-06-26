@@ -12,7 +12,6 @@ def test_fsdp2_config():
     config = FSDP2Config()
 
     # Test reading properties (should succeed)
-    assert config.auto_wrap is False
     assert config.load_monolith_rank0_only is False
     assert config.sync_module_states is False
     assert config.activation_cpu_offload is False
@@ -20,14 +19,12 @@ def test_fsdp2_config():
     assert config.data_parallel_replicate_degree is None
     assert config.state_dict_type == 'sharded'
     assert config.use_orig_params is True
+    assert config.load_monolith_rank0_only is False
 
     # Test setting properties (should fail)
     read_only_props = [
-        ('auto_wrap', False),
-        ('load_monolith_rank0_only', True),
         ('data_parallel_shard_degree', 2),
         ('data_parallel_replicate_degree', 2),
-        ('state_dict_type', 'full'),
         ('use_orig_params', False),
     ]
 
@@ -90,3 +87,21 @@ def test_fsdp2config_from_fsdp1_multiple_invalid_attributes():
     assert any('invalid_attribute2: value2' in msg for msg in warning_messages)
     assert any('auto_wrap: True' in msg for msg in warning_messages)
     assert any('sync_module_states: True' in msg for msg in warning_messages)
+
+
+def test_fsdp2_config_monolithic_validation():
+    """Test FSDP2Config validation for monolithic checkpointing."""
+    # Test valid monolithic config
+    config = FSDP2Config(
+        state_dict_type='full',
+        load_monolith_rank0_only=True,
+    )
+    assert config.state_dict_type == 'full'
+    assert config.load_monolith_rank0_only is True
+
+    # Test invalid monolithic config
+    with pytest.raises(ValueError, match='load_monolith_rank0_only=True requires state_dict_type="full"'):
+        FSDP2Config(
+            state_dict_type='sharded',
+            load_monolith_rank0_only=True,
+        )

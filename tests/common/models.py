@@ -107,10 +107,10 @@ class SimpleMLP(torch.nn.Module):
 
     def __init__(self, num_features: int, device: str = 'cpu'):
         super().__init__()
-        self.fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
-        self.fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
 
-        self.net = torch.nn.Sequential(self.fc1, torch.nn.ReLU(), self.fc2)
+        self.net = torch.nn.Sequential(fc1, torch.nn.ReLU(), fc2)
 
     def forward(self, x):
         return self.net(x)
@@ -141,11 +141,14 @@ class SimpleComposerMLP(ComposerClassifier):
         device: Union[str, torch.device],
         num_classes: int = 3,
         add_bias: bool = False,
+        add_multiple_model_references: bool = False,
     ):
         fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=add_bias)
         fc2 = torch.nn.Linear(num_features, num_classes, device=device, bias=add_bias)
         net = torch.nn.Sequential(fc1, torch.nn.ReLU(), fc2)
         super().__init__(num_classes=num_classes, module=net)
+        if add_multiple_model_references:
+            self.net2 = net
 
     def add_fsdp_wrap_attribute_to_children(self):
         for child in self.module.children():
@@ -228,11 +231,12 @@ class SimpleWeightTiedModel(ComposerClassifier):
 
         super().__init__(module=net, num_classes=num_features)
 
-        self.mlp = mlp
-        self.net = net
-        self.net.param_init_fn = self.param_init_fn  # pyright: ignore[reportGeneralTypeIssues]
+        self.module.param_init_fn = self.param_init_fn  # pyright: ignore[reportGeneralTypeIssues]
 
-        self.mlp.fc1.weight = self.mlp.fc2.weight
+        # Adding mlp.fc1.weight = mlp.fc2.weight without assignment to self.fc1 and self.fc2
+        # since we don't want to create duplicate references to the same module
+        # since that will break mixed init.
+        mlp.net[0].weight = mlp.net[-1].weight
 
     def add_fsdp_wrap_attribute_to_children(self):
         for child in self.children():
@@ -260,7 +264,7 @@ class PartialWeightTiedModel(ComposerClassifier):
 
     def __init__(self, num_features: int = 1, device: str = 'cpu') -> None:
         mlp = SimpleMLP(num_features, device)
-        mlp.fc1.weight = mlp.fc2.weight
+
         # a third fc layer that is not tied to the above mlp
         fc3 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
 
@@ -275,10 +279,12 @@ class PartialWeightTiedModel(ComposerClassifier):
         # net.fc1 = mlp.fc1
 
         super().__init__(module=net, num_classes=num_features)
-        self.mlp = mlp
-        self.fc3 = fc3
-
         self.module.param_init_fn = self.param_init_fn  # pyright: ignore[reportGeneralTypeIssues]
+
+        # Adding mlp.fc1.weight = mlp.fc2.weight without assignment to self.fc1 and self.fc2
+        # since we don't want to create duplicate references to the same module since that
+        # will break mixed init.
+        mlp.net[0].weight = mlp.net[-1].weight
 
     def add_fsdp_wrap_attribute_to_children(self):
         for child in self.children():
@@ -318,11 +324,7 @@ class EmbeddedWeightTiedModel(ComposerClassifier):
         super().__init__(module=net, num_classes=num_features)
 
         self.module.param_init_fn = self.param_init_fn  # pyright: ignore[reportGeneralTypeIssues]
-
-        self.net1 = net1
-        self.net2 = net2
-
-        self.net1.fc1.weight = self.net2.fc1.weight
+        net1.net[0].weight = net2.net[0].weight
 
     def param_init_fn(self, module):
         init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)

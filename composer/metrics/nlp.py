@@ -125,7 +125,7 @@ class LanguageCrossEntropy(Metric):
 
 
 class BinaryF1Score(Metric):
-    """Implements F1 Scores for binary classification tasks via sklearn.
+    """Implements F1 Scores for binary classification tasks.
 
     Adds metric state variables:
         true_positive (float): A counter of how many items were correctly classified as positives.

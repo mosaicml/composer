@@ -142,7 +142,6 @@ extra_deps['dev'] = [
     'cryptography==44.0.3',
     'pytest-httpserver>=1.0.4,<1.2',
     'setuptools<79.0.0',
-    'scikit-learn>=1.2.0,<1.7',
 ]
 
 extra_deps['system_metrics_monitor'] = {
@@ -174,13 +173,13 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,!=4.34.0,<4.52',
+    'transformers>=4.11,!=4.34.0,<4.53',
     'datasets>=2.4,<4',
-    'huggingface-hub>=0.21.2,<0.33',
+    'huggingface-hub>=0.21.2,<0.34',
 ]
 
 extra_deps['peft'] = [
-    'peft>=0.10.0,<0.14',
+    'peft>=0.10.0,<0.16',
 ]
 
 extra_deps['sentencepiece'] = [
@@ -218,7 +217,7 @@ extra_deps['onnx'] = [
 ]
 
 extra_deps['mlflow'] = [
-    'mlflow>=2.14.1,<3.0',
+    'mlflow>=2.14.1,<4.0',
     'databricks-sdk>=0.50.0,<1',
     'pynvml>=11.5.0,<12',
 ]
