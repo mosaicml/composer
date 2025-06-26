@@ -287,6 +287,9 @@ class HuggingFaceModel(ComposerModel):
                     s.load_from_serialized_proto(saved_content['content'])  # pyright: ignore[reportGeneralTypeIssues]
                     with open(tokenizer_file_path, 'wb') as _f:
                         _f.write(s.serialized_model_proto())
+                elif saved_content['file_extension'] == '.jinja':
+                    with open(tokenizer_file_path, 'w', encoding='utf-8') as _f:
+                        _f.write(saved_content['content'])
 
             hf_tokenizer = transformers.AutoTokenizer.from_pretrained(
                 tokenizer_save_dir,
@@ -657,6 +660,9 @@ class HuggingFaceModel(ComposerModel):
                             model_file=str(tokenizer_file_path),  # pyright: ignore[reportGeneralTypeIssues]
                         )
                         tokenizer_file_content = s.serialized_model_proto()
+                    elif tokenizer_file_extension == '.jinja':
+                        with open(tokenizer_file_path, encoding='utf-8') as _tokenizer_file:
+                            tokenizer_file_content = _tokenizer_file.read()
                     else:
                         raise ValueError(
                             f'Unexpected file ending {tokenizer_file_name} in output of tokenizer.save_pretrained.',
