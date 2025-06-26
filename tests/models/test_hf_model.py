@@ -1553,6 +1553,23 @@ def test_hf_tokenizer_with_chat_template(tmp_path: Path, tiny_bert_model, tiny_b
 
     # Verify the checkpoint was created successfully
     assert (tmp_path / 'chat-template-checkpoint.pt').exists()
+    
+    # Verify that the checkpoint actually contains a .jinja file
+    import torch
+    loaded_checkpoint = torch.load(tmp_path / 'chat-template-checkpoint.pt', weights_only=False)
+    hf_state = loaded_checkpoint['state']['integrations']['huggingface']
+    hf_tokenizer_state = hf_state['tokenizer']
+    
+    # Check that chat_template.jinja file is present in the checkpoint
+    jinja_files = [filename for filename in hf_tokenizer_state.keys() if filename.endswith('.jinja')]
+    assert len(jinja_files) > 0, "No .jinja files found in checkpoint"
+    assert 'chat_template.jinja' in hf_tokenizer_state, "chat_template.jinja not found in checkpoint"
+    
+    # Verify the .jinja file has the correct extension and content type
+    jinja_entry = hf_tokenizer_state['chat_template.jinja']
+    assert jinja_entry['file_extension'] == '.jinja', f"Expected .jinja extension, got {jinja_entry['file_extension']}"
+    assert isinstance(jinja_entry['content'], str), f"Expected string content, got {type(jinja_entry['content'])}"
+    assert chat_template in jinja_entry['content'], "Chat template content not found in .jinja file"
 
     # Test loading the checkpoint back
     _, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
