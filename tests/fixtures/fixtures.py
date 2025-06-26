@@ -252,7 +252,6 @@ def tiny_bert_config_helper():
 
     config_object = {
         'architectures': ['BertForMaskedLM',],
-        'attn_implementation': 'eager',
         'attention_probs_dropout_prob': 0.1,
         'gradient_checkpointing': False,
         'hidden_act': 'gelu',

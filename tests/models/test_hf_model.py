@@ -433,6 +433,7 @@ def test_hf_state_dict_info(
     if 'id2label' in loaded_config_dict:
         loaded_config_dict['id2label'] = {int(k): v for k, v in loaded_config_dict['id2label'].items()}
 
+
     loaded_config = transformers.AutoConfig.for_model(**loaded_config_dict)
     new_model_from_loaded_config = transformers.AutoModelForSequenceClassification.from_config(loaded_config)
 
@@ -1091,7 +1092,6 @@ def test_write_hf_from_composer_direct(tiny_bert_tokenizer, tmp_path):
         'num_attention_heads': 2,
         'num_hidden_layers': 2,
         'intermediate_size': 512,
-        'attn_implementation': 'eager',
     }
     tiny_bert_config = transformers.BertConfig(**tiny_overrides)
     tiny_bert_model = transformers.BertForMaskedLM(tiny_bert_config)
