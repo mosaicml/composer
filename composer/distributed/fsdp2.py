@@ -182,4 +182,5 @@ def sync_module_states(model: nn.Module, full_state_dict: dict) -> None:
 def create_mixed_precision_policy(precision: Precision, mixed_precision: str) -> MixedPrecisionPolicy:
     """Create a MixedPrecisionPolicy based on the precision and mixed_precision."""
     _, param_dtype, reduce_dtype, _ = get_mixed_precision(precision, mixed_precision)
+    print(f"Using mixed precision policy: mixed_precision={mixed_precision}, param_dtype={param_dtype}, reduce_dtype={reduce_dtype}")
     return MixedPrecisionPolicy(param_dtype=param_dtype, reduce_dtype=reduce_dtype)
