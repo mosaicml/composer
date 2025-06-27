@@ -18,8 +18,10 @@ from composer.distributed.fsdp2_utils import (
     get_standalone_and_tied_modules,
     legalize_param_sharing_between_modules,
 )
-from composer.utils import dist
+from composer.utils import dist, get_device
 from composer.utils.parallelism import FSDP2Config
+from composer.core.precision import Precision, _validate_precision
+from composer.distributed.mosaic_parallelism import get_mixed_precision
 
 log = logging.getLogger(__name__)
 
@@ -78,6 +80,7 @@ def _recursive_apply_fully_shard(
 def apply_fully_shard(
     model: nn.Module,
     fsdp2_config: FSDP2Config,
+    precision: Precision,
     auto_wrap_policy: CustomPolicy,
 ) -> None:
     """Applies FSDP2's `fully_shard` to the specified modules and then to the parent model.
@@ -92,14 +95,11 @@ def apply_fully_shard(
     Returns:
         None
     """
-    # Define the default kwargs for fully_shard
-    # NOTE Model in LLM Foundry mostly uses PURE for its MP policy so we default to both bfloat16 for now
-    # yet both Composer and TorchTitan's default mp_policy use bfloat16 for params all-gather and float32 for reduce-scatter
-    # TODO: support user specified mp_policy
+    _validate_precision(precision, get_device())
     fully_shard_kwargs = {
         'mesh': fsdp2_config.device_mesh,
         'reshard_after_forward': fsdp2_config.reshard_after_forward,
-        'mp_policy': MixedPrecisionPolicy(param_dtype=torch.bfloat16, reduce_dtype=torch.bfloat16),
+        'mp_policy': create_mixed_precision_policy(precision, fsdp2_config.mixed_precision),
     }
 
     # Get a dictionary of all submodules to wrap and their kwargs
@@ -116,6 +116,7 @@ def apply_fully_shard(
 def prepare_fully_shard(
     model: nn.Module,
     fsdp2_config: FSDP2Config,
+    precision: Precision,
     auto_wrap_policy: Optional[CustomPolicy] = None,
 ) -> None:
     """Applies FSDP2's `fully_shard` to the model according to given fsdp2_config.
@@ -134,7 +135,7 @@ def prepare_fully_shard(
 
     # Check for parameter tying
     with check_param_tying(model):
-        apply_fully_shard(model, fsdp2_config, auto_wrap_policy)
+        apply_fully_shard(model, fsdp2_config, precision, auto_wrap_policy)
 
     if fsdp2_config.verbose:
         log.info(f'FSDP2: Fully sharded model:\n{model}')
@@ -176,3 +177,8 @@ def sync_module_states(model: nn.Module, full_state_dict: dict) -> None:
     for _, buffer in model.named_buffers():
         assert not isinstance(buffer, DTensor), 'Buffers should not be DTensor'
         dist.broadcast(buffer, src=0)
+
+
+def create_mixed_precision_policy(precision: Precision, mixed_precision: str) -> MixedPrecisionPolicy:
+    _, param_dtype, reduce_dtype, _ = get_mixed_precision(precision, mixed_precision)
+    return MixedPrecisionPolicy(param_dtype=param_dtype, reduce_dtype=reduce_dtype)

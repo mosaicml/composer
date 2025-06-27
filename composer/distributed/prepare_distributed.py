@@ -24,6 +24,9 @@ from composer.models import ComposerModel
 from composer.utils import dist
 from composer.utils.parallelism import FSDP2Config
 
+from composer.core.precision import Precision
+
+
 log = logging.getLogger(__name__)
 
 
@@ -68,6 +71,7 @@ def _check_duplicate_modules(model: torch.nn.Module) -> None:
 def _parallelize_model_helper(
     model: torch.nn.Module,
     config: FSDP2Config,
+    precision: Precision,
     fsdp_wrap_policy: Optional[CustomPolicy] = None,
     param_init_fn: Callable[[torch.nn.Module], None] = lambda m: None,
 ) -> None:
@@ -97,13 +101,13 @@ def _parallelize_model_helper(
             full_state_dict = get_model_state_dict(model, options=options)
 
         with log_execution_time(log, 'Prepare FSDP2'):
-            prepare_fully_shard(model, config, fsdp_wrap_policy)
+            prepare_fully_shard(model, config, precision, fsdp_wrap_policy)
 
         with log_execution_time(log, 'Sync Module States across all ranks'):
             sync_module_states(model, full_state_dict)
     else:
         with log_execution_time(log, 'Prepare FSDP2'):
-            prepare_fully_shard(model, config, fsdp_wrap_policy)
+            prepare_fully_shard(model, config, precision, fsdp_wrap_policy)
 
         with log_execution_time(log, 'Parameter Initialization'):
             param_init_fn(model)
@@ -112,6 +116,7 @@ def _parallelize_model_helper(
 def parallelize_model(
     model: torch.nn.Module,
     config: FSDP2Config,
+    precision: Precision,
     optimizer: Optional[torch.optim.Optimizer] = None,
     fsdp_wrap_policy: Optional[CustomPolicy] = None,
     activation_checkpointing_check_fn: Optional[Callable] = None,
@@ -156,7 +161,7 @@ def parallelize_model(
 
     # Use the context manager for optimizer synchronization if optimizer is provided
     with sync_optimizer_and_model_params(optimizer, model) if optimizer is not None else nullcontext():
-        _parallelize_model_helper(model, config, fsdp_wrap_policy, param_init_fn)
+        _parallelize_model_helper(model, config, precision, fsdp_wrap_policy, param_init_fn)
         # NOTE appy_ac can not be included in this context as it would wrap and replace the sub-modules thus disqualify FQN of params
 
 
@@ -164,6 +169,7 @@ def parallelize_composer_model(
     composer_model: ComposerModel,
     optimizer: Optional[torch.optim.Optimizer],
     config: FSDP2Config,
+    precision: Precision,
 ):
     """Prepare a ComposerModel for distributed training.
 
@@ -185,6 +191,7 @@ def parallelize_composer_model(
     parallelize_model(
         composer_model,
         config,
+        precision,
         optimizer=optimizer,
         fsdp_wrap_policy=generate_composer_model_policy(composer_model),
         activation_checkpointing_check_fn=activation_checkpointing_check_fn,
