@@ -12,16 +12,16 @@ from torch.distributed.fsdp import MixedPrecisionPolicy, fully_shard
 from torch.distributed.fsdp.wrap import CustomPolicy
 from torch.distributed.tensor import DTensor
 
+from composer.core.precision import Precision, _validate_precision
 from composer.distributed.fsdp2_utils import (
     check_param_tying,
     generate_default_policy,
     get_standalone_and_tied_modules,
     legalize_param_sharing_between_modules,
 )
+from composer.distributed.mosaic_parallelism import get_mixed_precision
 from composer.utils import dist, get_device
 from composer.utils.parallelism import FSDP2Config
-from composer.core.precision import Precision, _validate_precision
-from composer.distributed.mosaic_parallelism import get_mixed_precision
 
 log = logging.getLogger(__name__)
 

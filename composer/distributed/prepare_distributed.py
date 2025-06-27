@@ -6,7 +6,7 @@
 import logging
 import time
 from contextlib import contextmanager, nullcontext
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
 import torch
 from torch.distributed.checkpoint.state_dict import (
@@ -24,7 +24,9 @@ from composer.models import ComposerModel
 from composer.utils import dist
 from composer.utils.parallelism import FSDP2Config
 
-from composer.core.precision import Precision
+from composer.core.precision import Precision, _validate_precision
+from composer.devices import DeviceGPU
+from composer.utils.device import get_device
 
 
 log = logging.getLogger(__name__)
@@ -116,8 +118,8 @@ def _parallelize_model_helper(
 def parallelize_model(
     model: torch.nn.Module,
     config: FSDP2Config,
-    precision: Precision,
     optimizer: Optional[torch.optim.Optimizer] = None,
+    precision: Optional[Union[str, Precision]] = None,
     fsdp_wrap_policy: Optional[CustomPolicy] = None,
     activation_checkpointing_check_fn: Optional[Callable] = None,
     param_init_fn: Callable[[torch.nn.Module], None] = lambda m: None,
@@ -133,6 +135,8 @@ def parallelize_model(
         config (FSDP2Config): The configuration for FSDP distributed training.
         optimizer (Optional[torch.optim.Optimizer]): The optimizer to synchronize with the model.
             If provided, parameter states will be properly synchronized during sharding.
+        precision (Precision): The precision to use for the model. Defaults to AMP_FP16 for GPU and FP32 for CPU.
+            It doesn't have an optional type because `parallelize_composer_model` already sets the precision.
         fsdp_wrap_policy (Optional[CustomPolicy]): Custom policy to determine which modules should
             be wrapped with FSDP. If None, default wrapping behavior is used.
         activation_checkpointing_check_fn (Optional[Callable]): Function that determines whether a
@@ -145,6 +149,12 @@ def parallelize_model(
         ValueError: If the config is not an FSDP2Config or if activation_checkpointing_check_fn is provided
             but neither activation_checkpointing nor activation_cpu_offload is enabled in the config.
     """
+    if precision is None:
+        precision = Precision.AMP_FP16 if isinstance(get_device(), DeviceGPU) else Precision.FP32
+    elif isinstance(precision, str):
+        precision = Precision(precision)
+    _validate_precision(precision, get_device())
+
     if activation_checkpointing_check_fn is not None:
         if not config.activation_checkpointing and not config.activation_cpu_offload:
             raise ValueError(
@@ -169,7 +179,7 @@ def parallelize_composer_model(
     composer_model: ComposerModel,
     optimizer: Optional[torch.optim.Optimizer],
     config: FSDP2Config,
-    precision: Precision,
+    precision: Optional[Precision] = None,
 ):
     """Prepare a ComposerModel for distributed training.
 
@@ -184,6 +194,7 @@ def parallelize_composer_model(
         optimizer (Optional[torch.optim.Optimizer]): The optimizer to use for distributed training.
         config (FSDP2Config): The configuration for distributed training. Currently only FSDP2Config is supported.
     """
+
     assert isinstance(composer_model, ComposerModel), f'{type(composer_model)} is not a ComposerModel'
     activation_checkpointing_check_fn = generate_composer_model_check_fn(
         composer_model,
@@ -191,8 +202,8 @@ def parallelize_composer_model(
     parallelize_model(
         composer_model,
         config,
-        precision,
         optimizer=optimizer,
+        precision=precision,
         fsdp_wrap_policy=generate_composer_model_policy(composer_model),
         activation_checkpointing_check_fn=activation_checkpointing_check_fn,
         param_init_fn=meta_init,
