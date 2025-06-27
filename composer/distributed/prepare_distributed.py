@@ -15,6 +15,8 @@ from torch.distributed.checkpoint.state_dict import (
 )
 from torch.distributed.fsdp.wrap import CustomPolicy
 
+from composer.core.precision import Precision, _validate_precision
+from composer.devices import DeviceGPU
 from composer.distributed.activation_checkpointing import apply_ac, generate_composer_model_check_fn
 from composer.distributed.fsdp2 import prepare_fully_shard, sync_module_states
 from composer.distributed.fsdp2_utils import generate_composer_model_policy, sync_optimizer_and_model_params
@@ -22,12 +24,8 @@ from composer.distributed.param_init import meta_init
 from composer.distributed.shared_utils import update_sync_module_states_if_needed
 from composer.models import ComposerModel
 from composer.utils import dist
-from composer.utils.parallelism import FSDP2Config
-
-from composer.core.precision import Precision, _validate_precision
-from composer.devices import DeviceGPU
 from composer.utils.device import get_device
-
+from composer.utils.parallelism import FSDP2Config
 
 log = logging.getLogger(__name__)
 
@@ -193,8 +191,8 @@ def parallelize_composer_model(
         composer_model (ComposerModel): The ComposerModel to prepare for distributed training.
         optimizer (Optional[torch.optim.Optimizer]): The optimizer to use for distributed training.
         config (FSDP2Config): The configuration for distributed training. Currently only FSDP2Config is supported.
+        precision (Precision): The precision to use for the model. Defaults to AMP_FP16 for GPU and FP32 for CPU.
     """
-
     assert isinstance(composer_model, ComposerModel), f'{type(composer_model)} is not a ComposerModel'
     activation_checkpointing_check_fn = generate_composer_model_check_fn(
         composer_model,

@@ -7,8 +7,8 @@ from typing import Optional
 
 import pytest
 import torch
-from torch.distributed._tensor import DTensor
 import torch.distributed.fsdp
+from torch.distributed._tensor import DTensor
 from torch.utils.data import DataLoader
 
 from composer.models import ComposerClassifier
@@ -708,9 +708,10 @@ def test_fsdp2_monolithic_checkpoint_save_and_load(
         os.path.join(save_folder, 'second', final_checkpoint),
     )
 
+
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.parametrize('mixed_precision', ["DEFAULT", "PURE", "FULL"])
+@pytest.mark.parametrize('mixed_precision', ['DEFAULT', 'PURE', 'FULL'])
 @pytest.mark.parametrize('precision', ['amp_fp16', 'amp_bf16'])
 def test_mixed_precision_fsdp2_base(
     world_size: int,
@@ -719,7 +720,7 @@ def test_mixed_precision_fsdp2_base(
 ):
     """Test FSDP2 with mixed precision settings."""
     del world_size
-    
+
     model = SimpleComposerMLP(num_features=10, device='cuda')
     model.add_fsdp_wrap_attribute_to_children()
 
@@ -735,7 +736,7 @@ def test_mixed_precision_fsdp2_base(
 
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.parametrize('mixed_precision', ["PURE", "DEFAULT", "FULL"])
+@pytest.mark.parametrize('mixed_precision', ['PURE', 'DEFAULT', 'FULL'])
 @pytest.mark.parametrize('precision', ['amp_fp16', 'amp_bf16'])
 def test_mixed_precision_fsdp2_detailed(
     world_size: int,
@@ -756,15 +757,15 @@ def test_mixed_precision_fsdp2_detailed(
 
     # Run some more meticulous tests to check the functionality of the mixed precision settings
     str_to_dtype = {
-        "amp_fp16": torch.float16,
-        "amp_bf16": torch.bfloat16,
+        'amp_fp16': torch.float16,
+        'amp_bf16': torch.bfloat16,
     }
-    
+
     trainer.state.model.train()
     # We don't need to cast the input to the correct dtype because `cast_forward_inputs` in MixedPrecisionPolicy
     # will handle that for us
     test_input = torch.randn(2, 10, device='cuda')
-    
+
     if mixed_precision == 'PURE':
         expected_param_dtype = str_to_dtype[precision]
         # If param_dtype == reduce_dtype, the reduce_dtype set to None in FSDPParam.py
@@ -789,7 +790,7 @@ def test_mixed_precision_fsdp2_detailed(
                 'module': module.__class__.__name__,
                 'expected': expected_param_dtype,
                 'actual': actual_dtype,
-                'matches': actual_dtype == expected_param_dtype
+                'matches': actual_dtype == expected_param_dtype,
             }
             param_dtype_validations.append(new_validation)
         except Exception:
@@ -800,12 +801,12 @@ def test_mixed_precision_fsdp2_detailed(
         available hook to register, we just check the validity of the _reduce_dtype of the FSDPParamGroup"""
         try:
             assert isinstance(module, torch.distributed.fsdp.FSDPModule)
-            actual_grad_dtype = module._get_fsdp_state()._fsdp_param_group._reduce_dtype
+            actual_grad_dtype = module._get_fsdp_state()._fsdp_param_group._reduce_dtype  # type: ignore
             new_validation = {
                 'module': module.__class__.__name__,
                 'expected': expected_reduce_dtype,
                 'actual': actual_grad_dtype,
-                'matches': actual_grad_dtype == expected_reduce_dtype
+                'matches': actual_grad_dtype == expected_reduce_dtype,
             }
             grad_dtype_validations.append(new_validation)
         except Exception:
@@ -827,23 +828,23 @@ def test_mixed_precision_fsdp2_detailed(
         output = trainer.state.model(test_input)
         loss = output.mean()
         loss.backward()
-        
+
         # Validate parameter dtypes from hooks
-        assert len(param_dtype_validations) > 0, "Should have validated at least one parameter dtype"
+        assert len(param_dtype_validations) > 0, 'Should have validated at least one parameter dtype'
         for validation in param_dtype_validations:
             assert validation['matches'], \
                 f"Parameter dtype mismatch in {validation['module']}: expected {validation['expected']}, got {validation['actual']}"
-        
+
         # Validate gradient dtypes from hooks
-        assert len(grad_dtype_validations) > 0, "Should have validated at least one gradient dtype"
+        assert len(grad_dtype_validations) > 0, 'Should have validated at least one gradient dtype'
         for validation in grad_dtype_validations:
             assert validation['matches'], \
                 f"Gradient dtype mismatch in {validation['module']}: expected {validation['expected']}, got {validation['actual']}"
-        
+
         # Also validate the final output dtype matches param_dtype (computation dtype)
         assert output.dtype == expected_param_dtype, \
-            f"Output dtype should be {expected_param_dtype} but got {output.dtype}"
-        
+            f'Output dtype should be {expected_param_dtype} but got {output.dtype}'
+
     finally:
         # Clean up hooks
         for handle in hook_handles:
