@@ -1361,6 +1361,7 @@ class State(Serializable):
                     self.model,
                     self.optimizers[0] if self.optimizers else None,
                     self.fsdp_config,
+                    self.precision,
                 )
             else:
                 raise ValueError(f'Unsupported FSDP config type for monolithic loading: {type(self.fsdp_config)}')

@@ -7,6 +7,7 @@ from typing import Optional
 
 import pytest
 import torch
+import torch.distributed.fsdp
 from torch.distributed._tensor import DTensor
 from torch.utils.data import DataLoader
 
@@ -44,6 +45,8 @@ def create_trainer_with_model(
     save_filename: str = 'ba{batch}-rank{rank}.pt',
     save_interval: str = '10ba',
     load_path: Optional[str] = None,
+    precision: Optional[str] = None,
+    mixed_precision: str = 'PURE',
 ) -> Trainer:
     """Helper function to create a Trainer with a model, dataloader, and FSDP2 configuration."""
     dataset = RandomClassificationDataset(shape=(num_classes,), size=dataset_size, num_classes=num_classes)
@@ -56,6 +59,7 @@ def create_trainer_with_model(
             activation_cpu_offload=activation_cpu_offload,
             state_dict_type=state_dict_type,
             load_monolith_rank0_only=load_monolith_rank0_only,
+            mixed_precision=mixed_precision,
         )
     else:
         parallelism_config.fsdp = FSDPConfig(
@@ -76,6 +80,7 @@ def create_trainer_with_model(
         save_filename=save_filename,
         save_interval=save_interval,
         load_path=load_path,
+        precision=precision,
     )
     return trainer
 
@@ -702,3 +707,111 @@ def test_fsdp2_monolithic_checkpoint_save_and_load(
         os.path.join(save_folder, 'first', final_checkpoint),
         os.path.join(save_folder, 'second', final_checkpoint),
     )
+
+
+@pytest.mark.gpu
+@world_size(2)
+@pytest.mark.parametrize('mixed_precision', ['DEFAULT', 'PURE', 'FULL'])
+@pytest.mark.parametrize('precision', ['amp_fp16', 'amp_bf16'])
+def test_mixed_precision_fsdp2_base(
+    world_size: int,
+    mixed_precision: str,
+    precision: str,
+):
+    """Test FSDP2 with mixed precision settings."""
+    del world_size
+
+    model = SimpleComposerMLP(num_features=10, device='cuda')
+    model.add_fsdp_wrap_attribute_to_children()
+
+    trainer = create_trainer_with_model(
+        model=model,
+        use_fsdp2=True,
+        precision=precision,
+        mixed_precision=mixed_precision,
+    )
+
+    trainer.fit()
+
+
+@pytest.mark.gpu
+@world_size(2)
+@pytest.mark.parametrize('mixed_precision', ['PURE', 'DEFAULT', 'FULL'])
+@pytest.mark.parametrize('precision', ['amp_fp16', 'amp_bf16'])
+def test_mixed_precision_fsdp2_detailed(
+    world_size: int,
+    mixed_precision: str,
+    precision: str,
+):
+    del world_size
+
+    model = SimpleComposerMLP(num_features=10, device='cuda')
+    model.add_fsdp_wrap_attribute_to_children()
+
+    trainer = create_trainer_with_model(
+        model=model,
+        use_fsdp2=True,
+        precision=precision,
+        mixed_precision=mixed_precision,
+    )
+
+    str_to_dtype = {
+        'amp_fp16': torch.float16,
+        'amp_bf16': torch.bfloat16,
+    }
+
+    trainer.state.model.train()
+    # We don't need to cast the input to the correct dtype because `cast_forward_inputs` in MixedPrecisionPolicy
+    # will handle that for us
+    test_input = torch.randn(2, 10, device='cuda')
+
+    if mixed_precision == 'PURE':
+        expected_param_dtype = str_to_dtype[precision]
+        # If param_dtype == reduce_dtype, the reduce_dtype set to None in FSDPParam.py
+        expected_reduce_dtype = None
+    elif mixed_precision == 'DEFAULT':
+        expected_param_dtype = str_to_dtype[precision]
+        expected_reduce_dtype = torch.float32
+    elif mixed_precision == 'FULL':
+        expected_param_dtype = torch.float32
+        # MixedPrecisionPolicy.py sets reduce_dtype to None for FULL mixed precision
+        expected_reduce_dtype = None
+
+    def validate_param_dtype_hook(module, input):
+        """Hook to validate all-gathered parameter dtypes during forward pass"""
+        actual_dtype = module.weight.dtype
+        assert actual_dtype == expected_param_dtype, \
+            f'Parameter dtype mismatch in {module.__class__.__name__}: expected {expected_param_dtype}, got {actual_dtype}'
+
+    # Register Forward Pre-Hooks on all Linear modules (where FSDP2 is applied) for checking param_dtype
+    # We validate after the all-gather is done, so prepend = False
+    hook_handles = []
+    for _, module in trainer.state.model.named_modules():
+        if isinstance(module, torch.nn.Linear):
+            param_dtype_handle = module.register_forward_pre_hook(validate_param_dtype_hook, prepend=False)
+            hook_handles.extend([param_dtype_handle])
+
+    output = trainer.state.model(test_input)
+    loss = output.mean()
+    loss.backward()
+
+    def validate_reduce_dtype(module):
+        """Function to validate reduce dtypes after the backward pass. Since the actual all-reduce happens after any
+        available hook to register, we don't register this as a hook, we just check it"""
+        assert isinstance(module, torch.distributed.fsdp.FSDPModule)
+        actual_grad_dtype = module._get_fsdp_state()._fsdp_param_group._reduce_dtype  # type: ignore
+        assert actual_grad_dtype == expected_reduce_dtype, \
+            f'Reduce dtype mismatch in {module.__class__.__name__}: expected {expected_reduce_dtype}, got {actual_grad_dtype}'
+
+    # Validate reduce dtypes using the static variable assigned in the FSDPParamGroup after they've
+    # been lazily initialized
+    for _, module in trainer.state.model.named_modules():
+        if isinstance(module, torch.nn.Linear):
+            validate_reduce_dtype(module)
+
+    # Also validate the final output dtype matches param_dtype (computation dtype)
+    assert output.dtype == expected_param_dtype, \
+        f'Output dtype should be {expected_param_dtype} but got {output.dtype}'
+
+    for handle in hook_handles:
+        handle.remove()

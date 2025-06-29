@@ -87,6 +87,7 @@ class FSDP2Config:
     activation_cpu_offload: bool = False
     state_dict_type: str = 'sharded'
     load_monolith_rank0_only: bool = False
+    mixed_precision: str = 'DEFAULT'
 
     verbose: bool = False
 
