@@ -12,7 +12,7 @@ from torch.distributed.fsdp import MixedPrecisionPolicy, fully_shard
 from torch.distributed.fsdp.wrap import CustomPolicy
 from torch.distributed.tensor import DTensor
 
-from composer.core.precision import Precision, _validate_precision
+from composer.core.precision import Precision
 from composer.distributed.fsdp2_utils import (
     check_param_tying,
     generate_default_policy,
@@ -20,7 +20,7 @@ from composer.distributed.fsdp2_utils import (
     legalize_param_sharing_between_modules,
 )
 from composer.distributed.mosaic_parallelism import get_mixed_precision
-from composer.utils import dist, get_device
+from composer.utils import dist
 from composer.utils.parallelism import FSDP2Config
 
 log = logging.getLogger(__name__)
@@ -95,7 +95,6 @@ def apply_fully_shard(
     Returns:
         None
     """
-    _validate_precision(precision, get_device())
     fully_shard_kwargs = {
         'mesh': fsdp2_config.device_mesh,
         'reshard_after_forward': fsdp2_config.reshard_after_forward,

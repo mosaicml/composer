@@ -755,7 +755,6 @@ def test_mixed_precision_fsdp2_detailed(
         mixed_precision=mixed_precision,
     )
 
-    # Run some more meticulous tests to check the functionality of the mixed precision settings
     str_to_dtype = {
         'amp_fp16': torch.float16,
         'amp_bf16': torch.bfloat16,
@@ -778,74 +777,41 @@ def test_mixed_precision_fsdp2_detailed(
         # MixedPrecisionPolicy.py sets reduce_dtype to None for FULL mixed precision
         expected_reduce_dtype = None
 
-    # Track validation results
-    param_dtype_validations = []
-    grad_dtype_validations = []
-
-    def validate_all_gathered_params(module, input):
+    def validate_param_dtype_hook(module, input):
         """Hook to validate all-gathered parameter dtypes during forward pass"""
-        try:
-            actual_dtype = module.weight.dtype
-            new_validation = {
-                'module': module.__class__.__name__,
-                'expected': expected_param_dtype,
-                'actual': actual_dtype,
-                'matches': actual_dtype == expected_param_dtype,
-            }
-            param_dtype_validations.append(new_validation)
-        except Exception:
-            pass
+        actual_dtype = module.weight.dtype
+        assert actual_dtype == expected_param_dtype, \
+            f'Parameter dtype mismatch in {module.__class__.__name__}: expected {expected_param_dtype}, got {actual_dtype}'
 
-    def validate_gradient_dtypes(module, input):
-        """Hook to validate gradient dtypes during the forward pass. Since the actual all-reduce happens after any
-        available hook to register, we just check the validity of the _reduce_dtype of the FSDPParamGroup"""
-        try:
-            assert isinstance(module, torch.distributed.fsdp.FSDPModule)
-            actual_grad_dtype = module._get_fsdp_state()._fsdp_param_group._reduce_dtype  # type: ignore
-            new_validation = {
-                'module': module.__class__.__name__,
-                'expected': expected_reduce_dtype,
-                'actual': actual_grad_dtype,
-                'matches': actual_grad_dtype == expected_reduce_dtype,
-            }
-            grad_dtype_validations.append(new_validation)
-        except Exception:
-            pass
-
-    # Register hooks on all Linear modules (where FSDP2 is applied)
+    # Register Forward Pre-Hooks on all Linear modules (where FSDP2 is applied) for checking param_dtype
+    # We validate after the all-gather is done, so prepend = False
     hook_handles = []
     for _, module in trainer.state.model.named_modules():
         if isinstance(module, torch.nn.Linear):
-            # Forward hook to check all-gathered parameter dtypes (after the all-gather is done; prepend = False)
-            handle1 = module.register_forward_pre_hook(validate_all_gathered_params, prepend=False)
-            # Another hook to check gradient dtypes (this is a workaround since the regular backward hooks seem to be called too early)
-            # TODO: Will need to investigate this further...
-            handle2 = module.register_forward_pre_hook(validate_gradient_dtypes, prepend=False)
-            hook_handles.extend([handle1, handle2])
+            param_dtype_handle = module.register_forward_pre_hook(validate_param_dtype_hook, prepend=False)
+            hook_handles.extend([param_dtype_handle])
 
-    try:
-        # Run forward and backward pass to trigger the hooks
-        output = trainer.state.model(test_input)
-        loss = output.mean()
-        loss.backward()
+    output = trainer.state.model(test_input)
+    loss = output.mean()
+    loss.backward()
 
-        # Validate parameter dtypes from hooks
-        assert len(param_dtype_validations) > 0, 'Should have validated at least one parameter dtype'
-        for validation in param_dtype_validations:
-            assert validation['matches'], \
-                f"Parameter dtype mismatch in {validation['module']}: expected {validation['expected']}, got {validation['actual']}"
+    def validate_reduce_dtype(module):
+        """Function to validate reduce dtypes after the backward pass. Since the actual all-reduce happens after any
+        available hook to register, we don't register this as a hook, we just check it"""
+        assert isinstance(module, torch.distributed.fsdp.FSDPModule)
+        actual_grad_dtype = module._get_fsdp_state()._fsdp_param_group._reduce_dtype  # type: ignore
+        assert actual_grad_dtype == expected_reduce_dtype, \
+            f'Reduce dtype mismatch in {module.__class__.__name__}: expected {expected_reduce_dtype}, got {actual_grad_dtype}'
 
-        # Validate gradient dtypes from hooks
-        assert len(grad_dtype_validations) > 0, 'Should have validated at least one gradient dtype'
-        for validation in grad_dtype_validations:
-            assert validation['matches'], \
-                f"Gradient dtype mismatch in {validation['module']}: expected {validation['expected']}, got {validation['actual']}"
+    # Validate reduce dtypes using the static variable assigned in the FSDPParamGroup after they've
+    # been lazily initialized
+    for _, module in trainer.state.model.named_modules():
+        if isinstance(module, torch.nn.Linear):
+            validate_reduce_dtype(module)
 
-        # Also validate the final output dtype matches param_dtype (computation dtype)
-        assert output.dtype == expected_param_dtype, \
-            f'Output dtype should be {expected_param_dtype} but got {output.dtype}'
+    # Also validate the final output dtype matches param_dtype (computation dtype)
+    assert output.dtype == expected_param_dtype, \
+        f'Output dtype should be {expected_param_dtype} but got {output.dtype}'
 
-    finally:
-        # Clean up hooks
-        for handle in hook_handles:
-            handle.remove()
+    for handle in hook_handles:
+        handle.remove()
