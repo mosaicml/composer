@@ -167,7 +167,7 @@ def sync_module_states(model: nn.Module, full_state_dict: dict) -> None:
     else:
         model = model.to_empty(device=device)
 
-    options = StateDictOptions(full_state_dict=True, broadcast_from_rank0=True)
+    options = StateDictOptions(full_state_dict=True, broadcast_from_rank0=True, strict=False)
 
     # Sync parameters and buffers
     set_model_state_dict(model, full_state_dict, options=options)
