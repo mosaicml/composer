@@ -99,6 +99,11 @@ def _parallelize_model_helper(
                 cpu_offload=True,
             )
             full_state_dict = get_model_state_dict(model, options=options)
+            from pprint import pprint
+            print("full_state_dict")
+            pprint(full_state_dict)
+            print("modules")
+            pprint(dict(model.named_modules()))
 
         with log_execution_time(log, 'Prepare FSDP2'):
             prepare_fully_shard(model, config, precision, fsdp_wrap_policy)
