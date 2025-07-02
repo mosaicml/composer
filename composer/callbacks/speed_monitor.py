@@ -20,21 +20,25 @@ if is_xla_installed():
 
 __all__ = ['SpeedMonitor']
 
+_HSERIES_SXM = {
+    'fp64': 67e12,
+    'fp32': 67e12,
+    'tf32': 989e12 / 2,
+    'fp16': 1.979e15 / 2,
+    'amp_fp16': 1.979e15 / 2,
+    'bf16': 1.979e15 / 2,
+    'amp_bf16': 1.979e15 / 2,
+    'fp8': 3.958e15 / 2,
+    'amp_fp8': 3.958e15 / 2,
+    'int8': 3.958e15 / 2,
+}
+
 GPU_AVAILABLE_FLOPS = {
+    # source: https://resources.nvidia.com/en-us-data-center-overview-mc/en-us-data-center-overview/hpc-datasheet-sc23-h200
+    'h200-sxm': _HSERIES_SXM,
     # source: https://resources.nvidia.com/en-us-tensor-core/nvidia-tensor-core-gpu-datasheet
     # nvidia publishes spec sheet with a 2x sparsity factor
-    'h100-sxm': {
-        'fp64': 67e12,
-        'fp32': 67e12,
-        'tf32': 989e12 / 2,
-        'fp16': 1.979e15 / 2,
-        'amp_fp16': 1.979e15 / 2,
-        'bf16': 1.979e15 / 2,
-        'amp_bf16': 1.979e15 / 2,
-        'fp8': 3.958e15 / 2,
-        'amp_fp8': 3.958e15 / 2,
-        'int8': 3.958e15 / 2,
-    },
+    'h100-sxm': _HSERIES_SXM,
     'h100-pcie': {
         'fp64': 51e12,
         'fp32': 51e12,
@@ -107,7 +111,11 @@ def get_gpu_flops_available(state: State):
     if torch.cuda.is_available():
         # torch.cuda.get_device_name() ex output: 'NVIDIA A100-SXM4-40GB'
         device_name = torch.cuda.get_device_name().lower()
-        if 'h100' in device_name and 'hbm3' in device_name:
+        if 'h200' in device_name:
+            # We just assume SXM because device name does not differentiate, and we would have to check
+            # power or bandwidth or something.
+            device_name = 'h200-sxm'
+        elif 'h100' in device_name and 'hbm3' in device_name:
             device_name = 'h100-sxm'
         elif 'h100' in device_name and ('pcie' in device_name or 'hbm2e' in device_name):
             device_name = 'h100-pcie'
