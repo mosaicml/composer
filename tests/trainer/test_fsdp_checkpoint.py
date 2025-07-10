@@ -20,13 +20,14 @@ import torch
 from packaging import version
 from torch.distributed._shard.sharded_tensor import ShardedTensor
 from torch.distributed._tensor import DTensor
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.utils.data import DataLoader
 from torchmetrics import Metric, MetricCollection
 from torchmetrics.classification import MulticlassAccuracy
 
 from composer.algorithms import EMA
 from composer.core import Algorithm, Event, Precision, State, Time
-from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_context
+from composer.core.state import fsdp_state_dict_type_context
 from composer.models import ComposerClassifier
 from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
@@ -1024,12 +1025,11 @@ def test_elastic_resumption(
         # Add in unsharded model params.
         with fsdp_state_dict_type_context(trainer.state.model, state_dict_type='full'):
             state_dict['model'] = trainer.state.model.state_dict()
+            optimizer = trainer.state.optimizers[0]
+            state_dict['optimizers'] = {
+                type(optimizer).__qualname__: FSDP.optim_state_dict(trainer.state.model, optimizer)
+            }
 
-        optimizer = trainer.state.optimizers[0]
-        state_dict['optimizers'] = {
-            type(optimizer).__qualname__:
-                fsdp_get_optim_state_dict(trainer.state.model, optimizer, state_dict_type='full'),
-        }
         return state_dict
 
     def compare_state_dicts():
