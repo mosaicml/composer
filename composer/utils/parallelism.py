@@ -73,7 +73,7 @@ class FSDP2Config:
         reshard_after_forward (Union[bool, int]): Controls parameter behavior after forward.
         activation_checkpointing (bool): Whether to use activation checkpointing. Defaults to False.
         activation_cpu_offload (bool): Whether to use activation CPU offloading. Defaults to False.
-        state_dict_type (str): Type of state dict to use. Can be 'full' or 'sharded'. Defaults to 'full'.
+        state_dict_type (str): Type of state dict to use. Can be 'full' or 'sharded'. Defaults to 'sharded'.
             - Note: In cases where `load_path` is not set in Trainer, `state_dict_type` indicates how a model will be saved.
             - Note: In cases where `load_path` is set in Trainer, `state_dict_type` indicates how a model will be loaded and also saved.
         load_monolith_rank0_only (bool): Whether to load monolithic checkpoints on rank 0 only. Defaults to False.
@@ -89,7 +89,7 @@ class FSDP2Config:
     #       in most of our use cases, we can decouple these two attributes from the FSDP2Config class.
     activation_checkpointing: bool = False
     activation_cpu_offload: bool = False
-    state_dict_type: str = 'full'
+    state_dict_type: str = 'sharded'
     load_monolith_rank0_only: bool = False
     mixed_precision: str = 'DEFAULT'
 
