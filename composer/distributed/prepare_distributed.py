@@ -86,6 +86,13 @@ def _parallelize_model_helper(
     update_sync_module_states_if_needed(model, config)
 
     if config.sync_module_states:
+        # This is specific to PEFT models
+        try:
+            print("[RICKY] Getting the internal model")
+            model = model.model  # type: ignore
+        except:
+            print("[RICKY] No internal model found")
+            pass
         # Check for duplicate module references which will cause issues with sync_module_states
         _check_duplicate_modules(model)
 
@@ -98,14 +105,7 @@ def _parallelize_model_helper(
                 full_state_dict=True,
                 cpu_offload=True,
             )
-            # This is specific to PEFT models
-            try:
-                print("[RICKY] Getting the internal model")
-                model = model.model  # type: ignore
-            except:
-                print("[RICKY] No internal model found")
-                pass
-            full_state_dict = get_model_state_dict(model, options=options)  # type: ignore
+            full_state_dict = get_model_state_dict(model, options=options)
 
         with log_execution_time(log, 'Prepare FSDP2'):
             prepare_fully_shard(model, config, precision, fsdp_wrap_policy)
