@@ -10,8 +10,10 @@ import torch
 import torch.distributed.fsdp
 from torch.distributed._tensor import DTensor
 from torch.utils.data import DataLoader
+from transformers.models.gpt2.modeling_gpt2 import GPT2Block
 
 from composer.models import ComposerClassifier
+from composer.models.huggingface import HuggingFaceModel
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, load_checkpoint
 from composer.utils.parallelism import FSDP2Config, FSDPConfig, ParallelismConfig
@@ -815,3 +817,30 @@ def test_mixed_precision_fsdp2_detailed(
 
     for handle in hook_handles:
         handle.remove()
+
+
+@pytest.mark.gpu
+@world_size(2)
+def test_fsdp2_with_peft_model_and_mixed_init(
+    world_size: int,
+    tiny_gpt2_model,
+    tiny_gpt2_tokenizer,
+    gpt2_peft_config,
+):
+    del world_size
+    resolved_device = 'cuda' if dist.get_local_rank() == 0 else 'meta'
+    model = HuggingFaceModel(
+        tiny_gpt2_model,
+        tokenizer=tiny_gpt2_tokenizer,
+        peft_config=gpt2_peft_config,
+        should_save_peft_only=True,
+    )
+    for module in model.model.modules():
+        if isinstance(module, GPT2Block):
+            module._fsdp_wrap = True  # type: ignore
+    model.to(resolved_device)
+
+    create_trainer_with_model(
+        model=model,  # type: ignore
+        use_fsdp2=True,
+    )
