@@ -10,8 +10,10 @@ import torch
 import torch.distributed.fsdp
 from torch.distributed._tensor import DTensor
 from torch.utils.data import DataLoader
+from transformers.models.gpt2.modeling_gpt2 import GPT2Block
 
 from composer.models import ComposerClassifier
+from composer.models.huggingface import HuggingFaceModel
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, load_checkpoint
 from composer.utils.parallelism import FSDP2Config, FSDPConfig, ParallelismConfig
@@ -23,8 +25,6 @@ from tests.common import (
     world_size,
 )
 from tests.trainer.test_fsdp_checkpoint import _assert_checkpoints_equivalent
-from composer.models.huggingface import HuggingFaceModel
-from transformers.models.gpt2.modeling_gpt2 import GPT2Block
 
 _INIT_DEVICES = ['cuda', 'meta']
 
@@ -837,11 +837,10 @@ def test_fsdp2_with_peft_model_and_mixed_init(
     )
     for module in model.model.modules():
         if isinstance(module, GPT2Block):
-            module._fsdp_wrap = True
+            module._fsdp_wrap = True  # type: ignore
     model.to(resolved_device)
 
-    trainer = create_trainer_with_model(
-        model=model,
+    create_trainer_with_model(
+        model=model,  # type: ignore
         use_fsdp2=True,
     )
-    print(trainer.state.model.state_dict().keys())

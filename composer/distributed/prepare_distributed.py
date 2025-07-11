@@ -51,7 +51,7 @@ def get_full_state_dict(model: torch.nn.Module):
     But when we're syncing module states, we need the full state dict, so we temporarily set
     should_save_peft_only to False.
     """
-    original_setting = getattr(model, "should_save_peft_only", None)
+    original_setting = getattr(model, 'should_save_peft_only', None)
     if original_setting is not None:
         model.should_save_peft_only = False  # type: ignore
     try:
