@@ -51,6 +51,8 @@ def get_full_state_dict(model: torch.nn.Module):
     But when we're syncing module states, we need the full state dict, so we temporarily set
     should_save_peft_only to False.
     """
+    # TODO: Since sharding peft/lora weights can be inefficient due to their small sizes (leading to communication overhead
+    # outweighing memory savings), we should provide an interface that allows users to avoid sharding these weights.
     original_setting = getattr(model, 'should_save_peft_only', None)
     if original_setting is not None:
         model.should_save_peft_only = False  # type: ignore
