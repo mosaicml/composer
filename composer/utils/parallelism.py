@@ -73,8 +73,12 @@ class FSDP2Config:
         reshard_after_forward (Union[bool, int]): Controls parameter behavior after forward.
         activation_checkpointing (bool): Whether to use activation checkpointing. Defaults to False.
         activation_cpu_offload (bool): Whether to use activation CPU offloading. Defaults to False.
-        load_monolith_rank0_only (bool): Whether to load monolithic checkpoints on rank 0 only. Defaults to False.
         state_dict_type (str): Type of state dict to use. Can be 'full' or 'sharded'. Defaults to 'sharded'.
+            - Note: In cases where `load_path` is not set in Trainer, `state_dict_type` indicates how a model will be saved.
+            - Note: In cases where `load_path` is set in Trainer, `state_dict_type` indicates how a model will be loaded and also saved.
+        load_monolith_rank0_only (bool): Whether to load monolithic checkpoints on rank 0 only. Defaults to False.
+            - Note: when `load_monolith_rank0_only` is True and `load_path` is set in `Trainer`, `state_dict_type` must be 'full'.
+        mixed_precision (str): Mixed precision to use. Can be 'DEFAULT', 'PURE', or 'FULL'. Defaults to 'DEFAULT'.
         verbose (bool): Whether to print verbose output. Defaults to False.
     """
 
@@ -168,15 +172,6 @@ class FSDP2Config:
 
     def __post_init__(self):
         warnings.warn('FSDP2 Config/APIs are experimental and subject to heavy changes', UserWarning)
-
-        # TODO: We might not need `load_monolith_rank0_only` as we can theoretically use
-        # self.monolith_rank0_only = self.state_dict_type == 'full' assuming that saving
-        # the model doesn't get affected by `load_monolith_rank0_only`
-        if self.load_monolith_rank0_only and self.state_dict_type != 'full':
-            raise ValueError(
-                'load_monolith_rank0_only=True requires state_dict_type="full". '
-                f'Got state_dict_type="{self.state_dict_type}"',
-            )
 
 
 @dataclass
