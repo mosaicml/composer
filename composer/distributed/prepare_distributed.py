@@ -42,6 +42,25 @@ def log_execution_time(logger: logging.Logger, operation_name: str):
         logger.info(f'{operation_name} took {end_time - start_time:.2f} seconds')
 
 
+@contextmanager
+def get_full_state_dict(model: torch.nn.Module):
+    """Context manager to temporarily get full state dict regardless of should_save_peft_only setting for huggingface models.
+
+    PEFT models with lora have an updated state_dict fn (in composer/models/huggingface.py) that
+    returns the state_dict with only the lora params if should_save_peft_only is True.
+    But when we're syncing module states, we need the full state dict, so we temporarily set
+    should_save_peft_only to False.
+    """
+    original_setting = getattr(model, "should_save_peft_only", None)
+    if original_setting is not None:
+        model.should_save_peft_only = False  # type: ignore
+    try:
+        yield
+    finally:
+        if original_setting is not None:
+            model.should_save_peft_only = original_setting  # type: ignore
+
+
 def _check_duplicate_modules(model: torch.nn.Module) -> None:
     """Checks whether the model has duplicate module references.
 
@@ -98,7 +117,8 @@ def _parallelize_model_helper(
                 full_state_dict=True,
                 cpu_offload=True,
             )
-            full_state_dict = get_model_state_dict(model, options=options)
+            with get_full_state_dict(model):
+                full_state_dict = get_model_state_dict(model, options=options)
 
         with log_execution_time(log, 'Prepare FSDP2'):
             prepare_fully_shard(model, config, precision, fsdp_wrap_policy)
