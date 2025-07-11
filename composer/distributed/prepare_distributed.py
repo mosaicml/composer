@@ -100,8 +100,10 @@ def _parallelize_model_helper(
             )
             # This is specific to PEFT models
             try:
+                print("[RICKY] Getting the internal model")
                 model = model.model  # type: ignore
             except:
+                print("[RICKY] No internal model found")
                 pass
             full_state_dict = get_model_state_dict(model, options=options)  # type: ignore
 
