@@ -98,7 +98,12 @@ def _parallelize_model_helper(
                 full_state_dict=True,
                 cpu_offload=True,
             )
-            full_state_dict = get_model_state_dict(model, options=options)
+            # This is specific to PEFT models
+            try:
+                model = model.model  # type: ignore
+            except:
+                pass
+            full_state_dict = get_model_state_dict(model, options=options)  # type: ignore
 
         with log_execution_time(log, 'Prepare FSDP2'):
             prepare_fully_shard(model, config, precision, fsdp_wrap_policy)
