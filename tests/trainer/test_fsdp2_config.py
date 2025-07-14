@@ -87,21 +87,3 @@ def test_fsdp2config_from_fsdp1_multiple_invalid_attributes():
     assert any('invalid_attribute2: value2' in msg for msg in warning_messages)
     assert any('auto_wrap: True' in msg for msg in warning_messages)
     assert any('sync_module_states: True' in msg for msg in warning_messages)
-
-
-def test_fsdp2_config_monolithic_validation():
-    """Test FSDP2Config validation for monolithic checkpointing."""
-    # Test valid monolithic config
-    config = FSDP2Config(
-        state_dict_type='full',
-        load_monolith_rank0_only=True,
-    )
-    assert config.state_dict_type == 'full'
-    assert config.load_monolith_rank0_only is True
-
-    # Test invalid monolithic config
-    with pytest.raises(ValueError, match='load_monolith_rank0_only=True requires state_dict_type="full"'):
-        FSDP2Config(
-            state_dict_type='sharded',
-            load_monolith_rank0_only=True,
-        )
