@@ -1701,18 +1701,6 @@ class Trainer:
                 log.info('No previous autoresume checkpoint found')
         # Actually load the checkpoint from potentially updated arguments
         if load_path is not None:
-            # TODO: We are in a weird state where when we use `mixed_init`, llm-foundry indiscriminately
-            # adds `load_monolith_rank0_only=True` to the FSDP config regardless of what `state_dict_type` is.
-            # While this is fine if we aren't loading a checkpoint, we shouldn't have this occur when we ARE loading
-            # a checkpoint. We added the following commented code to address this, but somehow FSDP1 works with this
-            # configuration??
-
-            # If we are using FSDP and load_monolith_rank0_only is True, then the state_dict must be `full`
-            # when we are loading a checkpoint
-            # if self.state.fsdp_config and self.state.fsdp_config.load_monolith_rank0_only:  # type: ignore
-            #     err_msg = 'state_dict_type must be `full` when load_monolith_rank0_only is True when loading a checkpoint'
-            #     assert self.state.fsdp_config.state_dict_type == 'full', err_msg  # type: ignore
-
             log.info(f'Loading checkpoint from {load_path}')
             if load_object_store is None:
                 load_object_store = maybe_create_object_store_from_uri(load_path)
