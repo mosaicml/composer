@@ -38,6 +38,7 @@ import logging
 import os
 import pickle
 import random
+import subprocess
 import string
 import sys
 import time
@@ -756,3 +757,10 @@ def run_local_rank_zero_first():
         'support. If calling this function outside Trainer, please ensure that '
         '`composer.utils.dist.initialize_dist` has been called first.',
     )
+
+
+def get_node_ip():
+    command = "ip addr show eth0 | grep 'inet ' | awk '{print $2}' | cut -d/ -f1"
+    result = subprocess.run(command, shell=True, capture_output=True, text=True)
+
+    return result.stdout.strip()

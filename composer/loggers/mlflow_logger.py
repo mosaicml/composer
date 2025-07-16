@@ -212,6 +212,7 @@ class MLFlowLogger(LoggerDestination):
         self._experiment_id: Optional[str] = None
         self._run_id = None
         self.run_url = None
+        self._mlflow_system_metrics_monitor = None
 
         if self._enabled:
             if tracking_uri is None and os.getenv('DATABRICKS_TOKEN') is not None:
@@ -313,11 +314,22 @@ class MLFlowLogger(LoggerDestination):
         tags = self.tags or {}
         if self.run_group:
             tags['run_group'] = self.run_group
-        mlflow.start_run(
-            run_id=self._run_id,
-            tags=self.tags,
-            log_system_metrics=self.log_system_metrics,
-        )
+
+        if not self._rank_zero_only:
+            mlflow.start_run(
+                run_id=self._run_id,
+                tags=self.tags,
+                log_system_metrics=self.log_system_metrics,
+            )
+        else:
+            # if mlflow logging is only enabled for rank-0,
+            # we need to log all nodes' system metrics to the mlflow-run created on rank-0,
+            # and group the metric key by node-ip.
+            mlflow.start_run(
+                run_id=self._run_id,
+                tags=self.tags,
+                log_system_metrics=False,
+            )
         if self.tracking_uri == 'databricks':
             # Start a background process to monitor the job to report the job status to MLflow.
             self.monitor_process = MlflowMonitorProcess(
@@ -334,6 +346,7 @@ class MLFlowLogger(LoggerDestination):
 
     def init(self, state: State, logger: Logger) -> None:
         del logger  # unused
+        from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
 
         if self.run_name is None:
             self.run_name = state.run_name
@@ -365,6 +378,13 @@ class MLFlowLogger(LoggerDestination):
             mlflow_ids_list = [self._experiment_id, self._run_id]
             dist.broadcast_object_list(mlflow_ids_list, src=0)
             self._experiment_id, self._run_id = mlflow_ids_list
+
+        if self._rank_zero_only and self.log_system_metrics and dist.get_local_rank() == 0:
+            node_ip = dist.get_node_ip()
+            self._mlflow_system_metrics_monitor = SystemMetricsMonitor(
+                run_id=self._run_id, node_id=node_ip
+            )
+            self._mlflow_system_metrics_monitor.start()
 
     def after_load(self, state: State, logger: Logger) -> None:
         logger.log_hyperparameters({
@@ -639,6 +659,9 @@ class MLFlowLogger(LoggerDestination):
             mlflow.end_run()
             if hasattr(self, 'monitor_process'):
                 self.monitor_process.join()
+
+        if self._mlflow_system_metrics_monitor is not None:
+            self._mlflow_system_metrics_monitor.finish()
 
 
 def _convert_to_mlflow_image(
