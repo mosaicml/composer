@@ -1516,9 +1516,13 @@ class Trainer:
                 log.info('Multiple CheckpointSaver provided as callbacks. Using the first one as reference.')
             self._checkpoint_saver = _checkpoint_savers[0]
 
-            if self._checkpoint_saver.folder != save_folder:
-                log.info(f'Using {self._checkpoint_saver.folder} as save_folder.')
-                save_folder = self._checkpoint_saver.folder
+            if self._checkpoint_saver.remote_uploader:
+                checkpoint_saver_folder = self._checkpoint_saver.remote_uploader.remote_folder
+            else:
+                checkpoint_saver_folder = self._checkpoint_saver.folder
+            if checkpoint_saver_folder != save_folder:
+                log.info(f'Using {checkpoint_saver_folder} as save_folder.')
+                save_folder = checkpoint_saver_folder
 
             if self._checkpoint_saver.latest_filename is None:
                 save_latest_filename = None
