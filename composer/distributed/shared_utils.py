@@ -181,9 +181,6 @@ def update_sync_module_states_if_needed(model: nn.Module, fsdp_config: FSDP2Conf
     dist.all_reduce(any_ranks_meta, reduce_operation='MAX')
     requires_sync = all_ranks_meta.item() == 0 and any_ranks_meta.item() == 1
 
-    if fsdp_config.load_monolith_rank0_only:
-        fsdp_config.sync_module_states = True
-
     if not fsdp_config.sync_module_states and requires_sync:
         fsdp_config.sync_module_states = True
 
