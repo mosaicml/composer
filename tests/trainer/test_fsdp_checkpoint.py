@@ -519,6 +519,7 @@ def test_fsdp_mixed_with_sync(
         '0.29.0',
         '0.30.0',
         '0.31.0',
+        '0.32.0',
     ],
 )
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
