@@ -4,22 +4,21 @@
 """Shared utilities for distributed training."""
 
 import functools
+import warnings
 from contextlib import nullcontext
 from typing import Callable, Optional
 
-import warnings
 import torch
 import torch.nn as nn
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import FSDPModule
+from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.utils.hooks import RemovableHandle
-
-from composer.distributed.fsdp2_utils import summon_full_params_fsdp2, validate_all_dtensors_are_fsdp_based
 from torchmetrics import Metric, MetricCollection
 
 from composer.devices import Device
+from composer.distributed.fsdp2_utils import summon_full_params_fsdp2, validate_all_dtensors_are_fsdp_based
 from composer.models import ComposerModel
 from composer.utils import dist, get_device
+from composer.utils.misc import is_model_fsdp, is_model_fsdp2
 from composer.utils.parallelism import FSDP2Config, FSDPConfig
 
 
@@ -155,7 +154,7 @@ def add_fsdp_oom_hooks(model: torch.nn.Module, device: Optional[Device] = None) 
     # could result in edge-case OOMs and deadlocks.
     for root_module in root_modules_for_hooks:
         for module in root_module.modules():
-            if isinstance(module, FSDP):
+            if isinstance(module, FullyShardedDataParallel):
                 hook_handles.append(module.register_forward_pre_hook(hook, prepend=True))  # type: ignore
                 hook_handles.append(module.register_full_backward_pre_hook(hook, prepend=True))  # type: ignore
             else:
@@ -208,19 +207,11 @@ def update_sync_module_states_if_needed(model: nn.Module, fsdp_config: FSDP2Conf
 
 def get_summon_params_fn(model: torch.nn.Module) -> Callable:
     """Returns a contextmanager that can be used to summon the full parameters of a model."""
-    def is_module_fsdp_based(module: torch.nn.Module, fsdp_type: type) -> bool:
-        if isinstance(module, fsdp_type):
-            return True
-        for child in module.children():
-            if is_module_fsdp_based(child, fsdp_type):
-                return True
-        return False
-
-    if is_module_fsdp_based(model, FSDPModule):
+    if is_model_fsdp2(model):
         validate_all_dtensors_are_fsdp_based(model)
         return summon_full_params_fsdp2
-    elif is_module_fsdp_based(model, FSDP):
-        return FSDP.summon_full_params
+    elif is_model_fsdp(model):
+        return FullyShardedDataParallel.summon_full_params
     else:
         warnings.warn(
             'No FSDP(1/2) Modules detected in the model, summon_full_params will be a nullcontext.',

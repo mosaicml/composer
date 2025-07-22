@@ -253,6 +253,7 @@ class SimpleWeightTiedModel(ComposerClassifier):
 
 class PartialWeightTiedModel(ComposerClassifier):
     """Small classification model with partially tied weights.
+    Typically this model will be used to test weight tying w/ FSDP
 
     Args:
         num_features (int): number of input features (default: 1)
