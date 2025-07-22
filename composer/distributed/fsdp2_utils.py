@@ -9,13 +9,13 @@ from typing import Any, Callable, Union
 
 import torch
 import torch.nn as nn
+from torch.distributed.fsdp import FSDPModule
 from torch.distributed.fsdp.wrap import CustomPolicy
+from torch.distributed.tensor import DTensor, distribute_tensor
 from torchmetrics import Metric, MetricCollection
 
 from composer.models import ComposerModel
 from composer.utils.parallelism import FSDP2Config
-from torch.distributed.fsdp import FSDPModule
-from torch.distributed.tensor import DTensor, Replicate, distribute_tensor
 
 # FSDP2 Weight Tying Functions
 # TODO: These functions are all relatively similar to each other, we should consider
@@ -403,6 +403,7 @@ def _get_params_to_summon_fsdp2(module: torch.nn.Module, recurse: bool = True):
     to get all DTensors not owned by downstream FSDPModules.
     """
     dtensor_params = {}
+
     def _dfs(module: torch.nn.Module, prefix: str = ''):
         # Add all DTensors within this (FSDP)module
         for name, param in module.named_parameters(
@@ -442,7 +443,8 @@ def summon_full_params_fsdp2(
     """Context manager to get full params for FSDP2 models with DTensor APIs.
 
     Note: Although FSDP1 uses `unshard` and `reshard` for summoning full params, we use DTensor APIs
-    to materialize the full parameters as that is the preferred approach for FSDP2.
+    to materialize the full parameters as that is the preferred approach for FSDP2. Additionally,
+    `unshard` and `reshard` with writeback functionality is not supported for FSDP2 models.
 
     We currently don't support rank0_only, offload_to_cpu, and with_grads.
     """
@@ -528,12 +530,8 @@ def summon_full_params_fsdp2(
                     'data',
                 ) and current_param.data is not None:
                     meta = metadata[name]
-                    replicated = distribute_tensor(
+                    sharded = distribute_tensor(
                         current_param.data,
-                        meta['device_mesh'],
-                        [Replicate()],
-                    )
-                    sharded = replicated.redistribute(
                         meta['device_mesh'],
                         meta['placements'],
                     )
@@ -551,7 +549,7 @@ def summon_full_params_fsdp2(
 
 def validate_all_dtensors_are_fsdp_based(model: torch.nn.Module):
     """Validates that all DTensors in the model are made by a call to `fully_shard`."""
-    all_params = set([param for param in model.parameters() if isinstance(param, DTensor)])
+    all_params = {param for param in model.parameters() if isinstance(param, DTensor)}
     fsdp_params = set()
     for module in model.modules():
         if isinstance(module, FSDPModule):

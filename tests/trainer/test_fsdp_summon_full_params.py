@@ -7,17 +7,17 @@ import pytest
 import torch
 import torch.distributed.fsdp
 from torch.distributed._tensor import DTensor
-
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+
+from composer.distributed.fsdp2_utils import _get_params_to_summon_fsdp2, summon_full_params_fsdp2
+from composer.distributed.shared_utils import get_summon_params_fn
 from tests.common import (
+    NestedFSDPModel,
     PartialWeightTiedModel,
     SimpleComposerMLP,
-    NestedFSDPModel,
     world_size,
 )
 from tests.trainer.test_fsdp2 import create_trainer_with_model
-from composer.distributed.shared_utils import get_summon_params_fn
-from composer.distributed.fsdp2_utils import summon_full_params_fsdp2, _get_params_to_summon_fsdp2
 
 
 def assert_right_fsdp_summon_params_fn(fsdp_version: int, fn: Callable):
@@ -85,9 +85,7 @@ def test_summon_full_params_with_writeback(
         model=model,
     )
 
-    original_local_tensors = {
-        name: param.data.clone() for name, param in model.named_parameters()
-    }
+    original_local_tensors = {name: param.data.clone() for name, param in model.named_parameters()}
 
     summon_full_params = get_summon_params_fn(model)
     assert_right_fsdp_summon_params_fn(fsdp_version, summon_full_params)
@@ -219,9 +217,7 @@ def test_summon_full_params_recurse(
             assert '.' not in name
 
     with summon_full_params(model, recurse=True):
-        param_names = [
-            name for name, _ in model.named_parameters(recurse=True)
-        ]
+        param_names = [name for name, _ in model.named_parameters(recurse=True)]
         assert any('.' in name for name in param_names)
 
     trainer.close()
@@ -273,8 +269,7 @@ def test_get_params_to_summon_fsdp2(
             param.data == value,
         ), f'Parameter {name} should have value {value}'
     assert len(dtensor_params_no_recurse) == 2, 'Should have 2 DTensors'
-    for (name,
-         param), value in zip(dtensor_params_no_recurse.items(), [1.0, 3.0]):
+    for (name, param), value in zip(dtensor_params_no_recurse.items(), [1.0, 3.0]):
         assert torch.all(
             param.data == value,
         ), f'Parameter {name} should have value {value}'
