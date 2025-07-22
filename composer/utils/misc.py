@@ -190,16 +190,30 @@ def is_model_ddp(model: torch.nn.Module) -> bool:
 
 
 def is_model_fsdp(model: torch.nn.Module) -> bool:
-    """Whether ``model`` is an instance of a :class:`.FullyShardedDataParallel`."""
+    """Whether ``model`` or any of its submodules are instances of a :class:`.FullyShardedDataParallel` or :class:`.FSDPModule`."""
     try:
         from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+        from torch.distributed.fsdp import FSDPModule
 
-        if isinstance(model, FSDP):
+        if isinstance(model, (FSDP, FSDPModule)):
             return True
 
-        # Check if model is wrapped with FSDP
         for _, obj in model.named_children():
-            if isinstance(obj, FSDP):
+            if isinstance(obj, (FSDP, FSDPModule)):
+                return True
+        return False
+    except ImportError:
+        return False
+
+
+def is_model_fsdp2(model: torch.nn.Module) -> bool:
+    """Whether ``model`` or any of its submodules are instances of a :class:`.FSDPModule`."""
+    try:
+        from torch.distributed.fsdp import FSDPModule
+        if isinstance(model, FSDPModule):
+            return True
+        for _, obj in model.named_children():
+            if isinstance(obj, FSDPModule):
                 return True
         return False
     except ImportError:
