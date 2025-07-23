@@ -206,7 +206,20 @@ def update_sync_module_states_if_needed(model: nn.Module, fsdp_config: FSDP2Conf
 
 
 def get_summon_params_fn(model: torch.nn.Module) -> Callable:
-    """Returns a contextmanager that can be used to summon the full parameters of a model."""
+    """Returns a contextmanager for summoning the full parameters of a model or any of its submodules.
+
+    We are using the full model state to figure out whether we should use an FSDP1-based or FSDP2-based
+    version of the `summon_full_params` function. Once the `summon_full_params` function has been output,
+    it can be used on any FSDP wrapped module within the model. Both `summon_full_params` functions
+    have the same function signature, but the FSDP2 variant has some limitations (no support for
+    `with_grads` and `with_grads_and_buffers`, all of which default to False).
+
+    Args:
+        model (torch.nn.Module): The model to get the summon_full_params function for.
+
+    Returns:
+        Callable: A contextmanager for summoning the full parameters of a model or any of its submodules.
+    """
     if is_model_fsdp2(model):
         validate_all_dtensors_are_fsdp_based(model)
         return summon_full_params_fsdp2
