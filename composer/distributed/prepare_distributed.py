@@ -114,6 +114,14 @@ def _parallelize_model_helper(
         # and the params are already initialized on rank 0.
         full_state_dict = {}
         if dist.get_global_rank() == 0:
+            # Move model to CPU to avoid GPU 0 memory spike (potentially OOM). Note that
+            # fully_shard(module) will handle moving tensors to the correct device
+            # based on the available accelerators in the process group.
+            # If we don't do this, we can run out of GPU memory for large models.
+            # We also move before creating the state dict to avoid potential OOM
+            # while creating the state dict.
+            model = model.to('cpu')
+
             # Get the full state dict of the model offloaded to CPU
             options = StateDictOptions(
                 full_state_dict=True,
@@ -121,11 +129,8 @@ def _parallelize_model_helper(
             )
             with get_full_state_dict(model):
                 full_state_dict = get_model_state_dict(model, options=options)
-            # Also move the model to CPU to avoid GPU 0 memory spike
-            # fully_shard(module) will handle nodes to the correct device
-            # based on the available accelerators in the process group.
-            # If we don't do this, we can run out of GPU memory for large models.
-            model = model.cpu()
+
+            # Clear GPU cache to ensure memory is freed before FSDP2 conversion
             torch.cuda.empty_cache()
 
         with log_execution_time(log, 'Prepare FSDP2'):
