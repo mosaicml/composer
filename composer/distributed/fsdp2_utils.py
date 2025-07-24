@@ -446,14 +446,18 @@ def summon_full_params_fsdp2(
     to materialize the full parameters as that is the preferred approach for FSDP2. Additionally,
     `unshard` and `reshard` with writeback functionality is not supported for FSDP2 models.
 
+    Writeback limitation: Only in-place modifications to parameter data are supported. The context
+    manager cannot write back structural changes such as replacing a parameter with a different
+    object type or setting it to None. If this occurs, the context manager will just use the original
+    DTensor.
+
     We currently don't support rank0_only, offload_to_cpu, and with_grads.
     """
     # TODO: We want to support these arguments in the future.
     if any([rank0_only, offload_to_cpu, with_grads]):
-        warnings.warn(
+        raise ValueError(
             'rank0_only, offload_to_cpu, and with_grads are not supported for FSDP2 models. '
-            'These arguments will be ignored. The defaults supported are: '
-            'rank0_only=False, offload_to_cpu=False, with_grads=False.',
+            'The defaults supported are: rank0_only=False, offload_to_cpu=False, with_grads=False.',
         )
 
     dtensor_params = _get_params_to_summon_fsdp2(model, recurse=recurse)
@@ -470,25 +474,23 @@ def summon_full_params_fsdp2(
     # module.attr = param.full_tensor() before we yield and
     # module.attr = distributed (potentially updated) tensor after we yield.
     def _get_module_and_attr(module: torch.nn.Module, param_name: str):
-        parts = param_name.split('.')
-        parent_module = module
-        for part in parts[:-1]:
-            parent_module = getattr(parent_module, part)
-        return parent_module, parts[-1]
+        module_path, local_param_name = param_name.rsplit('.', 1)
+        submodule = module.get_submodule(module_path)
+        return submodule, local_param_name
 
     # Group parameters by their underlying tensor to handle tied parameters
     tensor_to_names = {}
     for name, dtensor_param in dtensor_params.items():
-        tensor_hash = hash(dtensor_param)
-        if tensor_hash not in tensor_to_names:
-            tensor_to_names[tensor_hash] = []
-        tensor_to_names[tensor_hash].append(name)
+        if dtensor_param not in tensor_to_names:
+            tensor_to_names[dtensor_param] = []
+        tensor_to_names[dtensor_param].append(name)
 
     # Process parameters, handling tied parameters correctly
+    # since there are cases where two regular modules share the same
+    # weight within an FSDPModule (e.g. weight tied embedding layers
+    # in a GPT architecture).
     processed_tensors = set()
     for name, dtensor_param in dtensor_params.items():
-        tensor_hash = hash(dtensor_param)
-
         metadata[name] = {
             'device_mesh': dtensor_param.device_mesh,  # type: ignore
             'placements': dtensor_param.placements,  # type: ignore
@@ -497,17 +499,17 @@ def summon_full_params_fsdp2(
         model_dtensors[name] = dtensor_param
 
         # Only materialize the full tensor once per unique tensor
-        if tensor_hash not in processed_tensors:
+        if dtensor_param not in processed_tensors:
             full_tensor = dtensor_param.full_tensor()
             new_param = torch.nn.Parameter(full_tensor.detach().clone())
 
             # Set the same parameter instance for all tied parameters
-            for tied_name in tensor_to_names[tensor_hash]:
+            for tied_name in tensor_to_names[dtensor_param]:
                 parent_module, attr_name = _get_module_and_attr(model, tied_name)
                 setattr(parent_module, attr_name, new_param)
                 tied_params[tied_name] = new_param
 
-            processed_tensors.add(tensor_hash)
+            processed_tensors.add(dtensor_param)
 
     try:
         yield
@@ -516,11 +518,10 @@ def summon_full_params_fsdp2(
         processed_tensors = set()
         tensor_to_updated_dtensor = {}
 
-        for name in dtensor_params.keys():
+        for name, dtensor_param in dtensor_params.items():
             parent_module, attr_name = _get_module_and_attr(model, name)
-            tensor_hash = hash(model_dtensors[name])
 
-            if writeback and tensor_hash not in processed_tensors:
+            if writeback and dtensor_param not in processed_tensors:
                 # We update model_dtensors[name] to use the updated param
                 # after the model changes. For tied parameters, we only need
                 # to do this once per unique tensor.
@@ -537,12 +538,18 @@ def summon_full_params_fsdp2(
                     )
                     new_param = torch.nn.Parameter(sharded)
                     new_param.requires_grad = meta['requires_grad']
-                    tensor_to_updated_dtensor[tensor_hash] = new_param
-                    processed_tensors.add(tensor_hash)
+                    tensor_to_updated_dtensor[dtensor_param] = new_param
+                    processed_tensors.add(dtensor_param)
+                else:
+                    warnings.warn(
+                        f'Parameter {name} cannot be written back because it has no .data attribute '
+                        f'or .data is None. The original DTensor will be restored instead as structural '
+                        f'changes are not supported.',
+                    )
 
             # Restore the appropriate DTensor for this parameter
-            if writeback and tensor_hash in tensor_to_updated_dtensor:
-                setattr(parent_module, attr_name, tensor_to_updated_dtensor[tensor_hash])
+            if writeback and dtensor_param in tensor_to_updated_dtensor:
+                setattr(parent_module, attr_name, tensor_to_updated_dtensor[dtensor_param])
             else:
                 setattr(parent_module, attr_name, model_dtensors[name])
 
