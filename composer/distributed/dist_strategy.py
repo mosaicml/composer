@@ -278,7 +278,6 @@ def prepare_fsdp_module(
         if found_cuda_oom == 1:
             raise RuntimeError('CUDA out of memory encountered on a different rank')
 
-
     # Necessary variables for optimizers with multiple param groups in FSDP
     param_name_to_group_num = None
     group_num_to_opt_group_info = None
