@@ -121,6 +121,12 @@ def _parallelize_model_helper(
             )
             with get_full_state_dict(model):
                 full_state_dict = get_model_state_dict(model, options=options)
+            # Also move the model to CPU to avoid GPU 0 memory spike
+            # fully_shard(module) will handle nodes to the correct device
+            # based on the available accelerators in the process group.
+            # If we don't do this, we can run out of GPU memory for large models.
+            model = model.cpu()
+            torch.cuda.empty_cache()
 
         with log_execution_time(log, 'Prepare FSDP2'):
             prepare_fully_shard(model, config, precision, fsdp_wrap_policy)
