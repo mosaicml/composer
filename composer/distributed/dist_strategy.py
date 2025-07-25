@@ -479,7 +479,7 @@ def prepare_fsdp_module(
                 prepare_te_modules_for_fsdp(fsdp_obj)
 
             if auto_microbatching:
-                hook_handles = add_fsdp_oom_hooks(fsdp_obj, sync_hook)
+                hook_handles.extend(add_fsdp_oom_hooks(fsdp_obj, sync_hook))
                 fsdp_obj_named_modules.update(dict(fsdp_obj.named_modules()))
 
             if hasattr(fsdp_obj, '_exec_order_data'):
