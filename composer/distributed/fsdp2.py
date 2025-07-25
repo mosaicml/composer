@@ -43,17 +43,25 @@ def _recursive_apply_fully_shard(
     Returns:
         None (fully_shards modules in place)
     """
+    from composer.distributed.prepare_distributed import log_memory_usage
+    
     if module in visited_modules:
         return
     visited_modules.add(module)
+    
+    # Get module name for logging
+    module_name = module.__class__.__name__
+    
     # 1. Identify direct children candidates for sharding based on whether they are in target_modules_to_kwargs
     child_candidates = [child for child in module.children() if child in target_modules_to_kwargs]
 
     # 2. Legalize child candidates
     standalone_child_candidates: list[nn.Module] = []
     if child_candidates:
+        log_memory_usage(f"Before get_standalone_and_tied_modules for {module_name}")
         # Check for tying among the valid candidates based on the policy
         standalone_child_candidates, tied_children = get_standalone_and_tied_modules(child_candidates)
+        log_memory_usage(f"After get_standalone_and_tied_modules for {module_name}")
         if tied_children:
             tied_children_names = [name for name, child in module.named_children() if child in tied_children]
             raise ValueError(
@@ -66,15 +74,22 @@ def _recursive_apply_fully_shard(
         # Check for tying between candidates and the rest of the model (using root_module);
         # As the docstring discusses, we don't allow weight sharing between fsdp and non-fsdp modules, even if the parent
         # module is not FSDP wrapped. We may consider to relax this constraint in the future.
+        log_memory_usage(f"Before legalize_param_sharing_between_modules for {module_name}")
         legalize_param_sharing_between_modules(root_module, standalone_child_candidates)
+        log_memory_usage(f"After legalize_param_sharing_between_modules for {module_name}")
 
     # 3. Recurse on module's children for downstream sharding
-    for child in module.children():
+    for i, child in enumerate(module.children()):
+        child_name = child.__class__.__name__
+        log_memory_usage(f"Before recursive call for child {i} ({child_name}) of {module_name}")
         _recursive_apply_fully_shard(root_module, child, visited_modules, target_modules_to_kwargs)
+        log_memory_usage(f"After recursive call for child {i} ({child_name}) of {module_name}")
 
     # 4. Apply fully_shard to the module if it is in target_modules_to_kwargs
     if module in target_modules_to_kwargs:
+        log_memory_usage(f"Before fully_shard for {module_name}")
         fully_shard(module, **target_modules_to_kwargs[module])
+        log_memory_usage(f"After fully_shard for {module_name}")
 
 
 def apply_fully_shard(
@@ -95,6 +110,10 @@ def apply_fully_shard(
     Returns:
         None
     """
+    from composer.distributed.prepare_distributed import log_memory_usage
+    
+    log_memory_usage("apply_fully_shard START")
+    
     fully_shard_kwargs = {
         'mesh': fsdp2_config.device_mesh,
         'reshard_after_forward': fsdp2_config.reshard_after_forward,
@@ -102,14 +121,18 @@ def apply_fully_shard(
     }
 
     # Get a dictionary of all submodules to wrap and their kwargs
+    log_memory_usage("Before auto_wrap_policy._run_policy")
     target_modules_to_kwargs = auto_wrap_policy._run_policy(
         root_module=model,
         ignored_modules=set(),
         root_kwargs=fully_shard_kwargs,
     )
+    log_memory_usage("After auto_wrap_policy._run_policy")
 
     # Recursively apply fully_shard to each relevant submodule defined by the policy (and the corresponding target_modules_to_kwargs)
+    log_memory_usage("Before _recursive_apply_fully_shard")
     _recursive_apply_fully_shard(model, model, set(), target_modules_to_kwargs)
+    log_memory_usage("After _recursive_apply_fully_shard")
 
 
 def prepare_fully_shard(
@@ -128,13 +151,23 @@ def prepare_fully_shard(
     Returns:
         None
     """
+    from composer.distributed.prepare_distributed import log_memory_usage
+    
+    log_memory_usage("prepare_fully_shard START")
+    
     # If the auto_wrap_policy is not provided, generate the default policy
     if auto_wrap_policy is None:
+        log_memory_usage("Before generate_default_policy")
         auto_wrap_policy = generate_default_policy(model)
+        log_memory_usage("After generate_default_policy")
 
     # Check for parameter tying
+    log_memory_usage("Before check_param_tying")
     with check_param_tying(model):
+        log_memory_usage("Inside check_param_tying, before apply_fully_shard")
         apply_fully_shard(model, fsdp2_config, precision, auto_wrap_policy)
+        log_memory_usage("Inside check_param_tying, after apply_fully_shard")
+    log_memory_usage("After check_param_tying")
 
     if fsdp2_config.verbose:
         log.info(f'FSDP2: Fully sharded model:\n{model}')

@@ -46,10 +46,10 @@ def log_memory_usage(label: str, rank: Optional[int] = None):
     rank = dist.get_global_rank()
     if rank == 0:
         stats = get_memory_stats()
-        log.info(f"[Rank {rank}] Memory @ {label}: "
-                f"Allocated: {stats['allocated']:.2f}GB, "
-                f"Reserved: {stats['reserved']:.2f}GB, "
-                f"Max Allocated: {stats['max_allocated']:.2f}GB")
+        print(f"\nMemory @ {label}:\n"
+              f"Allocated: {stats['allocated']:.2f}GB\n"
+              f"Reserved: {stats['reserved']:.2f}GB\n"
+              f"Max Allocated: {stats['max_allocated']:.2f}GB\n")
 
 
 # TODO put this func into a general util function file

@@ -156,14 +156,20 @@ def check_param_tying(model: nn.Module):
 
     Checks parameter tying based on shared parameter object identity before and after the context.
     """
+    from composer.distributed.prepare_distributed import log_memory_usage
+    
+    log_memory_usage("check_param_tying START")
     pre_shard_tying_groups = _get_param_tying_groups(model)
     sorted_pre_shard_groups = sorted([sorted(group) for group in pre_shard_tying_groups])
+    log_memory_usage("check_param_tying after _get_param_tying_groups")
 
     try:
         yield
     finally:
+        log_memory_usage("check_param_tying finally block START")
         post_shard_tying_groups = _get_param_tying_groups(model)
         sorted_post_shard_groups = sorted([sorted(group) for group in post_shard_tying_groups])
+        log_memory_usage("check_param_tying finally block after _get_param_tying_groups")
 
         if sorted_pre_shard_groups != sorted_post_shard_groups:
             raise RuntimeError(
@@ -297,6 +303,10 @@ def generate_default_policy(parent_model: nn.Module) -> CustomPolicy:
     Raises:
         KeyError: If a module's fsdp_wrap_fn returns a dict with invalid FSDP2Config keys.
     """
+    from composer.distributed.prepare_distributed import log_memory_usage
+    
+    log_memory_usage("generate_default_policy START")
+    
     # Filter the specific deprecation warning to only appear once.
     warnings.filterwarnings(
         'once',
@@ -323,6 +333,7 @@ def generate_default_policy(parent_model: nn.Module) -> CustomPolicy:
             return res
         return False
 
+    log_memory_usage("generate_default_policy END")
     return CustomPolicy(lambda_fn)
 
 
