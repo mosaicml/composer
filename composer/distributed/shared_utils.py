@@ -91,7 +91,7 @@ def generate_oom_hook(device: Device) -> Callable:
         Callable: The hook that checks if any other rank hit an OOM.
     """
 
-    def sync_hook(*args):
+    def sync_hook(*args, device: Device):
         # Check if any other rank hit an OOM
         found_cuda_oom_tensor = device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
         dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
@@ -103,7 +103,7 @@ def generate_oom_hook(device: Device) -> Callable:
         if found_cuda_oom == 1:
             raise RuntimeError('CUDA out of memory encountered on a different rank')
 
-    return sync_hook
+    return functools.partial(sync_hook, device=device)
 
 
 def add_fsdp_oom_hooks(model: torch.nn.Module, device: Optional[Device] = None) -> list[RemovableHandle]:

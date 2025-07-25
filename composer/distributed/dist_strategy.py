@@ -31,7 +31,7 @@ from composer.distributed.mosaic_parallelism import (
     get_mixed_precision,
     set_custom_fsdp_module_kwargs,
 )
-from composer.distributed.shared_utils import add_fsdp_oom_hooks
+from composer.distributed.shared_utils import generate_oom_hook
 from composer.utils import FSDPConfig, StringEnum, TPConfig, dist, ensure_tuple, get_device
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare_fsdp_module', 'prepare_tp_module']
@@ -262,6 +262,7 @@ def prepare_fsdp_module(
 
     # Handles of FSDP sync hooks if automicrobatching is on
     hook_handles = []
+    sync_hook = generate_oom_hook(device)
 
     # Necessary variables for optimizers with multiple param groups in FSDP
     param_name_to_group_num = None
@@ -478,7 +479,12 @@ def prepare_fsdp_module(
                 prepare_te_modules_for_fsdp(fsdp_obj)
 
             if auto_microbatching:
-                hook_handles = add_fsdp_oom_hooks(fsdp_obj, device=device)
+                for _, module in fsdp_obj.named_modules():
+                    if isinstance(module, FullyShardedDataParallel):
+                        hook_handles.append(module.register_forward_pre_hook(sync_hook, prepend=True))
+                        hook_handles.append(module.register_full_backward_pre_hook(sync_hook, prepend=True))
+                    else:
+                        hook_handles.append(module.register_full_backward_hook(sync_hook))
                 fsdp_obj_named_modules.update(dict(fsdp_obj.named_modules()))
 
             if hasattr(fsdp_obj, '_exec_order_data'):
