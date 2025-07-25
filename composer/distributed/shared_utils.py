@@ -4,6 +4,8 @@
 """Shared utilities for distributed training."""
 
 import functools
+import warnings
+from contextlib import nullcontext
 from typing import Callable, Optional
 
 import torch
@@ -13,8 +15,10 @@ from torch.utils.hooks import RemovableHandle
 from torchmetrics import Metric, MetricCollection
 
 from composer.devices import Device
+from composer.distributed.fsdp2_utils import summon_full_params_fsdp2, validate_all_dtensors_are_fsdp_based
 from composer.models import ComposerModel
 from composer.utils import dist, get_device
+from composer.utils.misc import is_model_fsdp, is_model_fsdp2
 from composer.utils.parallelism import FSDP2Config, FSDPConfig
 
 
@@ -199,3 +203,30 @@ def update_sync_module_states_if_needed(model: nn.Module, fsdp_config: FSDP2Conf
                 f'When doing mixed initialization, Rank 0 should have parameters on non-meta device, '
                 f'and all other ranks should have parameters on meta device.',
             )
+
+
+def get_summon_params_fn(model: torch.nn.Module) -> Callable:
+    """Returns a contextmanager for summoning the full parameters of a model or any of its submodules.
+
+    We are using the full model state to figure out whether we should use an FSDP1-based or FSDP2-based
+    version of the `summon_full_params` function. Once the `summon_full_params` function has been output,
+    it can be used on any FSDP wrapped module within the model. Both `summon_full_params` functions
+    have the same function signature, but the FSDP2 variant has some limitations (no support for
+    `with_grads` and `with_grads_and_buffers`, all of which default to False).
+
+    Args:
+        model (torch.nn.Module): The model to get the summon_full_params function for.
+
+    Returns:
+        Callable: A contextmanager for summoning the full parameters of a model or any of its submodules.
+    """
+    if is_model_fsdp2(model):
+        validate_all_dtensors_are_fsdp_based(model)
+        return summon_full_params_fsdp2
+    elif is_model_fsdp(model):
+        return FullyShardedDataParallel.summon_full_params
+    else:
+        warnings.warn(
+            'No FSDP(1/2) Modules detected in the model, summon_full_params will be a nullcontext.',
+        )
+        return nullcontext

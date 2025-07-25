@@ -11,6 +11,8 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, Callable, Optional, Union
 
 import torch
+from torch.distributed.fsdp import FSDPModule
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn.parallel import DistributedDataParallel
 from torchvision import transforms
 from torchvision.datasets import VisionDataset
@@ -190,20 +192,23 @@ def is_model_ddp(model: torch.nn.Module) -> bool:
 
 
 def is_model_fsdp(model: torch.nn.Module) -> bool:
-    """Whether ``model`` is an instance of a :class:`.FullyShardedDataParallel`."""
-    try:
-        from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-
-        if isinstance(model, FSDP):
+    """Whether ``model`` or any of its submodules are instances of :class:`.FullyShardedDataParallel` or :class:`.FSDPModule`."""
+    if isinstance(model, (FSDP, FSDPModule)):
+        return True
+    for _, obj in model.named_children():
+        if isinstance(obj, (FSDP, FSDPModule)):
             return True
+    return False
 
-        # Check if model is wrapped with FSDP
-        for _, obj in model.named_children():
-            if isinstance(obj, FSDP):
-                return True
-        return False
-    except ImportError:
-        return False
+
+def is_model_fsdp2(model: torch.nn.Module) -> bool:
+    """Whether ``model`` or any of its submodules are instances of specifically :class:`.FSDPModule`."""
+    if isinstance(model, FSDPModule):
+        return True
+    for _, obj in model.named_children():
+        if isinstance(obj, FSDPModule):
+            return True
+    return False
 
 
 def is_notebook():

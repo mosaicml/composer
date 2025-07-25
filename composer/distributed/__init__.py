@@ -11,6 +11,9 @@ from composer.distributed.dist_strategy import (
     prepare_tp_module,
 )
 from composer.distributed.prepare_distributed import parallelize_composer_model
+from composer.distributed.shared_utils import (
+    get_summon_params_fn,
+)
 
 __all__ = [
     'DDPSyncStrategy',
@@ -19,4 +22,5 @@ __all__ = [
     'prepare_fsdp_module',
     'prepare_tp_module',
     'parallelize_composer_model',
+    'get_summon_params_fn',
 ]
