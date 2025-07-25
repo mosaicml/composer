@@ -77,6 +77,7 @@ from composer.distributed import (
     prepare_ddp_module,
     prepare_tp_module,
 )
+from composer.distributed.shared_utils import generate_oom_hook
 from composer.loggers import (
     ConsoleLogger,
     Logger,
@@ -423,32 +424,6 @@ def _update_num_consecutive_thrashes(state: State, num_consecutive_thrashes: int
     else:
         num_consecutive_thrashes = 0
     return num_consecutive_thrashes
-
-
-def _create_sync_hook(state: State):
-    """Check if other ranks OOMed after forward/backward pass when using auto microbatching.
-
-    This may happen when close to memory limit or with uneven memory usage across ranks. Since we
-    need to do this before the model weights are gathered for the next FSDP block, we wrap every
-    FSPD block with a hook that checks if any other rank OOMed.
-
-    This wrapper method is needed because PyTorch FSDP doesn't take `state` as an argument in hooks
-    that are registered using methods such as `register_forward_pre_hook`.
-    """
-
-    def sync_hook(*args):
-        # Check if any other rank hit an OOM
-        found_cuda_oom_tensor = state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
-        dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
-        found_cuda_oom = found_cuda_oom_tensor.item()
-        # Signal current rank is still in batch
-        all_ranks_finished_tensor = state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
-        dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
-
-        if found_cuda_oom == 1:
-            raise RuntimeError()
-
-    return sync_hook
 
 
 def _readd_fsdp_sync_hooks(fsdp_modules: dict[str, torch.nn.Module], sync_hook):
@@ -2676,7 +2651,7 @@ class Trainer:
         device_batch = self.state.batch
 
         # Define sync hook for FSDP modules if automicrobatching is on
-        sync_hook = _create_sync_hook(self.state)
+        sync_hook = generate_oom_hook(self.state.device)
 
         original_microbatch_size = self.state.device_train_microbatch_size
         oom_found_this_batch = False
@@ -3582,7 +3557,7 @@ class Trainer:
 
         # If training occurs after evaluation, readd hooks in case of memory spike
         if self.state.auto_microbatching:
-            sync_hook = _create_sync_hook(self.state)
+            sync_hook = generate_oom_hook(self.state.device)
             if self.state.fsdp_enabled and len(self.state.automicrobatch_fsdp_hook_handles) == 0:
                 self.state.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(
                     self.state.fsdp_modules,
