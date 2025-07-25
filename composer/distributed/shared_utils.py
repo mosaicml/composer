@@ -106,7 +106,7 @@ def generate_oom_hook(device: Device) -> Callable:
     return functools.partial(sync_hook, device=device)
 
 
-def add_fsdp_oom_hooks(model: torch.nn.Module, device: Optional[Device] = None) -> list[RemovableHandle]:
+def add_fsdp_oom_hooks(model: torch.nn.Module, hook_fn: Callable) -> list[RemovableHandle]:
     """Add OOM hooks to the FSDP1-wrapped model and return the list of handles.
 
     Note: This isn't supported for FSDP2 yet. For more details view the draft PR:
@@ -130,9 +130,6 @@ def add_fsdp_oom_hooks(model: torch.nn.Module, device: Optional[Device] = None) 
         list[RemovableHandle]: The list of RemovableHandles for the hooks.
     """
     hook_handles = []
-    if device is None:
-        device = get_device()
-    hook = generate_oom_hook(device)
 
     # TODO: In FSDP1, we might not need the non-FSDP wrapped backward hook either, but we'll keep it for now until further investigation.
     # TODO: If we want to reduce as many potential deadlocks as possible, we may need to add hooks before all blocking collectives:
@@ -143,10 +140,10 @@ def add_fsdp_oom_hooks(model: torch.nn.Module, device: Optional[Device] = None) 
     # could result in edge-case OOMs and deadlocks.
     for _, module in model.named_modules():
         if isinstance(module, FullyShardedDataParallel):
-            hook_handles.append(module.register_forward_pre_hook(hook, prepend=True))  # type: ignore
-            hook_handles.append(module.register_full_backward_pre_hook(hook, prepend=True))  # type: ignore
+            hook_handles.append(module.register_forward_pre_hook(hook_fn, prepend=True))  # type: ignore
+            hook_handles.append(module.register_full_backward_pre_hook(hook_fn, prepend=True))  # type: ignore
         else:
-            hook_handles.append(module.register_full_backward_hook(hook))  # type: ignore
+            hook_handles.append(module.register_full_backward_hook(hook_fn))  # type: ignore
 
     return hook_handles
 
