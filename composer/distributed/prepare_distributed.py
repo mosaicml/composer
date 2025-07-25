@@ -30,6 +30,28 @@ from composer.utils.parallelism import FSDP2Config
 log = logging.getLogger(__name__)
 
 
+def get_memory_stats():
+    """Get current CUDA memory statistics."""
+    if torch.cuda.is_available():
+        return {
+            'allocated': torch.cuda.memory_allocated() / 1024**3,  # GB
+            'reserved': torch.cuda.memory_reserved() / 1024**3,    # GB
+            'max_allocated': torch.cuda.max_memory_allocated() / 1024**3,  # GB
+        }
+    return {'allocated': 0, 'reserved': 0, 'max_allocated': 0}
+
+
+def log_memory_usage(label: str, rank: Optional[int] = None):
+    """Log current memory usage with a label."""
+    rank = dist.get_global_rank()
+    if rank == 0:
+        stats = get_memory_stats()
+        log.info(f"[Rank {rank}] Memory @ {label}: "
+                f"Allocated: {stats['allocated']:.2f}GB, "
+                f"Reserved: {stats['reserved']:.2f}GB, "
+                f"Max Allocated: {stats['max_allocated']:.2f}GB")
+
+
 # TODO put this func into a general util function file
 @contextmanager
 def log_execution_time(logger: logging.Logger, operation_name: str):
@@ -107,8 +129,11 @@ def _parallelize_model_helper(
     update_sync_module_states_if_needed(model, config)
 
     if config.sync_module_states:
+        log_memory_usage("START sync_module_states path")
+
         # Check for duplicate module references which will cause issues with sync_module_states
         _check_duplicate_modules(model)
+        log_memory_usage("After _check_duplicate_modules")
 
         # If we are syncing module states, we assume that rank 0 has the model on CPU/GPU
         # and the params are already initialized on rank 0.
@@ -120,24 +145,38 @@ def _parallelize_model_helper(
             # If we don't do this, we can run out of GPU memory for large models.
             # We also move before creating the state dict to avoid potential OOM
             # while creating the state dict.
+            log_memory_usage("Before model.to('cpu')")
             model = model.to('cpu')
+            log_memory_usage("After model.to('cpu')")
+            torch.cuda.empty_cache()
+            log_memory_usage("After empty_cache (post CPU move)")
 
             # Get the full state dict of the model offloaded to CPU
             options = StateDictOptions(
                 full_state_dict=True,
                 cpu_offload=True,
             )
+            log_memory_usage("Before get_full_state_dict")
             with get_full_state_dict(model):
+                log_memory_usage("Inside get_full_state_dict context")
                 full_state_dict = get_model_state_dict(model, options=options)
+                log_memory_usage("After get_model_state_dict")
+            log_memory_usage("After get_full_state_dict context exit")
 
             # Clear GPU cache to ensure memory is freed before FSDP2 conversion
             torch.cuda.empty_cache()
+            log_memory_usage("After final empty_cache")
 
+        log_memory_usage("Before prepare_fully_shard")
         with log_execution_time(log, 'Prepare FSDP2'):
             prepare_fully_shard(model, config, precision, fsdp_wrap_policy)
+            log_memory_usage("After prepare_fully_shard")
 
+        log_memory_usage("Before sync_module_states")
         with log_execution_time(log, 'Sync Module States across all ranks'):
             sync_module_states(model, full_state_dict)
+            log_memory_usage("After sync_module_states")
+        log_memory_usage("END sync_module_states path")
     else:
         with log_execution_time(log, 'Prepare FSDP2'):
             prepare_fully_shard(model, config, precision, fsdp_wrap_policy)

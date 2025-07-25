@@ -1350,12 +1350,14 @@ class State(Serializable):
                 )
             elif isinstance(self.fsdp_config, FSDP2Config):
                 from composer import ComposerModel
-                from composer.distributed.prepare_distributed import parallelize_composer_model
+                from composer.distributed.prepare_distributed import parallelize_composer_model, log_memory_usage
 
                 # FSDP2 doesn't support auto_microbatching (checked earlier, just validating here to be safe)
                 assert not self.auto_microbatching, 'auto_microbatching is not supported with FSDP2'
                 # To make pyright happy (instead of just adding a type: ignore)
                 assert isinstance(self.model, ComposerModel)
+
+                log_memory_usage("Before parallelize_composer_model")
 
                 parallelize_composer_model(
                     self.model,
@@ -1363,6 +1365,10 @@ class State(Serializable):
                     self.fsdp_config,
                     self.precision,
                 )
+
+                log_memory_usage("After parallelize_composer_model")
+                torch.cuda.empty_cache()
+                log_memory_usage("After final empty_cache in state.py")
             else:
                 raise ValueError(f'Unsupported FSDP config type for monolithic loading: {type(self.fsdp_config)}')
 
