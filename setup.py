@@ -220,6 +220,7 @@ extra_deps['mlflow'] = [
     'mlflow>=2.14.1,<3.0',
     'databricks-sdk>=0.50.0,<1',
     'pynvml>=11.5.0,<12',
+    'comet-ml>=3.49.11,<3.50.0'
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
