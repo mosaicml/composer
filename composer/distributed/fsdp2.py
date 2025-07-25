@@ -27,77 +27,90 @@ from composer.utils.parallelism import FSDP2Config
 log = logging.getLogger(__name__)
 
 
-def _recursive_apply_fully_shard(
-    root_module: nn.Module,
+def _collect_modules_for_sharding(
     module: nn.Module,
     visited_modules: set[nn.Module],
     target_modules_to_kwargs: dict[nn.Module, dict],
+    modules_to_shard: list[nn.Module],
+    depth: int = 0,
 ) -> None:
-    """Recursive helper to apply fully_shard based on policy and legalization.
+    """Recursively collect modules that need sharding in depth-first order.
 
     Args:
-        root_module (nn.Module): The root module to check for parameter sharing.
         module (nn.Module): The current module being processed.
-        visited_modules (set[nn.Module]): Set of modules that have already been visited so we don't process them twice.
+        visited_modules (set[nn.Module]): Set of modules that have already been visited.
         target_modules_to_kwargs (dict[nn.Module, dict]): Dictionary mapping modules to their fully_shard kwargs.
-
-    Returns:
-        None (fully_shards modules in place)
+        modules_to_shard (list[nn.Module]): List to collect modules in depth-first order.
+        depth (int): Current depth in the module tree (for sorting).
     """
-    from composer.distributed.prepare_distributed import log_memory_usage
-    
     if module in visited_modules:
         return
     visited_modules.add(module)
     
-    # Get module name for logging
-    module_name = module.__class__.__name__
+    # Recurse on children first (depth-first)
+    for child in module.children():
+        _collect_modules_for_sharding(child, visited_modules, target_modules_to_kwargs, modules_to_shard, depth + 1)
     
-    # 1. Identify direct children candidates for sharding based on whether they are in target_modules_to_kwargs
-    child_candidates = [child for child in module.children() if child in target_modules_to_kwargs]
-
-    # 2. Legalize child candidates
-    standalone_child_candidates: list[nn.Module] = []
-    if child_candidates:
-        log_memory_usage(f"Before get_standalone_and_tied_modules for {module_name}")
-        # Check for tying among the valid candidates based on the policy
-        standalone_child_candidates, tied_children = get_standalone_and_tied_modules(child_candidates)
-        log_memory_usage(f"After get_standalone_and_tied_modules for {module_name}")
-        if tied_children:
-            tied_children_names = [name for name, child in module.named_children() if child in tied_children]
-            raise ValueError(
-                f'Detected tied parameters between modules designated for FSDP wrapping within {module}. '
-                f'FSDP cannot wrap modules with tied parameters independently at the same level: '
-                f'{tied_children_names}. '
-                f'Please adjust the auto_wrap_policy to ensure no parameter sharing exists between modules to be sharded.',
-            )
-
-        # Check for tying between candidates and the rest of the model (using root_module);
-        # As the docstring discusses, we don't allow weight sharing between fsdp and non-fsdp modules, even if the parent
-        # module is not FSDP wrapped. We may consider to relax this constraint in the future.
-        log_memory_usage(f"Before legalize_param_sharing_between_modules for {module_name}")
-        legalize_param_sharing_between_modules(root_module, standalone_child_candidates)
-        log_memory_usage(f"After legalize_param_sharing_between_modules for {module_name}")
-
-    # 3. Recurse on module's children for downstream sharding
-    for i, child in enumerate(module.children()):
-        child_name = child.__class__.__name__
-        log_memory_usage(f"Before recursive call for child {i} ({child_name}) of {module_name}")
-        _recursive_apply_fully_shard(root_module, child, visited_modules, target_modules_to_kwargs)
-        log_memory_usage(f"After recursive call for child {i} ({child_name}) of {module_name}")
-
-    # 4. Apply fully_shard to the module if it is in target_modules_to_kwargs
+    # Add this module if it needs sharding (after children, so we get bottom-up order)
     if module in target_modules_to_kwargs:
-        log_memory_usage(f"Before fully_shard for {module_name}")
+        modules_to_shard.append((depth, module))
+
+
+def _sequential_apply_fully_shard(
+    root_module: nn.Module,
+    target_modules_to_kwargs: dict[nn.Module, dict],
+) -> None:
+    """Apply fully_shard sequentially to modules in bottom-up order.
+
+    Args:
+        root_module (nn.Module): The root module to check for parameter sharing.
+        target_modules_to_kwargs (dict[nn.Module, dict]): Dictionary mapping modules to their fully_shard kwargs.
+    """
+    from composer.distributed.prepare_distributed import log_memory_usage
+    
+    # Collect all modules that need sharding
+    modules_to_shard: list[tuple[int, nn.Module]] = []
+    visited_modules: set[nn.Module] = set()
+    _collect_modules_for_sharding(root_module, visited_modules, target_modules_to_kwargs, modules_to_shard)
+    
+    # Sort by depth (deepest first) to ensure bottom-up processing
+    modules_to_shard.sort(key=lambda x: x[0], reverse=True)
+    
+    log_memory_usage("Starting sequential fully_shard application")
+    
+    # Process each module sequentially
+    for depth, module in modules_to_shard:
+        module_name = module.__class__.__name__
+        
+        # Check for parameter tying with other modules to be sharded
+        child_candidates = [child for child in module.children() if child in target_modules_to_kwargs]
+        if child_candidates:
+            standalone_child_candidates, tied_children = get_standalone_and_tied_modules(child_candidates)
+            if tied_children:
+                tied_children_names = [name for name, child in module.named_children() if child in tied_children]
+                raise ValueError(
+                    f'Detected tied parameters between modules designated for FSDP wrapping within {module}. '
+                    f'FSDP cannot wrap modules with tied parameters independently at the same level: '
+                    f'{tied_children_names}. '
+                    f'Please adjust the auto_wrap_policy to ensure no parameter sharing exists between modules to be sharded.',
+                )
+            
+            # Check for tying between candidates and the rest of the model
+            legalize_param_sharing_between_modules(root_module, standalone_child_candidates)
+        
+        # Apply fully_shard to this module
+        log_memory_usage(f"Before fully_shard for {module_name} (depth={depth})")
         fully_shard(module, **target_modules_to_kwargs[module])
         log_memory_usage(f"After fully_shard for {module_name}")
-
-        # Clean up memory after sharding to prevent accumulation of temporary allocations
+        
+        # Aggressive memory cleanup after each module
         log_memory_usage(f"Before memory cleanup for {module_name}")
         gc.collect()  # First collect garbage to release Python objects
         if torch.cuda.is_available():
             torch.cuda.empty_cache()  # Then clear the CUDA cache
         log_memory_usage(f"After memory cleanup for {module_name}")
+    
+    log_memory_usage("Completed sequential fully_shard application")
 
 
 def apply_fully_shard(
@@ -137,10 +150,10 @@ def apply_fully_shard(
     )
     log_memory_usage("After auto_wrap_policy._run_policy")
 
-    # Recursively apply fully_shard to each relevant submodule defined by the policy (and the corresponding target_modules_to_kwargs)
-    log_memory_usage("Before _recursive_apply_fully_shard")
-    _recursive_apply_fully_shard(model, model, set(), target_modules_to_kwargs)
-    log_memory_usage("After _recursive_apply_fully_shard")
+    # Apply fully_shard sequentially to each relevant submodule defined by the policy
+    log_memory_usage("Before _sequential_apply_fully_shard")
+    _sequential_apply_fully_shard(model, target_modules_to_kwargs)
+    log_memory_usage("After _sequential_apply_fully_shard")
 
 
 def prepare_fully_shard(
