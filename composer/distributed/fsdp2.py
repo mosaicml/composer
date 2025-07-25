@@ -3,6 +3,7 @@
 
 """Helpers for FSDP2."""
 
+import gc
 import logging
 from typing import Optional
 
@@ -90,6 +91,13 @@ def _recursive_apply_fully_shard(
         log_memory_usage(f"Before fully_shard for {module_name}")
         fully_shard(module, **target_modules_to_kwargs[module])
         log_memory_usage(f"After fully_shard for {module_name}")
+
+        # Clean up memory after sharding to prevent accumulation of temporary allocations
+        log_memory_usage(f"Before memory cleanup for {module_name}")
+        gc.collect()  # First collect garbage to release Python objects
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()  # Then clear the CUDA cache
+        log_memory_usage(f"After memory cleanup for {module_name}")
 
 
 def apply_fully_shard(
