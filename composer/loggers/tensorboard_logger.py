@@ -5,6 +5,7 @@
 
 from pathlib import Path
 from typing import Any, Optional, Sequence, Union
+from urllib.parse import urlparse
 
 import numpy as np
 import torch
@@ -108,9 +109,16 @@ class TensorboardLogger(LoggerDestination):
 
         assert self.run_name is not None
         assert self.log_dir is not None
-        # We name the child directory after the run_name to ensure the run_name shows up
-        # in the Tensorboard GUI.
-        summary_writer_log_dir = Path(self.log_dir) / self.run_name
+
+        parsed = urlparse(self.log_dir)
+        # TODO: Handle other remote storage schemes
+        if parsed.scheme == 's3':
+            scheme, bucket, prefix, _, _, _ = parsed
+            summary_writer_log_dir = f"{scheme}://{bucket}/{prefix.strip('/')}/{self.run_name}"
+        else:
+            # We name the child directory after the run_name to ensure the run_name shows up
+            # in the Tensorboard GUI.
+            summary_writer_log_dir = str(Path(self.log_dir) / self.run_name)
 
         # Disable SummaryWriter's internal flushing to avoid file corruption while
         # file staged for upload to an ObjectStore.

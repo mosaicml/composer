@@ -3,6 +3,8 @@
 
 from typing import Sequence
 
+import boto3
+import moto
 import pytest
 import torch
 
@@ -52,3 +54,20 @@ def test_tensorboard_log_image(test_tensorboard_logger, dummy_state):
     logger = Logger(dummy_state, [])
     test_tensorboard_logger.close(dummy_state, logger)
     # Tensorboard images are stored inline, so we can't check them automatically.
+
+
+@moto.mock_aws
+def test_tensorboard_logger_s3_log_dir(dummy_state):
+    bucket_name = 'test-tensorboard-bucket'
+    s3 = boto3.client('s3')
+    s3.create_bucket(Bucket=bucket_name)
+
+    test_s3_log_dir = f's3://{bucket_name}/log_prefix'
+
+    dummy_state.run_name = 'tensorboard-test-log-s3'
+    logger = Logger(dummy_state, [])
+    tensorboard_logger = TensorboardLogger(log_dir=test_s3_log_dir)
+    tensorboard_logger.init(dummy_state, logger)
+    assert tensorboard_logger.writer is not None
+    expected_log_dir = f'{test_s3_log_dir}/{dummy_state.run_name}'
+    assert tensorboard_logger.writer.log_dir == expected_log_dir
