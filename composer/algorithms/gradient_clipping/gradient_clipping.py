@@ -41,7 +41,7 @@ def apply_gradient_clipping(
             threshold by which if grad_norm / weight_norm is greater than this threshold then
             scale gradients by this threshold * (weight_norm / grad_norm) (for 'adaptive').
         fsdp_enabled (bool): Bool of if the model is a FSDP model or not.
-    
+
     Returns:
         Union[torch.Tensor, None]: The total gradient norm before clipping for 'norm' clipping type,
             None otherwise.
@@ -65,7 +65,7 @@ def apply_gradient_clipping(
             torch.nn.utils.clip_grad_value_(parameters, clip_value=clipping_threshold)
         else:
             raise ValueError(f"clipping_type must be 'adaptive', 'norm', or 'value' not {clipping_type} ")
-    
+
     return None
 
 
@@ -150,26 +150,26 @@ class GradientClipping(Algorithm):
                 clipping_threshold=self.clipping_threshold,
                 fsdp_enabled=state.fsdp_config_version == 1,
             )
-            
+
             if self.clipping_type == 'norm':
                 if maybe_grad_norm is None:
                     raise RuntimeError("Expected gradient norm to be returned for 'norm' clipping type, but got None")
-                
+
                 grad_norm = maybe_grad_norm.item()
-                
+
                 # Log the gradient norm before clipping
                 logger.log_metrics({'gradient_norm/unclipped_magnitude': grad_norm})
-                
+
                 # Log whether clipping was applied
                 clipping_applied = grad_norm > self.clipping_threshold
                 logger.log_metrics({'gradient_norm/clipped': float(clipping_applied)})
-                
+
                 # Track clipping frequency
                 self._clipping_history.append(float(clipping_applied))
                 # Keep only last N steps for frequency calculation
                 if len(self._clipping_history) > self.clipping_frequency_window:
                     self._clipping_history.pop(0)
-                
+
                 clipping_frequency = sum(self._clipping_history) / len(self._clipping_history)
                 logger.log_metrics({'gradient_norm/clipping_frequency': clipping_frequency})
 
