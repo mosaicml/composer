@@ -52,7 +52,7 @@ class _ProgressBar:
             position=position,
             bar_format=bar_format,
             file=file,
-            ncols=None if is_atty else 120,
+            ncols=None if is_atty else 160,
             dynamic_ncols=is_atty,
             # We set `leave=False` so TQDM does not jump around, but we emulate `leave=True` behavior when closing
             # by printing a dummy newline and refreshing to force tqdm to print to a stale line
