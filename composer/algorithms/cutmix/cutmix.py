@@ -333,8 +333,8 @@ def _gen_cutmix_coef(alpha: float) -> float:
 
 
 def _rand_bbox(
-    W: int,
     H: int,
+    W: int,
     cutmix_lambda: float,
     cx: Optional[int] = None,
     cy: Optional[int] = None,
@@ -345,8 +345,8 @@ def _rand_bbox(
     Adapted from original implementation https://github.com/clovaai/CutMix-PyTorch
 
     Args:
-        W (int): Width of the image
         H (int): Height of the image
+        W (int): Width of the image
         cutmix_lambda (float): Lambda param from cutmix, used to set the area of the
             box if ``cut_w`` or ``cut_h`` is not provided.
         cx (int, optional): Optional x coordinate of the center of the box.
