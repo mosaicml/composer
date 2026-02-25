@@ -99,7 +99,7 @@ class TestResizeInputs:
         """Test that resizing works properly with no target present."""
         try:
             resize_batch(X, y, 1.0, 'crop', resize_targets=False)
-        except:
+        except Exception:
             pytest.fail('apply_progressive_resizing failed with y == None')
 
     @pytest.mark.parametrize('Wx,Hx', [(31, 31), (32, 32), (32, 16)])

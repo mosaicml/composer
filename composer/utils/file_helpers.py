@@ -713,7 +713,7 @@ def _get_file(
                         callback=_get_callback(f'Downloading {path}') if progress_bar else None,
                     ):
                         f.write(data)
-            except:
+            except Exception:
                 # The download failed for some reason. Make a best-effort attempt to remove the temporary file.
                 try:
                     os.remove(tmp_path)

@@ -573,7 +573,7 @@ def main():
             processes=processes,
         )
         _monitor_processes(processes)
-    except:
+    except Exception:
         # Print the exception first, then kill the training processes, since killing
         # may take up to CLEANUP_TIMEOUT seconds, and the user should know immediately
         # what failed. No need to re-raise the exception, as `aggregate_process_returncode`

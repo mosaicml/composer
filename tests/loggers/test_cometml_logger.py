@@ -62,7 +62,7 @@ def test_cometml_log_table(comet_logger: CometMLLogger, comet_offline_directory:
                 # Check to see if this is the logged table
                 if 'columns' in table and 'data' in table:
                     found_table = table['columns'] == columns and table['data'] == rows
-            except:
+            except Exception:
                 pass  # If there's a file that is not a json, just continue
 
     # Assert that we have found the logged table

@@ -194,7 +194,7 @@ class S3ObjectStore(ObjectStore):
                 )
             except Exception as e:
                 _ensure_not_found_errors_are_wrapped(self.get_uri(object_name), e)
-        except:
+        except Exception:
             # Make a best effort attempt to clean up the temporary file
             try:
                 os.remove(tmp_path)
