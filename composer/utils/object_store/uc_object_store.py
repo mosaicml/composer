@@ -205,7 +205,7 @@ class UCObjectStore(ObjectStore):
                             f.write(chunk)
             except Exception as e:
                 _wrap_errors(self.get_uri(object_name), e)
-        except:
+        except Exception:
             # Make best effort attempt to clean up the temporary file
             try:
                 os.remove(tmp_path)

@@ -28,7 +28,7 @@ from composer.utils import MissingConditionalImportError, dist, get_file, import
 try:
     from peft import PeftModel, get_peft_model
     peft_installed = True
-except:
+except Exception:
     peft_installed = False
 
 if TYPE_CHECKING:

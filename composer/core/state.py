@@ -1130,7 +1130,7 @@ class State(Serializable):
                 if exclude_algorithms is None or algo_name not in exclude_algorithms:
                     try:
                         algo = eval(f"algorithms.{serialized_value['repr']}")
-                    except:
+                    except Exception:
                         warnings.warn(
                             textwrap.dedent(
                                 f"required_on_load algorithm {serialized_value['repr']} was enabled when training the "

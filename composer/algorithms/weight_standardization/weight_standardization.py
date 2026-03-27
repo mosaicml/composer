@@ -44,7 +44,7 @@ def apply_weight_standardization(module: torch.nn.Module, n_last_layers_ignore: 
     # Attempt to symbolically trace a module, so the results of .modules() will be in the order of execution
     try:
         module_trace = symbolic_trace(module)
-    except:
+    except Exception:
         if n_last_layers_ignore > 0:
             log.warning(
                 textwrap.dedent(
