@@ -573,6 +573,7 @@ class HuggingFaceModel(ComposerModel):
             if output.ndim == 2 and output.shape[1] == 1:
                 output = output.squeeze(dim=1)
         else:
+            self.labels = batch.pop('labels')
             output = outputs if outputs else self.forward(batch)
 
         return output
