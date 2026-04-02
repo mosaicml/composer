@@ -458,6 +458,84 @@ class MLFlowLogger(LoggerDestination):
                 synchronous=self.synchronous,
             )
 
+    def upload_file(
+        self,
+        state: State,
+        remote_file_name: str,
+        file_path: pathlib.Path,
+        *,
+        overwrite: bool,
+    ) -> None:
+        """Upload a file or directory to MLflow as an artifact.
+
+        This method handles both single files and directories:
+        - If ``file_path`` is a file, it uses ``log_artifact()``
+        - If ``file_path`` is a directory, it uses ``log_artifacts()``
+
+        Args:
+            state (State): The training state.
+            remote_file_name (str): The artifact path/name in MLflow.
+
+                - For **files**: Treated as the full path including subdirectories.
+                  Example: ``"checkpoints/epoch_5.pt"`` creates subdirectory structure.
+                - For **directories**: Treated as the artifact subdirectory where contents are stored.
+                  Example: ``"model_weights"`` stores directory contents under that path.
+
+            file_path (pathlib.Path): Local path to upload. **Can be either a file or directory**.
+
+                - If a **file**: Uploads the single file to MLflow artifacts
+                - If a **directory**: Uploads all contents of the directory to MLflow artifacts
+
+            overwrite (bool): Whether to overwrite an existing artifact with the same name.
+                Note: MLflow does not natively support checking for existing artifacts,
+                so this parameter is accepted but ignored.
+
+        Raises:
+            ValueError: If ``file_path`` does not exist or is neither a file nor directory.
+            AssertionError: If called before the MLflow run is initialized.
+        """
+        del overwrite
+        del state
+
+        if not self._enabled:
+            return
+
+        assert isinstance(self._run_id, str), 'MLflow run not initialized. Cannot log artifacts before init().'
+
+        # Convert to absolute path
+        absolute_path = file_path.absolute()
+
+        # Check if path is a file or directory
+        if absolute_path.is_file():
+            artifact_path = posixpath.dirname(remote_file_name) if '/' in remote_file_name else None
+
+            self._mlflow_client.log_artifact(
+                run_id=self._run_id,
+                local_path=str(absolute_path),
+                artifact_path=artifact_path,
+            )
+        elif absolute_path.is_dir():
+            artifact_path = remote_file_name if remote_file_name else None
+
+            self._mlflow_client.log_artifacts(
+                run_id=self._run_id,
+                local_dir=str(absolute_path),
+                artifact_path=artifact_path,
+            )
+        else:
+            raise ValueError(
+                f'Path {file_path} does not exist or is neither a file nor a directory. '
+                f'Cannot upload to MLflow.',
+            )
+
+    def can_upload_files(self) -> bool:
+        """Indicates whether MLFlowLogger supports uploading files.
+
+        Returns:
+            bool: Always returns True as MLflow supports artifact logging.
+        """
+        return True
+
     def register_model(
         self,
         model_uri: str,
