@@ -223,7 +223,7 @@ class MLFlowObjectStore(ObjectStore):
             import mlflow
             from mlflow import MlflowClient
         except ImportError as e:
-            raise MissingConditionalImportError('mlflow', conda_package='mlflow>=2.9.2,<3.0') from e
+            raise MissingConditionalImportError('mlflow', conda_package='mlflow>=3.0,<4.0') from e
 
         try:
             from databricks.sdk import WorkspaceClient

@@ -28,7 +28,7 @@ from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import MissingConditionalImportError, dist
 
 if TYPE_CHECKING:
-    from mlflow import ModelVersion  # pyright: ignore[reportGeneralTypeIssues]
+    from mlflow.entities.model_registry import ModelVersion
 
 log = logging.getLogger(__name__)
 
