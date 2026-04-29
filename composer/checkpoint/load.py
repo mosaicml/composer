@@ -4,6 +4,7 @@
 """API for loading checkpoints."""
 
 import contextlib
+import io
 import logging
 import os
 import pickle
@@ -42,6 +43,48 @@ from composer.utils.checkpoint import (
 from composer.utils.file_helpers import is_uri
 
 log = logging.getLogger(__name__)
+
+# pickle.Unpickler.find_class() exposes globals as module/name strings.
+_RESUMPTION_SAFE_GLOBALS = frozenset({
+    ('builtins', 'complex'),
+    ('builtins', 'frozenset'),
+    ('builtins', 'set'),
+    ('builtins', 'slice'),
+    ('collections', 'Counter'),
+    ('collections', 'OrderedDict'),
+    ('collections', 'defaultdict'),
+    ('collections', 'deque'),
+    ('datetime', 'timedelta'),
+    ('numpy', 'dtype'),
+    ('numpy', 'ndarray'),
+    ('numpy._core.multiarray', '_reconstruct'),
+    ('numpy.core.multiarray', '_reconstruct'),
+    ('torch._utils', '_rebuild_tensor_v2'),
+    ('_codecs', 'encode'),
+})
+
+
+def _safe_torch_load_from_bytes(serialized_storage: bytes) -> Any:
+    """Safely load tensor storage embedded by pickle."""
+    return torch.load(io.BytesIO(serialized_storage), weights_only=True)
+
+
+class _RestrictedUnpickler(pickle.Unpickler):
+    """Unpickler that only allows deserialization of known-safe globals.
+
+    Prevents arbitrary code execution from malicious pickle payloads in
+    resumption checkpoint files.
+    """
+
+    def find_class(self, module: str, name: str) -> Any:
+        if (module, name) == ('torch.storage', '_load_from_bytes'):
+            return _safe_torch_load_from_bytes
+        if (module, name) in _RESUMPTION_SAFE_GLOBALS:
+            return super().find_class(module, name)
+        raise pickle.UnpicklingError(
+            f'Refusing to unpickle {module}.{name}: global not in allowlist. '
+            f'This may indicate a corrupted or malicious checkpoint file.',
+        )
 
 
 @dataclass
@@ -638,7 +681,8 @@ def load_resumption_checkpoint(state: State, load_path: str):
 
     """
     load_path = str(_ensure_valid_checkpoint(load_path))
-    resumption_state_dict = pickle.load(open(load_path, 'rb'))
+    with open(load_path, 'rb') as f:
+        resumption_state_dict = _RestrictedUnpickler(f).load()
     if 'dataset_state' in resumption_state_dict:
         state._load_dataset_state(resumption_state_dict['dataset_state'])
     if 'timestamp' in resumption_state_dict:
