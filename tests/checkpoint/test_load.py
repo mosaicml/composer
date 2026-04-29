@@ -3,6 +3,7 @@
 
 import contextlib
 import datetime
+import io
 import os
 import pickle
 import random
@@ -442,33 +443,83 @@ def test_load_model_checkpoint_and_eval(
 
 def test_torch_load_rejects_malicious_checkpoint(tmp_path: Path):
     """Verify _torch_load_with_validation rejects arbitrary code execution payloads."""
+    executed_path = tmp_path / 'executed'
 
     class _MaliciousPayload:
         def __reduce__(self):
-            return (os.system, ('echo pwned',))
+            return (os.system, (f'touch "{executed_path}"',))
 
     malicious_path = str(tmp_path / 'malicious.pt')
-    with open(malicious_path, 'wb') as f:
-        pickle.dump({'model': _MaliciousPayload()}, f)
+    torch.save({'model': _MaliciousPayload()}, malicious_path)
 
     with pytest.raises(Exception):
         _torch_load_with_validation(malicious_path, map_location='cpu')
 
+    assert not executed_path.exists()
+
 
 def test_restricted_unpickler_rejects_malicious_resumption(tmp_path: Path):
     """Verify _RestrictedUnpickler blocks arbitrary code in resumption checkpoints."""
+    executed_path = tmp_path / 'executed'
 
     class _MaliciousPayload:
         def __reduce__(self):
-            return (os.system, ('echo pwned',))
+            return (os.system, (f'touch "{executed_path}"',))
 
     malicious_path = str(tmp_path / 'malicious_resumption.pkl')
     with open(malicious_path, 'wb') as f:
         pickle.dump({'timestamp': _MaliciousPayload()}, f)
 
-    with pytest.raises(pickle.UnpicklingError, match='module not in allowlist'):
+    with pytest.raises(pickle.UnpicklingError, match='global not in allowlist'):
         with open(malicious_path, 'rb') as f:
             _RestrictedUnpickler(f).load()
+
+    assert not executed_path.exists()
+
+
+def test_restricted_unpickler_rejects_builtin_eval(tmp_path: Path):
+    """Verify _RestrictedUnpickler does not allow dangerous builtins."""
+    executed_path = tmp_path / 'executed'
+
+    class _MaliciousPayload:
+        def __reduce__(self):
+            return (eval, (f'__import__("os").system("touch {executed_path}")',))
+
+    malicious_path = str(tmp_path / 'malicious_builtin.pkl')
+    with open(malicious_path, 'wb') as f:
+        pickle.dump({'timestamp': _MaliciousPayload()}, f)
+
+    with pytest.raises(pickle.UnpicklingError, match='global not in allowlist'):
+        with open(malicious_path, 'rb') as f:
+            _RestrictedUnpickler(f).load()
+
+    assert not executed_path.exists()
+
+
+def test_restricted_unpickler_rejects_malicious_torch_storage_bytes(tmp_path: Path):
+    """Verify tensor storage loading does not re-enable unsafe torch deserialization."""
+    executed_path = tmp_path / 'executed'
+
+    class _MaliciousTorchPayload:
+        def __reduce__(self):
+            return (os.system, (f'touch "{executed_path}"',))
+
+    malicious_torch_bytes = io.BytesIO()
+    torch.save({'payload': _MaliciousTorchPayload()}, malicious_torch_bytes)
+
+    class _TorchStoragePayload:
+        def __reduce__(self):
+            return (torch.storage._load_from_bytes, (malicious_torch_bytes.getvalue(),))
+
+    malicious_path = str(tmp_path / 'malicious_storage.pkl')
+    with open(malicious_path, 'wb') as f:
+        pickle.dump({'rng': _TorchStoragePayload()}, f)
+
+    with pytest.raises(Exception):
+        with open(malicious_path, 'rb') as f:
+            _RestrictedUnpickler(f).load()
+
+    assert not executed_path.exists()
 
 
 def test_restricted_unpickler_allows_safe_types(tmp_path: Path):
@@ -509,7 +560,7 @@ def test_torch_load_allows_full_state_dict(tmp_path: Path):
                 'total_wct': datetime.timedelta(seconds=100),
             },
             'rank_zero_seed': 42,
-            'metadata': {'composer_version': '0.30.0'},
+            'metadata': {'composer_version': '0.30.0', 'torch_version': torch.__version__},
         },
         'rng': [{
             'python': random.getstate(),

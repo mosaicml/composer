@@ -31,6 +31,7 @@ from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
 from torch.distributed.checkpoint.storage import StorageReader
 from torch.distributed.checkpoint.utils import CheckpointException
 from torch.distributed.distributed_c10d import ProcessGroup
+from torch.torch_version import TorchVersion
 
 from composer.utils import dist, reproducibility
 from composer.utils.compression import get_compressor, is_compressed_pt
@@ -61,11 +62,12 @@ _COMPOSER_STATES_FILENAME = 'composer_states.pt'
 _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME = f'__{dist.get_global_rank()}_0.distcp'
 _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME = '.metadata'
 
+# torch.serialization.safe_globals() expects Python objects, not string names.
 _COMPOSER_CHECKPOINT_SAFE_GLOBALS: list[Any] = [
     datetime.timedelta,
     np.ndarray,
     np.dtype,
-    torch.torch_version.TorchVersion,
+    TorchVersion,
 ]
 
 try:
@@ -78,15 +80,15 @@ except (ImportError, AttributeError):
     pass
 
 try:
-    from numpy.core.multiarray import _reconstruct as _np_reconstruct
-    _COMPOSER_CHECKPOINT_SAFE_GLOBALS.append(_np_reconstruct)
-except ImportError:
+    import numpy.core.multiarray as _np_multiarray
+    _COMPOSER_CHECKPOINT_SAFE_GLOBALS.append(getattr(_np_multiarray, '_reconstruct'))
+except (ImportError, AttributeError):
     pass
 
 try:
-    from numpy._core.multiarray import _reconstruct as _np_reconstruct_v2
-    _COMPOSER_CHECKPOINT_SAFE_GLOBALS.append(_np_reconstruct_v2)
-except ImportError:
+    import numpy._core.multiarray as _np_multiarray_v2
+    _COMPOSER_CHECKPOINT_SAFE_GLOBALS.append(getattr(_np_multiarray_v2, '_reconstruct'))
+except (ImportError, AttributeError):
     pass
 
 
@@ -987,8 +989,8 @@ def safe_torch_load(
         if 'Unsupported global' in str(e):
             raise Exception(
                 'Checkpoint contains types not in the safe deserialization allowlist. '
-                'This may happen with older checkpoints that serialized metric objects directly. '
-                'To load this checkpoint, pass '
+                'To load this checkpoint, use `load_ignore_keys` to skip the unsupported state entries. '
+                'For example, older checkpoints that serialized metric objects directly may require '
                 '`load_ignore_keys = ["state/train_metrics/*", "state/eval_metrics/*"]`.',
             ) from e
         raise e
