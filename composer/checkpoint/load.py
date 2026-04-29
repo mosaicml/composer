@@ -43,6 +43,37 @@ from composer.utils.file_helpers import is_uri
 
 log = logging.getLogger(__name__)
 
+_RESUMPTION_SAFE_MODULES = frozenset({
+    'builtins',
+    'collections',
+    'datetime',
+    'numpy',
+    'numpy.core',
+    'numpy.core.multiarray',
+    'numpy._core',
+    'numpy._core.multiarray',
+    'torch',
+    'torch._utils',
+    'torch.storage',
+    '_codecs',
+})
+
+
+class _RestrictedUnpickler(pickle.Unpickler):
+    """Unpickler that only allows deserialization of types from a known-safe set of modules.
+
+    Prevents arbitrary code execution from malicious pickle payloads in
+    resumption checkpoint files.
+    """
+
+    def find_class(self, module: str, name: str) -> Any:
+        if module in _RESUMPTION_SAFE_MODULES:
+            return super().find_class(module, name)
+        raise pickle.UnpicklingError(
+            f'Refusing to unpickle {module}.{name}: module not in allowlist. '
+            f'This may indicate a corrupted or malicious checkpoint file.',
+        )
+
 
 @dataclass
 class CheckpointLoadOptions:
@@ -638,7 +669,8 @@ def load_resumption_checkpoint(state: State, load_path: str):
 
     """
     load_path = str(_ensure_valid_checkpoint(load_path))
-    resumption_state_dict = pickle.load(open(load_path, 'rb'))
+    with open(load_path, 'rb') as f:
+        resumption_state_dict = _RestrictedUnpickler(f).load()
     if 'dataset_state' in resumption_state_dict:
         state._load_dataset_state(resumption_state_dict['dataset_state'])
     if 'timestamp' in resumption_state_dict:

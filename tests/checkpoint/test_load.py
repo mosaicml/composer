@@ -2,19 +2,26 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import contextlib
+import datetime
 import os
+import pickle
+import random
 import uuid
 from pathlib import Path
 
+import numpy as np
 import pytest
+import torch
 from torch.utils.data import DataLoader
 
 from composer.checkpoint.load import (
+    _RestrictedUnpickler,
     load_checkpoint,
     load_model_checkpoint,
     load_optim_checkpoint,
     load_resumption_checkpoint,
 )
+from composer.utils.checkpoint import _torch_load_with_validation
 from composer.checkpoint.save import (
     save_checkpoint_to_disk,
     save_model_to_disk,
@@ -431,3 +438,89 @@ def test_load_model_checkpoint_and_eval(
 
         # Evaluate the model
         trainer.eval()
+
+
+def test_torch_load_rejects_malicious_checkpoint(tmp_path: Path):
+    """Verify _torch_load_with_validation rejects arbitrary code execution payloads."""
+
+    class _MaliciousPayload:
+        def __reduce__(self):
+            return (os.system, ('echo pwned',))
+
+    malicious_path = str(tmp_path / 'malicious.pt')
+    with open(malicious_path, 'wb') as f:
+        pickle.dump({'model': _MaliciousPayload()}, f)
+
+    with pytest.raises(Exception):
+        _torch_load_with_validation(malicious_path, map_location='cpu')
+
+
+def test_restricted_unpickler_rejects_malicious_resumption(tmp_path: Path):
+    """Verify _RestrictedUnpickler blocks arbitrary code in resumption checkpoints."""
+
+    class _MaliciousPayload:
+        def __reduce__(self):
+            return (os.system, ('echo pwned',))
+
+    malicious_path = str(tmp_path / 'malicious_resumption.pkl')
+    with open(malicious_path, 'wb') as f:
+        pickle.dump({'timestamp': _MaliciousPayload()}, f)
+
+    with pytest.raises(pickle.UnpicklingError, match='module not in allowlist'):
+        with open(malicious_path, 'rb') as f:
+            _RestrictedUnpickler(f).load()
+
+
+def test_restricted_unpickler_allows_safe_types(tmp_path: Path):
+    """Verify _RestrictedUnpickler allows all types found in legitimate resumption state."""
+    safe_data = {
+        'timestamp': {
+            'epoch': 1,
+            'batch': 10,
+            'total_wct': datetime.timedelta(seconds=42.5),
+        },
+        'rank_zero_seed': 42,
+        'run_name': 'test',
+        'rng': [{
+            'python': random.getstate(),
+            'numpy': np.random.get_state(),
+            'torch': torch.random.get_rng_state(),
+        }],
+    }
+
+    path = str(tmp_path / 'safe_resumption.pkl')
+    with open(path, 'wb') as f:
+        pickle.dump(safe_data, f)
+
+    with open(path, 'rb') as f:
+        loaded = _RestrictedUnpickler(f).load()
+
+    assert loaded['rank_zero_seed'] == 42
+    assert loaded['timestamp']['total_wct'] == datetime.timedelta(seconds=42.5)
+
+
+def test_torch_load_allows_full_state_dict(tmp_path: Path):
+    """Verify _torch_load_with_validation loads legitimate full checkpoints."""
+    state_dict = {
+        'state': {
+            'model': {'layer.weight': torch.randn(3, 3), 'layer.bias': torch.randn(3)},
+            'timestamp': {
+                'epoch': 1,
+                'total_wct': datetime.timedelta(seconds=100),
+            },
+            'rank_zero_seed': 42,
+            'metadata': {'composer_version': '0.30.0'},
+        },
+        'rng': [{
+            'python': random.getstate(),
+            'numpy': np.random.get_state(),
+            'torch': torch.random.get_rng_state(),
+        }],
+    }
+
+    path = str(tmp_path / 'full_ckpt.pt')
+    torch.save(state_dict, path)
+
+    loaded = _torch_load_with_validation(path, map_location='cpu')
+    assert loaded['state']['timestamp']['total_wct'] == datetime.timedelta(seconds=100)
+    assert torch.equal(loaded['state']['model']['layer.weight'], state_dict['state']['model']['layer.weight'])

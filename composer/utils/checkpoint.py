@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import contextlib
+import datetime
 import fnmatch
 import logging
 import os
@@ -19,6 +20,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
+import numpy as np
 import torch
 from torch.distributed import checkpoint as dist_cp
 from torch.distributed._tensor import DeviceMesh
@@ -58,6 +60,34 @@ __all__ = ['get_save_filename', 'load_checkpoint', 'save_checkpoint', 'download_
 _COMPOSER_STATES_FILENAME = 'composer_states.pt'
 _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME = f'__{dist.get_global_rank()}_0.distcp'
 _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME = '.metadata'
+
+_COMPOSER_CHECKPOINT_SAFE_GLOBALS: list[Any] = [
+    datetime.timedelta,
+    np.ndarray,
+    np.dtype,
+    torch.torch_version.TorchVersion,
+]
+
+try:
+    import numpy.dtypes as _np_dtypes
+    for _name in dir(_np_dtypes):
+        _obj = getattr(_np_dtypes, _name)
+        if isinstance(_obj, type) and issubclass(_obj, np.dtype):
+            _COMPOSER_CHECKPOINT_SAFE_GLOBALS.append(_obj)
+except (ImportError, AttributeError):
+    pass
+
+try:
+    from numpy.core.multiarray import _reconstruct as _np_reconstruct
+    _COMPOSER_CHECKPOINT_SAFE_GLOBALS.append(_np_reconstruct)
+except ImportError:
+    pass
+
+try:
+    from numpy._core.multiarray import _reconstruct as _np_reconstruct_v2
+    _COMPOSER_CHECKPOINT_SAFE_GLOBALS.append(_np_reconstruct_v2)
+except ImportError:
+    pass
 
 
 def _get_checkpoint_validation_function(
@@ -111,11 +141,20 @@ def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str],
 def _torch_load_with_validation(checkpoint_filepath: Union[Path, str], map_location: str) -> Any:
     """Validates and loads a torch checkpoint.
 
+    Uses ``weights_only=True`` with an allowlist of safe non-tensor types
+    (``datetime.timedelta``, NumPy array types) to prevent arbitrary code
+    execution from malicious checkpoint files.
+
     Args:
         checkpoint_filepath (Union[Path,str]): The path to the checkpoint file.
         map_location (str): The location to load the checkpoint to.
     """
-    return torch.load(_ensure_valid_checkpoint(checkpoint_filepath), map_location=map_location, weights_only=False)
+    with torch.serialization.safe_globals(_COMPOSER_CHECKPOINT_SAFE_GLOBALS):
+        return torch.load(
+            _ensure_valid_checkpoint(checkpoint_filepath),
+            map_location=map_location,
+            weights_only=True,
+        )
 
 
 def _format_path_with_rank_zero(path: str) -> str:
@@ -942,6 +981,15 @@ def safe_torch_load(
                 f'No such file or directory: {e.filename}. '
                 f'This likely implies a download failed on local rank 0, which is global rank {local_rank_zero}'
                 f'Please check the logs for global rank {local_rank_zero} to debug the checkpoint download issue.',
+            ) from e
+        raise e
+    except Exception as e:
+        if 'Unsupported global' in str(e):
+            raise Exception(
+                'Checkpoint contains types not in the safe deserialization allowlist. '
+                'This may happen with older checkpoints that serialized metric objects directly. '
+                'To load this checkpoint, pass '
+                '`load_ignore_keys = ["state/train_metrics/*", "state/eval_metrics/*"]`.',
             ) from e
         raise e
 
