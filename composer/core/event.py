@@ -75,9 +75,9 @@ class Event(StringEnum):
                     # <BATCH_CHECKPOINT>
                 # <EPOCH_END>
 
-                # <BEFORE_EVAL_ALL>
+                # <EVAL_BEFORE_ALL>
                 for eval_dataloader in eval_dataloaders:
-                    if should_eval(batch=True):
+                    if should_eval(epoch=True):
                         # <EVAL_START>
                         for batch in eval_dataloader:
                             # <EVAL_BATCH_START>
@@ -88,12 +88,29 @@ class Event(StringEnum):
                             # <EVAL_BATCH_END>
                         # <EVAL_END>
 
-                # <AFTER_EVAL_ALL>
+                # <EVAL_AFTER_ALL>
 
                 # <EPOCH_CHECKPOINT>
             # <ITERATION_END>
             # <ITERATION_CHECKPOINT>
         # <FIT_END>
+
+    Direct calls to :meth:`.Trainer.eval` fire standalone evaluation events:
+
+    .. code-block:: python
+
+        # <EVAL_STANDALONE_START>
+        for eval_dataloader in eval_dataloaders:
+            # <EVAL_START>
+            for batch in eval_dataloader:
+                # <EVAL_BATCH_START>
+                # <EVAL_BEFORE_FORWARD>
+                outputs, targets = model(batch)
+                # <EVAL_AFTER_FORWARD>
+                metrics.update(outputs, targets)
+                # <EVAL_BATCH_END>
+            # <EVAL_END>
+        # <EVAL_STANDALONE_END>
 
     Attributes:
         INIT: Invoked in the constructor of :class:`~.trainer.Trainer`. Model surgery (see
@@ -138,17 +155,18 @@ class Event(StringEnum):
             and flushing callbacks. Algorithms should not transform the training state on this event, as any changes will not
             be preserved in checkpoints.
 
-        EVAL_BEFORE_ALL: Before any evaluators process validation dataset.
-        EVAL_START: Start of evaluation through the validation dataset.
+        EVAL_BEFORE_ALL: Before any evaluators process validation datasets during :meth:`.Trainer.fit`.
+        EVAL_START: Start of evaluation through one validation dataset.
         EVAL_BATCH_START: Before the call to ``model.eval_forward(batch)``
         EVAL_BEFORE_FORWARD: Before the call to ``model.eval_forward(batch)``
         EVAL_AFTER_FORWARD: After the call to ``model.eval_forward(batch)``
         EVAL_BATCH_END: After the call to ``model.eval_forward(batch)``
-        EVAL_END: End of evaluation through the validation dataset.
-        EVAL_AFTER_ALL: After all evaluators process validation dataset.
+        EVAL_END: End of evaluation through one validation dataset. When there are multiple evaluators, this event
+            fires once per evaluator.
+        EVAL_AFTER_ALL: After all evaluators process validation datasets during :meth:`.Trainer.fit`.
 
-        EVAL_STANDALONE_START: Start of evaluation through a direct call to `trainer.eval`.
-        EVAL_STANDALONE_END: End of evaluation through a direct call to `trainer.eval`.
+        EVAL_STANDALONE_START: Start of evaluation through a direct call to :meth:`.Trainer.eval`.
+        EVAL_STANDALONE_END: End of evaluation through a direct call to :meth:`.Trainer.eval`.
     """
 
     INIT = 'init'
