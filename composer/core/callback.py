@@ -383,7 +383,7 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def predict_before_forward(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`.Event.PREDICT_BATCH_FORWARD` event.
+        """Called on the :attr:`.Event.PREDICT_BEFORE_FORWARD` event.
 
         Args:
             state (State): The training state.
@@ -453,7 +453,7 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def eval_before_forward(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`.Event.EVAL_BATCH_FORWARD` event.
+        """Called on the :attr:`.Event.EVAL_BEFORE_FORWARD` event.
 
         Args:
             state (State): The training state.
