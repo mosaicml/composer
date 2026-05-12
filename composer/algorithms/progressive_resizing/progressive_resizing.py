@@ -110,7 +110,7 @@ def resize_batch(
             f"""\
             Applied Progressive Resizing with scale_factor={scale_factor} and mode={mode}.
             Old input dimensions: (H,W)={input.shape[2], input.shape[3]}.
-            New input dimensions: (H,W)={X_sized.shape[2], X_sized.shape[2]}""",
+            New input dimensions: (H,W)={X_sized.shape[2], X_sized.shape[3]}""",
         ),
     )
     return X_sized, y_sized
