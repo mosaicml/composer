@@ -575,7 +575,7 @@ class Engine():
         # Try to shut down any persistent workers
         try:
             state.train_dataloader._iterator._shutdown_workers()  # type: ignore [reportGeneralTypeIssues]
-        except:
+        except Exception:
             pass
 
         log.debug('Engine closed.')

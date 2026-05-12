@@ -2256,7 +2256,7 @@ class Trainer:
                     optimizer.zero_grad(set_to_none=True)
                 except TypeError:
                     optimizer.zero_grad()
-            except:
+            except Exception:
                 log.exception('Failed to zero out optimizer at end of fit')
 
     def close(self):

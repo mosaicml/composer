@@ -219,7 +219,7 @@ class GCSObjectStore(ObjectStore):
                 blob.download_to_filename(tmp_path)
             except Exception as e:
                 _reraise_gcs_errors(self.get_uri(src), e)
-        except:
+        except Exception:
             # Make a best effort attempt to clean up the temporary file
             try:
                 os.remove(tmp_path)
