@@ -55,8 +55,8 @@ class TestCutMix:
         cx = np.random.randint(x_fake.shape[2])
         cy = np.random.randint(x_fake.shape[3])
         bbx1, bby1, bbx2, bby2 = _rand_bbox(
-            W=x_fake.shape[2],
-            H=x_fake.shape[3],
+            H=x_fake.shape[2],
+            W=x_fake.shape[3],
             cutmix_lambda=cutmix_lambda,
             cx=cx,
             cy=cy,
