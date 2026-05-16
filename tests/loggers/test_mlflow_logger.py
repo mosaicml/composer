@@ -931,3 +931,124 @@ def test_mlflow_run_group(tmp_path):
     )
     fetched_run_ids = set(runs_with_group_tag.run_id.tolist())
     assert fetched_run_ids == {first_run.info.run_id, second_run.info.run_id}
+
+
+def test_mlflow_upload_single_file(tmp_path):
+    """Test that upload_file correctly uploads a single file."""
+    pytest.importorskip('mlflow')
+
+    mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
+    experiment_name = 'test-upload-file'
+    test_mlflow_logger = MLFlowLogger(
+        tracking_uri=mlflow_uri,
+        experiment_name=experiment_name,
+    )
+
+    mock_state = MagicMock()
+    mock_state.run_name = 'test-run'
+    mock_logger = MagicMock()
+
+    test_mlflow_logger.init(state=mock_state, logger=mock_logger)
+
+    # Create a test file
+    test_file = tmp_path / 'test_file.txt'
+    test_file.write_text('test content')
+
+    # Upload the file
+    test_mlflow_logger.upload_file(
+        state=mock_state,
+        remote_file_name='artifacts/test_file.txt',
+        file_path=test_file,
+        overwrite=False,
+    )
+
+    test_mlflow_logger.post_close()
+
+    # Verify the file was uploaded
+    run = _get_latest_mlflow_run(experiment_name, tracking_uri=mlflow_uri)
+    run_id = run.info.run_id
+    experiment_id = run.info.experiment_id
+    artifact_path = mlflow_uri / Path(experiment_id) / Path(run_id) / Path('artifacts') / Path('artifacts') / Path(
+        'test_file.txt',
+    )
+
+    assert artifact_path.exists()
+    assert artifact_path.read_text() == 'test content'
+
+
+def test_mlflow_upload_directory(tmp_path):
+    """Test that upload_file correctly uploads a directory."""
+    pytest.importorskip('mlflow')
+
+    mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
+    experiment_name = 'test-upload-dir'
+    test_mlflow_logger = MLFlowLogger(
+        tracking_uri=mlflow_uri,
+        experiment_name=experiment_name,
+    )
+
+    mock_state = MagicMock()
+    mock_state.run_name = 'test-run'
+    mock_logger = MagicMock()
+
+    test_mlflow_logger.init(state=mock_state, logger=mock_logger)
+
+    # Create a test directory with files
+    test_dir = tmp_path / 'test_dir'
+    test_dir.mkdir()
+    (test_dir / 'file1.txt').write_text('content1')
+    (test_dir / 'file2.txt').write_text('content2')
+
+    # Upload the directory
+    test_mlflow_logger.upload_file(
+        state=mock_state,
+        remote_file_name='my_artifacts',
+        file_path=test_dir,
+        overwrite=False,
+    )
+
+    test_mlflow_logger.post_close()
+
+    # Verify files were uploaded
+    run = _get_latest_mlflow_run(experiment_name, tracking_uri=mlflow_uri)
+    run_id = run.info.run_id
+    experiment_id = run.info.experiment_id
+    artifact_dir = mlflow_uri / Path(experiment_id) / Path(run_id) / Path('artifacts') / Path('my_artifacts')
+
+    assert artifact_dir.exists()
+    assert (artifact_dir / 'file1.txt').read_text() == 'content1'
+    assert (artifact_dir / 'file2.txt').read_text() == 'content2'
+
+
+def test_mlflow_upload_file_not_enabled(tmp_path):
+    """Test that upload_file does nothing when logger is not enabled."""
+    pytest.importorskip('mlflow')
+
+    mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
+    test_mlflow_logger = MLFlowLogger(
+        tracking_uri=mlflow_uri,
+        rank_zero_only=True,
+    )
+
+    # Set _enabled to False to simulate non-rank-zero
+    test_mlflow_logger._enabled = False
+
+    mock_state = MagicMock()
+    test_file = tmp_path / 'test_file.txt'
+    test_file.write_text('test')
+
+    # Should not raise an error and should do nothing
+    test_mlflow_logger.upload_file(
+        state=mock_state,
+        remote_file_name='test.txt',
+        file_path=test_file,
+        overwrite=False,
+    )
+
+
+def test_mlflow_can_upload_files():
+    """Test that can_upload_files returns True."""
+    pytest.importorskip('mlflow')
+
+    test_mlflow_logger = MLFlowLogger()
+    assert test_mlflow_logger.can_upload_files() is True
