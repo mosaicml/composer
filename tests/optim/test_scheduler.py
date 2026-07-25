@@ -242,6 +242,16 @@ def dummy_schedulers_state(rank_zero_seed: int, request: pytest.FixtureRequest):
             ['0ba', '125ba', '250ba', '249875ba'],
             [0.0, 0.5, 1.0, 0.5],
         ),
+        # When scale_warmup=True and ssr > 1, the warmup boundary must be scaled by ssr along with the
+        # warmup ramp, otherwise the multiplier jumps discontinuously at the (unscaled) warmup end. With
+        # t_warmup='500ba' and ssr=2.0 the warmup ramp spans [0, 1000)ba and the multiplier must rise
+        # smoothly to 1.0 at 1000ba (the previously-buggy code jumped to 1.0 at 500ba instead).
+        pytest.param(
+            LinearWithWarmupScheduler(t_warmup='500ba', scale_warmup=True),
+            2.0,
+            ['0ba', '500ba', '1000ba', '1000500ba'],
+            [0.0, 0.5, 1.0, 0.5],
+        ),
         pytest.param(LinearWithWarmupScheduler(t_warmup='1000ep'), 1.0, ['0ep', '100ep', '1000ep'], [0.0, 0.1, 1.0]),
         pytest.param(
             CosineAnnealingWithWarmupScheduler(t_warmup='0.9dur'),
