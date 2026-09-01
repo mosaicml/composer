@@ -9,6 +9,7 @@ import sys
 import textwrap
 import threading
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -174,6 +175,15 @@ class IsClosedCallback(Callback):
         self.is_closed = True
 
 
+class CountingCloseCallback(Callback):
+
+    def __init__(self) -> None:
+        self.close_calls = 0
+
+    def close(self, state: State, logger: Logger) -> None:
+        self.close_calls += 1
+
+
 def test_engine_closes_on_del(dummy_state: State, dummy_logger: Logger):
     # Create the trainer and run an event
     is_closed_callback = IsClosedCallback()
@@ -222,6 +232,37 @@ def test_engine_triggers_close_only_once(dummy_state: State, dummy_logger: Logge
 
     # Assert it is open
     assert not is_closed_callback.is_closed
+
+
+def test_closing_one_engine_does_not_close_another():
+    first_callback = CountingCloseCallback()
+    second_callback = CountingCloseCallback()
+    first_state = SimpleNamespace(callbacks=[first_callback], train_dataloader=None)
+    second_state = SimpleNamespace(callbacks=[second_callback], train_dataloader=None)
+    logger = Mock(spec=Logger)
+    first_engine = Engine(first_state, logger)
+    second_engine = Engine(second_state, logger)
+
+    assert first_engine._atexit_callback is not second_engine._atexit_callback
+    first_engine.close()
+    assert first_callback.close_calls == 1
+    assert second_callback.close_calls == 0
+
+    second_engine.close()
+    assert first_callback.close_calls == 1
+    assert second_callback.close_calls == 1
+
+
+def test_engine_close_is_idempotent():
+    callback = CountingCloseCallback()
+    state = SimpleNamespace(callbacks=[callback], train_dataloader=None)
+    engine = Engine(state, Mock(spec=Logger))
+
+    engine.close()
+    engine.close()
+
+    assert callback.close_calls == 1
+    assert engine._atexit_callback is None
 
 
 def test_engine_errors_if_previous_trainer_was_not_closed(dummy_state: State, dummy_logger: Logger):
@@ -297,6 +338,32 @@ def test_engine_closes_on_atexit(exception: bool):
         assert 'ImportError: sys.meta_path is None, Python is likely shutting down' not in proc.stderr
     else:
         check_output(proc)
+
+
+def test_unclosed_engine_is_cleaned_up_once_at_interpreter_exit(tmp_path: Path):
+    record = tmp_path / 'engine-close.txt'
+    code = textwrap.dedent(
+        f"""\
+        from types import SimpleNamespace
+
+        from composer import Callback, Engine
+
+        class RecordingCallback(Callback):
+            def close(self, state, logger):
+                with open({str(record)!r}, 'a') as handle:
+                    handle.write('closed\\n')
+
+        state = SimpleNamespace(
+            callbacks=[RecordingCallback()],
+            train_dataloader=None,
+        )
+        engine = Engine(state, None)
+        """,
+    )
+    git_root_dir = os.path.join(os.path.dirname(composer.__file__), '..')
+    proc = subprocess.run(['python', '-c', code], cwd=git_root_dir, text=True, capture_output=True)
+    check_output(proc)
+    assert record.read_text().splitlines() == ['closed']
 
 
 def test_logging(
