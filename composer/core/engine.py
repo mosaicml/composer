@@ -88,7 +88,12 @@ from composer.utils import ensure_tuple
 
 log = logging.getLogger(__name__)
 
-__all__ = ['Trace', 'Engine', 'Traces']
+__all__ = ['Trace', 'Engine', 'Traces', 'ENGINE_CLOSE_ATEXIT_CLEANUP_VERSION']
+
+# Increment this marker if the Engine atexit ownership contract changes. It is
+# intentionally public so applications that depend on bounded in-process
+# Trainer lifetimes can fail closed when running against an unpatched Composer.
+ENGINE_CLOSE_ATEXIT_CLEANUP_VERSION = 1
 
 T = TypeVar('T')
 
@@ -222,7 +227,18 @@ class Engine():
                         ),
                     )
 
-        atexit.register(self._close, state, logger)
+        engine_ref = weakref.ref(self)
+
+        def close_at_exit():
+            engine = engine_ref()
+            if engine is not None:
+                engine.close()
+
+        # Keep the exact callback object so close() can unregister only this
+        # Engine's hook. The weak reference preserves __del__ cleanup when an
+        # Engine becomes unreachable before interpreter shutdown.
+        self._atexit_callback = close_at_exit
+        atexit.register(close_at_exit)
 
     def run_event(
         self,
@@ -507,8 +523,6 @@ class Engine():
             # Do not attempt to shutdown again, since close() already ran via __atexit__ or was already invoked
             return
         self.close()
-        atexit.unregister(_set_atexit_ran)
-        atexit.unregister(self._close)
 
     def _debug_log(self, event: Event, msg: str):
         """Helper to include timestamp and event info in log messages."""
@@ -535,13 +549,18 @@ class Engine():
         This method does not re-raise any exceptions from :meth:`.Callback.close` and :meth:`.Callback.post_close`.
         Instead, these exceptions are logged as errors.
         """
-        if not self._is_closed:
-            self._close(self.state, self.logger)
-        # The self._is_closed flag would not be set if `_close` is called via atexit
-        # However, in these cases, the engine would never be used again, as Python is shutting
-        # down. It is only required to set the flag if the user manually calls `close()` and still holds
-        # a reference to the engine.
+        if self._is_closed:
+            return
+        # Mark the Engine before invoking callbacks so a reentrant close cannot
+        # perform cleanup twice.
         self._is_closed = True
+        try:
+            self._close(self.state, self.logger)
+        finally:
+            atexit_callback = self._atexit_callback
+            self._atexit_callback = None
+            if atexit_callback is not None:
+                atexit.unregister(atexit_callback)
 
     @staticmethod
     def _close(state: State, logger: Logger):
