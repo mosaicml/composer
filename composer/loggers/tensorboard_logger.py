@@ -110,7 +110,12 @@ class TensorboardLogger(LoggerDestination):
         assert self.log_dir is not None
         # We name the child directory after the run_name to ensure the run_name shows up
         # in the Tensorboard GUI.
-        summary_writer_log_dir = Path(self.log_dir) / self.run_name
+        import urllib.parse
+        parsed = urllib.parse.urlparse(self.log_dir)
+        if parsed.scheme:
+            summary_writer_log_dir = f"{self.log_dir.rstrip('/')}/{self.run_name}"
+        else:
+            summary_writer_log_dir = Path(self.log_dir) / self.run_name
 
         # Disable SummaryWriter's internal flushing to avoid file corruption while
         # file staged for upload to an ObjectStore.
