@@ -41,7 +41,10 @@ def verify_wct(timestamp: str) -> str:
     if 'm' not in timestamp:
         timestamp = timestamp.replace('h', 'h0m')
     if 's' not in timestamp:
-        timestamp = timestamp + '0s'
+        if timestamp[-1].isdigit():
+            timestamp = timestamp + 's'
+        else:
+            timestamp = timestamp + '0s'
 
     pattern = r'^(\d+h)?(\d+m)?(\d+s)?$'
     match = re.match(pattern, timestamp)
